@@ -14,10 +14,13 @@ const CONFIG_FILE = join(CONFIG_DIR, "opencode.json");
 const PLUGIN_NAME = "opencode-orchestrator";
 
 function getPluginPath() {
-    // Find where this package is installed
+    // Find where this package is installed (absolute path)
     try {
-        const packagePath = new URL(".", import.meta.url).pathname;
-        return packagePath.replace(/\/$/, "");
+        // Get the directory where this script is located
+        const scriptPath = new URL(".", import.meta.url).pathname;
+        // Go up from scripts/ to package root
+        const packageRoot = join(scriptPath, "..");
+        return packageRoot.replace(/\/$/, "");
     } catch {
         return PLUGIN_NAME;
     }
@@ -47,24 +50,22 @@ function install() {
     }
 
     const pluginPath = getPluginPath();
-    const hasPlugin = config.plugin.some((p: string) =>
-        p === PLUGIN_NAME || p === pluginPath || p.includes("opencode-orchestrator")
-    );
 
-    if (!hasPlugin) {
-        config.plugin.push(PLUGIN_NAME);
-        writeFileSync(CONFIG_FILE, JSON.stringify(config, null, 2));
-        console.log("✅ Plugin registered!");
-        console.log(`   Config: ${CONFIG_FILE}`);
-    } else {
-        console.log("✅ Plugin already registered.");
-    }
+    // Remove old entries and add the new absolute path
+    config.plugin = config.plugin.filter((p: string) =>
+        !p.includes("opencode-orchestrator") && p !== PLUGIN_NAME
+    );
+    config.plugin.push(pluginPath);
+
+    writeFileSync(CONFIG_FILE, JSON.stringify(config, null, 2));
+    console.log("✅ Plugin registered!");
+    console.log(`   Path: ${pluginPath}`);
+    console.log(`   Config: ${CONFIG_FILE}`);
 
     console.log("");
     console.log("🚀 Ready! Restart OpenCode to use.");
     console.log("");
-    console.log("Commands:");
-    console.log("Commands:");
+    console.log("Command:");
     console.log("  /auto \"task\"   - The only command you need");
     console.log("");
 }
