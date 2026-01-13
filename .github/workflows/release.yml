@@ -84,6 +84,7 @@ jobs:
         run: ls -R binaries/
 
       - name: Create GitHub Release
+        if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v1
         with:
           files: binaries/**/*
