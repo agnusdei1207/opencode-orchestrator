@@ -8,7 +8,7 @@ This document details the internal engineering of **OpenCode Orchestrator**. It 
 
 ## 1. The Core Philosophy: "The Grand Fusion"
 
-The system is designed as a **Virtual Operating System** for cognitive tasks. It abstracts the raw "intelligence" of an LLM into a structured, reliable computing resource.
+The system is designed as a **Virtual Operating System** for cognitive tasks. It **abstracts the primitive 'intelligence' of LLMs into structured and reliable computing resources**, turning probabilistic inference into deterministic engineering outputs.
 
 ### The Trinity of Methodologies
 

@@ -64,7 +64,7 @@ export class TaskGraph {
         const completed = tasks.filter(t => t.status === "completed");
         const notCompleted = tasks.filter(t => t.status !== "completed");
 
-        let summary = "📋 **DAG Status**\n";
+        let summary = "📋 **Mission Status**\n";
 
         // Compact summary for completed tasks to save tokens
         if (completed.length > 0) {
