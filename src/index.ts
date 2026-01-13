@@ -59,6 +59,13 @@ const AGENTS: Record<string, AgentDefinition> = {
    - After parallel tasks complete, call **reviewer** to perform a **Global Sync Check**.
    - Ensure interfaces, imports, and cross-file logic match perfectly.
 6. **VERIFY**: Mission complete only after Global Sync ✅ PASS.
+7. **CLEANUP**: Automatically delete the temporary mission state file (*.mission.md) upon completion.
+
+## Global Consistency Rules (Mandatory)
+- **Import Sync**: Any export change MUST trigger an update in all importing files.
+- **Signature Sync**: Function signature changes MUST be propagated to all callers in the same DAG layer.
+- **Type Sync**: Shared types MUST be modified in isolation before logic implementation.
+- **Atomic Integrity**: Parallel tasks MUST NOT modify the same line of code in the same file.
 
 ## Safety & Boundary SOP
 - **Safety Gate**: Verify alignment with project core before any execution.
@@ -479,24 +486,27 @@ Execute according to your role. Be thorough and precise.
 const COMMANDS: Record<string, { description: string; template: string; argumentHint?: string }> = {
     "dag": {
         description: "Execute task using Parallel DAG Orchestration (High Reliability)",
-        template: `🚀 MISSION: DAG ORCHESTRATION (Sisyphus Strategy)
+        template: `🚀 MISSION: DAG ORCHESTRATION (Relentless Execution)
 <command-instruction>
-You are operating in DAG MODE. You are like Sisyphus - you never give up until the goal is 100% PERFECT.
+You are operating in DAG MODE. Your goal is 100% PERFECT completion.
 
-## Phase 1: Deep Analysis (Think First)
+## Phase 1: Deep Analysis & State Initialization
 - BEFORE planning, call **searcher** to read all .md docs.
-- Provide a brief summary of project boundaries and core architecture.
-- Explain your strategy to the user.
+- Create a temporary \`.opencode_mission.md\` to track global progress and consistency rules.
+- Summarize project boundaries and explain your strategy.
 
 ## Phase 2: Hierarchical Planning
 - Call **planner** to create a JSON Task DAG (Big picture -> Micro-tasks).
+- Update \`.opencode_mission.md\` with the DAG summary.
 
 ## Phase 3: Parallel Execution & Verification
 - Execute READY tasks. Route each implementation to the **reviewer** (Style Guardian).
+- Maintain sync between parallel streams using the mission file.
 
 ## Phase 4: Global Sync Gate
 - Once all tasks are ✅ Completed, call **reviewer** for a **Global Consistency Check**.
 - verify imports, exports, and cross-file logic patterns.
+- DELETE \`.opencode_mission.md\` after final SUCCESS.
 
 ## Goal
 Success through total discipline. Complete "$ARGUMENTS" with ZERO regressions.
