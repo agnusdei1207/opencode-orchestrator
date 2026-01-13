@@ -10,6 +10,6 @@ RUN cargo build --release
 # Runtime stage
 FROM debian:bookworm-slim
 
-COPY --from=builder /app/target/release/orchestrator-mcp /usr/local/bin/
+COPY --from=builder /app/target/release/orchestrator /usr/local/bin/
 
-ENTRYPOINT ["orchestrator-mcp"]
+ENTRYPOINT ["orchestrator"]

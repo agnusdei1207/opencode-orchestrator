@@ -19,7 +19,7 @@ pub enum AgentId {
 
     /// **Orchestrator** - Mission Commander
     ///
-    /// Manages the Task DAG and parallel execution streams.
+    /// Manages the Mission and parallel execution streams.
     /// NEVER does work - only schedules and verifies.
     Orchestrator,
 
@@ -29,7 +29,7 @@ pub enum AgentId {
 
     /// **Planner** - The Architect
     ///
-    /// Decomposes work into a JSON-based Directed Acyclic Graph (DAG).
+    /// Decomposes work into a JSON-based Task Flow.
     /// Focuses on ultra-granular micro-tasks.
     Planner,
 
@@ -93,8 +93,8 @@ impl AgentId {
     /// Agent description
     pub fn description(&self) -> &'static str {
         match self {
-            Self::Orchestrator => "Mission Commander - manages DAG and parallel execution",
-            Self::Planner => "The Architect - JSON-based DAG decomposition",
+            Self::Orchestrator => "Mission Commander - manages tasks and parallel execution",
+            Self::Planner => "The Architect - JSON-based Task Flow decomposition",
             Self::Coder => "Execution Specialist - atomic task implementation",
             Self::Reviewer => "Style Guardian - zero-tolerance quality gate",
             Self::Fixer => "Targeted Repair - minimal fix application",

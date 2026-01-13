@@ -37,12 +37,12 @@ const AGENTS: Record<string, AgentDefinition> = {
     // ═══════════════════════════════════════════════════════════════
     orchestrator: {
         id: "orchestrator",
-        description: "Team leader - manages the Task DAG and parallel work streams",
+        description: "Team leader - manages the Mission and parallel work streams",
         systemPrompt: `You are the Orchestrator - the mission commander.
 
 ## Core Philosophy: Micro-Tasking & Quality Gates
 - Even small models (Phi, Gemma) succeed when tasks are tiny and verified.
-- Your job is to manage the **Task DAG** (Directed Acyclic Graph).
+- Your job is to manage the **Task Mission** (Directed Acyclic Graph).
 - NEVER proceed to a task if its dependencies are not 100% VERIFIED.
 
 ## Operational SOP (Standard Operating Procedure)
@@ -93,8 +93,8 @@ const AGENTS: Record<string, AgentDefinition> = {
 - Performance is achieved through granularity, not model upgrades.
 
 ## Progress Status
-Always show the DAG status at the end of your turns:
-📋 DAG Status:
+Always show the Mission status at the end of your turns:
+📋 Mission Status:
 [TASK-001] ✅ Completed
 [TASK-002] ⏳ Running
 [TASK-003] 💤 Pending`,
@@ -107,13 +107,13 @@ Always show the DAG status at the end of your turns:
     // ═══════════════════════════════════════════════════════════════
     planner: {
         id: "planner",
-        description: "Architect - decomposes work into a JSON Task DAG",
+        description: "Architect - decomposes work into a JSON Mission",
         systemPrompt: `You are the Planner - the master architect.
 
 ## Your Mission
 1. **Understand & Filter**: Read documentation, but **FILTER** out irrelevant parts. determine what is truly important.
 2. **Hierarchical Decomposition**: Decompose the mission from high-level modules down to sub-atomic micro-tasks.
-3. **DAG Generation**: Create a JSON-based Directed Acyclic Graph.
+3. **Mission Generation**: Create a JSON-based Directed Acyclic Graph.
 
 ## SOP: Atomic Task Creation
 - **Thinking Phase**: Summarize *essential* findings only. Discard noise.
@@ -421,7 +421,7 @@ async function callRustTool(name: string, args: Record<string, unknown>): Promis
 // ============================================================================
 
 const state = {
-    dagActive: false,
+    missionActive: false,
     maxIterations: 1000, // Effectively infinite - "Relentless" mode
     maxRetries: 3,
     sessions: new Map<string, {
@@ -736,10 +736,10 @@ const OrchestratorPlugin = async (input: PluginInput) => {
                             taskRetries: new Map(),
                             currentTask: "",
                         });
-                        state.dagActive = true;
+                        state.missionActive = true;
                     } else if (parsed.command === "stop" || parsed.command === "cancel") {
                         state.sessions.delete(input.sessionID);
-                        state.dagActive = false;
+                        state.missionActive = false;
                     }
                 }
             }
@@ -749,7 +749,7 @@ const OrchestratorPlugin = async (input: PluginInput) => {
             input: { tool: string; sessionID: string; callID: string; arguments?: any },
             output: { title: string; output: string; metadata: any }
         ) => {
-            if (!state.dagActive) return;
+            if (!state.missionActive) return;
 
             const session = state.sessions.get(input.sessionID);
             if (!session?.enabled) return;
@@ -780,7 +780,7 @@ const OrchestratorPlugin = async (input: PluginInput) => {
                         const tasks = JSON.parse(jsonMatch[1] || jsonMatch[0]) as Task[];
                         if (Array.isArray(tasks) && tasks.length > 0) {
                             session.graph = new TaskGraph(tasks);
-                            output.output += `\n\n━━━━━━━━━━━━\n✅ TASK DAG INITIALIZED\n${session.graph.getTaskSummary()}`;
+                            output.output += `\n\n━━━━━━━━━━━━\n✅ MISSION INITIALIZED\n${session.graph.getTaskSummary()}`;
                         }
                     } catch (e) {
                         // Not valid JSON or not planner output, ignore

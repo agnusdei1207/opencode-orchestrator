@@ -7,8 +7,7 @@
 [![npm downloads](https://img.shields.io/npm/dt/opencode-orchestrator.svg)](https://www.npmjs.com/package/opencode-orchestrator)
 [![OpenCode Plugin](https://img.shields.io/badge/OpenCode-Plugin-purple.svg)](https://opencode.ai)
 
-[English](README.md) | [한국어](docs/README/README.ko.md) | [简体中文](docs/README/README.zh.md) | [日本語](docs/README/README.ja.md) | [Español](docs/README/README.es.md) | [Français](docs/README/README.fr.md) | [Deutsch](docs/README/README.de.md)
-[Русский](docs/README/README.ru.md) | [Português](docs/README/README.pt.md)
+[English](README.md)
 
 ---
 
@@ -16,17 +15,11 @@
   <img src="assets/logo.png" width="600" />
 </p>
 
-> **The Ultimate Goal**
->
-> To decompose tasks into such microscopic, easy-to-solve units that **even a 'fool' can execute them**, enabling **massive parallel collaboration**. The model doesn't need to be smart. **The collaborative method needs to be perfect.**
-
----
-
 ## What is this?
 
-A 6-agent collaborative system that maximizes **Agent Orchestration** to extract **Ultimate Decision Quality** from **affordable, lower-performance models**.
+**OpenCode Orchestrator** is a multi-agent orchestration framework that **abstracts the generative intelligence of LLMs into a structured and reliable computing resource**. It is designed to extract **Ultimate Decision Quality** from affordable, lower-performance models by treating LLM inference as a precision engineering component.
 
-**Core Idea**: Through strategic role allocation, microscopic task decomposition, and rigid validation enforcement, we achieve **State-of-the-Art (SOTA) results** using **cost-effective models**. Even if the underlying model is not 'smartest', our architecture ensures it **gets the job done** flawlessly.
+**Core Philosophy**: We don't just "chat" with AI. We architect **deterministic execution flows** by decomposing complex missions into atomic, verifiable tasks. By orchestrating specialized agents through a rigorous **PDCA (Plan-Do-Check-Act)** cycle, we maximize the utility of LLM intelligence while ensuring every step is validated by a dedicated Quality Gate.
 
 ---
 
@@ -100,7 +93,7 @@ bun install -g opencode-orchestrator
 > The plugin will automatically register itself in `~/.config/opencode/opencode.json` with its absolute path.
 
 ### Troubleshooting
-If the command `/dag` does not appear:
+If the command `/task` does not appear:
 1. Uninstall: `npm uninstall -g opencode-orchestrator` (or `bun remove -g`)
 2. Clear config: `rm -rf ~/.config/opencode` (Warning: resets all plugins)
 3. Reinstall: `npm install -g opencode-orchestrator`
@@ -111,7 +104,7 @@ If the command `/dag` does not appear:
 **The only command you need:**
 
 ```bash
-/dag "Implement user authentication with JWT"
+/task "Implement user authentication with JWT"
 ```
 
 The Orchestrator will:
@@ -203,10 +196,6 @@ This triggers the **Distributed Task Loop**. It's not just a chat; it's a missio
 3.  **🚀 Phase 3: Parallel Execution**: The **Orchestrator** identifies independent tasks and runs them concurrently.
 4.  **🛡️ Phase 4: Sync & Verify**: The **Reviewer** acts as the gatekeeper. It checks syntax, logic, and *cross-file consistency*.
 5.  **💰 Phase 5: Cost-Effective Completion**: We achieve "Senior Developer" results at "Junior Intern" prices.
-
----
-
----
 
 ---
 
