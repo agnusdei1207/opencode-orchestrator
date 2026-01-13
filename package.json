@@ -40,7 +40,7 @@
     "scripts": {
         "build:rust": "docker compose run --rm dev",
         "build:rust:copy": "docker compose run --rm dev sh -c 'cp /app/target/release/orchestrator /app/bin/' && chmod +x bin/orchestrator",
-        "build:ts": "bun build src/index.ts --outdir dist --target bun --format esm && tsc --emitDeclarationOnly",
+        "build:ts": "bun build src/index.ts --outdir dist --target node --format esm --sourcemap=none && tsc --emitDeclarationOnly",
         "build:scripts": "mkdir -p dist/scripts && bun build scripts/postinstall.ts --outdir dist/scripts --target node",
         "build": "bun run build:ts && bun run build:scripts",
         "build:full": "bun run build:rust && bun run build:rust:copy && bun run build",
