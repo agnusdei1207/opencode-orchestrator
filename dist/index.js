@@ -12377,7 +12377,7 @@ class TaskGraph {
     const tasks = Array.from(this.tasks.values());
     const completed = tasks.filter((t) => t.status === "completed");
     const notCompleted = tasks.filter((t) => t.status !== "completed");
-    let summary = `\uD83D\uDCCB **DAG Status**
+    let summary = `\uD83D\uDCCB **Mission Status**
 `;
     if (completed.length > 0) {
       summary += `\u2705 Completed: ${completed.length} tasks (Hidden to save tokens)
@@ -12409,12 +12409,12 @@ var __dirname2 = dirname(fileURLToPath(import.meta.url));
 var AGENTS = {
   orchestrator: {
     id: "orchestrator",
-    description: "Team leader - manages the Task DAG and parallel work streams",
+    description: "Team leader - manages the Mission and parallel work streams",
     systemPrompt: `You are the Orchestrator - the mission commander.
 
 ## Core Philosophy: Micro-Tasking & Quality Gates
 - Even small models (Phi, Gemma) succeed when tasks are tiny and verified.
-- Your job is to manage the **Task DAG** (Directed Acyclic Graph).
+- Your job is to manage the **Task Mission** (Directed Acyclic Graph).
 - NEVER proceed to a task if its dependencies are not 100% VERIFIED.
 
 ## Operational SOP (Standard Operating Procedure)
@@ -12465,8 +12465,8 @@ var AGENTS = {
 - Performance is achieved through granularity, not model upgrades.
 
 ## Progress Status
-Always show the DAG status at the end of your turns:
-\uD83D\uDCCB DAG Status:
+Always show the Mission status at the end of your turns:
+\uD83D\uDCCB Mission Status:
 [TASK-001] \u2705 Completed
 [TASK-002] \u23F3 Running
 [TASK-003] \uD83D\uDCA4 Pending`,
@@ -12475,13 +12475,13 @@ Always show the DAG status at the end of your turns:
   },
   planner: {
     id: "planner",
-    description: "Architect - decomposes work into a JSON Task DAG",
+    description: "Architect - decomposes work into a JSON Mission",
     systemPrompt: `You are the Planner - the master architect.
 
 ## Your Mission
 1. **Understand & Filter**: Read documentation, but **FILTER** out irrelevant parts. determine what is truly important.
 2. **Hierarchical Decomposition**: Decompose the mission from high-level modules down to sub-atomic micro-tasks.
-3. **DAG Generation**: Create a JSON-based Directed Acyclic Graph.
+3. **Mission Generation**: Create a JSON-based Directed Acyclic Graph.
 
 ## SOP: Atomic Task Creation
 - **Thinking Phase**: Summarize *essential* findings only. Discard noise.
@@ -12760,7 +12760,7 @@ async function callRustTool(name, args) {
   });
 }
 var state = {
-  dagActive: false,
+  missionActive: false,
   maxIterations: 1000,
   maxRetries: 3,
   sessions: new Map
@@ -13024,16 +13024,16 @@ var OrchestratorPlugin = async (input) => {
               taskRetries: new Map,
               currentTask: ""
             });
-            state.dagActive = true;
+            state.missionActive = true;
           } else if (parsed.command === "stop" || parsed.command === "cancel") {
             state.sessions.delete(input2.sessionID);
-            state.dagActive = false;
+            state.missionActive = false;
           }
         }
       }
     },
     "tool.execute.after": async (input2, output) => {
-      if (!state.dagActive)
+      if (!state.missionActive)
         return;
       const session = state.sessions.get(input2.sessionID);
       if (!session?.enabled)
@@ -13065,7 +13065,7 @@ Review progress and continue manually.`;
               output.output += `
 
 \u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501
-\u2705 TASK DAG INITIALIZED
+\u2705 MISSION INITIALIZED
 ${session.graph.getTaskSummary()}`;
             }
           } catch (e) {}
