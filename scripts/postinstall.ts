@@ -14,10 +14,19 @@ const CONFIG_FILE = join(CONFIG_DIR, "opencode.json");
 const PLUGIN_NAME = "opencode-orchestrator";
 
 function getPluginPath() {
-    // Find where this package is installed
     try {
-        const packagePath = new URL(".", import.meta.url).pathname;
-        return packagePath.replace(/\/$/, "");
+        let currentDir = new URL(".", import.meta.url).pathname;
+        // Search upwards for package.json
+        while (currentDir !== "/" && currentDir !== ".") {
+            if (existsSync(join(currentDir, "package.json"))) {
+                return currentDir.replace(/\/$/, "");
+            }
+            const parent = join(currentDir, "..");
+            if (parent === currentDir) break; // Reached root
+            currentDir = parent;
+        }
+        // Fallback: mostly won't happen if run inside the package
+        return PLUGIN_NAME;
     } catch {
         return PLUGIN_NAME;
     }
