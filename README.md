@@ -15,7 +15,7 @@
 
 ## What is this?
 
-A 6-agent collaborative system that turns any LLM into a reliable coding team.
+A 6-agent collaborative system that makes even **low-performance models (like GLM-4.7)** act as a highly reliable coding team.
 
 **Core idea**: Break complex tasks into atomic units, verify each step, fix errors automatically.
 
