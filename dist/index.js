@@ -671,21 +671,57 @@ var OrchestratorPlugin = async (input) => {
       grep_search: grepSearchTool(directory),
       glob_search: globSearchTool(directory)
     },
-    // Register commands so they appear in OpenCode's autocomplete menu
+    // Register commands and agents so they appear in OpenCode's UI
     config: async (config) => {
       const existingCommands = config.command ?? {};
+      const existingAgents = config.agent ?? {};
       const orchestratorCommands = {};
       for (const [name, cmd] of Object.entries(COMMANDS)) {
         orchestratorCommands[name] = {
           description: cmd.description,
           template: cmd.template,
           argumentHint: cmd.argumentHint
-          // Crucial for autocomplete menu
         };
       }
+      const orchestratorAgents = {
+        orchestrator: {
+          name: "Orchestrator",
+          description: "Mission Commander - coordinates the 6-agent team",
+          systemPrompt: AGENTS.orchestrator.systemPrompt
+        },
+        planner: {
+          name: "Planner",
+          description: "Architect - decomposes work into atomic tasks",
+          systemPrompt: AGENTS.planner.systemPrompt
+        },
+        coder: {
+          name: "Coder",
+          description: "Implementation - executes atomic tasks",
+          systemPrompt: AGENTS.coder.systemPrompt
+        },
+        reviewer: {
+          name: "Reviewer",
+          description: "Style Guardian - quality gate",
+          systemPrompt: AGENTS.reviewer.systemPrompt
+        },
+        fixer: {
+          name: "Fixer",
+          description: "Error resolution specialist",
+          systemPrompt: AGENTS.fixer.systemPrompt
+        },
+        searcher: {
+          name: "Searcher",
+          description: "Context Oracle - finds patterns",
+          systemPrompt: AGENTS.searcher.systemPrompt
+        }
+      };
       config.command = {
         ...orchestratorCommands,
         ...existingCommands
+      };
+      config.agent = {
+        ...orchestratorAgents,
+        ...existingAgents
       };
     },
     "chat.message": async (input2, output) => {

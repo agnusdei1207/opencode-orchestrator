@@ -695,9 +695,10 @@ const OrchestratorPlugin = async (input: PluginInput) => {
             glob_search: globSearchTool(directory),
         },
 
-        // Register commands so they appear in OpenCode's autocomplete menu
+        // Register commands and agents so they appear in OpenCode's UI
         config: async (config: Record<string, unknown>) => {
             const existingCommands = (config.command as Record<string, unknown>) ?? {};
+            const existingAgents = (config.agent as Record<string, unknown>) ?? {};
 
             // Convert COMMANDS to OpenCode command format
             const orchestratorCommands: Record<string, unknown> = {};
@@ -705,13 +706,53 @@ const OrchestratorPlugin = async (input: PluginInput) => {
                 orchestratorCommands[name] = {
                     description: cmd.description,
                     template: cmd.template,
-                    argumentHint: cmd.argumentHint, // Crucial for autocomplete menu
+                    argumentHint: cmd.argumentHint,
                 };
             }
+
+            // Register agents for OpenCode UI display
+            // This makes agent names appear in the bottom bar (like "Build" in Sisyphus)
+            const orchestratorAgents: Record<string, unknown> = {
+                orchestrator: {
+                    name: "Orchestrator",
+                    description: "Mission Commander - coordinates the 6-agent team",
+                    systemPrompt: AGENTS.orchestrator.systemPrompt,
+                },
+                planner: {
+                    name: "Planner",
+                    description: "Architect - decomposes work into atomic tasks",
+                    systemPrompt: AGENTS.planner.systemPrompt,
+                },
+                coder: {
+                    name: "Coder",
+                    description: "Implementation - executes atomic tasks",
+                    systemPrompt: AGENTS.coder.systemPrompt,
+                },
+                reviewer: {
+                    name: "Reviewer",
+                    description: "Style Guardian - quality gate",
+                    systemPrompt: AGENTS.reviewer.systemPrompt,
+                },
+                fixer: {
+                    name: "Fixer",
+                    description: "Error resolution specialist",
+                    systemPrompt: AGENTS.fixer.systemPrompt,
+                },
+                searcher: {
+                    name: "Searcher",
+                    description: "Context Oracle - finds patterns",
+                    systemPrompt: AGENTS.searcher.systemPrompt,
+                },
+            };
 
             config.command = {
                 ...orchestratorCommands,
                 ...existingCommands,
+            };
+
+            config.agent = {
+                ...orchestratorAgents,
+                ...existingAgents,
             };
         },
 
