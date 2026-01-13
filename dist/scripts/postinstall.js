@@ -45,9 +45,8 @@ function install() {
   console.log("\uD83D\uDE80 Ready! Restart OpenCode to use.");
   console.log("");
   console.log("Commands:");
-  console.log('  /auto "task"   - Autonomous execution');
-  console.log('  /plan "task"   - Decompose into atomic tasks');
-  console.log("  /review        - Quality check");
+  console.log("Commands:");
+  console.log('  /auto "task"   - The only command you need');
   console.log("");
 }
 install();
