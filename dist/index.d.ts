@@ -61,6 +61,7 @@ declare const OrchestratorPlugin: (input: PluginInput) => Promise<{
             }, context: import("@opencode-ai/plugin").ToolContext): Promise<string>;
         };
     };
+    config: (config: Record<string, unknown>) => Promise<void>;
     "chat.message": (input: any, output: any) => Promise<void>;
     "tool.execute.after": (input: {
         tool: string;

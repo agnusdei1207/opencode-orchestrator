@@ -9,9 +9,8 @@ var CONFIG_FILE = join(CONFIG_DIR, "opencode.json");
 var PLUGIN_NAME = "opencode-orchestrator";
 function getPluginPath() {
   try {
-    const scriptPath = new URL(".", import.meta.url).pathname;
-    const packageRoot = join(scriptPath, "..");
-    return packageRoot.replace(/\/$/, "");
+    const packagePath = new URL(".", import.meta.url).pathname;
+    return packagePath.replace(/\/$/, "");
   } catch {
     return PLUGIN_NAME;
   }
@@ -33,17 +32,22 @@ function install() {
     config.plugin = [];
   }
   const pluginPath = getPluginPath();
-  config.plugin = config.plugin.filter((p) => !p.includes("opencode-orchestrator") && p !== PLUGIN_NAME);
-  config.plugin.push(pluginPath);
-  writeFileSync(CONFIG_FILE, JSON.stringify(config, null, 2));
-  console.log("✅ Plugin registered!");
-  console.log(`   Path: ${pluginPath}`);
-  console.log(`   Config: ${CONFIG_FILE}`);
+  const hasPlugin = config.plugin.some((p) => p === PLUGIN_NAME || p === pluginPath || p.includes("opencode-orchestrator"));
+  if (!hasPlugin) {
+    config.plugin.push(PLUGIN_NAME);
+    writeFileSync(CONFIG_FILE, JSON.stringify(config, null, 2));
+    console.log("✅ Plugin registered!");
+    console.log(`   Config: ${CONFIG_FILE}`);
+  } else {
+    console.log("✅ Plugin already registered.");
+  }
   console.log("");
   console.log("\uD83D\uDE80 Ready! Restart OpenCode to use.");
   console.log("");
-  console.log("Command:");
-  console.log('  /auto "task"   - The only command you need');
+  console.log("Commands:");
+  console.log('  /auto "task"   - Autonomous execution');
+  console.log('  /plan "task"   - Decompose into atomic tasks');
+  console.log("  /review        - Quality check");
   console.log("");
 }
 install();

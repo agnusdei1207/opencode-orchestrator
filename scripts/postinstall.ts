@@ -14,13 +14,10 @@ const CONFIG_FILE = join(CONFIG_DIR, "opencode.json");
 const PLUGIN_NAME = "opencode-orchestrator";
 
 function getPluginPath() {
-    // Find where this package is installed (absolute path)
+    // Find where this package is installed
     try {
-        // Get the directory where this script is located
-        const scriptPath = new URL(".", import.meta.url).pathname;
-        // Go up from scripts/ to package root
-        const packageRoot = join(scriptPath, "..");
-        return packageRoot.replace(/\/$/, "");
+        const packagePath = new URL(".", import.meta.url).pathname;
+        return packagePath.replace(/\/$/, "");
     } catch {
         return PLUGIN_NAME;
     }
@@ -50,23 +47,26 @@ function install() {
     }
 
     const pluginPath = getPluginPath();
-
-    // Remove old entries and add the new absolute path
-    config.plugin = config.plugin.filter((p: string) =>
-        !p.includes("opencode-orchestrator") && p !== PLUGIN_NAME
+    const hasPlugin = config.plugin.some((p: string) =>
+        p === PLUGIN_NAME || p === pluginPath || p.includes("opencode-orchestrator")
     );
-    config.plugin.push(pluginPath);
 
-    writeFileSync(CONFIG_FILE, JSON.stringify(config, null, 2));
-    console.log("✅ Plugin registered!");
-    console.log(`   Path: ${pluginPath}`);
-    console.log(`   Config: ${CONFIG_FILE}`);
+    if (!hasPlugin) {
+        config.plugin.push(PLUGIN_NAME);
+        writeFileSync(CONFIG_FILE, JSON.stringify(config, null, 2));
+        console.log("✅ Plugin registered!");
+        console.log(`   Config: ${CONFIG_FILE}`);
+    } else {
+        console.log("✅ Plugin already registered.");
+    }
 
     console.log("");
     console.log("🚀 Ready! Restart OpenCode to use.");
     console.log("");
-    console.log("Command:");
-    console.log("  /auto \"task\"   - The only command you need");
+    console.log("Commands:");
+    console.log("  /auto \"task\"   - Autonomous execution");
+    console.log("  /plan \"task\"   - Decompose into atomic tasks");
+    console.log("  /review        - Quality check");
     console.log("");
 }
 
