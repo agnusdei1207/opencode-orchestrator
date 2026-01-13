@@ -9,8 +9,17 @@ var CONFIG_FILE = join(CONFIG_DIR, "opencode.json");
 var PLUGIN_NAME = "opencode-orchestrator";
 function getPluginPath() {
   try {
-    const packagePath = new URL(".", import.meta.url).pathname;
-    return packagePath.replace(/\/$/, "");
+    let currentDir = new URL(".", import.meta.url).pathname;
+    while (currentDir !== "/" && currentDir !== ".") {
+      if (existsSync(join(currentDir, "package.json"))) {
+        return currentDir.replace(/\/$/, "");
+      }
+      const parent = join(currentDir, "..");
+      if (parent === currentDir)
+        break;
+      currentDir = parent;
+    }
+    return PLUGIN_NAME;
   } catch {
     return PLUGIN_NAME;
   }
