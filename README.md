@@ -39,6 +39,8 @@ A 6-agent collaborative system that turns any LLM into a reliable coding team.
 - **👥 6-Agent Team** — Specialized roles working together
 - **🛡️ Resilient Execution** — Never stops on errors. Pivots strategy (Plan/Search) until success.
 - **⚡ Full Autonomy** — `/auto` is all you need. Relentless execution until 100% complete.
+- **🏗️ Rust-Powered Core** — Critical logic written in Rust for **peak performance** and **memory efficiency**.
+- **🪶 Thin TS Wrapper** — Minimal JavaScript overhead. The heavy lifting happens in the native binary.
 
 ---
 
