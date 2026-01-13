@@ -7,16 +7,6 @@
 [![npm downloads](https://img.shields.io/npm/dt/opencode-orchestrator.svg)](https://www.npmjs.com/package/opencode-orchestrator)
 [![OpenCode Plugin](https://img.shields.io/badge/OpenCode-Plugin-purple.svg)](https://opencode.ai)
 
-[English](README.md)
-
----
-
-<p align="center">
-  <img src="assets/logo.png" width="450" />
-</p>
-
-## What is this?
-
 **OpenCode Orchestrator** is a collaborative framework that enables **low-benchmark models to deliver senior-level engineering results**. 
 
 By maximizing the **method of agent collaboration**, we overcome the inherent limitations of individual AI models. We don't just "chat" with AI; we use a structured engineering layer to ensure complex missions are executed with 100% reliability and relentlessly pushed to completion, regardless of the model's price point.
