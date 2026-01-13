@@ -9,6 +9,8 @@
 
 **OpenCode Orchestrator** is a collaborative framework that enables **low-benchmark models to deliver senior-level engineering results**. 
 
+![preview](assets/image.png)
+
 By maximizing the **method of agent collaboration**, we overcome the inherent limitations of individual AI models. We don't just "chat" with AI; we use a structured engineering layer to ensure complex missions are executed with 100% reliability and relentlessly pushed to completion, regardless of the model's price point.
 
 **Core Philosophy: Excellence through Collaboration**
