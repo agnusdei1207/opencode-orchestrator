@@ -1,4 +1,3 @@
-// @bun
 var __defProp = Object.defineProperty;
 var __export = (target, all) => {
   for (var name in all)
@@ -1342,9 +1341,9 @@ function prettifyError(error) {
   const lines = [];
   const issues = [...error.issues].sort((a, b) => (a.path ?? []).length - (b.path ?? []).length);
   for (const issue2 of issues) {
-    lines.push(`\u2716 ${issue2.message}`);
+    lines.push(`✖ ${issue2.message}`);
     if (issue2.path?.length)
-      lines.push(`  \u2192 at ${toDotPath(issue2.path)}`);
+      lines.push(`  → at ${toDotPath(issue2.path)}`);
   }
   return lines.join(`
 `);
@@ -4052,10 +4051,10 @@ __export(exports_locales, {
 // node_modules/zod/v4/locales/ar.js
 var error = () => {
   const Sizable = {
-    string: { unit: "\u062D\u0631\u0641", verb: "\u0623\u0646 \u064A\u062D\u0648\u064A" },
-    file: { unit: "\u0628\u0627\u064A\u062A", verb: "\u0623\u0646 \u064A\u062D\u0648\u064A" },
-    array: { unit: "\u0639\u0646\u0635\u0631", verb: "\u0623\u0646 \u064A\u062D\u0648\u064A" },
-    set: { unit: "\u0639\u0646\u0635\u0631", verb: "\u0623\u0646 \u064A\u062D\u0648\u064A" }
+    string: { unit: "حرف", verb: "أن يحوي" },
+    file: { unit: "بايت", verb: "أن يحوي" },
+    array: { unit: "عنصر", verb: "أن يحوي" },
+    set: { unit: "عنصر", verb: "أن يحوي" }
   };
   function getSizing(origin) {
     return Sizable[origin] ?? null;
@@ -4081,10 +4080,10 @@ var error = () => {
     return t;
   };
   const Nouns = {
-    regex: "\u0645\u062F\u062E\u0644",
-    email: "\u0628\u0631\u064A\u062F \u0625\u0644\u0643\u062A\u0631\u0648\u0646\u064A",
-    url: "\u0631\u0627\u0628\u0637",
-    emoji: "\u0625\u064A\u0645\u0648\u062C\u064A",
+    regex: "مدخل",
+    email: "بريد إلكتروني",
+    url: "رابط",
+    emoji: "إيموجي",
     uuid: "UUID",
     uuidv4: "UUIDv4",
     uuidv6: "UUIDv6",
@@ -4095,68 +4094,68 @@ var error = () => {
     ulid: "ULID",
     xid: "XID",
     ksuid: "KSUID",
-    datetime: "\u062A\u0627\u0631\u064A\u062E \u0648\u0648\u0642\u062A \u0628\u0645\u0639\u064A\u0627\u0631 ISO",
-    date: "\u062A\u0627\u0631\u064A\u062E \u0628\u0645\u0639\u064A\u0627\u0631 ISO",
-    time: "\u0648\u0642\u062A \u0628\u0645\u0639\u064A\u0627\u0631 ISO",
-    duration: "\u0645\u062F\u0629 \u0628\u0645\u0639\u064A\u0627\u0631 ISO",
-    ipv4: "\u0639\u0646\u0648\u0627\u0646 IPv4",
-    ipv6: "\u0639\u0646\u0648\u0627\u0646 IPv6",
-    cidrv4: "\u0645\u062F\u0649 \u0639\u0646\u0627\u0648\u064A\u0646 \u0628\u0635\u064A\u063A\u0629 IPv4",
-    cidrv6: "\u0645\u062F\u0649 \u0639\u0646\u0627\u0648\u064A\u0646 \u0628\u0635\u064A\u063A\u0629 IPv6",
-    base64: "\u0646\u064E\u0635 \u0628\u062A\u0631\u0645\u064A\u0632 base64-encoded",
-    base64url: "\u0646\u064E\u0635 \u0628\u062A\u0631\u0645\u064A\u0632 base64url-encoded",
-    json_string: "\u0646\u064E\u0635 \u0639\u0644\u0649 \u0647\u064A\u0626\u0629 JSON",
-    e164: "\u0631\u0642\u0645 \u0647\u0627\u062A\u0641 \u0628\u0645\u0639\u064A\u0627\u0631 E.164",
+    datetime: "تاريخ ووقت بمعيار ISO",
+    date: "تاريخ بمعيار ISO",
+    time: "وقت بمعيار ISO",
+    duration: "مدة بمعيار ISO",
+    ipv4: "عنوان IPv4",
+    ipv6: "عنوان IPv6",
+    cidrv4: "مدى عناوين بصيغة IPv4",
+    cidrv6: "مدى عناوين بصيغة IPv6",
+    base64: "نَص بترميز base64-encoded",
+    base64url: "نَص بترميز base64url-encoded",
+    json_string: "نَص على هيئة JSON",
+    e164: "رقم هاتف بمعيار E.164",
     jwt: "JWT",
-    template_literal: "\u0645\u062F\u062E\u0644"
+    template_literal: "مدخل"
   };
   return (issue2) => {
     switch (issue2.code) {
       case "invalid_type":
-        return `\u0645\u062F\u062E\u0644\u0627\u062A \u063A\u064A\u0631 \u0645\u0642\u0628\u0648\u0644\u0629: \u064A\u0641\u062A\u0631\u0636 \u0625\u062F\u062E\u0627\u0644 ${issue2.expected}\u060C \u0648\u0644\u0643\u0646 \u062A\u0645 \u0625\u062F\u062E\u0627\u0644 ${parsedType(issue2.input)}`;
+        return `مدخلات غير مقبولة: يفترض إدخال ${issue2.expected}، ولكن تم إدخال ${parsedType(issue2.input)}`;
       case "invalid_value":
         if (issue2.values.length === 1)
-          return `\u0645\u062F\u062E\u0644\u0627\u062A \u063A\u064A\u0631 \u0645\u0642\u0628\u0648\u0644\u0629: \u064A\u0641\u062A\u0631\u0636 \u0625\u062F\u062E\u0627\u0644 ${stringifyPrimitive(issue2.values[0])}`;
-        return `\u0627\u062E\u062A\u064A\u0627\u0631 \u063A\u064A\u0631 \u0645\u0642\u0628\u0648\u0644: \u064A\u062A\u0648\u0642\u0639 \u0627\u0646\u062A\u0642\u0627\u0621 \u0623\u062D\u062F \u0647\u0630\u0647 \u0627\u0644\u062E\u064A\u0627\u0631\u0627\u062A: ${joinValues(issue2.values, "|")}`;
+          return `مدخلات غير مقبولة: يفترض إدخال ${stringifyPrimitive(issue2.values[0])}`;
+        return `اختيار غير مقبول: يتوقع انتقاء أحد هذه الخيارات: ${joinValues(issue2.values, "|")}`;
       case "too_big": {
         const adj = issue2.inclusive ? "<=" : "<";
         const sizing = getSizing(issue2.origin);
         if (sizing)
-          return ` \u0623\u0643\u0628\u0631 \u0645\u0646 \u0627\u0644\u0644\u0627\u0632\u0645: \u064A\u0641\u062A\u0631\u0636 \u0623\u0646 \u062A\u0643\u0648\u0646 ${issue2.origin ?? "\u0627\u0644\u0642\u064A\u0645\u0629"} ${adj} ${issue2.maximum.toString()} ${sizing.unit ?? "\u0639\u0646\u0635\u0631"}`;
-        return `\u0623\u0643\u0628\u0631 \u0645\u0646 \u0627\u0644\u0644\u0627\u0632\u0645: \u064A\u0641\u062A\u0631\u0636 \u0623\u0646 \u062A\u0643\u0648\u0646 ${issue2.origin ?? "\u0627\u0644\u0642\u064A\u0645\u0629"} ${adj} ${issue2.maximum.toString()}`;
+          return ` أكبر من اللازم: يفترض أن تكون ${issue2.origin ?? "القيمة"} ${adj} ${issue2.maximum.toString()} ${sizing.unit ?? "عنصر"}`;
+        return `أكبر من اللازم: يفترض أن تكون ${issue2.origin ?? "القيمة"} ${adj} ${issue2.maximum.toString()}`;
       }
       case "too_small": {
         const adj = issue2.inclusive ? ">=" : ">";
         const sizing = getSizing(issue2.origin);
         if (sizing) {
-          return `\u0623\u0635\u063A\u0631 \u0645\u0646 \u0627\u0644\u0644\u0627\u0632\u0645: \u064A\u0641\u062A\u0631\u0636 \u0644\u0640 ${issue2.origin} \u0623\u0646 \u064A\u0643\u0648\u0646 ${adj} ${issue2.minimum.toString()} ${sizing.unit}`;
+          return `أصغر من اللازم: يفترض لـ ${issue2.origin} أن يكون ${adj} ${issue2.minimum.toString()} ${sizing.unit}`;
         }
-        return `\u0623\u0635\u063A\u0631 \u0645\u0646 \u0627\u0644\u0644\u0627\u0632\u0645: \u064A\u0641\u062A\u0631\u0636 \u0644\u0640 ${issue2.origin} \u0623\u0646 \u064A\u0643\u0648\u0646 ${adj} ${issue2.minimum.toString()}`;
+        return `أصغر من اللازم: يفترض لـ ${issue2.origin} أن يكون ${adj} ${issue2.minimum.toString()}`;
       }
       case "invalid_format": {
         const _issue = issue2;
         if (_issue.format === "starts_with")
-          return `\u0646\u064E\u0635 \u063A\u064A\u0631 \u0645\u0642\u0628\u0648\u0644: \u064A\u062C\u0628 \u0623\u0646 \u064A\u0628\u062F\u0623 \u0628\u0640 "${issue2.prefix}"`;
+          return `نَص غير مقبول: يجب أن يبدأ بـ "${issue2.prefix}"`;
         if (_issue.format === "ends_with")
-          return `\u0646\u064E\u0635 \u063A\u064A\u0631 \u0645\u0642\u0628\u0648\u0644: \u064A\u062C\u0628 \u0623\u0646 \u064A\u0646\u062A\u0647\u064A \u0628\u0640 "${_issue.suffix}"`;
+          return `نَص غير مقبول: يجب أن ينتهي بـ "${_issue.suffix}"`;
         if (_issue.format === "includes")
-          return `\u0646\u064E\u0635 \u063A\u064A\u0631 \u0645\u0642\u0628\u0648\u0644: \u064A\u062C\u0628 \u0623\u0646 \u064A\u062A\u0636\u0645\u0651\u064E\u0646 "${_issue.includes}"`;
+          return `نَص غير مقبول: يجب أن يتضمَّن "${_issue.includes}"`;
         if (_issue.format === "regex")
-          return `\u0646\u064E\u0635 \u063A\u064A\u0631 \u0645\u0642\u0628\u0648\u0644: \u064A\u062C\u0628 \u0623\u0646 \u064A\u0637\u0627\u0628\u0642 \u0627\u0644\u0646\u0645\u0637 ${_issue.pattern}`;
-        return `${Nouns[_issue.format] ?? issue2.format} \u063A\u064A\u0631 \u0645\u0642\u0628\u0648\u0644`;
+          return `نَص غير مقبول: يجب أن يطابق النمط ${_issue.pattern}`;
+        return `${Nouns[_issue.format] ?? issue2.format} غير مقبول`;
       }
       case "not_multiple_of":
-        return `\u0631\u0642\u0645 \u063A\u064A\u0631 \u0645\u0642\u0628\u0648\u0644: \u064A\u062C\u0628 \u0623\u0646 \u064A\u0643\u0648\u0646 \u0645\u0646 \u0645\u0636\u0627\u0639\u0641\u0627\u062A ${issue2.divisor}`;
+        return `رقم غير مقبول: يجب أن يكون من مضاعفات ${issue2.divisor}`;
       case "unrecognized_keys":
-        return `\u0645\u0639\u0631\u0641${issue2.keys.length > 1 ? "\u0627\u062A" : ""} \u063A\u0631\u064A\u0628${issue2.keys.length > 1 ? "\u0629" : ""}: ${joinValues(issue2.keys, "\u060C ")}`;
+        return `معرف${issue2.keys.length > 1 ? "ات" : ""} غريب${issue2.keys.length > 1 ? "ة" : ""}: ${joinValues(issue2.keys, "، ")}`;
       case "invalid_key":
-        return `\u0645\u0639\u0631\u0641 \u063A\u064A\u0631 \u0645\u0642\u0628\u0648\u0644 \u0641\u064A ${issue2.origin}`;
+        return `معرف غير مقبول في ${issue2.origin}`;
       case "invalid_union":
-        return "\u0645\u062F\u062E\u0644 \u063A\u064A\u0631 \u0645\u0642\u0628\u0648\u0644";
+        return "مدخل غير مقبول";
       case "invalid_element":
-        return `\u0645\u062F\u062E\u0644 \u063A\u064A\u0631 \u0645\u0642\u0628\u0648\u0644 \u0641\u064A ${issue2.origin}`;
+        return `مدخل غير مقبول في ${issue2.origin}`;
       default:
-        return "\u0645\u062F\u062E\u0644 \u063A\u064A\u0631 \u0645\u0642\u0628\u0648\u0644";
+        return "مدخل غير مقبول";
     }
   };
 };
@@ -4168,10 +4167,10 @@ function ar_default() {
 // node_modules/zod/v4/locales/az.js
 var error2 = () => {
   const Sizable = {
-    string: { unit: "simvol", verb: "olmal\u0131d\u0131r" },
-    file: { unit: "bayt", verb: "olmal\u0131d\u0131r" },
-    array: { unit: "element", verb: "olmal\u0131d\u0131r" },
-    set: { unit: "element", verb: "olmal\u0131d\u0131r" }
+    string: { unit: "simvol", verb: "olmalıdır" },
+    file: { unit: "bayt", verb: "olmalıdır" },
+    array: { unit: "element", verb: "olmalıdır" },
+    set: { unit: "element", verb: "olmalıdır" }
   };
   function getSizing(origin) {
     return Sizable[origin] ?? null;
@@ -4229,49 +4228,49 @@ var error2 = () => {
   return (issue2) => {
     switch (issue2.code) {
       case "invalid_type":
-        return `Yanl\u0131\u015F d\u0259y\u0259r: g\xF6zl\u0259nil\u0259n ${issue2.expected}, daxil olan ${parsedType(issue2.input)}`;
+        return `Yanlış dəyər: gözlənilən ${issue2.expected}, daxil olan ${parsedType(issue2.input)}`;
       case "invalid_value":
         if (issue2.values.length === 1)
-          return `Yanl\u0131\u015F d\u0259y\u0259r: g\xF6zl\u0259nil\u0259n ${stringifyPrimitive(issue2.values[0])}`;
-        return `Yanl\u0131\u015F se\xE7im: a\u015Fa\u011F\u0131dak\u0131lardan biri olmal\u0131d\u0131r: ${joinValues(issue2.values, "|")}`;
+          return `Yanlış dəyər: gözlənilən ${stringifyPrimitive(issue2.values[0])}`;
+        return `Yanlış seçim: aşağıdakılardan biri olmalıdır: ${joinValues(issue2.values, "|")}`;
       case "too_big": {
         const adj = issue2.inclusive ? "<=" : "<";
         const sizing = getSizing(issue2.origin);
         if (sizing)
-          return `\xC7ox b\xF6y\xFCk: g\xF6zl\u0259nil\u0259n ${issue2.origin ?? "d\u0259y\u0259r"} ${adj}${issue2.maximum.toString()} ${sizing.unit ?? "element"}`;
-        return `\xC7ox b\xF6y\xFCk: g\xF6zl\u0259nil\u0259n ${issue2.origin ?? "d\u0259y\u0259r"} ${adj}${issue2.maximum.toString()}`;
+          return `Çox böyük: gözlənilən ${issue2.origin ?? "dəyər"} ${adj}${issue2.maximum.toString()} ${sizing.unit ?? "element"}`;
+        return `Çox böyük: gözlənilən ${issue2.origin ?? "dəyər"} ${adj}${issue2.maximum.toString()}`;
       }
       case "too_small": {
         const adj = issue2.inclusive ? ">=" : ">";
         const sizing = getSizing(issue2.origin);
         if (sizing)
-          return `\xC7ox ki\xE7ik: g\xF6zl\u0259nil\u0259n ${issue2.origin} ${adj}${issue2.minimum.toString()} ${sizing.unit}`;
-        return `\xC7ox ki\xE7ik: g\xF6zl\u0259nil\u0259n ${issue2.origin} ${adj}${issue2.minimum.toString()}`;
+          return `Çox kiçik: gözlənilən ${issue2.origin} ${adj}${issue2.minimum.toString()} ${sizing.unit}`;
+        return `Çox kiçik: gözlənilən ${issue2.origin} ${adj}${issue2.minimum.toString()}`;
       }
       case "invalid_format": {
         const _issue = issue2;
         if (_issue.format === "starts_with")
-          return `Yanl\u0131\u015F m\u0259tn: "${_issue.prefix}" il\u0259 ba\u015Flamal\u0131d\u0131r`;
+          return `Yanlış mətn: "${_issue.prefix}" ilə başlamalıdır`;
         if (_issue.format === "ends_with")
-          return `Yanl\u0131\u015F m\u0259tn: "${_issue.suffix}" il\u0259 bitm\u0259lidir`;
+          return `Yanlış mətn: "${_issue.suffix}" ilə bitməlidir`;
         if (_issue.format === "includes")
-          return `Yanl\u0131\u015F m\u0259tn: "${_issue.includes}" daxil olmal\u0131d\u0131r`;
+          return `Yanlış mətn: "${_issue.includes}" daxil olmalıdır`;
         if (_issue.format === "regex")
-          return `Yanl\u0131\u015F m\u0259tn: ${_issue.pattern} \u015Fablonuna uy\u011Fun olmal\u0131d\u0131r`;
-        return `Yanl\u0131\u015F ${Nouns[_issue.format] ?? issue2.format}`;
+          return `Yanlış mətn: ${_issue.pattern} şablonuna uyğun olmalıdır`;
+        return `Yanlış ${Nouns[_issue.format] ?? issue2.format}`;
       }
       case "not_multiple_of":
-        return `Yanl\u0131\u015F \u0259d\u0259d: ${issue2.divisor} il\u0259 b\xF6l\xFCn\u0259 bil\u0259n olmal\u0131d\u0131r`;
+        return `Yanlış ədəd: ${issue2.divisor} ilə bölünə bilən olmalıdır`;
       case "unrecognized_keys":
-        return `Tan\u0131nmayan a\xE7ar${issue2.keys.length > 1 ? "lar" : ""}: ${joinValues(issue2.keys, ", ")}`;
+        return `Tanınmayan açar${issue2.keys.length > 1 ? "lar" : ""}: ${joinValues(issue2.keys, ", ")}`;
       case "invalid_key":
-        return `${issue2.origin} daxilind\u0259 yanl\u0131\u015F a\xE7ar`;
+        return `${issue2.origin} daxilində yanlış açar`;
       case "invalid_union":
-        return "Yanl\u0131\u015F d\u0259y\u0259r";
+        return "Yanlış dəyər";
       case "invalid_element":
-        return `${issue2.origin} daxilind\u0259 yanl\u0131\u015F d\u0259y\u0259r`;
+        return `${issue2.origin} daxilində yanlış dəyər`;
       default:
-        return `Yanl\u0131\u015F d\u0259y\u0259r`;
+        return `Yanlış dəyər`;
     }
   };
 };
@@ -4300,35 +4299,35 @@ var error3 = () => {
   const Sizable = {
     string: {
       unit: {
-        one: "\u0441\u0456\u043C\u0432\u0430\u043B",
-        few: "\u0441\u0456\u043C\u0432\u0430\u043B\u044B",
-        many: "\u0441\u0456\u043C\u0432\u0430\u043B\u0430\u045E"
+        one: "сімвал",
+        few: "сімвалы",
+        many: "сімвалаў"
       },
-      verb: "\u043C\u0435\u0446\u044C"
+      verb: "мець"
     },
     array: {
       unit: {
-        one: "\u044D\u043B\u0435\u043C\u0435\u043D\u0442",
-        few: "\u044D\u043B\u0435\u043C\u0435\u043D\u0442\u044B",
-        many: "\u044D\u043B\u0435\u043C\u0435\u043D\u0442\u0430\u045E"
+        one: "элемент",
+        few: "элементы",
+        many: "элементаў"
       },
-      verb: "\u043C\u0435\u0446\u044C"
+      verb: "мець"
     },
     set: {
       unit: {
-        one: "\u044D\u043B\u0435\u043C\u0435\u043D\u0442",
-        few: "\u044D\u043B\u0435\u043C\u0435\u043D\u0442\u044B",
-        many: "\u044D\u043B\u0435\u043C\u0435\u043D\u0442\u0430\u045E"
+        one: "элемент",
+        few: "элементы",
+        many: "элементаў"
       },
-      verb: "\u043C\u0435\u0446\u044C"
+      verb: "мець"
     },
     file: {
       unit: {
-        one: "\u0431\u0430\u0439\u0442",
-        few: "\u0431\u0430\u0439\u0442\u044B",
-        many: "\u0431\u0430\u0439\u0442\u0430\u045E"
+        one: "байт",
+        few: "байты",
+        many: "байтаў"
       },
-      verb: "\u043C\u0435\u0446\u044C"
+      verb: "мець"
     }
   };
   function getSizing(origin) {
@@ -4338,11 +4337,11 @@ var error3 = () => {
     const t = typeof data;
     switch (t) {
       case "number": {
-        return Number.isNaN(data) ? "NaN" : "\u043B\u0456\u043A";
+        return Number.isNaN(data) ? "NaN" : "лік";
       }
       case "object": {
         if (Array.isArray(data)) {
-          return "\u043C\u0430\u0441\u0456\u045E";
+          return "масіў";
         }
         if (data === null) {
           return "null";
@@ -4355,10 +4354,10 @@ var error3 = () => {
     return t;
   };
   const Nouns = {
-    regex: "\u0443\u0432\u043E\u0434",
-    email: "email \u0430\u0434\u0440\u0430\u0441",
+    regex: "увод",
+    email: "email адрас",
     url: "URL",
-    emoji: "\u044D\u043C\u043E\u0434\u0437\u0456",
+    emoji: "эмодзі",
     uuid: "UUID",
     uuidv4: "UUIDv4",
     uuidv6: "UUIDv6",
@@ -4369,38 +4368,38 @@ var error3 = () => {
     ulid: "ULID",
     xid: "XID",
     ksuid: "KSUID",
-    datetime: "ISO \u0434\u0430\u0442\u0430 \u0456 \u0447\u0430\u0441",
-    date: "ISO \u0434\u0430\u0442\u0430",
-    time: "ISO \u0447\u0430\u0441",
-    duration: "ISO \u043F\u0440\u0430\u0446\u044F\u0433\u043B\u0430\u0441\u0446\u044C",
-    ipv4: "IPv4 \u0430\u0434\u0440\u0430\u0441",
-    ipv6: "IPv6 \u0430\u0434\u0440\u0430\u0441",
-    cidrv4: "IPv4 \u0434\u044B\u044F\u043F\u0430\u0437\u043E\u043D",
-    cidrv6: "IPv6 \u0434\u044B\u044F\u043F\u0430\u0437\u043E\u043D",
-    base64: "\u0440\u0430\u0434\u043E\u043A \u0443 \u0444\u0430\u0440\u043C\u0430\u0446\u0435 base64",
-    base64url: "\u0440\u0430\u0434\u043E\u043A \u0443 \u0444\u0430\u0440\u043C\u0430\u0446\u0435 base64url",
-    json_string: "JSON \u0440\u0430\u0434\u043E\u043A",
-    e164: "\u043D\u0443\u043C\u0430\u0440 E.164",
+    datetime: "ISO дата і час",
+    date: "ISO дата",
+    time: "ISO час",
+    duration: "ISO працягласць",
+    ipv4: "IPv4 адрас",
+    ipv6: "IPv6 адрас",
+    cidrv4: "IPv4 дыяпазон",
+    cidrv6: "IPv6 дыяпазон",
+    base64: "радок у фармаце base64",
+    base64url: "радок у фармаце base64url",
+    json_string: "JSON радок",
+    e164: "нумар E.164",
     jwt: "JWT",
-    template_literal: "\u0443\u0432\u043E\u0434"
+    template_literal: "увод"
   };
   return (issue2) => {
     switch (issue2.code) {
       case "invalid_type":
-        return `\u041D\u044F\u043F\u0440\u0430\u0432\u0456\u043B\u044C\u043D\u044B \u045E\u0432\u043E\u0434: \u0447\u0430\u043A\u0430\u045E\u0441\u044F ${issue2.expected}, \u0430\u0442\u0440\u044B\u043C\u0430\u043D\u0430 ${parsedType(issue2.input)}`;
+        return `Няправільны ўвод: чакаўся ${issue2.expected}, атрымана ${parsedType(issue2.input)}`;
       case "invalid_value":
         if (issue2.values.length === 1)
-          return `\u041D\u044F\u043F\u0440\u0430\u0432\u0456\u043B\u044C\u043D\u044B \u045E\u0432\u043E\u0434: \u0447\u0430\u043A\u0430\u043B\u0430\u0441\u044F ${stringifyPrimitive(issue2.values[0])}`;
-        return `\u041D\u044F\u043F\u0440\u0430\u0432\u0456\u043B\u044C\u043D\u044B \u0432\u0430\u0440\u044B\u044F\u043D\u0442: \u0447\u0430\u043A\u0430\u045E\u0441\u044F \u0430\u0434\u0437\u0456\u043D \u0437 ${joinValues(issue2.values, "|")}`;
+          return `Няправільны ўвод: чакалася ${stringifyPrimitive(issue2.values[0])}`;
+        return `Няправільны варыянт: чакаўся адзін з ${joinValues(issue2.values, "|")}`;
       case "too_big": {
         const adj = issue2.inclusive ? "<=" : "<";
         const sizing = getSizing(issue2.origin);
         if (sizing) {
           const maxValue = Number(issue2.maximum);
           const unit = getBelarusianPlural(maxValue, sizing.unit.one, sizing.unit.few, sizing.unit.many);
-          return `\u0417\u0430\u043D\u0430\u0434\u0442\u0430 \u0432\u044F\u043B\u0456\u043A\u0456: \u0447\u0430\u043A\u0430\u043B\u0430\u0441\u044F, \u0448\u0442\u043E ${issue2.origin ?? "\u0437\u043D\u0430\u0447\u044D\u043D\u043D\u0435"} \u043F\u0430\u0432\u0456\u043D\u043D\u0430 ${sizing.verb} ${adj}${issue2.maximum.toString()} ${unit}`;
+          return `Занадта вялікі: чакалася, што ${issue2.origin ?? "значэнне"} павінна ${sizing.verb} ${adj}${issue2.maximum.toString()} ${unit}`;
         }
-        return `\u0417\u0430\u043D\u0430\u0434\u0442\u0430 \u0432\u044F\u043B\u0456\u043A\u0456: \u0447\u0430\u043A\u0430\u043B\u0430\u0441\u044F, \u0448\u0442\u043E ${issue2.origin ?? "\u0437\u043D\u0430\u0447\u044D\u043D\u043D\u0435"} \u043F\u0430\u0432\u0456\u043D\u043D\u0430 \u0431\u044B\u0446\u044C ${adj}${issue2.maximum.toString()}`;
+        return `Занадта вялікі: чакалася, што ${issue2.origin ?? "значэнне"} павінна быць ${adj}${issue2.maximum.toString()}`;
       }
       case "too_small": {
         const adj = issue2.inclusive ? ">=" : ">";
@@ -4408,34 +4407,34 @@ var error3 = () => {
         if (sizing) {
           const minValue = Number(issue2.minimum);
           const unit = getBelarusianPlural(minValue, sizing.unit.one, sizing.unit.few, sizing.unit.many);
-          return `\u0417\u0430\u043D\u0430\u0434\u0442\u0430 \u043C\u0430\u043B\u044B: \u0447\u0430\u043A\u0430\u043B\u0430\u0441\u044F, \u0448\u0442\u043E ${issue2.origin} \u043F\u0430\u0432\u0456\u043D\u043D\u0430 ${sizing.verb} ${adj}${issue2.minimum.toString()} ${unit}`;
+          return `Занадта малы: чакалася, што ${issue2.origin} павінна ${sizing.verb} ${adj}${issue2.minimum.toString()} ${unit}`;
         }
-        return `\u0417\u0430\u043D\u0430\u0434\u0442\u0430 \u043C\u0430\u043B\u044B: \u0447\u0430\u043A\u0430\u043B\u0430\u0441\u044F, \u0448\u0442\u043E ${issue2.origin} \u043F\u0430\u0432\u0456\u043D\u043D\u0430 \u0431\u044B\u0446\u044C ${adj}${issue2.minimum.toString()}`;
+        return `Занадта малы: чакалася, што ${issue2.origin} павінна быць ${adj}${issue2.minimum.toString()}`;
       }
       case "invalid_format": {
         const _issue = issue2;
         if (_issue.format === "starts_with")
-          return `\u041D\u044F\u043F\u0440\u0430\u0432\u0456\u043B\u044C\u043D\u044B \u0440\u0430\u0434\u043E\u043A: \u043F\u0430\u0432\u0456\u043D\u0435\u043D \u043F\u0430\u0447\u044B\u043D\u0430\u0446\u0446\u0430 \u0437 "${_issue.prefix}"`;
+          return `Няправільны радок: павінен пачынацца з "${_issue.prefix}"`;
         if (_issue.format === "ends_with")
-          return `\u041D\u044F\u043F\u0440\u0430\u0432\u0456\u043B\u044C\u043D\u044B \u0440\u0430\u0434\u043E\u043A: \u043F\u0430\u0432\u0456\u043D\u0435\u043D \u0437\u0430\u043A\u0430\u043D\u0447\u0432\u0430\u0446\u0446\u0430 \u043D\u0430 "${_issue.suffix}"`;
+          return `Няправільны радок: павінен заканчвацца на "${_issue.suffix}"`;
         if (_issue.format === "includes")
-          return `\u041D\u044F\u043F\u0440\u0430\u0432\u0456\u043B\u044C\u043D\u044B \u0440\u0430\u0434\u043E\u043A: \u043F\u0430\u0432\u0456\u043D\u0435\u043D \u0437\u043C\u044F\u0448\u0447\u0430\u0446\u044C "${_issue.includes}"`;
+          return `Няправільны радок: павінен змяшчаць "${_issue.includes}"`;
         if (_issue.format === "regex")
-          return `\u041D\u044F\u043F\u0440\u0430\u0432\u0456\u043B\u044C\u043D\u044B \u0440\u0430\u0434\u043E\u043A: \u043F\u0430\u0432\u0456\u043D\u0435\u043D \u0430\u0434\u043F\u0430\u0432\u044F\u0434\u0430\u0446\u044C \u0448\u0430\u0431\u043B\u043E\u043D\u0443 ${_issue.pattern}`;
-        return `\u041D\u044F\u043F\u0440\u0430\u0432\u0456\u043B\u044C\u043D\u044B ${Nouns[_issue.format] ?? issue2.format}`;
+          return `Няправільны радок: павінен адпавядаць шаблону ${_issue.pattern}`;
+        return `Няправільны ${Nouns[_issue.format] ?? issue2.format}`;
       }
       case "not_multiple_of":
-        return `\u041D\u044F\u043F\u0440\u0430\u0432\u0456\u043B\u044C\u043D\u044B \u043B\u0456\u043A: \u043F\u0430\u0432\u0456\u043D\u0435\u043D \u0431\u044B\u0446\u044C \u043A\u0440\u0430\u0442\u043D\u044B\u043C ${issue2.divisor}`;
+        return `Няправільны лік: павінен быць кратным ${issue2.divisor}`;
       case "unrecognized_keys":
-        return `\u041D\u0435\u0440\u0430\u0441\u043F\u0430\u0437\u043D\u0430\u043D\u044B ${issue2.keys.length > 1 ? "\u043A\u043B\u044E\u0447\u044B" : "\u043A\u043B\u044E\u0447"}: ${joinValues(issue2.keys, ", ")}`;
+        return `Нераспазнаны ${issue2.keys.length > 1 ? "ключы" : "ключ"}: ${joinValues(issue2.keys, ", ")}`;
       case "invalid_key":
-        return `\u041D\u044F\u043F\u0440\u0430\u0432\u0456\u043B\u044C\u043D\u044B \u043A\u043B\u044E\u0447 \u0443 ${issue2.origin}`;
+        return `Няправільны ключ у ${issue2.origin}`;
       case "invalid_union":
-        return "\u041D\u044F\u043F\u0440\u0430\u0432\u0456\u043B\u044C\u043D\u044B \u045E\u0432\u043E\u0434";
+        return "Няправільны ўвод";
       case "invalid_element":
-        return `\u041D\u044F\u043F\u0440\u0430\u0432\u0456\u043B\u044C\u043D\u0430\u0435 \u0437\u043D\u0430\u0447\u044D\u043D\u043D\u0435 \u045E ${issue2.origin}`;
+        return `Няправільнае значэнне ў ${issue2.origin}`;
       default:
-        return `\u041D\u044F\u043F\u0440\u0430\u0432\u0456\u043B\u044C\u043D\u044B \u045E\u0432\u043E\u0434`;
+        return `Няправільны ўвод`;
     }
   };
 };
@@ -4447,7 +4446,7 @@ function be_default() {
 // node_modules/zod/v4/locales/ca.js
 var error4 = () => {
   const Sizable = {
-    string: { unit: "car\xE0cters", verb: "contenir" },
+    string: { unit: "caràcters", verb: "contenir" },
     file: { unit: "bytes", verb: "contenir" },
     array: { unit: "elements", verb: "contenir" },
     set: { unit: "elements", verb: "contenir" }
@@ -4477,7 +4476,7 @@ var error4 = () => {
   };
   const Nouns = {
     regex: "entrada",
-    email: "adre\xE7a electr\xF2nica",
+    email: "adreça electrònica",
     url: "URL",
     emoji: "emoji",
     uuid: "UUID",
@@ -4494,65 +4493,65 @@ var error4 = () => {
     date: "data ISO",
     time: "hora ISO",
     duration: "durada ISO",
-    ipv4: "adre\xE7a IPv4",
-    ipv6: "adre\xE7a IPv6",
+    ipv4: "adreça IPv4",
+    ipv6: "adreça IPv6",
     cidrv4: "rang IPv4",
     cidrv6: "rang IPv6",
     base64: "cadena codificada en base64",
     base64url: "cadena codificada en base64url",
     json_string: "cadena JSON",
-    e164: "n\xFAmero E.164",
+    e164: "número E.164",
     jwt: "JWT",
     template_literal: "entrada"
   };
   return (issue2) => {
     switch (issue2.code) {
       case "invalid_type":
-        return `Tipus inv\xE0lid: s'esperava ${issue2.expected}, s'ha rebut ${parsedType(issue2.input)}`;
+        return `Tipus invàlid: s'esperava ${issue2.expected}, s'ha rebut ${parsedType(issue2.input)}`;
       case "invalid_value":
         if (issue2.values.length === 1)
-          return `Valor inv\xE0lid: s'esperava ${stringifyPrimitive(issue2.values[0])}`;
-        return `Opci\xF3 inv\xE0lida: s'esperava una de ${joinValues(issue2.values, " o ")}`;
+          return `Valor invàlid: s'esperava ${stringifyPrimitive(issue2.values[0])}`;
+        return `Opció invàlida: s'esperava una de ${joinValues(issue2.values, " o ")}`;
       case "too_big": {
-        const adj = issue2.inclusive ? "com a m\xE0xim" : "menys de";
+        const adj = issue2.inclusive ? "com a màxim" : "menys de";
         const sizing = getSizing(issue2.origin);
         if (sizing)
-          return `Massa gran: s'esperava que ${issue2.origin ?? "el valor"} contingu\xE9s ${adj} ${issue2.maximum.toString()} ${sizing.unit ?? "elements"}`;
+          return `Massa gran: s'esperava que ${issue2.origin ?? "el valor"} contingués ${adj} ${issue2.maximum.toString()} ${sizing.unit ?? "elements"}`;
         return `Massa gran: s'esperava que ${issue2.origin ?? "el valor"} fos ${adj} ${issue2.maximum.toString()}`;
       }
       case "too_small": {
-        const adj = issue2.inclusive ? "com a m\xEDnim" : "m\xE9s de";
+        const adj = issue2.inclusive ? "com a mínim" : "més de";
         const sizing = getSizing(issue2.origin);
         if (sizing) {
-          return `Massa petit: s'esperava que ${issue2.origin} contingu\xE9s ${adj} ${issue2.minimum.toString()} ${sizing.unit}`;
+          return `Massa petit: s'esperava que ${issue2.origin} contingués ${adj} ${issue2.minimum.toString()} ${sizing.unit}`;
         }
         return `Massa petit: s'esperava que ${issue2.origin} fos ${adj} ${issue2.minimum.toString()}`;
       }
       case "invalid_format": {
         const _issue = issue2;
         if (_issue.format === "starts_with") {
-          return `Format inv\xE0lid: ha de comen\xE7ar amb "${_issue.prefix}"`;
+          return `Format invàlid: ha de començar amb "${_issue.prefix}"`;
         }
         if (_issue.format === "ends_with")
-          return `Format inv\xE0lid: ha d'acabar amb "${_issue.suffix}"`;
+          return `Format invàlid: ha d'acabar amb "${_issue.suffix}"`;
         if (_issue.format === "includes")
-          return `Format inv\xE0lid: ha d'incloure "${_issue.includes}"`;
+          return `Format invàlid: ha d'incloure "${_issue.includes}"`;
         if (_issue.format === "regex")
-          return `Format inv\xE0lid: ha de coincidir amb el patr\xF3 ${_issue.pattern}`;
-        return `Format inv\xE0lid per a ${Nouns[_issue.format] ?? issue2.format}`;
+          return `Format invàlid: ha de coincidir amb el patró ${_issue.pattern}`;
+        return `Format invàlid per a ${Nouns[_issue.format] ?? issue2.format}`;
       }
       case "not_multiple_of":
-        return `N\xFAmero inv\xE0lid: ha de ser m\xFAltiple de ${issue2.divisor}`;
+        return `Número invàlid: ha de ser múltiple de ${issue2.divisor}`;
       case "unrecognized_keys":
         return `Clau${issue2.keys.length > 1 ? "s" : ""} no reconeguda${issue2.keys.length > 1 ? "s" : ""}: ${joinValues(issue2.keys, ", ")}`;
       case "invalid_key":
-        return `Clau inv\xE0lida a ${issue2.origin}`;
+        return `Clau invàlida a ${issue2.origin}`;
       case "invalid_union":
-        return "Entrada inv\xE0lida";
+        return "Entrada invàlida";
       case "invalid_element":
-        return `Element inv\xE0lid a ${issue2.origin}`;
+        return `Element invàlid a ${issue2.origin}`;
       default:
-        return `Entrada inv\xE0lida`;
+        return `Entrada invàlida`;
     }
   };
 };
@@ -4564,10 +4563,10 @@ function ca_default() {
 // node_modules/zod/v4/locales/cs.js
 var error5 = () => {
   const Sizable = {
-    string: { unit: "znak\u016F", verb: "m\xEDt" },
-    file: { unit: "bajt\u016F", verb: "m\xEDt" },
-    array: { unit: "prvk\u016F", verb: "m\xEDt" },
-    set: { unit: "prvk\u016F", verb: "m\xEDt" }
+    string: { unit: "znaků", verb: "mít" },
+    file: { unit: "bajtů", verb: "mít" },
+    array: { unit: "prvků", verb: "mít" },
+    set: { unit: "prvků", verb: "mít" }
   };
   function getSizing(origin) {
     return Sizable[origin] ?? null;
@@ -4576,10 +4575,10 @@ var error5 = () => {
     const t = typeof data;
     switch (t) {
       case "number": {
-        return Number.isNaN(data) ? "NaN" : "\u010D\xEDslo";
+        return Number.isNaN(data) ? "NaN" : "číslo";
       }
       case "string": {
-        return "\u0159et\u011Bzec";
+        return "řetězec";
       }
       case "boolean": {
         return "boolean";
@@ -4611,8 +4610,8 @@ var error5 = () => {
     return t;
   };
   const Nouns = {
-    regex: "regul\xE1rn\xED v\xFDraz",
-    email: "e-mailov\xE1 adresa",
+    regex: "regulární výraz",
+    email: "e-mailová adresa",
     url: "URL",
     emoji: "emoji",
     uuid: "UUID",
@@ -4625,69 +4624,69 @@ var error5 = () => {
     ulid: "ULID",
     xid: "XID",
     ksuid: "KSUID",
-    datetime: "datum a \u010Das ve form\xE1tu ISO",
-    date: "datum ve form\xE1tu ISO",
-    time: "\u010Das ve form\xE1tu ISO",
-    duration: "doba trv\xE1n\xED ISO",
+    datetime: "datum a čas ve formátu ISO",
+    date: "datum ve formátu ISO",
+    time: "čas ve formátu ISO",
+    duration: "doba trvání ISO",
     ipv4: "IPv4 adresa",
     ipv6: "IPv6 adresa",
     cidrv4: "rozsah IPv4",
     cidrv6: "rozsah IPv6",
-    base64: "\u0159et\u011Bzec zak\xF3dovan\xFD ve form\xE1tu base64",
-    base64url: "\u0159et\u011Bzec zak\xF3dovan\xFD ve form\xE1tu base64url",
-    json_string: "\u0159et\u011Bzec ve form\xE1tu JSON",
-    e164: "\u010D\xEDslo E.164",
+    base64: "řetězec zakódovaný ve formátu base64",
+    base64url: "řetězec zakódovaný ve formátu base64url",
+    json_string: "řetězec ve formátu JSON",
+    e164: "číslo E.164",
     jwt: "JWT",
     template_literal: "vstup"
   };
   return (issue2) => {
     switch (issue2.code) {
       case "invalid_type":
-        return `Neplatn\xFD vstup: o\u010Dek\xE1v\xE1no ${issue2.expected}, obdr\u017Eeno ${parsedType(issue2.input)}`;
+        return `Neplatný vstup: očekáváno ${issue2.expected}, obdrženo ${parsedType(issue2.input)}`;
       case "invalid_value":
         if (issue2.values.length === 1)
-          return `Neplatn\xFD vstup: o\u010Dek\xE1v\xE1no ${stringifyPrimitive(issue2.values[0])}`;
-        return `Neplatn\xE1 mo\u017Enost: o\u010Dek\xE1v\xE1na jedna z hodnot ${joinValues(issue2.values, "|")}`;
+          return `Neplatný vstup: očekáváno ${stringifyPrimitive(issue2.values[0])}`;
+        return `Neplatná možnost: očekávána jedna z hodnot ${joinValues(issue2.values, "|")}`;
       case "too_big": {
         const adj = issue2.inclusive ? "<=" : "<";
         const sizing = getSizing(issue2.origin);
         if (sizing) {
-          return `Hodnota je p\u0159\xEDli\u0161 velk\xE1: ${issue2.origin ?? "hodnota"} mus\xED m\xEDt ${adj}${issue2.maximum.toString()} ${sizing.unit ?? "prvk\u016F"}`;
+          return `Hodnota je příliš velká: ${issue2.origin ?? "hodnota"} musí mít ${adj}${issue2.maximum.toString()} ${sizing.unit ?? "prvků"}`;
         }
-        return `Hodnota je p\u0159\xEDli\u0161 velk\xE1: ${issue2.origin ?? "hodnota"} mus\xED b\xFDt ${adj}${issue2.maximum.toString()}`;
+        return `Hodnota je příliš velká: ${issue2.origin ?? "hodnota"} musí být ${adj}${issue2.maximum.toString()}`;
       }
       case "too_small": {
         const adj = issue2.inclusive ? ">=" : ">";
         const sizing = getSizing(issue2.origin);
         if (sizing) {
-          return `Hodnota je p\u0159\xEDli\u0161 mal\xE1: ${issue2.origin ?? "hodnota"} mus\xED m\xEDt ${adj}${issue2.minimum.toString()} ${sizing.unit ?? "prvk\u016F"}`;
+          return `Hodnota je příliš malá: ${issue2.origin ?? "hodnota"} musí mít ${adj}${issue2.minimum.toString()} ${sizing.unit ?? "prvků"}`;
         }
-        return `Hodnota je p\u0159\xEDli\u0161 mal\xE1: ${issue2.origin ?? "hodnota"} mus\xED b\xFDt ${adj}${issue2.minimum.toString()}`;
+        return `Hodnota je příliš malá: ${issue2.origin ?? "hodnota"} musí být ${adj}${issue2.minimum.toString()}`;
       }
       case "invalid_format": {
         const _issue = issue2;
         if (_issue.format === "starts_with")
-          return `Neplatn\xFD \u0159et\u011Bzec: mus\xED za\u010D\xEDnat na "${_issue.prefix}"`;
+          return `Neplatný řetězec: musí začínat na "${_issue.prefix}"`;
         if (_issue.format === "ends_with")
-          return `Neplatn\xFD \u0159et\u011Bzec: mus\xED kon\u010Dit na "${_issue.suffix}"`;
+          return `Neplatný řetězec: musí končit na "${_issue.suffix}"`;
         if (_issue.format === "includes")
-          return `Neplatn\xFD \u0159et\u011Bzec: mus\xED obsahovat "${_issue.includes}"`;
+          return `Neplatný řetězec: musí obsahovat "${_issue.includes}"`;
         if (_issue.format === "regex")
-          return `Neplatn\xFD \u0159et\u011Bzec: mus\xED odpov\xEDdat vzoru ${_issue.pattern}`;
-        return `Neplatn\xFD form\xE1t ${Nouns[_issue.format] ?? issue2.format}`;
+          return `Neplatný řetězec: musí odpovídat vzoru ${_issue.pattern}`;
+        return `Neplatný formát ${Nouns[_issue.format] ?? issue2.format}`;
       }
       case "not_multiple_of":
-        return `Neplatn\xE9 \u010D\xEDslo: mus\xED b\xFDt n\xE1sobkem ${issue2.divisor}`;
+        return `Neplatné číslo: musí být násobkem ${issue2.divisor}`;
       case "unrecognized_keys":
-        return `Nezn\xE1m\xE9 kl\xED\u010De: ${joinValues(issue2.keys, ", ")}`;
+        return `Neznámé klíče: ${joinValues(issue2.keys, ", ")}`;
       case "invalid_key":
-        return `Neplatn\xFD kl\xED\u010D v ${issue2.origin}`;
+        return `Neplatný klíč v ${issue2.origin}`;
       case "invalid_union":
-        return "Neplatn\xFD vstup";
+        return "Neplatný vstup";
       case "invalid_element":
-        return `Neplatn\xE1 hodnota v ${issue2.origin}`;
+        return `Neplatná hodnota v ${issue2.origin}`;
       default:
-        return `Neplatn\xFD vstup`;
+        return `Neplatný vstup`;
     }
   };
 };
@@ -4710,7 +4709,7 @@ var error6 = () => {
     boolean: "boolean",
     array: "liste",
     object: "objekt",
-    set: "s\xE6t",
+    set: "sæt",
     file: "fil"
   };
   function getSizing(origin) {
@@ -4755,12 +4754,12 @@ var error6 = () => {
     ulid: "ULID",
     xid: "XID",
     ksuid: "KSUID",
-    datetime: "ISO dato- og klokkesl\xE6t",
+    datetime: "ISO dato- og klokkeslæt",
     date: "ISO-dato",
-    time: "ISO-klokkesl\xE6t",
+    time: "ISO-klokkeslæt",
     duration: "ISO-varighed",
-    ipv4: "IPv4-omr\xE5de",
-    ipv6: "IPv6-omr\xE5de",
+    ipv4: "IPv4-område",
+    ipv6: "IPv6-område",
     cidrv4: "IPv4-spektrum",
     cidrv6: "IPv6-spektrum",
     base64: "base64-kodet streng",
@@ -4776,8 +4775,8 @@ var error6 = () => {
         return `Ugyldigt input: forventede ${getTypeName(issue2.expected)}, fik ${getTypeName(parsedType(issue2.input))}`;
       case "invalid_value":
         if (issue2.values.length === 1)
-          return `Ugyldig v\xE6rdi: forventede ${stringifyPrimitive(issue2.values[0])}`;
-        return `Ugyldigt valg: forventede en af f\xF8lgende ${joinValues(issue2.values, "|")}`;
+          return `Ugyldig værdi: forventede ${stringifyPrimitive(issue2.values[0])}`;
+        return `Ugyldigt valg: forventede en af følgende ${joinValues(issue2.values, "|")}`;
       case "too_big": {
         const adj = issue2.inclusive ? "<=" : "<";
         const sizing = getSizing(issue2.origin);
@@ -4804,19 +4803,19 @@ var error6 = () => {
         if (_issue.format === "includes")
           return `Ugyldig streng: skal indeholde "${_issue.includes}"`;
         if (_issue.format === "regex")
-          return `Ugyldig streng: skal matche m\xF8nsteret ${_issue.pattern}`;
+          return `Ugyldig streng: skal matche mønsteret ${_issue.pattern}`;
         return `Ugyldig ${Nouns[_issue.format] ?? issue2.format}`;
       }
       case "not_multiple_of":
-        return `Ugyldigt tal: skal v\xE6re deleligt med ${issue2.divisor}`;
+        return `Ugyldigt tal: skal være deleligt med ${issue2.divisor}`;
       case "unrecognized_keys":
-        return `${issue2.keys.length > 1 ? "Ukendte n\xF8gler" : "Ukendt n\xF8gle"}: ${joinValues(issue2.keys, ", ")}`;
+        return `${issue2.keys.length > 1 ? "Ukendte nøgler" : "Ukendt nøgle"}: ${joinValues(issue2.keys, ", ")}`;
       case "invalid_key":
-        return `Ugyldig n\xF8gle i ${issue2.origin}`;
+        return `Ugyldig nøgle i ${issue2.origin}`;
       case "invalid_union":
         return "Ugyldigt input: matcher ingen af de tilladte typer";
       case "invalid_element":
-        return `Ugyldig v\xE6rdi i ${issue2.origin}`;
+        return `Ugyldig værdi i ${issue2.origin}`;
       default:
         return `Ugyldigt input`;
     }
@@ -4891,17 +4890,17 @@ var error7 = () => {
   return (issue2) => {
     switch (issue2.code) {
       case "invalid_type":
-        return `Ung\xFCltige Eingabe: erwartet ${issue2.expected}, erhalten ${parsedType(issue2.input)}`;
+        return `Ungültige Eingabe: erwartet ${issue2.expected}, erhalten ${parsedType(issue2.input)}`;
       case "invalid_value":
         if (issue2.values.length === 1)
-          return `Ung\xFCltige Eingabe: erwartet ${stringifyPrimitive(issue2.values[0])}`;
-        return `Ung\xFCltige Option: erwartet eine von ${joinValues(issue2.values, "|")}`;
+          return `Ungültige Eingabe: erwartet ${stringifyPrimitive(issue2.values[0])}`;
+        return `Ungültige Option: erwartet eine von ${joinValues(issue2.values, "|")}`;
       case "too_big": {
         const adj = issue2.inclusive ? "<=" : "<";
         const sizing = getSizing(issue2.origin);
         if (sizing)
-          return `Zu gro\xDF: erwartet, dass ${issue2.origin ?? "Wert"} ${adj}${issue2.maximum.toString()} ${sizing.unit ?? "Elemente"} hat`;
-        return `Zu gro\xDF: erwartet, dass ${issue2.origin ?? "Wert"} ${adj}${issue2.maximum.toString()} ist`;
+          return `Zu groß: erwartet, dass ${issue2.origin ?? "Wert"} ${adj}${issue2.maximum.toString()} ${sizing.unit ?? "Elemente"} hat`;
+        return `Zu groß: erwartet, dass ${issue2.origin ?? "Wert"} ${adj}${issue2.maximum.toString()} ist`;
       }
       case "too_small": {
         const adj = issue2.inclusive ? ">=" : ">";
@@ -4914,27 +4913,27 @@ var error7 = () => {
       case "invalid_format": {
         const _issue = issue2;
         if (_issue.format === "starts_with")
-          return `Ung\xFCltiger String: muss mit "${_issue.prefix}" beginnen`;
+          return `Ungültiger String: muss mit "${_issue.prefix}" beginnen`;
         if (_issue.format === "ends_with")
-          return `Ung\xFCltiger String: muss mit "${_issue.suffix}" enden`;
+          return `Ungültiger String: muss mit "${_issue.suffix}" enden`;
         if (_issue.format === "includes")
-          return `Ung\xFCltiger String: muss "${_issue.includes}" enthalten`;
+          return `Ungültiger String: muss "${_issue.includes}" enthalten`;
         if (_issue.format === "regex")
-          return `Ung\xFCltiger String: muss dem Muster ${_issue.pattern} entsprechen`;
-        return `Ung\xFCltig: ${Nouns[_issue.format] ?? issue2.format}`;
+          return `Ungültiger String: muss dem Muster ${_issue.pattern} entsprechen`;
+        return `Ungültig: ${Nouns[_issue.format] ?? issue2.format}`;
       }
       case "not_multiple_of":
-        return `Ung\xFCltige Zahl: muss ein Vielfaches von ${issue2.divisor} sein`;
+        return `Ungültige Zahl: muss ein Vielfaches von ${issue2.divisor} sein`;
       case "unrecognized_keys":
-        return `${issue2.keys.length > 1 ? "Unbekannte Schl\xFCssel" : "Unbekannter Schl\xFCssel"}: ${joinValues(issue2.keys, ", ")}`;
+        return `${issue2.keys.length > 1 ? "Unbekannte Schlüssel" : "Unbekannter Schlüssel"}: ${joinValues(issue2.keys, ", ")}`;
       case "invalid_key":
-        return `Ung\xFCltiger Schl\xFCssel in ${issue2.origin}`;
+        return `Ungültiger Schlüssel in ${issue2.origin}`;
       case "invalid_union":
-        return "Ung\xFCltige Eingabe";
+        return "Ungültige Eingabe";
       case "invalid_element":
-        return `Ung\xFCltiger Wert in ${issue2.origin}`;
+        return `Ungültiger Wert in ${issue2.origin}`;
       default:
-        return `Ung\xFCltige Eingabe`;
+        return `Ungültige Eingabe`;
     }
   };
 };
@@ -5095,7 +5094,7 @@ var error9 = () => {
     regex: "enigo",
     email: "retadreso",
     url: "URL",
-    emoji: "emo\u011Dio",
+    emoji: "emoĝio",
     uuid: "UUID",
     uuidv4: "UUIDv4",
     uuidv6: "UUIDv6",
@@ -5109,7 +5108,7 @@ var error9 = () => {
     datetime: "ISO-datotempo",
     date: "ISO-dato",
     time: "ISO-tempo",
-    duration: "ISO-da\u016Dro",
+    duration: "ISO-daŭro",
     ipv4: "IPv4-adreso",
     ipv6: "IPv6-adreso",
     cidrv4: "IPv4-rango",
@@ -5124,32 +5123,32 @@ var error9 = () => {
   return (issue2) => {
     switch (issue2.code) {
       case "invalid_type":
-        return `Nevalida enigo: atendi\u011Dis ${issue2.expected}, ricevi\u011Dis ${parsedType2(issue2.input)}`;
+        return `Nevalida enigo: atendiĝis ${issue2.expected}, riceviĝis ${parsedType2(issue2.input)}`;
       case "invalid_value":
         if (issue2.values.length === 1)
-          return `Nevalida enigo: atendi\u011Dis ${stringifyPrimitive(issue2.values[0])}`;
-        return `Nevalida opcio: atendi\u011Dis unu el ${joinValues(issue2.values, "|")}`;
+          return `Nevalida enigo: atendiĝis ${stringifyPrimitive(issue2.values[0])}`;
+        return `Nevalida opcio: atendiĝis unu el ${joinValues(issue2.values, "|")}`;
       case "too_big": {
         const adj = issue2.inclusive ? "<=" : "<";
         const sizing = getSizing(issue2.origin);
         if (sizing)
-          return `Tro granda: atendi\u011Dis ke ${issue2.origin ?? "valoro"} havu ${adj}${issue2.maximum.toString()} ${sizing.unit ?? "elementojn"}`;
-        return `Tro granda: atendi\u011Dis ke ${issue2.origin ?? "valoro"} havu ${adj}${issue2.maximum.toString()}`;
+          return `Tro granda: atendiĝis ke ${issue2.origin ?? "valoro"} havu ${adj}${issue2.maximum.toString()} ${sizing.unit ?? "elementojn"}`;
+        return `Tro granda: atendiĝis ke ${issue2.origin ?? "valoro"} havu ${adj}${issue2.maximum.toString()}`;
       }
       case "too_small": {
         const adj = issue2.inclusive ? ">=" : ">";
         const sizing = getSizing(issue2.origin);
         if (sizing) {
-          return `Tro malgranda: atendi\u011Dis ke ${issue2.origin} havu ${adj}${issue2.minimum.toString()} ${sizing.unit}`;
+          return `Tro malgranda: atendiĝis ke ${issue2.origin} havu ${adj}${issue2.minimum.toString()} ${sizing.unit}`;
         }
-        return `Tro malgranda: atendi\u011Dis ke ${issue2.origin} estu ${adj}${issue2.minimum.toString()}`;
+        return `Tro malgranda: atendiĝis ke ${issue2.origin} estu ${adj}${issue2.minimum.toString()}`;
       }
       case "invalid_format": {
         const _issue = issue2;
         if (_issue.format === "starts_with")
-          return `Nevalida karaktraro: devas komenci\u011Di per "${_issue.prefix}"`;
+          return `Nevalida karaktraro: devas komenciĝi per "${_issue.prefix}"`;
         if (_issue.format === "ends_with")
-          return `Nevalida karaktraro: devas fini\u011Di per "${_issue.suffix}"`;
+          return `Nevalida karaktraro: devas finiĝi per "${_issue.suffix}"`;
         if (_issue.format === "includes")
           return `Nevalida karaktraro: devas inkluzivi "${_issue.includes}"`;
         if (_issue.format === "regex")
@@ -5159,9 +5158,9 @@ var error9 = () => {
       case "not_multiple_of":
         return `Nevalida nombro: devas esti oblo de ${issue2.divisor}`;
       case "unrecognized_keys":
-        return `Nekonata${issue2.keys.length > 1 ? "j" : ""} \u015Dlosilo${issue2.keys.length > 1 ? "j" : ""}: ${joinValues(issue2.keys, ", ")}`;
+        return `Nekonata${issue2.keys.length > 1 ? "j" : ""} ŝlosilo${issue2.keys.length > 1 ? "j" : ""}: ${joinValues(issue2.keys, ", ")}`;
       case "invalid_key":
-        return `Nevalida \u015Dlosilo en ${issue2.origin}`;
+        return `Nevalida ŝlosilo en ${issue2.origin}`;
       case "invalid_union":
         return "Nevalida enigo";
       case "invalid_element":
@@ -5186,26 +5185,26 @@ var error10 = () => {
   };
   const TypeNames = {
     string: "texto",
-    number: "n\xFAmero",
+    number: "número",
     boolean: "booleano",
     array: "arreglo",
     object: "objeto",
     set: "conjunto",
     file: "archivo",
     date: "fecha",
-    bigint: "n\xFAmero grande",
-    symbol: "s\xEDmbolo",
+    bigint: "número grande",
+    symbol: "símbolo",
     undefined: "indefinido",
     null: "nulo",
-    function: "funci\xF3n",
+    function: "función",
     map: "mapa",
     record: "registro",
     tuple: "tupla",
-    enum: "enumeraci\xF3n",
-    union: "uni\xF3n",
+    enum: "enumeración",
+    union: "unión",
     literal: "literal",
     promise: "promesa",
-    void: "vac\xEDo",
+    void: "vacío",
     never: "nunca",
     unknown: "desconocido",
     any: "cualquiera"
@@ -5239,7 +5238,7 @@ var error10 = () => {
   };
   const Nouns = {
     regex: "entrada",
-    email: "direcci\xF3n de correo electr\xF3nico",
+    email: "dirección de correo electrónico",
     url: "URL",
     emoji: "emoji",
     uuid: "UUID",
@@ -5255,26 +5254,26 @@ var error10 = () => {
     datetime: "fecha y hora ISO",
     date: "fecha ISO",
     time: "hora ISO",
-    duration: "duraci\xF3n ISO",
-    ipv4: "direcci\xF3n IPv4",
-    ipv6: "direcci\xF3n IPv6",
+    duration: "duración ISO",
+    ipv4: "dirección IPv4",
+    ipv6: "dirección IPv6",
     cidrv4: "rango IPv4",
     cidrv6: "rango IPv6",
     base64: "cadena codificada en base64",
     base64url: "URL codificada en base64",
     json_string: "cadena JSON",
-    e164: "n\xFAmero E.164",
+    e164: "número E.164",
     jwt: "JWT",
     template_literal: "entrada"
   };
   return (issue2) => {
     switch (issue2.code) {
       case "invalid_type":
-        return `Entrada inv\xE1lida: se esperaba ${getTypeName(issue2.expected)}, recibido ${getTypeName(parsedType3(issue2.input))}`;
+        return `Entrada inválida: se esperaba ${getTypeName(issue2.expected)}, recibido ${getTypeName(parsedType3(issue2.input))}`;
       case "invalid_value":
         if (issue2.values.length === 1)
-          return `Entrada inv\xE1lida: se esperaba ${stringifyPrimitive(issue2.values[0])}`;
-        return `Opci\xF3n inv\xE1lida: se esperaba una de ${joinValues(issue2.values, "|")}`;
+          return `Entrada inválida: se esperaba ${stringifyPrimitive(issue2.values[0])}`;
+        return `Opción inválida: se esperaba una de ${joinValues(issue2.values, "|")}`;
       case "too_big": {
         const adj = issue2.inclusive ? "<=" : "<";
         const sizing = getSizing(issue2.origin);
@@ -5288,34 +5287,34 @@ var error10 = () => {
         const sizing = getSizing(issue2.origin);
         const origin = getTypeName(issue2.origin);
         if (sizing) {
-          return `Demasiado peque\xF1o: se esperaba que ${origin} tuviera ${adj}${issue2.minimum.toString()} ${sizing.unit}`;
+          return `Demasiado pequeño: se esperaba que ${origin} tuviera ${adj}${issue2.minimum.toString()} ${sizing.unit}`;
         }
-        return `Demasiado peque\xF1o: se esperaba que ${origin} fuera ${adj}${issue2.minimum.toString()}`;
+        return `Demasiado pequeño: se esperaba que ${origin} fuera ${adj}${issue2.minimum.toString()}`;
       }
       case "invalid_format": {
         const _issue = issue2;
         if (_issue.format === "starts_with")
-          return `Cadena inv\xE1lida: debe comenzar con "${_issue.prefix}"`;
+          return `Cadena inválida: debe comenzar con "${_issue.prefix}"`;
         if (_issue.format === "ends_with")
-          return `Cadena inv\xE1lida: debe terminar en "${_issue.suffix}"`;
+          return `Cadena inválida: debe terminar en "${_issue.suffix}"`;
         if (_issue.format === "includes")
-          return `Cadena inv\xE1lida: debe incluir "${_issue.includes}"`;
+          return `Cadena inválida: debe incluir "${_issue.includes}"`;
         if (_issue.format === "regex")
-          return `Cadena inv\xE1lida: debe coincidir con el patr\xF3n ${_issue.pattern}`;
-        return `Inv\xE1lido ${Nouns[_issue.format] ?? issue2.format}`;
+          return `Cadena inválida: debe coincidir con el patrón ${_issue.pattern}`;
+        return `Inválido ${Nouns[_issue.format] ?? issue2.format}`;
       }
       case "not_multiple_of":
-        return `N\xFAmero inv\xE1lido: debe ser m\xFAltiplo de ${issue2.divisor}`;
+        return `Número inválido: debe ser múltiplo de ${issue2.divisor}`;
       case "unrecognized_keys":
         return `Llave${issue2.keys.length > 1 ? "s" : ""} desconocida${issue2.keys.length > 1 ? "s" : ""}: ${joinValues(issue2.keys, ", ")}`;
       case "invalid_key":
-        return `Llave inv\xE1lida en ${getTypeName(issue2.origin)}`;
+        return `Llave inválida en ${getTypeName(issue2.origin)}`;
       case "invalid_union":
-        return "Entrada inv\xE1lida";
+        return "Entrada inválida";
       case "invalid_element":
-        return `Valor inv\xE1lido en ${getTypeName(issue2.origin)}`;
+        return `Valor inválido en ${getTypeName(issue2.origin)}`;
       default:
-        return `Entrada inv\xE1lida`;
+        return `Entrada inválida`;
     }
   };
 };
@@ -5327,10 +5326,10 @@ function es_default() {
 // node_modules/zod/v4/locales/fa.js
 var error11 = () => {
   const Sizable = {
-    string: { unit: "\u06A9\u0627\u0631\u0627\u06A9\u062A\u0631", verb: "\u062F\u0627\u0634\u062A\u0647 \u0628\u0627\u0634\u062F" },
-    file: { unit: "\u0628\u0627\u06CC\u062A", verb: "\u062F\u0627\u0634\u062A\u0647 \u0628\u0627\u0634\u062F" },
-    array: { unit: "\u0622\u06CC\u062A\u0645", verb: "\u062F\u0627\u0634\u062A\u0647 \u0628\u0627\u0634\u062F" },
-    set: { unit: "\u0622\u06CC\u062A\u0645", verb: "\u062F\u0627\u0634\u062A\u0647 \u0628\u0627\u0634\u062F" }
+    string: { unit: "کاراکتر", verb: "داشته باشد" },
+    file: { unit: "بایت", verb: "داشته باشد" },
+    array: { unit: "آیتم", verb: "داشته باشد" },
+    set: { unit: "آیتم", verb: "داشته باشد" }
   };
   function getSizing(origin) {
     return Sizable[origin] ?? null;
@@ -5339,11 +5338,11 @@ var error11 = () => {
     const t = typeof data;
     switch (t) {
       case "number": {
-        return Number.isNaN(data) ? "NaN" : "\u0639\u062F\u062F";
+        return Number.isNaN(data) ? "NaN" : "عدد";
       }
       case "object": {
         if (Array.isArray(data)) {
-          return "\u0622\u0631\u0627\u06CC\u0647";
+          return "آرایه";
         }
         if (data === null) {
           return "null";
@@ -5356,10 +5355,10 @@ var error11 = () => {
     return t;
   };
   const Nouns = {
-    regex: "\u0648\u0631\u0648\u062F\u06CC",
-    email: "\u0622\u062F\u0631\u0633 \u0627\u06CC\u0645\u06CC\u0644",
+    regex: "ورودی",
+    email: "آدرس ایمیل",
     url: "URL",
-    emoji: "\u0627\u06CC\u0645\u0648\u062C\u06CC",
+    emoji: "ایموجی",
     uuid: "UUID",
     uuidv4: "UUIDv4",
     uuidv6: "UUIDv6",
@@ -5370,74 +5369,74 @@ var error11 = () => {
     ulid: "ULID",
     xid: "XID",
     ksuid: "KSUID",
-    datetime: "\u062A\u0627\u0631\u06CC\u062E \u0648 \u0632\u0645\u0627\u0646 \u0627\u06CC\u0632\u0648",
-    date: "\u062A\u0627\u0631\u06CC\u062E \u0627\u06CC\u0632\u0648",
-    time: "\u0632\u0645\u0627\u0646 \u0627\u06CC\u0632\u0648",
-    duration: "\u0645\u062F\u062A \u0632\u0645\u0627\u0646 \u0627\u06CC\u0632\u0648",
-    ipv4: "IPv4 \u0622\u062F\u0631\u0633",
-    ipv6: "IPv6 \u0622\u062F\u0631\u0633",
-    cidrv4: "IPv4 \u062F\u0627\u0645\u0646\u0647",
-    cidrv6: "IPv6 \u062F\u0627\u0645\u0646\u0647",
-    base64: "base64-encoded \u0631\u0634\u062A\u0647",
-    base64url: "base64url-encoded \u0631\u0634\u062A\u0647",
-    json_string: "JSON \u0631\u0634\u062A\u0647",
-    e164: "E.164 \u0639\u062F\u062F",
+    datetime: "تاریخ و زمان ایزو",
+    date: "تاریخ ایزو",
+    time: "زمان ایزو",
+    duration: "مدت زمان ایزو",
+    ipv4: "IPv4 آدرس",
+    ipv6: "IPv6 آدرس",
+    cidrv4: "IPv4 دامنه",
+    cidrv6: "IPv6 دامنه",
+    base64: "base64-encoded رشته",
+    base64url: "base64url-encoded رشته",
+    json_string: "JSON رشته",
+    e164: "E.164 عدد",
     jwt: "JWT",
-    template_literal: "\u0648\u0631\u0648\u062F\u06CC"
+    template_literal: "ورودی"
   };
   return (issue2) => {
     switch (issue2.code) {
       case "invalid_type":
-        return `\u0648\u0631\u0648\u062F\u06CC \u0646\u0627\u0645\u0639\u062A\u0628\u0631: \u0645\u06CC\u200C\u0628\u0627\u06CC\u0633\u062A ${issue2.expected} \u0645\u06CC\u200C\u0628\u0648\u062F\u060C ${parsedType3(issue2.input)} \u062F\u0631\u06CC\u0627\u0641\u062A \u0634\u062F`;
+        return `ورودی نامعتبر: می‌بایست ${issue2.expected} می‌بود، ${parsedType3(issue2.input)} دریافت شد`;
       case "invalid_value":
         if (issue2.values.length === 1) {
-          return `\u0648\u0631\u0648\u062F\u06CC \u0646\u0627\u0645\u0639\u062A\u0628\u0631: \u0645\u06CC\u200C\u0628\u0627\u06CC\u0633\u062A ${stringifyPrimitive(issue2.values[0])} \u0645\u06CC\u200C\u0628\u0648\u062F`;
+          return `ورودی نامعتبر: می‌بایست ${stringifyPrimitive(issue2.values[0])} می‌بود`;
         }
-        return `\u06AF\u0632\u06CC\u0646\u0647 \u0646\u0627\u0645\u0639\u062A\u0628\u0631: \u0645\u06CC\u200C\u0628\u0627\u06CC\u0633\u062A \u06CC\u06A9\u06CC \u0627\u0632 ${joinValues(issue2.values, "|")} \u0645\u06CC\u200C\u0628\u0648\u062F`;
+        return `گزینه نامعتبر: می‌بایست یکی از ${joinValues(issue2.values, "|")} می‌بود`;
       case "too_big": {
         const adj = issue2.inclusive ? "<=" : "<";
         const sizing = getSizing(issue2.origin);
         if (sizing) {
-          return `\u062E\u06CC\u0644\u06CC \u0628\u0632\u0631\u06AF: ${issue2.origin ?? "\u0645\u0642\u062F\u0627\u0631"} \u0628\u0627\u06CC\u062F ${adj}${issue2.maximum.toString()} ${sizing.unit ?? "\u0639\u0646\u0635\u0631"} \u0628\u0627\u0634\u062F`;
+          return `خیلی بزرگ: ${issue2.origin ?? "مقدار"} باید ${adj}${issue2.maximum.toString()} ${sizing.unit ?? "عنصر"} باشد`;
         }
-        return `\u062E\u06CC\u0644\u06CC \u0628\u0632\u0631\u06AF: ${issue2.origin ?? "\u0645\u0642\u062F\u0627\u0631"} \u0628\u0627\u06CC\u062F ${adj}${issue2.maximum.toString()} \u0628\u0627\u0634\u062F`;
+        return `خیلی بزرگ: ${issue2.origin ?? "مقدار"} باید ${adj}${issue2.maximum.toString()} باشد`;
       }
       case "too_small": {
         const adj = issue2.inclusive ? ">=" : ">";
         const sizing = getSizing(issue2.origin);
         if (sizing) {
-          return `\u062E\u06CC\u0644\u06CC \u06A9\u0648\u0686\u06A9: ${issue2.origin} \u0628\u0627\u06CC\u062F ${adj}${issue2.minimum.toString()} ${sizing.unit} \u0628\u0627\u0634\u062F`;
+          return `خیلی کوچک: ${issue2.origin} باید ${adj}${issue2.minimum.toString()} ${sizing.unit} باشد`;
         }
-        return `\u062E\u06CC\u0644\u06CC \u06A9\u0648\u0686\u06A9: ${issue2.origin} \u0628\u0627\u06CC\u062F ${adj}${issue2.minimum.toString()} \u0628\u0627\u0634\u062F`;
+        return `خیلی کوچک: ${issue2.origin} باید ${adj}${issue2.minimum.toString()} باشد`;
       }
       case "invalid_format": {
         const _issue = issue2;
         if (_issue.format === "starts_with") {
-          return `\u0631\u0634\u062A\u0647 \u0646\u0627\u0645\u0639\u062A\u0628\u0631: \u0628\u0627\u06CC\u062F \u0628\u0627 "${_issue.prefix}" \u0634\u0631\u0648\u0639 \u0634\u0648\u062F`;
+          return `رشته نامعتبر: باید با "${_issue.prefix}" شروع شود`;
         }
         if (_issue.format === "ends_with") {
-          return `\u0631\u0634\u062A\u0647 \u0646\u0627\u0645\u0639\u062A\u0628\u0631: \u0628\u0627\u06CC\u062F \u0628\u0627 "${_issue.suffix}" \u062A\u0645\u0627\u0645 \u0634\u0648\u062F`;
+          return `رشته نامعتبر: باید با "${_issue.suffix}" تمام شود`;
         }
         if (_issue.format === "includes") {
-          return `\u0631\u0634\u062A\u0647 \u0646\u0627\u0645\u0639\u062A\u0628\u0631: \u0628\u0627\u06CC\u062F \u0634\u0627\u0645\u0644 "${_issue.includes}" \u0628\u0627\u0634\u062F`;
+          return `رشته نامعتبر: باید شامل "${_issue.includes}" باشد`;
         }
         if (_issue.format === "regex") {
-          return `\u0631\u0634\u062A\u0647 \u0646\u0627\u0645\u0639\u062A\u0628\u0631: \u0628\u0627\u06CC\u062F \u0628\u0627 \u0627\u0644\u06AF\u0648\u06CC ${_issue.pattern} \u0645\u0637\u0627\u0628\u0642\u062A \u062F\u0627\u0634\u062A\u0647 \u0628\u0627\u0634\u062F`;
+          return `رشته نامعتبر: باید با الگوی ${_issue.pattern} مطابقت داشته باشد`;
         }
-        return `${Nouns[_issue.format] ?? issue2.format} \u0646\u0627\u0645\u0639\u062A\u0628\u0631`;
+        return `${Nouns[_issue.format] ?? issue2.format} نامعتبر`;
       }
       case "not_multiple_of":
-        return `\u0639\u062F\u062F \u0646\u0627\u0645\u0639\u062A\u0628\u0631: \u0628\u0627\u06CC\u062F \u0645\u0636\u0631\u0628 ${issue2.divisor} \u0628\u0627\u0634\u062F`;
+        return `عدد نامعتبر: باید مضرب ${issue2.divisor} باشد`;
       case "unrecognized_keys":
-        return `\u06A9\u0644\u06CC\u062F${issue2.keys.length > 1 ? "\u0647\u0627\u06CC" : ""} \u0646\u0627\u0634\u0646\u0627\u0633: ${joinValues(issue2.keys, ", ")}`;
+        return `کلید${issue2.keys.length > 1 ? "های" : ""} ناشناس: ${joinValues(issue2.keys, ", ")}`;
       case "invalid_key":
-        return `\u06A9\u0644\u06CC\u062F \u0646\u0627\u0634\u0646\u0627\u0633 \u062F\u0631 ${issue2.origin}`;
+        return `کلید ناشناس در ${issue2.origin}`;
       case "invalid_union":
-        return `\u0648\u0631\u0648\u062F\u06CC \u0646\u0627\u0645\u0639\u062A\u0628\u0631`;
+        return `ورودی نامعتبر`;
       case "invalid_element":
-        return `\u0645\u0642\u062F\u0627\u0631 \u0646\u0627\u0645\u0639\u062A\u0628\u0631 \u062F\u0631 ${issue2.origin}`;
+        return `مقدار نامعتبر در ${issue2.origin}`;
       default:
-        return `\u0648\u0631\u0648\u062F\u06CC \u0646\u0627\u0645\u0639\u062A\u0628\u0631`;
+        return `ورودی نامعتبر`;
     }
   };
 };
@@ -5449,14 +5448,14 @@ function fa_default() {
 // node_modules/zod/v4/locales/fi.js
 var error12 = () => {
   const Sizable = {
-    string: { unit: "merkki\xE4", subject: "merkkijonon" },
+    string: { unit: "merkkiä", subject: "merkkijonon" },
     file: { unit: "tavua", subject: "tiedoston" },
     array: { unit: "alkiota", subject: "listan" },
     set: { unit: "alkiota", subject: "joukon" },
     number: { unit: "", subject: "luvun" },
     bigint: { unit: "", subject: "suuren kokonaisluvun" },
     int: { unit: "", subject: "kokonaisluvun" },
-    date: { unit: "", subject: "p\xE4iv\xE4m\xE4\xE4r\xE4n" }
+    date: { unit: "", subject: "päivämäärän" }
   };
   function getSizing(origin) {
     return Sizable[origin] ?? null;
@@ -5482,8 +5481,8 @@ var error12 = () => {
     return t;
   };
   const Nouns = {
-    regex: "s\xE4\xE4nn\xF6llinen lauseke",
-    email: "s\xE4hk\xF6postiosoite",
+    regex: "säännöllinen lauseke",
+    email: "sähköpostiosoite",
     url: "URL-osoite",
     emoji: "emoji",
     uuid: "UUID",
@@ -5497,7 +5496,7 @@ var error12 = () => {
     xid: "XID",
     ksuid: "KSUID",
     datetime: "ISO-aikaleima",
-    date: "ISO-p\xE4iv\xE4m\xE4\xE4r\xE4",
+    date: "ISO-päivämäärä",
     time: "ISO-aika",
     duration: "ISO-kesto",
     ipv4: "IPv4-osoite",
@@ -5517,39 +5516,39 @@ var error12 = () => {
         return `Virheellinen tyyppi: odotettiin ${issue2.expected}, oli ${parsedType3(issue2.input)}`;
       case "invalid_value":
         if (issue2.values.length === 1)
-          return `Virheellinen sy\xF6te: t\xE4ytyy olla ${stringifyPrimitive(issue2.values[0])}`;
-        return `Virheellinen valinta: t\xE4ytyy olla yksi seuraavista: ${joinValues(issue2.values, "|")}`;
+          return `Virheellinen syöte: täytyy olla ${stringifyPrimitive(issue2.values[0])}`;
+        return `Virheellinen valinta: täytyy olla yksi seuraavista: ${joinValues(issue2.values, "|")}`;
       case "too_big": {
         const adj = issue2.inclusive ? "<=" : "<";
         const sizing = getSizing(issue2.origin);
         if (sizing) {
-          return `Liian suuri: ${sizing.subject} t\xE4ytyy olla ${adj}${issue2.maximum.toString()} ${sizing.unit}`.trim();
+          return `Liian suuri: ${sizing.subject} täytyy olla ${adj}${issue2.maximum.toString()} ${sizing.unit}`.trim();
         }
-        return `Liian suuri: arvon t\xE4ytyy olla ${adj}${issue2.maximum.toString()}`;
+        return `Liian suuri: arvon täytyy olla ${adj}${issue2.maximum.toString()}`;
       }
       case "too_small": {
         const adj = issue2.inclusive ? ">=" : ">";
         const sizing = getSizing(issue2.origin);
         if (sizing) {
-          return `Liian pieni: ${sizing.subject} t\xE4ytyy olla ${adj}${issue2.minimum.toString()} ${sizing.unit}`.trim();
+          return `Liian pieni: ${sizing.subject} täytyy olla ${adj}${issue2.minimum.toString()} ${sizing.unit}`.trim();
         }
-        return `Liian pieni: arvon t\xE4ytyy olla ${adj}${issue2.minimum.toString()}`;
+        return `Liian pieni: arvon täytyy olla ${adj}${issue2.minimum.toString()}`;
       }
       case "invalid_format": {
         const _issue = issue2;
         if (_issue.format === "starts_with")
-          return `Virheellinen sy\xF6te: t\xE4ytyy alkaa "${_issue.prefix}"`;
+          return `Virheellinen syöte: täytyy alkaa "${_issue.prefix}"`;
         if (_issue.format === "ends_with")
-          return `Virheellinen sy\xF6te: t\xE4ytyy loppua "${_issue.suffix}"`;
+          return `Virheellinen syöte: täytyy loppua "${_issue.suffix}"`;
         if (_issue.format === "includes")
-          return `Virheellinen sy\xF6te: t\xE4ytyy sis\xE4lt\xE4\xE4 "${_issue.includes}"`;
+          return `Virheellinen syöte: täytyy sisältää "${_issue.includes}"`;
         if (_issue.format === "regex") {
-          return `Virheellinen sy\xF6te: t\xE4ytyy vastata s\xE4\xE4nn\xF6llist\xE4 lauseketta ${_issue.pattern}`;
+          return `Virheellinen syöte: täytyy vastata säännöllistä lauseketta ${_issue.pattern}`;
         }
         return `Virheellinen ${Nouns[_issue.format] ?? issue2.format}`;
       }
       case "not_multiple_of":
-        return `Virheellinen luku: t\xE4ytyy olla luvun ${issue2.divisor} monikerta`;
+        return `Virheellinen luku: täytyy olla luvun ${issue2.divisor} monikerta`;
       case "unrecognized_keys":
         return `${issue2.keys.length > 1 ? "Tuntemattomat avaimet" : "Tuntematon avain"}: ${joinValues(issue2.keys, ", ")}`;
       case "invalid_key":
@@ -5559,7 +5558,7 @@ var error12 = () => {
       case "invalid_element":
         return "Virheellinen arvo joukossa";
       default:
-        return `Virheellinen sy\xF6te`;
+        return `Virheellinen syöte`;
     }
   };
 };
@@ -5571,10 +5570,10 @@ function fi_default() {
 // node_modules/zod/v4/locales/fr.js
 var error13 = () => {
   const Sizable = {
-    string: { unit: "caract\xE8res", verb: "avoir" },
+    string: { unit: "caractères", verb: "avoir" },
     file: { unit: "octets", verb: "avoir" },
-    array: { unit: "\xE9l\xE9ments", verb: "avoir" },
-    set: { unit: "\xE9l\xE9ments", verb: "avoir" }
+    array: { unit: "éléments", verb: "avoir" },
+    set: { unit: "éléments", verb: "avoir" }
   };
   function getSizing(origin) {
     return Sizable[origin] ?? null;
@@ -5600,7 +5599,7 @@ var error13 = () => {
     return t;
   };
   const Nouns = {
-    regex: "entr\xE9e",
+    regex: "entrée",
     email: "adresse e-mail",
     url: "URL",
     emoji: "emoji",
@@ -5617,32 +5616,32 @@ var error13 = () => {
     datetime: "date et heure ISO",
     date: "date ISO",
     time: "heure ISO",
-    duration: "dur\xE9e ISO",
+    duration: "durée ISO",
     ipv4: "adresse IPv4",
     ipv6: "adresse IPv6",
     cidrv4: "plage IPv4",
     cidrv6: "plage IPv6",
-    base64: "cha\xEEne encod\xE9e en base64",
-    base64url: "cha\xEEne encod\xE9e en base64url",
-    json_string: "cha\xEEne JSON",
-    e164: "num\xE9ro E.164",
+    base64: "chaîne encodée en base64",
+    base64url: "chaîne encodée en base64url",
+    json_string: "chaîne JSON",
+    e164: "numéro E.164",
     jwt: "JWT",
-    template_literal: "entr\xE9e"
+    template_literal: "entrée"
   };
   return (issue2) => {
     switch (issue2.code) {
       case "invalid_type":
-        return `Entr\xE9e invalide : ${issue2.expected} attendu, ${parsedType3(issue2.input)} re\xE7u`;
+        return `Entrée invalide : ${issue2.expected} attendu, ${parsedType3(issue2.input)} reçu`;
       case "invalid_value":
         if (issue2.values.length === 1)
-          return `Entr\xE9e invalide : ${stringifyPrimitive(issue2.values[0])} attendu`;
+          return `Entrée invalide : ${stringifyPrimitive(issue2.values[0])} attendu`;
         return `Option invalide : une valeur parmi ${joinValues(issue2.values, "|")} attendue`;
       case "too_big": {
         const adj = issue2.inclusive ? "<=" : "<";
         const sizing = getSizing(issue2.origin);
         if (sizing)
-          return `Trop grand : ${issue2.origin ?? "valeur"} doit ${sizing.verb} ${adj}${issue2.maximum.toString()} ${sizing.unit ?? "\xE9l\xE9ment(s)"}`;
-        return `Trop grand : ${issue2.origin ?? "valeur"} doit \xEAtre ${adj}${issue2.maximum.toString()}`;
+          return `Trop grand : ${issue2.origin ?? "valeur"} doit ${sizing.verb} ${adj}${issue2.maximum.toString()} ${sizing.unit ?? "élément(s)"}`;
+        return `Trop grand : ${issue2.origin ?? "valeur"} doit être ${adj}${issue2.maximum.toString()}`;
       }
       case "too_small": {
         const adj = issue2.inclusive ? ">=" : ">";
@@ -5650,32 +5649,32 @@ var error13 = () => {
         if (sizing) {
           return `Trop petit : ${issue2.origin} doit ${sizing.verb} ${adj}${issue2.minimum.toString()} ${sizing.unit}`;
         }
-        return `Trop petit : ${issue2.origin} doit \xEAtre ${adj}${issue2.minimum.toString()}`;
+        return `Trop petit : ${issue2.origin} doit être ${adj}${issue2.minimum.toString()}`;
       }
       case "invalid_format": {
         const _issue = issue2;
         if (_issue.format === "starts_with")
-          return `Cha\xEEne invalide : doit commencer par "${_issue.prefix}"`;
+          return `Chaîne invalide : doit commencer par "${_issue.prefix}"`;
         if (_issue.format === "ends_with")
-          return `Cha\xEEne invalide : doit se terminer par "${_issue.suffix}"`;
+          return `Chaîne invalide : doit se terminer par "${_issue.suffix}"`;
         if (_issue.format === "includes")
-          return `Cha\xEEne invalide : doit inclure "${_issue.includes}"`;
+          return `Chaîne invalide : doit inclure "${_issue.includes}"`;
         if (_issue.format === "regex")
-          return `Cha\xEEne invalide : doit correspondre au mod\xE8le ${_issue.pattern}`;
+          return `Chaîne invalide : doit correspondre au modèle ${_issue.pattern}`;
         return `${Nouns[_issue.format] ?? issue2.format} invalide`;
       }
       case "not_multiple_of":
-        return `Nombre invalide : doit \xEAtre un multiple de ${issue2.divisor}`;
+        return `Nombre invalide : doit être un multiple de ${issue2.divisor}`;
       case "unrecognized_keys":
-        return `Cl\xE9${issue2.keys.length > 1 ? "s" : ""} non reconnue${issue2.keys.length > 1 ? "s" : ""} : ${joinValues(issue2.keys, ", ")}`;
+        return `Clé${issue2.keys.length > 1 ? "s" : ""} non reconnue${issue2.keys.length > 1 ? "s" : ""} : ${joinValues(issue2.keys, ", ")}`;
       case "invalid_key":
-        return `Cl\xE9 invalide dans ${issue2.origin}`;
+        return `Clé invalide dans ${issue2.origin}`;
       case "invalid_union":
-        return "Entr\xE9e invalide";
+        return "Entrée invalide";
       case "invalid_element":
         return `Valeur invalide dans ${issue2.origin}`;
       default:
-        return `Entr\xE9e invalide`;
+        return `Entrée invalide`;
     }
   };
 };
@@ -5687,10 +5686,10 @@ function fr_default() {
 // node_modules/zod/v4/locales/fr-CA.js
 var error14 = () => {
   const Sizable = {
-    string: { unit: "caract\xE8res", verb: "avoir" },
+    string: { unit: "caractères", verb: "avoir" },
     file: { unit: "octets", verb: "avoir" },
-    array: { unit: "\xE9l\xE9ments", verb: "avoir" },
-    set: { unit: "\xE9l\xE9ments", verb: "avoir" }
+    array: { unit: "éléments", verb: "avoir" },
+    set: { unit: "éléments", verb: "avoir" }
   };
   function getSizing(origin) {
     return Sizable[origin] ?? null;
@@ -5716,7 +5715,7 @@ var error14 = () => {
     return t;
   };
   const Nouns = {
-    regex: "entr\xE9e",
+    regex: "entrée",
     email: "adresse courriel",
     url: "URL",
     emoji: "emoji",
@@ -5733,35 +5732,35 @@ var error14 = () => {
     datetime: "date-heure ISO",
     date: "date ISO",
     time: "heure ISO",
-    duration: "dur\xE9e ISO",
+    duration: "durée ISO",
     ipv4: "adresse IPv4",
     ipv6: "adresse IPv6",
     cidrv4: "plage IPv4",
     cidrv6: "plage IPv6",
-    base64: "cha\xEEne encod\xE9e en base64",
-    base64url: "cha\xEEne encod\xE9e en base64url",
-    json_string: "cha\xEEne JSON",
-    e164: "num\xE9ro E.164",
+    base64: "chaîne encodée en base64",
+    base64url: "chaîne encodée en base64url",
+    json_string: "chaîne JSON",
+    e164: "numéro E.164",
     jwt: "JWT",
-    template_literal: "entr\xE9e"
+    template_literal: "entrée"
   };
   return (issue2) => {
     switch (issue2.code) {
       case "invalid_type":
-        return `Entr\xE9e invalide : attendu ${issue2.expected}, re\xE7u ${parsedType3(issue2.input)}`;
+        return `Entrée invalide : attendu ${issue2.expected}, reçu ${parsedType3(issue2.input)}`;
       case "invalid_value":
         if (issue2.values.length === 1)
-          return `Entr\xE9e invalide : attendu ${stringifyPrimitive(issue2.values[0])}`;
+          return `Entrée invalide : attendu ${stringifyPrimitive(issue2.values[0])}`;
         return `Option invalide : attendu l'une des valeurs suivantes ${joinValues(issue2.values, "|")}`;
       case "too_big": {
-        const adj = issue2.inclusive ? "\u2264" : "<";
+        const adj = issue2.inclusive ? "≤" : "<";
         const sizing = getSizing(issue2.origin);
         if (sizing)
           return `Trop grand : attendu que ${issue2.origin ?? "la valeur"} ait ${adj}${issue2.maximum.toString()} ${sizing.unit}`;
         return `Trop grand : attendu que ${issue2.origin ?? "la valeur"} soit ${adj}${issue2.maximum.toString()}`;
       }
       case "too_small": {
-        const adj = issue2.inclusive ? "\u2265" : ">";
+        const adj = issue2.inclusive ? "≥" : ">";
         const sizing = getSizing(issue2.origin);
         if (sizing) {
           return `Trop petit : attendu que ${issue2.origin} ait ${adj}${issue2.minimum.toString()} ${sizing.unit}`;
@@ -5771,28 +5770,28 @@ var error14 = () => {
       case "invalid_format": {
         const _issue = issue2;
         if (_issue.format === "starts_with") {
-          return `Cha\xEEne invalide : doit commencer par "${_issue.prefix}"`;
+          return `Chaîne invalide : doit commencer par "${_issue.prefix}"`;
         }
         if (_issue.format === "ends_with")
-          return `Cha\xEEne invalide : doit se terminer par "${_issue.suffix}"`;
+          return `Chaîne invalide : doit se terminer par "${_issue.suffix}"`;
         if (_issue.format === "includes")
-          return `Cha\xEEne invalide : doit inclure "${_issue.includes}"`;
+          return `Chaîne invalide : doit inclure "${_issue.includes}"`;
         if (_issue.format === "regex")
-          return `Cha\xEEne invalide : doit correspondre au motif ${_issue.pattern}`;
+          return `Chaîne invalide : doit correspondre au motif ${_issue.pattern}`;
         return `${Nouns[_issue.format] ?? issue2.format} invalide`;
       }
       case "not_multiple_of":
-        return `Nombre invalide : doit \xEAtre un multiple de ${issue2.divisor}`;
+        return `Nombre invalide : doit être un multiple de ${issue2.divisor}`;
       case "unrecognized_keys":
-        return `Cl\xE9${issue2.keys.length > 1 ? "s" : ""} non reconnue${issue2.keys.length > 1 ? "s" : ""} : ${joinValues(issue2.keys, ", ")}`;
+        return `Clé${issue2.keys.length > 1 ? "s" : ""} non reconnue${issue2.keys.length > 1 ? "s" : ""} : ${joinValues(issue2.keys, ", ")}`;
       case "invalid_key":
-        return `Cl\xE9 invalide dans ${issue2.origin}`;
+        return `Clé invalide dans ${issue2.origin}`;
       case "invalid_union":
-        return "Entr\xE9e invalide";
+        return "Entrée invalide";
       case "invalid_element":
         return `Valeur invalide dans ${issue2.origin}`;
       default:
-        return `Entr\xE9e invalide`;
+        return `Entrée invalide`;
     }
   };
 };
@@ -5804,10 +5803,10 @@ function fr_CA_default() {
 // node_modules/zod/v4/locales/he.js
 var error15 = () => {
   const Sizable = {
-    string: { unit: "\u05D0\u05D5\u05EA\u05D9\u05D5\u05EA", verb: "\u05DC\u05DB\u05DC\u05D5\u05DC" },
-    file: { unit: "\u05D1\u05D9\u05D9\u05D8\u05D9\u05DD", verb: "\u05DC\u05DB\u05DC\u05D5\u05DC" },
-    array: { unit: "\u05E4\u05E8\u05D9\u05D8\u05D9\u05DD", verb: "\u05DC\u05DB\u05DC\u05D5\u05DC" },
-    set: { unit: "\u05E4\u05E8\u05D9\u05D8\u05D9\u05DD", verb: "\u05DC\u05DB\u05DC\u05D5\u05DC" }
+    string: { unit: "אותיות", verb: "לכלול" },
+    file: { unit: "בייטים", verb: "לכלול" },
+    array: { unit: "פריטים", verb: "לכלול" },
+    set: { unit: "פריטים", verb: "לכלול" }
   };
   function getSizing(origin) {
     return Sizable[origin] ?? null;
@@ -5833,10 +5832,10 @@ var error15 = () => {
     return t;
   };
   const Nouns = {
-    regex: "\u05E7\u05DC\u05D8",
-    email: "\u05DB\u05EA\u05D5\u05D1\u05EA \u05D0\u05D9\u05DE\u05D9\u05D9\u05DC",
-    url: "\u05DB\u05EA\u05D5\u05D1\u05EA \u05E8\u05E9\u05EA",
-    emoji: "\u05D0\u05D9\u05DE\u05D5\u05D2'\u05D9",
+    regex: "קלט",
+    email: "כתובת אימייל",
+    url: "כתובת רשת",
+    emoji: "אימוג'י",
     uuid: "UUID",
     uuidv4: "UUIDv4",
     uuidv6: "UUIDv6",
@@ -5847,68 +5846,68 @@ var error15 = () => {
     ulid: "ULID",
     xid: "XID",
     ksuid: "KSUID",
-    datetime: "\u05EA\u05D0\u05E8\u05D9\u05DA \u05D5\u05D6\u05DE\u05DF ISO",
-    date: "\u05EA\u05D0\u05E8\u05D9\u05DA ISO",
-    time: "\u05D6\u05DE\u05DF ISO",
-    duration: "\u05DE\u05E9\u05DA \u05D6\u05DE\u05DF ISO",
-    ipv4: "\u05DB\u05EA\u05D5\u05D1\u05EA IPv4",
-    ipv6: "\u05DB\u05EA\u05D5\u05D1\u05EA IPv6",
-    cidrv4: "\u05D8\u05D5\u05D5\u05D7 IPv4",
-    cidrv6: "\u05D8\u05D5\u05D5\u05D7 IPv6",
-    base64: "\u05DE\u05D7\u05E8\u05D5\u05D6\u05EA \u05D1\u05D1\u05E1\u05D9\u05E1 64",
-    base64url: "\u05DE\u05D7\u05E8\u05D5\u05D6\u05EA \u05D1\u05D1\u05E1\u05D9\u05E1 64 \u05DC\u05DB\u05EA\u05D5\u05D1\u05D5\u05EA \u05E8\u05E9\u05EA",
-    json_string: "\u05DE\u05D7\u05E8\u05D5\u05D6\u05EA JSON",
-    e164: "\u05DE\u05E1\u05E4\u05E8 E.164",
+    datetime: "תאריך וזמן ISO",
+    date: "תאריך ISO",
+    time: "זמן ISO",
+    duration: "משך זמן ISO",
+    ipv4: "כתובת IPv4",
+    ipv6: "כתובת IPv6",
+    cidrv4: "טווח IPv4",
+    cidrv6: "טווח IPv6",
+    base64: "מחרוזת בבסיס 64",
+    base64url: "מחרוזת בבסיס 64 לכתובות רשת",
+    json_string: "מחרוזת JSON",
+    e164: "מספר E.164",
     jwt: "JWT",
-    template_literal: "\u05E7\u05DC\u05D8"
+    template_literal: "קלט"
   };
   return (issue2) => {
     switch (issue2.code) {
       case "invalid_type":
-        return `\u05E7\u05DC\u05D8 \u05DC\u05D0 \u05EA\u05E7\u05D9\u05DF: \u05E6\u05E8\u05D9\u05DA ${issue2.expected}, \u05D4\u05EA\u05E7\u05D1\u05DC ${parsedType3(issue2.input)}`;
+        return `קלט לא תקין: צריך ${issue2.expected}, התקבל ${parsedType3(issue2.input)}`;
       case "invalid_value":
         if (issue2.values.length === 1)
-          return `\u05E7\u05DC\u05D8 \u05DC\u05D0 \u05EA\u05E7\u05D9\u05DF: \u05E6\u05E8\u05D9\u05DA ${stringifyPrimitive(issue2.values[0])}`;
-        return `\u05E7\u05DC\u05D8 \u05DC\u05D0 \u05EA\u05E7\u05D9\u05DF: \u05E6\u05E8\u05D9\u05DA \u05D0\u05D7\u05EA \u05DE\u05D4\u05D0\u05E4\u05E9\u05E8\u05D5\u05D9\u05D5\u05EA  ${joinValues(issue2.values, "|")}`;
+          return `קלט לא תקין: צריך ${stringifyPrimitive(issue2.values[0])}`;
+        return `קלט לא תקין: צריך אחת מהאפשרויות  ${joinValues(issue2.values, "|")}`;
       case "too_big": {
         const adj = issue2.inclusive ? "<=" : "<";
         const sizing = getSizing(issue2.origin);
         if (sizing)
-          return `\u05D2\u05D3\u05D5\u05DC \u05DE\u05D3\u05D9: ${issue2.origin ?? "value"} \u05E6\u05E8\u05D9\u05DA \u05DC\u05D4\u05D9\u05D5\u05EA ${adj}${issue2.maximum.toString()} ${sizing.unit ?? "elements"}`;
-        return `\u05D2\u05D3\u05D5\u05DC \u05DE\u05D3\u05D9: ${issue2.origin ?? "value"} \u05E6\u05E8\u05D9\u05DA \u05DC\u05D4\u05D9\u05D5\u05EA ${adj}${issue2.maximum.toString()}`;
+          return `גדול מדי: ${issue2.origin ?? "value"} צריך להיות ${adj}${issue2.maximum.toString()} ${sizing.unit ?? "elements"}`;
+        return `גדול מדי: ${issue2.origin ?? "value"} צריך להיות ${adj}${issue2.maximum.toString()}`;
       }
       case "too_small": {
         const adj = issue2.inclusive ? ">=" : ">";
         const sizing = getSizing(issue2.origin);
         if (sizing) {
-          return `\u05E7\u05D8\u05DF \u05DE\u05D3\u05D9: ${issue2.origin} \u05E6\u05E8\u05D9\u05DA \u05DC\u05D4\u05D9\u05D5\u05EA ${adj}${issue2.minimum.toString()} ${sizing.unit}`;
+          return `קטן מדי: ${issue2.origin} צריך להיות ${adj}${issue2.minimum.toString()} ${sizing.unit}`;
         }
-        return `\u05E7\u05D8\u05DF \u05DE\u05D3\u05D9: ${issue2.origin} \u05E6\u05E8\u05D9\u05DA \u05DC\u05D4\u05D9\u05D5\u05EA ${adj}${issue2.minimum.toString()}`;
+        return `קטן מדי: ${issue2.origin} צריך להיות ${adj}${issue2.minimum.toString()}`;
       }
       case "invalid_format": {
         const _issue = issue2;
         if (_issue.format === "starts_with")
-          return `\u05DE\u05D7\u05E8\u05D5\u05D6\u05EA \u05DC\u05D0 \u05EA\u05E7\u05D9\u05E0\u05D4: \u05D7\u05D9\u05D9\u05D1\u05EA \u05DC\u05D4\u05EA\u05D7\u05D9\u05DC \u05D1"${_issue.prefix}"`;
+          return `מחרוזת לא תקינה: חייבת להתחיל ב"${_issue.prefix}"`;
         if (_issue.format === "ends_with")
-          return `\u05DE\u05D7\u05E8\u05D5\u05D6\u05EA \u05DC\u05D0 \u05EA\u05E7\u05D9\u05E0\u05D4: \u05D7\u05D9\u05D9\u05D1\u05EA \u05DC\u05D4\u05E1\u05EA\u05D9\u05D9\u05DD \u05D1 "${_issue.suffix}"`;
+          return `מחרוזת לא תקינה: חייבת להסתיים ב "${_issue.suffix}"`;
         if (_issue.format === "includes")
-          return `\u05DE\u05D7\u05E8\u05D5\u05D6\u05EA \u05DC\u05D0 \u05EA\u05E7\u05D9\u05E0\u05D4: \u05D7\u05D9\u05D9\u05D1\u05EA \u05DC\u05DB\u05DC\u05D5\u05DC "${_issue.includes}"`;
+          return `מחרוזת לא תקינה: חייבת לכלול "${_issue.includes}"`;
         if (_issue.format === "regex")
-          return `\u05DE\u05D7\u05E8\u05D5\u05D6\u05EA \u05DC\u05D0 \u05EA\u05E7\u05D9\u05E0\u05D4: \u05D7\u05D9\u05D9\u05D1\u05EA \u05DC\u05D4\u05EA\u05D0\u05D9\u05DD \u05DC\u05EA\u05D1\u05E0\u05D9\u05EA ${_issue.pattern}`;
-        return `${Nouns[_issue.format] ?? issue2.format} \u05DC\u05D0 \u05EA\u05E7\u05D9\u05DF`;
+          return `מחרוזת לא תקינה: חייבת להתאים לתבנית ${_issue.pattern}`;
+        return `${Nouns[_issue.format] ?? issue2.format} לא תקין`;
       }
       case "not_multiple_of":
-        return `\u05DE\u05E1\u05E4\u05E8 \u05DC\u05D0 \u05EA\u05E7\u05D9\u05DF: \u05D7\u05D9\u05D9\u05D1 \u05DC\u05D4\u05D9\u05D5\u05EA \u05DE\u05DB\u05E4\u05DC\u05D4 \u05E9\u05DC ${issue2.divisor}`;
+        return `מספר לא תקין: חייב להיות מכפלה של ${issue2.divisor}`;
       case "unrecognized_keys":
-        return `\u05DE\u05E4\u05EA\u05D7${issue2.keys.length > 1 ? "\u05D5\u05EA" : ""} \u05DC\u05D0 \u05DE\u05D6\u05D5\u05D4${issue2.keys.length > 1 ? "\u05D9\u05DD" : "\u05D4"}: ${joinValues(issue2.keys, ", ")}`;
+        return `מפתח${issue2.keys.length > 1 ? "ות" : ""} לא מזוה${issue2.keys.length > 1 ? "ים" : "ה"}: ${joinValues(issue2.keys, ", ")}`;
       case "invalid_key":
-        return `\u05DE\u05E4\u05EA\u05D7 \u05DC\u05D0 \u05EA\u05E7\u05D9\u05DF \u05D1${issue2.origin}`;
+        return `מפתח לא תקין ב${issue2.origin}`;
       case "invalid_union":
-        return "\u05E7\u05DC\u05D8 \u05DC\u05D0 \u05EA\u05E7\u05D9\u05DF";
+        return "קלט לא תקין";
       case "invalid_element":
-        return `\u05E2\u05E8\u05DA \u05DC\u05D0 \u05EA\u05E7\u05D9\u05DF \u05D1${issue2.origin}`;
+        return `ערך לא תקין ב${issue2.origin}`;
       default:
-        return `\u05E7\u05DC\u05D8 \u05DC\u05D0 \u05EA\u05E7\u05D9\u05DF`;
+        return `קלט לא תקין`;
     }
   };
 };
@@ -5932,11 +5931,11 @@ var error16 = () => {
     const t = typeof data;
     switch (t) {
       case "number": {
-        return Number.isNaN(data) ? "NaN" : "sz\xE1m";
+        return Number.isNaN(data) ? "NaN" : "szám";
       }
       case "object": {
         if (Array.isArray(data)) {
-          return "t\xF6mb";
+          return "tömb";
         }
         if (data === null) {
           return "null";
@@ -5950,7 +5949,7 @@ var error16 = () => {
   };
   const Nouns = {
     regex: "bemenet",
-    email: "email c\xEDm",
+    email: "email cím",
     url: "URL",
     emoji: "emoji",
     uuid: "UUID",
@@ -5963,68 +5962,68 @@ var error16 = () => {
     ulid: "ULID",
     xid: "XID",
     ksuid: "KSUID",
-    datetime: "ISO id\u0151b\xE9lyeg",
-    date: "ISO d\xE1tum",
-    time: "ISO id\u0151",
-    duration: "ISO id\u0151intervallum",
-    ipv4: "IPv4 c\xEDm",
-    ipv6: "IPv6 c\xEDm",
-    cidrv4: "IPv4 tartom\xE1ny",
-    cidrv6: "IPv6 tartom\xE1ny",
-    base64: "base64-k\xF3dolt string",
-    base64url: "base64url-k\xF3dolt string",
+    datetime: "ISO időbélyeg",
+    date: "ISO dátum",
+    time: "ISO idő",
+    duration: "ISO időintervallum",
+    ipv4: "IPv4 cím",
+    ipv6: "IPv6 cím",
+    cidrv4: "IPv4 tartomány",
+    cidrv6: "IPv6 tartomány",
+    base64: "base64-kódolt string",
+    base64url: "base64url-kódolt string",
     json_string: "JSON string",
-    e164: "E.164 sz\xE1m",
+    e164: "E.164 szám",
     jwt: "JWT",
     template_literal: "bemenet"
   };
   return (issue2) => {
     switch (issue2.code) {
       case "invalid_type":
-        return `\xC9rv\xE9nytelen bemenet: a v\xE1rt \xE9rt\xE9k ${issue2.expected}, a kapott \xE9rt\xE9k ${parsedType3(issue2.input)}`;
+        return `Érvénytelen bemenet: a várt érték ${issue2.expected}, a kapott érték ${parsedType3(issue2.input)}`;
       case "invalid_value":
         if (issue2.values.length === 1)
-          return `\xC9rv\xE9nytelen bemenet: a v\xE1rt \xE9rt\xE9k ${stringifyPrimitive(issue2.values[0])}`;
-        return `\xC9rv\xE9nytelen opci\xF3: valamelyik \xE9rt\xE9k v\xE1rt ${joinValues(issue2.values, "|")}`;
+          return `Érvénytelen bemenet: a várt érték ${stringifyPrimitive(issue2.values[0])}`;
+        return `Érvénytelen opció: valamelyik érték várt ${joinValues(issue2.values, "|")}`;
       case "too_big": {
         const adj = issue2.inclusive ? "<=" : "<";
         const sizing = getSizing(issue2.origin);
         if (sizing)
-          return `T\xFAl nagy: ${issue2.origin ?? "\xE9rt\xE9k"} m\xE9rete t\xFAl nagy ${adj}${issue2.maximum.toString()} ${sizing.unit ?? "elem"}`;
-        return `T\xFAl nagy: a bemeneti \xE9rt\xE9k ${issue2.origin ?? "\xE9rt\xE9k"} t\xFAl nagy: ${adj}${issue2.maximum.toString()}`;
+          return `Túl nagy: ${issue2.origin ?? "érték"} mérete túl nagy ${adj}${issue2.maximum.toString()} ${sizing.unit ?? "elem"}`;
+        return `Túl nagy: a bemeneti érték ${issue2.origin ?? "érték"} túl nagy: ${adj}${issue2.maximum.toString()}`;
       }
       case "too_small": {
         const adj = issue2.inclusive ? ">=" : ">";
         const sizing = getSizing(issue2.origin);
         if (sizing) {
-          return `T\xFAl kicsi: a bemeneti \xE9rt\xE9k ${issue2.origin} m\xE9rete t\xFAl kicsi ${adj}${issue2.minimum.toString()} ${sizing.unit}`;
+          return `Túl kicsi: a bemeneti érték ${issue2.origin} mérete túl kicsi ${adj}${issue2.minimum.toString()} ${sizing.unit}`;
         }
-        return `T\xFAl kicsi: a bemeneti \xE9rt\xE9k ${issue2.origin} t\xFAl kicsi ${adj}${issue2.minimum.toString()}`;
+        return `Túl kicsi: a bemeneti érték ${issue2.origin} túl kicsi ${adj}${issue2.minimum.toString()}`;
       }
       case "invalid_format": {
         const _issue = issue2;
         if (_issue.format === "starts_with")
-          return `\xC9rv\xE9nytelen string: "${_issue.prefix}" \xE9rt\xE9kkel kell kezd\u0151dnie`;
+          return `Érvénytelen string: "${_issue.prefix}" értékkel kell kezdődnie`;
         if (_issue.format === "ends_with")
-          return `\xC9rv\xE9nytelen string: "${_issue.suffix}" \xE9rt\xE9kkel kell v\xE9gz\u0151dnie`;
+          return `Érvénytelen string: "${_issue.suffix}" értékkel kell végződnie`;
         if (_issue.format === "includes")
-          return `\xC9rv\xE9nytelen string: "${_issue.includes}" \xE9rt\xE9ket kell tartalmaznia`;
+          return `Érvénytelen string: "${_issue.includes}" értéket kell tartalmaznia`;
         if (_issue.format === "regex")
-          return `\xC9rv\xE9nytelen string: ${_issue.pattern} mint\xE1nak kell megfelelnie`;
-        return `\xC9rv\xE9nytelen ${Nouns[_issue.format] ?? issue2.format}`;
+          return `Érvénytelen string: ${_issue.pattern} mintának kell megfelelnie`;
+        return `Érvénytelen ${Nouns[_issue.format] ?? issue2.format}`;
       }
       case "not_multiple_of":
-        return `\xC9rv\xE9nytelen sz\xE1m: ${issue2.divisor} t\xF6bbsz\xF6r\xF6s\xE9nek kell lennie`;
+        return `Érvénytelen szám: ${issue2.divisor} többszörösének kell lennie`;
       case "unrecognized_keys":
         return `Ismeretlen kulcs${issue2.keys.length > 1 ? "s" : ""}: ${joinValues(issue2.keys, ", ")}`;
       case "invalid_key":
-        return `\xC9rv\xE9nytelen kulcs ${issue2.origin}`;
+        return `Érvénytelen kulcs ${issue2.origin}`;
       case "invalid_union":
-        return "\xC9rv\xE9nytelen bemenet";
+        return "Érvénytelen bemenet";
       case "invalid_element":
-        return `\xC9rv\xE9nytelen \xE9rt\xE9k: ${issue2.origin}`;
+        return `Érvénytelen érték: ${issue2.origin}`;
       default:
-        return `\xC9rv\xE9nytelen bemenet`;
+        return `Érvénytelen bemenet`;
     }
   };
 };
@@ -6154,7 +6153,7 @@ var parsedType3 = (data) => {
   const t = typeof data;
   switch (t) {
     case "number": {
-      return Number.isNaN(data) ? "NaN" : "n\xFAmer";
+      return Number.isNaN(data) ? "NaN" : "númer";
     }
     case "object": {
       if (Array.isArray(data)) {
@@ -6172,10 +6171,10 @@ var parsedType3 = (data) => {
 };
 var error18 = () => {
   const Sizable = {
-    string: { unit: "stafi", verb: "a\xF0 hafa" },
-    file: { unit: "b\xE6ti", verb: "a\xF0 hafa" },
-    array: { unit: "hluti", verb: "a\xF0 hafa" },
-    set: { unit: "hluti", verb: "a\xF0 hafa" }
+    string: { unit: "stafi", verb: "að hafa" },
+    file: { unit: "bæti", verb: "að hafa" },
+    array: { unit: "hluti", verb: "að hafa" },
+    set: { unit: "hluti", verb: "að hafa" }
   };
   function getSizing(origin) {
     return Sizable[origin] ?? null;
@@ -6183,7 +6182,7 @@ var error18 = () => {
   const Nouns = {
     regex: "gildi",
     email: "netfang",
-    url: "vefsl\xF3\xF0",
+    url: "vefslóð",
     emoji: "emoji",
     uuid: "UUID",
     uuidv4: "UUIDv4",
@@ -6195,10 +6194,10 @@ var error18 = () => {
     ulid: "ULID",
     xid: "XID",
     ksuid: "KSUID",
-    datetime: "ISO dagsetning og t\xEDmi",
+    datetime: "ISO dagsetning og tími",
     date: "ISO dagsetning",
-    time: "ISO t\xEDmi",
-    duration: "ISO t\xEDmalengd",
+    time: "ISO tími",
+    duration: "ISO tímalengd",
     ipv4: "IPv4 address",
     ipv6: "IPv6 address",
     cidrv4: "IPv4 range",
@@ -6206,56 +6205,56 @@ var error18 = () => {
     base64: "base64-encoded strengur",
     base64url: "base64url-encoded strengur",
     json_string: "JSON strengur",
-    e164: "E.164 t\xF6lugildi",
+    e164: "E.164 tölugildi",
     jwt: "JWT",
     template_literal: "gildi"
   };
   return (issue2) => {
     switch (issue2.code) {
       case "invalid_type":
-        return `Rangt gildi: \xDE\xFA sl\xF3st inn ${parsedType3(issue2.input)} \xFEar sem \xE1 a\xF0 vera ${issue2.expected}`;
+        return `Rangt gildi: Þú slóst inn ${parsedType3(issue2.input)} þar sem á að vera ${issue2.expected}`;
       case "invalid_value":
         if (issue2.values.length === 1)
-          return `Rangt gildi: gert r\xE1\xF0 fyrir ${stringifyPrimitive(issue2.values[0])}`;
-        return `\xD3gilt val: m\xE1 vera eitt af eftirfarandi ${joinValues(issue2.values, "|")}`;
+          return `Rangt gildi: gert ráð fyrir ${stringifyPrimitive(issue2.values[0])}`;
+        return `Ógilt val: má vera eitt af eftirfarandi ${joinValues(issue2.values, "|")}`;
       case "too_big": {
         const adj = issue2.inclusive ? "<=" : "<";
         const sizing = getSizing(issue2.origin);
         if (sizing)
-          return `Of st\xF3rt: gert er r\xE1\xF0 fyrir a\xF0 ${issue2.origin ?? "gildi"} hafi ${adj}${issue2.maximum.toString()} ${sizing.unit ?? "hluti"}`;
-        return `Of st\xF3rt: gert er r\xE1\xF0 fyrir a\xF0 ${issue2.origin ?? "gildi"} s\xE9 ${adj}${issue2.maximum.toString()}`;
+          return `Of stórt: gert er ráð fyrir að ${issue2.origin ?? "gildi"} hafi ${adj}${issue2.maximum.toString()} ${sizing.unit ?? "hluti"}`;
+        return `Of stórt: gert er ráð fyrir að ${issue2.origin ?? "gildi"} sé ${adj}${issue2.maximum.toString()}`;
       }
       case "too_small": {
         const adj = issue2.inclusive ? ">=" : ">";
         const sizing = getSizing(issue2.origin);
         if (sizing) {
-          return `Of l\xEDti\xF0: gert er r\xE1\xF0 fyrir a\xF0 ${issue2.origin} hafi ${adj}${issue2.minimum.toString()} ${sizing.unit}`;
+          return `Of lítið: gert er ráð fyrir að ${issue2.origin} hafi ${adj}${issue2.minimum.toString()} ${sizing.unit}`;
         }
-        return `Of l\xEDti\xF0: gert er r\xE1\xF0 fyrir a\xF0 ${issue2.origin} s\xE9 ${adj}${issue2.minimum.toString()}`;
+        return `Of lítið: gert er ráð fyrir að ${issue2.origin} sé ${adj}${issue2.minimum.toString()}`;
       }
       case "invalid_format": {
         const _issue = issue2;
         if (_issue.format === "starts_with") {
-          return `\xD3gildur strengur: ver\xF0ur a\xF0 byrja \xE1 "${_issue.prefix}"`;
+          return `Ógildur strengur: verður að byrja á "${_issue.prefix}"`;
         }
         if (_issue.format === "ends_with")
-          return `\xD3gildur strengur: ver\xF0ur a\xF0 enda \xE1 "${_issue.suffix}"`;
+          return `Ógildur strengur: verður að enda á "${_issue.suffix}"`;
         if (_issue.format === "includes")
-          return `\xD3gildur strengur: ver\xF0ur a\xF0 innihalda "${_issue.includes}"`;
+          return `Ógildur strengur: verður að innihalda "${_issue.includes}"`;
         if (_issue.format === "regex")
-          return `\xD3gildur strengur: ver\xF0ur a\xF0 fylgja mynstri ${_issue.pattern}`;
+          return `Ógildur strengur: verður að fylgja mynstri ${_issue.pattern}`;
         return `Rangt ${Nouns[_issue.format] ?? issue2.format}`;
       }
       case "not_multiple_of":
-        return `R\xF6ng tala: ver\xF0ur a\xF0 vera margfeldi af ${issue2.divisor}`;
+        return `Röng tala: verður að vera margfeldi af ${issue2.divisor}`;
       case "unrecognized_keys":
-        return `\xD3\xFEekkt ${issue2.keys.length > 1 ? "ir lyklar" : "ur lykill"}: ${joinValues(issue2.keys, ", ")}`;
+        return `Óþekkt ${issue2.keys.length > 1 ? "ir lyklar" : "ur lykill"}: ${joinValues(issue2.keys, ", ")}`;
       case "invalid_key":
-        return `Rangur lykill \xED ${issue2.origin}`;
+        return `Rangur lykill í ${issue2.origin}`;
       case "invalid_union":
         return "Rangt gildi";
       case "invalid_element":
-        return `Rangt gildi \xED ${issue2.origin}`;
+        return `Rangt gildi í ${issue2.origin}`;
       default:
         return `Rangt gildi`;
     }
@@ -6385,10 +6384,10 @@ function it_default() {
 // node_modules/zod/v4/locales/ja.js
 var error20 = () => {
   const Sizable = {
-    string: { unit: "\u6587\u5B57", verb: "\u3067\u3042\u308B" },
-    file: { unit: "\u30D0\u30A4\u30C8", verb: "\u3067\u3042\u308B" },
-    array: { unit: "\u8981\u7D20", verb: "\u3067\u3042\u308B" },
-    set: { unit: "\u8981\u7D20", verb: "\u3067\u3042\u308B" }
+    string: { unit: "文字", verb: "である" },
+    file: { unit: "バイト", verb: "である" },
+    array: { unit: "要素", verb: "である" },
+    set: { unit: "要素", verb: "である" }
   };
   function getSizing(origin) {
     return Sizable[origin] ?? null;
@@ -6397,11 +6396,11 @@ var error20 = () => {
     const t = typeof data;
     switch (t) {
       case "number": {
-        return Number.isNaN(data) ? "NaN" : "\u6570\u5024";
+        return Number.isNaN(data) ? "NaN" : "数値";
       }
       case "object": {
         if (Array.isArray(data)) {
-          return "\u914D\u5217";
+          return "配列";
         }
         if (data === null) {
           return "null";
@@ -6414,10 +6413,10 @@ var error20 = () => {
     return t;
   };
   const Nouns = {
-    regex: "\u5165\u529B\u5024",
-    email: "\u30E1\u30FC\u30EB\u30A2\u30C9\u30EC\u30B9",
+    regex: "入力値",
+    email: "メールアドレス",
     url: "URL",
-    emoji: "\u7D75\u6587\u5B57",
+    emoji: "絵文字",
     uuid: "UUID",
     uuidv4: "UUIDv4",
     uuidv6: "UUIDv6",
@@ -6428,67 +6427,67 @@ var error20 = () => {
     ulid: "ULID",
     xid: "XID",
     ksuid: "KSUID",
-    datetime: "ISO\u65E5\u6642",
-    date: "ISO\u65E5\u4ED8",
-    time: "ISO\u6642\u523B",
-    duration: "ISO\u671F\u9593",
-    ipv4: "IPv4\u30A2\u30C9\u30EC\u30B9",
-    ipv6: "IPv6\u30A2\u30C9\u30EC\u30B9",
-    cidrv4: "IPv4\u7BC4\u56F2",
-    cidrv6: "IPv6\u7BC4\u56F2",
-    base64: "base64\u30A8\u30F3\u30B3\u30FC\u30C9\u6587\u5B57\u5217",
-    base64url: "base64url\u30A8\u30F3\u30B3\u30FC\u30C9\u6587\u5B57\u5217",
-    json_string: "JSON\u6587\u5B57\u5217",
-    e164: "E.164\u756A\u53F7",
+    datetime: "ISO日時",
+    date: "ISO日付",
+    time: "ISO時刻",
+    duration: "ISO期間",
+    ipv4: "IPv4アドレス",
+    ipv6: "IPv6アドレス",
+    cidrv4: "IPv4範囲",
+    cidrv6: "IPv6範囲",
+    base64: "base64エンコード文字列",
+    base64url: "base64urlエンコード文字列",
+    json_string: "JSON文字列",
+    e164: "E.164番号",
     jwt: "JWT",
-    template_literal: "\u5165\u529B\u5024"
+    template_literal: "入力値"
   };
   return (issue2) => {
     switch (issue2.code) {
       case "invalid_type":
-        return `\u7121\u52B9\u306A\u5165\u529B: ${issue2.expected}\u304C\u671F\u5F85\u3055\u308C\u307E\u3057\u305F\u304C\u3001${parsedType4(issue2.input)}\u304C\u5165\u529B\u3055\u308C\u307E\u3057\u305F`;
+        return `無効な入力: ${issue2.expected}が期待されましたが、${parsedType4(issue2.input)}が入力されました`;
       case "invalid_value":
         if (issue2.values.length === 1)
-          return `\u7121\u52B9\u306A\u5165\u529B: ${stringifyPrimitive(issue2.values[0])}\u304C\u671F\u5F85\u3055\u308C\u307E\u3057\u305F`;
-        return `\u7121\u52B9\u306A\u9078\u629E: ${joinValues(issue2.values, "\u3001")}\u306E\u3044\u305A\u308C\u304B\u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059`;
+          return `無効な入力: ${stringifyPrimitive(issue2.values[0])}が期待されました`;
+        return `無効な選択: ${joinValues(issue2.values, "、")}のいずれかである必要があります`;
       case "too_big": {
-        const adj = issue2.inclusive ? "\u4EE5\u4E0B\u3067\u3042\u308B" : "\u3088\u308A\u5C0F\u3055\u3044";
+        const adj = issue2.inclusive ? "以下である" : "より小さい";
         const sizing = getSizing(issue2.origin);
         if (sizing)
-          return `\u5927\u304D\u3059\u304E\u308B\u5024: ${issue2.origin ?? "\u5024"}\u306F${issue2.maximum.toString()}${sizing.unit ?? "\u8981\u7D20"}${adj}\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059`;
-        return `\u5927\u304D\u3059\u304E\u308B\u5024: ${issue2.origin ?? "\u5024"}\u306F${issue2.maximum.toString()}${adj}\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059`;
+          return `大きすぎる値: ${issue2.origin ?? "値"}は${issue2.maximum.toString()}${sizing.unit ?? "要素"}${adj}必要があります`;
+        return `大きすぎる値: ${issue2.origin ?? "値"}は${issue2.maximum.toString()}${adj}必要があります`;
       }
       case "too_small": {
-        const adj = issue2.inclusive ? "\u4EE5\u4E0A\u3067\u3042\u308B" : "\u3088\u308A\u5927\u304D\u3044";
+        const adj = issue2.inclusive ? "以上である" : "より大きい";
         const sizing = getSizing(issue2.origin);
         if (sizing)
-          return `\u5C0F\u3055\u3059\u304E\u308B\u5024: ${issue2.origin}\u306F${issue2.minimum.toString()}${sizing.unit}${adj}\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059`;
-        return `\u5C0F\u3055\u3059\u304E\u308B\u5024: ${issue2.origin}\u306F${issue2.minimum.toString()}${adj}\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059`;
+          return `小さすぎる値: ${issue2.origin}は${issue2.minimum.toString()}${sizing.unit}${adj}必要があります`;
+        return `小さすぎる値: ${issue2.origin}は${issue2.minimum.toString()}${adj}必要があります`;
       }
       case "invalid_format": {
         const _issue = issue2;
         if (_issue.format === "starts_with")
-          return `\u7121\u52B9\u306A\u6587\u5B57\u5217: "${_issue.prefix}"\u3067\u59CB\u307E\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059`;
+          return `無効な文字列: "${_issue.prefix}"で始まる必要があります`;
         if (_issue.format === "ends_with")
-          return `\u7121\u52B9\u306A\u6587\u5B57\u5217: "${_issue.suffix}"\u3067\u7D42\u308F\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059`;
+          return `無効な文字列: "${_issue.suffix}"で終わる必要があります`;
         if (_issue.format === "includes")
-          return `\u7121\u52B9\u306A\u6587\u5B57\u5217: "${_issue.includes}"\u3092\u542B\u3080\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059`;
+          return `無効な文字列: "${_issue.includes}"を含む必要があります`;
         if (_issue.format === "regex")
-          return `\u7121\u52B9\u306A\u6587\u5B57\u5217: \u30D1\u30BF\u30FC\u30F3${_issue.pattern}\u306B\u4E00\u81F4\u3059\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059`;
-        return `\u7121\u52B9\u306A${Nouns[_issue.format] ?? issue2.format}`;
+          return `無効な文字列: パターン${_issue.pattern}に一致する必要があります`;
+        return `無効な${Nouns[_issue.format] ?? issue2.format}`;
       }
       case "not_multiple_of":
-        return `\u7121\u52B9\u306A\u6570\u5024: ${issue2.divisor}\u306E\u500D\u6570\u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059`;
+        return `無効な数値: ${issue2.divisor}の倍数である必要があります`;
       case "unrecognized_keys":
-        return `\u8A8D\u8B58\u3055\u308C\u3066\u3044\u306A\u3044\u30AD\u30FC${issue2.keys.length > 1 ? "\u7FA4" : ""}: ${joinValues(issue2.keys, "\u3001")}`;
+        return `認識されていないキー${issue2.keys.length > 1 ? "群" : ""}: ${joinValues(issue2.keys, "、")}`;
       case "invalid_key":
-        return `${issue2.origin}\u5185\u306E\u7121\u52B9\u306A\u30AD\u30FC`;
+        return `${issue2.origin}内の無効なキー`;
       case "invalid_union":
-        return "\u7121\u52B9\u306A\u5165\u529B";
+        return "無効な入力";
       case "invalid_element":
-        return `${issue2.origin}\u5185\u306E\u7121\u52B9\u306A\u5024`;
+        return `${issue2.origin}内の無効な値`;
       default:
-        return `\u7121\u52B9\u306A\u5165\u529B`;
+        return `無効な入力`;
     }
   };
 };
@@ -6502,11 +6501,11 @@ var parsedType4 = (data) => {
   const t = typeof data;
   switch (t) {
     case "number": {
-      return Number.isNaN(data) ? "NaN" : "\u10E0\u10D8\u10EA\u10EE\u10D5\u10D8";
+      return Number.isNaN(data) ? "NaN" : "რიცხვი";
     }
     case "object": {
       if (Array.isArray(data)) {
-        return "\u10DB\u10D0\u10E1\u10D8\u10D5\u10D8";
+        return "მასივი";
       }
       if (data === null) {
         return "null";
@@ -6517,30 +6516,30 @@ var parsedType4 = (data) => {
     }
   }
   const typeMap = {
-    string: "\u10E1\u10E2\u10E0\u10D8\u10DC\u10D2\u10D8",
-    boolean: "\u10D1\u10E3\u10DA\u10D4\u10D0\u10DC\u10D8",
+    string: "სტრინგი",
+    boolean: "ბულეანი",
     undefined: "undefined",
     bigint: "bigint",
     symbol: "symbol",
-    function: "\u10E4\u10E3\u10DC\u10E5\u10EA\u10D8\u10D0"
+    function: "ფუნქცია"
   };
   return typeMap[t] ?? t;
 };
 var error21 = () => {
   const Sizable = {
-    string: { unit: "\u10E1\u10D8\u10DB\u10D1\u10DD\u10DA\u10DD", verb: "\u10E3\u10DC\u10D3\u10D0 \u10E8\u10D4\u10D8\u10EA\u10D0\u10D5\u10D3\u10D4\u10E1" },
-    file: { unit: "\u10D1\u10D0\u10D8\u10E2\u10D8", verb: "\u10E3\u10DC\u10D3\u10D0 \u10E8\u10D4\u10D8\u10EA\u10D0\u10D5\u10D3\u10D4\u10E1" },
-    array: { unit: "\u10D4\u10DA\u10D4\u10DB\u10D4\u10DC\u10E2\u10D8", verb: "\u10E3\u10DC\u10D3\u10D0 \u10E8\u10D4\u10D8\u10EA\u10D0\u10D5\u10D3\u10D4\u10E1" },
-    set: { unit: "\u10D4\u10DA\u10D4\u10DB\u10D4\u10DC\u10E2\u10D8", verb: "\u10E3\u10DC\u10D3\u10D0 \u10E8\u10D4\u10D8\u10EA\u10D0\u10D5\u10D3\u10D4\u10E1" }
+    string: { unit: "სიმბოლო", verb: "უნდა შეიცავდეს" },
+    file: { unit: "ბაიტი", verb: "უნდა შეიცავდეს" },
+    array: { unit: "ელემენტი", verb: "უნდა შეიცავდეს" },
+    set: { unit: "ელემენტი", verb: "უნდა შეიცავდეს" }
   };
   function getSizing(origin) {
     return Sizable[origin] ?? null;
   }
   const Nouns = {
-    regex: "\u10E8\u10D4\u10E7\u10D5\u10D0\u10DC\u10D0",
-    email: "\u10D4\u10DA-\u10E4\u10DD\u10E1\u10E2\u10D8\u10E1 \u10DB\u10D8\u10E1\u10D0\u10DB\u10D0\u10E0\u10D7\u10D8",
+    regex: "შეყვანა",
+    email: "ელ-ფოსტის მისამართი",
     url: "URL",
-    emoji: "\u10D4\u10DB\u10DD\u10EF\u10D8",
+    emoji: "ემოჯი",
     uuid: "UUID",
     uuidv4: "UUIDv4",
     uuidv6: "UUIDv6",
@@ -6551,69 +6550,69 @@ var error21 = () => {
     ulid: "ULID",
     xid: "XID",
     ksuid: "KSUID",
-    datetime: "\u10D7\u10D0\u10E0\u10D8\u10E6\u10D8-\u10D3\u10E0\u10DD",
-    date: "\u10D7\u10D0\u10E0\u10D8\u10E6\u10D8",
-    time: "\u10D3\u10E0\u10DD",
-    duration: "\u10EE\u10D0\u10DC\u10D2\u10E0\u10EB\u10DA\u10D8\u10D5\u10DD\u10D1\u10D0",
-    ipv4: "IPv4 \u10DB\u10D8\u10E1\u10D0\u10DB\u10D0\u10E0\u10D7\u10D8",
-    ipv6: "IPv6 \u10DB\u10D8\u10E1\u10D0\u10DB\u10D0\u10E0\u10D7\u10D8",
-    cidrv4: "IPv4 \u10D3\u10D8\u10D0\u10DE\u10D0\u10D6\u10DD\u10DC\u10D8",
-    cidrv6: "IPv6 \u10D3\u10D8\u10D0\u10DE\u10D0\u10D6\u10DD\u10DC\u10D8",
-    base64: "base64-\u10D9\u10DD\u10D3\u10D8\u10E0\u10D4\u10D1\u10E3\u10DA\u10D8 \u10E1\u10E2\u10E0\u10D8\u10DC\u10D2\u10D8",
-    base64url: "base64url-\u10D9\u10DD\u10D3\u10D8\u10E0\u10D4\u10D1\u10E3\u10DA\u10D8 \u10E1\u10E2\u10E0\u10D8\u10DC\u10D2\u10D8",
-    json_string: "JSON \u10E1\u10E2\u10E0\u10D8\u10DC\u10D2\u10D8",
-    e164: "E.164 \u10DC\u10DD\u10DB\u10D4\u10E0\u10D8",
+    datetime: "თარიღი-დრო",
+    date: "თარიღი",
+    time: "დრო",
+    duration: "ხანგრძლივობა",
+    ipv4: "IPv4 მისამართი",
+    ipv6: "IPv6 მისამართი",
+    cidrv4: "IPv4 დიაპაზონი",
+    cidrv6: "IPv6 დიაპაზონი",
+    base64: "base64-კოდირებული სტრინგი",
+    base64url: "base64url-კოდირებული სტრინგი",
+    json_string: "JSON სტრინგი",
+    e164: "E.164 ნომერი",
     jwt: "JWT",
-    template_literal: "\u10E8\u10D4\u10E7\u10D5\u10D0\u10DC\u10D0"
+    template_literal: "შეყვანა"
   };
   return (issue2) => {
     switch (issue2.code) {
       case "invalid_type":
-        return `\u10D0\u10E0\u10D0\u10E1\u10EC\u10DD\u10E0\u10D8 \u10E8\u10D4\u10E7\u10D5\u10D0\u10DC\u10D0: \u10DB\u10DD\u10E1\u10D0\u10DA\u10DD\u10D3\u10DC\u10D4\u10DA\u10D8 ${issue2.expected}, \u10DB\u10D8\u10E6\u10D4\u10D1\u10E3\u10DA\u10D8 ${parsedType4(issue2.input)}`;
+        return `არასწორი შეყვანა: მოსალოდნელი ${issue2.expected}, მიღებული ${parsedType4(issue2.input)}`;
       case "invalid_value":
         if (issue2.values.length === 1)
-          return `\u10D0\u10E0\u10D0\u10E1\u10EC\u10DD\u10E0\u10D8 \u10E8\u10D4\u10E7\u10D5\u10D0\u10DC\u10D0: \u10DB\u10DD\u10E1\u10D0\u10DA\u10DD\u10D3\u10DC\u10D4\u10DA\u10D8 ${stringifyPrimitive(issue2.values[0])}`;
-        return `\u10D0\u10E0\u10D0\u10E1\u10EC\u10DD\u10E0\u10D8 \u10D5\u10D0\u10E0\u10D8\u10D0\u10DC\u10E2\u10D8: \u10DB\u10DD\u10E1\u10D0\u10DA\u10DD\u10D3\u10DC\u10D4\u10DA\u10D8\u10D0 \u10D4\u10E0\u10D7-\u10D4\u10E0\u10D7\u10D8 ${joinValues(issue2.values, "|")}-\u10D3\u10D0\u10DC`;
+          return `არასწორი შეყვანა: მოსალოდნელი ${stringifyPrimitive(issue2.values[0])}`;
+        return `არასწორი ვარიანტი: მოსალოდნელია ერთ-ერთი ${joinValues(issue2.values, "|")}-დან`;
       case "too_big": {
         const adj = issue2.inclusive ? "<=" : "<";
         const sizing = getSizing(issue2.origin);
         if (sizing)
-          return `\u10D6\u10D4\u10D3\u10DB\u10D4\u10E2\u10D0\u10D3 \u10D3\u10D8\u10D3\u10D8: \u10DB\u10DD\u10E1\u10D0\u10DA\u10DD\u10D3\u10DC\u10D4\u10DA\u10D8 ${issue2.origin ?? "\u10DB\u10DC\u10D8\u10E8\u10D5\u10DC\u10D4\u10DA\u10DD\u10D1\u10D0"} ${sizing.verb} ${adj}${issue2.maximum.toString()} ${sizing.unit}`;
-        return `\u10D6\u10D4\u10D3\u10DB\u10D4\u10E2\u10D0\u10D3 \u10D3\u10D8\u10D3\u10D8: \u10DB\u10DD\u10E1\u10D0\u10DA\u10DD\u10D3\u10DC\u10D4\u10DA\u10D8 ${issue2.origin ?? "\u10DB\u10DC\u10D8\u10E8\u10D5\u10DC\u10D4\u10DA\u10DD\u10D1\u10D0"} \u10D8\u10E7\u10DD\u10E1 ${adj}${issue2.maximum.toString()}`;
+          return `ზედმეტად დიდი: მოსალოდნელი ${issue2.origin ?? "მნიშვნელობა"} ${sizing.verb} ${adj}${issue2.maximum.toString()} ${sizing.unit}`;
+        return `ზედმეტად დიდი: მოსალოდნელი ${issue2.origin ?? "მნიშვნელობა"} იყოს ${adj}${issue2.maximum.toString()}`;
       }
       case "too_small": {
         const adj = issue2.inclusive ? ">=" : ">";
         const sizing = getSizing(issue2.origin);
         if (sizing) {
-          return `\u10D6\u10D4\u10D3\u10DB\u10D4\u10E2\u10D0\u10D3 \u10DE\u10D0\u10E2\u10D0\u10E0\u10D0: \u10DB\u10DD\u10E1\u10D0\u10DA\u10DD\u10D3\u10DC\u10D4\u10DA\u10D8 ${issue2.origin} ${sizing.verb} ${adj}${issue2.minimum.toString()} ${sizing.unit}`;
+          return `ზედმეტად პატარა: მოსალოდნელი ${issue2.origin} ${sizing.verb} ${adj}${issue2.minimum.toString()} ${sizing.unit}`;
         }
-        return `\u10D6\u10D4\u10D3\u10DB\u10D4\u10E2\u10D0\u10D3 \u10DE\u10D0\u10E2\u10D0\u10E0\u10D0: \u10DB\u10DD\u10E1\u10D0\u10DA\u10DD\u10D3\u10DC\u10D4\u10DA\u10D8 ${issue2.origin} \u10D8\u10E7\u10DD\u10E1 ${adj}${issue2.minimum.toString()}`;
+        return `ზედმეტად პატარა: მოსალოდნელი ${issue2.origin} იყოს ${adj}${issue2.minimum.toString()}`;
       }
       case "invalid_format": {
         const _issue = issue2;
         if (_issue.format === "starts_with") {
-          return `\u10D0\u10E0\u10D0\u10E1\u10EC\u10DD\u10E0\u10D8 \u10E1\u10E2\u10E0\u10D8\u10DC\u10D2\u10D8: \u10E3\u10DC\u10D3\u10D0 \u10D8\u10EC\u10E7\u10D4\u10D1\u10DD\u10D3\u10D4\u10E1 "${_issue.prefix}"-\u10D8\u10D7`;
+          return `არასწორი სტრინგი: უნდა იწყებოდეს "${_issue.prefix}"-ით`;
         }
         if (_issue.format === "ends_with")
-          return `\u10D0\u10E0\u10D0\u10E1\u10EC\u10DD\u10E0\u10D8 \u10E1\u10E2\u10E0\u10D8\u10DC\u10D2\u10D8: \u10E3\u10DC\u10D3\u10D0 \u10DB\u10D7\u10D0\u10D5\u10E0\u10D3\u10D4\u10D1\u10DD\u10D3\u10D4\u10E1 "${_issue.suffix}"-\u10D8\u10D7`;
+          return `არასწორი სტრინგი: უნდა მთავრდებოდეს "${_issue.suffix}"-ით`;
         if (_issue.format === "includes")
-          return `\u10D0\u10E0\u10D0\u10E1\u10EC\u10DD\u10E0\u10D8 \u10E1\u10E2\u10E0\u10D8\u10DC\u10D2\u10D8: \u10E3\u10DC\u10D3\u10D0 \u10E8\u10D4\u10D8\u10EA\u10D0\u10D5\u10D3\u10D4\u10E1 "${_issue.includes}"-\u10E1`;
+          return `არასწორი სტრინგი: უნდა შეიცავდეს "${_issue.includes}"-ს`;
         if (_issue.format === "regex")
-          return `\u10D0\u10E0\u10D0\u10E1\u10EC\u10DD\u10E0\u10D8 \u10E1\u10E2\u10E0\u10D8\u10DC\u10D2\u10D8: \u10E3\u10DC\u10D3\u10D0 \u10E8\u10D4\u10D4\u10E1\u10D0\u10D1\u10D0\u10DB\u10D4\u10D1\u10DD\u10D3\u10D4\u10E1 \u10E8\u10D0\u10D1\u10DA\u10DD\u10DC\u10E1 ${_issue.pattern}`;
-        return `\u10D0\u10E0\u10D0\u10E1\u10EC\u10DD\u10E0\u10D8 ${Nouns[_issue.format] ?? issue2.format}`;
+          return `არასწორი სტრინგი: უნდა შეესაბამებოდეს შაბლონს ${_issue.pattern}`;
+        return `არასწორი ${Nouns[_issue.format] ?? issue2.format}`;
       }
       case "not_multiple_of":
-        return `\u10D0\u10E0\u10D0\u10E1\u10EC\u10DD\u10E0\u10D8 \u10E0\u10D8\u10EA\u10EE\u10D5\u10D8: \u10E3\u10DC\u10D3\u10D0 \u10D8\u10E7\u10DD\u10E1 ${issue2.divisor}-\u10D8\u10E1 \u10EF\u10D4\u10E0\u10D0\u10D3\u10D8`;
+        return `არასწორი რიცხვი: უნდა იყოს ${issue2.divisor}-ის ჯერადი`;
       case "unrecognized_keys":
-        return `\u10E3\u10EA\u10DC\u10DD\u10D1\u10D8 \u10D2\u10D0\u10E1\u10D0\u10E6\u10D4\u10D1${issue2.keys.length > 1 ? "\u10D4\u10D1\u10D8" : "\u10D8"}: ${joinValues(issue2.keys, ", ")}`;
+        return `უცნობი გასაღებ${issue2.keys.length > 1 ? "ები" : "ი"}: ${joinValues(issue2.keys, ", ")}`;
       case "invalid_key":
-        return `\u10D0\u10E0\u10D0\u10E1\u10EC\u10DD\u10E0\u10D8 \u10D2\u10D0\u10E1\u10D0\u10E6\u10D4\u10D1\u10D8 ${issue2.origin}-\u10E8\u10D8`;
+        return `არასწორი გასაღები ${issue2.origin}-ში`;
       case "invalid_union":
-        return "\u10D0\u10E0\u10D0\u10E1\u10EC\u10DD\u10E0\u10D8 \u10E8\u10D4\u10E7\u10D5\u10D0\u10DC\u10D0";
+        return "არასწორი შეყვანა";
       case "invalid_element":
-        return `\u10D0\u10E0\u10D0\u10E1\u10EC\u10DD\u10E0\u10D8 \u10DB\u10DC\u10D8\u10E8\u10D5\u10DC\u10D4\u10DA\u10DD\u10D1\u10D0 ${issue2.origin}-\u10E8\u10D8`;
+        return `არასწორი მნიშვნელობა ${issue2.origin}-ში`;
       default:
-        return `\u10D0\u10E0\u10D0\u10E1\u10EC\u10DD\u10E0\u10D8 \u10E8\u10D4\u10E7\u10D5\u10D0\u10DC\u10D0`;
+        return `არასწორი შეყვანა`;
     }
   };
 };
@@ -6625,10 +6624,10 @@ function ka_default() {
 // node_modules/zod/v4/locales/km.js
 var error22 = () => {
   const Sizable = {
-    string: { unit: "\u178F\u17BD\u17A2\u1780\u17D2\u179F\u179A", verb: "\u1782\u17BD\u179A\u1798\u17B6\u1793" },
-    file: { unit: "\u1794\u17C3", verb: "\u1782\u17BD\u179A\u1798\u17B6\u1793" },
-    array: { unit: "\u1792\u17B6\u178F\u17BB", verb: "\u1782\u17BD\u179A\u1798\u17B6\u1793" },
-    set: { unit: "\u1792\u17B6\u178F\u17BB", verb: "\u1782\u17BD\u179A\u1798\u17B6\u1793" }
+    string: { unit: "តួអក្សរ", verb: "គួរមាន" },
+    file: { unit: "បៃ", verb: "គួរមាន" },
+    array: { unit: "ធាតុ", verb: "គួរមាន" },
+    set: { unit: "ធាតុ", verb: "គួរមាន" }
   };
   function getSizing(origin) {
     return Sizable[origin] ?? null;
@@ -6637,14 +6636,14 @@ var error22 = () => {
     const t = typeof data;
     switch (t) {
       case "number": {
-        return Number.isNaN(data) ? "\u1798\u17B7\u1793\u1798\u17C2\u1793\u1787\u17B6\u179B\u17C1\u1781 (NaN)" : "\u179B\u17C1\u1781";
+        return Number.isNaN(data) ? "មិនមែនជាលេខ (NaN)" : "លេខ";
       }
       case "object": {
         if (Array.isArray(data)) {
-          return "\u17A2\u17B6\u179A\u17C1 (Array)";
+          return "អារេ (Array)";
         }
         if (data === null) {
-          return "\u1782\u17D2\u1798\u17B6\u1793\u178F\u1798\u17D2\u179B\u17C3 (null)";
+          return "គ្មានតម្លៃ (null)";
         }
         if (Object.getPrototypeOf(data) !== Object.prototype && data.constructor) {
           return data.constructor.name;
@@ -6654,10 +6653,10 @@ var error22 = () => {
     return t;
   };
   const Nouns = {
-    regex: "\u1791\u17B7\u1793\u17D2\u1793\u1793\u17D0\u1799\u1794\u1789\u17D2\u1785\u17BC\u179B",
-    email: "\u17A2\u17B6\u179F\u1799\u178A\u17D2\u178B\u17B6\u1793\u17A2\u17CA\u17B8\u1798\u17C2\u179B",
+    regex: "ទិន្នន័យបញ្ចូល",
+    email: "អាសយដ្ឋានអ៊ីមែល",
     url: "URL",
-    emoji: "\u179F\u1789\u17D2\u1789\u17B6\u17A2\u17B6\u179A\u1798\u17D2\u1798\u178E\u17CD",
+    emoji: "សញ្ញាអារម្មណ៍",
     uuid: "UUID",
     uuidv4: "UUIDv4",
     uuidv6: "UUIDv6",
@@ -6668,69 +6667,69 @@ var error22 = () => {
     ulid: "ULID",
     xid: "XID",
     ksuid: "KSUID",
-    datetime: "\u1780\u17B6\u179B\u1794\u179A\u17B7\u1785\u17D2\u1786\u17C1\u1791 \u1793\u17B7\u1784\u1798\u17C9\u17C4\u1784 ISO",
-    date: "\u1780\u17B6\u179B\u1794\u179A\u17B7\u1785\u17D2\u1786\u17C1\u1791 ISO",
-    time: "\u1798\u17C9\u17C4\u1784 ISO",
-    duration: "\u179A\u1799\u17C8\u1796\u17C1\u179B ISO",
-    ipv4: "\u17A2\u17B6\u179F\u1799\u178A\u17D2\u178B\u17B6\u1793 IPv4",
-    ipv6: "\u17A2\u17B6\u179F\u1799\u178A\u17D2\u178B\u17B6\u1793 IPv6",
-    cidrv4: "\u178A\u17C2\u1793\u17A2\u17B6\u179F\u1799\u178A\u17D2\u178B\u17B6\u1793 IPv4",
-    cidrv6: "\u178A\u17C2\u1793\u17A2\u17B6\u179F\u1799\u178A\u17D2\u178B\u17B6\u1793 IPv6",
-    base64: "\u1781\u17D2\u179F\u17C2\u17A2\u1780\u17D2\u179F\u179A\u17A2\u17CA\u17B7\u1780\u17BC\u178A base64",
-    base64url: "\u1781\u17D2\u179F\u17C2\u17A2\u1780\u17D2\u179F\u179A\u17A2\u17CA\u17B7\u1780\u17BC\u178A base64url",
-    json_string: "\u1781\u17D2\u179F\u17C2\u17A2\u1780\u17D2\u179F\u179A JSON",
-    e164: "\u179B\u17C1\u1781 E.164",
+    datetime: "កាលបរិច្ឆេទ និងម៉ោង ISO",
+    date: "កាលបរិច្ឆេទ ISO",
+    time: "ម៉ោង ISO",
+    duration: "រយៈពេល ISO",
+    ipv4: "អាសយដ្ឋាន IPv4",
+    ipv6: "អាសយដ្ឋាន IPv6",
+    cidrv4: "ដែនអាសយដ្ឋាន IPv4",
+    cidrv6: "ដែនអាសយដ្ឋាន IPv6",
+    base64: "ខ្សែអក្សរអ៊ិកូដ base64",
+    base64url: "ខ្សែអក្សរអ៊ិកូដ base64url",
+    json_string: "ខ្សែអក្សរ JSON",
+    e164: "លេខ E.164",
     jwt: "JWT",
-    template_literal: "\u1791\u17B7\u1793\u17D2\u1793\u1793\u17D0\u1799\u1794\u1789\u17D2\u1785\u17BC\u179B"
+    template_literal: "ទិន្នន័យបញ្ចូល"
   };
   return (issue2) => {
     switch (issue2.code) {
       case "invalid_type":
-        return `\u1791\u17B7\u1793\u17D2\u1793\u1793\u17D0\u1799\u1794\u1789\u17D2\u1785\u17BC\u179B\u1798\u17B7\u1793\u178F\u17D2\u179A\u17B9\u1798\u178F\u17D2\u179A\u17BC\u179C\u17D6 \u178F\u17D2\u179A\u17BC\u179C\u1780\u17B6\u179A ${issue2.expected} \u1794\u17C9\u17BB\u1793\u17D2\u178F\u17C2\u1791\u1791\u17BD\u179B\u1794\u17B6\u1793 ${parsedType5(issue2.input)}`;
+        return `ទិន្នន័យបញ្ចូលមិនត្រឹមត្រូវ៖ ត្រូវការ ${issue2.expected} ប៉ុន្តែទទួលបាន ${parsedType5(issue2.input)}`;
       case "invalid_value":
         if (issue2.values.length === 1)
-          return `\u1791\u17B7\u1793\u17D2\u1793\u1793\u17D0\u1799\u1794\u1789\u17D2\u1785\u17BC\u179B\u1798\u17B7\u1793\u178F\u17D2\u179A\u17B9\u1798\u178F\u17D2\u179A\u17BC\u179C\u17D6 \u178F\u17D2\u179A\u17BC\u179C\u1780\u17B6\u179A ${stringifyPrimitive(issue2.values[0])}`;
-        return `\u1787\u1798\u17D2\u179A\u17BE\u179F\u1798\u17B7\u1793\u178F\u17D2\u179A\u17B9\u1798\u178F\u17D2\u179A\u17BC\u179C\u17D6 \u178F\u17D2\u179A\u17BC\u179C\u1787\u17B6\u1798\u17BD\u1799\u1780\u17D2\u1793\u17BB\u1784\u1785\u17C6\u178E\u17C4\u1798 ${joinValues(issue2.values, "|")}`;
+          return `ទិន្នន័យបញ្ចូលមិនត្រឹមត្រូវ៖ ត្រូវការ ${stringifyPrimitive(issue2.values[0])}`;
+        return `ជម្រើសមិនត្រឹមត្រូវ៖ ត្រូវជាមួយក្នុងចំណោម ${joinValues(issue2.values, "|")}`;
       case "too_big": {
         const adj = issue2.inclusive ? "<=" : "<";
         const sizing = getSizing(issue2.origin);
         if (sizing)
-          return `\u1792\u17C6\u1796\u17C1\u1780\u17D6 \u178F\u17D2\u179A\u17BC\u179C\u1780\u17B6\u179A ${issue2.origin ?? "\u178F\u1798\u17D2\u179B\u17C3"} ${adj} ${issue2.maximum.toString()} ${sizing.unit ?? "\u1792\u17B6\u178F\u17BB"}`;
-        return `\u1792\u17C6\u1796\u17C1\u1780\u17D6 \u178F\u17D2\u179A\u17BC\u179C\u1780\u17B6\u179A ${issue2.origin ?? "\u178F\u1798\u17D2\u179B\u17C3"} ${adj} ${issue2.maximum.toString()}`;
+          return `ធំពេក៖ ត្រូវការ ${issue2.origin ?? "តម្លៃ"} ${adj} ${issue2.maximum.toString()} ${sizing.unit ?? "ធាតុ"}`;
+        return `ធំពេក៖ ត្រូវការ ${issue2.origin ?? "តម្លៃ"} ${adj} ${issue2.maximum.toString()}`;
       }
       case "too_small": {
         const adj = issue2.inclusive ? ">=" : ">";
         const sizing = getSizing(issue2.origin);
         if (sizing) {
-          return `\u178F\u17BC\u1785\u1796\u17C1\u1780\u17D6 \u178F\u17D2\u179A\u17BC\u179C\u1780\u17B6\u179A ${issue2.origin} ${adj} ${issue2.minimum.toString()} ${sizing.unit}`;
+          return `តូចពេក៖ ត្រូវការ ${issue2.origin} ${adj} ${issue2.minimum.toString()} ${sizing.unit}`;
         }
-        return `\u178F\u17BC\u1785\u1796\u17C1\u1780\u17D6 \u178F\u17D2\u179A\u17BC\u179C\u1780\u17B6\u179A ${issue2.origin} ${adj} ${issue2.minimum.toString()}`;
+        return `តូចពេក៖ ត្រូវការ ${issue2.origin} ${adj} ${issue2.minimum.toString()}`;
       }
       case "invalid_format": {
         const _issue = issue2;
         if (_issue.format === "starts_with") {
-          return `\u1781\u17D2\u179F\u17C2\u17A2\u1780\u17D2\u179F\u179A\u1798\u17B7\u1793\u178F\u17D2\u179A\u17B9\u1798\u178F\u17D2\u179A\u17BC\u179C\u17D6 \u178F\u17D2\u179A\u17BC\u179C\u1785\u17B6\u1794\u17CB\u1795\u17D2\u178F\u17BE\u1798\u178A\u17C4\u1799 "${_issue.prefix}"`;
+          return `ខ្សែអក្សរមិនត្រឹមត្រូវ៖ ត្រូវចាប់ផ្តើមដោយ "${_issue.prefix}"`;
         }
         if (_issue.format === "ends_with")
-          return `\u1781\u17D2\u179F\u17C2\u17A2\u1780\u17D2\u179F\u179A\u1798\u17B7\u1793\u178F\u17D2\u179A\u17B9\u1798\u178F\u17D2\u179A\u17BC\u179C\u17D6 \u178F\u17D2\u179A\u17BC\u179C\u1794\u1789\u17D2\u1785\u1794\u17CB\u178A\u17C4\u1799 "${_issue.suffix}"`;
+          return `ខ្សែអក្សរមិនត្រឹមត្រូវ៖ ត្រូវបញ្ចប់ដោយ "${_issue.suffix}"`;
         if (_issue.format === "includes")
-          return `\u1781\u17D2\u179F\u17C2\u17A2\u1780\u17D2\u179F\u179A\u1798\u17B7\u1793\u178F\u17D2\u179A\u17B9\u1798\u178F\u17D2\u179A\u17BC\u179C\u17D6 \u178F\u17D2\u179A\u17BC\u179C\u1798\u17B6\u1793 "${_issue.includes}"`;
+          return `ខ្សែអក្សរមិនត្រឹមត្រូវ៖ ត្រូវមាន "${_issue.includes}"`;
         if (_issue.format === "regex")
-          return `\u1781\u17D2\u179F\u17C2\u17A2\u1780\u17D2\u179F\u179A\u1798\u17B7\u1793\u178F\u17D2\u179A\u17B9\u1798\u178F\u17D2\u179A\u17BC\u179C\u17D6 \u178F\u17D2\u179A\u17BC\u179C\u178F\u17C2\u1795\u17D2\u1782\u17BC\u1795\u17D2\u1782\u1784\u1793\u17B9\u1784\u1791\u1798\u17D2\u179A\u1784\u17CB\u178A\u17C2\u179B\u1794\u17B6\u1793\u1780\u17C6\u178E\u178F\u17CB ${_issue.pattern}`;
-        return `\u1798\u17B7\u1793\u178F\u17D2\u179A\u17B9\u1798\u178F\u17D2\u179A\u17BC\u179C\u17D6 ${Nouns[_issue.format] ?? issue2.format}`;
+          return `ខ្សែអក្សរមិនត្រឹមត្រូវ៖ ត្រូវតែផ្គូផ្គងនឹងទម្រង់ដែលបានកំណត់ ${_issue.pattern}`;
+        return `មិនត្រឹមត្រូវ៖ ${Nouns[_issue.format] ?? issue2.format}`;
       }
       case "not_multiple_of":
-        return `\u179B\u17C1\u1781\u1798\u17B7\u1793\u178F\u17D2\u179A\u17B9\u1798\u178F\u17D2\u179A\u17BC\u179C\u17D6 \u178F\u17D2\u179A\u17BC\u179C\u178F\u17C2\u1787\u17B6\u1796\u17A0\u17BB\u1782\u17BB\u178E\u1793\u17C3 ${issue2.divisor}`;
+        return `លេខមិនត្រឹមត្រូវ៖ ត្រូវតែជាពហុគុណនៃ ${issue2.divisor}`;
       case "unrecognized_keys":
-        return `\u179A\u1780\u1783\u17BE\u1789\u179F\u17C4\u1798\u17B7\u1793\u179F\u17D2\u1782\u17B6\u179B\u17CB\u17D6 ${joinValues(issue2.keys, ", ")}`;
+        return `រកឃើញសោមិនស្គាល់៖ ${joinValues(issue2.keys, ", ")}`;
       case "invalid_key":
-        return `\u179F\u17C4\u1798\u17B7\u1793\u178F\u17D2\u179A\u17B9\u1798\u178F\u17D2\u179A\u17BC\u179C\u1793\u17C5\u1780\u17D2\u1793\u17BB\u1784 ${issue2.origin}`;
+        return `សោមិនត្រឹមត្រូវនៅក្នុង ${issue2.origin}`;
       case "invalid_union":
-        return `\u1791\u17B7\u1793\u17D2\u1793\u1793\u17D0\u1799\u1798\u17B7\u1793\u178F\u17D2\u179A\u17B9\u1798\u178F\u17D2\u179A\u17BC\u179C`;
+        return `ទិន្នន័យមិនត្រឹមត្រូវ`;
       case "invalid_element":
-        return `\u1791\u17B7\u1793\u17D2\u1793\u1793\u17D0\u1799\u1798\u17B7\u1793\u178F\u17D2\u179A\u17B9\u1798\u178F\u17D2\u179A\u17BC\u179C\u1793\u17C5\u1780\u17D2\u1793\u17BB\u1784 ${issue2.origin}`;
+        return `ទិន្នន័យមិនត្រឹមត្រូវនៅក្នុង ${issue2.origin}`;
       default:
-        return `\u1791\u17B7\u1793\u17D2\u1793\u1793\u17D0\u1799\u1798\u17B7\u1793\u178F\u17D2\u179A\u17B9\u1798\u178F\u17D2\u179A\u17BC\u179C`;
+        return `ទិន្នន័យមិនត្រឹមត្រូវ`;
     }
   };
 };
@@ -6747,10 +6746,10 @@ function kh_default() {
 // node_modules/zod/v4/locales/ko.js
 var error23 = () => {
   const Sizable = {
-    string: { unit: "\uBB38\uC790", verb: "to have" },
-    file: { unit: "\uBC14\uC774\uD2B8", verb: "to have" },
-    array: { unit: "\uAC1C", verb: "to have" },
-    set: { unit: "\uAC1C", verb: "to have" }
+    string: { unit: "문자", verb: "to have" },
+    file: { unit: "바이트", verb: "to have" },
+    array: { unit: "개", verb: "to have" },
+    set: { unit: "개", verb: "to have" }
   };
   function getSizing(origin) {
     return Sizable[origin] ?? null;
@@ -6776,10 +6775,10 @@ var error23 = () => {
     return t;
   };
   const Nouns = {
-    regex: "\uC785\uB825",
-    email: "\uC774\uBA54\uC77C \uC8FC\uC18C",
+    regex: "입력",
+    email: "이메일 주소",
     url: "URL",
-    emoji: "\uC774\uBAA8\uC9C0",
+    emoji: "이모지",
     uuid: "UUID",
     uuidv4: "UUIDv4",
     uuidv6: "UUIDv6",
@@ -6790,73 +6789,73 @@ var error23 = () => {
     ulid: "ULID",
     xid: "XID",
     ksuid: "KSUID",
-    datetime: "ISO \uB0A0\uC9DC\uC2DC\uAC04",
-    date: "ISO \uB0A0\uC9DC",
-    time: "ISO \uC2DC\uAC04",
-    duration: "ISO \uAE30\uAC04",
-    ipv4: "IPv4 \uC8FC\uC18C",
-    ipv6: "IPv6 \uC8FC\uC18C",
-    cidrv4: "IPv4 \uBC94\uC704",
-    cidrv6: "IPv6 \uBC94\uC704",
-    base64: "base64 \uC778\uCF54\uB529 \uBB38\uC790\uC5F4",
-    base64url: "base64url \uC778\uCF54\uB529 \uBB38\uC790\uC5F4",
-    json_string: "JSON \uBB38\uC790\uC5F4",
-    e164: "E.164 \uBC88\uD638",
+    datetime: "ISO 날짜시간",
+    date: "ISO 날짜",
+    time: "ISO 시간",
+    duration: "ISO 기간",
+    ipv4: "IPv4 주소",
+    ipv6: "IPv6 주소",
+    cidrv4: "IPv4 범위",
+    cidrv6: "IPv6 범위",
+    base64: "base64 인코딩 문자열",
+    base64url: "base64url 인코딩 문자열",
+    json_string: "JSON 문자열",
+    e164: "E.164 번호",
     jwt: "JWT",
-    template_literal: "\uC785\uB825"
+    template_literal: "입력"
   };
   return (issue2) => {
     switch (issue2.code) {
       case "invalid_type":
-        return `\uC798\uBABB\uB41C \uC785\uB825: \uC608\uC0C1 \uD0C0\uC785\uC740 ${issue2.expected}, \uBC1B\uC740 \uD0C0\uC785\uC740 ${parsedType5(issue2.input)}\uC785\uB2C8\uB2E4`;
+        return `잘못된 입력: 예상 타입은 ${issue2.expected}, 받은 타입은 ${parsedType5(issue2.input)}입니다`;
       case "invalid_value":
         if (issue2.values.length === 1)
-          return `\uC798\uBABB\uB41C \uC785\uB825: \uAC12\uC740 ${stringifyPrimitive(issue2.values[0])} \uC774\uC5B4\uC57C \uD569\uB2C8\uB2E4`;
-        return `\uC798\uBABB\uB41C \uC635\uC158: ${joinValues(issue2.values, "\uB610\uB294 ")} \uC911 \uD558\uB098\uC5EC\uC57C \uD569\uB2C8\uB2E4`;
+          return `잘못된 입력: 값은 ${stringifyPrimitive(issue2.values[0])} 이어야 합니다`;
+        return `잘못된 옵션: ${joinValues(issue2.values, "또는 ")} 중 하나여야 합니다`;
       case "too_big": {
-        const adj = issue2.inclusive ? "\uC774\uD558" : "\uBBF8\uB9CC";
-        const suffix = adj === "\uBBF8\uB9CC" ? "\uC774\uC5B4\uC57C \uD569\uB2C8\uB2E4" : "\uC5EC\uC57C \uD569\uB2C8\uB2E4";
+        const adj = issue2.inclusive ? "이하" : "미만";
+        const suffix = adj === "미만" ? "이어야 합니다" : "여야 합니다";
         const sizing = getSizing(issue2.origin);
-        const unit = sizing?.unit ?? "\uC694\uC18C";
+        const unit = sizing?.unit ?? "요소";
         if (sizing)
-          return `${issue2.origin ?? "\uAC12"}\uC774 \uB108\uBB34 \uD07D\uB2C8\uB2E4: ${issue2.maximum.toString()}${unit} ${adj}${suffix}`;
-        return `${issue2.origin ?? "\uAC12"}\uC774 \uB108\uBB34 \uD07D\uB2C8\uB2E4: ${issue2.maximum.toString()} ${adj}${suffix}`;
+          return `${issue2.origin ?? "값"}이 너무 큽니다: ${issue2.maximum.toString()}${unit} ${adj}${suffix}`;
+        return `${issue2.origin ?? "값"}이 너무 큽니다: ${issue2.maximum.toString()} ${adj}${suffix}`;
       }
       case "too_small": {
-        const adj = issue2.inclusive ? "\uC774\uC0C1" : "\uCD08\uACFC";
-        const suffix = adj === "\uC774\uC0C1" ? "\uC774\uC5B4\uC57C \uD569\uB2C8\uB2E4" : "\uC5EC\uC57C \uD569\uB2C8\uB2E4";
+        const adj = issue2.inclusive ? "이상" : "초과";
+        const suffix = adj === "이상" ? "이어야 합니다" : "여야 합니다";
         const sizing = getSizing(issue2.origin);
-        const unit = sizing?.unit ?? "\uC694\uC18C";
+        const unit = sizing?.unit ?? "요소";
         if (sizing) {
-          return `${issue2.origin ?? "\uAC12"}\uC774 \uB108\uBB34 \uC791\uC2B5\uB2C8\uB2E4: ${issue2.minimum.toString()}${unit} ${adj}${suffix}`;
+          return `${issue2.origin ?? "값"}이 너무 작습니다: ${issue2.minimum.toString()}${unit} ${adj}${suffix}`;
         }
-        return `${issue2.origin ?? "\uAC12"}\uC774 \uB108\uBB34 \uC791\uC2B5\uB2C8\uB2E4: ${issue2.minimum.toString()} ${adj}${suffix}`;
+        return `${issue2.origin ?? "값"}이 너무 작습니다: ${issue2.minimum.toString()} ${adj}${suffix}`;
       }
       case "invalid_format": {
         const _issue = issue2;
         if (_issue.format === "starts_with") {
-          return `\uC798\uBABB\uB41C \uBB38\uC790\uC5F4: "${_issue.prefix}"(\uC73C)\uB85C \uC2DC\uC791\uD574\uC57C \uD569\uB2C8\uB2E4`;
+          return `잘못된 문자열: "${_issue.prefix}"(으)로 시작해야 합니다`;
         }
         if (_issue.format === "ends_with")
-          return `\uC798\uBABB\uB41C \uBB38\uC790\uC5F4: "${_issue.suffix}"(\uC73C)\uB85C \uB05D\uB098\uC57C \uD569\uB2C8\uB2E4`;
+          return `잘못된 문자열: "${_issue.suffix}"(으)로 끝나야 합니다`;
         if (_issue.format === "includes")
-          return `\uC798\uBABB\uB41C \uBB38\uC790\uC5F4: "${_issue.includes}"\uC744(\uB97C) \uD3EC\uD568\uD574\uC57C \uD569\uB2C8\uB2E4`;
+          return `잘못된 문자열: "${_issue.includes}"을(를) 포함해야 합니다`;
         if (_issue.format === "regex")
-          return `\uC798\uBABB\uB41C \uBB38\uC790\uC5F4: \uC815\uADDC\uC2DD ${_issue.pattern} \uD328\uD134\uACFC \uC77C\uCE58\uD574\uC57C \uD569\uB2C8\uB2E4`;
-        return `\uC798\uBABB\uB41C ${Nouns[_issue.format] ?? issue2.format}`;
+          return `잘못된 문자열: 정규식 ${_issue.pattern} 패턴과 일치해야 합니다`;
+        return `잘못된 ${Nouns[_issue.format] ?? issue2.format}`;
       }
       case "not_multiple_of":
-        return `\uC798\uBABB\uB41C \uC22B\uC790: ${issue2.divisor}\uC758 \uBC30\uC218\uC5EC\uC57C \uD569\uB2C8\uB2E4`;
+        return `잘못된 숫자: ${issue2.divisor}의 배수여야 합니다`;
       case "unrecognized_keys":
-        return `\uC778\uC2DD\uD560 \uC218 \uC5C6\uB294 \uD0A4: ${joinValues(issue2.keys, ", ")}`;
+        return `인식할 수 없는 키: ${joinValues(issue2.keys, ", ")}`;
       case "invalid_key":
-        return `\uC798\uBABB\uB41C \uD0A4: ${issue2.origin}`;
+        return `잘못된 키: ${issue2.origin}`;
       case "invalid_union":
-        return `\uC798\uBABB\uB41C \uC785\uB825`;
+        return `잘못된 입력`;
       case "invalid_element":
-        return `\uC798\uBABB\uB41C \uAC12: ${issue2.origin}`;
+        return `잘못된 값: ${issue2.origin}`;
       default:
-        return `\uC798\uBABB\uB41C \uC785\uB825`;
+        return `잘못된 입력`;
     }
   };
 };
@@ -6873,20 +6872,20 @@ var parsedType5 = (data) => {
 var parsedTypeFromType = (t, data = undefined) => {
   switch (t) {
     case "number": {
-      return Number.isNaN(data) ? "NaN" : "skai\u010Dius";
+      return Number.isNaN(data) ? "NaN" : "skaičius";
     }
     case "bigint": {
-      return "sveikasis skai\u010Dius";
+      return "sveikasis skaičius";
     }
     case "string": {
-      return "eilut\u0117";
+      return "eilutė";
     }
     case "boolean": {
-      return "login\u0117 reik\u0161m\u0117";
+      return "loginė reikšmė";
     }
     case "undefined":
     case "void": {
-      return "neapibr\u0117\u017Eta reik\u0161m\u0117";
+      return "neapibrėžta reikšmė";
     }
     case "function": {
       return "funkcija";
@@ -6896,9 +6895,9 @@ var parsedTypeFromType = (t, data = undefined) => {
     }
     case "object": {
       if (data === undefined)
-        return "ne\u017Einomas objektas";
+        return "nežinomas objektas";
       if (data === null)
-        return "nulin\u0117 reik\u0161m\u0117";
+        return "nulinė reikšmė";
       if (Array.isArray(data))
         return "masyvas";
       if (Object.getPrototypeOf(data) !== Object.prototype && data.constructor) {
@@ -6907,7 +6906,7 @@ var parsedTypeFromType = (t, data = undefined) => {
       return "objektas";
     }
     case "null": {
-      return "nulin\u0117 reik\u0161m\u0117";
+      return "nulinė reikšmė";
     }
   }
   return t;
@@ -6931,16 +6930,16 @@ var error24 = () => {
       unit: {
         one: "simbolis",
         few: "simboliai",
-        many: "simboli\u0173"
+        many: "simbolių"
       },
       verb: {
         smaller: {
-          inclusive: "turi b\u016Bti ne ilgesn\u0117 kaip",
-          notInclusive: "turi b\u016Bti trumpesn\u0117 kaip"
+          inclusive: "turi būti ne ilgesnė kaip",
+          notInclusive: "turi būti trumpesnė kaip"
         },
         bigger: {
-          inclusive: "turi b\u016Bti ne trumpesn\u0117 kaip",
-          notInclusive: "turi b\u016Bti ilgesn\u0117 kaip"
+          inclusive: "turi būti ne trumpesnė kaip",
+          notInclusive: "turi būti ilgesnė kaip"
         }
       }
     },
@@ -6948,50 +6947,50 @@ var error24 = () => {
       unit: {
         one: "baitas",
         few: "baitai",
-        many: "bait\u0173"
+        many: "baitų"
       },
       verb: {
         smaller: {
-          inclusive: "turi b\u016Bti ne didesnis kaip",
-          notInclusive: "turi b\u016Bti ma\u017Eesnis kaip"
+          inclusive: "turi būti ne didesnis kaip",
+          notInclusive: "turi būti mažesnis kaip"
         },
         bigger: {
-          inclusive: "turi b\u016Bti ne ma\u017Eesnis kaip",
-          notInclusive: "turi b\u016Bti didesnis kaip"
+          inclusive: "turi būti ne mažesnis kaip",
+          notInclusive: "turi būti didesnis kaip"
         }
       }
     },
     array: {
       unit: {
-        one: "element\u0105",
+        one: "elementą",
         few: "elementus",
-        many: "element\u0173"
+        many: "elementų"
       },
       verb: {
         smaller: {
-          inclusive: "turi tur\u0117ti ne daugiau kaip",
-          notInclusive: "turi tur\u0117ti ma\u017Eiau kaip"
+          inclusive: "turi turėti ne daugiau kaip",
+          notInclusive: "turi turėti mažiau kaip"
         },
         bigger: {
-          inclusive: "turi tur\u0117ti ne ma\u017Eiau kaip",
-          notInclusive: "turi tur\u0117ti daugiau kaip"
+          inclusive: "turi turėti ne mažiau kaip",
+          notInclusive: "turi turėti daugiau kaip"
         }
       }
     },
     set: {
       unit: {
-        one: "element\u0105",
+        one: "elementą",
         few: "elementus",
-        many: "element\u0173"
+        many: "elementų"
       },
       verb: {
         smaller: {
-          inclusive: "turi tur\u0117ti ne daugiau kaip",
-          notInclusive: "turi tur\u0117ti ma\u017Eiau kaip"
+          inclusive: "turi turėti ne daugiau kaip",
+          notInclusive: "turi turėti mažiau kaip"
         },
         bigger: {
-          inclusive: "turi tur\u0117ti ne ma\u017Eiau kaip",
-          notInclusive: "turi tur\u0117ti daugiau kaip"
+          inclusive: "turi turėti ne mažiau kaip",
+          notInclusive: "turi turėti daugiau kaip"
         }
       }
     }
@@ -7006,8 +7005,8 @@ var error24 = () => {
     };
   }
   const Nouns = {
-    regex: "\u012Fvestis",
-    email: "el. pa\u0161to adresas",
+    regex: "įvestis",
+    email: "el. pašto adresas",
     url: "URL",
     emoji: "jaustukas",
     uuid: "UUID",
@@ -7023,69 +7022,69 @@ var error24 = () => {
     datetime: "ISO data ir laikas",
     date: "ISO data",
     time: "ISO laikas",
-    duration: "ISO trukm\u0117",
+    duration: "ISO trukmė",
     ipv4: "IPv4 adresas",
     ipv6: "IPv6 adresas",
     cidrv4: "IPv4 tinklo prefiksas (CIDR)",
     cidrv6: "IPv6 tinklo prefiksas (CIDR)",
-    base64: "base64 u\u017Ekoduota eilut\u0117",
-    base64url: "base64url u\u017Ekoduota eilut\u0117",
-    json_string: "JSON eilut\u0117",
+    base64: "base64 užkoduota eilutė",
+    base64url: "base64url užkoduota eilutė",
+    json_string: "JSON eilutė",
     e164: "E.164 numeris",
     jwt: "JWT",
-    template_literal: "\u012Fvestis"
+    template_literal: "įvestis"
   };
   return (issue2) => {
     switch (issue2.code) {
       case "invalid_type":
-        return `Gautas tipas ${parsedType5(issue2.input)}, o tik\u0117tasi - ${parsedTypeFromType(issue2.expected)}`;
+        return `Gautas tipas ${parsedType5(issue2.input)}, o tikėtasi - ${parsedTypeFromType(issue2.expected)}`;
       case "invalid_value":
         if (issue2.values.length === 1)
-          return `Privalo b\u016Bti ${stringifyPrimitive(issue2.values[0])}`;
-        return `Privalo b\u016Bti vienas i\u0161 ${joinValues(issue2.values, "|")} pasirinkim\u0173`;
+          return `Privalo būti ${stringifyPrimitive(issue2.values[0])}`;
+        return `Privalo būti vienas iš ${joinValues(issue2.values, "|")} pasirinkimų`;
       case "too_big": {
         const origin = parsedTypeFromType(issue2.origin);
         const sizing = getSizing(issue2.origin, getUnitTypeFromNumber(Number(issue2.maximum)), issue2.inclusive ?? false, "smaller");
         if (sizing?.verb)
-          return `${capitalizeFirstCharacter(origin ?? issue2.origin ?? "reik\u0161m\u0117")} ${sizing.verb} ${issue2.maximum.toString()} ${sizing.unit ?? "element\u0173"}`;
-        const adj = issue2.inclusive ? "ne didesnis kaip" : "ma\u017Eesnis kaip";
-        return `${capitalizeFirstCharacter(origin ?? issue2.origin ?? "reik\u0161m\u0117")} turi b\u016Bti ${adj} ${issue2.maximum.toString()} ${sizing?.unit}`;
+          return `${capitalizeFirstCharacter(origin ?? issue2.origin ?? "reikšmė")} ${sizing.verb} ${issue2.maximum.toString()} ${sizing.unit ?? "elementų"}`;
+        const adj = issue2.inclusive ? "ne didesnis kaip" : "mažesnis kaip";
+        return `${capitalizeFirstCharacter(origin ?? issue2.origin ?? "reikšmė")} turi būti ${adj} ${issue2.maximum.toString()} ${sizing?.unit}`;
       }
       case "too_small": {
         const origin = parsedTypeFromType(issue2.origin);
         const sizing = getSizing(issue2.origin, getUnitTypeFromNumber(Number(issue2.minimum)), issue2.inclusive ?? false, "bigger");
         if (sizing?.verb)
-          return `${capitalizeFirstCharacter(origin ?? issue2.origin ?? "reik\u0161m\u0117")} ${sizing.verb} ${issue2.minimum.toString()} ${sizing.unit ?? "element\u0173"}`;
-        const adj = issue2.inclusive ? "ne ma\u017Eesnis kaip" : "didesnis kaip";
-        return `${capitalizeFirstCharacter(origin ?? issue2.origin ?? "reik\u0161m\u0117")} turi b\u016Bti ${adj} ${issue2.minimum.toString()} ${sizing?.unit}`;
+          return `${capitalizeFirstCharacter(origin ?? issue2.origin ?? "reikšmė")} ${sizing.verb} ${issue2.minimum.toString()} ${sizing.unit ?? "elementų"}`;
+        const adj = issue2.inclusive ? "ne mažesnis kaip" : "didesnis kaip";
+        return `${capitalizeFirstCharacter(origin ?? issue2.origin ?? "reikšmė")} turi būti ${adj} ${issue2.minimum.toString()} ${sizing?.unit}`;
       }
       case "invalid_format": {
         const _issue = issue2;
         if (_issue.format === "starts_with") {
-          return `Eilut\u0117 privalo prasid\u0117ti "${_issue.prefix}"`;
+          return `Eilutė privalo prasidėti "${_issue.prefix}"`;
         }
         if (_issue.format === "ends_with")
-          return `Eilut\u0117 privalo pasibaigti "${_issue.suffix}"`;
+          return `Eilutė privalo pasibaigti "${_issue.suffix}"`;
         if (_issue.format === "includes")
-          return `Eilut\u0117 privalo \u012Ftraukti "${_issue.includes}"`;
+          return `Eilutė privalo įtraukti "${_issue.includes}"`;
         if (_issue.format === "regex")
-          return `Eilut\u0117 privalo atitikti ${_issue.pattern}`;
+          return `Eilutė privalo atitikti ${_issue.pattern}`;
         return `Neteisingas ${Nouns[_issue.format] ?? issue2.format}`;
       }
       case "not_multiple_of":
-        return `Skai\u010Dius privalo b\u016Bti ${issue2.divisor} kartotinis.`;
+        return `Skaičius privalo būti ${issue2.divisor} kartotinis.`;
       case "unrecognized_keys":
-        return `Neatpa\u017Eint${issue2.keys.length > 1 ? "i" : "as"} rakt${issue2.keys.length > 1 ? "ai" : "as"}: ${joinValues(issue2.keys, ", ")}`;
+        return `Neatpažint${issue2.keys.length > 1 ? "i" : "as"} rakt${issue2.keys.length > 1 ? "ai" : "as"}: ${joinValues(issue2.keys, ", ")}`;
       case "invalid_key":
         return "Rastas klaidingas raktas";
       case "invalid_union":
-        return "Klaidinga \u012Fvestis";
+        return "Klaidinga įvestis";
       case "invalid_element": {
         const origin = parsedTypeFromType(issue2.origin);
-        return `${capitalizeFirstCharacter(origin ?? issue2.origin ?? "reik\u0161m\u0117")} turi klaiding\u0105 \u012Fvest\u012F`;
+        return `${capitalizeFirstCharacter(origin ?? issue2.origin ?? "reikšmė")} turi klaidingą įvestį`;
       }
       default:
-        return "Klaidinga \u012Fvestis";
+        return "Klaidinga įvestis";
     }
   };
 };
@@ -7097,10 +7096,10 @@ function lt_default() {
 // node_modules/zod/v4/locales/mk.js
 var error25 = () => {
   const Sizable = {
-    string: { unit: "\u0437\u043D\u0430\u0446\u0438", verb: "\u0434\u0430 \u0438\u043C\u0430\u0430\u0442" },
-    file: { unit: "\u0431\u0430\u0458\u0442\u0438", verb: "\u0434\u0430 \u0438\u043C\u0430\u0430\u0442" },
-    array: { unit: "\u0441\u0442\u0430\u0432\u043A\u0438", verb: "\u0434\u0430 \u0438\u043C\u0430\u0430\u0442" },
-    set: { unit: "\u0441\u0442\u0430\u0432\u043A\u0438", verb: "\u0434\u0430 \u0438\u043C\u0430\u0430\u0442" }
+    string: { unit: "знаци", verb: "да имаат" },
+    file: { unit: "бајти", verb: "да имаат" },
+    array: { unit: "ставки", verb: "да имаат" },
+    set: { unit: "ставки", verb: "да имаат" }
   };
   function getSizing(origin) {
     return Sizable[origin] ?? null;
@@ -7109,11 +7108,11 @@ var error25 = () => {
     const t = typeof data;
     switch (t) {
       case "number": {
-        return Number.isNaN(data) ? "NaN" : "\u0431\u0440\u043E\u0458";
+        return Number.isNaN(data) ? "NaN" : "број";
       }
       case "object": {
         if (Array.isArray(data)) {
-          return "\u043D\u0438\u0437\u0430";
+          return "низа";
         }
         if (data === null) {
           return "null";
@@ -7126,10 +7125,10 @@ var error25 = () => {
     return t;
   };
   const Nouns = {
-    regex: "\u0432\u043D\u0435\u0441",
-    email: "\u0430\u0434\u0440\u0435\u0441\u0430 \u043D\u0430 \u0435-\u043F\u043E\u0448\u0442\u0430",
+    regex: "внес",
+    email: "адреса на е-пошта",
     url: "URL",
-    emoji: "\u0435\u043C\u043E\u045F\u0438",
+    emoji: "емоџи",
     uuid: "UUID",
     uuidv4: "UUIDv4",
     uuidv6: "UUIDv6",
@@ -7140,69 +7139,69 @@ var error25 = () => {
     ulid: "ULID",
     xid: "XID",
     ksuid: "KSUID",
-    datetime: "ISO \u0434\u0430\u0442\u0443\u043C \u0438 \u0432\u0440\u0435\u043C\u0435",
-    date: "ISO \u0434\u0430\u0442\u0443\u043C",
-    time: "ISO \u0432\u0440\u0435\u043C\u0435",
-    duration: "ISO \u0432\u0440\u0435\u043C\u0435\u0442\u0440\u0430\u0435\u045A\u0435",
-    ipv4: "IPv4 \u0430\u0434\u0440\u0435\u0441\u0430",
-    ipv6: "IPv6 \u0430\u0434\u0440\u0435\u0441\u0430",
-    cidrv4: "IPv4 \u043E\u043F\u0441\u0435\u0433",
-    cidrv6: "IPv6 \u043E\u043F\u0441\u0435\u0433",
-    base64: "base64-\u0435\u043D\u043A\u043E\u0434\u0438\u0440\u0430\u043D\u0430 \u043D\u0438\u0437\u0430",
-    base64url: "base64url-\u0435\u043D\u043A\u043E\u0434\u0438\u0440\u0430\u043D\u0430 \u043D\u0438\u0437\u0430",
-    json_string: "JSON \u043D\u0438\u0437\u0430",
-    e164: "E.164 \u0431\u0440\u043E\u0458",
+    datetime: "ISO датум и време",
+    date: "ISO датум",
+    time: "ISO време",
+    duration: "ISO времетраење",
+    ipv4: "IPv4 адреса",
+    ipv6: "IPv6 адреса",
+    cidrv4: "IPv4 опсег",
+    cidrv6: "IPv6 опсег",
+    base64: "base64-енкодирана низа",
+    base64url: "base64url-енкодирана низа",
+    json_string: "JSON низа",
+    e164: "E.164 број",
     jwt: "JWT",
-    template_literal: "\u0432\u043D\u0435\u0441"
+    template_literal: "внес"
   };
   return (issue2) => {
     switch (issue2.code) {
       case "invalid_type":
-        return `\u0413\u0440\u0435\u0448\u0435\u043D \u0432\u043D\u0435\u0441: \u0441\u0435 \u043E\u0447\u0435\u043A\u0443\u0432\u0430 ${issue2.expected}, \u043F\u0440\u0438\u043C\u0435\u043D\u043E ${parsedType6(issue2.input)}`;
+        return `Грешен внес: се очекува ${issue2.expected}, примено ${parsedType6(issue2.input)}`;
       case "invalid_value":
         if (issue2.values.length === 1)
           return `Invalid input: expected ${stringifyPrimitive(issue2.values[0])}`;
-        return `\u0413\u0440\u0435\u0448\u0430\u043D\u0430 \u043E\u043F\u0446\u0438\u0458\u0430: \u0441\u0435 \u043E\u0447\u0435\u043A\u0443\u0432\u0430 \u0435\u0434\u043D\u0430 ${joinValues(issue2.values, "|")}`;
+        return `Грешана опција: се очекува една ${joinValues(issue2.values, "|")}`;
       case "too_big": {
         const adj = issue2.inclusive ? "<=" : "<";
         const sizing = getSizing(issue2.origin);
         if (sizing)
-          return `\u041F\u0440\u0435\u043C\u043D\u043E\u0433\u0443 \u0433\u043E\u043B\u0435\u043C: \u0441\u0435 \u043E\u0447\u0435\u043A\u0443\u0432\u0430 ${issue2.origin ?? "\u0432\u0440\u0435\u0434\u043D\u043E\u0441\u0442\u0430"} \u0434\u0430 \u0438\u043C\u0430 ${adj}${issue2.maximum.toString()} ${sizing.unit ?? "\u0435\u043B\u0435\u043C\u0435\u043D\u0442\u0438"}`;
-        return `\u041F\u0440\u0435\u043C\u043D\u043E\u0433\u0443 \u0433\u043E\u043B\u0435\u043C: \u0441\u0435 \u043E\u0447\u0435\u043A\u0443\u0432\u0430 ${issue2.origin ?? "\u0432\u0440\u0435\u0434\u043D\u043E\u0441\u0442\u0430"} \u0434\u0430 \u0431\u0438\u0434\u0435 ${adj}${issue2.maximum.toString()}`;
+          return `Премногу голем: се очекува ${issue2.origin ?? "вредноста"} да има ${adj}${issue2.maximum.toString()} ${sizing.unit ?? "елементи"}`;
+        return `Премногу голем: се очекува ${issue2.origin ?? "вредноста"} да биде ${adj}${issue2.maximum.toString()}`;
       }
       case "too_small": {
         const adj = issue2.inclusive ? ">=" : ">";
         const sizing = getSizing(issue2.origin);
         if (sizing) {
-          return `\u041F\u0440\u0435\u043C\u043D\u043E\u0433\u0443 \u043C\u0430\u043B: \u0441\u0435 \u043E\u0447\u0435\u043A\u0443\u0432\u0430 ${issue2.origin} \u0434\u0430 \u0438\u043C\u0430 ${adj}${issue2.minimum.toString()} ${sizing.unit}`;
+          return `Премногу мал: се очекува ${issue2.origin} да има ${adj}${issue2.minimum.toString()} ${sizing.unit}`;
         }
-        return `\u041F\u0440\u0435\u043C\u043D\u043E\u0433\u0443 \u043C\u0430\u043B: \u0441\u0435 \u043E\u0447\u0435\u043A\u0443\u0432\u0430 ${issue2.origin} \u0434\u0430 \u0431\u0438\u0434\u0435 ${adj}${issue2.minimum.toString()}`;
+        return `Премногу мал: се очекува ${issue2.origin} да биде ${adj}${issue2.minimum.toString()}`;
       }
       case "invalid_format": {
         const _issue = issue2;
         if (_issue.format === "starts_with") {
-          return `\u041D\u0435\u0432\u0430\u0436\u0435\u0447\u043A\u0430 \u043D\u0438\u0437\u0430: \u043C\u043E\u0440\u0430 \u0434\u0430 \u0437\u0430\u043F\u043E\u0447\u043D\u0443\u0432\u0430 \u0441\u043E "${_issue.prefix}"`;
+          return `Неважечка низа: мора да започнува со "${_issue.prefix}"`;
         }
         if (_issue.format === "ends_with")
-          return `\u041D\u0435\u0432\u0430\u0436\u0435\u0447\u043A\u0430 \u043D\u0438\u0437\u0430: \u043C\u043E\u0440\u0430 \u0434\u0430 \u0437\u0430\u0432\u0440\u0448\u0443\u0432\u0430 \u0441\u043E "${_issue.suffix}"`;
+          return `Неважечка низа: мора да завршува со "${_issue.suffix}"`;
         if (_issue.format === "includes")
-          return `\u041D\u0435\u0432\u0430\u0436\u0435\u0447\u043A\u0430 \u043D\u0438\u0437\u0430: \u043C\u043E\u0440\u0430 \u0434\u0430 \u0432\u043A\u043B\u0443\u0447\u0443\u0432\u0430 "${_issue.includes}"`;
+          return `Неважечка низа: мора да вклучува "${_issue.includes}"`;
         if (_issue.format === "regex")
-          return `\u041D\u0435\u0432\u0430\u0436\u0435\u0447\u043A\u0430 \u043D\u0438\u0437\u0430: \u043C\u043E\u0440\u0430 \u0434\u0430 \u043E\u0434\u0433\u043E\u0430\u0440\u0430 \u043D\u0430 \u043F\u0430\u0442\u0435\u0440\u043D\u043E\u0442 ${_issue.pattern}`;
+          return `Неважечка низа: мора да одгоара на патернот ${_issue.pattern}`;
         return `Invalid ${Nouns[_issue.format] ?? issue2.format}`;
       }
       case "not_multiple_of":
-        return `\u0413\u0440\u0435\u0448\u0435\u043D \u0431\u0440\u043E\u0458: \u043C\u043E\u0440\u0430 \u0434\u0430 \u0431\u0438\u0434\u0435 \u0434\u0435\u043B\u0438\u0432 \u0441\u043E ${issue2.divisor}`;
+        return `Грешен број: мора да биде делив со ${issue2.divisor}`;
       case "unrecognized_keys":
-        return `${issue2.keys.length > 1 ? "\u041D\u0435\u043F\u0440\u0435\u043F\u043E\u0437\u043D\u0430\u0435\u043D\u0438 \u043A\u043B\u0443\u0447\u0435\u0432\u0438" : "\u041D\u0435\u043F\u0440\u0435\u043F\u043E\u0437\u043D\u0430\u0435\u043D \u043A\u043B\u0443\u0447"}: ${joinValues(issue2.keys, ", ")}`;
+        return `${issue2.keys.length > 1 ? "Непрепознаени клучеви" : "Непрепознаен клуч"}: ${joinValues(issue2.keys, ", ")}`;
       case "invalid_key":
-        return `\u0413\u0440\u0435\u0448\u0435\u043D \u043A\u043B\u0443\u0447 \u0432\u043E ${issue2.origin}`;
+        return `Грешен клуч во ${issue2.origin}`;
       case "invalid_union":
-        return "\u0413\u0440\u0435\u0448\u0435\u043D \u0432\u043D\u0435\u0441";
+        return "Грешен внес";
       case "invalid_element":
-        return `\u0413\u0440\u0435\u0448\u043D\u0430 \u0432\u0440\u0435\u0434\u043D\u043E\u0441\u0442 \u0432\u043E ${issue2.origin}`;
+        return `Грешна вредност во ${issue2.origin}`;
       default:
-        return `\u0413\u0440\u0435\u0448\u0435\u043D \u0432\u043D\u0435\u0441`;
+        return `Грешен внес`;
     }
   };
 };
@@ -7395,7 +7394,7 @@ var error27 = () => {
       case "invalid_value":
         if (issue2.values.length === 1)
           return `Ongeldige invoer: verwacht ${stringifyPrimitive(issue2.values[0])}`;
-        return `Ongeldige optie: verwacht \xE9\xE9n van ${joinValues(issue2.values, "|")}`;
+        return `Ongeldige optie: verwacht één van ${joinValues(issue2.values, "|")}`;
       case "too_big": {
         const adj = issue2.inclusive ? "<=" : "<";
         const sizing = getSizing(issue2.origin);
@@ -7447,10 +7446,10 @@ function nl_default() {
 // node_modules/zod/v4/locales/no.js
 var error28 = () => {
   const Sizable = {
-    string: { unit: "tegn", verb: "\xE5 ha" },
-    file: { unit: "bytes", verb: "\xE5 ha" },
-    array: { unit: "elementer", verb: "\xE5 inneholde" },
-    set: { unit: "elementer", verb: "\xE5 inneholde" }
+    string: { unit: "tegn", verb: "å ha" },
+    file: { unit: "bytes", verb: "å ha" },
+    array: { unit: "elementer", verb: "å inneholde" },
+    set: { unit: "elementer", verb: "å inneholde" }
   };
   function getSizing(origin) {
     return Sizable[origin] ?? null;
@@ -7494,8 +7493,8 @@ var error28 = () => {
     date: "ISO-dato",
     time: "ISO-klokkeslett",
     duration: "ISO-varighet",
-    ipv4: "IPv4-omr\xE5de",
-    ipv6: "IPv6-omr\xE5de",
+    ipv4: "IPv4-område",
+    ipv6: "IPv6-område",
     cidrv4: "IPv4-spekter",
     cidrv6: "IPv6-spekter",
     base64: "base64-enkodet streng",
@@ -7517,35 +7516,35 @@ var error28 = () => {
         const adj = issue2.inclusive ? "<=" : "<";
         const sizing = getSizing(issue2.origin);
         if (sizing)
-          return `For stor(t): forventet ${issue2.origin ?? "value"} til \xE5 ha ${adj}${issue2.maximum.toString()} ${sizing.unit ?? "elementer"}`;
-        return `For stor(t): forventet ${issue2.origin ?? "value"} til \xE5 ha ${adj}${issue2.maximum.toString()}`;
+          return `For stor(t): forventet ${issue2.origin ?? "value"} til å ha ${adj}${issue2.maximum.toString()} ${sizing.unit ?? "elementer"}`;
+        return `For stor(t): forventet ${issue2.origin ?? "value"} til å ha ${adj}${issue2.maximum.toString()}`;
       }
       case "too_small": {
         const adj = issue2.inclusive ? ">=" : ">";
         const sizing = getSizing(issue2.origin);
         if (sizing) {
-          return `For lite(n): forventet ${issue2.origin} til \xE5 ha ${adj}${issue2.minimum.toString()} ${sizing.unit}`;
+          return `For lite(n): forventet ${issue2.origin} til å ha ${adj}${issue2.minimum.toString()} ${sizing.unit}`;
         }
-        return `For lite(n): forventet ${issue2.origin} til \xE5 ha ${adj}${issue2.minimum.toString()}`;
+        return `For lite(n): forventet ${issue2.origin} til å ha ${adj}${issue2.minimum.toString()}`;
       }
       case "invalid_format": {
         const _issue = issue2;
         if (_issue.format === "starts_with")
-          return `Ugyldig streng: m\xE5 starte med "${_issue.prefix}"`;
+          return `Ugyldig streng: må starte med "${_issue.prefix}"`;
         if (_issue.format === "ends_with")
-          return `Ugyldig streng: m\xE5 ende med "${_issue.suffix}"`;
+          return `Ugyldig streng: må ende med "${_issue.suffix}"`;
         if (_issue.format === "includes")
-          return `Ugyldig streng: m\xE5 inneholde "${_issue.includes}"`;
+          return `Ugyldig streng: må inneholde "${_issue.includes}"`;
         if (_issue.format === "regex")
-          return `Ugyldig streng: m\xE5 matche m\xF8nsteret ${_issue.pattern}`;
+          return `Ugyldig streng: må matche mønsteret ${_issue.pattern}`;
         return `Ugyldig ${Nouns[_issue.format] ?? issue2.format}`;
       }
       case "not_multiple_of":
-        return `Ugyldig tall: m\xE5 v\xE6re et multiplum av ${issue2.divisor}`;
+        return `Ugyldig tall: må være et multiplum av ${issue2.divisor}`;
       case "unrecognized_keys":
-        return `${issue2.keys.length > 1 ? "Ukjente n\xF8kler" : "Ukjent n\xF8kkel"}: ${joinValues(issue2.keys, ", ")}`;
+        return `${issue2.keys.length > 1 ? "Ukjente nøkler" : "Ukjent nøkkel"}: ${joinValues(issue2.keys, ", ")}`;
       case "invalid_key":
-        return `Ugyldig n\xF8kkel i ${issue2.origin}`;
+        return `Ugyldig nøkkel i ${issue2.origin}`;
       case "invalid_union":
         return "Ugyldig input";
       case "invalid_element":
@@ -7563,10 +7562,10 @@ function no_default() {
 // node_modules/zod/v4/locales/ota.js
 var error29 = () => {
   const Sizable = {
-    string: { unit: "harf", verb: "olmal\u0131d\u0131r" },
-    file: { unit: "bayt", verb: "olmal\u0131d\u0131r" },
-    array: { unit: "unsur", verb: "olmal\u0131d\u0131r" },
-    set: { unit: "unsur", verb: "olmal\u0131d\u0131r" }
+    string: { unit: "harf", verb: "olmalıdır" },
+    file: { unit: "bayt", verb: "olmalıdır" },
+    array: { unit: "unsur", verb: "olmalıdır" },
+    set: { unit: "unsur", verb: "olmalıdır" }
   };
   function getSizing(origin) {
     return Sizable[origin] ?? null;
@@ -7593,7 +7592,7 @@ var error29 = () => {
   };
   const Nouns = {
     regex: "giren",
-    email: "epostag\xE2h",
+    email: "epostagâh",
     url: "URL",
     emoji: "emoji",
     uuid: "UUID",
@@ -7606,68 +7605,68 @@ var error29 = () => {
     ulid: "ULID",
     xid: "XID",
     ksuid: "KSUID",
-    datetime: "ISO heng\xE2m\u0131",
+    datetime: "ISO hengâmı",
     date: "ISO tarihi",
-    time: "ISO zaman\u0131",
-    duration: "ISO m\xFCddeti",
-    ipv4: "IPv4 ni\u015F\xE2n\u0131",
-    ipv6: "IPv6 ni\u015F\xE2n\u0131",
+    time: "ISO zamanı",
+    duration: "ISO müddeti",
+    ipv4: "IPv4 nişânı",
+    ipv6: "IPv6 nişânı",
     cidrv4: "IPv4 menzili",
     cidrv6: "IPv6 menzili",
-    base64: "base64-\u015Fifreli metin",
-    base64url: "base64url-\u015Fifreli metin",
+    base64: "base64-şifreli metin",
+    base64url: "base64url-şifreli metin",
     json_string: "JSON metin",
-    e164: "E.164 say\u0131s\u0131",
+    e164: "E.164 sayısı",
     jwt: "JWT",
     template_literal: "giren"
   };
   return (issue2) => {
     switch (issue2.code) {
       case "invalid_type":
-        return `F\xE2sit giren: umulan ${issue2.expected}, al\u0131nan ${parsedType6(issue2.input)}`;
+        return `Fâsit giren: umulan ${issue2.expected}, alınan ${parsedType6(issue2.input)}`;
       case "invalid_value":
         if (issue2.values.length === 1)
-          return `F\xE2sit giren: umulan ${stringifyPrimitive(issue2.values[0])}`;
-        return `F\xE2sit tercih: m\xFBteberler ${joinValues(issue2.values, "|")}`;
+          return `Fâsit giren: umulan ${stringifyPrimitive(issue2.values[0])}`;
+        return `Fâsit tercih: mûteberler ${joinValues(issue2.values, "|")}`;
       case "too_big": {
         const adj = issue2.inclusive ? "<=" : "<";
         const sizing = getSizing(issue2.origin);
         if (sizing)
-          return `Fazla b\xFCy\xFCk: ${issue2.origin ?? "value"}, ${adj}${issue2.maximum.toString()} ${sizing.unit ?? "elements"} sahip olmal\u0131yd\u0131.`;
-        return `Fazla b\xFCy\xFCk: ${issue2.origin ?? "value"}, ${adj}${issue2.maximum.toString()} olmal\u0131yd\u0131.`;
+          return `Fazla büyük: ${issue2.origin ?? "value"}, ${adj}${issue2.maximum.toString()} ${sizing.unit ?? "elements"} sahip olmalıydı.`;
+        return `Fazla büyük: ${issue2.origin ?? "value"}, ${adj}${issue2.maximum.toString()} olmalıydı.`;
       }
       case "too_small": {
         const adj = issue2.inclusive ? ">=" : ">";
         const sizing = getSizing(issue2.origin);
         if (sizing) {
-          return `Fazla k\xFC\xE7\xFCk: ${issue2.origin}, ${adj}${issue2.minimum.toString()} ${sizing.unit} sahip olmal\u0131yd\u0131.`;
+          return `Fazla küçük: ${issue2.origin}, ${adj}${issue2.minimum.toString()} ${sizing.unit} sahip olmalıydı.`;
         }
-        return `Fazla k\xFC\xE7\xFCk: ${issue2.origin}, ${adj}${issue2.minimum.toString()} olmal\u0131yd\u0131.`;
+        return `Fazla küçük: ${issue2.origin}, ${adj}${issue2.minimum.toString()} olmalıydı.`;
       }
       case "invalid_format": {
         const _issue = issue2;
         if (_issue.format === "starts_with")
-          return `F\xE2sit metin: "${_issue.prefix}" ile ba\u015Flamal\u0131.`;
+          return `Fâsit metin: "${_issue.prefix}" ile başlamalı.`;
         if (_issue.format === "ends_with")
-          return `F\xE2sit metin: "${_issue.suffix}" ile bitmeli.`;
+          return `Fâsit metin: "${_issue.suffix}" ile bitmeli.`;
         if (_issue.format === "includes")
-          return `F\xE2sit metin: "${_issue.includes}" ihtiv\xE2 etmeli.`;
+          return `Fâsit metin: "${_issue.includes}" ihtivâ etmeli.`;
         if (_issue.format === "regex")
-          return `F\xE2sit metin: ${_issue.pattern} nak\u015F\u0131na uymal\u0131.`;
-        return `F\xE2sit ${Nouns[_issue.format] ?? issue2.format}`;
+          return `Fâsit metin: ${_issue.pattern} nakşına uymalı.`;
+        return `Fâsit ${Nouns[_issue.format] ?? issue2.format}`;
       }
       case "not_multiple_of":
-        return `F\xE2sit say\u0131: ${issue2.divisor} kat\u0131 olmal\u0131yd\u0131.`;
+        return `Fâsit sayı: ${issue2.divisor} katı olmalıydı.`;
       case "unrecognized_keys":
-        return `Tan\u0131nmayan anahtar ${issue2.keys.length > 1 ? "s" : ""}: ${joinValues(issue2.keys, ", ")}`;
+        return `Tanınmayan anahtar ${issue2.keys.length > 1 ? "s" : ""}: ${joinValues(issue2.keys, ", ")}`;
       case "invalid_key":
-        return `${issue2.origin} i\xE7in tan\u0131nmayan anahtar var.`;
+        return `${issue2.origin} için tanınmayan anahtar var.`;
       case "invalid_union":
-        return "Giren tan\u0131namad\u0131.";
+        return "Giren tanınamadı.";
       case "invalid_element":
-        return `${issue2.origin} i\xE7in tan\u0131nmayan k\u0131ymet var.`;
+        return `${issue2.origin} için tanınmayan kıymet var.`;
       default:
-        return `K\u0131ymet tan\u0131namad\u0131.`;
+        return `Kıymet tanınamadı.`;
     }
   };
 };
@@ -7679,10 +7678,10 @@ function ota_default() {
 // node_modules/zod/v4/locales/ps.js
 var error30 = () => {
   const Sizable = {
-    string: { unit: "\u062A\u0648\u06A9\u064A", verb: "\u0648\u0644\u0631\u064A" },
-    file: { unit: "\u0628\u0627\u06CC\u067C\u0633", verb: "\u0648\u0644\u0631\u064A" },
-    array: { unit: "\u062A\u0648\u06A9\u064A", verb: "\u0648\u0644\u0631\u064A" },
-    set: { unit: "\u062A\u0648\u06A9\u064A", verb: "\u0648\u0644\u0631\u064A" }
+    string: { unit: "توکي", verb: "ولري" },
+    file: { unit: "بایټس", verb: "ولري" },
+    array: { unit: "توکي", verb: "ولري" },
+    set: { unit: "توکي", verb: "ولري" }
   };
   function getSizing(origin) {
     return Sizable[origin] ?? null;
@@ -7691,11 +7690,11 @@ var error30 = () => {
     const t = typeof data;
     switch (t) {
       case "number": {
-        return Number.isNaN(data) ? "NaN" : "\u0639\u062F\u062F";
+        return Number.isNaN(data) ? "NaN" : "عدد";
       }
       case "object": {
         if (Array.isArray(data)) {
-          return "\u0627\u0631\u06D0";
+          return "ارې";
         }
         if (data === null) {
           return "null";
@@ -7708,10 +7707,10 @@ var error30 = () => {
     return t;
   };
   const Nouns = {
-    regex: "\u0648\u0631\u0648\u062F\u064A",
-    email: "\u0628\u0631\u06CC\u069A\u0646\u0627\u0644\u06CC\u06A9",
-    url: "\u06CC\u0648 \u0622\u0631 \u0627\u0644",
-    emoji: "\u0627\u06CC\u0645\u0648\u062C\u064A",
+    regex: "ورودي",
+    email: "بریښنالیک",
+    url: "یو آر ال",
+    emoji: "ایموجي",
     uuid: "UUID",
     uuidv4: "UUIDv4",
     uuidv6: "UUIDv6",
@@ -7722,74 +7721,74 @@ var error30 = () => {
     ulid: "ULID",
     xid: "XID",
     ksuid: "KSUID",
-    datetime: "\u0646\u06CC\u067C\u0647 \u0627\u0648 \u0648\u062E\u062A",
-    date: "\u0646\u06D0\u067C\u0647",
-    time: "\u0648\u062E\u062A",
-    duration: "\u0645\u0648\u062F\u0647",
-    ipv4: "\u062F IPv4 \u067E\u062A\u0647",
-    ipv6: "\u062F IPv6 \u067E\u062A\u0647",
-    cidrv4: "\u062F IPv4 \u0633\u0627\u062D\u0647",
-    cidrv6: "\u062F IPv6 \u0633\u0627\u062D\u0647",
-    base64: "base64-encoded \u0645\u062A\u0646",
-    base64url: "base64url-encoded \u0645\u062A\u0646",
-    json_string: "JSON \u0645\u062A\u0646",
-    e164: "\u062F E.164 \u0634\u0645\u06D0\u0631\u0647",
+    datetime: "نیټه او وخت",
+    date: "نېټه",
+    time: "وخت",
+    duration: "موده",
+    ipv4: "د IPv4 پته",
+    ipv6: "د IPv6 پته",
+    cidrv4: "د IPv4 ساحه",
+    cidrv6: "د IPv6 ساحه",
+    base64: "base64-encoded متن",
+    base64url: "base64url-encoded متن",
+    json_string: "JSON متن",
+    e164: "د E.164 شمېره",
     jwt: "JWT",
-    template_literal: "\u0648\u0631\u0648\u062F\u064A"
+    template_literal: "ورودي"
   };
   return (issue2) => {
     switch (issue2.code) {
       case "invalid_type":
-        return `\u0646\u0627\u0633\u0645 \u0648\u0631\u0648\u062F\u064A: \u0628\u0627\u06CC\u062F ${issue2.expected} \u0648\u0627\u06CC, \u0645\u06AB\u0631 ${parsedType6(issue2.input)} \u062A\u0631\u0644\u0627\u0633\u0647 \u0634\u0648`;
+        return `ناسم ورودي: باید ${issue2.expected} وای, مګر ${parsedType6(issue2.input)} ترلاسه شو`;
       case "invalid_value":
         if (issue2.values.length === 1) {
-          return `\u0646\u0627\u0633\u0645 \u0648\u0631\u0648\u062F\u064A: \u0628\u0627\u06CC\u062F ${stringifyPrimitive(issue2.values[0])} \u0648\u0627\u06CC`;
+          return `ناسم ورودي: باید ${stringifyPrimitive(issue2.values[0])} وای`;
         }
-        return `\u0646\u0627\u0633\u0645 \u0627\u0646\u062A\u062E\u0627\u0628: \u0628\u0627\u06CC\u062F \u06CC\u0648 \u0644\u0647 ${joinValues(issue2.values, "|")} \u0685\u062E\u0647 \u0648\u0627\u06CC`;
+        return `ناسم انتخاب: باید یو له ${joinValues(issue2.values, "|")} څخه وای`;
       case "too_big": {
         const adj = issue2.inclusive ? "<=" : "<";
         const sizing = getSizing(issue2.origin);
         if (sizing) {
-          return `\u0689\u06CC\u0631 \u0644\u0648\u06CC: ${issue2.origin ?? "\u0627\u0631\u0632\u069A\u062A"} \u0628\u0627\u06CC\u062F ${adj}${issue2.maximum.toString()} ${sizing.unit ?? "\u0639\u0646\u0635\u0631\u0648\u0646\u0647"} \u0648\u0644\u0631\u064A`;
+          return `ډیر لوی: ${issue2.origin ?? "ارزښت"} باید ${adj}${issue2.maximum.toString()} ${sizing.unit ?? "عنصرونه"} ولري`;
         }
-        return `\u0689\u06CC\u0631 \u0644\u0648\u06CC: ${issue2.origin ?? "\u0627\u0631\u0632\u069A\u062A"} \u0628\u0627\u06CC\u062F ${adj}${issue2.maximum.toString()} \u0648\u064A`;
+        return `ډیر لوی: ${issue2.origin ?? "ارزښت"} باید ${adj}${issue2.maximum.toString()} وي`;
       }
       case "too_small": {
         const adj = issue2.inclusive ? ">=" : ">";
         const sizing = getSizing(issue2.origin);
         if (sizing) {
-          return `\u0689\u06CC\u0631 \u06A9\u0648\u0686\u0646\u06CC: ${issue2.origin} \u0628\u0627\u06CC\u062F ${adj}${issue2.minimum.toString()} ${sizing.unit} \u0648\u0644\u0631\u064A`;
+          return `ډیر کوچنی: ${issue2.origin} باید ${adj}${issue2.minimum.toString()} ${sizing.unit} ولري`;
         }
-        return `\u0689\u06CC\u0631 \u06A9\u0648\u0686\u0646\u06CC: ${issue2.origin} \u0628\u0627\u06CC\u062F ${adj}${issue2.minimum.toString()} \u0648\u064A`;
+        return `ډیر کوچنی: ${issue2.origin} باید ${adj}${issue2.minimum.toString()} وي`;
       }
       case "invalid_format": {
         const _issue = issue2;
         if (_issue.format === "starts_with") {
-          return `\u0646\u0627\u0633\u0645 \u0645\u062A\u0646: \u0628\u0627\u06CC\u062F \u062F "${_issue.prefix}" \u0633\u0631\u0647 \u067E\u06CC\u0644 \u0634\u064A`;
+          return `ناسم متن: باید د "${_issue.prefix}" سره پیل شي`;
         }
         if (_issue.format === "ends_with") {
-          return `\u0646\u0627\u0633\u0645 \u0645\u062A\u0646: \u0628\u0627\u06CC\u062F \u062F "${_issue.suffix}" \u0633\u0631\u0647 \u067E\u0627\u06CC \u062A\u0647 \u0648\u0631\u0633\u064A\u0696\u064A`;
+          return `ناسم متن: باید د "${_issue.suffix}" سره پای ته ورسيږي`;
         }
         if (_issue.format === "includes") {
-          return `\u0646\u0627\u0633\u0645 \u0645\u062A\u0646: \u0628\u0627\u06CC\u062F "${_issue.includes}" \u0648\u0644\u0631\u064A`;
+          return `ناسم متن: باید "${_issue.includes}" ولري`;
         }
         if (_issue.format === "regex") {
-          return `\u0646\u0627\u0633\u0645 \u0645\u062A\u0646: \u0628\u0627\u06CC\u062F \u062F ${_issue.pattern} \u0633\u0631\u0647 \u0645\u0637\u0627\u0628\u0642\u062A \u0648\u0644\u0631\u064A`;
+          return `ناسم متن: باید د ${_issue.pattern} سره مطابقت ولري`;
         }
-        return `${Nouns[_issue.format] ?? issue2.format} \u0646\u0627\u0633\u0645 \u062F\u06CC`;
+        return `${Nouns[_issue.format] ?? issue2.format} ناسم دی`;
       }
       case "not_multiple_of":
-        return `\u0646\u0627\u0633\u0645 \u0639\u062F\u062F: \u0628\u0627\u06CC\u062F \u062F ${issue2.divisor} \u0645\u0636\u0631\u0628 \u0648\u064A`;
+        return `ناسم عدد: باید د ${issue2.divisor} مضرب وي`;
       case "unrecognized_keys":
-        return `\u0646\u0627\u0633\u0645 ${issue2.keys.length > 1 ? "\u06A9\u0644\u06CC\u0689\u0648\u0646\u0647" : "\u06A9\u0644\u06CC\u0689"}: ${joinValues(issue2.keys, ", ")}`;
+        return `ناسم ${issue2.keys.length > 1 ? "کلیډونه" : "کلیډ"}: ${joinValues(issue2.keys, ", ")}`;
       case "invalid_key":
-        return `\u0646\u0627\u0633\u0645 \u06A9\u0644\u06CC\u0689 \u067E\u0647 ${issue2.origin} \u06A9\u06D0`;
+        return `ناسم کلیډ په ${issue2.origin} کې`;
       case "invalid_union":
-        return `\u0646\u0627\u0633\u0645\u0647 \u0648\u0631\u0648\u062F\u064A`;
+        return `ناسمه ورودي`;
       case "invalid_element":
-        return `\u0646\u0627\u0633\u0645 \u0639\u0646\u0635\u0631 \u067E\u0647 ${issue2.origin} \u06A9\u06D0`;
+        return `ناسم عنصر په ${issue2.origin} کې`;
       default:
-        return `\u0646\u0627\u0633\u0645\u0647 \u0648\u0631\u0648\u062F\u064A`;
+        return `ناسمه ورودي`;
     }
   };
 };
@@ -7801,10 +7800,10 @@ function ps_default() {
 // node_modules/zod/v4/locales/pl.js
 var error31 = () => {
   const Sizable = {
-    string: { unit: "znak\xF3w", verb: "mie\u0107" },
-    file: { unit: "bajt\xF3w", verb: "mie\u0107" },
-    array: { unit: "element\xF3w", verb: "mie\u0107" },
-    set: { unit: "element\xF3w", verb: "mie\u0107" }
+    string: { unit: "znaków", verb: "mieć" },
+    file: { unit: "bajtów", verb: "mieć" },
+    array: { unit: "elementów", verb: "mieć" },
+    set: { unit: "elementów", verb: "mieć" }
   };
   function getSizing(origin) {
     return Sizable[origin] ?? null;
@@ -7830,7 +7829,7 @@ var error31 = () => {
     return t;
   };
   const Nouns = {
-    regex: "wyra\u017Cenie",
+    regex: "wyrażenie",
     email: "adres email",
     url: "URL",
     emoji: "emoji",
@@ -7852,61 +7851,61 @@ var error31 = () => {
     ipv6: "adres IPv6",
     cidrv4: "zakres IPv4",
     cidrv6: "zakres IPv6",
-    base64: "ci\u0105g znak\xF3w zakodowany w formacie base64",
-    base64url: "ci\u0105g znak\xF3w zakodowany w formacie base64url",
-    json_string: "ci\u0105g znak\xF3w w formacie JSON",
+    base64: "ciąg znaków zakodowany w formacie base64",
+    base64url: "ciąg znaków zakodowany w formacie base64url",
+    json_string: "ciąg znaków w formacie JSON",
     e164: "liczba E.164",
     jwt: "JWT",
-    template_literal: "wej\u015Bcie"
+    template_literal: "wejście"
   };
   return (issue2) => {
     switch (issue2.code) {
       case "invalid_type":
-        return `Nieprawid\u0142owe dane wej\u015Bciowe: oczekiwano ${issue2.expected}, otrzymano ${parsedType6(issue2.input)}`;
+        return `Nieprawidłowe dane wejściowe: oczekiwano ${issue2.expected}, otrzymano ${parsedType6(issue2.input)}`;
       case "invalid_value":
         if (issue2.values.length === 1)
-          return `Nieprawid\u0142owe dane wej\u015Bciowe: oczekiwano ${stringifyPrimitive(issue2.values[0])}`;
-        return `Nieprawid\u0142owa opcja: oczekiwano jednej z warto\u015Bci ${joinValues(issue2.values, "|")}`;
+          return `Nieprawidłowe dane wejściowe: oczekiwano ${stringifyPrimitive(issue2.values[0])}`;
+        return `Nieprawidłowa opcja: oczekiwano jednej z wartości ${joinValues(issue2.values, "|")}`;
       case "too_big": {
         const adj = issue2.inclusive ? "<=" : "<";
         const sizing = getSizing(issue2.origin);
         if (sizing) {
-          return `Za du\u017Ca warto\u015B\u0107: oczekiwano, \u017Ce ${issue2.origin ?? "warto\u015B\u0107"} b\u0119dzie mie\u0107 ${adj}${issue2.maximum.toString()} ${sizing.unit ?? "element\xF3w"}`;
+          return `Za duża wartość: oczekiwano, że ${issue2.origin ?? "wartość"} będzie mieć ${adj}${issue2.maximum.toString()} ${sizing.unit ?? "elementów"}`;
         }
-        return `Zbyt du\u017C(y/a/e): oczekiwano, \u017Ce ${issue2.origin ?? "warto\u015B\u0107"} b\u0119dzie wynosi\u0107 ${adj}${issue2.maximum.toString()}`;
+        return `Zbyt duż(y/a/e): oczekiwano, że ${issue2.origin ?? "wartość"} będzie wynosić ${adj}${issue2.maximum.toString()}`;
       }
       case "too_small": {
         const adj = issue2.inclusive ? ">=" : ">";
         const sizing = getSizing(issue2.origin);
         if (sizing) {
-          return `Za ma\u0142a warto\u015B\u0107: oczekiwano, \u017Ce ${issue2.origin ?? "warto\u015B\u0107"} b\u0119dzie mie\u0107 ${adj}${issue2.minimum.toString()} ${sizing.unit ?? "element\xF3w"}`;
+          return `Za mała wartość: oczekiwano, że ${issue2.origin ?? "wartość"} będzie mieć ${adj}${issue2.minimum.toString()} ${sizing.unit ?? "elementów"}`;
         }
-        return `Zbyt ma\u0142(y/a/e): oczekiwano, \u017Ce ${issue2.origin ?? "warto\u015B\u0107"} b\u0119dzie wynosi\u0107 ${adj}${issue2.minimum.toString()}`;
+        return `Zbyt mał(y/a/e): oczekiwano, że ${issue2.origin ?? "wartość"} będzie wynosić ${adj}${issue2.minimum.toString()}`;
       }
       case "invalid_format": {
         const _issue = issue2;
         if (_issue.format === "starts_with")
-          return `Nieprawid\u0142owy ci\u0105g znak\xF3w: musi zaczyna\u0107 si\u0119 od "${_issue.prefix}"`;
+          return `Nieprawidłowy ciąg znaków: musi zaczynać się od "${_issue.prefix}"`;
         if (_issue.format === "ends_with")
-          return `Nieprawid\u0142owy ci\u0105g znak\xF3w: musi ko\u0144czy\u0107 si\u0119 na "${_issue.suffix}"`;
+          return `Nieprawidłowy ciąg znaków: musi kończyć się na "${_issue.suffix}"`;
         if (_issue.format === "includes")
-          return `Nieprawid\u0142owy ci\u0105g znak\xF3w: musi zawiera\u0107 "${_issue.includes}"`;
+          return `Nieprawidłowy ciąg znaków: musi zawierać "${_issue.includes}"`;
         if (_issue.format === "regex")
-          return `Nieprawid\u0142owy ci\u0105g znak\xF3w: musi odpowiada\u0107 wzorcowi ${_issue.pattern}`;
-        return `Nieprawid\u0142ow(y/a/e) ${Nouns[_issue.format] ?? issue2.format}`;
+          return `Nieprawidłowy ciąg znaków: musi odpowiadać wzorcowi ${_issue.pattern}`;
+        return `Nieprawidłow(y/a/e) ${Nouns[_issue.format] ?? issue2.format}`;
       }
       case "not_multiple_of":
-        return `Nieprawid\u0142owa liczba: musi by\u0107 wielokrotno\u015Bci\u0105 ${issue2.divisor}`;
+        return `Nieprawidłowa liczba: musi być wielokrotnością ${issue2.divisor}`;
       case "unrecognized_keys":
         return `Nierozpoznane klucze${issue2.keys.length > 1 ? "s" : ""}: ${joinValues(issue2.keys, ", ")}`;
       case "invalid_key":
-        return `Nieprawid\u0142owy klucz w ${issue2.origin}`;
+        return `Nieprawidłowy klucz w ${issue2.origin}`;
       case "invalid_union":
-        return "Nieprawid\u0142owe dane wej\u015Bciowe";
+        return "Nieprawidłowe dane wejściowe";
       case "invalid_element":
-        return `Nieprawid\u0142owa warto\u015B\u0107 w ${issue2.origin}`;
+        return `Nieprawidłowa wartość w ${issue2.origin}`;
       default:
-        return `Nieprawid\u0142owe dane wej\u015Bciowe`;
+        return `Nieprawidłowe dane wejściowe`;
     }
   };
 };
@@ -7930,7 +7929,7 @@ var error32 = () => {
     const t = typeof data;
     switch (t) {
       case "number": {
-        return Number.isNaN(data) ? "NaN" : "n\xFAmero";
+        return Number.isNaN(data) ? "NaN" : "número";
       }
       case "object": {
         if (Array.isArray(data)) {
@@ -7947,8 +7946,8 @@ var error32 = () => {
     return t;
   };
   const Nouns = {
-    regex: "padr\xE3o",
-    email: "endere\xE7o de e-mail",
+    regex: "padrão",
+    email: "endereço de e-mail",
     url: "URL",
     emoji: "emoji",
     uuid: "UUID",
@@ -7964,26 +7963,26 @@ var error32 = () => {
     datetime: "data e hora ISO",
     date: "data ISO",
     time: "hora ISO",
-    duration: "dura\xE7\xE3o ISO",
-    ipv4: "endere\xE7o IPv4",
-    ipv6: "endere\xE7o IPv6",
+    duration: "duração ISO",
+    ipv4: "endereço IPv4",
+    ipv6: "endereço IPv6",
     cidrv4: "faixa de IPv4",
     cidrv6: "faixa de IPv6",
     base64: "texto codificado em base64",
     base64url: "URL codificada em base64",
     json_string: "texto JSON",
-    e164: "n\xFAmero E.164",
+    e164: "número E.164",
     jwt: "JWT",
     template_literal: "entrada"
   };
   return (issue2) => {
     switch (issue2.code) {
       case "invalid_type":
-        return `Tipo inv\xE1lido: esperado ${issue2.expected}, recebido ${parsedType6(issue2.input)}`;
+        return `Tipo inválido: esperado ${issue2.expected}, recebido ${parsedType6(issue2.input)}`;
       case "invalid_value":
         if (issue2.values.length === 1)
-          return `Entrada inv\xE1lida: esperado ${stringifyPrimitive(issue2.values[0])}`;
-        return `Op\xE7\xE3o inv\xE1lida: esperada uma das ${joinValues(issue2.values, "|")}`;
+          return `Entrada inválida: esperado ${stringifyPrimitive(issue2.values[0])}`;
+        return `Opção inválida: esperada uma das ${joinValues(issue2.values, "|")}`;
       case "too_big": {
         const adj = issue2.inclusive ? "<=" : "<";
         const sizing = getSizing(issue2.origin);
@@ -8002,27 +8001,27 @@ var error32 = () => {
       case "invalid_format": {
         const _issue = issue2;
         if (_issue.format === "starts_with")
-          return `Texto inv\xE1lido: deve come\xE7ar com "${_issue.prefix}"`;
+          return `Texto inválido: deve começar com "${_issue.prefix}"`;
         if (_issue.format === "ends_with")
-          return `Texto inv\xE1lido: deve terminar com "${_issue.suffix}"`;
+          return `Texto inválido: deve terminar com "${_issue.suffix}"`;
         if (_issue.format === "includes")
-          return `Texto inv\xE1lido: deve incluir "${_issue.includes}"`;
+          return `Texto inválido: deve incluir "${_issue.includes}"`;
         if (_issue.format === "regex")
-          return `Texto inv\xE1lido: deve corresponder ao padr\xE3o ${_issue.pattern}`;
-        return `${Nouns[_issue.format] ?? issue2.format} inv\xE1lido`;
+          return `Texto inválido: deve corresponder ao padrão ${_issue.pattern}`;
+        return `${Nouns[_issue.format] ?? issue2.format} inválido`;
       }
       case "not_multiple_of":
-        return `N\xFAmero inv\xE1lido: deve ser m\xFAltiplo de ${issue2.divisor}`;
+        return `Número inválido: deve ser múltiplo de ${issue2.divisor}`;
       case "unrecognized_keys":
         return `Chave${issue2.keys.length > 1 ? "s" : ""} desconhecida${issue2.keys.length > 1 ? "s" : ""}: ${joinValues(issue2.keys, ", ")}`;
       case "invalid_key":
-        return `Chave inv\xE1lida em ${issue2.origin}`;
+        return `Chave inválida em ${issue2.origin}`;
       case "invalid_union":
-        return "Entrada inv\xE1lida";
+        return "Entrada inválida";
       case "invalid_element":
-        return `Valor inv\xE1lido em ${issue2.origin}`;
+        return `Valor inválido em ${issue2.origin}`;
       default:
-        return `Campo inv\xE1lido`;
+        return `Campo inválido`;
     }
   };
 };
@@ -8051,35 +8050,35 @@ var error33 = () => {
   const Sizable = {
     string: {
       unit: {
-        one: "\u0441\u0438\u043C\u0432\u043E\u043B",
-        few: "\u0441\u0438\u043C\u0432\u043E\u043B\u0430",
-        many: "\u0441\u0438\u043C\u0432\u043E\u043B\u043E\u0432"
+        one: "символ",
+        few: "символа",
+        many: "символов"
       },
-      verb: "\u0438\u043C\u0435\u0442\u044C"
+      verb: "иметь"
     },
     file: {
       unit: {
-        one: "\u0431\u0430\u0439\u0442",
-        few: "\u0431\u0430\u0439\u0442\u0430",
-        many: "\u0431\u0430\u0439\u0442"
+        one: "байт",
+        few: "байта",
+        many: "байт"
       },
-      verb: "\u0438\u043C\u0435\u0442\u044C"
+      verb: "иметь"
     },
     array: {
       unit: {
-        one: "\u044D\u043B\u0435\u043C\u0435\u043D\u0442",
-        few: "\u044D\u043B\u0435\u043C\u0435\u043D\u0442\u0430",
-        many: "\u044D\u043B\u0435\u043C\u0435\u043D\u0442\u043E\u0432"
+        one: "элемент",
+        few: "элемента",
+        many: "элементов"
       },
-      verb: "\u0438\u043C\u0435\u0442\u044C"
+      verb: "иметь"
     },
     set: {
       unit: {
-        one: "\u044D\u043B\u0435\u043C\u0435\u043D\u0442",
-        few: "\u044D\u043B\u0435\u043C\u0435\u043D\u0442\u0430",
-        many: "\u044D\u043B\u0435\u043C\u0435\u043D\u0442\u043E\u0432"
+        one: "элемент",
+        few: "элемента",
+        many: "элементов"
       },
-      verb: "\u0438\u043C\u0435\u0442\u044C"
+      verb: "иметь"
     }
   };
   function getSizing(origin) {
@@ -8089,11 +8088,11 @@ var error33 = () => {
     const t = typeof data;
     switch (t) {
       case "number": {
-        return Number.isNaN(data) ? "NaN" : "\u0447\u0438\u0441\u043B\u043E";
+        return Number.isNaN(data) ? "NaN" : "число";
       }
       case "object": {
         if (Array.isArray(data)) {
-          return "\u043C\u0430\u0441\u0441\u0438\u0432";
+          return "массив";
         }
         if (data === null) {
           return "null";
@@ -8106,10 +8105,10 @@ var error33 = () => {
     return t;
   };
   const Nouns = {
-    regex: "\u0432\u0432\u043E\u0434",
-    email: "email \u0430\u0434\u0440\u0435\u0441",
+    regex: "ввод",
+    email: "email адрес",
     url: "URL",
-    emoji: "\u044D\u043C\u043E\u0434\u0437\u0438",
+    emoji: "эмодзи",
     uuid: "UUID",
     uuidv4: "UUIDv4",
     uuidv6: "UUIDv6",
@@ -8120,38 +8119,38 @@ var error33 = () => {
     ulid: "ULID",
     xid: "XID",
     ksuid: "KSUID",
-    datetime: "ISO \u0434\u0430\u0442\u0430 \u0438 \u0432\u0440\u0435\u043C\u044F",
-    date: "ISO \u0434\u0430\u0442\u0430",
-    time: "ISO \u0432\u0440\u0435\u043C\u044F",
-    duration: "ISO \u0434\u043B\u0438\u0442\u0435\u043B\u044C\u043D\u043E\u0441\u0442\u044C",
-    ipv4: "IPv4 \u0430\u0434\u0440\u0435\u0441",
-    ipv6: "IPv6 \u0430\u0434\u0440\u0435\u0441",
-    cidrv4: "IPv4 \u0434\u0438\u0430\u043F\u0430\u0437\u043E\u043D",
-    cidrv6: "IPv6 \u0434\u0438\u0430\u043F\u0430\u0437\u043E\u043D",
-    base64: "\u0441\u0442\u0440\u043E\u043A\u0430 \u0432 \u0444\u043E\u0440\u043C\u0430\u0442\u0435 base64",
-    base64url: "\u0441\u0442\u0440\u043E\u043A\u0430 \u0432 \u0444\u043E\u0440\u043C\u0430\u0442\u0435 base64url",
-    json_string: "JSON \u0441\u0442\u0440\u043E\u043A\u0430",
-    e164: "\u043D\u043E\u043C\u0435\u0440 E.164",
+    datetime: "ISO дата и время",
+    date: "ISO дата",
+    time: "ISO время",
+    duration: "ISO длительность",
+    ipv4: "IPv4 адрес",
+    ipv6: "IPv6 адрес",
+    cidrv4: "IPv4 диапазон",
+    cidrv6: "IPv6 диапазон",
+    base64: "строка в формате base64",
+    base64url: "строка в формате base64url",
+    json_string: "JSON строка",
+    e164: "номер E.164",
     jwt: "JWT",
-    template_literal: "\u0432\u0432\u043E\u0434"
+    template_literal: "ввод"
   };
   return (issue2) => {
     switch (issue2.code) {
       case "invalid_type":
-        return `\u041D\u0435\u0432\u0435\u0440\u043D\u044B\u0439 \u0432\u0432\u043E\u0434: \u043E\u0436\u0438\u0434\u0430\u043B\u043E\u0441\u044C ${issue2.expected}, \u043F\u043E\u043B\u0443\u0447\u0435\u043D\u043E ${parsedType6(issue2.input)}`;
+        return `Неверный ввод: ожидалось ${issue2.expected}, получено ${parsedType6(issue2.input)}`;
       case "invalid_value":
         if (issue2.values.length === 1)
-          return `\u041D\u0435\u0432\u0435\u0440\u043D\u044B\u0439 \u0432\u0432\u043E\u0434: \u043E\u0436\u0438\u0434\u0430\u043B\u043E\u0441\u044C ${stringifyPrimitive(issue2.values[0])}`;
-        return `\u041D\u0435\u0432\u0435\u0440\u043D\u044B\u0439 \u0432\u0430\u0440\u0438\u0430\u043D\u0442: \u043E\u0436\u0438\u0434\u0430\u043B\u043E\u0441\u044C \u043E\u0434\u043D\u043E \u0438\u0437 ${joinValues(issue2.values, "|")}`;
+          return `Неверный ввод: ожидалось ${stringifyPrimitive(issue2.values[0])}`;
+        return `Неверный вариант: ожидалось одно из ${joinValues(issue2.values, "|")}`;
       case "too_big": {
         const adj = issue2.inclusive ? "<=" : "<";
         const sizing = getSizing(issue2.origin);
         if (sizing) {
           const maxValue = Number(issue2.maximum);
           const unit = getRussianPlural(maxValue, sizing.unit.one, sizing.unit.few, sizing.unit.many);
-          return `\u0421\u043B\u0438\u0448\u043A\u043E\u043C \u0431\u043E\u043B\u044C\u0448\u043E\u0435 \u0437\u043D\u0430\u0447\u0435\u043D\u0438\u0435: \u043E\u0436\u0438\u0434\u0430\u043B\u043E\u0441\u044C, \u0447\u0442\u043E ${issue2.origin ?? "\u0437\u043D\u0430\u0447\u0435\u043D\u0438\u0435"} \u0431\u0443\u0434\u0435\u0442 \u0438\u043C\u0435\u0442\u044C ${adj}${issue2.maximum.toString()} ${unit}`;
+          return `Слишком большое значение: ожидалось, что ${issue2.origin ?? "значение"} будет иметь ${adj}${issue2.maximum.toString()} ${unit}`;
         }
-        return `\u0421\u043B\u0438\u0448\u043A\u043E\u043C \u0431\u043E\u043B\u044C\u0448\u043E\u0435 \u0437\u043D\u0430\u0447\u0435\u043D\u0438\u0435: \u043E\u0436\u0438\u0434\u0430\u043B\u043E\u0441\u044C, \u0447\u0442\u043E ${issue2.origin ?? "\u0437\u043D\u0430\u0447\u0435\u043D\u0438\u0435"} \u0431\u0443\u0434\u0435\u0442 ${adj}${issue2.maximum.toString()}`;
+        return `Слишком большое значение: ожидалось, что ${issue2.origin ?? "значение"} будет ${adj}${issue2.maximum.toString()}`;
       }
       case "too_small": {
         const adj = issue2.inclusive ? ">=" : ">";
@@ -8159,34 +8158,34 @@ var error33 = () => {
         if (sizing) {
           const minValue = Number(issue2.minimum);
           const unit = getRussianPlural(minValue, sizing.unit.one, sizing.unit.few, sizing.unit.many);
-          return `\u0421\u043B\u0438\u0448\u043A\u043E\u043C \u043C\u0430\u043B\u0435\u043D\u044C\u043A\u043E\u0435 \u0437\u043D\u0430\u0447\u0435\u043D\u0438\u0435: \u043E\u0436\u0438\u0434\u0430\u043B\u043E\u0441\u044C, \u0447\u0442\u043E ${issue2.origin} \u0431\u0443\u0434\u0435\u0442 \u0438\u043C\u0435\u0442\u044C ${adj}${issue2.minimum.toString()} ${unit}`;
+          return `Слишком маленькое значение: ожидалось, что ${issue2.origin} будет иметь ${adj}${issue2.minimum.toString()} ${unit}`;
         }
-        return `\u0421\u043B\u0438\u0448\u043A\u043E\u043C \u043C\u0430\u043B\u0435\u043D\u044C\u043A\u043E\u0435 \u0437\u043D\u0430\u0447\u0435\u043D\u0438\u0435: \u043E\u0436\u0438\u0434\u0430\u043B\u043E\u0441\u044C, \u0447\u0442\u043E ${issue2.origin} \u0431\u0443\u0434\u0435\u0442 ${adj}${issue2.minimum.toString()}`;
+        return `Слишком маленькое значение: ожидалось, что ${issue2.origin} будет ${adj}${issue2.minimum.toString()}`;
       }
       case "invalid_format": {
         const _issue = issue2;
         if (_issue.format === "starts_with")
-          return `\u041D\u0435\u0432\u0435\u0440\u043D\u0430\u044F \u0441\u0442\u0440\u043E\u043A\u0430: \u0434\u043E\u043B\u0436\u043D\u0430 \u043D\u0430\u0447\u0438\u043D\u0430\u0442\u044C\u0441\u044F \u0441 "${_issue.prefix}"`;
+          return `Неверная строка: должна начинаться с "${_issue.prefix}"`;
         if (_issue.format === "ends_with")
-          return `\u041D\u0435\u0432\u0435\u0440\u043D\u0430\u044F \u0441\u0442\u0440\u043E\u043A\u0430: \u0434\u043E\u043B\u0436\u043D\u0430 \u0437\u0430\u043A\u0430\u043D\u0447\u0438\u0432\u0430\u0442\u044C\u0441\u044F \u043D\u0430 "${_issue.suffix}"`;
+          return `Неверная строка: должна заканчиваться на "${_issue.suffix}"`;
         if (_issue.format === "includes")
-          return `\u041D\u0435\u0432\u0435\u0440\u043D\u0430\u044F \u0441\u0442\u0440\u043E\u043A\u0430: \u0434\u043E\u043B\u0436\u043D\u0430 \u0441\u043E\u0434\u0435\u0440\u0436\u0430\u0442\u044C "${_issue.includes}"`;
+          return `Неверная строка: должна содержать "${_issue.includes}"`;
         if (_issue.format === "regex")
-          return `\u041D\u0435\u0432\u0435\u0440\u043D\u0430\u044F \u0441\u0442\u0440\u043E\u043A\u0430: \u0434\u043E\u043B\u0436\u043D\u0430 \u0441\u043E\u043E\u0442\u0432\u0435\u0442\u0441\u0442\u0432\u043E\u0432\u0430\u0442\u044C \u0448\u0430\u0431\u043B\u043E\u043D\u0443 ${_issue.pattern}`;
-        return `\u041D\u0435\u0432\u0435\u0440\u043D\u044B\u0439 ${Nouns[_issue.format] ?? issue2.format}`;
+          return `Неверная строка: должна соответствовать шаблону ${_issue.pattern}`;
+        return `Неверный ${Nouns[_issue.format] ?? issue2.format}`;
       }
       case "not_multiple_of":
-        return `\u041D\u0435\u0432\u0435\u0440\u043D\u043E\u0435 \u0447\u0438\u0441\u043B\u043E: \u0434\u043E\u043B\u0436\u043D\u043E \u0431\u044B\u0442\u044C \u043A\u0440\u0430\u0442\u043D\u044B\u043C ${issue2.divisor}`;
+        return `Неверное число: должно быть кратным ${issue2.divisor}`;
       case "unrecognized_keys":
-        return `\u041D\u0435\u0440\u0430\u0441\u043F\u043E\u0437\u043D\u0430\u043D\u043D${issue2.keys.length > 1 ? "\u044B\u0435" : "\u044B\u0439"} \u043A\u043B\u044E\u0447${issue2.keys.length > 1 ? "\u0438" : ""}: ${joinValues(issue2.keys, ", ")}`;
+        return `Нераспознанн${issue2.keys.length > 1 ? "ые" : "ый"} ключ${issue2.keys.length > 1 ? "и" : ""}: ${joinValues(issue2.keys, ", ")}`;
       case "invalid_key":
-        return `\u041D\u0435\u0432\u0435\u0440\u043D\u044B\u0439 \u043A\u043B\u044E\u0447 \u0432 ${issue2.origin}`;
+        return `Неверный ключ в ${issue2.origin}`;
       case "invalid_union":
-        return "\u041D\u0435\u0432\u0435\u0440\u043D\u044B\u0435 \u0432\u0445\u043E\u0434\u043D\u044B\u0435 \u0434\u0430\u043D\u043D\u044B\u0435";
+        return "Неверные входные данные";
       case "invalid_element":
-        return `\u041D\u0435\u0432\u0435\u0440\u043D\u043E\u0435 \u0437\u043D\u0430\u0447\u0435\u043D\u0438\u0435 \u0432 ${issue2.origin}`;
+        return `Неверное значение в ${issue2.origin}`;
       default:
-        return `\u041D\u0435\u0432\u0435\u0440\u043D\u044B\u0435 \u0432\u0445\u043E\u0434\u043D\u044B\u0435 \u0434\u0430\u043D\u043D\u044B\u0435`;
+        return `Неверные входные данные`;
     }
   };
 };
@@ -8210,7 +8209,7 @@ var error34 = () => {
     const t = typeof data;
     switch (t) {
       case "number": {
-        return Number.isNaN(data) ? "NaN" : "\u0161tevilo";
+        return Number.isNaN(data) ? "NaN" : "število";
       }
       case "object": {
         if (Array.isArray(data)) {
@@ -8228,7 +8227,7 @@ var error34 = () => {
   };
   const Nouns = {
     regex: "vnos",
-    email: "e-po\u0161tni naslov",
+    email: "e-poštni naslov",
     url: "URL",
     emoji: "emoji",
     uuid: "UUID",
@@ -8241,9 +8240,9 @@ var error34 = () => {
     ulid: "ULID",
     xid: "XID",
     ksuid: "KSUID",
-    datetime: "ISO datum in \u010Das",
+    datetime: "ISO datum in čas",
     date: "ISO datum",
-    time: "ISO \u010Das",
+    time: "ISO čas",
     duration: "ISO trajanje",
     ipv4: "IPv4 naslov",
     ipv6: "IPv6 naslov",
@@ -8252,40 +8251,40 @@ var error34 = () => {
     base64: "base64 kodiran niz",
     base64url: "base64url kodiran niz",
     json_string: "JSON niz",
-    e164: "E.164 \u0161tevilka",
+    e164: "E.164 številka",
     jwt: "JWT",
     template_literal: "vnos"
   };
   return (issue2) => {
     switch (issue2.code) {
       case "invalid_type":
-        return `Neveljaven vnos: pri\u010Dakovano ${issue2.expected}, prejeto ${parsedType6(issue2.input)}`;
+        return `Neveljaven vnos: pričakovano ${issue2.expected}, prejeto ${parsedType6(issue2.input)}`;
       case "invalid_value":
         if (issue2.values.length === 1)
-          return `Neveljaven vnos: pri\u010Dakovano ${stringifyPrimitive(issue2.values[0])}`;
-        return `Neveljavna mo\u017Enost: pri\u010Dakovano eno izmed ${joinValues(issue2.values, "|")}`;
+          return `Neveljaven vnos: pričakovano ${stringifyPrimitive(issue2.values[0])}`;
+        return `Neveljavna možnost: pričakovano eno izmed ${joinValues(issue2.values, "|")}`;
       case "too_big": {
         const adj = issue2.inclusive ? "<=" : "<";
         const sizing = getSizing(issue2.origin);
         if (sizing)
-          return `Preveliko: pri\u010Dakovano, da bo ${issue2.origin ?? "vrednost"} imelo ${adj}${issue2.maximum.toString()} ${sizing.unit ?? "elementov"}`;
-        return `Preveliko: pri\u010Dakovano, da bo ${issue2.origin ?? "vrednost"} ${adj}${issue2.maximum.toString()}`;
+          return `Preveliko: pričakovano, da bo ${issue2.origin ?? "vrednost"} imelo ${adj}${issue2.maximum.toString()} ${sizing.unit ?? "elementov"}`;
+        return `Preveliko: pričakovano, da bo ${issue2.origin ?? "vrednost"} ${adj}${issue2.maximum.toString()}`;
       }
       case "too_small": {
         const adj = issue2.inclusive ? ">=" : ">";
         const sizing = getSizing(issue2.origin);
         if (sizing) {
-          return `Premajhno: pri\u010Dakovano, da bo ${issue2.origin} imelo ${adj}${issue2.minimum.toString()} ${sizing.unit}`;
+          return `Premajhno: pričakovano, da bo ${issue2.origin} imelo ${adj}${issue2.minimum.toString()} ${sizing.unit}`;
         }
-        return `Premajhno: pri\u010Dakovano, da bo ${issue2.origin} ${adj}${issue2.minimum.toString()}`;
+        return `Premajhno: pričakovano, da bo ${issue2.origin} ${adj}${issue2.minimum.toString()}`;
       }
       case "invalid_format": {
         const _issue = issue2;
         if (_issue.format === "starts_with") {
-          return `Neveljaven niz: mora se za\u010Deti z "${_issue.prefix}"`;
+          return `Neveljaven niz: mora se začeti z "${_issue.prefix}"`;
         }
         if (_issue.format === "ends_with")
-          return `Neveljaven niz: mora se kon\u010Dati z "${_issue.suffix}"`;
+          return `Neveljaven niz: mora se končati z "${_issue.suffix}"`;
         if (_issue.format === "includes")
           return `Neveljaven niz: mora vsebovati "${_issue.includes}"`;
         if (_issue.format === "regex")
@@ -8293,11 +8292,11 @@ var error34 = () => {
         return `Neveljaven ${Nouns[_issue.format] ?? issue2.format}`;
       }
       case "not_multiple_of":
-        return `Neveljavno \u0161tevilo: mora biti ve\u010Dkratnik ${issue2.divisor}`;
+        return `Neveljavno število: mora biti večkratnik ${issue2.divisor}`;
       case "unrecognized_keys":
-        return `Neprepoznan${issue2.keys.length > 1 ? "i klju\u010Di" : " klju\u010D"}: ${joinValues(issue2.keys, ", ")}`;
+        return `Neprepoznan${issue2.keys.length > 1 ? "i ključi" : " ključ"}: ${joinValues(issue2.keys, ", ")}`;
       case "invalid_key":
-        return `Neveljaven klju\u010D v ${issue2.origin}`;
+        return `Neveljaven ključ v ${issue2.origin}`;
       case "invalid_union":
         return "Neveljaven vnos";
       case "invalid_element":
@@ -8317,8 +8316,8 @@ var error35 = () => {
   const Sizable = {
     string: { unit: "tecken", verb: "att ha" },
     file: { unit: "bytes", verb: "att ha" },
-    array: { unit: "objekt", verb: "att inneh\xE5lla" },
-    set: { unit: "objekt", verb: "att inneh\xE5lla" }
+    array: { unit: "objekt", verb: "att innehålla" },
+    set: { unit: "objekt", verb: "att innehålla" }
   };
   function getSizing(origin) {
     return Sizable[origin] ?? null;
@@ -8344,7 +8343,7 @@ var error35 = () => {
     return t;
   };
   const Nouns = {
-    regex: "regulj\xE4rt uttryck",
+    regex: "reguljärt uttryck",
     email: "e-postadress",
     url: "URL",
     emoji: "emoji",
@@ -8366,9 +8365,9 @@ var error35 = () => {
     ipv6: "IPv6-intervall",
     cidrv4: "IPv4-spektrum",
     cidrv6: "IPv6-spektrum",
-    base64: "base64-kodad str\xE4ng",
-    base64url: "base64url-kodad str\xE4ng",
-    json_string: "JSON-str\xE4ng",
+    base64: "base64-kodad sträng",
+    base64url: "base64url-kodad sträng",
+    json_string: "JSON-sträng",
     e164: "E.164-nummer",
     jwt: "JWT",
     template_literal: "mall-literal"
@@ -8376,50 +8375,50 @@ var error35 = () => {
   return (issue2) => {
     switch (issue2.code) {
       case "invalid_type":
-        return `Ogiltig inmatning: f\xF6rv\xE4ntat ${issue2.expected}, fick ${parsedType6(issue2.input)}`;
+        return `Ogiltig inmatning: förväntat ${issue2.expected}, fick ${parsedType6(issue2.input)}`;
       case "invalid_value":
         if (issue2.values.length === 1)
-          return `Ogiltig inmatning: f\xF6rv\xE4ntat ${stringifyPrimitive(issue2.values[0])}`;
-        return `Ogiltigt val: f\xF6rv\xE4ntade en av ${joinValues(issue2.values, "|")}`;
+          return `Ogiltig inmatning: förväntat ${stringifyPrimitive(issue2.values[0])}`;
+        return `Ogiltigt val: förväntade en av ${joinValues(issue2.values, "|")}`;
       case "too_big": {
         const adj = issue2.inclusive ? "<=" : "<";
         const sizing = getSizing(issue2.origin);
         if (sizing) {
-          return `F\xF6r stor(t): f\xF6rv\xE4ntade ${issue2.origin ?? "v\xE4rdet"} att ha ${adj}${issue2.maximum.toString()} ${sizing.unit ?? "element"}`;
+          return `För stor(t): förväntade ${issue2.origin ?? "värdet"} att ha ${adj}${issue2.maximum.toString()} ${sizing.unit ?? "element"}`;
         }
-        return `F\xF6r stor(t): f\xF6rv\xE4ntat ${issue2.origin ?? "v\xE4rdet"} att ha ${adj}${issue2.maximum.toString()}`;
+        return `För stor(t): förväntat ${issue2.origin ?? "värdet"} att ha ${adj}${issue2.maximum.toString()}`;
       }
       case "too_small": {
         const adj = issue2.inclusive ? ">=" : ">";
         const sizing = getSizing(issue2.origin);
         if (sizing) {
-          return `F\xF6r lite(t): f\xF6rv\xE4ntade ${issue2.origin ?? "v\xE4rdet"} att ha ${adj}${issue2.minimum.toString()} ${sizing.unit}`;
+          return `För lite(t): förväntade ${issue2.origin ?? "värdet"} att ha ${adj}${issue2.minimum.toString()} ${sizing.unit}`;
         }
-        return `F\xF6r lite(t): f\xF6rv\xE4ntade ${issue2.origin ?? "v\xE4rdet"} att ha ${adj}${issue2.minimum.toString()}`;
+        return `För lite(t): förväntade ${issue2.origin ?? "värdet"} att ha ${adj}${issue2.minimum.toString()}`;
       }
       case "invalid_format": {
         const _issue = issue2;
         if (_issue.format === "starts_with") {
-          return `Ogiltig str\xE4ng: m\xE5ste b\xF6rja med "${_issue.prefix}"`;
+          return `Ogiltig sträng: måste börja med "${_issue.prefix}"`;
         }
         if (_issue.format === "ends_with")
-          return `Ogiltig str\xE4ng: m\xE5ste sluta med "${_issue.suffix}"`;
+          return `Ogiltig sträng: måste sluta med "${_issue.suffix}"`;
         if (_issue.format === "includes")
-          return `Ogiltig str\xE4ng: m\xE5ste inneh\xE5lla "${_issue.includes}"`;
+          return `Ogiltig sträng: måste innehålla "${_issue.includes}"`;
         if (_issue.format === "regex")
-          return `Ogiltig str\xE4ng: m\xE5ste matcha m\xF6nstret "${_issue.pattern}"`;
+          return `Ogiltig sträng: måste matcha mönstret "${_issue.pattern}"`;
         return `Ogiltig(t) ${Nouns[_issue.format] ?? issue2.format}`;
       }
       case "not_multiple_of":
-        return `Ogiltigt tal: m\xE5ste vara en multipel av ${issue2.divisor}`;
+        return `Ogiltigt tal: måste vara en multipel av ${issue2.divisor}`;
       case "unrecognized_keys":
-        return `${issue2.keys.length > 1 ? "Ok\xE4nda nycklar" : "Ok\xE4nd nyckel"}: ${joinValues(issue2.keys, ", ")}`;
+        return `${issue2.keys.length > 1 ? "Okända nycklar" : "Okänd nyckel"}: ${joinValues(issue2.keys, ", ")}`;
       case "invalid_key":
-        return `Ogiltig nyckel i ${issue2.origin ?? "v\xE4rdet"}`;
+        return `Ogiltig nyckel i ${issue2.origin ?? "värdet"}`;
       case "invalid_union":
         return "Ogiltig input";
       case "invalid_element":
-        return `Ogiltigt v\xE4rde i ${issue2.origin ?? "v\xE4rdet"}`;
+        return `Ogiltigt värde i ${issue2.origin ?? "värdet"}`;
       default:
         return `Ogiltig input`;
     }
@@ -8433,10 +8432,10 @@ function sv_default() {
 // node_modules/zod/v4/locales/ta.js
 var error36 = () => {
   const Sizable = {
-    string: { unit: "\u0B8E\u0BB4\u0BC1\u0BA4\u0BCD\u0BA4\u0BC1\u0B95\u0BCD\u0B95\u0BB3\u0BCD", verb: "\u0B95\u0BCA\u0BA3\u0BCD\u0B9F\u0BBF\u0BB0\u0BC1\u0B95\u0BCD\u0B95 \u0BB5\u0BC7\u0BA3\u0BCD\u0B9F\u0BC1\u0BAE\u0BCD" },
-    file: { unit: "\u0BAA\u0BC8\u0B9F\u0BCD\u0B9F\u0BC1\u0B95\u0BB3\u0BCD", verb: "\u0B95\u0BCA\u0BA3\u0BCD\u0B9F\u0BBF\u0BB0\u0BC1\u0B95\u0BCD\u0B95 \u0BB5\u0BC7\u0BA3\u0BCD\u0B9F\u0BC1\u0BAE\u0BCD" },
-    array: { unit: "\u0B89\u0BB1\u0BC1\u0BAA\u0BCD\u0BAA\u0BC1\u0B95\u0BB3\u0BCD", verb: "\u0B95\u0BCA\u0BA3\u0BCD\u0B9F\u0BBF\u0BB0\u0BC1\u0B95\u0BCD\u0B95 \u0BB5\u0BC7\u0BA3\u0BCD\u0B9F\u0BC1\u0BAE\u0BCD" },
-    set: { unit: "\u0B89\u0BB1\u0BC1\u0BAA\u0BCD\u0BAA\u0BC1\u0B95\u0BB3\u0BCD", verb: "\u0B95\u0BCA\u0BA3\u0BCD\u0B9F\u0BBF\u0BB0\u0BC1\u0B95\u0BCD\u0B95 \u0BB5\u0BC7\u0BA3\u0BCD\u0B9F\u0BC1\u0BAE\u0BCD" }
+    string: { unit: "எழுத்துக்கள்", verb: "கொண்டிருக்க வேண்டும்" },
+    file: { unit: "பைட்டுகள்", verb: "கொண்டிருக்க வேண்டும்" },
+    array: { unit: "உறுப்புகள்", verb: "கொண்டிருக்க வேண்டும்" },
+    set: { unit: "உறுப்புகள்", verb: "கொண்டிருக்க வேண்டும்" }
   };
   function getSizing(origin) {
     return Sizable[origin] ?? null;
@@ -8445,14 +8444,14 @@ var error36 = () => {
     const t = typeof data;
     switch (t) {
       case "number": {
-        return Number.isNaN(data) ? "\u0B8E\u0BA3\u0BCD \u0B85\u0BB2\u0BCD\u0BB2\u0BBE\u0BA4\u0BA4\u0BC1" : "\u0B8E\u0BA3\u0BCD";
+        return Number.isNaN(data) ? "எண் அல்லாதது" : "எண்";
       }
       case "object": {
         if (Array.isArray(data)) {
-          return "\u0B85\u0BA3\u0BBF";
+          return "அணி";
         }
         if (data === null) {
-          return "\u0BB5\u0BC6\u0BB1\u0BC1\u0BAE\u0BC8";
+          return "வெறுமை";
         }
         if (Object.getPrototypeOf(data) !== Object.prototype && data.constructor) {
           return data.constructor.name;
@@ -8462,8 +8461,8 @@ var error36 = () => {
     return t;
   };
   const Nouns = {
-    regex: "\u0B89\u0BB3\u0BCD\u0BB3\u0BC0\u0B9F\u0BC1",
-    email: "\u0BAE\u0BBF\u0BA9\u0BCD\u0BA9\u0B9E\u0BCD\u0B9A\u0BB2\u0BCD \u0BAE\u0BC1\u0B95\u0BB5\u0BB0\u0BBF",
+    regex: "உள்ளீடு",
+    email: "மின்னஞ்சல் முகவரி",
     url: "URL",
     emoji: "emoji",
     uuid: "UUID",
@@ -8476,69 +8475,69 @@ var error36 = () => {
     ulid: "ULID",
     xid: "XID",
     ksuid: "KSUID",
-    datetime: "ISO \u0BA4\u0BC7\u0BA4\u0BBF \u0BA8\u0BC7\u0BB0\u0BAE\u0BCD",
-    date: "ISO \u0BA4\u0BC7\u0BA4\u0BBF",
-    time: "ISO \u0BA8\u0BC7\u0BB0\u0BAE\u0BCD",
-    duration: "ISO \u0B95\u0BBE\u0BB2 \u0B85\u0BB3\u0BB5\u0BC1",
-    ipv4: "IPv4 \u0BAE\u0BC1\u0B95\u0BB5\u0BB0\u0BBF",
-    ipv6: "IPv6 \u0BAE\u0BC1\u0B95\u0BB5\u0BB0\u0BBF",
-    cidrv4: "IPv4 \u0BB5\u0BB0\u0BAE\u0BCD\u0BAA\u0BC1",
-    cidrv6: "IPv6 \u0BB5\u0BB0\u0BAE\u0BCD\u0BAA\u0BC1",
-    base64: "base64-encoded \u0B9A\u0BB0\u0BAE\u0BCD",
-    base64url: "base64url-encoded \u0B9A\u0BB0\u0BAE\u0BCD",
-    json_string: "JSON \u0B9A\u0BB0\u0BAE\u0BCD",
-    e164: "E.164 \u0B8E\u0BA3\u0BCD",
+    datetime: "ISO தேதி நேரம்",
+    date: "ISO தேதி",
+    time: "ISO நேரம்",
+    duration: "ISO கால அளவு",
+    ipv4: "IPv4 முகவரி",
+    ipv6: "IPv6 முகவரி",
+    cidrv4: "IPv4 வரம்பு",
+    cidrv6: "IPv6 வரம்பு",
+    base64: "base64-encoded சரம்",
+    base64url: "base64url-encoded சரம்",
+    json_string: "JSON சரம்",
+    e164: "E.164 எண்",
     jwt: "JWT",
     template_literal: "input"
   };
   return (issue2) => {
     switch (issue2.code) {
       case "invalid_type":
-        return `\u0BA4\u0BB5\u0BB1\u0BBE\u0BA9 \u0B89\u0BB3\u0BCD\u0BB3\u0BC0\u0B9F\u0BC1: \u0B8E\u0BA4\u0BBF\u0BB0\u0BCD\u0BAA\u0BBE\u0BB0\u0BCD\u0B95\u0BCD\u0B95\u0BAA\u0BCD\u0BAA\u0B9F\u0BCD\u0B9F\u0BA4\u0BC1 ${issue2.expected}, \u0BAA\u0BC6\u0BB1\u0BAA\u0BCD\u0BAA\u0B9F\u0BCD\u0B9F\u0BA4\u0BC1 ${parsedType6(issue2.input)}`;
+        return `தவறான உள்ளீடு: எதிர்பார்க்கப்பட்டது ${issue2.expected}, பெறப்பட்டது ${parsedType6(issue2.input)}`;
       case "invalid_value":
         if (issue2.values.length === 1)
-          return `\u0BA4\u0BB5\u0BB1\u0BBE\u0BA9 \u0B89\u0BB3\u0BCD\u0BB3\u0BC0\u0B9F\u0BC1: \u0B8E\u0BA4\u0BBF\u0BB0\u0BCD\u0BAA\u0BBE\u0BB0\u0BCD\u0B95\u0BCD\u0B95\u0BAA\u0BCD\u0BAA\u0B9F\u0BCD\u0B9F\u0BA4\u0BC1 ${stringifyPrimitive(issue2.values[0])}`;
-        return `\u0BA4\u0BB5\u0BB1\u0BBE\u0BA9 \u0BB5\u0BBF\u0BB0\u0BC1\u0BAA\u0BCD\u0BAA\u0BAE\u0BCD: \u0B8E\u0BA4\u0BBF\u0BB0\u0BCD\u0BAA\u0BBE\u0BB0\u0BCD\u0B95\u0BCD\u0B95\u0BAA\u0BCD\u0BAA\u0B9F\u0BCD\u0B9F\u0BA4\u0BC1 ${joinValues(issue2.values, "|")} \u0B87\u0BB2\u0BCD \u0B92\u0BA9\u0BCD\u0BB1\u0BC1`;
+          return `தவறான உள்ளீடு: எதிர்பார்க்கப்பட்டது ${stringifyPrimitive(issue2.values[0])}`;
+        return `தவறான விருப்பம்: எதிர்பார்க்கப்பட்டது ${joinValues(issue2.values, "|")} இல் ஒன்று`;
       case "too_big": {
         const adj = issue2.inclusive ? "<=" : "<";
         const sizing = getSizing(issue2.origin);
         if (sizing) {
-          return `\u0BAE\u0BBF\u0B95 \u0BAA\u0BC6\u0BB0\u0BBF\u0BAF\u0BA4\u0BC1: \u0B8E\u0BA4\u0BBF\u0BB0\u0BCD\u0BAA\u0BBE\u0BB0\u0BCD\u0B95\u0BCD\u0B95\u0BAA\u0BCD\u0BAA\u0B9F\u0BCD\u0B9F\u0BA4\u0BC1 ${issue2.origin ?? "\u0BAE\u0BA4\u0BBF\u0BAA\u0BCD\u0BAA\u0BC1"} ${adj}${issue2.maximum.toString()} ${sizing.unit ?? "\u0B89\u0BB1\u0BC1\u0BAA\u0BCD\u0BAA\u0BC1\u0B95\u0BB3\u0BCD"} \u0B86\u0B95 \u0B87\u0BB0\u0BC1\u0B95\u0BCD\u0B95 \u0BB5\u0BC7\u0BA3\u0BCD\u0B9F\u0BC1\u0BAE\u0BCD`;
+          return `மிக பெரியது: எதிர்பார்க்கப்பட்டது ${issue2.origin ?? "மதிப்பு"} ${adj}${issue2.maximum.toString()} ${sizing.unit ?? "உறுப்புகள்"} ஆக இருக்க வேண்டும்`;
         }
-        return `\u0BAE\u0BBF\u0B95 \u0BAA\u0BC6\u0BB0\u0BBF\u0BAF\u0BA4\u0BC1: \u0B8E\u0BA4\u0BBF\u0BB0\u0BCD\u0BAA\u0BBE\u0BB0\u0BCD\u0B95\u0BCD\u0B95\u0BAA\u0BCD\u0BAA\u0B9F\u0BCD\u0B9F\u0BA4\u0BC1 ${issue2.origin ?? "\u0BAE\u0BA4\u0BBF\u0BAA\u0BCD\u0BAA\u0BC1"} ${adj}${issue2.maximum.toString()} \u0B86\u0B95 \u0B87\u0BB0\u0BC1\u0B95\u0BCD\u0B95 \u0BB5\u0BC7\u0BA3\u0BCD\u0B9F\u0BC1\u0BAE\u0BCD`;
+        return `மிக பெரியது: எதிர்பார்க்கப்பட்டது ${issue2.origin ?? "மதிப்பு"} ${adj}${issue2.maximum.toString()} ஆக இருக்க வேண்டும்`;
       }
       case "too_small": {
         const adj = issue2.inclusive ? ">=" : ">";
         const sizing = getSizing(issue2.origin);
         if (sizing) {
-          return `\u0BAE\u0BBF\u0B95\u0B9A\u0BCD \u0B9A\u0BBF\u0BB1\u0BBF\u0BAF\u0BA4\u0BC1: \u0B8E\u0BA4\u0BBF\u0BB0\u0BCD\u0BAA\u0BBE\u0BB0\u0BCD\u0B95\u0BCD\u0B95\u0BAA\u0BCD\u0BAA\u0B9F\u0BCD\u0B9F\u0BA4\u0BC1 ${issue2.origin} ${adj}${issue2.minimum.toString()} ${sizing.unit} \u0B86\u0B95 \u0B87\u0BB0\u0BC1\u0B95\u0BCD\u0B95 \u0BB5\u0BC7\u0BA3\u0BCD\u0B9F\u0BC1\u0BAE\u0BCD`;
+          return `மிகச் சிறியது: எதிர்பார்க்கப்பட்டது ${issue2.origin} ${adj}${issue2.minimum.toString()} ${sizing.unit} ஆக இருக்க வேண்டும்`;
         }
-        return `\u0BAE\u0BBF\u0B95\u0B9A\u0BCD \u0B9A\u0BBF\u0BB1\u0BBF\u0BAF\u0BA4\u0BC1: \u0B8E\u0BA4\u0BBF\u0BB0\u0BCD\u0BAA\u0BBE\u0BB0\u0BCD\u0B95\u0BCD\u0B95\u0BAA\u0BCD\u0BAA\u0B9F\u0BCD\u0B9F\u0BA4\u0BC1 ${issue2.origin} ${adj}${issue2.minimum.toString()} \u0B86\u0B95 \u0B87\u0BB0\u0BC1\u0B95\u0BCD\u0B95 \u0BB5\u0BC7\u0BA3\u0BCD\u0B9F\u0BC1\u0BAE\u0BCD`;
+        return `மிகச் சிறியது: எதிர்பார்க்கப்பட்டது ${issue2.origin} ${adj}${issue2.minimum.toString()} ஆக இருக்க வேண்டும்`;
       }
       case "invalid_format": {
         const _issue = issue2;
         if (_issue.format === "starts_with")
-          return `\u0BA4\u0BB5\u0BB1\u0BBE\u0BA9 \u0B9A\u0BB0\u0BAE\u0BCD: "${_issue.prefix}" \u0B87\u0BB2\u0BCD \u0BA4\u0BCA\u0B9F\u0B99\u0BCD\u0B95 \u0BB5\u0BC7\u0BA3\u0BCD\u0B9F\u0BC1\u0BAE\u0BCD`;
+          return `தவறான சரம்: "${_issue.prefix}" இல் தொடங்க வேண்டும்`;
         if (_issue.format === "ends_with")
-          return `\u0BA4\u0BB5\u0BB1\u0BBE\u0BA9 \u0B9A\u0BB0\u0BAE\u0BCD: "${_issue.suffix}" \u0B87\u0BB2\u0BCD \u0BAE\u0BC1\u0B9F\u0BBF\u0BB5\u0B9F\u0BC8\u0BAF \u0BB5\u0BC7\u0BA3\u0BCD\u0B9F\u0BC1\u0BAE\u0BCD`;
+          return `தவறான சரம்: "${_issue.suffix}" இல் முடிவடைய வேண்டும்`;
         if (_issue.format === "includes")
-          return `\u0BA4\u0BB5\u0BB1\u0BBE\u0BA9 \u0B9A\u0BB0\u0BAE\u0BCD: "${_issue.includes}" \u0B90 \u0B89\u0BB3\u0BCD\u0BB3\u0B9F\u0B95\u0BCD\u0B95 \u0BB5\u0BC7\u0BA3\u0BCD\u0B9F\u0BC1\u0BAE\u0BCD`;
+          return `தவறான சரம்: "${_issue.includes}" ஐ உள்ளடக்க வேண்டும்`;
         if (_issue.format === "regex")
-          return `\u0BA4\u0BB5\u0BB1\u0BBE\u0BA9 \u0B9A\u0BB0\u0BAE\u0BCD: ${_issue.pattern} \u0BAE\u0BC1\u0BB1\u0BC8\u0BAA\u0BBE\u0B9F\u0BCD\u0B9F\u0BC1\u0B9F\u0BA9\u0BCD \u0BAA\u0BCA\u0BB0\u0BC1\u0BA8\u0BCD\u0BA4 \u0BB5\u0BC7\u0BA3\u0BCD\u0B9F\u0BC1\u0BAE\u0BCD`;
-        return `\u0BA4\u0BB5\u0BB1\u0BBE\u0BA9 ${Nouns[_issue.format] ?? issue2.format}`;
+          return `தவறான சரம்: ${_issue.pattern} முறைபாட்டுடன் பொருந்த வேண்டும்`;
+        return `தவறான ${Nouns[_issue.format] ?? issue2.format}`;
       }
       case "not_multiple_of":
-        return `\u0BA4\u0BB5\u0BB1\u0BBE\u0BA9 \u0B8E\u0BA3\u0BCD: ${issue2.divisor} \u0B87\u0BA9\u0BCD \u0BAA\u0BB2\u0BAE\u0BBE\u0B95 \u0B87\u0BB0\u0BC1\u0B95\u0BCD\u0B95 \u0BB5\u0BC7\u0BA3\u0BCD\u0B9F\u0BC1\u0BAE\u0BCD`;
+        return `தவறான எண்: ${issue2.divisor} இன் பலமாக இருக்க வேண்டும்`;
       case "unrecognized_keys":
-        return `\u0B85\u0B9F\u0BC8\u0BAF\u0BBE\u0BB3\u0BAE\u0BCD \u0BA4\u0BC6\u0BB0\u0BBF\u0BAF\u0BBE\u0BA4 \u0BB5\u0BBF\u0B9A\u0BC8${issue2.keys.length > 1 ? "\u0B95\u0BB3\u0BCD" : ""}: ${joinValues(issue2.keys, ", ")}`;
+        return `அடையாளம் தெரியாத விசை${issue2.keys.length > 1 ? "கள்" : ""}: ${joinValues(issue2.keys, ", ")}`;
       case "invalid_key":
-        return `${issue2.origin} \u0B87\u0BB2\u0BCD \u0BA4\u0BB5\u0BB1\u0BBE\u0BA9 \u0BB5\u0BBF\u0B9A\u0BC8`;
+        return `${issue2.origin} இல் தவறான விசை`;
       case "invalid_union":
-        return "\u0BA4\u0BB5\u0BB1\u0BBE\u0BA9 \u0B89\u0BB3\u0BCD\u0BB3\u0BC0\u0B9F\u0BC1";
+        return "தவறான உள்ளீடு";
       case "invalid_element":
-        return `${issue2.origin} \u0B87\u0BB2\u0BCD \u0BA4\u0BB5\u0BB1\u0BBE\u0BA9 \u0BAE\u0BA4\u0BBF\u0BAA\u0BCD\u0BAA\u0BC1`;
+        return `${issue2.origin} இல் தவறான மதிப்பு`;
       default:
-        return `\u0BA4\u0BB5\u0BB1\u0BBE\u0BA9 \u0B89\u0BB3\u0BCD\u0BB3\u0BC0\u0B9F\u0BC1`;
+        return `தவறான உள்ளீடு`;
     }
   };
 };
@@ -8550,10 +8549,10 @@ function ta_default() {
 // node_modules/zod/v4/locales/th.js
 var error37 = () => {
   const Sizable = {
-    string: { unit: "\u0E15\u0E31\u0E27\u0E2D\u0E31\u0E01\u0E29\u0E23", verb: "\u0E04\u0E27\u0E23\u0E21\u0E35" },
-    file: { unit: "\u0E44\u0E1A\u0E15\u0E4C", verb: "\u0E04\u0E27\u0E23\u0E21\u0E35" },
-    array: { unit: "\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23", verb: "\u0E04\u0E27\u0E23\u0E21\u0E35" },
-    set: { unit: "\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23", verb: "\u0E04\u0E27\u0E23\u0E21\u0E35" }
+    string: { unit: "ตัวอักษร", verb: "ควรมี" },
+    file: { unit: "ไบต์", verb: "ควรมี" },
+    array: { unit: "รายการ", verb: "ควรมี" },
+    set: { unit: "รายการ", verb: "ควรมี" }
   };
   function getSizing(origin) {
     return Sizable[origin] ?? null;
@@ -8562,14 +8561,14 @@ var error37 = () => {
     const t = typeof data;
     switch (t) {
       case "number": {
-        return Number.isNaN(data) ? "\u0E44\u0E21\u0E48\u0E43\u0E0A\u0E48\u0E15\u0E31\u0E27\u0E40\u0E25\u0E02 (NaN)" : "\u0E15\u0E31\u0E27\u0E40\u0E25\u0E02";
+        return Number.isNaN(data) ? "ไม่ใช่ตัวเลข (NaN)" : "ตัวเลข";
       }
       case "object": {
         if (Array.isArray(data)) {
-          return "\u0E2D\u0E32\u0E23\u0E4C\u0E40\u0E23\u0E22\u0E4C (Array)";
+          return "อาร์เรย์ (Array)";
         }
         if (data === null) {
-          return "\u0E44\u0E21\u0E48\u0E21\u0E35\u0E04\u0E48\u0E32 (null)";
+          return "ไม่มีค่า (null)";
         }
         if (Object.getPrototypeOf(data) !== Object.prototype && data.constructor) {
           return data.constructor.name;
@@ -8579,10 +8578,10 @@ var error37 = () => {
     return t;
   };
   const Nouns = {
-    regex: "\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E17\u0E35\u0E48\u0E1B\u0E49\u0E2D\u0E19",
-    email: "\u0E17\u0E35\u0E48\u0E2D\u0E22\u0E39\u0E48\u0E2D\u0E35\u0E40\u0E21\u0E25",
+    regex: "ข้อมูลที่ป้อน",
+    email: "ที่อยู่อีเมล",
     url: "URL",
-    emoji: "\u0E2D\u0E34\u0E42\u0E21\u0E08\u0E34",
+    emoji: "อิโมจิ",
     uuid: "UUID",
     uuidv4: "UUIDv4",
     uuidv6: "UUIDv6",
@@ -8593,69 +8592,69 @@ var error37 = () => {
     ulid: "ULID",
     xid: "XID",
     ksuid: "KSUID",
-    datetime: "\u0E27\u0E31\u0E19\u0E17\u0E35\u0E48\u0E40\u0E27\u0E25\u0E32\u0E41\u0E1A\u0E1A ISO",
-    date: "\u0E27\u0E31\u0E19\u0E17\u0E35\u0E48\u0E41\u0E1A\u0E1A ISO",
-    time: "\u0E40\u0E27\u0E25\u0E32\u0E41\u0E1A\u0E1A ISO",
-    duration: "\u0E0A\u0E48\u0E27\u0E07\u0E40\u0E27\u0E25\u0E32\u0E41\u0E1A\u0E1A ISO",
-    ipv4: "\u0E17\u0E35\u0E48\u0E2D\u0E22\u0E39\u0E48 IPv4",
-    ipv6: "\u0E17\u0E35\u0E48\u0E2D\u0E22\u0E39\u0E48 IPv6",
-    cidrv4: "\u0E0A\u0E48\u0E27\u0E07 IP \u0E41\u0E1A\u0E1A IPv4",
-    cidrv6: "\u0E0A\u0E48\u0E27\u0E07 IP \u0E41\u0E1A\u0E1A IPv6",
-    base64: "\u0E02\u0E49\u0E2D\u0E04\u0E27\u0E32\u0E21\u0E41\u0E1A\u0E1A Base64",
-    base64url: "\u0E02\u0E49\u0E2D\u0E04\u0E27\u0E32\u0E21\u0E41\u0E1A\u0E1A Base64 \u0E2A\u0E33\u0E2B\u0E23\u0E31\u0E1A URL",
-    json_string: "\u0E02\u0E49\u0E2D\u0E04\u0E27\u0E32\u0E21\u0E41\u0E1A\u0E1A JSON",
-    e164: "\u0E40\u0E1A\u0E2D\u0E23\u0E4C\u0E42\u0E17\u0E23\u0E28\u0E31\u0E1E\u0E17\u0E4C\u0E23\u0E30\u0E2B\u0E27\u0E48\u0E32\u0E07\u0E1B\u0E23\u0E30\u0E40\u0E17\u0E28 (E.164)",
-    jwt: "\u0E42\u0E17\u0E40\u0E04\u0E19 JWT",
-    template_literal: "\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E17\u0E35\u0E48\u0E1B\u0E49\u0E2D\u0E19"
+    datetime: "วันที่เวลาแบบ ISO",
+    date: "วันที่แบบ ISO",
+    time: "เวลาแบบ ISO",
+    duration: "ช่วงเวลาแบบ ISO",
+    ipv4: "ที่อยู่ IPv4",
+    ipv6: "ที่อยู่ IPv6",
+    cidrv4: "ช่วง IP แบบ IPv4",
+    cidrv6: "ช่วง IP แบบ IPv6",
+    base64: "ข้อความแบบ Base64",
+    base64url: "ข้อความแบบ Base64 สำหรับ URL",
+    json_string: "ข้อความแบบ JSON",
+    e164: "เบอร์โทรศัพท์ระหว่างประเทศ (E.164)",
+    jwt: "โทเคน JWT",
+    template_literal: "ข้อมูลที่ป้อน"
   };
   return (issue2) => {
     switch (issue2.code) {
       case "invalid_type":
-        return `\u0E1B\u0E23\u0E30\u0E40\u0E20\u0E17\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E44\u0E21\u0E48\u0E16\u0E39\u0E01\u0E15\u0E49\u0E2D\u0E07: \u0E04\u0E27\u0E23\u0E40\u0E1B\u0E47\u0E19 ${issue2.expected} \u0E41\u0E15\u0E48\u0E44\u0E14\u0E49\u0E23\u0E31\u0E1A ${parsedType6(issue2.input)}`;
+        return `ประเภทข้อมูลไม่ถูกต้อง: ควรเป็น ${issue2.expected} แต่ได้รับ ${parsedType6(issue2.input)}`;
       case "invalid_value":
         if (issue2.values.length === 1)
-          return `\u0E04\u0E48\u0E32\u0E44\u0E21\u0E48\u0E16\u0E39\u0E01\u0E15\u0E49\u0E2D\u0E07: \u0E04\u0E27\u0E23\u0E40\u0E1B\u0E47\u0E19 ${stringifyPrimitive(issue2.values[0])}`;
-        return `\u0E15\u0E31\u0E27\u0E40\u0E25\u0E37\u0E2D\u0E01\u0E44\u0E21\u0E48\u0E16\u0E39\u0E01\u0E15\u0E49\u0E2D\u0E07: \u0E04\u0E27\u0E23\u0E40\u0E1B\u0E47\u0E19\u0E2B\u0E19\u0E36\u0E48\u0E07\u0E43\u0E19 ${joinValues(issue2.values, "|")}`;
+          return `ค่าไม่ถูกต้อง: ควรเป็น ${stringifyPrimitive(issue2.values[0])}`;
+        return `ตัวเลือกไม่ถูกต้อง: ควรเป็นหนึ่งใน ${joinValues(issue2.values, "|")}`;
       case "too_big": {
-        const adj = issue2.inclusive ? "\u0E44\u0E21\u0E48\u0E40\u0E01\u0E34\u0E19" : "\u0E19\u0E49\u0E2D\u0E22\u0E01\u0E27\u0E48\u0E32";
+        const adj = issue2.inclusive ? "ไม่เกิน" : "น้อยกว่า";
         const sizing = getSizing(issue2.origin);
         if (sizing)
-          return `\u0E40\u0E01\u0E34\u0E19\u0E01\u0E33\u0E2B\u0E19\u0E14: ${issue2.origin ?? "\u0E04\u0E48\u0E32"} \u0E04\u0E27\u0E23\u0E21\u0E35${adj} ${issue2.maximum.toString()} ${sizing.unit ?? "\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23"}`;
-        return `\u0E40\u0E01\u0E34\u0E19\u0E01\u0E33\u0E2B\u0E19\u0E14: ${issue2.origin ?? "\u0E04\u0E48\u0E32"} \u0E04\u0E27\u0E23\u0E21\u0E35${adj} ${issue2.maximum.toString()}`;
+          return `เกินกำหนด: ${issue2.origin ?? "ค่า"} ควรมี${adj} ${issue2.maximum.toString()} ${sizing.unit ?? "รายการ"}`;
+        return `เกินกำหนด: ${issue2.origin ?? "ค่า"} ควรมี${adj} ${issue2.maximum.toString()}`;
       }
       case "too_small": {
-        const adj = issue2.inclusive ? "\u0E2D\u0E22\u0E48\u0E32\u0E07\u0E19\u0E49\u0E2D\u0E22" : "\u0E21\u0E32\u0E01\u0E01\u0E27\u0E48\u0E32";
+        const adj = issue2.inclusive ? "อย่างน้อย" : "มากกว่า";
         const sizing = getSizing(issue2.origin);
         if (sizing) {
-          return `\u0E19\u0E49\u0E2D\u0E22\u0E01\u0E27\u0E48\u0E32\u0E01\u0E33\u0E2B\u0E19\u0E14: ${issue2.origin} \u0E04\u0E27\u0E23\u0E21\u0E35${adj} ${issue2.minimum.toString()} ${sizing.unit}`;
+          return `น้อยกว่ากำหนด: ${issue2.origin} ควรมี${adj} ${issue2.minimum.toString()} ${sizing.unit}`;
         }
-        return `\u0E19\u0E49\u0E2D\u0E22\u0E01\u0E27\u0E48\u0E32\u0E01\u0E33\u0E2B\u0E19\u0E14: ${issue2.origin} \u0E04\u0E27\u0E23\u0E21\u0E35${adj} ${issue2.minimum.toString()}`;
+        return `น้อยกว่ากำหนด: ${issue2.origin} ควรมี${adj} ${issue2.minimum.toString()}`;
       }
       case "invalid_format": {
         const _issue = issue2;
         if (_issue.format === "starts_with") {
-          return `\u0E23\u0E39\u0E1B\u0E41\u0E1A\u0E1A\u0E44\u0E21\u0E48\u0E16\u0E39\u0E01\u0E15\u0E49\u0E2D\u0E07: \u0E02\u0E49\u0E2D\u0E04\u0E27\u0E32\u0E21\u0E15\u0E49\u0E2D\u0E07\u0E02\u0E36\u0E49\u0E19\u0E15\u0E49\u0E19\u0E14\u0E49\u0E27\u0E22 "${_issue.prefix}"`;
+          return `รูปแบบไม่ถูกต้อง: ข้อความต้องขึ้นต้นด้วย "${_issue.prefix}"`;
         }
         if (_issue.format === "ends_with")
-          return `\u0E23\u0E39\u0E1B\u0E41\u0E1A\u0E1A\u0E44\u0E21\u0E48\u0E16\u0E39\u0E01\u0E15\u0E49\u0E2D\u0E07: \u0E02\u0E49\u0E2D\u0E04\u0E27\u0E32\u0E21\u0E15\u0E49\u0E2D\u0E07\u0E25\u0E07\u0E17\u0E49\u0E32\u0E22\u0E14\u0E49\u0E27\u0E22 "${_issue.suffix}"`;
+          return `รูปแบบไม่ถูกต้อง: ข้อความต้องลงท้ายด้วย "${_issue.suffix}"`;
         if (_issue.format === "includes")
-          return `\u0E23\u0E39\u0E1B\u0E41\u0E1A\u0E1A\u0E44\u0E21\u0E48\u0E16\u0E39\u0E01\u0E15\u0E49\u0E2D\u0E07: \u0E02\u0E49\u0E2D\u0E04\u0E27\u0E32\u0E21\u0E15\u0E49\u0E2D\u0E07\u0E21\u0E35 "${_issue.includes}" \u0E2D\u0E22\u0E39\u0E48\u0E43\u0E19\u0E02\u0E49\u0E2D\u0E04\u0E27\u0E32\u0E21`;
+          return `รูปแบบไม่ถูกต้อง: ข้อความต้องมี "${_issue.includes}" อยู่ในข้อความ`;
         if (_issue.format === "regex")
-          return `\u0E23\u0E39\u0E1B\u0E41\u0E1A\u0E1A\u0E44\u0E21\u0E48\u0E16\u0E39\u0E01\u0E15\u0E49\u0E2D\u0E07: \u0E15\u0E49\u0E2D\u0E07\u0E15\u0E23\u0E07\u0E01\u0E31\u0E1A\u0E23\u0E39\u0E1B\u0E41\u0E1A\u0E1A\u0E17\u0E35\u0E48\u0E01\u0E33\u0E2B\u0E19\u0E14 ${_issue.pattern}`;
-        return `\u0E23\u0E39\u0E1B\u0E41\u0E1A\u0E1A\u0E44\u0E21\u0E48\u0E16\u0E39\u0E01\u0E15\u0E49\u0E2D\u0E07: ${Nouns[_issue.format] ?? issue2.format}`;
+          return `รูปแบบไม่ถูกต้อง: ต้องตรงกับรูปแบบที่กำหนด ${_issue.pattern}`;
+        return `รูปแบบไม่ถูกต้อง: ${Nouns[_issue.format] ?? issue2.format}`;
       }
       case "not_multiple_of":
-        return `\u0E15\u0E31\u0E27\u0E40\u0E25\u0E02\u0E44\u0E21\u0E48\u0E16\u0E39\u0E01\u0E15\u0E49\u0E2D\u0E07: \u0E15\u0E49\u0E2D\u0E07\u0E40\u0E1B\u0E47\u0E19\u0E08\u0E33\u0E19\u0E27\u0E19\u0E17\u0E35\u0E48\u0E2B\u0E32\u0E23\u0E14\u0E49\u0E27\u0E22 ${issue2.divisor} \u0E44\u0E14\u0E49\u0E25\u0E07\u0E15\u0E31\u0E27`;
+        return `ตัวเลขไม่ถูกต้อง: ต้องเป็นจำนวนที่หารด้วย ${issue2.divisor} ได้ลงตัว`;
       case "unrecognized_keys":
-        return `\u0E1E\u0E1A\u0E04\u0E35\u0E22\u0E4C\u0E17\u0E35\u0E48\u0E44\u0E21\u0E48\u0E23\u0E39\u0E49\u0E08\u0E31\u0E01: ${joinValues(issue2.keys, ", ")}`;
+        return `พบคีย์ที่ไม่รู้จัก: ${joinValues(issue2.keys, ", ")}`;
       case "invalid_key":
-        return `\u0E04\u0E35\u0E22\u0E4C\u0E44\u0E21\u0E48\u0E16\u0E39\u0E01\u0E15\u0E49\u0E2D\u0E07\u0E43\u0E19 ${issue2.origin}`;
+        return `คีย์ไม่ถูกต้องใน ${issue2.origin}`;
       case "invalid_union":
-        return "\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E44\u0E21\u0E48\u0E16\u0E39\u0E01\u0E15\u0E49\u0E2D\u0E07: \u0E44\u0E21\u0E48\u0E15\u0E23\u0E07\u0E01\u0E31\u0E1A\u0E23\u0E39\u0E1B\u0E41\u0E1A\u0E1A\u0E22\u0E39\u0E40\u0E19\u0E35\u0E22\u0E19\u0E17\u0E35\u0E48\u0E01\u0E33\u0E2B\u0E19\u0E14\u0E44\u0E27\u0E49";
+        return "ข้อมูลไม่ถูกต้อง: ไม่ตรงกับรูปแบบยูเนียนที่กำหนดไว้";
       case "invalid_element":
-        return `\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E44\u0E21\u0E48\u0E16\u0E39\u0E01\u0E15\u0E49\u0E2D\u0E07\u0E43\u0E19 ${issue2.origin}`;
+        return `ข้อมูลไม่ถูกต้องใน ${issue2.origin}`;
       default:
-        return `\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E44\u0E21\u0E48\u0E16\u0E39\u0E01\u0E15\u0E49\u0E2D\u0E07`;
+        return `ข้อมูลไม่ถูกต้อง`;
     }
   };
 };
@@ -8687,10 +8686,10 @@ var parsedType6 = (data) => {
 };
 var error38 = () => {
   const Sizable = {
-    string: { unit: "karakter", verb: "olmal\u0131" },
-    file: { unit: "bayt", verb: "olmal\u0131" },
-    array: { unit: "\xF6\u011Fe", verb: "olmal\u0131" },
-    set: { unit: "\xF6\u011Fe", verb: "olmal\u0131" }
+    string: { unit: "karakter", verb: "olmalı" },
+    file: { unit: "bayt", verb: "olmalı" },
+    array: { unit: "öğe", verb: "olmalı" },
+    set: { unit: "öğe", verb: "olmalı" }
   };
   function getSizing(origin) {
     return Sizable[origin] ?? null;
@@ -8713,64 +8712,64 @@ var error38 = () => {
     datetime: "ISO tarih ve saat",
     date: "ISO tarih",
     time: "ISO saat",
-    duration: "ISO s\xFCre",
+    duration: "ISO süre",
     ipv4: "IPv4 adresi",
     ipv6: "IPv6 adresi",
-    cidrv4: "IPv4 aral\u0131\u011F\u0131",
-    cidrv6: "IPv6 aral\u0131\u011F\u0131",
-    base64: "base64 ile \u015Fifrelenmi\u015F metin",
-    base64url: "base64url ile \u015Fifrelenmi\u015F metin",
+    cidrv4: "IPv4 aralığı",
+    cidrv6: "IPv6 aralığı",
+    base64: "base64 ile şifrelenmiş metin",
+    base64url: "base64url ile şifrelenmiş metin",
     json_string: "JSON dizesi",
-    e164: "E.164 say\u0131s\u0131",
+    e164: "E.164 sayısı",
     jwt: "JWT",
-    template_literal: "\u015Eablon dizesi"
+    template_literal: "Şablon dizesi"
   };
   return (issue2) => {
     switch (issue2.code) {
       case "invalid_type":
-        return `Ge\xE7ersiz de\u011Fer: beklenen ${issue2.expected}, al\u0131nan ${parsedType6(issue2.input)}`;
+        return `Geçersiz değer: beklenen ${issue2.expected}, alınan ${parsedType6(issue2.input)}`;
       case "invalid_value":
         if (issue2.values.length === 1)
-          return `Ge\xE7ersiz de\u011Fer: beklenen ${stringifyPrimitive(issue2.values[0])}`;
-        return `Ge\xE7ersiz se\xE7enek: a\u015Fa\u011F\u0131dakilerden biri olmal\u0131: ${joinValues(issue2.values, "|")}`;
+          return `Geçersiz değer: beklenen ${stringifyPrimitive(issue2.values[0])}`;
+        return `Geçersiz seçenek: aşağıdakilerden biri olmalı: ${joinValues(issue2.values, "|")}`;
       case "too_big": {
         const adj = issue2.inclusive ? "<=" : "<";
         const sizing = getSizing(issue2.origin);
         if (sizing)
-          return `\xC7ok b\xFCy\xFCk: beklenen ${issue2.origin ?? "de\u011Fer"} ${adj}${issue2.maximum.toString()} ${sizing.unit ?? "\xF6\u011Fe"}`;
-        return `\xC7ok b\xFCy\xFCk: beklenen ${issue2.origin ?? "de\u011Fer"} ${adj}${issue2.maximum.toString()}`;
+          return `Çok büyük: beklenen ${issue2.origin ?? "değer"} ${adj}${issue2.maximum.toString()} ${sizing.unit ?? "öğe"}`;
+        return `Çok büyük: beklenen ${issue2.origin ?? "değer"} ${adj}${issue2.maximum.toString()}`;
       }
       case "too_small": {
         const adj = issue2.inclusive ? ">=" : ">";
         const sizing = getSizing(issue2.origin);
         if (sizing)
-          return `\xC7ok k\xFC\xE7\xFCk: beklenen ${issue2.origin} ${adj}${issue2.minimum.toString()} ${sizing.unit}`;
-        return `\xC7ok k\xFC\xE7\xFCk: beklenen ${issue2.origin} ${adj}${issue2.minimum.toString()}`;
+          return `Çok küçük: beklenen ${issue2.origin} ${adj}${issue2.minimum.toString()} ${sizing.unit}`;
+        return `Çok küçük: beklenen ${issue2.origin} ${adj}${issue2.minimum.toString()}`;
       }
       case "invalid_format": {
         const _issue = issue2;
         if (_issue.format === "starts_with")
-          return `Ge\xE7ersiz metin: "${_issue.prefix}" ile ba\u015Flamal\u0131`;
+          return `Geçersiz metin: "${_issue.prefix}" ile başlamalı`;
         if (_issue.format === "ends_with")
-          return `Ge\xE7ersiz metin: "${_issue.suffix}" ile bitmeli`;
+          return `Geçersiz metin: "${_issue.suffix}" ile bitmeli`;
         if (_issue.format === "includes")
-          return `Ge\xE7ersiz metin: "${_issue.includes}" i\xE7ermeli`;
+          return `Geçersiz metin: "${_issue.includes}" içermeli`;
         if (_issue.format === "regex")
-          return `Ge\xE7ersiz metin: ${_issue.pattern} desenine uymal\u0131`;
-        return `Ge\xE7ersiz ${Nouns[_issue.format] ?? issue2.format}`;
+          return `Geçersiz metin: ${_issue.pattern} desenine uymalı`;
+        return `Geçersiz ${Nouns[_issue.format] ?? issue2.format}`;
       }
       case "not_multiple_of":
-        return `Ge\xE7ersiz say\u0131: ${issue2.divisor} ile tam b\xF6l\xFCnebilmeli`;
+        return `Geçersiz sayı: ${issue2.divisor} ile tam bölünebilmeli`;
       case "unrecognized_keys":
-        return `Tan\u0131nmayan anahtar${issue2.keys.length > 1 ? "lar" : ""}: ${joinValues(issue2.keys, ", ")}`;
+        return `Tanınmayan anahtar${issue2.keys.length > 1 ? "lar" : ""}: ${joinValues(issue2.keys, ", ")}`;
       case "invalid_key":
-        return `${issue2.origin} i\xE7inde ge\xE7ersiz anahtar`;
+        return `${issue2.origin} içinde geçersiz anahtar`;
       case "invalid_union":
-        return "Ge\xE7ersiz de\u011Fer";
+        return "Geçersiz değer";
       case "invalid_element":
-        return `${issue2.origin} i\xE7inde ge\xE7ersiz de\u011Fer`;
+        return `${issue2.origin} içinde geçersiz değer`;
       default:
-        return `Ge\xE7ersiz de\u011Fer`;
+        return `Geçersiz değer`;
     }
   };
 };
@@ -8782,10 +8781,10 @@ function tr_default() {
 // node_modules/zod/v4/locales/uk.js
 var error39 = () => {
   const Sizable = {
-    string: { unit: "\u0441\u0438\u043C\u0432\u043E\u043B\u0456\u0432", verb: "\u043C\u0430\u0442\u0438\u043C\u0435" },
-    file: { unit: "\u0431\u0430\u0439\u0442\u0456\u0432", verb: "\u043C\u0430\u0442\u0438\u043C\u0435" },
-    array: { unit: "\u0435\u043B\u0435\u043C\u0435\u043D\u0442\u0456\u0432", verb: "\u043C\u0430\u0442\u0438\u043C\u0435" },
-    set: { unit: "\u0435\u043B\u0435\u043C\u0435\u043D\u0442\u0456\u0432", verb: "\u043C\u0430\u0442\u0438\u043C\u0435" }
+    string: { unit: "символів", verb: "матиме" },
+    file: { unit: "байтів", verb: "матиме" },
+    array: { unit: "елементів", verb: "матиме" },
+    set: { unit: "елементів", verb: "матиме" }
   };
   function getSizing(origin) {
     return Sizable[origin] ?? null;
@@ -8794,11 +8793,11 @@ var error39 = () => {
     const t = typeof data;
     switch (t) {
       case "number": {
-        return Number.isNaN(data) ? "NaN" : "\u0447\u0438\u0441\u043B\u043E";
+        return Number.isNaN(data) ? "NaN" : "число";
       }
       case "object": {
         if (Array.isArray(data)) {
-          return "\u043C\u0430\u0441\u0438\u0432";
+          return "масив";
         }
         if (data === null) {
           return "null";
@@ -8811,10 +8810,10 @@ var error39 = () => {
     return t;
   };
   const Nouns = {
-    regex: "\u0432\u0445\u0456\u0434\u043D\u0456 \u0434\u0430\u043D\u0456",
-    email: "\u0430\u0434\u0440\u0435\u0441\u0430 \u0435\u043B\u0435\u043A\u0442\u0440\u043E\u043D\u043D\u043E\u0457 \u043F\u043E\u0448\u0442\u0438",
+    regex: "вхідні дані",
+    email: "адреса електронної пошти",
     url: "URL",
-    emoji: "\u0435\u043C\u043E\u0434\u0437\u0456",
+    emoji: "емодзі",
     uuid: "UUID",
     uuidv4: "UUIDv4",
     uuidv6: "UUIDv6",
@@ -8825,68 +8824,68 @@ var error39 = () => {
     ulid: "ULID",
     xid: "XID",
     ksuid: "KSUID",
-    datetime: "\u0434\u0430\u0442\u0430 \u0442\u0430 \u0447\u0430\u0441 ISO",
-    date: "\u0434\u0430\u0442\u0430 ISO",
-    time: "\u0447\u0430\u0441 ISO",
-    duration: "\u0442\u0440\u0438\u0432\u0430\u043B\u0456\u0441\u0442\u044C ISO",
-    ipv4: "\u0430\u0434\u0440\u0435\u0441\u0430 IPv4",
-    ipv6: "\u0430\u0434\u0440\u0435\u0441\u0430 IPv6",
-    cidrv4: "\u0434\u0456\u0430\u043F\u0430\u0437\u043E\u043D IPv4",
-    cidrv6: "\u0434\u0456\u0430\u043F\u0430\u0437\u043E\u043D IPv6",
-    base64: "\u0440\u044F\u0434\u043E\u043A \u0443 \u043A\u043E\u0434\u0443\u0432\u0430\u043D\u043D\u0456 base64",
-    base64url: "\u0440\u044F\u0434\u043E\u043A \u0443 \u043A\u043E\u0434\u0443\u0432\u0430\u043D\u043D\u0456 base64url",
-    json_string: "\u0440\u044F\u0434\u043E\u043A JSON",
-    e164: "\u043D\u043E\u043C\u0435\u0440 E.164",
+    datetime: "дата та час ISO",
+    date: "дата ISO",
+    time: "час ISO",
+    duration: "тривалість ISO",
+    ipv4: "адреса IPv4",
+    ipv6: "адреса IPv6",
+    cidrv4: "діапазон IPv4",
+    cidrv6: "діапазон IPv6",
+    base64: "рядок у кодуванні base64",
+    base64url: "рядок у кодуванні base64url",
+    json_string: "рядок JSON",
+    e164: "номер E.164",
     jwt: "JWT",
-    template_literal: "\u0432\u0445\u0456\u0434\u043D\u0456 \u0434\u0430\u043D\u0456"
+    template_literal: "вхідні дані"
   };
   return (issue2) => {
     switch (issue2.code) {
       case "invalid_type":
-        return `\u041D\u0435\u043F\u0440\u0430\u0432\u0438\u043B\u044C\u043D\u0456 \u0432\u0445\u0456\u0434\u043D\u0456 \u0434\u0430\u043D\u0456: \u043E\u0447\u0456\u043A\u0443\u0454\u0442\u044C\u0441\u044F ${issue2.expected}, \u043E\u0442\u0440\u0438\u043C\u0430\u043D\u043E ${parsedType7(issue2.input)}`;
+        return `Неправильні вхідні дані: очікується ${issue2.expected}, отримано ${parsedType7(issue2.input)}`;
       case "invalid_value":
         if (issue2.values.length === 1)
-          return `\u041D\u0435\u043F\u0440\u0430\u0432\u0438\u043B\u044C\u043D\u0456 \u0432\u0445\u0456\u0434\u043D\u0456 \u0434\u0430\u043D\u0456: \u043E\u0447\u0456\u043A\u0443\u0454\u0442\u044C\u0441\u044F ${stringifyPrimitive(issue2.values[0])}`;
-        return `\u041D\u0435\u043F\u0440\u0430\u0432\u0438\u043B\u044C\u043D\u0430 \u043E\u043F\u0446\u0456\u044F: \u043E\u0447\u0456\u043A\u0443\u0454\u0442\u044C\u0441\u044F \u043E\u0434\u043D\u0435 \u0437 ${joinValues(issue2.values, "|")}`;
+          return `Неправильні вхідні дані: очікується ${stringifyPrimitive(issue2.values[0])}`;
+        return `Неправильна опція: очікується одне з ${joinValues(issue2.values, "|")}`;
       case "too_big": {
         const adj = issue2.inclusive ? "<=" : "<";
         const sizing = getSizing(issue2.origin);
         if (sizing)
-          return `\u0417\u0430\u043D\u0430\u0434\u0442\u043E \u0432\u0435\u043B\u0438\u043A\u0435: \u043E\u0447\u0456\u043A\u0443\u0454\u0442\u044C\u0441\u044F, \u0449\u043E ${issue2.origin ?? "\u0437\u043D\u0430\u0447\u0435\u043D\u043D\u044F"} ${sizing.verb} ${adj}${issue2.maximum.toString()} ${sizing.unit ?? "\u0435\u043B\u0435\u043C\u0435\u043D\u0442\u0456\u0432"}`;
-        return `\u0417\u0430\u043D\u0430\u0434\u0442\u043E \u0432\u0435\u043B\u0438\u043A\u0435: \u043E\u0447\u0456\u043A\u0443\u0454\u0442\u044C\u0441\u044F, \u0449\u043E ${issue2.origin ?? "\u0437\u043D\u0430\u0447\u0435\u043D\u043D\u044F"} \u0431\u0443\u0434\u0435 ${adj}${issue2.maximum.toString()}`;
+          return `Занадто велике: очікується, що ${issue2.origin ?? "значення"} ${sizing.verb} ${adj}${issue2.maximum.toString()} ${sizing.unit ?? "елементів"}`;
+        return `Занадто велике: очікується, що ${issue2.origin ?? "значення"} буде ${adj}${issue2.maximum.toString()}`;
       }
       case "too_small": {
         const adj = issue2.inclusive ? ">=" : ">";
         const sizing = getSizing(issue2.origin);
         if (sizing) {
-          return `\u0417\u0430\u043D\u0430\u0434\u0442\u043E \u043C\u0430\u043B\u0435: \u043E\u0447\u0456\u043A\u0443\u0454\u0442\u044C\u0441\u044F, \u0449\u043E ${issue2.origin} ${sizing.verb} ${adj}${issue2.minimum.toString()} ${sizing.unit}`;
+          return `Занадто мале: очікується, що ${issue2.origin} ${sizing.verb} ${adj}${issue2.minimum.toString()} ${sizing.unit}`;
         }
-        return `\u0417\u0430\u043D\u0430\u0434\u0442\u043E \u043C\u0430\u043B\u0435: \u043E\u0447\u0456\u043A\u0443\u0454\u0442\u044C\u0441\u044F, \u0449\u043E ${issue2.origin} \u0431\u0443\u0434\u0435 ${adj}${issue2.minimum.toString()}`;
+        return `Занадто мале: очікується, що ${issue2.origin} буде ${adj}${issue2.minimum.toString()}`;
       }
       case "invalid_format": {
         const _issue = issue2;
         if (_issue.format === "starts_with")
-          return `\u041D\u0435\u043F\u0440\u0430\u0432\u0438\u043B\u044C\u043D\u0438\u0439 \u0440\u044F\u0434\u043E\u043A: \u043F\u043E\u0432\u0438\u043D\u0435\u043D \u043F\u043E\u0447\u0438\u043D\u0430\u0442\u0438\u0441\u044F \u0437 "${_issue.prefix}"`;
+          return `Неправильний рядок: повинен починатися з "${_issue.prefix}"`;
         if (_issue.format === "ends_with")
-          return `\u041D\u0435\u043F\u0440\u0430\u0432\u0438\u043B\u044C\u043D\u0438\u0439 \u0440\u044F\u0434\u043E\u043A: \u043F\u043E\u0432\u0438\u043D\u0435\u043D \u0437\u0430\u043A\u0456\u043D\u0447\u0443\u0432\u0430\u0442\u0438\u0441\u044F \u043D\u0430 "${_issue.suffix}"`;
+          return `Неправильний рядок: повинен закінчуватися на "${_issue.suffix}"`;
         if (_issue.format === "includes")
-          return `\u041D\u0435\u043F\u0440\u0430\u0432\u0438\u043B\u044C\u043D\u0438\u0439 \u0440\u044F\u0434\u043E\u043A: \u043F\u043E\u0432\u0438\u043D\u0435\u043D \u043C\u0456\u0441\u0442\u0438\u0442\u0438 "${_issue.includes}"`;
+          return `Неправильний рядок: повинен містити "${_issue.includes}"`;
         if (_issue.format === "regex")
-          return `\u041D\u0435\u043F\u0440\u0430\u0432\u0438\u043B\u044C\u043D\u0438\u0439 \u0440\u044F\u0434\u043E\u043A: \u043F\u043E\u0432\u0438\u043D\u0435\u043D \u0432\u0456\u0434\u043F\u043E\u0432\u0456\u0434\u0430\u0442\u0438 \u0448\u0430\u0431\u043B\u043E\u043D\u0443 ${_issue.pattern}`;
-        return `\u041D\u0435\u043F\u0440\u0430\u0432\u0438\u043B\u044C\u043D\u0438\u0439 ${Nouns[_issue.format] ?? issue2.format}`;
+          return `Неправильний рядок: повинен відповідати шаблону ${_issue.pattern}`;
+        return `Неправильний ${Nouns[_issue.format] ?? issue2.format}`;
       }
       case "not_multiple_of":
-        return `\u041D\u0435\u043F\u0440\u0430\u0432\u0438\u043B\u044C\u043D\u0435 \u0447\u0438\u0441\u043B\u043E: \u043F\u043E\u0432\u0438\u043D\u043D\u043E \u0431\u0443\u0442\u0438 \u043A\u0440\u0430\u0442\u043D\u0438\u043C ${issue2.divisor}`;
+        return `Неправильне число: повинно бути кратним ${issue2.divisor}`;
       case "unrecognized_keys":
-        return `\u041D\u0435\u0440\u043E\u0437\u043F\u0456\u0437\u043D\u0430\u043D\u0438\u0439 \u043A\u043B\u044E\u0447${issue2.keys.length > 1 ? "\u0456" : ""}: ${joinValues(issue2.keys, ", ")}`;
+        return `Нерозпізнаний ключ${issue2.keys.length > 1 ? "і" : ""}: ${joinValues(issue2.keys, ", ")}`;
       case "invalid_key":
-        return `\u041D\u0435\u043F\u0440\u0430\u0432\u0438\u043B\u044C\u043D\u0438\u0439 \u043A\u043B\u044E\u0447 \u0443 ${issue2.origin}`;
+        return `Неправильний ключ у ${issue2.origin}`;
       case "invalid_union":
-        return "\u041D\u0435\u043F\u0440\u0430\u0432\u0438\u043B\u044C\u043D\u0456 \u0432\u0445\u0456\u0434\u043D\u0456 \u0434\u0430\u043D\u0456";
+        return "Неправильні вхідні дані";
       case "invalid_element":
-        return `\u041D\u0435\u043F\u0440\u0430\u0432\u0438\u043B\u044C\u043D\u0435 \u0437\u043D\u0430\u0447\u0435\u043D\u043D\u044F \u0443 ${issue2.origin}`;
+        return `Неправильне значення у ${issue2.origin}`;
       default:
-        return `\u041D\u0435\u043F\u0440\u0430\u0432\u0438\u043B\u044C\u043D\u0456 \u0432\u0445\u0456\u0434\u043D\u0456 \u0434\u0430\u043D\u0456`;
+        return `Неправильні вхідні дані`;
     }
   };
 };
@@ -8903,10 +8902,10 @@ function ua_default() {
 // node_modules/zod/v4/locales/ur.js
 var error40 = () => {
   const Sizable = {
-    string: { unit: "\u062D\u0631\u0648\u0641", verb: "\u06C1\u0648\u0646\u0627" },
-    file: { unit: "\u0628\u0627\u0626\u0679\u0633", verb: "\u06C1\u0648\u0646\u0627" },
-    array: { unit: "\u0622\u0626\u0679\u0645\u0632", verb: "\u06C1\u0648\u0646\u0627" },
-    set: { unit: "\u0622\u0626\u0679\u0645\u0632", verb: "\u06C1\u0648\u0646\u0627" }
+    string: { unit: "حروف", verb: "ہونا" },
+    file: { unit: "بائٹس", verb: "ہونا" },
+    array: { unit: "آئٹمز", verb: "ہونا" },
+    set: { unit: "آئٹمز", verb: "ہونا" }
   };
   function getSizing(origin) {
     return Sizable[origin] ?? null;
@@ -8915,14 +8914,14 @@ var error40 = () => {
     const t = typeof data;
     switch (t) {
       case "number": {
-        return Number.isNaN(data) ? "NaN" : "\u0646\u0645\u0628\u0631";
+        return Number.isNaN(data) ? "NaN" : "نمبر";
       }
       case "object": {
         if (Array.isArray(data)) {
-          return "\u0622\u0631\u06D2";
+          return "آرے";
         }
         if (data === null) {
-          return "\u0646\u0644";
+          return "نل";
         }
         if (Object.getPrototypeOf(data) !== Object.prototype && data.constructor) {
           return data.constructor.name;
@@ -8932,83 +8931,83 @@ var error40 = () => {
     return t;
   };
   const Nouns = {
-    regex: "\u0627\u0646 \u067E\u0679",
-    email: "\u0627\u06CC \u0645\u06CC\u0644 \u0627\u06CC\u0688\u0631\u06CC\u0633",
-    url: "\u06CC\u0648 \u0622\u0631 \u0627\u06CC\u0644",
-    emoji: "\u0627\u06CC\u0645\u0648\u062C\u06CC",
-    uuid: "\u06CC\u0648 \u06CC\u0648 \u0622\u0626\u06CC \u0688\u06CC",
-    uuidv4: "\u06CC\u0648 \u06CC\u0648 \u0622\u0626\u06CC \u0688\u06CC \u0648\u06CC 4",
-    uuidv6: "\u06CC\u0648 \u06CC\u0648 \u0622\u0626\u06CC \u0688\u06CC \u0648\u06CC 6",
-    nanoid: "\u0646\u06CC\u0646\u0648 \u0622\u0626\u06CC \u0688\u06CC",
-    guid: "\u062C\u06CC \u06CC\u0648 \u0622\u0626\u06CC \u0688\u06CC",
-    cuid: "\u0633\u06CC \u06CC\u0648 \u0622\u0626\u06CC \u0688\u06CC",
-    cuid2: "\u0633\u06CC \u06CC\u0648 \u0622\u0626\u06CC \u0688\u06CC 2",
-    ulid: "\u06CC\u0648 \u0627\u06CC\u0644 \u0622\u0626\u06CC \u0688\u06CC",
-    xid: "\u0627\u06CC\u06A9\u0633 \u0622\u0626\u06CC \u0688\u06CC",
-    ksuid: "\u06A9\u06D2 \u0627\u06CC\u0633 \u06CC\u0648 \u0622\u0626\u06CC \u0688\u06CC",
-    datetime: "\u0622\u0626\u06CC \u0627\u06CC\u0633 \u0627\u0648 \u0688\u06CC\u0679 \u0679\u0627\u0626\u0645",
-    date: "\u0622\u0626\u06CC \u0627\u06CC\u0633 \u0627\u0648 \u062A\u0627\u0631\u06CC\u062E",
-    time: "\u0622\u0626\u06CC \u0627\u06CC\u0633 \u0627\u0648 \u0648\u0642\u062A",
-    duration: "\u0622\u0626\u06CC \u0627\u06CC\u0633 \u0627\u0648 \u0645\u062F\u062A",
-    ipv4: "\u0622\u0626\u06CC \u067E\u06CC \u0648\u06CC 4 \u0627\u06CC\u0688\u0631\u06CC\u0633",
-    ipv6: "\u0622\u0626\u06CC \u067E\u06CC \u0648\u06CC 6 \u0627\u06CC\u0688\u0631\u06CC\u0633",
-    cidrv4: "\u0622\u0626\u06CC \u067E\u06CC \u0648\u06CC 4 \u0631\u06CC\u0646\u062C",
-    cidrv6: "\u0622\u0626\u06CC \u067E\u06CC \u0648\u06CC 6 \u0631\u06CC\u0646\u062C",
-    base64: "\u0628\u06CC\u0633 64 \u0627\u0646 \u06A9\u0648\u0688\u0688 \u0633\u0679\u0631\u0646\u06AF",
-    base64url: "\u0628\u06CC\u0633 64 \u06CC\u0648 \u0622\u0631 \u0627\u06CC\u0644 \u0627\u0646 \u06A9\u0648\u0688\u0688 \u0633\u0679\u0631\u0646\u06AF",
-    json_string: "\u062C\u06D2 \u0627\u06CC\u0633 \u0627\u0648 \u0627\u06CC\u0646 \u0633\u0679\u0631\u0646\u06AF",
-    e164: "\u0627\u06CC 164 \u0646\u0645\u0628\u0631",
-    jwt: "\u062C\u06D2 \u0688\u0628\u0644\u06CC\u0648 \u0679\u06CC",
-    template_literal: "\u0627\u0646 \u067E\u0679"
+    regex: "ان پٹ",
+    email: "ای میل ایڈریس",
+    url: "یو آر ایل",
+    emoji: "ایموجی",
+    uuid: "یو یو آئی ڈی",
+    uuidv4: "یو یو آئی ڈی وی 4",
+    uuidv6: "یو یو آئی ڈی وی 6",
+    nanoid: "نینو آئی ڈی",
+    guid: "جی یو آئی ڈی",
+    cuid: "سی یو آئی ڈی",
+    cuid2: "سی یو آئی ڈی 2",
+    ulid: "یو ایل آئی ڈی",
+    xid: "ایکس آئی ڈی",
+    ksuid: "کے ایس یو آئی ڈی",
+    datetime: "آئی ایس او ڈیٹ ٹائم",
+    date: "آئی ایس او تاریخ",
+    time: "آئی ایس او وقت",
+    duration: "آئی ایس او مدت",
+    ipv4: "آئی پی وی 4 ایڈریس",
+    ipv6: "آئی پی وی 6 ایڈریس",
+    cidrv4: "آئی پی وی 4 رینج",
+    cidrv6: "آئی پی وی 6 رینج",
+    base64: "بیس 64 ان کوڈڈ سٹرنگ",
+    base64url: "بیس 64 یو آر ایل ان کوڈڈ سٹرنگ",
+    json_string: "جے ایس او این سٹرنگ",
+    e164: "ای 164 نمبر",
+    jwt: "جے ڈبلیو ٹی",
+    template_literal: "ان پٹ"
   };
   return (issue2) => {
     switch (issue2.code) {
       case "invalid_type":
-        return `\u063A\u0644\u0637 \u0627\u0646 \u067E\u0679: ${issue2.expected} \u0645\u062A\u0648\u0642\u0639 \u062A\u06BE\u0627\u060C ${parsedType7(issue2.input)} \u0645\u0648\u0635\u0648\u0644 \u06C1\u0648\u0627`;
+        return `غلط ان پٹ: ${issue2.expected} متوقع تھا، ${parsedType7(issue2.input)} موصول ہوا`;
       case "invalid_value":
         if (issue2.values.length === 1)
-          return `\u063A\u0644\u0637 \u0627\u0646 \u067E\u0679: ${stringifyPrimitive(issue2.values[0])} \u0645\u062A\u0648\u0642\u0639 \u062A\u06BE\u0627`;
-        return `\u063A\u0644\u0637 \u0622\u067E\u0634\u0646: ${joinValues(issue2.values, "|")} \u0645\u06CC\u06BA \u0633\u06D2 \u0627\u06CC\u06A9 \u0645\u062A\u0648\u0642\u0639 \u062A\u06BE\u0627`;
+          return `غلط ان پٹ: ${stringifyPrimitive(issue2.values[0])} متوقع تھا`;
+        return `غلط آپشن: ${joinValues(issue2.values, "|")} میں سے ایک متوقع تھا`;
       case "too_big": {
         const adj = issue2.inclusive ? "<=" : "<";
         const sizing = getSizing(issue2.origin);
         if (sizing)
-          return `\u0628\u06C1\u062A \u0628\u0691\u0627: ${issue2.origin ?? "\u0648\u06CC\u0644\u06CC\u0648"} \u06A9\u06D2 ${adj}${issue2.maximum.toString()} ${sizing.unit ?? "\u0639\u0646\u0627\u0635\u0631"} \u06C1\u0648\u0646\u06D2 \u0645\u062A\u0648\u0642\u0639 \u062A\u06BE\u06D2`;
-        return `\u0628\u06C1\u062A \u0628\u0691\u0627: ${issue2.origin ?? "\u0648\u06CC\u0644\u06CC\u0648"} \u06A9\u0627 ${adj}${issue2.maximum.toString()} \u06C1\u0648\u0646\u0627 \u0645\u062A\u0648\u0642\u0639 \u062A\u06BE\u0627`;
+          return `بہت بڑا: ${issue2.origin ?? "ویلیو"} کے ${adj}${issue2.maximum.toString()} ${sizing.unit ?? "عناصر"} ہونے متوقع تھے`;
+        return `بہت بڑا: ${issue2.origin ?? "ویلیو"} کا ${adj}${issue2.maximum.toString()} ہونا متوقع تھا`;
       }
       case "too_small": {
         const adj = issue2.inclusive ? ">=" : ">";
         const sizing = getSizing(issue2.origin);
         if (sizing) {
-          return `\u0628\u06C1\u062A \u0686\u06BE\u0648\u0679\u0627: ${issue2.origin} \u06A9\u06D2 ${adj}${issue2.minimum.toString()} ${sizing.unit} \u06C1\u0648\u0646\u06D2 \u0645\u062A\u0648\u0642\u0639 \u062A\u06BE\u06D2`;
+          return `بہت چھوٹا: ${issue2.origin} کے ${adj}${issue2.minimum.toString()} ${sizing.unit} ہونے متوقع تھے`;
         }
-        return `\u0628\u06C1\u062A \u0686\u06BE\u0648\u0679\u0627: ${issue2.origin} \u06A9\u0627 ${adj}${issue2.minimum.toString()} \u06C1\u0648\u0646\u0627 \u0645\u062A\u0648\u0642\u0639 \u062A\u06BE\u0627`;
+        return `بہت چھوٹا: ${issue2.origin} کا ${adj}${issue2.minimum.toString()} ہونا متوقع تھا`;
       }
       case "invalid_format": {
         const _issue = issue2;
         if (_issue.format === "starts_with") {
-          return `\u063A\u0644\u0637 \u0633\u0679\u0631\u0646\u06AF: "${_issue.prefix}" \u0633\u06D2 \u0634\u0631\u0648\u0639 \u06C1\u0648\u0646\u0627 \u0686\u0627\u06C1\u06CC\u06D2`;
+          return `غلط سٹرنگ: "${_issue.prefix}" سے شروع ہونا چاہیے`;
         }
         if (_issue.format === "ends_with")
-          return `\u063A\u0644\u0637 \u0633\u0679\u0631\u0646\u06AF: "${_issue.suffix}" \u067E\u0631 \u062E\u062A\u0645 \u06C1\u0648\u0646\u0627 \u0686\u0627\u06C1\u06CC\u06D2`;
+          return `غلط سٹرنگ: "${_issue.suffix}" پر ختم ہونا چاہیے`;
         if (_issue.format === "includes")
-          return `\u063A\u0644\u0637 \u0633\u0679\u0631\u0646\u06AF: "${_issue.includes}" \u0634\u0627\u0645\u0644 \u06C1\u0648\u0646\u0627 \u0686\u0627\u06C1\u06CC\u06D2`;
+          return `غلط سٹرنگ: "${_issue.includes}" شامل ہونا چاہیے`;
         if (_issue.format === "regex")
-          return `\u063A\u0644\u0637 \u0633\u0679\u0631\u0646\u06AF: \u067E\u06CC\u0679\u0631\u0646 ${_issue.pattern} \u0633\u06D2 \u0645\u06CC\u0686 \u06C1\u0648\u0646\u0627 \u0686\u0627\u06C1\u06CC\u06D2`;
-        return `\u063A\u0644\u0637 ${Nouns[_issue.format] ?? issue2.format}`;
+          return `غلط سٹرنگ: پیٹرن ${_issue.pattern} سے میچ ہونا چاہیے`;
+        return `غلط ${Nouns[_issue.format] ?? issue2.format}`;
       }
       case "not_multiple_of":
-        return `\u063A\u0644\u0637 \u0646\u0645\u0628\u0631: ${issue2.divisor} \u06A9\u0627 \u0645\u0636\u0627\u0639\u0641 \u06C1\u0648\u0646\u0627 \u0686\u0627\u06C1\u06CC\u06D2`;
+        return `غلط نمبر: ${issue2.divisor} کا مضاعف ہونا چاہیے`;
       case "unrecognized_keys":
-        return `\u063A\u06CC\u0631 \u062A\u0633\u0644\u06CC\u0645 \u0634\u062F\u06C1 \u06A9\u06CC${issue2.keys.length > 1 ? "\u0632" : ""}: ${joinValues(issue2.keys, "\u060C ")}`;
+        return `غیر تسلیم شدہ کی${issue2.keys.length > 1 ? "ز" : ""}: ${joinValues(issue2.keys, "، ")}`;
       case "invalid_key":
-        return `${issue2.origin} \u0645\u06CC\u06BA \u063A\u0644\u0637 \u06A9\u06CC`;
+        return `${issue2.origin} میں غلط کی`;
       case "invalid_union":
-        return "\u063A\u0644\u0637 \u0627\u0646 \u067E\u0679";
+        return "غلط ان پٹ";
       case "invalid_element":
-        return `${issue2.origin} \u0645\u06CC\u06BA \u063A\u0644\u0637 \u0648\u06CC\u0644\u06CC\u0648`;
+        return `${issue2.origin} میں غلط ویلیو`;
       default:
-        return `\u063A\u0644\u0637 \u0627\u0646 \u067E\u0679`;
+        return `غلط ان پٹ`;
     }
   };
 };
@@ -9020,10 +9019,10 @@ function ur_default() {
 // node_modules/zod/v4/locales/vi.js
 var error41 = () => {
   const Sizable = {
-    string: { unit: "k\xFD t\u1EF1", verb: "c\xF3" },
-    file: { unit: "byte", verb: "c\xF3" },
-    array: { unit: "ph\u1EA7n t\u1EED", verb: "c\xF3" },
-    set: { unit: "ph\u1EA7n t\u1EED", verb: "c\xF3" }
+    string: { unit: "ký tự", verb: "có" },
+    file: { unit: "byte", verb: "có" },
+    array: { unit: "phần tử", verb: "có" },
+    set: { unit: "phần tử", verb: "có" }
   };
   function getSizing(origin) {
     return Sizable[origin] ?? null;
@@ -9032,11 +9031,11 @@ var error41 = () => {
     const t = typeof data;
     switch (t) {
       case "number": {
-        return Number.isNaN(data) ? "NaN" : "s\u1ED1";
+        return Number.isNaN(data) ? "NaN" : "số";
       }
       case "object": {
         if (Array.isArray(data)) {
-          return "m\u1EA3ng";
+          return "mảng";
         }
         if (data === null) {
           return "null";
@@ -9049,8 +9048,8 @@ var error41 = () => {
     return t;
   };
   const Nouns = {
-    regex: "\u0111\u1EA7u v\xE0o",
-    email: "\u0111\u1ECBa ch\u1EC9 email",
+    regex: "đầu vào",
+    email: "địa chỉ email",
     url: "URL",
     emoji: "emoji",
     uuid: "UUID",
@@ -9063,68 +9062,68 @@ var error41 = () => {
     ulid: "ULID",
     xid: "XID",
     ksuid: "KSUID",
-    datetime: "ng\xE0y gi\u1EDD ISO",
-    date: "ng\xE0y ISO",
-    time: "gi\u1EDD ISO",
-    duration: "kho\u1EA3ng th\u1EDDi gian ISO",
-    ipv4: "\u0111\u1ECBa ch\u1EC9 IPv4",
-    ipv6: "\u0111\u1ECBa ch\u1EC9 IPv6",
-    cidrv4: "d\u1EA3i IPv4",
-    cidrv6: "d\u1EA3i IPv6",
-    base64: "chu\u1ED7i m\xE3 h\xF3a base64",
-    base64url: "chu\u1ED7i m\xE3 h\xF3a base64url",
-    json_string: "chu\u1ED7i JSON",
-    e164: "s\u1ED1 E.164",
+    datetime: "ngày giờ ISO",
+    date: "ngày ISO",
+    time: "giờ ISO",
+    duration: "khoảng thời gian ISO",
+    ipv4: "địa chỉ IPv4",
+    ipv6: "địa chỉ IPv6",
+    cidrv4: "dải IPv4",
+    cidrv6: "dải IPv6",
+    base64: "chuỗi mã hóa base64",
+    base64url: "chuỗi mã hóa base64url",
+    json_string: "chuỗi JSON",
+    e164: "số E.164",
     jwt: "JWT",
-    template_literal: "\u0111\u1EA7u v\xE0o"
+    template_literal: "đầu vào"
   };
   return (issue2) => {
     switch (issue2.code) {
       case "invalid_type":
-        return `\u0110\u1EA7u v\xE0o kh\xF4ng h\u1EE3p l\u1EC7: mong \u0111\u1EE3i ${issue2.expected}, nh\u1EADn \u0111\u01B0\u1EE3c ${parsedType7(issue2.input)}`;
+        return `Đầu vào không hợp lệ: mong đợi ${issue2.expected}, nhận được ${parsedType7(issue2.input)}`;
       case "invalid_value":
         if (issue2.values.length === 1)
-          return `\u0110\u1EA7u v\xE0o kh\xF4ng h\u1EE3p l\u1EC7: mong \u0111\u1EE3i ${stringifyPrimitive(issue2.values[0])}`;
-        return `T\xF9y ch\u1ECDn kh\xF4ng h\u1EE3p l\u1EC7: mong \u0111\u1EE3i m\u1ED9t trong c\xE1c gi\xE1 tr\u1ECB ${joinValues(issue2.values, "|")}`;
+          return `Đầu vào không hợp lệ: mong đợi ${stringifyPrimitive(issue2.values[0])}`;
+        return `Tùy chọn không hợp lệ: mong đợi một trong các giá trị ${joinValues(issue2.values, "|")}`;
       case "too_big": {
         const adj = issue2.inclusive ? "<=" : "<";
         const sizing = getSizing(issue2.origin);
         if (sizing)
-          return `Qu\xE1 l\u1EDBn: mong \u0111\u1EE3i ${issue2.origin ?? "gi\xE1 tr\u1ECB"} ${sizing.verb} ${adj}${issue2.maximum.toString()} ${sizing.unit ?? "ph\u1EA7n t\u1EED"}`;
-        return `Qu\xE1 l\u1EDBn: mong \u0111\u1EE3i ${issue2.origin ?? "gi\xE1 tr\u1ECB"} ${adj}${issue2.maximum.toString()}`;
+          return `Quá lớn: mong đợi ${issue2.origin ?? "giá trị"} ${sizing.verb} ${adj}${issue2.maximum.toString()} ${sizing.unit ?? "phần tử"}`;
+        return `Quá lớn: mong đợi ${issue2.origin ?? "giá trị"} ${adj}${issue2.maximum.toString()}`;
       }
       case "too_small": {
         const adj = issue2.inclusive ? ">=" : ">";
         const sizing = getSizing(issue2.origin);
         if (sizing) {
-          return `Qu\xE1 nh\u1ECF: mong \u0111\u1EE3i ${issue2.origin} ${sizing.verb} ${adj}${issue2.minimum.toString()} ${sizing.unit}`;
+          return `Quá nhỏ: mong đợi ${issue2.origin} ${sizing.verb} ${adj}${issue2.minimum.toString()} ${sizing.unit}`;
         }
-        return `Qu\xE1 nh\u1ECF: mong \u0111\u1EE3i ${issue2.origin} ${adj}${issue2.minimum.toString()}`;
+        return `Quá nhỏ: mong đợi ${issue2.origin} ${adj}${issue2.minimum.toString()}`;
       }
       case "invalid_format": {
         const _issue = issue2;
         if (_issue.format === "starts_with")
-          return `Chu\u1ED7i kh\xF4ng h\u1EE3p l\u1EC7: ph\u1EA3i b\u1EAFt \u0111\u1EA7u b\u1EB1ng "${_issue.prefix}"`;
+          return `Chuỗi không hợp lệ: phải bắt đầu bằng "${_issue.prefix}"`;
         if (_issue.format === "ends_with")
-          return `Chu\u1ED7i kh\xF4ng h\u1EE3p l\u1EC7: ph\u1EA3i k\u1EBFt th\xFAc b\u1EB1ng "${_issue.suffix}"`;
+          return `Chuỗi không hợp lệ: phải kết thúc bằng "${_issue.suffix}"`;
         if (_issue.format === "includes")
-          return `Chu\u1ED7i kh\xF4ng h\u1EE3p l\u1EC7: ph\u1EA3i bao g\u1ED3m "${_issue.includes}"`;
+          return `Chuỗi không hợp lệ: phải bao gồm "${_issue.includes}"`;
         if (_issue.format === "regex")
-          return `Chu\u1ED7i kh\xF4ng h\u1EE3p l\u1EC7: ph\u1EA3i kh\u1EDBp v\u1EDBi m\u1EABu ${_issue.pattern}`;
-        return `${Nouns[_issue.format] ?? issue2.format} kh\xF4ng h\u1EE3p l\u1EC7`;
+          return `Chuỗi không hợp lệ: phải khớp với mẫu ${_issue.pattern}`;
+        return `${Nouns[_issue.format] ?? issue2.format} không hợp lệ`;
       }
       case "not_multiple_of":
-        return `S\u1ED1 kh\xF4ng h\u1EE3p l\u1EC7: ph\u1EA3i l\xE0 b\u1ED9i s\u1ED1 c\u1EE7a ${issue2.divisor}`;
+        return `Số không hợp lệ: phải là bội số của ${issue2.divisor}`;
       case "unrecognized_keys":
-        return `Kh\xF3a kh\xF4ng \u0111\u01B0\u1EE3c nh\u1EADn d\u1EA1ng: ${joinValues(issue2.keys, ", ")}`;
+        return `Khóa không được nhận dạng: ${joinValues(issue2.keys, ", ")}`;
       case "invalid_key":
-        return `Kh\xF3a kh\xF4ng h\u1EE3p l\u1EC7 trong ${issue2.origin}`;
+        return `Khóa không hợp lệ trong ${issue2.origin}`;
       case "invalid_union":
-        return "\u0110\u1EA7u v\xE0o kh\xF4ng h\u1EE3p l\u1EC7";
+        return "Đầu vào không hợp lệ";
       case "invalid_element":
-        return `Gi\xE1 tr\u1ECB kh\xF4ng h\u1EE3p l\u1EC7 trong ${issue2.origin}`;
+        return `Giá trị không hợp lệ trong ${issue2.origin}`;
       default:
-        return `\u0110\u1EA7u v\xE0o kh\xF4ng h\u1EE3p l\u1EC7`;
+        return `Đầu vào không hợp lệ`;
     }
   };
 };
@@ -9136,10 +9135,10 @@ function vi_default() {
 // node_modules/zod/v4/locales/zh-CN.js
 var error42 = () => {
   const Sizable = {
-    string: { unit: "\u5B57\u7B26", verb: "\u5305\u542B" },
-    file: { unit: "\u5B57\u8282", verb: "\u5305\u542B" },
-    array: { unit: "\u9879", verb: "\u5305\u542B" },
-    set: { unit: "\u9879", verb: "\u5305\u542B" }
+    string: { unit: "字符", verb: "包含" },
+    file: { unit: "字节", verb: "包含" },
+    array: { unit: "项", verb: "包含" },
+    set: { unit: "项", verb: "包含" }
   };
   function getSizing(origin) {
     return Sizable[origin] ?? null;
@@ -9148,14 +9147,14 @@ var error42 = () => {
     const t = typeof data;
     switch (t) {
       case "number": {
-        return Number.isNaN(data) ? "\u975E\u6570\u5B57(NaN)" : "\u6570\u5B57";
+        return Number.isNaN(data) ? "非数字(NaN)" : "数字";
       }
       case "object": {
         if (Array.isArray(data)) {
-          return "\u6570\u7EC4";
+          return "数组";
         }
         if (data === null) {
-          return "\u7A7A\u503C(null)";
+          return "空值(null)";
         }
         if (Object.getPrototypeOf(data) !== Object.prototype && data.constructor) {
           return data.constructor.name;
@@ -9165,10 +9164,10 @@ var error42 = () => {
     return t;
   };
   const Nouns = {
-    regex: "\u8F93\u5165",
-    email: "\u7535\u5B50\u90AE\u4EF6",
+    regex: "输入",
+    email: "电子邮件",
     url: "URL",
-    emoji: "\u8868\u60C5\u7B26\u53F7",
+    emoji: "表情符号",
     uuid: "UUID",
     uuidv4: "UUIDv4",
     uuidv6: "UUIDv6",
@@ -9179,68 +9178,68 @@ var error42 = () => {
     ulid: "ULID",
     xid: "XID",
     ksuid: "KSUID",
-    datetime: "ISO\u65E5\u671F\u65F6\u95F4",
-    date: "ISO\u65E5\u671F",
-    time: "ISO\u65F6\u95F4",
-    duration: "ISO\u65F6\u957F",
-    ipv4: "IPv4\u5730\u5740",
-    ipv6: "IPv6\u5730\u5740",
-    cidrv4: "IPv4\u7F51\u6BB5",
-    cidrv6: "IPv6\u7F51\u6BB5",
-    base64: "base64\u7F16\u7801\u5B57\u7B26\u4E32",
-    base64url: "base64url\u7F16\u7801\u5B57\u7B26\u4E32",
-    json_string: "JSON\u5B57\u7B26\u4E32",
-    e164: "E.164\u53F7\u7801",
+    datetime: "ISO日期时间",
+    date: "ISO日期",
+    time: "ISO时间",
+    duration: "ISO时长",
+    ipv4: "IPv4地址",
+    ipv6: "IPv6地址",
+    cidrv4: "IPv4网段",
+    cidrv6: "IPv6网段",
+    base64: "base64编码字符串",
+    base64url: "base64url编码字符串",
+    json_string: "JSON字符串",
+    e164: "E.164号码",
     jwt: "JWT",
-    template_literal: "\u8F93\u5165"
+    template_literal: "输入"
   };
   return (issue2) => {
     switch (issue2.code) {
       case "invalid_type":
-        return `\u65E0\u6548\u8F93\u5165\uFF1A\u671F\u671B ${issue2.expected}\uFF0C\u5B9E\u9645\u63A5\u6536 ${parsedType7(issue2.input)}`;
+        return `无效输入：期望 ${issue2.expected}，实际接收 ${parsedType7(issue2.input)}`;
       case "invalid_value":
         if (issue2.values.length === 1)
-          return `\u65E0\u6548\u8F93\u5165\uFF1A\u671F\u671B ${stringifyPrimitive(issue2.values[0])}`;
-        return `\u65E0\u6548\u9009\u9879\uFF1A\u671F\u671B\u4EE5\u4E0B\u4E4B\u4E00 ${joinValues(issue2.values, "|")}`;
+          return `无效输入：期望 ${stringifyPrimitive(issue2.values[0])}`;
+        return `无效选项：期望以下之一 ${joinValues(issue2.values, "|")}`;
       case "too_big": {
         const adj = issue2.inclusive ? "<=" : "<";
         const sizing = getSizing(issue2.origin);
         if (sizing)
-          return `\u6570\u503C\u8FC7\u5927\uFF1A\u671F\u671B ${issue2.origin ?? "\u503C"} ${adj}${issue2.maximum.toString()} ${sizing.unit ?? "\u4E2A\u5143\u7D20"}`;
-        return `\u6570\u503C\u8FC7\u5927\uFF1A\u671F\u671B ${issue2.origin ?? "\u503C"} ${adj}${issue2.maximum.toString()}`;
+          return `数值过大：期望 ${issue2.origin ?? "值"} ${adj}${issue2.maximum.toString()} ${sizing.unit ?? "个元素"}`;
+        return `数值过大：期望 ${issue2.origin ?? "值"} ${adj}${issue2.maximum.toString()}`;
       }
       case "too_small": {
         const adj = issue2.inclusive ? ">=" : ">";
         const sizing = getSizing(issue2.origin);
         if (sizing) {
-          return `\u6570\u503C\u8FC7\u5C0F\uFF1A\u671F\u671B ${issue2.origin} ${adj}${issue2.minimum.toString()} ${sizing.unit}`;
+          return `数值过小：期望 ${issue2.origin} ${adj}${issue2.minimum.toString()} ${sizing.unit}`;
         }
-        return `\u6570\u503C\u8FC7\u5C0F\uFF1A\u671F\u671B ${issue2.origin} ${adj}${issue2.minimum.toString()}`;
+        return `数值过小：期望 ${issue2.origin} ${adj}${issue2.minimum.toString()}`;
       }
       case "invalid_format": {
         const _issue = issue2;
         if (_issue.format === "starts_with")
-          return `\u65E0\u6548\u5B57\u7B26\u4E32\uFF1A\u5FC5\u987B\u4EE5 "${_issue.prefix}" \u5F00\u5934`;
+          return `无效字符串：必须以 "${_issue.prefix}" 开头`;
         if (_issue.format === "ends_with")
-          return `\u65E0\u6548\u5B57\u7B26\u4E32\uFF1A\u5FC5\u987B\u4EE5 "${_issue.suffix}" \u7ED3\u5C3E`;
+          return `无效字符串：必须以 "${_issue.suffix}" 结尾`;
         if (_issue.format === "includes")
-          return `\u65E0\u6548\u5B57\u7B26\u4E32\uFF1A\u5FC5\u987B\u5305\u542B "${_issue.includes}"`;
+          return `无效字符串：必须包含 "${_issue.includes}"`;
         if (_issue.format === "regex")
-          return `\u65E0\u6548\u5B57\u7B26\u4E32\uFF1A\u5FC5\u987B\u6EE1\u8DB3\u6B63\u5219\u8868\u8FBE\u5F0F ${_issue.pattern}`;
-        return `\u65E0\u6548${Nouns[_issue.format] ?? issue2.format}`;
+          return `无效字符串：必须满足正则表达式 ${_issue.pattern}`;
+        return `无效${Nouns[_issue.format] ?? issue2.format}`;
       }
       case "not_multiple_of":
-        return `\u65E0\u6548\u6570\u5B57\uFF1A\u5FC5\u987B\u662F ${issue2.divisor} \u7684\u500D\u6570`;
+        return `无效数字：必须是 ${issue2.divisor} 的倍数`;
       case "unrecognized_keys":
-        return `\u51FA\u73B0\u672A\u77E5\u7684\u952E(key): ${joinValues(issue2.keys, ", ")}`;
+        return `出现未知的键(key): ${joinValues(issue2.keys, ", ")}`;
       case "invalid_key":
-        return `${issue2.origin} \u4E2D\u7684\u952E(key)\u65E0\u6548`;
+        return `${issue2.origin} 中的键(key)无效`;
       case "invalid_union":
-        return "\u65E0\u6548\u8F93\u5165";
+        return "无效输入";
       case "invalid_element":
-        return `${issue2.origin} \u4E2D\u5305\u542B\u65E0\u6548\u503C(value)`;
+        return `${issue2.origin} 中包含无效值(value)`;
       default:
-        return `\u65E0\u6548\u8F93\u5165`;
+        return `无效输入`;
     }
   };
 };
@@ -9252,10 +9251,10 @@ function zh_CN_default() {
 // node_modules/zod/v4/locales/zh-TW.js
 var error43 = () => {
   const Sizable = {
-    string: { unit: "\u5B57\u5143", verb: "\u64C1\u6709" },
-    file: { unit: "\u4F4D\u5143\u7D44", verb: "\u64C1\u6709" },
-    array: { unit: "\u9805\u76EE", verb: "\u64C1\u6709" },
-    set: { unit: "\u9805\u76EE", verb: "\u64C1\u6709" }
+    string: { unit: "字元", verb: "擁有" },
+    file: { unit: "位元組", verb: "擁有" },
+    array: { unit: "項目", verb: "擁有" },
+    set: { unit: "項目", verb: "擁有" }
   };
   function getSizing(origin) {
     return Sizable[origin] ?? null;
@@ -9281,8 +9280,8 @@ var error43 = () => {
     return t;
   };
   const Nouns = {
-    regex: "\u8F38\u5165",
-    email: "\u90F5\u4EF6\u5730\u5740",
+    regex: "輸入",
+    email: "郵件地址",
     url: "URL",
     emoji: "emoji",
     uuid: "UUID",
@@ -9295,69 +9294,69 @@ var error43 = () => {
     ulid: "ULID",
     xid: "XID",
     ksuid: "KSUID",
-    datetime: "ISO \u65E5\u671F\u6642\u9593",
-    date: "ISO \u65E5\u671F",
-    time: "ISO \u6642\u9593",
-    duration: "ISO \u671F\u9593",
-    ipv4: "IPv4 \u4F4D\u5740",
-    ipv6: "IPv6 \u4F4D\u5740",
-    cidrv4: "IPv4 \u7BC4\u570D",
-    cidrv6: "IPv6 \u7BC4\u570D",
-    base64: "base64 \u7DE8\u78BC\u5B57\u4E32",
-    base64url: "base64url \u7DE8\u78BC\u5B57\u4E32",
-    json_string: "JSON \u5B57\u4E32",
-    e164: "E.164 \u6578\u503C",
+    datetime: "ISO 日期時間",
+    date: "ISO 日期",
+    time: "ISO 時間",
+    duration: "ISO 期間",
+    ipv4: "IPv4 位址",
+    ipv6: "IPv6 位址",
+    cidrv4: "IPv4 範圍",
+    cidrv6: "IPv6 範圍",
+    base64: "base64 編碼字串",
+    base64url: "base64url 編碼字串",
+    json_string: "JSON 字串",
+    e164: "E.164 數值",
     jwt: "JWT",
-    template_literal: "\u8F38\u5165"
+    template_literal: "輸入"
   };
   return (issue2) => {
     switch (issue2.code) {
       case "invalid_type":
-        return `\u7121\u6548\u7684\u8F38\u5165\u503C\uFF1A\u9810\u671F\u70BA ${issue2.expected}\uFF0C\u4F46\u6536\u5230 ${parsedType7(issue2.input)}`;
+        return `無效的輸入值：預期為 ${issue2.expected}，但收到 ${parsedType7(issue2.input)}`;
       case "invalid_value":
         if (issue2.values.length === 1)
-          return `\u7121\u6548\u7684\u8F38\u5165\u503C\uFF1A\u9810\u671F\u70BA ${stringifyPrimitive(issue2.values[0])}`;
-        return `\u7121\u6548\u7684\u9078\u9805\uFF1A\u9810\u671F\u70BA\u4EE5\u4E0B\u5176\u4E2D\u4E4B\u4E00 ${joinValues(issue2.values, "|")}`;
+          return `無效的輸入值：預期為 ${stringifyPrimitive(issue2.values[0])}`;
+        return `無效的選項：預期為以下其中之一 ${joinValues(issue2.values, "|")}`;
       case "too_big": {
         const adj = issue2.inclusive ? "<=" : "<";
         const sizing = getSizing(issue2.origin);
         if (sizing)
-          return `\u6578\u503C\u904E\u5927\uFF1A\u9810\u671F ${issue2.origin ?? "\u503C"} \u61C9\u70BA ${adj}${issue2.maximum.toString()} ${sizing.unit ?? "\u500B\u5143\u7D20"}`;
-        return `\u6578\u503C\u904E\u5927\uFF1A\u9810\u671F ${issue2.origin ?? "\u503C"} \u61C9\u70BA ${adj}${issue2.maximum.toString()}`;
+          return `數值過大：預期 ${issue2.origin ?? "值"} 應為 ${adj}${issue2.maximum.toString()} ${sizing.unit ?? "個元素"}`;
+        return `數值過大：預期 ${issue2.origin ?? "值"} 應為 ${adj}${issue2.maximum.toString()}`;
       }
       case "too_small": {
         const adj = issue2.inclusive ? ">=" : ">";
         const sizing = getSizing(issue2.origin);
         if (sizing) {
-          return `\u6578\u503C\u904E\u5C0F\uFF1A\u9810\u671F ${issue2.origin} \u61C9\u70BA ${adj}${issue2.minimum.toString()} ${sizing.unit}`;
+          return `數值過小：預期 ${issue2.origin} 應為 ${adj}${issue2.minimum.toString()} ${sizing.unit}`;
         }
-        return `\u6578\u503C\u904E\u5C0F\uFF1A\u9810\u671F ${issue2.origin} \u61C9\u70BA ${adj}${issue2.minimum.toString()}`;
+        return `數值過小：預期 ${issue2.origin} 應為 ${adj}${issue2.minimum.toString()}`;
       }
       case "invalid_format": {
         const _issue = issue2;
         if (_issue.format === "starts_with") {
-          return `\u7121\u6548\u7684\u5B57\u4E32\uFF1A\u5FC5\u9808\u4EE5 "${_issue.prefix}" \u958B\u982D`;
+          return `無效的字串：必須以 "${_issue.prefix}" 開頭`;
         }
         if (_issue.format === "ends_with")
-          return `\u7121\u6548\u7684\u5B57\u4E32\uFF1A\u5FC5\u9808\u4EE5 "${_issue.suffix}" \u7D50\u5C3E`;
+          return `無效的字串：必須以 "${_issue.suffix}" 結尾`;
         if (_issue.format === "includes")
-          return `\u7121\u6548\u7684\u5B57\u4E32\uFF1A\u5FC5\u9808\u5305\u542B "${_issue.includes}"`;
+          return `無效的字串：必須包含 "${_issue.includes}"`;
         if (_issue.format === "regex")
-          return `\u7121\u6548\u7684\u5B57\u4E32\uFF1A\u5FC5\u9808\u7B26\u5408\u683C\u5F0F ${_issue.pattern}`;
-        return `\u7121\u6548\u7684 ${Nouns[_issue.format] ?? issue2.format}`;
+          return `無效的字串：必須符合格式 ${_issue.pattern}`;
+        return `無效的 ${Nouns[_issue.format] ?? issue2.format}`;
       }
       case "not_multiple_of":
-        return `\u7121\u6548\u7684\u6578\u5B57\uFF1A\u5FC5\u9808\u70BA ${issue2.divisor} \u7684\u500D\u6578`;
+        return `無效的數字：必須為 ${issue2.divisor} 的倍數`;
       case "unrecognized_keys":
-        return `\u7121\u6CD5\u8B58\u5225\u7684\u9375\u503C${issue2.keys.length > 1 ? "\u5011" : ""}\uFF1A${joinValues(issue2.keys, "\u3001")}`;
+        return `無法識別的鍵值${issue2.keys.length > 1 ? "們" : ""}：${joinValues(issue2.keys, "、")}`;
       case "invalid_key":
-        return `${issue2.origin} \u4E2D\u6709\u7121\u6548\u7684\u9375\u503C`;
+        return `${issue2.origin} 中有無效的鍵值`;
       case "invalid_union":
-        return "\u7121\u6548\u7684\u8F38\u5165\u503C";
+        return "無效的輸入值";
       case "invalid_element":
-        return `${issue2.origin} \u4E2D\u6709\u7121\u6548\u7684\u503C`;
+        return `${issue2.origin} 中有無效的值`;
       default:
-        return `\u7121\u6548\u7684\u8F38\u5165\u503C`;
+        return `無效的輸入值`;
     }
   };
 };
@@ -9369,10 +9368,10 @@ function zh_TW_default() {
 // node_modules/zod/v4/locales/yo.js
 var error44 = () => {
   const Sizable = {
-    string: { unit: "\xE0mi", verb: "n\xED" },
-    file: { unit: "bytes", verb: "n\xED" },
-    array: { unit: "nkan", verb: "n\xED" },
-    set: { unit: "nkan", verb: "n\xED" }
+    string: { unit: "àmi", verb: "ní" },
+    file: { unit: "bytes", verb: "ní" },
+    array: { unit: "nkan", verb: "ní" },
+    set: { unit: "nkan", verb: "ní" }
   };
   function getSizing(origin) {
     return Sizable[origin] ?? null;
@@ -9381,11 +9380,11 @@ var error44 = () => {
     const t = typeof data;
     switch (t) {
       case "number": {
-        return Number.isNaN(data) ? "NaN" : "n\u1ECD\u0301mb\xE0";
+        return Number.isNaN(data) ? "NaN" : "nọ́mbà";
       }
       case "object": {
         if (Array.isArray(data)) {
-          return "akop\u1ECD";
+          return "akopọ";
         }
         if (data === null) {
           return "null";
@@ -9398,8 +9397,8 @@ var error44 = () => {
     return t;
   };
   const Nouns = {
-    regex: "\u1EB9\u0300r\u1ECD \xECb\xE1w\u1ECDl\xE9",
-    email: "\xE0d\xEDr\u1EB9\u0301s\xEC \xECm\u1EB9\u0301l\xEC",
+    regex: "ẹ̀rọ ìbáwọlé",
+    email: "àdírẹ́sì ìmẹ́lì",
     url: "URL",
     emoji: "emoji",
     uuid: "UUID",
@@ -9412,67 +9411,67 @@ var error44 = () => {
     ulid: "ULID",
     xid: "XID",
     ksuid: "KSUID",
-    datetime: "\xE0k\xF3k\xF2 ISO",
-    date: "\u1ECDj\u1ECD\u0301 ISO",
-    time: "\xE0k\xF3k\xF2 ISO",
-    duration: "\xE0k\xF3k\xF2 t\xF3 p\xE9 ISO",
-    ipv4: "\xE0d\xEDr\u1EB9\u0301s\xEC IPv4",
-    ipv6: "\xE0d\xEDr\u1EB9\u0301s\xEC IPv6",
-    cidrv4: "\xE0gb\xE8gb\xE8 IPv4",
-    cidrv6: "\xE0gb\xE8gb\xE8 IPv6",
-    base64: "\u1ECD\u0300r\u1ECD\u0300 t\xED a k\u1ECD\u0301 n\xED base64",
-    base64url: "\u1ECD\u0300r\u1ECD\u0300 base64url",
-    json_string: "\u1ECD\u0300r\u1ECD\u0300 JSON",
-    e164: "n\u1ECD\u0301mb\xE0 E.164",
+    datetime: "àkókò ISO",
+    date: "ọjọ́ ISO",
+    time: "àkókò ISO",
+    duration: "àkókò tó pé ISO",
+    ipv4: "àdírẹ́sì IPv4",
+    ipv6: "àdírẹ́sì IPv6",
+    cidrv4: "àgbègbè IPv4",
+    cidrv6: "àgbègbè IPv6",
+    base64: "ọ̀rọ̀ tí a kọ́ ní base64",
+    base64url: "ọ̀rọ̀ base64url",
+    json_string: "ọ̀rọ̀ JSON",
+    e164: "nọ́mbà E.164",
     jwt: "JWT",
-    template_literal: "\u1EB9\u0300r\u1ECD \xECb\xE1w\u1ECDl\xE9"
+    template_literal: "ẹ̀rọ ìbáwọlé"
   };
   return (issue2) => {
     switch (issue2.code) {
       case "invalid_type":
-        return `\xCCb\xE1w\u1ECDl\xE9 a\u1E63\xEC\u1E63e: a n\xED l\xE1ti fi ${issue2.expected}, \xE0m\u1ECD\u0300 a r\xED ${parsedType7(issue2.input)}`;
+        return `Ìbáwọlé aṣìṣe: a ní láti fi ${issue2.expected}, àmọ̀ a rí ${parsedType7(issue2.input)}`;
       case "invalid_value":
         if (issue2.values.length === 1)
-          return `\xCCb\xE1w\u1ECDl\xE9 a\u1E63\xEC\u1E63e: a n\xED l\xE1ti fi ${stringifyPrimitive(issue2.values[0])}`;
-        return `\xC0\u1E63\xE0y\xE0n a\u1E63\xEC\u1E63e: yan \u1ECD\u0300kan l\xE1ra ${joinValues(issue2.values, "|")}`;
+          return `Ìbáwọlé aṣìṣe: a ní láti fi ${stringifyPrimitive(issue2.values[0])}`;
+        return `Àṣàyàn aṣìṣe: yan ọ̀kan lára ${joinValues(issue2.values, "|")}`;
       case "too_big": {
         const adj = issue2.inclusive ? "<=" : "<";
         const sizing = getSizing(issue2.origin);
         if (sizing)
-          return `T\xF3 p\u1ECD\u0300 j\xF9: a n\xED l\xE1ti j\u1EB9\u0301 p\xE9 ${issue2.origin ?? "iye"} ${sizing.verb} ${adj}${issue2.maximum} ${sizing.unit}`;
-        return `T\xF3 p\u1ECD\u0300 j\xF9: a n\xED l\xE1ti j\u1EB9\u0301 ${adj}${issue2.maximum}`;
+          return `Tó pọ̀ jù: a ní láti jẹ́ pé ${issue2.origin ?? "iye"} ${sizing.verb} ${adj}${issue2.maximum} ${sizing.unit}`;
+        return `Tó pọ̀ jù: a ní láti jẹ́ ${adj}${issue2.maximum}`;
       }
       case "too_small": {
         const adj = issue2.inclusive ? ">=" : ">";
         const sizing = getSizing(issue2.origin);
         if (sizing)
-          return `K\xE9r\xE9 ju: a n\xED l\xE1ti j\u1EB9\u0301 p\xE9 ${issue2.origin} ${sizing.verb} ${adj}${issue2.minimum} ${sizing.unit}`;
-        return `K\xE9r\xE9 ju: a n\xED l\xE1ti j\u1EB9\u0301 ${adj}${issue2.minimum}`;
+          return `Kéré ju: a ní láti jẹ́ pé ${issue2.origin} ${sizing.verb} ${adj}${issue2.minimum} ${sizing.unit}`;
+        return `Kéré ju: a ní láti jẹ́ ${adj}${issue2.minimum}`;
       }
       case "invalid_format": {
         const _issue = issue2;
         if (_issue.format === "starts_with")
-          return `\u1ECC\u0300r\u1ECD\u0300 a\u1E63\xEC\u1E63e: gb\u1ECD\u0301d\u1ECD\u0300 b\u1EB9\u0300r\u1EB9\u0300 p\u1EB9\u0300l\xFA "${_issue.prefix}"`;
+          return `Ọ̀rọ̀ aṣìṣe: gbọ́dọ̀ bẹ̀rẹ̀ pẹ̀lú "${_issue.prefix}"`;
         if (_issue.format === "ends_with")
-          return `\u1ECC\u0300r\u1ECD\u0300 a\u1E63\xEC\u1E63e: gb\u1ECD\u0301d\u1ECD\u0300 par\xED p\u1EB9\u0300l\xFA "${_issue.suffix}"`;
+          return `Ọ̀rọ̀ aṣìṣe: gbọ́dọ̀ parí pẹ̀lú "${_issue.suffix}"`;
         if (_issue.format === "includes")
-          return `\u1ECC\u0300r\u1ECD\u0300 a\u1E63\xEC\u1E63e: gb\u1ECD\u0301d\u1ECD\u0300 n\xED "${_issue.includes}"`;
+          return `Ọ̀rọ̀ aṣìṣe: gbọ́dọ̀ ní "${_issue.includes}"`;
         if (_issue.format === "regex")
-          return `\u1ECC\u0300r\u1ECD\u0300 a\u1E63\xEC\u1E63e: gb\u1ECD\u0301d\u1ECD\u0300 b\xE1 \xE0p\u1EB9\u1EB9r\u1EB9 mu ${_issue.pattern}`;
-        return `A\u1E63\xEC\u1E63e: ${Nouns[_issue.format] ?? issue2.format}`;
+          return `Ọ̀rọ̀ aṣìṣe: gbọ́dọ̀ bá àpẹẹrẹ mu ${_issue.pattern}`;
+        return `Aṣìṣe: ${Nouns[_issue.format] ?? issue2.format}`;
       }
       case "not_multiple_of":
-        return `N\u1ECD\u0301mb\xE0 a\u1E63\xEC\u1E63e: gb\u1ECD\u0301d\u1ECD\u0300 j\u1EB9\u0301 \xE8y\xE0 p\xEDp\xEDn ti ${issue2.divisor}`;
+        return `Nọ́mbà aṣìṣe: gbọ́dọ̀ jẹ́ èyà pípín ti ${issue2.divisor}`;
       case "unrecognized_keys":
-        return `B\u1ECDt\xECn\xEC \xE0\xECm\u1ECD\u0300: ${joinValues(issue2.keys, ", ")}`;
+        return `Bọtìnì àìmọ̀: ${joinValues(issue2.keys, ", ")}`;
       case "invalid_key":
-        return `B\u1ECDt\xECn\xEC a\u1E63\xEC\u1E63e n\xEDn\xFA ${issue2.origin}`;
+        return `Bọtìnì aṣìṣe nínú ${issue2.origin}`;
       case "invalid_union":
-        return "\xCCb\xE1w\u1ECDl\xE9 a\u1E63\xEC\u1E63e";
+        return "Ìbáwọlé aṣìṣe";
       case "invalid_element":
-        return `Iye a\u1E63\xEC\u1E63e n\xEDn\xFA ${issue2.origin}`;
+        return `Iye aṣìṣe nínú ${issue2.origin}`;
       default:
-        return "\xCCb\xE1w\u1ECDl\xE9 a\u1E63\xEC\u1E63e";
+        return "Ìbáwọlé aṣìṣe";
     }
   };
 };
@@ -12359,36 +12358,36 @@ FAILURE IS NOT AN OPTION. If you get stuck, change strategy.
 
 ## Workflow (Self-Correcting Loop)
 1. ANALYZE: Understand user request fully
-2. PLAN: Call planner for complex tasks \u2192 get atomic task list
+2. PLAN: Call planner for complex tasks → get atomic task list
 3. FOR EACH atomic task:
    a. CONTEXT: Call searcher if context needed
    b. CODE: Call coder with single atomic task
    c. VERIFY: Call reviewer (MANDATORY after every code change)
-   d. FIX: If reviewer finds error \u2192 call fixer \u2192 verify again
+   d. FIX: If reviewer finds error → call fixer → verify again
    e. LOOP: Repeat fix/verify until PASS.
 4. NEXT: Move to next task only after current passes
 5. COMPLETE: All tasks done with all reviews passed
 
 ## Atomic Task Examples
-\u2705 "Add validateEmail function to src/utils/validation.ts"
-\u2705 "Fix syntax error in LoginForm.tsx line 42"
-\u2705 "Update import statement in api/routes.ts"
-\u2705 "Add error handling to fetchUser function"
-\u274C "Refactor the entire auth module" (too big)
-\u274C "Fix all bugs" (not atomic)
+✅ "Add validateEmail function to src/utils/validation.ts"
+✅ "Fix syntax error in LoginForm.tsx line 42"
+✅ "Update import statement in api/routes.ts"
+✅ "Add error handling to fetchUser function"
+❌ "Refactor the entire auth module" (too big)
+❌ "Fix all bugs" (not atomic)
 
 ## Error Recovery Protocol (Resilient Mode)
-- Error from reviewer \u2192 Call fixer with EXACT error details
-- Same error 3 times \u2192 DO NOT STOP.
+- Error from reviewer → Call fixer with EXACT error details
+- Same error 3 times → DO NOT STOP.
   - Option A: Call searcher to find better context/examples
   - Option B: Call planner to break task down further
   - Option C: Try a completely different implementation approach
-- Coder confused \u2192 Provide more context from searcher
+- Coder confused → Provide more context from searcher
 
 ## Progress Tracking (show after each step)
 \uD83D\uDCCB Task: [current task]
-\u2705 Completed: [list]
-\u23F3 Remaining: [list]
+✅ Completed: [list]
+⏳ Remaining: [list]
 \uD83D\uDD04 Retry: [X] (Reset counter if strategy changes)
 
 ## Critical Rules
@@ -12413,10 +12412,10 @@ Break complex tasks into the SMALLEST possible units that:
 ## Atomic Task Format
 \`\`\`
 [TASK-001] <action verb> + <specific target>
-\u251C\u2500\u2500 File: <exact path>
-\u251C\u2500\u2500 Action: <what to do>
-\u251C\u2500\u2500 Success: <how to verify it worked>
-\u2514\u2500\u2500 Depends: none | TASK-XXX
+├── File: <exact path>
+├── Action: <what to do>
+├── Success: <how to verify it worked>
+└── Depends: none | TASK-XXX
 \`\`\`
 
 ## What Makes a Task "Atomic"
@@ -12426,37 +12425,37 @@ Break complex tasks into the SMALLEST possible units that:
 - Has clear pass/fail criteria
 
 ## Good Atomic Tasks
-\u2705 "Add validateEmail function to utils/validation.ts"
-\u2705 "Import bcrypt in auth/password.ts"
-\u2705 "Fix missing closing brace in UserForm.tsx line 58"
-\u2705 "Add try-catch to fetchData function in api.ts"
-\u2705 "Update Button component props interface"
+✅ "Add validateEmail function to utils/validation.ts"
+✅ "Import bcrypt in auth/password.ts"
+✅ "Fix missing closing brace in UserForm.tsx line 58"
+✅ "Add try-catch to fetchData function in api.ts"
+✅ "Update Button component props interface"
 
 ## Bad Tasks (too large/vague)
-\u274C "Implement authentication" \u2192 break into 5-10 atomic tasks
-\u274C "Fix all errors" \u2192 list specific errors as separate tasks
-\u274C "Refactor module" \u2192 identify specific changes needed
+❌ "Implement authentication" → break into 5-10 atomic tasks
+❌ "Fix all errors" → list specific errors as separate tasks
+❌ "Refactor module" → identify specific changes needed
 
 ## Example Decomposition
 Complex task: "Add user login feature"
 
 [TASK-001] Create password hashing utility
-\u251C\u2500\u2500 File: src/utils/password.ts
-\u251C\u2500\u2500 Action: Add hashPassword and verifyPassword functions
-\u251C\u2500\u2500 Success: Functions exported and callable
-\u2514\u2500\u2500 Depends: none
+├── File: src/utils/password.ts
+├── Action: Add hashPassword and verifyPassword functions
+├── Success: Functions exported and callable
+└── Depends: none
 
 [TASK-002] Create User type definition
-\u251C\u2500\u2500 File: src/types/User.ts
-\u251C\u2500\u2500 Action: Add User interface with id, email, passwordHash
-\u251C\u2500\u2500 Success: Type exported and importable
-\u2514\u2500\u2500 Depends: none
+├── File: src/types/User.ts
+├── Action: Add User interface with id, email, passwordHash
+├── Success: Type exported and importable
+└── Depends: none
 
 [TASK-003] Create login API handler
-\u251C\u2500\u2500 File: src/api/login.ts
-\u251C\u2500\u2500 Action: Add POST handler that validates credentials
-\u251C\u2500\u2500 Success: Handler returns token on valid login
-\u2514\u2500\u2500 Depends: TASK-001, TASK-002
+├── File: src/api/login.ts
+├── Action: Add POST handler that validates credentials
+├── Success: Handler returns token on valid login
+└── Depends: TASK-001, TASK-002
 
 ## Output Format
 List tasks in dependency order. Independent tasks first.`,
@@ -12568,7 +12567,7 @@ Find ALL issues in the code. Be thorough but specific.
 
 ### If NO errors:
 \`\`\`
-\u2705 PASS
+✅ PASS
 
 Summary:
 - Checked syntax, types, and imports
@@ -12580,16 +12579,16 @@ Status: All checks passed
 
 ### If errors found:
 \`\`\`
-\u274C FAIL
+❌ FAIL
 
 [ERROR-001] <category: Syntax | Type | Name Mismatch | Import | Logic>
-\u251C\u2500\u2500 File: <path>
-\u251C\u2500\u2500 Line: <number>
-\u251C\u2500\u2500 Issue: <specific problem>
-\u251C\u2500\u2500 Root Cause: <Typo / Sync Mismatch / Logic Error>
-\u251C\u2500\u2500 Found: \`<problematic code>\`
-\u251C\u2500\u2500 Expected: \`<correct code>\`
-\u2514\u2500\u2500 Fix: <exact fix instruction>
+├── File: <path>
+├── Line: <number>
+├── Issue: <specific problem>
+├── Root Cause: <Typo / Sync Mismatch / Logic Error>
+├── Found: \`<problematic code>\`
+├── Expected: \`<correct code>\`
+└── Fix: <exact fix instruction>
 
 [ERROR-002] ...
 \`\`\`
@@ -12614,12 +12613,12 @@ Fix the SPECIFIC errors reported by reviewer.
 You receive error reports like:
 \`\`\`
 [ERROR-001] <category>
-\u251C\u2500\u2500 File: <path>
-\u251C\u2500\u2500 Line: <number>
-\u251C\u2500\u2500 Issue: <problem>
-\u251C\u2500\u2500 Found: \`<bad code>\`
-\u251C\u2500\u2500 Expected: \`<good code>\`
-\u2514\u2500\u2500 Fix: <instruction>
+├── File: <path>
+├── Line: <number>
+├── Issue: <problem>
+├── Found: \`<bad code>\`
+├── Expected: \`<good code>\`
+└── Fix: <instruction>
 \`\`\`
 
 ## Fixing Process
@@ -12775,12 +12774,12 @@ var callAgentTool = tool({
 - **searcher**: Find patterns and context
 
 ## Self-Correcting Workflow
-1. planner \u2192 atomic tasks
+1. planner → atomic tasks
 2. For each task:
    - searcher (if needed)
    - coder
    - reviewer (mandatory)
-   - fixer (if errors) \u2192 reviewer again
+   - fixer (if errors) → reviewer again
 3. Continue until all pass`,
   args: {
     agent: tool.schema.enum(["planner", "coder", "reviewer", "fixer", "searcher"]).describe("Team member to call"),
@@ -12793,10 +12792,10 @@ var callAgentTool = tool({
       return `Error: Unknown agent: ${args.agent}`;
     }
     const prompt = `
-\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ${agentDef.id.toUpperCase()} AGENT
 ${agentDef.description}
-\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 <system>
 ${agentDef.systemPrompt}
@@ -12826,12 +12825,12 @@ var COMMANDS = {
    - Call searcher if context needed
    - Call coder to implement
    - Call reviewer to verify (MANDATORY)
-   - If FAIL: Call fixer \u2192 reviewer again
+   - If FAIL: Call fixer → reviewer again
    - If PASS: Move to next task
 3. Continue until all tasks complete with PASS
 
 ## Error Recovery (Resilient Strategy)
-- Same error 3x \u2192 DO NOT STOP.
+- Same error 3x → DO NOT STOP.
 - Resolve the blocker by finding more context or breaking down the task.
 - Keep iterating until the task is 100% COMPLETE and VERIFIED.
 
@@ -12891,7 +12890,7 @@ $ARGUMENTS
 
 ## Self-Correcting Loop
 \`\`\`
-plan \u2192 (search \u2192 code \u2192 review \u2192 fix?) \u2192 repeat
+plan → (search → code → review → fix?) → repeat
 \`\`\``
   },
   "cancel-auto": {
@@ -13021,8 +13020,8 @@ var OrchestratorPlugin = async (input) => {
         session.enabled = false;
         output.output += `
 
-\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501
-\u26A0\uFE0F ITERATION LIMIT (${state.maxIterations})
+━━━━━━━━━━━━
+⚠️ ITERATION LIMIT (${state.maxIterations})
 Review progress and continue manually.`;
         return;
       }
@@ -13034,8 +13033,8 @@ Review progress and continue manually.`;
         if (retries >= state.maxRetries) {
           output.output += `
 
-\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501
-\u26A0\uFE0F RETRY LIMIT (${state.maxRetries}x)
+━━━━━━━━━━━━
+⚠️ RETRY LIMIT (${state.maxRetries}x)
 DO NOT GIVE UP.
 SYSTEM ALERT: Stop repeating the same fix.
 REQUIRED: Call 'planner' (break down) or 'searcher' (find context) NOW.`;
@@ -13043,23 +13042,23 @@ REQUIRED: Call 'planner' (break down) or 'searcher' (find context) NOW.`;
         }
         output.output += `
 
-\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501
+━━━━━━━━━━━━
 \uD83D\uDD04 RETRY ${retries}/${state.maxRetries}
 Apply fix and verify again.`;
         return;
       }
-      if (output.output.includes("\u2705 PASS")) {
+      if (output.output.includes("✅ PASS")) {
         session.taskRetries.clear();
         output.output += `
 
-\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501
-\u2705 VERIFIED - Continue to next task
+━━━━━━━━━━━━
+✅ VERIFIED - Continue to next task
 [${session.iterations}/${state.maxIterations}]`;
         return;
       }
       output.output += `
 
-\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501
+━━━━━━━━━━━━
 [${session.iterations}/${state.maxIterations}]`;
     }
   };
