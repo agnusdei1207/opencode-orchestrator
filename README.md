@@ -1,3 +1,5 @@
+![Logo](assets/logo.png)
+
 # OpenCode Orchestrator Plugin
 
 > **Multi-Agent Plugin for [OpenCode](https://opencode.ai)**
