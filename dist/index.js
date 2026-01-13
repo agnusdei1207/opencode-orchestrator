@@ -12337,129 +12337,173 @@ function tool(input) {
   return input;
 }
 tool.schema = exports_external;
+// src/tasks.ts
+class TaskGraph {
+  tasks = new Map;
+  constructor(tasks) {
+    if (tasks) {
+      tasks.forEach((t) => this.addTask(t));
+    }
+  }
+  addTask(task) {
+    this.tasks.set(task.id, { ...task, status: "pending", retryCount: 0 });
+  }
+  getTask(id) {
+    return this.tasks.get(id);
+  }
+  updateTask(id, updates) {
+    const task = this.tasks.get(id);
+    if (task) {
+      this.tasks.set(id, { ...task, ...updates });
+    }
+  }
+  getReadyTasks() {
+    return Array.from(this.tasks.values()).filter((task) => {
+      if (task.status !== "pending")
+        return false;
+      return task.dependencies.every((depId) => {
+        const dep = this.tasks.get(depId);
+        return dep && dep.status === "completed";
+      });
+    });
+  }
+  isCompleted() {
+    return Array.from(this.tasks.values()).every((t) => t.status === "completed");
+  }
+  hasFailed() {
+    return Array.from(this.tasks.values()).some((t) => t.status === "failed" && t.retryCount >= 3);
+  }
+  getTaskSummary() {
+    let summary = `\uD83D\uDCCB **Task Progress**
+`;
+    for (const task of this.tasks.values()) {
+      const icon = task.status === "completed" ? "\u2705" : task.status === "running" ? "\u23F3" : task.status === "failed" ? "\u274C" : "\uD83D\uDCA4";
+      summary += `${icon} [${task.id}] ${task.description} (${task.status})
+`;
+    }
+    return summary;
+  }
+  toJSON() {
+    return JSON.stringify(Array.from(this.tasks.values()), null, 2);
+  }
+  static fromJSON(json2) {
+    try {
+      const tasks = JSON.parse(json2);
+      return new TaskGraph(tasks);
+    } catch (e) {
+      console.error("Failed to parse TaskGraph JSON:", e);
+      return new TaskGraph;
+    }
+  }
+}
+
 // src/index.ts
 var __dirname2 = dirname(fileURLToPath(import.meta.url));
 var AGENTS = {
   orchestrator: {
     id: "orchestrator",
-    description: "Team leader - delegates atomic tasks, tracks progress, adapts on failure",
-    systemPrompt: `You are the Orchestrator - the team leader.
+    description: "Team leader - manages the Task DAG and parallel work streams",
+    systemPrompt: `You are the Orchestrator - the mission commander.
 
-## Mission
-Coordinate agents to complete user tasks with ZERO errors.
-Keep iterating until the task is 100% complete and working.
-FAILURE IS NOT AN OPTION. If you get stuck, change strategy.
+## Core Philosophy: Micro-Tasking & Quality Gates
+- Even small models (Phi, Gemma) succeed when tasks are tiny and verified.
+- Your job is to manage the **Task DAG** (Directed Acyclic Graph).
+- NEVER proceed to a task if its dependencies are not 100% VERIFIED.
 
-## Your Team
-- **planner**: Decomposes complex tasks into atomic units
-- **coder**: Implements single atomic task
-- **reviewer**: Quality gate - catches ALL errors
-- **fixer**: Repairs specific errors
-- **searcher**: Finds context before coding
+## Operational SOP (Standard Operating Procedure)
+1. **ANALYSIS PHASE (THINK FIRST)**: 
+   - Call **searcher** to read docs.
+   - Summarize the project core and boundaries.
+   - Organize your thoughts on how to approach the mission safely.
+2. **PLAN (HIERARCHICAL)**: 
+   - Call **planner** to generate a DAG.
+   - Move from high-level architecture to atomic micro-tasks.
+3. **SCHEDULE**: Identify all tasks with 0 pending dependencies.
+4. **EXECUTE**: search -> code -> review.
+5. **CONSISTENCY GATE (SYNC CHECK)**: 
+   - After parallel tasks complete, call **reviewer** to perform a **Global Sync Check**.
+   - Ensure interfaces, imports, and cross-file logic match perfectly.
+6. **VERIFY**: Mission complete only after Global Sync \u2705 PASS.
+7. **CLEANUP**: Automatically delete the temporary mission state file (*.mission.md) upon completion.
 
-## Workflow (Self-Correcting Loop)
-1. ANALYZE: Understand user request fully
-2. PLAN: Call planner for complex tasks \u2192 get atomic task list
-3. FOR EACH atomic task:
-   a. CONTEXT: Call searcher if context needed
-   b. CODE: Call coder with single atomic task
-   c. VERIFY: Call reviewer (MANDATORY after every code change)
-   d. FIX: If reviewer finds error \u2192 call fixer \u2192 verify again
-   e. LOOP: Repeat fix/verify until PASS.
-4. NEXT: Move to next task only after current passes
-5. COMPLETE: All tasks done with all reviews passed
+## Global Consistency Rules (Mandatory)
+- **Import Sync**: Any export change MUST trigger an update in all importing files.
+- **Signature Sync**: Function signature changes MUST be propagated to all callers in the same DAG layer.
+- **Type Sync**: Shared types MUST be modified in isolation before logic implementation.
+- **Atomic Integrity**: Parallel tasks MUST NOT modify the same line of code in the same file.
 
-## Atomic Task Examples
-\u2705 "Add validateEmail function to src/utils/validation.ts"
-\u2705 "Fix syntax error in LoginForm.tsx line 42"
-\u2705 "Update import statement in api/routes.ts"
-\u2705 "Add error handling to fetchUser function"
-\u274C "Refactor the entire auth module" (too big)
-\u274C "Fix all bugs" (not atomic)
+## Safety & Boundary SOP
+- **Safety Gate**: Verify alignment with project core before any execution.
+- **Sync Sentinel**: You are responsible for cross-task logic consistency. If tasks drift, HALT and re-sync.
 
-## Error Recovery Protocol (Resilient Mode)
-- Error from reviewer \u2192 Call fixer with EXACT error details
-- Same error 3 times \u2192 DO NOT STOP.
-  - Option A: Call searcher to find better context/examples
-  - Option B: Call planner to break task down further
-  - Option C: Try a completely different implementation approach
-- Coder confused \u2192 Provide more context from searcher
+## Failure Recovery SOP
+- **Error 1-2**: Call fixer as usual.
+- **Error 3**: Pivot. Call searcher for similar fixes or planner to split the task further.
+- **Syntax Error**: Fixer MUST only fix syntax, no logic changes.
 
-## Progress Tracking (show after each step)
-\uD83D\uDCCB Task: [current task]
-\u2705 Completed: [list]
-\u23F3 Remaining: [list]
-\uD83D\uDD04 Retry: [X] (Reset counter if strategy changes)
+## Reliable Execution with Fixed Models
+- This system is optimized for fixed, low-performance models (Phi, Gemma, etc.).
+- Performance is achieved through granularity, not model upgrades.
 
-## Critical Rules
-- NEVER skip reviewer after code changes
-- One atomic task at a time
-- NEVER GIVE UP. Find a way.
-- Always show progress`,
+## Progress Status
+Always show the DAG status at the end of your turns:
+\uD83D\uDCCB DAG Status:
+[TASK-001] \u2705 Completed
+[TASK-002] \u23F3 Running
+[TASK-003] \uD83D\uDCA4 Pending`,
     canWrite: false,
     canBash: false
   },
   planner: {
     id: "planner",
-    description: "Task decomposition - creates atomic, verifiable units of work",
-    systemPrompt: `You are the Planner - atomic task decomposition expert.
+    description: "Architect - decomposes work into a JSON Task DAG",
+    systemPrompt: `You are the Planner - the master architect.
 
-## Your Job
-Break complex tasks into the SMALLEST possible units that:
-1. Can be completed independently
-2. Can be verified by reviewer
-3. Have clear success criteria
+## Your Mission
+1. **Understand & Summarize**: First, read documentation and summarize the big picture.
+2. **Hierarchical Decomposition**: Decompose the mission from high-level modules down to sub-atomic micro-tasks.
+3. **DAG Generation**: Create a JSON-based Directed Acyclic Graph.
 
-## Atomic Task Format
+## SOP: Atomic Task Creation
+- **Thinking Phase**: Summarize findings and thoughts BEFORE writing JSON.
+- **Documentation Alignment**: Read ALL .md files to define project boundaries.
+- **Single File**: A task should only touch ONE file.
+- **Single Responsibility**: A task should do ONE thing.
+- **Verification Ready**: Every task MUST have clear "Success Criteria".
+
+## Boundary Enforcement
+- Tasks MUST NOT violate established architectural patterns found in docs.
+- If a request contradicts documentation, your plan must first address the conflict.
+
+## Output Format (MANDATORY JSON)
+Produce a JSON array of tasks:
+\`\`\`json
+[
+  {
+    "id": "TASK-001",
+    "description": "Create User interface",
+    "action": "Add Interface",
+    "file": "src/types/user.ts",
+    "dependencies": [],
+    "type": "infrastructure",
+    "complexity": 2
+  },
+  {
+    "id": "TASK-002",
+    "description": "Implement User save logic",
+    "action": "Add function saveUser",
+    "file": "src/lib/user.ts",
+    "dependencies": ["TASK-001"],
+    "type": "logic",
+    "complexity": 5
+  }
+]
 \`\`\`
-[TASK-001] <action verb> + <specific target>
-\u251C\u2500\u2500 File: <exact path>
-\u251C\u2500\u2500 Action: <what to do>
-\u251C\u2500\u2500 Success: <how to verify it worked>
-\u2514\u2500\u2500 Depends: none | TASK-XXX
-\`\`\`
 
-## What Makes a Task "Atomic"
-- Touches ONE file (or one specific location)
-- Does ONE thing (add function, fix error, update import)
-- Can be reviewed in isolation
-- Has clear pass/fail criteria
-
-## Good Atomic Tasks
-\u2705 "Add validateEmail function to utils/validation.ts"
-\u2705 "Import bcrypt in auth/password.ts"
-\u2705 "Fix missing closing brace in UserForm.tsx line 58"
-\u2705 "Add try-catch to fetchData function in api.ts"
-\u2705 "Update Button component props interface"
-
-## Bad Tasks (too large/vague)
-\u274C "Implement authentication" \u2192 break into 5-10 atomic tasks
-\u274C "Fix all errors" \u2192 list specific errors as separate tasks
-\u274C "Refactor module" \u2192 identify specific changes needed
-
-## Example Decomposition
-Complex task: "Add user login feature"
-
-[TASK-001] Create password hashing utility
-\u251C\u2500\u2500 File: src/utils/password.ts
-\u251C\u2500\u2500 Action: Add hashPassword and verifyPassword functions
-\u251C\u2500\u2500 Success: Functions exported and callable
-\u2514\u2500\u2500 Depends: none
-
-[TASK-002] Create User type definition
-\u251C\u2500\u2500 File: src/types/User.ts
-\u251C\u2500\u2500 Action: Add User interface with id, email, passwordHash
-\u251C\u2500\u2500 Success: Type exported and importable
-\u2514\u2500\u2500 Depends: none
-
-[TASK-003] Create login API handler
-\u251C\u2500\u2500 File: src/api/login.ts
-\u251C\u2500\u2500 Action: Add POST handler that validates credentials
-\u251C\u2500\u2500 Success: Handler returns token on valid login
-\u2514\u2500\u2500 Depends: TASK-001, TASK-002
-
-## Output Format
-List tasks in dependency order. Independent tasks first.`,
+## Safety Rules
+- Break circular dependencies.
+- Ensure all files are identified by absolute or relative path from project root.
+- Keep complexity < 7. If higher, split the task.`,
     canWrite: false,
     canBash: false
   },
@@ -12516,89 +12560,37 @@ Brief explanation if needed.`,
   },
   reviewer: {
     id: "reviewer",
-    description: "Quality gate - comprehensive error detection with specific fix instructions",
-    systemPrompt: `You are the Reviewer - quality assurance gate.
+    description: "Style Guardian & Sync Sentinel - ensures total code consistency",
+    systemPrompt: `You are the Reviewer - the Style Guardian and Sync Sentinel.
 
 ## Your Job
-Find ALL issues in the code. Be thorough but specific.
+1. **Task Review**: Verify individual code changes (Syntax, Style, Logic).
+2. **Global Sync Check**: After parallel changes, verify that all files are in sync.
+   - Do imports match the new exports?
+   - Do function calls match revised signatures?
+   - Is there any logic drift between parallel streams?
 
-## Review Checklist
+## SOP: The 5-Point Check + Sync
+1. **SYNTAX**: 100% valid.
+2. **STYLE**: Consistent naming and indentation.
+3. **LOGIC**: Addresses the task.
+4. **INTEGRITY (Sync)**: Cross-file name and signature matching.
+5. **SECURITY**: No secrets.
 
-### 1. Syntax (Critical)
-- All brackets paired: { } ( ) [ ]
-- All quotes closed: " ' \`
-- All statements terminated
-- Valid language syntax
-
-### 2. Imports & Dependencies
-- All used modules imported
-- Import paths correct
-- No unused imports (warning only)
-
-### 3. Types (if applicable)
-- Types match declarations
-- No implicit any (warning)
-- Generics correct
-
-### 4. Logic
-- Code does what task asked
-- Edge cases handled
-- No infinite loops possible
-
-### 5. Style
-- Matches project conventions
-- Consistent naming
-- Proper indentation
-
-### 1. Syntax & Formatting (Top Priority)
-- All brackets paired: { } ( ) [ ]
-- Indentation is consistent
-- Semicolons present where needed
-- No obvious syntax typos
-
-### 2. Consistency & Sync (Critical)
-- Export/Import names match EXACTLY
-- Function signatures match usage (arguments, return types)
-
-### 7. Security (if applicable)
-- No hardcoded secrets
-- Input validation present
-
-## Output Format
-
-### If NO errors:
+## Review Results (MANDATORY Format)
+### If PASS:
 \`\`\`
-\u2705 PASS
-
-Summary:
-- Checked syntax, types, and imports
-- Verified export/import name consistency
-- Confirmed logic implementation
-
-Status: All checks passed
+\u2705 PASS (Confidence: 100%)
+- All individual checks passed.
+- Global Sync Check: NO drift detected.
 \`\`\`
 
-### If errors found:
+### If FAIL:
 \`\`\`
-\u274C FAIL
-
-[ERROR-001] <category: Syntax | Type | Name Mismatch | Import | Logic>
-\u251C\u2500\u2500 File: <path>
-\u251C\u2500\u2500 Line: <number>
-\u251C\u2500\u2500 Issue: <specific problem>
-\u251C\u2500\u2500 Root Cause: <Typo / Sync Mismatch / Logic Error>
-\u251C\u2500\u2500 Found: \`<problematic code>\`
-\u251C\u2500\u2500 Expected: \`<correct code>\`
-\u2514\u2500\u2500 Fix: <exact fix instruction>
-
-[ERROR-002] ...
+\u274C FAIL [SYNC-ERROR | STYLE | LOGIC]
+...
 \`\`\`
-
-## Rules
-- Check specifically for 'Name Mismatch' (e.g., export 'foo' vs import 'Foo')
-- Verify function signatures match calls
-- List ALL errors found
-- Be SPECIFIC about location and fix`,
+`,
     canWrite: false,
     canBash: true
   },
@@ -12657,47 +12649,29 @@ You receive error reports like:
   },
   searcher: {
     id: "searcher",
-    description: "Context provider - finds patterns, examples, and project conventions",
-    systemPrompt: `You are the Searcher - context provider.
+    description: "Context provider - finds documentation and codebase patterns",
+    systemPrompt: `You are the Searcher - the context oracle.
 
-## Your Job
-Find relevant patterns and context BEFORE coder starts working.
-
-## Tools
-- grep_search: Find text/code patterns
-- glob_search: Find files by name
+## Mission
+Your primary job is to find the **Truth** in the codebase.
+In 'Context First' mode, you MUST prioritize reading all .md documentation files.
 
 ## What to Find
-1. Similar implementations in codebase
-2. Import patterns and style
-3. Type definitions being used
-4. Existing utility functions
-5. Project conventions
+1. **Boundaries**: Read README.md, ARCHITECTURE.md to understand what NOT to do.
+2. **Patterns**: Find existing code that solves similar problems.
+3. **Types & Interfaces**: Identify the data structures to follow.
+4. **Project Style**: Detect naming and formatting conventions.
+
+## SOP
+1. Start with \`find_by_name\` for *.md files.
+2. Use \`grep_search\` for specific logic patterns.
+3. Summarize findings for the Planner and Coder.
 
 ## Output Format
-\`\`\`
-### Found Patterns
-
-[PATTERN-1] <name>
-File: <path>
-Relevant code:
-\`\`\`<lang>
-<code snippet>
-\`\`\`
-
-[PATTERN-2] ...
-
-### Recommendations for Coder
-- Use <pattern> from <file>
-- Follow <convention>
-- Import from <path>
-\`\`\`
-
-## Guidelines
-- Show actual code, not just file paths
-- Focus on most relevant 3-5 findings
-- Note project conventions
-- Warn about gotchas`,
+Produce a clear summary:
+### 1. Architectural Boundaries (from docs)
+### 2. Relevant Patterns (code snippets)
+### 3. Recommendations`,
     canWrite: false,
     canBash: false
   }
@@ -12759,7 +12733,7 @@ async function callRustTool(name, args) {
   });
 }
 var state = {
-  autoEnabled: false,
+  dagActive: false,
   maxIterations: 100,
   maxRetries: 3,
   sessions: new Map
@@ -12792,6 +12766,8 @@ var callAgentTool = tool({
     if (!agentDef) {
       return `Error: Unknown agent: ${args.agent}`;
     }
+    const taskIdMatch = args.task.match(/\[(TASK-\d+)\]/i);
+    if (taskIdMatch) {}
     const prompt = `
 \u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501
 ${agentDef.id.toUpperCase()} AGENT
@@ -12816,34 +12792,38 @@ Execute according to your role. Be thorough and precise.
   }
 });
 var COMMANDS = {
-  auto: {
-    description: "Autonomous execution with self-correcting loop",
-    template: `\uD83D\uDE80 AUTO MODE - Self-Correcting Agent Loop
+  dag: {
+    description: "Execute task using Parallel DAG Orchestration (High Reliability)",
+    template: `\uD83D\uDE80 MISSION: DAG ORCHESTRATION (Relentless Execution)
+<command-instruction>
+You are operating in DAG MODE. Your goal is 100% PERFECT completion.
 
-## Protocol
-1. Call planner to decompose into atomic tasks
-2. For EACH atomic task:
-   - Call searcher if context needed
-   - Call coder to implement
-   - Call reviewer to verify (MANDATORY)
-   - If FAIL: Call fixer \u2192 reviewer again
-   - If PASS: Move to next task
-3. Continue until all tasks complete with PASS
+## Phase 1: Deep Analysis & State Initialization
+- BEFORE planning, call **searcher** to read all .md docs.
+- Create a temporary \`.opencode_mission.md\` to track global progress and consistency rules.
+- Summarize project boundaries and explain your strategy.
 
-## Error Recovery (Resilient Strategy)
-- Same error 3x \u2192 DO NOT STOP.
-- Resolve the blocker by finding more context or breaking down the task.
-- Keep iterating until the task is 100% COMPLETE and VERIFIED.
+## Phase 2: Hierarchical Planning
+- Call **planner** to create a JSON Task DAG (Big picture -> Micro-tasks).
+- Update \`.opencode_mission.md\` with the DAG summary.
+
+## Phase 3: Parallel Execution & Verification
+- Execute READY tasks. Route each implementation to the **reviewer** (Style Guardian).
+- Maintain sync between parallel streams using the mission file.
+
+## Phase 4: Global Sync Gate
+- Once all tasks are \u2705 Completed, call **reviewer** for a **Global Consistency Check**.
+- verify imports, exports, and cross-file logic patterns.
+- DELETE \`.opencode_mission.md\` after final SUCCESS.
 
 ## Goal
-Complete "$ARGUMENTS" with ZERO errors.
-Relentless execution until absolute success.
+Success through total discipline. Complete "$ARGUMENTS" with ZERO regressions.
 </command-instruction>
 
 <user-task>
 $ARGUMENTS
 </user-task>`,
-    argumentHint: '"task description"'
+    argumentHint: '"mission goal"'
   },
   plan: {
     description: "Decompose task into atomic units",
@@ -12994,7 +12974,7 @@ var OrchestratorPlugin = async (input) => {
         const command = COMMANDS[parsed.command];
         if (command) {
           parts[textPartIndex].text = command.template.replace(/\$ARGUMENTS/g, parsed.args || "continue");
-          if (parsed.command === "auto") {
+          if (parsed.command === "dag" || parsed.command === "auto" || parsed.command === "ignite") {
             const sessionID = input2.sessionID;
             state.sessions.set(sessionID, {
               enabled: true,
@@ -13002,21 +12982,28 @@ var OrchestratorPlugin = async (input) => {
               taskRetries: new Map,
               currentTask: ""
             });
-            state.autoEnabled = true;
-          } else if (parsed.command === "cancel-auto") {
+            state.dagActive = true;
+          } else if (parsed.command === "stop" || parsed.command === "cancel") {
             state.sessions.delete(input2.sessionID);
-            state.autoEnabled = false;
+            state.dagActive = false;
           }
         }
       }
     },
     "tool.execute.after": async (input2, output) => {
-      if (!state.autoEnabled)
+      if (!state.dagActive)
         return;
       const session = state.sessions.get(input2.sessionID);
       if (!session?.enabled)
         return;
       session.iterations++;
+      if (input2.tool === "call_agent" && input2.arguments?.task) {
+        const taskIdMatch = input2.arguments.task.match(/\[(TASK-\d+)\]/i);
+        if (taskIdMatch) {
+          session.currentTask = taskIdMatch[1].toUpperCase();
+          session.graph?.updateTask(session.currentTask, { status: "running" });
+        }
+      }
       if (session.iterations >= state.maxIterations) {
         session.enabled = false;
         output.output += `
@@ -13026,41 +13013,98 @@ var OrchestratorPlugin = async (input) => {
 Review progress and continue manually.`;
         return;
       }
-      const errorMatch = output.output.match(/\[ERROR-(\d+)\]/);
-      if (errorMatch) {
-        const errorId = `error-${session.currentTask || "unknown"}`;
-        const retries = (session.taskRetries.get(errorId) || 0) + 1;
-        session.taskRetries.set(errorId, retries);
-        if (retries >= state.maxRetries) {
-          output.output += `
+      if (output.output.includes("[") && output.output.includes("]") && output.output.includes("{") && input2.tool === "call_agent") {
+        const jsonMatch = output.output.match(/```json\n([\s\S]*?)\n```/) || output.output.match(/\[\s+\{[\s\S]*?\}\s+\]/);
+        if (jsonMatch) {
+          try {
+            const tasks = JSON.parse(jsonMatch[1] || jsonMatch[0]);
+            if (Array.isArray(tasks) && tasks.length > 0) {
+              session.graph = new TaskGraph(tasks);
+              output.output += `
+
+\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501
+\u2705 TASK DAG INITIALIZED
+${session.graph.getTaskSummary()}`;
+            }
+          } catch (e) {}
+        }
+      }
+      if (session.graph) {
+        if (output.output.includes("\u2705 PASS")) {
+          const taskId = session.currentTask;
+          if (taskId) {
+            session.graph.updateTask(taskId, { status: "completed" });
+            session.taskRetries.clear();
+            output.output += `
+
+\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501
+\u2705 TASK ${taskId} VERIFIED
+${session.graph.getTaskSummary()}`;
+          }
+        } else if (output.output.includes("\u274C FAIL")) {
+          const taskId = session.currentTask;
+          if (taskId) {
+            const errorId = `error-${taskId}`;
+            const retries = (session.taskRetries.get(errorId) || 0) + 1;
+            session.taskRetries.set(errorId, retries);
+            if (retries >= state.maxRetries) {
+              session.graph.updateTask(taskId, { status: "failed" });
+              output.output += `
+
+\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501
+\u26A0\uFE0F TASK ${taskId} FAILED (Retry Limit)
+PIVOT REQUIRED: Re-plan or seek context.`;
+            } else {
+              output.output += `
+
+\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501
+\uD83D\uDD04 RETRY ${retries}/${state.maxRetries} for ${taskId}`;
+            }
+          }
+        }
+      } else {
+        const errorMatch = output.output.match(/\[ERROR-(\d+)\]/);
+        if (errorMatch) {
+          const errorId = `error-${session.currentTask || "unknown"}`;
+          const retries = (session.taskRetries.get(errorId) || 0) + 1;
+          session.taskRetries.set(errorId, retries);
+          if (retries >= state.maxRetries) {
+            output.output += `
 
 \u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501
 \u26A0\uFE0F RETRY LIMIT (${state.maxRetries}x)
-DO NOT GIVE UP.
-SYSTEM ALERT: Stop repeating the same fix.
-REQUIRED: Call 'planner' (break down) or 'searcher' (find context) NOW.`;
+PIVOT REQUIRED.`;
+            return;
+          }
+          output.output += `
+
+\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501
+\uD83D\uDD04 RETRY ${retries}/${state.maxRetries}`;
           return;
         }
-        output.output += `
+        if (output.output.includes("\u2705 PASS")) {
+          session.taskRetries.clear();
+          output.output += `
 
 \u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501
-\uD83D\uDD04 RETRY ${retries}/${state.maxRetries}
-Apply fix and verify again.`;
-        return;
+\u2705 VERIFIED`;
+          return;
+        }
       }
-      if (output.output.includes("\u2705 PASS")) {
-        session.taskRetries.clear();
+      if (session.graph) {
+        const readyTasks = session.graph.getReadyTasks();
+        const guidance = readyTasks.length > 0 ? `
+\uD83D\uDC49 **READY TO EXECUTE**: ${readyTasks.map((t) => `[${t.id}]`).join(", ")}` : `
+\u26A0\uFE0F NO READY TASKS. Check dependencies or completion.`;
         output.output += `
 
 \u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501
-\u2705 VERIFIED - Continue to next task
-[${session.iterations}/${state.maxIterations}]`;
-        return;
+${session.graph.getTaskSummary()}${guidance}`;
       }
       output.output += `
 
 \u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501
-[${session.iterations}/${state.maxIterations}]`;
+[DAG STEP: ${session.iterations}/${state.maxIterations}]`;
     }
   };
 };

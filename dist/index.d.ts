@@ -67,6 +67,7 @@ declare const OrchestratorPlugin: (input: PluginInput) => Promise<{
         tool: string;
         sessionID: string;
         callID: string;
+        arguments?: any;
     }, output: {
         title: string;
         output: string;
