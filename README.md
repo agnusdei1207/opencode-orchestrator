@@ -79,16 +79,8 @@ Instead of a linear sequence, we use a **Directed Acyclic Graph (DAG)** to model
 
 ## Installation
 
-You can use **npm** or **bun**. Both work perfectly because the core logic runs in a native **Rust binary**.
-
-### Option 1: npm (Standard)
 ```bash
 npm install -g opencode-orchestrator
-```
-
-### Option 2: Bun (Fast)
-```bash
-bun install -g opencode-orchestrator
 ```
 
 > **Note**: After installation, **restart OpenCode** or run `opencode` in your terminal.
@@ -96,7 +88,7 @@ bun install -g opencode-orchestrator
 
 ### Troubleshooting
 If the command `/task` does not appear:
-1. Uninstall: `npm uninstall -g opencode-orchestrator` (or `bun remove -g`)
+1. Uninstall: `npm uninstall -g opencode-orchestrator`
 2. Clear config: `rm -rf ~/.config/opencode` (Warning: resets all plugins)
 3. Reinstall: `npm install -g opencode-orchestrator`
 

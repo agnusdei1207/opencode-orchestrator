@@ -2,7 +2,7 @@
     "name": "opencode-orchestrator",
     "displayName": "OpenCode Orchestrator",
     "description": "Distributed Cognitive Architecture for OpenCode. Turns simple prompts into specialized multi-agent workflows (Planner, Coder, Reviewer).",
-    "version": "0.1.50",
+    "version": "0.1.51",
     "author": "agnusdei1207",
     "license": "MIT",
     "repository": {
@@ -44,16 +44,16 @@
     "scripts": {
         "build:bin:linux-x64": "docker compose run --rm dev sh -c 'cargo build --release && cp target/release/orchestrator bin/orchestrator-linux-x64' && chmod +x bin/orchestrator-linux-x64",
         "build:bin:linux-arm64": "docker compose run --rm dev sh -c 'rustup target add aarch64-unknown-linux-gnu && apt-get update && apt-get install -y gcc-aarch64-linux-gnu && CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc cargo build --release --target aarch64-unknown-linux-gnu && cp target/aarch64-unknown-linux-gnu/release/orchestrator bin/orchestrator-linux-arm64' && chmod +x bin/orchestrator-linux-arm64",
-        "build:bin": "bun run build:bin:linux-x64 && bun run build:bin:linux-arm64",
-        "build:js": "bun build src/index.ts --outdir dist --target bun --format esm --sourcemap=none && bun build src/cli.ts --outdir dist --target node --format esm --sourcemap=none && tsc --emitDeclarationOnly && mkdir -p dist/scripts && bun build scripts/postinstall.ts --outdir dist/scripts --target node",
-        "build": "bun run build:bin && bun run build:js",
+        "build:bin": "npm run build:bin:linux-x64 && npm run build:bin:linux-arm64",
+        "build:js": "npx esbuild src/index.ts --bundle --outfile=dist/index.js --platform=node --format=esm --packages=external && npx esbuild src/cli.ts --bundle --outfile=dist/cli.js --platform=node --format=esm --packages=external && tsc --emitDeclarationOnly && mkdir -p dist/scripts && npx esbuild scripts/postinstall.ts --bundle --outfile=dist/scripts/postinstall.js --platform=node --format=esm --packages=external",
+        "build": "npm run build:bin && npm run build:js",
         "test": "docker compose run --rm test",
-        "release:patch": "bun run build && bun run test && npm version patch --no-git-tag-version && bun run release:ship",
-        "release:minor": "bun run build && bun run test && npm version minor --no-git-tag-version && bun run release:ship",
-        "release:major": "bun run build && bun run test && npm version major --no-git-tag-version && bun run release:ship",
+        "release:patch": "npm run build && npm run test && npm version patch --no-git-tag-version && npm run release:ship",
+        "release:minor": "npm run build && npm run test && npm version minor --no-git-tag-version && npm run release:ship",
+        "release:major": "npm run build && npm run test && npm version major --no-git-tag-version && npm run release:ship",
         "release:ship": "npm publish --access public && git add -A && git commit -m \"v$(node -p \"require('./package.json').version\")\" && git tag \"v$(node -p \"require('./package.json').version\")\" && git push && git push --tags",
         "postinstall": "node dist/scripts/postinstall.js 2>/dev/null || true",
-        "prepublishOnly": "bun run build:js",
+        "prepublishOnly": "npm run build:js",
         "util:stars": "gh api repos/agnusdei1207/opencode-orchestrator/stargazers --jq '.[].login'"
     },
     "dependencies": {
@@ -62,6 +62,7 @@
     },
     "devDependencies": {
         "@types/node": "^22.0.0",
+        "esbuild": "^0.24.0",
         "typescript": "^5.7.0"
     }
 }
