@@ -3,12 +3,14 @@
 > **[OpenCode](https://opencode.ai)를 위한 멀티 에이전트 협업 플러그인**
 
 <div align="center">
+
 [![MIT License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![npm](https://img.shields.io/npm/v/@agnusdei1207/opencode-orchestrator.svg)](https://www.npmjs.com/package/@agnusdei1207/opencode-orchestrator)
 [![npm downloads](https://img.shields.io/npm/dt/@agnusdei1207/opencode-orchestrator.svg)](https://www.npmjs.com/package/@agnusdei1207/opencode-orchestrator)
 [![OpenCode Plugin](https://img.shields.io/badge/OpenCode-Plugin-purple.svg)](https://opencode.ai)
 
 [English](README.md) | [한국어](README.ko.md) | [简体中文](README.zh.md)
+
 </div>
 
 ---
