@@ -11,3 +11,4 @@ target/
 
 # OS
 .DS_Store
+package-lock.json

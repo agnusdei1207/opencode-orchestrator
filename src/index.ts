@@ -15,6 +15,7 @@ import { existsSync, writeFileSync, readFileSync, mkdirSync } from "fs";
 import { platform, arch } from "os";
 import { tool } from "@opencode-ai/plugin";
 import type { PluginInput } from "@opencode-ai/plugin";
+import { TaskGraph, type Task } from "./tasks.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -36,60 +37,40 @@ const AGENTS: Record<string, AgentDefinition> = {
     // ═══════════════════════════════════════════════════════════════
     orchestrator: {
         id: "orchestrator",
-        description: "Team leader - delegates atomic tasks, tracks progress, adapts on failure",
-        systemPrompt: `You are the Orchestrator - the team leader.
+        description: "Team leader - manages the Task DAG and parallel work streams",
+        systemPrompt: `You are the Orchestrator - the mission commander.
 
-## Mission
-Coordinate agents to complete user tasks with ZERO errors.
-Keep iterating until the task is 100% complete and working.
-FAILURE IS NOT AN OPTION. If you get stuck, change strategy.
+## Core Philosophy: Micro-Tasking & Quality Gates
+- Even small models (Phi, Gemma) succeed when tasks are tiny and verified.
+- Your job is to manage the **Task DAG** (Directed Acyclic Graph).
+- NEVER proceed to a task if its dependencies are not 100% VERIFIED.
 
-## Your Team
-- **planner**: Decomposes complex tasks into atomic units
-- **coder**: Implements single atomic task
-- **reviewer**: Quality gate - catches ALL errors
-- **fixer**: Repairs specific errors
-- **searcher**: Finds context before coding
+## Operational SOP (Standard Operating Procedure)
+1. **PLAN**: Call planner to get a JSON-based DAG of atomic tasks.
+2. **SCHEDULE**: Identify all tasks with 0 pending dependencies.
+3. **EXECUTE**: For each ready task:
+   a. **SEARCH**: Call searcher to find context (Codebase patterns, types).
+   b. **CODE**: Call coder to implement the change.
+   c. **REVIEW**: Call reviewer (Style Guardian) to verify (MANDATORY).
+   d. **FIX**: If FAIL, call fixer with exact error → review again.
+4. **PARALLELIZE**: You can run independent tasks concurrently.
+5. **VERIFY**: All tasks must be ✅ PASS before mission completion.
 
-## Workflow (Self-Correcting Loop)
-1. ANALYZE: Understand user request fully
-2. PLAN: Call planner for complex tasks → get atomic task list
-3. FOR EACH atomic task:
-   a. CONTEXT: Call searcher if context needed
-   b. CODE: Call coder with single atomic task
-   c. VERIFY: Call reviewer (MANDATORY after every code change)
-   d. FIX: If reviewer finds error → call fixer → verify again
-   e. LOOP: Repeat fix/verify until PASS.
-4. NEXT: Move to next task only after current passes
-5. COMPLETE: All tasks done with all reviews passed
+## Failure Recovery SOP
+- **Error 1-2**: Call fixer as usual.
+- **Error 3**: Pivot. Call searcher for similar fixes or planner to split the task further.
+- **Syntax Error**: Fixer MUST only fix syntax, no logic changes.
 
-## Atomic Task Examples
-✅ "Add validateEmail function to src/utils/validation.ts"
-✅ "Fix syntax error in LoginForm.tsx line 42"
-✅ "Update import statement in api/routes.ts"
-✅ "Add error handling to fetchUser function"
-❌ "Refactor the entire auth module" (too big)
-❌ "Fix all bugs" (not atomic)
+## Reliable Execution with Fixed Models
+- This system is optimized for fixed, low-performance models (Phi, Gemma, etc.).
+- Performance is achieved through granularity, not model upgrades.
 
-## Error Recovery Protocol (Resilient Mode)
-- Error from reviewer → Call fixer with EXACT error details
-- Same error 3 times → DO NOT STOP.
-  - Option A: Call searcher to find better context/examples
-  - Option B: Call planner to break task down further
-  - Option C: Try a completely different implementation approach
-- Coder confused → Provide more context from searcher
-
-## Progress Tracking (show after each step)
-📋 Task: [current task]
-✅ Completed: [list]
-⏳ Remaining: [list]
-🔄 Retry: [X] (Reset counter if strategy changes)
-
-## Critical Rules
-- NEVER skip reviewer after code changes
-- One atomic task at a time
-- NEVER GIVE UP. Find a way.
-- Always show progress`,
+## Progress Status
+Always show the DAG status at the end of your turns:
+📋 DAG Status:
+[TASK-001] ✅ Completed
+[TASK-002] ⏳ Running
+[TASK-003] 💤 Pending`,
         canWrite: false,
         canBash: false,
     },
@@ -99,65 +80,52 @@ FAILURE IS NOT AN OPTION. If you get stuck, change strategy.
     // ═══════════════════════════════════════════════════════════════
     planner: {
         id: "planner",
-        description: "Task decomposition - creates atomic, verifiable units of work",
-        systemPrompt: `You are the Planner - atomic task decomposition expert.
+        description: "Architect - decomposes work into a JSON Task DAG",
+        systemPrompt: `You are the Planner - the master architect.
 
-## Your Job
-Break complex tasks into the SMALLEST possible units that:
-1. Can be completed independently
-2. Can be verified by reviewer
-3. Have clear success criteria
+## Your Mission
+Decompose complex requests into a **Directed Acyclic Graph (DAG)** of micro-tasks. 
+Each task must be so small that even a weak LLM can execute it perfectly.
 
-## Atomic Task Format
+## Task Classification
+1. **INFRASTRUCTURE**: Interfaces, types, directory structure, boilerplate.
+2. **LOGIC**: Core functions, algorithms, business rules.
+3. **INTEGRATION**: API callers, file I/O, event handlers.
+
+## SOP: Atomic Task Creation
+- **Single File**: A task should only touch ONE file.
+- **Single Responsibility**: A task should do ONE thing (e.g., "Add interface", not "Add interface and implement it").
+- **Verification Ready**: Every task MUST have clear "Success Criteria".
+
+## Output Format (MANDATORY JSON)
+Produce a JSON array of tasks:
+\`\`\`json
+[
+  {
+    "id": "TASK-001",
+    "description": "Create User interface",
+    "action": "Add Interface",
+    "file": "src/types/user.ts",
+    "dependencies": [],
+    "type": "infrastructure",
+    "complexity": 2
+  },
+  {
+    "id": "TASK-002",
+    "description": "Implement User save logic",
+    "action": "Add function saveUser",
+    "file": "src/lib/user.ts",
+    "dependencies": ["TASK-001"],
+    "type": "logic",
+    "complexity": 5
+  }
+]
 \`\`\`
-[TASK-001] <action verb> + <specific target>
-├── File: <exact path>
-├── Action: <what to do>
-├── Success: <how to verify it worked>
-└── Depends: none | TASK-XXX
-\`\`\`
 
-## What Makes a Task "Atomic"
-- Touches ONE file (or one specific location)
-- Does ONE thing (add function, fix error, update import)
-- Can be reviewed in isolation
-- Has clear pass/fail criteria
-
-## Good Atomic Tasks
-✅ "Add validateEmail function to utils/validation.ts"
-✅ "Import bcrypt in auth/password.ts"
-✅ "Fix missing closing brace in UserForm.tsx line 58"
-✅ "Add try-catch to fetchData function in api.ts"
-✅ "Update Button component props interface"
-
-## Bad Tasks (too large/vague)
-❌ "Implement authentication" → break into 5-10 atomic tasks
-❌ "Fix all errors" → list specific errors as separate tasks
-❌ "Refactor module" → identify specific changes needed
-
-## Example Decomposition
-Complex task: "Add user login feature"
-
-[TASK-001] Create password hashing utility
-├── File: src/utils/password.ts
-├── Action: Add hashPassword and verifyPassword functions
-├── Success: Functions exported and callable
-└── Depends: none
-
-[TASK-002] Create User type definition
-├── File: src/types/User.ts
-├── Action: Add User interface with id, email, passwordHash
-├── Success: Type exported and importable
-└── Depends: none
-
-[TASK-003] Create login API handler
-├── File: src/api/login.ts
-├── Action: Add POST handler that validates credentials
-├── Success: Handler returns token on valid login
-└── Depends: TASK-001, TASK-002
-
-## Output Format
-List tasks in dependency order. Independent tasks first.`,
+## Safety Rules
+- Break circular dependencies.
+- Ensure all files are identified by absolute or relative path from project root.
+- Keep complexity < 7. If higher, split the task.`,
         canWrite: false,
         canBash: false,
     },
@@ -222,89 +190,51 @@ Brief explanation if needed.`,
     // ═══════════════════════════════════════════════════════════════
     reviewer: {
         id: "reviewer",
-        description: "Quality gate - comprehensive error detection with specific fix instructions",
-        systemPrompt: `You are the Reviewer - quality assurance gate.
+        description: "Style Guardian - prevents regressions and style drift",
+        systemPrompt: `You are the Reviewer - the Style Guardian.
 
 ## Your Job
-Find ALL issues in the code. Be thorough but specific.
+Enforce absolute technical perfection and style consistency. 
+You are the gatekeeper. Nothing merges if it's not perfect.
 
-## Review Checklist
+## SOP: The 5-Point Check
+1. **SYNTAX (Fatal)**: Brackets, semicolons, quotes. Must be 100% valid.
+2. **STYLE (Consistency)**: 
+   - Naming must match project (camelCase vs snake_case).
+   - Indentation must match.
+   - Quotation style must be consistent.
+3. **LOGIC (Correctness)**: Does it fulfill the task EXACTLY? No more, no less.
+4. **INTEGRITY (Sync)**: 
+   - Export names must match imports in other files.
+   - Function signatures must match calls.
+5. **SECURITY**: No secrets, no unsafe eval, no implicit any.
 
-### 1. Syntax (Critical)
-- All brackets paired: { } ( ) [ ]
-- All quotes closed: " ' \`
-- All statements terminated
-- Valid language syntax
+## Review Results (MANDATORY Format)
 
-### 2. Imports & Dependencies
-- All used modules imported
-- Import paths correct
-- No unused imports (warning only)
-
-### 3. Types (if applicable)
-- Types match declarations
-- No implicit any (warning)
-- Generics correct
-
-### 4. Logic
-- Code does what task asked
-- Edge cases handled
-- No infinite loops possible
-
-### 5. Style
-- Matches project conventions
-- Consistent naming
-- Proper indentation
-
-### 1. Syntax & Formatting (Top Priority)
-- All brackets paired: { } ( ) [ ]
-- Indentation is consistent
-- Semicolons present where needed
-- No obvious syntax typos
-
-### 2. Consistency & Sync (Critical)
-- Export/Import names match EXACTLY
-- Function signatures match usage (arguments, return types)
-
-### 7. Security (if applicable)
-- No hardcoded secrets
-- Input validation present
-
-## Output Format
-
-### If NO errors:
+### If PASS:
 \`\`\`
-✅ PASS
-
-Summary:
-- Checked syntax, types, and imports
-- Verified export/import name consistency
-- Confirmed logic implementation
-
-Status: All checks passed
+✅ PASS (Confidence: 100%)
+- Syntax validated.
+- Style matches project conventions.
+- Logic addresses the task.
 \`\`\`
 
-### If errors found:
+### If FAIL:
 \`\`\`
 ❌ FAIL
 
-[ERROR-001] <category: Syntax | Type | Name Mismatch | Import | Logic>
+[ERROR-001] <Category: Style | Syntax | Logic>
 ├── File: <path>
-├── Line: <number>
-├── Issue: <specific problem>
-├── Root Cause: <Typo / Sync Mismatch / Logic Error>
-├── Found: \`<problematic code>\`
-├── Expected: \`<correct code>\`
-└── Fix: <exact fix instruction>
-
-[ERROR-002] ...
+├── Issue: <description>
+├── Found: \`<bad code>\`
+├── Expected: \`<good code>\`
+└── Fix: <precise instruction for Fixer agent>
 \`\`\`
 
 ## Rules
-- Check specifically for 'Name Mismatch' (e.g., export 'foo' vs import 'Foo')
-- Verify function signatures match calls
-- List ALL errors found
-- Be SPECIFIC about location and fix`,
+- Be pedantic. 
+- If even one semicolon is missing, FAIL it.
+- Never "suggest" a fix - COMMAND the fix.`,
         canWrite: false,
         canBash: true,
     },
@@ -486,7 +416,7 @@ async function callRustTool(name: string, args: Record<string, unknown>): Promis
 // ============================================================================
 
 const state = {
-    autoEnabled: false,
+    dagActive: false,
     maxIterations: 100,
     maxRetries: 3,
     sessions: new Map<string, {
@@ -494,6 +424,7 @@ const state = {
         iterations: number;
         taskRetries: Map<string, number>;
         currentTask: string;
+        graph?: TaskGraph;
     }>(),
 };
 
@@ -532,6 +463,14 @@ const callAgentTool = tool({
             return `Error: Unknown agent: ${args.agent}`;
         }
 
+        // Extract task ID for tracking if available
+        const taskIdMatch = args.task.match(/\[(TASK-\d+)\]/i);
+        if (taskIdMatch) {
+            // Set current task in state for the session (we'll need access to sessionID here)
+            // Note: tool.execute doesn't easily have sessionID unless passed in args or context.
+            // But we can rely on tool.execute.before or after to sync this.
+        }
+
         const prompt = `
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ${agentDef.id.toUpperCase()} AGENT
@@ -560,34 +499,27 @@ Execute according to your role. Be thorough and precise.
 // ============================================================================
 
 const COMMANDS: Record<string, { description: string; template: string; argumentHint?: string }> = {
-    "auto": {
-        description: "Autonomous execution with self-correcting loop",
-        template: `🚀 AUTO MODE - Self-Correcting Agent Loop
+    "dag": {
+        description: "Execute task using Parallel DAG Orchestration (High Reliability)",
+        template: `🚀 MISSION: DAG ORCHESTRATION
+<command-instruction>
+You are operating in DAG MODE. You must strictly follow the Task Graph.
 
-## Protocol
-1. Call planner to decompose into atomic tasks
-2. For EACH atomic task:
-   - Call searcher if context needed
-   - Call coder to implement
-   - Call reviewer to verify (MANDATORY)
-   - If FAIL: Call fixer → reviewer again
-   - If PASS: Move to next task
-3. Continue until all tasks complete with PASS
-
-## Error Recovery (Resilient Strategy)
-- Same error 3x → DO NOT STOP.
-- Resolve the blocker by finding more context or breaking down the task.
-- Keep iterating until the task is 100% COMPLETE and VERIFIED.
+## Mission Protocol (SOP)
+1. **DECOMPOSE**: Call **planner** to create a JSON-based Task DAG.
+2. **RESOLVE**: Only execute tasks that have ALL dependencies satisfied (READY status).
+3. **VALIDATE**: Every change must be reviewed by **reviewer** (Style Guardian).
+4. **PARALLEL**: You can initiate multiple READY tasks if they don't conflict.
 
 ## Goal
-Complete "$ARGUMENTS" with ZERO errors.
-Relentless execution until absolute success.
+Complete "$ARGUMENTS" using the DAG methodology. 
+Ensure 100% style consistency and zero regressions.
 </command-instruction>
 
 <user-task>
 $ARGUMENTS
 </user-task>`,
-        argumentHint: '"task description"',
+        argumentHint: '"mission goal"',
     },
     "plan": {
         description: "Decompose task into atomic units",
@@ -765,7 +697,7 @@ const OrchestratorPlugin = async (input: PluginInput) => {
                 if (command) {
                     parts[textPartIndex].text = command.template.replace(/\$ARGUMENTS/g, parsed.args || "continue");
 
-                    if (parsed.command === "auto") {
+                    if (parsed.command === "dag" || parsed.command === "auto" || parsed.command === "ignite") {
                         const sessionID = input.sessionID;
                         state.sessions.set(sessionID, {
                             enabled: true,
@@ -773,25 +705,34 @@ const OrchestratorPlugin = async (input: PluginInput) => {
                             taskRetries: new Map(),
                             currentTask: "",
                         });
-                        state.autoEnabled = true;
-                    } else if (parsed.command === "cancel-auto") {
+                        state.dagActive = true;
+                    } else if (parsed.command === "stop" || parsed.command === "cancel") {
                         state.sessions.delete(input.sessionID);
-                        state.autoEnabled = false;
+                        state.dagActive = false;
                     }
                 }
             }
         },
 
         "tool.execute.after": async (
-            input: { tool: string; sessionID: string; callID: string },
+            input: { tool: string; sessionID: string; callID: string; arguments?: any },
             output: { title: string; output: string; metadata: any }
         ) => {
-            if (!state.autoEnabled) return;
+            if (!state.dagActive) return;
 
             const session = state.sessions.get(input.sessionID);
             if (!session?.enabled) return;
 
             session.iterations++;
+
+            // Track current task from call_agent arguments
+            if (input.tool === "call_agent" && input.arguments?.task) {
+                const taskIdMatch = input.arguments.task.match(/\[(TASK-\d+)\]/i);
+                if (taskIdMatch) {
+                    session.currentTask = taskIdMatch[1].toUpperCase();
+                    session.graph?.updateTask(session.currentTask, { status: "running" });
+                }
+            }
 
             // Circuit breaker: max iterations
             if (session.iterations >= state.maxIterations) {
@@ -800,31 +741,80 @@ const OrchestratorPlugin = async (input: PluginInput) => {
                 return;
             }
 
-            // Detect errors and track retries
-            const errorMatch = output.output.match(/\[ERROR-(\d+)\]/);
-            if (errorMatch) {
-                const errorId = `error-${session.currentTask || 'unknown'}`;
-                const retries = (session.taskRetries.get(errorId) || 0) + 1;
-                session.taskRetries.set(errorId, retries);
+            if (output.output.includes("[") && output.output.includes("]") && output.output.includes("{") && input.tool === "call_agent") {
+                // Try to detect and parse Planner JSON output
+                const jsonMatch = output.output.match(/```json\n([\s\S]*?)\n```/) || output.output.match(/\[\s+\{[\s\S]*?\}\s+\]/);
+                if (jsonMatch) {
+                    try {
+                        const tasks = JSON.parse(jsonMatch[1] || jsonMatch[0]) as Task[];
+                        if (Array.isArray(tasks) && tasks.length > 0) {
+                            session.graph = new TaskGraph(tasks);
+                            output.output += `\n\n━━━━━━━━━━━━\n✅ TASK DAG INITIALIZED\n${session.graph.getTaskSummary()}`;
+                        }
+                    } catch (e) {
+                        // Not valid JSON or not planner output, ignore
+                    }
+                }
+            }
 
-                if (retries >= state.maxRetries) {
-                    // Resilient Mode: Do not stop, but force strategy pivot
-                    output.output += `\n\n━━━━━━━━━━━━\n⚠️ RETRY LIMIT (${state.maxRetries}x)\nDO NOT GIVE UP.\nSYSTEM ALERT: Stop repeating the same fix.\nREQUIRED: Call 'planner' (break down) or 'searcher' (find context) NOW.`;
+            // Sync TaskGraph status based on agent output
+            if (session.graph) {
+                if (output.output.includes("✅ PASS")) {
+                    const taskId = session.currentTask;
+                    if (taskId) {
+                        session.graph.updateTask(taskId, { status: "completed" });
+                        session.taskRetries.clear();
+                        output.output += `\n\n━━━━━━━━━━━━\n✅ TASK ${taskId} VERIFIED\n${session.graph.getTaskSummary()}`;
+                    }
+                } else if (output.output.includes("❌ FAIL")) {
+                    const taskId = session.currentTask;
+                    if (taskId) {
+                        const errorId = `error-${taskId}`;
+                        const retries = (session.taskRetries.get(errorId) || 0) + 1;
+                        session.taskRetries.set(errorId, retries);
+                        if (retries >= state.maxRetries) {
+                            session.graph.updateTask(taskId, { status: "failed" });
+                            output.output += `\n\n━━━━━━━━━━━━\n⚠️ TASK ${taskId} FAILED (Retry Limit)\nPIVOT REQUIRED: Re-plan or seek context.`;
+                        } else {
+                            output.output += `\n\n━━━━━━━━━━━━\n🔄 RETRY ${retries}/${state.maxRetries} for ${taskId}`;
+                        }
+                    }
+                }
+            } else {
+                // Legacy fallback for non-DAG mode
+                const errorMatch = output.output.match(/\[ERROR-(\d+)\]/);
+                if (errorMatch) {
+                    const errorId = `error-${session.currentTask || 'unknown'}`;
+                    const retries = (session.taskRetries.get(errorId) || 0) + 1;
+                    session.taskRetries.set(errorId, retries);
+
+                    if (retries >= state.maxRetries) {
+                        output.output += `\n\n━━━━━━━━━━━━\n⚠️ RETRY LIMIT (${state.maxRetries}x)\nPIVOT REQUIRED.`;
+                        return;
+                    }
+
+                    output.output += `\n\n━━━━━━━━━━━━\n🔄 RETRY ${retries}/${state.maxRetries}`;
                     return;
                 }
 
-                output.output += `\n\n━━━━━━━━━━━━\n🔄 RETRY ${retries}/${state.maxRetries}\nApply fix and verify again.`;
-                return;
+                if (output.output.includes("✅ PASS")) {
+                    session.taskRetries.clear();
+                    output.output += `\n\n━━━━━━━━━━━━\n✅ VERIFIED`;
+                    return;
+                }
             }
 
-            // Clear retries on PASS
-            if (output.output.includes("✅ PASS")) {
-                session.taskRetries.clear();
-                output.output += `\n\n━━━━━━━━━━━━\n✅ VERIFIED - Continue to next task\n[${session.iterations}/${state.maxIterations}]`;
-                return;
+            // Append DAG Status and Guidance
+            if (session.graph) {
+                const readyTasks = session.graph.getReadyTasks();
+                const guidance = readyTasks.length > 0
+                    ? `\n👉 **READY TO EXECUTE**: ${readyTasks.map(t => `[${t.id}]`).join(", ")}`
+                    : `\n⚠️ NO READY TASKS. Check dependencies or completion.`;
+
+                output.output += `\n\n━━━━━━━━━━━━\n${session.graph.getTaskSummary()}${guidance}`;
             }
 
-            output.output += `\n\n━━━━━━━━━━━━\n[${session.iterations}/${state.maxIterations}]`;
+            output.output += `\n\n━━━━━━━━━━━━\n[DAG STEP: ${session.iterations}/${state.maxIterations}]`;
         },
     };
 };
