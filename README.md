@@ -143,3 +143,10 @@ MIT License. No telemetry. No backdoors.
 MIT License. NO WARRANTY.
 
 [MIT](LICENSE)
+
+---
+
+## ⚡ Fast-Paced Development
+
+This project is evolving **extremely fast**. We iterate rapidly to bring relentless execution to your workflow.
+Updates are frequent. Keep your version fresh.
