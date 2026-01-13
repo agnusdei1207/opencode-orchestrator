@@ -112,14 +112,13 @@ return {
 ```
 
 ### 3. Build Target
-Ensure your plugin is built for **Bun** (if using Bun) or **Node** explicitly.
-We found that `target: "bun"` works best if aiming for compatibility with existing plugins like `oh-my-opencode`.
+Ensure your plugin is built for **Node.js** explicitly.
 
 ### 4. Bundling Dependencies
 Make sure your build script bundles dependencies (except `node_modules` if externals are set correctly).
-For oh-my-opencode compatibility:
+For compatibility:
 ```bash
-bun build src/index.ts --outdir dist --target bun --format esm
+npx esbuild src/index.ts --bundle --outfile=dist/index.js --platform=node --format=esm --packages=external
 ```
 
 ---

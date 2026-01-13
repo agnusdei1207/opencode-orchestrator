@@ -27,7 +27,7 @@ function getPluginPath() {
   }
 }
 function install() {
-  console.log("\uD83E\uDD80 OpenCode Orchestrator - Installing...");
+  console.log("\u{1F980} OpenCode Orchestrator - Installing...");
   if (!existsSync(CONFIG_DIR)) {
     mkdirSync(CONFIG_DIR, { recursive: true });
   }
@@ -43,18 +43,20 @@ function install() {
     config.plugin = [];
   }
   const pluginPath = getPluginPath();
-  const hasPlugin = config.plugin.some((p) => p === PLUGIN_NAME || p === pluginPath || p.includes("opencode-orchestrator"));
+  const hasPlugin = config.plugin.some(
+    (p) => p === PLUGIN_NAME || p === pluginPath || p.includes("opencode-orchestrator")
+  );
   if (!hasPlugin) {
     config.plugin.push(pluginPath);
     writeFileSync(CONFIG_FILE, JSON.stringify(config, null, 2));
-    console.log("✅ Plugin registered!");
+    console.log("\u2705 Plugin registered!");
     console.log(`   Path: ${pluginPath}`);
     console.log(`   Config: ${CONFIG_FILE}`);
   } else {
-    console.log("✅ Plugin already registered.");
+    console.log("\u2705 Plugin already registered.");
   }
   console.log("");
-  console.log("\uD83D\uDE80 Ready! Restart OpenCode to use.");
+  console.log("\u{1F680} Ready! Restart OpenCode to use.");
   console.log("");
   console.log("Commands:");
   console.log('  /task "goal"   - Distributed Cognitive Task (PDCA Cycle)');

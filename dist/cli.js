@@ -6,9 +6,9 @@ import { join, dirname } from "path";
 import { fileURLToPath } from "url";
 import { platform, arch } from "os";
 import { existsSync } from "fs";
-var __dirname2 = dirname(fileURLToPath(import.meta.url));
+var __dirname = dirname(fileURLToPath(import.meta.url));
 function getBinaryPath() {
-  const binDir = join(__dirname2, "..", "bin");
+  const binDir = join(__dirname, "..", "bin");
   const os = platform();
   const cpu = arch();
   let binaryName;
