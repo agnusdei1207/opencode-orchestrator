@@ -4,7 +4,7 @@
 //! Key Principle: Ultra-granular tasks that any model can execute
 //! - ONE file per task
 //! - ONE function per task
-//! - MAX 5 minutes per task
+//! - RELENTLESS execution until 100% completion
 
 use serde::{Deserialize, Serialize};
 use std::fmt;
