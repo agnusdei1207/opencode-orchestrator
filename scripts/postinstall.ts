@@ -6,8 +6,9 @@
  */
 
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from "fs";
-import { join } from "path";
+import { join, dirname } from "path";
 import { homedir } from "os";
+import { fileURLToPath } from "url";
 
 const CONFIG_DIR = join(homedir(), ".config", "opencode");
 const CONFIG_FILE = join(CONFIG_DIR, "opencode.json");
@@ -15,17 +16,23 @@ const PLUGIN_NAME = "opencode-orchestrator";
 
 function getPluginPath() {
     try {
-        let currentDir = new URL(".", import.meta.url).pathname;
+        // Cross-platform safe path retrieval (handles Windows C:\ well)
+        let currentDir = dirname(fileURLToPath(import.meta.url));
+
         // Search upwards for package.json
-        while (currentDir !== "/" && currentDir !== ".") {
+        while (true) {
             if (existsSync(join(currentDir, "package.json"))) {
-                return currentDir.replace(/\/$/, "");
+                return currentDir;
             }
-            const parent = join(currentDir, "..");
-            if (parent === currentDir) break; // Reached root
-            currentDir = parent;
+
+            const parentDir = dirname(currentDir);
+            // If parent is same as current, we've reached the filesystem root
+            if (parentDir === currentDir) {
+                break;
+            }
+            currentDir = parentDir;
         }
-        // Fallback: mostly won't happen if run inside the package
+        // Fallback
         return PLUGIN_NAME;
     } catch {
         return PLUGIN_NAME;
