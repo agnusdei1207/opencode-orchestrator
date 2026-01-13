@@ -1,0 +1,150 @@
+//! Tool implementations for the orchestrator CLI
+
+use anyhow::Result;
+use orchestrator_core::hooks::Hook;
+use orchestrator_core::tools::{glob::GlobConfig, grep::GrepConfig, GlobTool, GrepTool};
+use serde::Deserialize;
+use serde_json::{json, Value};
+use std::path::PathBuf;
+use std::time::Duration;
+
+/// Execute a tool by name
+pub async fn execute_tool(name: &str, arguments: Value) -> Result<String> {
+    match name {
+        "grep_search" => grep_search(arguments).await,
+        "glob_search" => glob_search(arguments).await,
+        "list_agents" => list_agents().await,
+        "list_hooks" => list_hooks().await,
+        _ => Err(anyhow::anyhow!("Unknown tool: {}", name)),
+    }
+}
+
+#[derive(Deserialize)]
+struct GrepArgs {
+    pattern: String,
+    directory: Option<String>,
+    timeout_ms: Option<u64>,
+    max_results: Option<usize>,
+}
+
+async fn grep_search(arguments: Value) -> Result<String> {
+    let args: GrepArgs = serde_json::from_value(arguments)?;
+
+    let mut config = GrepConfig::default();
+    if let Some(ms) = args.timeout_ms {
+        config.timeout = Duration::from_millis(ms);
+    }
+    if let Some(max) = args.max_results {
+        config.max_results = max;
+    }
+
+    let search_dir = args
+        .directory
+        .map(PathBuf::from)
+        .unwrap_or_else(|| std::env::current_dir().unwrap_or_default());
+
+    let tool = GrepTool::new(config);
+    let results = tool.search(&args.pattern, &search_dir)?;
+
+    let output: Vec<Value> = results
+        .iter()
+        .take(50)
+        .map(|m| {
+            json!({
+                "file": m.file,
+                "line": m.line_number,
+                "content": m.line_content.chars().take(200).collect::<String>()
+            })
+        })
+        .collect();
+
+    Ok(serde_json::to_string_pretty(&json!({
+        "matches": output,
+        "total": results.len()
+    }))?)
+}
+
+#[derive(Deserialize)]
+struct GlobArgs {
+    pattern: String,
+    directory: Option<String>,
+    timeout_ms: Option<u64>,
+    max_results: Option<usize>,
+}
+
+async fn glob_search(arguments: Value) -> Result<String> {
+    let args: GlobArgs = serde_json::from_value(arguments)?;
+
+    let mut config = GlobConfig::default();
+    if let Some(ms) = args.timeout_ms {
+        config.timeout = Duration::from_millis(ms);
+    }
+    if let Some(max) = args.max_results {
+        config.max_results = max;
+    }
+
+    let search_dir = args
+        .directory
+        .map(PathBuf::from)
+        .unwrap_or_else(|| std::env::current_dir().unwrap_or_default());
+
+    let tool = GlobTool::new(config);
+    let results = tool.find(&args.pattern, &search_dir)?;
+
+    let files: Vec<String> = results
+        .iter()
+        .take(100)
+        .map(|p| p.display().to_string())
+        .collect();
+
+    Ok(serde_json::to_string_pretty(&json!({
+        "files": files,
+        "total": results.len()
+    }))?)
+}
+
+/// List all available agents (6-agent micro-tasking architecture)
+async fn list_agents() -> Result<String> {
+    let agents = vec![
+        json!({
+            "id": "orchestrator",
+            "description": "Traffic controller - routes tasks, never executes directly"
+        }),
+        json!({
+            "id": "planner",
+            "description": "Micro-task decomposition - breaks work into atomic units"
+        }),
+        json!({
+            "id": "coder",
+            "description": "Single-focus execution - one task at a time"
+        }),
+        json!({
+            "id": "reviewer",
+            "description": "Quality gate - style, errors, modern stack, security"
+        }),
+        json!({
+            "id": "fixer",
+            "description": "Minimal fixes - one error at a time, no refactoring"
+        }),
+        json!({
+            "id": "searcher",
+            "description": "Context provider - find patterns before coding"
+        }),
+    ];
+
+    Ok(serde_json::to_string_pretty(&json!({"agents": agents}))?)
+}
+
+async fn list_hooks() -> Result<String> {
+    let hooks: Vec<Value> = Hook::all()
+        .iter()
+        .map(|h| {
+            json!({
+                "name": h.to_string(),
+                "description": h.description()
+            })
+        })
+        .collect();
+
+    Ok(serde_json::to_string_pretty(&json!({"hooks": hooks}))?)
+}
