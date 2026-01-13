@@ -1,0 +1,30 @@
+[package]
+name = "orchestrator-core"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+description = "Core logic for OpenCode Orchestrator - Agent management, hooks, and tools"
+
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true
+tokio.workspace = true
+anyhow.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+futures.workspace = true
+async-trait.workspace = true
+walkdir.workspace = true
+glob.workspace = true
+ignore.workspace = true
+regex.workspace = true
+toml.workspace = true
+
+[dev-dependencies]
+tokio-test = "0.4"
+tempfile = "3.15"
+
+[lib]
+crate-type = ["rlib"]

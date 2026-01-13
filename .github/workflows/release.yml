@@ -1,0 +1,116 @@
+name: Build & Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            binary: orchestrator-linux-x64
+          - os: ubuntu-latest
+            target: aarch64-unknown-linux-gnu
+            binary: orchestrator-linux-arm64
+          - os: macos-latest
+            target: x86_64-apple-darwin
+            binary: orchestrator-macos-x64
+          - os: macos-latest
+            target: aarch64-apple-darwin
+            binary: orchestrator-macos-arm64
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            binary: orchestrator-windows-x64.exe
+
+    runs-on: ${{ matrix.os }}
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Install Rust
+        uses: dtolnay/rust-action@stable
+        with:
+          targets: ${{ matrix.target }}
+      
+      - name: Install cross-compilation tools (Linux ARM64)
+        if: matrix.target == 'aarch64-unknown-linux-gnu'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-aarch64-linux-gnu
+          
+      - name: Build
+        run: cargo build --release --target ${{ matrix.target }}
+        env:
+          CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: aarch64-linux-gnu-gcc
+        
+      - name: Rename binary (Unix)
+        if: runner.os != 'Windows'
+        run: |
+          cp target/${{ matrix.target }}/release/orchestrator ${{ matrix.binary }}
+          chmod +x ${{ matrix.binary }}
+          
+      - name: Rename binary (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          cp target/${{ matrix.target }}/release/orchestrator.exe ${{ matrix.binary }}
+          
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.binary }}
+          path: ${{ matrix.binary }}
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: binaries
+          
+      - name: Prepare bin directory
+        run: |
+          mkdir -p bin
+          find binaries -type f -exec cp {} bin/ \;
+          chmod +x bin/orchestrator-*
+          ls -la bin/
+          
+      - name: Build TypeScript
+        run: |
+          npm install
+          npm run build
+          
+      - name: Update orchestrator repo
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git clone https://x-access-token:${GITHUB_TOKEN}@github.com/agnusdei1207/orchestrator.git deploy
+          
+          # Copy files
+          cp -r bin/* deploy/bin/
+          cp -r dist/* deploy/dist/
+          cp -r src/* deploy/src/
+          cp package.json deploy/
+          
+          # Commit and push
+          cd deploy
+          git add -A
+          git commit -m "Release ${{ github.ref_name }}" || echo "No changes"
+          git push
+          
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: bin/*
+          generate_release_notes: true
