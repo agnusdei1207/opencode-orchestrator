@@ -193,6 +193,95 @@ OpenCode may use these for plugin resolution:
 
 ---
 
+## Agent Registration (2026-01-14)
+
+### Problem: Agents Not Appearing in OpenCode UI
+
+If your agents don't appear in the bottom bar (like "Build · glm-4.7"), you need to register them via the `config` handler.
+
+### Solution: Add Agent Config
+
+```typescript
+return {
+    tool: { ... },
+    
+    config: async (config: Record<string, unknown>) => {
+        const existingAgents = (config.agent as Record<string, unknown>) ?? {};
+        
+        // Register agents for OpenCode UI display
+        const orchestratorAgents: Record<string, unknown> = {
+            orchestrator: {
+                name: "Orchestrator",
+                description: "Mission Commander",
+                systemPrompt: "...",
+            },
+            coder: {
+                name: "Coder",
+                description: "Implementation specialist",
+                systemPrompt: "...",
+            },
+            // ... other agents
+        };
+
+        config.agent = {
+            ...orchestratorAgents,
+            ...existingAgents,
+        };
+    }
+};
+```
+
+### How It Works
+
+1. **Agent Registration**: The `config.agent` object registers agents with OpenCode
+2. **UI Display**: Registered agents appear in the bottom bar
+3. **Tab Switching**: Users can press `tab` to switch between agents
+
+### Verification
+
+After installation, check if agents are registered:
+```bash
+cat ~/.config/opencode/opencode.json | jq '.agent'
+# Should show: { "orchestrator": {...}, "coder": {...}, ... }
+```
+
+---
+
+## Local Development Testing
+
+### Test Local Build Before Publishing
+
+1. **Uninstall global package**:
+   ```bash
+   npm uninstall -g opencode-orchestrator
+   ```
+
+2. **Build locally**:
+   ```bash
+   npm run build:js
+   ```
+
+3. **Install from local directory**:
+   ```bash
+   npm install -g .
+   ```
+
+4. **Restart OpenCode**:
+   ```bash
+   opencode
+   ```
+
+5. **Verify commands and agents**:
+   - Type `/task` - should appear in autocomplete
+   - Press `tab` - should see agents in list
+
+6. **If working, publish**:
+   ```bash
+   npm run release:patch
+   ```
+
+---
+
 ## References
 
 - [OpenCode Plugin API](https://opencode.ai/docs/plugins)
@@ -200,4 +289,5 @@ OpenCode may use these for plugin resolution:
 
 ---
 
-**Last Updated**: 2026-01-13
+**Last Updated**: 2026-01-14
+
