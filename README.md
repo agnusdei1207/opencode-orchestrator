@@ -1,4 +1,4 @@
-# OpenCode Orchestrator
+# OpenCode Orchestrator Plugin
 
 > **Multi-Agent Plugin for [OpenCode](https://opencode.ai)**
 
@@ -70,13 +70,31 @@ User Request
 
 ---
 
-## Install
+## Installation
+
+### Recommended (Global Install)
+To ensure the plugin is accessible to OpenCode from any project, install it globally using `npm`:
 
 ```bash
-npm install opencode-orchestrator
+npm install -g opencode-orchestrator
 ```
 
-Auto-registers with OpenCode. Just restart.
+> **Note**: After installation, restart OpenCode or run `opencode` in your terminal.
+> The plugin will automatically register itself in `~/.config/opencode/opencode.json`.
+
+### Using Bun?
+You can also use Bun, but `npm` is recommended for maximum compatibility with OpenCode's plugin resolution.
+
+```bash
+bun install -g opencode-orchestrator
+```
+
+### Troubleshooting
+If the command `/auto` does not appear:
+1. Uninstall: `npm uninstall -g opencode-orchestrator`
+2. Clear config: `rm -rf ~/.config/opencode` (Warning: resets all plugins)
+3. Reinstall: `npm install -g opencode-orchestrator`
+
 
 ---
 
