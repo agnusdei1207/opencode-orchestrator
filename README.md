@@ -72,26 +72,24 @@ User Request
 
 ## Installation
 
-### Recommended (Global Install)
-To ensure the plugin is accessible to OpenCode from any project, install it globally using `npm`:
+You can use **npm** or **bun**. Both work perfectly because the core logic runs in a native **Rust binary**.
 
+### Option 1: npm (Standard)
 ```bash
 npm install -g opencode-orchestrator
 ```
 
-> **Note**: After installation, restart OpenCode or run `opencode` in your terminal.
-> The plugin will automatically register itself in `~/.config/opencode/opencode.json`.
-
-### Using Bun?
-You can also use Bun, but `npm` is recommended for maximum compatibility with OpenCode's plugin resolution.
-
+### Option 2: Bun (Fast)
 ```bash
 bun install -g opencode-orchestrator
 ```
 
+> **Note**: After installation, **restart OpenCode** or run `opencode` in your terminal.
+> The plugin will automatically register itself in `~/.config/opencode/opencode.json` with its absolute path.
+
 ### Troubleshooting
 If the command `/auto` does not appear:
-1. Uninstall: `npm uninstall -g opencode-orchestrator`
+1. Uninstall: `npm uninstall -g opencode-orchestrator` (or `bun remove -g`)
 2. Clear config: `rm -rf ~/.config/opencode` (Warning: resets all plugins)
 3. Reinstall: `npm install -g opencode-orchestrator`
 
