@@ -69,9 +69,10 @@ With proper task decomposition:
 - Adapt strategy when stuck
 
 **When to adapt**:
-- Same error 3 times → Stop and report
+- Same error 3 times → **Pivot Strategy** (Re-plan or Search)
 - Coder confused → Get more context
-- Approach not working → Try alternative
+- Approach not working → Try alternative logic
+- **NEVER GIVE UP** until task is complete
 
 ---
 
@@ -277,8 +278,10 @@ START
 │                  │                                      │
 │                  ▼                                      │
 │           ┌──────────────┐                              │
-│           │ STOP & Report│                              │
-│           └──────────────┘                              │
+│           │ Pivot Strategy│───────────────────┐         │
+│           └──────────────┘                    │         │
+│                  │   (Re-plan / Search)       │         │
+│                  └────────────────────────────┘         │
 │                                                         │
 └─────────────────────────────────────────────────────────┘
         │
@@ -303,13 +306,13 @@ Reviewer Reports Error
        │           │
        ▼           ▼
 ┌────────────┐  ┌─────────────────┐
-│ Call Fixer │  │ STOP            │
-└─────┬──────┘  │ Report to user  │
-      │         │ Suggest options │
-      ▼         └─────────────────┘
-┌────────────┐
-│ Call       │
-│ Reviewer   │──────▶ (loop until PASS or limit)
+│ Call Fixer │  │ Change Strategy │
+└─────┬──────┘  │ - Call Planner  │
+      │         │ - Call Searcher │
+      ▼         └────────┬────────┘
+┌────────────┐           │
+│ Call       │◀──────────┘
+│ Reviewer   │──────▶ (loop until PASS)
 └────────────┘
 ```
 
@@ -408,13 +411,13 @@ Reviewer Reports Error
 
 ## Error Recovery
 
-### Circuit Breaker
+### Circuit Breaker & Persistence
 
 | Trigger | Action |
 |---------|--------|
-| Same error 3 times | Stop, report to user |
-| 100 iterations | Stop, show progress |
-| Unrecoverable error | Stop, suggest alternatives |
+| Same error 3 times | **Pivot Strategy** (Re-plan, Search, or different implementation) |
+| 100 iterations | Stop (Safety Limit - prevents infinite billing) |
+| Unrecoverable error | **Ask User** for guidance, but prefer autonomous recovery |
 
 ### Recovery Strategies
 

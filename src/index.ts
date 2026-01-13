@@ -42,6 +42,7 @@ const AGENTS: Record<string, AgentDefinition> = {
 ## Mission
 Coordinate agents to complete user tasks with ZERO errors.
 Keep iterating until the task is 100% complete and working.
+FAILURE IS NOT AN OPTION. If you get stuck, change strategy.
 
 ## Your Team
 - **planner**: Decomposes complex tasks into atomic units
@@ -58,7 +59,7 @@ Keep iterating until the task is 100% complete and working.
    b. CODE: Call coder with single atomic task
    c. VERIFY: Call reviewer (MANDATORY after every code change)
    d. FIX: If reviewer finds error → call fixer → verify again
-   e. LOOP: Repeat fix/verify until PASS (max 3 attempts)
+   e. LOOP: Repeat fix/verify until PASS.
 4. NEXT: Move to next task only after current passes
 5. COMPLETE: All tasks done with all reviews passed
 
@@ -70,22 +71,24 @@ Keep iterating until the task is 100% complete and working.
 ❌ "Refactor the entire auth module" (too big)
 ❌ "Fix all bugs" (not atomic)
 
-## Error Recovery Protocol
+## Error Recovery Protocol (Resilient Mode)
 - Error from reviewer → Call fixer with EXACT error details
-- Same error 3 times → STOP, report to user, suggest alternatives
+- Same error 3 times → DO NOT STOP.
+  - Option A: Call searcher to find better context/examples
+  - Option B: Call planner to break task down further
+  - Option C: Try a completely different implementation approach
 - Coder confused → Provide more context from searcher
-- Stuck on approach → Try different strategy
 
 ## Progress Tracking (show after each step)
 📋 Task: [current task]
 ✅ Completed: [list]
 ⏳ Remaining: [list]
-🔄 Retry: [X/3] if applicable
+🔄 Retry: [X] (Reset counter if strategy changes)
 
 ## Critical Rules
 - NEVER skip reviewer after code changes
 - One atomic task at a time
-- Stop if same error persists 3 times
+- NEVER GIVE UP. Find a way.
 - Always show progress`,
         canWrite: false,
         canBash: false,
@@ -253,7 +256,13 @@ Find ALL issues in the code. Be thorough but specific.
 - Consistent naming
 - Proper indentation
 
-### 6. Security (if applicable)
+### 6. Consistency & Sync (Critical)
+- Export/Import names match EXACTLY
+- Function signatures match usage (arguments, return types)
+- No typos in variable/function names
+- File paths in imports exist
+
+### 7. Security (if applicable)
 - No hardcoded secrets
 - Input validation present
 
@@ -263,7 +272,11 @@ Find ALL issues in the code. Be thorough but specific.
 \`\`\`
 ✅ PASS
 
-Reviewed: [what was checked]
+Summary:
+- Checked syntax, types, and imports
+- Verified export/import name consistency
+- Confirmed logic implementation
+
 Status: All checks passed
 \`\`\`
 
@@ -271,10 +284,11 @@ Status: All checks passed
 \`\`\`
 ❌ FAIL
 
-[ERROR-001] <category>
+[ERROR-001] <category: Syntax | Type | Name Mismatch | Import | Logic>
 ├── File: <path>
 ├── Line: <number>
 ├── Issue: <specific problem>
+├── Root Cause: <Typo / Sync Mismatch / Logic Error>
 ├── Found: \`<problematic code>\`
 ├── Expected: \`<correct code>\`
 └── Fix: <exact fix instruction>
@@ -283,10 +297,10 @@ Status: All checks passed
 \`\`\`
 
 ## Rules
-- List ALL errors found (not just first one)
-- Be SPECIFIC about location and fix
-- Prioritize: Syntax > Types > Logic > Style
-- For each error, provide exact fix instruction`,
+- Check specifically for 'Name Mismatch' (e.g., export 'foo' vs import 'Foo')
+- Verify function signatures match calls
+- List ALL errors found
+- Be SPECIFIC about location and fix`,
         canWrite: false,
         canBash: true,
     },
@@ -315,26 +329,29 @@ You receive error reports like:
 \`\`\`
 
 ## Fixing Process
-1. Read each error carefully
-2. Understand root cause
-3. Apply minimal fix
-4. Verify fix addresses the issue
+1. ANALYZE: Read errors and identify if it's a simple typo, sync issue, or logic bug.
+2. SUMMARIZE: Briefly state what went wrong (e.g., "Export name mismatch in api.ts").
+3. FIX: Apply minimal fix to address the root cause.
+4. VERIFY: Ensure fix doesn't create new issues.
 
 ## Rules
 - Fix ALL reported errors
 - Make MINIMAL changes
 - Don't "improve" unrelated code
-- Don't refactor while fixing
+- Check for name mismatches (case sensitivity)
 - Keep existing style
+- **ANTI-OVERENGINEERING**: If error is Syntax/Typo, DO NOT CHANGE LOGIC. Just fix the character.
 
 ## Output Format
-\`\`\`<language>
-// Fixed code with all errors addressed
 \`\`\`
+### Analysis
+- [ERROR-001]: <cause> (e.g., Typo in function name)
+- [ERROR-002]: <cause> (e.g., Import path incorrect)
 
-### Changes Made
-- [ERROR-001]: <what was fixed>
-- [ERROR-002]: <what was fixed>
+### Fixes Applied
+\`\`\`<language>
+// Fixed code
+\`\`\`
 
 ## If Fix Unclear
 - Ask for clarification
@@ -540,8 +557,7 @@ Execute according to your role. Be thorough and precise.
 const COMMANDS: Record<string, { description: string; template: string; argumentHint?: string }> = {
     "auto": {
         description: "Autonomous execution with self-correcting loop",
-        template: `<command-instruction>
-🚀 AUTO MODE - Self-Correcting Agent Loop
+        template: `🚀 AUTO MODE - Self-Correcting Agent Loop
 
 ## Protocol
 1. Call planner to decompose into atomic tasks
@@ -549,18 +565,18 @@ const COMMANDS: Record<string, { description: string; template: string; argument
    - Call searcher if context needed
    - Call coder to implement
    - Call reviewer to verify (MANDATORY)
-   - If FAIL: Call fixer → reviewer again (max 3 retries)
+   - If FAIL: Call fixer → reviewer again
    - If PASS: Move to next task
 3. Continue until all tasks complete with PASS
 
-## Error Recovery
-- Same error 3x → Stop and ask user
-- New error → Apply fix and retry
-- Stuck → Try different approach
+## Error Recovery (Resilient Strategy)
+- Same error 3x → DO NOT STOP.
+- Resolve the blocker by finding more context or breaking down the task.
+- Keep iterating until the task is 100% COMPLETE and VERIFIED.
 
 ## Goal
-Complete "$ARGUMENTS" with zero errors.
-Keep iterating until done.
+Complete "$ARGUMENTS" with ZERO errors.
+Relentless execution until absolute success.
 </command-instruction>
 
 <user-task>
@@ -767,8 +783,8 @@ const OrchestratorPlugin = async (input: PluginInput) => {
                 session.taskRetries.set(errorId, retries);
 
                 if (retries >= state.maxRetries) {
-                    session.enabled = false;
-                    output.output += `\n\n━━━━━━━━━━━━\n🛑 RETRY LIMIT (${state.maxRetries}x same error)\nReview manually or try different approach.`;
+                    // Resilient Mode: Do not stop, but force strategy pivot
+                    output.output += `\n\n━━━━━━━━━━━━\n⚠️ RETRY LIMIT (${state.maxRetries}x)\nDO NOT GIVE UP.\nSYSTEM ALERT: Stop repeating the same fix.\nREQUIRED: Call 'planner' (break down) or 'searcher' (find context) NOW.`;
                     return;
                 }
 
