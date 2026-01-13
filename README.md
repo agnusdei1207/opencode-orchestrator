@@ -7,6 +7,8 @@
 [![npm](https://img.shields.io/npm/v/opencode-orchestrator.svg)](https://www.npmjs.com/package/opencode-orchestrator)
 [![npm downloads](https://img.shields.io/npm/dt/opencode-orchestrator.svg)](https://www.npmjs.com/package/opencode-orchestrator)
 [![OpenCode Plugin](https://img.shields.io/badge/OpenCode-Plugin-purple.svg)](https://opencode.ai)
+
+[English](README.md) | [한국어](README.ko.md) | [简体中文](README.zh.md)
 </div>
 
 ---
@@ -24,9 +26,9 @@ A 6-agent collaborative system that turns any LLM into a reliable coding team.
 | Traditional | With Orchestrator |
 |-------------|-------------------|
 | One big prompt → Hope it works | Atomic tasks → Verified every step |
-| Expensive model required | Any model works |
+| Expensive model required | Fixed, affordable models work |
 | Errors compound silently | Self-correcting loop |
-| Unpredictable results | **Relentless execution until success** |
+| Unpredictable results | **Relentless execution (Sisyphus Strategy)** |
 
 ---
 
@@ -154,6 +156,22 @@ MIT License. No telemetry. No backdoors.
 MIT License. NO WARRANTY.
 
 [MIT](LICENSE)
+
+---
+
+## 🏛️ Project Philosophy: The Sisyphus Strategy
+
+We don't believe in "fast" AI. We believe in **correct** AI. Like Sisyphus, our agents are relentless. They don't stop when they hit an error; they pivot, re-plan, and push the boulder back up until it stays at the top.
+
+### The 5-Phase Mission Workflow
+
+1.  **🧠 Phase 1: Deep Analysis (Think First)**: No blind coding. Agents must read documents and summarize the project core boundaries first.
+2.  **🌲 Phase 2: Hierarchical Planning**: Decomposition from a high-level architectural vision down to sub-atomic, parallel micro-tasks (JSON DAG).
+3.  **� Phase 3: Parallel Execution**: Concurrent execution of independent tasks to maximize efficiency.
+4.  **🛡️ Phase 4: Global Sync Gate**: After parallel streams merge, a **Global Consistency Check** ensures all files, imports, and exports stay in perfect sync.
+5.  **⏳ Phase 5: Relentless Completion**: No arbitrary time limits. Success is only defined by a 100% verified PASS. We execute as long as it takes to reach perfection.
+
+---
 
 ---
 
