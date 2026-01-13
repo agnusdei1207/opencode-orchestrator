@@ -22,6 +22,9 @@
         "plugin",
         "code-generation"
     ],
+    "bin": {
+        "orchestrator": "dist/cli.js"
+    },
     "main": "dist/index.js",
     "types": "dist/index.d.ts",
     "type": "module",
@@ -38,29 +41,19 @@
         "LICENSE"
     ],
     "scripts": {
-        "build:rust:linux-x64": "docker compose run --rm dev sh -c 'cargo build --release && cp target/release/orchestrator bin/orchestrator-linux-x64' && chmod +x bin/orchestrator-linux-x64",
-        "build:rust:linux-arm64": "docker compose run --rm dev sh -c 'rustup target add aarch64-unknown-linux-gnu && apt-get update && apt-get install -y gcc-aarch64-linux-gnu && CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc cargo build --release --target aarch64-unknown-linux-gnu && cp target/aarch64-unknown-linux-gnu/release/orchestrator bin/orchestrator-linux-arm64' && chmod +x bin/orchestrator-linux-arm64",
-        "build:rust:macos-arm64": "cargo build --release --target aarch64-apple-darwin && cp target/aarch64-apple-darwin/release/orchestrator bin/orchestrator-macos-arm64 && chmod +x bin/orchestrator-macos-arm64",
-        "build:rust:macos-x64": "cargo build --release --target x86_64-apple-darwin && cp target/x86_64-apple-darwin/release/orchestrator bin/orchestrator-macos-x64 && chmod +x bin/orchestrator-macos-x64",
-        "build:rust:windows": "cargo build --release --target x86_64-pc-windows-msvc && cp target/x86_64-pc-windows-msvc/release/orchestrator.exe bin/orchestrator-windows-x64.exe",
-        "build:rust:all": "bun run build:rust:linux-x64 && bun run build:rust:linux-arm64 && bun run build:rust:macos-arm64 && bun run build:rust:macos-x64",
-        "build:ts": "bun build src/index.ts --outdir dist --target bun --format esm --sourcemap=none && tsc --emitDeclarationOnly",
-        "build:scripts": "mkdir -p dist/scripts && bun build scripts/postinstall.ts --outdir dist/scripts --target node",
-        "build": "bun run build:ts && bun run build:scripts",
-        "build:full": "bun run build:rust:all && bun run build",
+        "build:bin:linux-x64": "docker compose run --rm dev sh -c 'cargo build --release && cp target/release/orchestrator bin/orchestrator-linux-x64' && chmod +x bin/orchestrator-linux-x64",
+        "build:bin:linux-arm64": "docker compose run --rm dev sh -c 'rustup target add aarch64-unknown-linux-gnu && apt-get update && apt-get install -y gcc-aarch64-linux-gnu && CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc cargo build --release --target aarch64-unknown-linux-gnu && cp target/aarch64-unknown-linux-gnu/release/orchestrator bin/orchestrator-linux-arm64' && chmod +x bin/orchestrator-linux-arm64",
+        "build:bin": "bun run build:bin:linux-x64 && bun run build:bin:linux-arm64",
+        "build:js": "bun build src/index.ts --outdir dist --target bun --format esm --sourcemap=none && bun build src/cli.ts --outdir dist --target node --format esm --sourcemap=none && tsc --emitDeclarationOnly && mkdir -p dist/scripts && bun build scripts/postinstall.ts --outdir dist/scripts --target node",
+        "build": "bun run build:bin && bun run build:js",
         "test": "docker compose run --rm test",
-        "test:local": "cargo test",
-        "version:patch": "npm version patch --no-git-tag-version",
-        "version:minor": "npm version minor --no-git-tag-version",
-        "version:major": "npm version major --no-git-tag-version",
-        "prepublishOnly": "bun run build",
-        "publish:npm": "npm publish --access public",
-        "release:patch": "bun run build:full && bun run test && bun run version:patch && bun run publish:npm && bun run release:git",
-        "release:minor": "bun run build:full && bun run test && bun run version:minor && bun run publish:npm && bun run release:git",
-        "release:major": "bun run build:full && bun run test && bun run version:major && bun run publish:npm && bun run release:git",
-        "release:git": "git add -A && git commit -m \"Release v$(node -p \"require('./package.json').version\")\" && git tag \"v$(node -p \"require('./package.json').version\")\" && git push && git push --tags",
+        "release:patch": "bun run build && bun run test && npm version patch --no-git-tag-version && bun run release:ship",
+        "release:minor": "bun run build && bun run test && npm version minor --no-git-tag-version && bun run release:ship",
+        "release:major": "bun run build && bun run test && npm version major --no-git-tag-version && bun run release:ship",
+        "release:ship": "npm publish --access public && git add -A && git commit -m \"v$(node -p \"require('./package.json').version\")\" && git tag \"v$(node -p \"require('./package.json').version\")\" && git push && git push --tags",
         "postinstall": "node dist/scripts/postinstall.js 2>/dev/null || true",
-        "stars": "gh api repos/agnusdei1207/opencode-orchestrator/stargazers --jq '.[].login'"
+        "prepublishOnly": "bun run build:js",
+        "util:stars": "gh api repos/agnusdei1207/opencode-orchestrator/stargazers --jq '.[].login'"
     },
     "dependencies": {
         "@opencode-ai/plugin": "^1.1.1",
