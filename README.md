@@ -18,9 +18,9 @@
 
 ## What is this?
 
-A 6-agent collaborative system that makes even **lower-performance models** act as a highly reliable coding team.
+A 6-agent collaborative system that maximizes **Agent Orchestration** to extract **Ultimate Decision Quality** from **affordable, lower-performance models**.
 
-**Core idea**: Break complex tasks into atomic units, verify each step, fix errors automatically.
+**Core idea**: By strategically organizing roles, breaking work into micro-tasks, and enforcing strict verification rules, we achieve "Expensive Model" results with "Budget Model" costs.
 
 ---
 
@@ -28,21 +28,21 @@ A 6-agent collaborative system that makes even **lower-performance models** act 
 
 | Traditional | With Orchestrator |
 |-------------|-------------------|
-| One big prompt → Hope it works | Atomic tasks → Verified every step |
-| Expensive model required | Fixed, affordable models work |
-| Errors compound silently | Self-correcting loop |
-| Unpredictable results | **Relentless execution strategy** |
+| Expensive "Smart" Model required | **Affordable Model + Smart Process** |
+| High Token Costs (Huge Context) | **Token Efficient** (Filtered Context) |
+| Linear, Slow Execution | **Parallel, Fast Execution** |
+| Errors compound silently | **Self-Correcting Verification Loops** |
+| "Hope it works" | **Strategic Micro-Tasking** |
 
 ---
 
-- **🧩 Parallel DAG Orchestration** — Concurrent execution of independent tasks
-- **🎯 Fixed-Model Optimization** — High reliability even with low-performance LLMs
-- **🦀 Rust Core** — Fast, memory-safe search and analysis tools
-- **🧠 Micro-Task 2.0** — JSON-based atomic task decomposition
+- **🧩 Strategic Organization** — Maximizing output through intelligent role distribution
+- **📉 Token Economy** — Filtering noise to reduce costs and increase focus
+- **⚡ Parallel DAG** — Concurrent execution for speed and efficiency
+- **🔍 Micro-Tasking** — Atomic decomposition to prevent hallucinations
 - **🛡️ Style Guardian** — Strict AST-based linting and consistency checks
-- **🔄 Self-Healing Loop** — Autonomous pivot strategies for complex errors
-- **🏘️ Intelligent Grouping** — Coder + Reviewer pairing for every task
-- **🏗️ Rust-Powered Core** — Native performance for heavy lifting
+- **🔄 Self-Healing** — Autonomous pivot strategies for complex errors
+- **🏗️ Rust Core** — Native performance for heavy lifting
 
 ---
 
@@ -162,17 +162,46 @@ MIT License. NO WARRANTY.
 
 ---
 
-## 🏛️ Project Philosophy: Relentless Execution
+## 🏛️ The Architecture: Distributed Cognitive Orchestration (DCO)
 
-We don't believe in "fast" AI. We believe in **correct** AI. Our agents are relentless. They don't stop when they hit an error; they pivot, re-plan, and push forward until the goal is achieved.
+We have moved beyond the paradigm of a "single smart chatbot". **OpenCode Orchestrator** is a **Deterministic Engineering Layer** built atop the stochastic nature of Large Language Models.
 
-### The 5-Phase Mission Workflow
+We treat agents not as personalities, but as **Semantic Compute Units**. By applying rigorous Computer Science principles, we achieve a level of reliability that no single model—regardless of parameter count—can match.
 
-1.  **🧠 Phase 1: Deep Analysis (Think First)**: No blind coding. Agents must read documents and summarize the project core boundaries first.
-2.  **🌲 Phase 2: Hierarchical Planning**: Decomposition from a high-level architectural vision down to sub-atomic, parallel micro-tasks (JSON DAG).
-3.  **� Phase 3: Parallel Execution**: Concurrent execution of independent tasks to maximize efficiency.
-4.  **🛡️ Phase 4: Global Sync Gate**: After parallel streams merge, a **Global Consistency Check** ensures all files, imports, and exports stay in perfect sync.
-5.  **⏳ Phase 5: Relentless Completion**: No arbitrary time limits. Success is only defined by a 100% verified PASS. We execute as long as it takes to reach perfection.
+### 🧬 The "Grand Fusion" of Computer Science
+We explicitly fused three massive domains into one seamless workflow:
+
+1.  **Distributed Systems Theory (The "Actor Model")**:
+    *   **Independent Agents**: The Planner, Coder, and Searcher operate as independent **Actors** with isolated state.
+    *   **Byzantine Fault Tolerance**: The **Reviewer** acts as a consensus node, rigorously validating code against project standards to prevent "hallucinated" regressions.
+
+2.  **Algorithmic Efficiency (MapReduce & Divide & Conquer)**:
+    *   **Map (Planner)**: Complex missions are recursively decomposed ($O(log n)$ complexity) into atomic 20-line tasks.
+    *   **Reduce (Orchestrator)**: Parallel execution streams are aggregated, synchronized, and merged into the final consistent state.
+
+3.  **Kernel Operating Principles (Scheduling & Memory)**:
+    *   **Context Sharding (Virtual Memory)**: We treat Context Window as RAM. Massive docs are sharded into `temp_context` files (Page Swapping) and loaded only on "Page Faults" (Information Gaps).
+    *   **DAG Scheduling**: Tasks form a non-blocking Directed Acyclic Graph, optimizing for wall-clock time over thread concurrency.
+
+### 🚀 The Command: `/flow`
+
+The interface to this power is a single, intuitive command:
+
+```bash
+/flow "Refactor the authentication middleware and implement JWT rotation"
+```
+
+This ensures **"Operational Flow"**. It signifies a stream of intelligent actions flowing from intent to realization, managed by a rigid, self-correcting graph.
+
+### The 5-Phase Efficiency Workflow
+
+1.  **🧠 Phase 1: Filtered Analysis**: The **Searcher** reads docs but filters out noise. We only feed the "critical path" to the Planner.
+2.  **🌲 Phase 2: Strategic Planning**: The **Planner** creates a JSON DAG. This is our roadmap. No token is wasted on aimless wandering.
+3.  **🚀 Phase 3: Parallel Execution**: The **Orchestrator** identifies independent tasks and runs them concurrently.
+4.  **🛡️ Phase 4: Sync & Verify**: The **Reviewer** acts as the gatekeeper. It checks syntax, logic, and *cross-file consistency*.
+5.  **💰 Phase 5: Cost-Effective Completion**: We achieve "Senior Developer" results at "Junior Intern" prices.
+
+---
 
 ---
 
