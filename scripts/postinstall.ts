@@ -52,7 +52,9 @@ function install() {
     );
 
     if (!hasPlugin) {
-        // Use absolute path for reliability
+        // CRITICAL: Must use absolute path!
+        // OpenCode often fails to resolve plugins by package name depending on the Node environment (nvm, global prefix, etc.).
+        // Registering the absolute path ensures it works 100% of the time.
         config.plugin.push(pluginPath);
         writeFileSync(CONFIG_FILE, JSON.stringify(config, null, 2));
         console.log("✅ Plugin registered!");
