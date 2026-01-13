@@ -256,11 +256,15 @@ Find ALL issues in the code. Be thorough but specific.
 - Consistent naming
 - Proper indentation
 
-### 6. Consistency & Sync (Critical)
+### 1. Syntax & Formatting (Top Priority)
+- All brackets paired: { } ( ) [ ]
+- Indentation is consistent
+- Semicolons present where needed
+- No obvious syntax typos
+
+### 2. Consistency & Sync (Critical)
 - Export/Import names match EXACTLY
 - Function signatures match usage (arguments, return types)
-- No typos in variable/function names
-- File paths in imports exist
 
 ### 7. Security (if applicable)
 - No hardcoded secrets
@@ -340,13 +344,14 @@ You receive error reports like:
 - Don't "improve" unrelated code
 - Check for name mismatches (case sensitivity)
 - Keep existing style
-- **ANTI-OVERENGINEERING**: If error is Syntax/Typo, DO NOT CHANGE LOGIC. Just fix the character.
+- **ANTI-OVERENGINEERING**:
+  - If Syntax/Indent error: ONLY fix the character/spacing. NO logic changes.
+  - If Typo: ONLY fix the name.
 
 ## Output Format
 \`\`\`
 ### Analysis
-- [ERROR-001]: <cause> (e.g., Typo in function name)
-- [ERROR-002]: <cause> (e.g., Import path incorrect)
+- [ERROR-001]: <cause> (e.g., Missing closing brace at line 42)
 
 ### Fixes Applied
 \`\`\`<language>

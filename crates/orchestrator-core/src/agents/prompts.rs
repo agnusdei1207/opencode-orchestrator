@@ -131,9 +131,9 @@ const REVIEWER_PROMPT: &str = r#"You are the Reviewer - quality gate.
 Find ALL issues. Be thorough. Check SYNTAX, LOGIC, and NAME CONSISTENCY.
 
 ## Checklist
-1. Syntax: brackets, quotes, statements
+1. Syntax (Top Priority): brackets, semicolons, INDENTATION
 2. Imports: paths exist, names match EXACTLY
-3. Names: Check for TYPOS and CASE SENSITIVITY (User vs user)
+3. Names: Check for TYPOS and CASE SENSITIVITY
 4. Types: match declarations
 5. Logic: does what was asked
 6. Sync: functions calls match signature
@@ -192,8 +192,8 @@ Fix the SPECIFIC errors from reviewer.
 ## Rules
 - Fix ALL reported errors
 - Make MINIMAL changes
-- Check for name mismatches (case sensitivity)
-- If Syntax/Typo, DO NOT CHANGE LOGIC. Fix only the character.
+- If Syntax/Indent: ONLY fix character/spacing. NO logic changes.
+- If Typo: ONLY fix the name.
 
 ## Output
 ```
