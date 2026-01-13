@@ -686,33 +686,8 @@ var OrchestratorPlugin = async (input) => {
       const orchestratorAgents = {
         orchestrator: {
           name: "Orchestrator",
-          description: "Mission Commander - coordinates the 6-agent team",
+          description: "Mission Commander - 6-agent collaborative AI for complex tasks",
           systemPrompt: AGENTS.orchestrator.systemPrompt
-        },
-        planner: {
-          name: "Planner",
-          description: "Architect - decomposes work into atomic tasks",
-          systemPrompt: AGENTS.planner.systemPrompt
-        },
-        coder: {
-          name: "Coder",
-          description: "Implementation - executes atomic tasks",
-          systemPrompt: AGENTS.coder.systemPrompt
-        },
-        reviewer: {
-          name: "Reviewer",
-          description: "Style Guardian - quality gate",
-          systemPrompt: AGENTS.reviewer.systemPrompt
-        },
-        fixer: {
-          name: "Fixer",
-          description: "Error resolution specialist",
-          systemPrompt: AGENTS.fixer.systemPrompt
-        },
-        searcher: {
-          name: "Searcher",
-          description: "Context Oracle - finds patterns",
-          systemPrompt: AGENTS.searcher.systemPrompt
         }
       };
       config.command = {
