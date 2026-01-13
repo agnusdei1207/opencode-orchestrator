@@ -732,6 +732,25 @@ const OrchestratorPlugin = async (input: PluginInput) => {
             glob_search: globSearchTool(directory),
         },
 
+        // Register commands so they appear in OpenCode's autocomplete menu
+        config: async (config: Record<string, unknown>) => {
+            const existingCommands = (config.command as Record<string, unknown>) ?? {};
+
+            // Convert COMMANDS to OpenCode command format
+            const orchestratorCommands: Record<string, unknown> = {};
+            for (const [name, cmd] of Object.entries(COMMANDS)) {
+                orchestratorCommands[name] = {
+                    description: cmd.description,
+                    template: cmd.template,
+                };
+            }
+
+            config.command = {
+                ...orchestratorCommands,
+                ...existingCommands,
+            };
+        },
+
         "chat.message": async (input: any, output: any) => {
             const parts = output.parts as Array<{ type: string; text?: string }>;
             const textPartIndex = parts.findIndex(p => p.type === "text" && p.text);

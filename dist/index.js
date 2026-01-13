@@ -12968,6 +12968,20 @@ var OrchestratorPlugin = async (input) => {
       grep_search: grepSearchTool(directory),
       glob_search: globSearchTool(directory)
     },
+    config: async (config2) => {
+      const existingCommands = config2.command ?? {};
+      const orchestratorCommands = {};
+      for (const [name, cmd] of Object.entries(COMMANDS)) {
+        orchestratorCommands[name] = {
+          description: cmd.description,
+          template: cmd.template
+        };
+      }
+      config2.command = {
+        ...orchestratorCommands,
+        ...existingCommands
+      };
+    },
     "chat.message": async (input2, output) => {
       const parts = output.parts;
       const textPartIndex = parts.findIndex((p) => p.type === "text" && p.text);
