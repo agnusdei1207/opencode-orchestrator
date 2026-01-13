@@ -4,12 +4,13 @@
 
 <div align="center">
 
-[![MIT License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![MIT License](https://img.shields.io/badge/license-MIT-blue.svg)](../../LICENSE)
 [![npm](https://img.shields.io/npm/v/@agnusdei1207/opencode-orchestrator.svg)](https://www.npmjs.com/package/@agnusdei1207/opencode-orchestrator)
 [![npm downloads](https://img.shields.io/npm/dt/@agnusdei1207/opencode-orchestrator.svg)](https://www.npmjs.com/package/@agnusdei1207/opencode-orchestrator)
 [![OpenCode Plugin](https://img.shields.io/badge/OpenCode-Plugin-purple.svg)](https://opencode.ai)
 
-[English](README.md) | [한국어](README.ko.md) | [简体中文](README.zh.md)
+[English](../../README.md) | [한국어](README.ko.md) | [简体中文](README.zh.md) | [日本語](README.ja.md) | [Español](README.es.md) | [Français](README.fr.md) | [Deutsch](README.de.md)
+[Русский](README.ru.md) | [Português](README.pt.md)
 
 </div>
 
@@ -17,7 +18,7 @@
 
 ## 이것은 무엇인가요?
 
-6개의 에이전트가 협업하여 **저성능 모델(GLM-4.7 등)이라도** 최고의 신뢰성을 가진 코딩 팀으로 변모시키는 시스템입니다.
+6개의 에이전트가 협업하여 **저성능 모델이라도** 최고의 신뢰성을 가진 코딩 팀으로 변모시키는 시스템입니다.
 
 **핵심 아이디어**: 복잡한 작업을 원자 단위로 분해하고, 모든 단계를 검증하며, 에러를 자동으로 수정합니다.
 
@@ -129,8 +130,8 @@ bun install -g opencode-orchestrator
 
 ---
 
-- [아키텍처 딥다이브](docs/ARCHITECTURE.md) — DAG 작동 방식
-- [설정 가이드](examples/orchestrator.jsonc) — 설정 커스터마이징
+- [아키텍처 딥다이브](../ARCHITECTURE.md) — DAG 작동 방식
+- [설정 가이드](../../examples/orchestrator.jsonc) — 설정 커스터마이징
 
 ---
 
@@ -144,7 +145,7 @@ MIT 라이선스. 텔레메트리 없음. 백도어 없음.
 
 ## 저자의 한 마디
 
-> 저의 목표는 올바른 구조만 갖춰진다면 **GLM-4.7과 같은 보급형 모델**도 비싼 API만큼 훌륭한 결과를 낼 수 있음을 증명하는 것입니다.
+> 저의 목표는 올바른 구조만 갖춰진다면 **보급형 모델**도 비싼 API만큼 훌륭한 결과를 낼 수 있음을 증명하는 것입니다.
 >
 > 작업을 잘게 쪼개고, 모든 단계를 검증하며, 에러를 자동으로 수정하세요. 모델이 똑똑할 필요는 없습니다. 절차가 완벽하면 됩니다.
 >
@@ -155,6 +156,8 @@ MIT 라이선스. 텔레메트리 없음. 백도어 없음.
 ## 라이선스
 
 MIT License. NO WARRANTY.
+
+[MIT](../../LICENSE)
 
 ---
 
