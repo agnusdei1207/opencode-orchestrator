@@ -721,19 +721,8 @@ function detectSlashCommand(text: string): { command: string; args: string } | n
 // Plugin
 // ============================================================================
 
-// Debug utility
-import { appendFileSync } from "fs";
-const LOG_FILE = "/tmp/opencode_debug.log";
-const log = (msg: string) => {
-    try {
-        appendFileSync(LOG_FILE, `[${new Date().toISOString()}] ${msg}\n`);
-    } catch { }
-};
-
 const OrchestratorPlugin = async (input: PluginInput) => {
-    log("Plugin initializing...");
     const { directory } = input;
-    log(`Directory: ${directory}`);
 
     return {
         tool: {
@@ -745,7 +734,6 @@ const OrchestratorPlugin = async (input: PluginInput) => {
 
         // Register commands so they appear in OpenCode's autocomplete menu
         config: async (config: Record<string, unknown>) => {
-            log("Config handler called");
             const existingCommands = (config.command as Record<string, unknown>) ?? {};
 
             // Convert COMMANDS to OpenCode command format
