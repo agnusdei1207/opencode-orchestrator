@@ -17,88 +17,57 @@ pub enum AgentId {
     // COORDINATION
     // ═══════════════════════════════════════════════════════════════
 
-    /// **Orchestrator** - Traffic controller
+    /// **Orchestrator** - Mission Commander
     ///
-    /// Routes tasks to appropriate agents.
-    /// NEVER does actual work - only delegates.
-    /// Keeps track of progress and decides next agent.
+    /// Manages the Task DAG and parallel execution streams.
+    /// NEVER does work - only schedules and verifies.
     Orchestrator,
 
     // ═══════════════════════════════════════════════════════════════
-    // PLANNING - Micro-Tasking Specialist
+    // PLANNING
     // ═══════════════════════════════════════════════════════════════
 
-    /// **Planner** - Micro-task decomposition expert
+    /// **Planner** - The Architect
     ///
-    /// Breaks tasks into ATOMIC units:
-    /// - ONE file per task
-    /// - ONE function per task
-    /// - MAX 10 lines of code
-    /// - MAX 5 minutes per task
-    ///
-    /// Small models can't understand big picture.
-    /// Planner creates a step-by-step recipe.
+    /// Decomposes work into a JSON-based Directed Acyclic Graph (DAG).
+    /// Focuses on ultra-granular micro-tasks.
     Planner,
 
     // ═══════════════════════════════════════════════════════════════
-    // EXECUTION - Single-Focus Specialist
+    // EXECUTION
     // ═══════════════════════════════════════════════════════════════
 
-    /// **Coder** - Single-file, single-function specialist
+    /// **Coder** - Implementation Specialist
     ///
-    /// Only does ONE thing at a time:
-    /// - Touch ONE file
-    /// - Modify ONE function
-    /// - Add ONE feature
-    ///
-    /// Never touches multiple files in one task.
+    /// Executes single atomic tasks with complete, working code.
     Coder,
 
     // ═══════════════════════════════════════════════════════════════
-    // VERIFICATION - Comprehensive Quality Gate
+    // VERIFICATION
     // ═══════════════════════════════════════════════════════════════
 
-    /// **Reviewer** - Comprehensive quality gate
+    /// **Reviewer** - Style Guardian
     ///
-    /// Checks EVERYTHING after each Coder task:
-    /// - Syntax errors
-    /// - Type errors  
-    /// - Logic errors
-    /// - Code style consistency
-    /// - Naming conventions
-    /// - Modern patterns (latest stack)
-    /// - Security issues
-    /// - Performance red flags
-    ///
-    /// Must run after EVERY Coder task.
+    /// The absolute gatekeeper. Enforces perfection and style consistency.
+    /// Checks: Syntax, Style, Logic, Integrity, Security.
     Reviewer,
 
     // ═══════════════════════════════════════════════════════════════
-    // ERROR HANDLING - One-Error-At-A-Time
+    // REPAIR
     // ═══════════════════════════════════════════════════════════════
 
-    /// **Fixer** - Minimal error resolution specialist
+    /// **Fixer** - Targeted Repair
     ///
-    /// When Reviewer finds issues:
-    /// - Takes ONE error only
-    /// - Analyzes root cause
-    /// - Fixes ONLY that error
-    /// - No refactoring, no improvements
-    ///
-    /// Small models can't debug multiple errors at once.
+    /// Applies minimal fixes based on specific Reviewer feedback.
     Fixer,
 
     // ═══════════════════════════════════════════════════════════════
-    // SUPPORT - Context Provider
+    // SUPPORT
     // ═══════════════════════════════════════════════════════════════
 
-    /// **Searcher** - Find context in codebase
+    /// **Searcher** - Context Oracle
     ///
-    /// Before coding, find:
-    /// - Existing patterns to follow
-    /// - Similar implementations
-    /// - Files to modify
-    /// - Import patterns
+    /// Gather code patterns and documentation before implementation.
     Searcher,
 }
 
@@ -124,12 +93,12 @@ impl AgentId {
     /// Agent description
     pub fn description(&self) -> &'static str {
         match self {
-            Self::Orchestrator => "Traffic controller - routes tasks, NEVER does work",
-            Self::Planner => "Micro-task decomposition - 1 file, 1 function, 5 min max",
-            Self::Coder => "Single-focus execution - 1 file, 1 function at a time",
-            Self::Reviewer => "Quality gate - style, errors, modern stack, security",
-            Self::Fixer => "Minimal fixes - 1 error at a time, no refactoring",
-            Self::Searcher => "Context provider - find patterns before coding",
+            Self::Orchestrator => "Mission Commander - manages DAG and parallel execution",
+            Self::Planner => "The Architect - JSON-based DAG decomposition",
+            Self::Coder => "Execution Specialist - atomic task implementation",
+            Self::Reviewer => "Style Guardian - zero-tolerance quality gate",
+            Self::Fixer => "Targeted Repair - minimal fix application",
+            Self::Searcher => "Context Oracle - proactive code pattern gathering",
         }
     }
 

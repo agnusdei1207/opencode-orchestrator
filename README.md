@@ -30,41 +30,43 @@ A 6-agent collaborative system that turns any LLM into a reliable coding team.
 
 ---
 
-## Features
-
+- **🧩 Parallel DAG Orchestration** — Concurrent execution of independent tasks
+- **🎯 Fixed-Model Optimization** — High reliability even with low-performance LLMs
 - **🦀 Rust Core** — Fast, memory-safe search and analysis tools
-- **🧠 Micro-Task Architecture** — Atomic task decomposition for reliability
-- **🔄 Self-Correcting Loop** — Every change reviewed, errors auto-fixed
-- **👥 6-Agent Team** — Specialized roles working together
-- **🛡️ Resilient Execution** — Never stops on errors. Pivots strategy (Plan/Search) until success.
-- **⚡ Full Autonomy** — `/auto` is all you need. Relentless execution until 100% complete.
-- **🏗️ Rust-Powered Core** — Critical logic written in Rust for **peak performance** and **memory efficiency**.
-- **🪶 Thin TS Wrapper** — Minimal JavaScript overhead. The heavy lifting happens in the native binary.
+- **🧠 Micro-Task 2.0** — JSON-based atomic task decomposition
+- **🛡️ Style Guardian** — Strict AST-based linting and consistency checks
+- **🔄 Self-Healing Loop** — Autonomous pivot strategies for complex errors
+- **🏘️ Intelligent Grouping** — Coder + Reviewer pairing for every task
+- **🏗️ Rust-Powered Core** — Native performance for heavy lifting
 
 ---
 
-## How It Works
+## How It Works (Parallel DAG)
+
+Instead of a linear sequence, we use a **Directed Acyclic Graph (DAG)** to model your mission.
 
 ```
-User Request
-     │
-     ▼
-┌─────────┐
-│ PLANNER │ → Break into atomic tasks
-└────┬────┘
-     │
-     ▼
-┌──────────────────────────────────────────┐
-│  For each task:                          │
-│                                          │
-│   Search → Code → Review → Fix           │
-│       ↑                      │           │
-│       └──────────────────────┘           │
-│           (Never gives up)               │
-└──────────────────────────────────────────┘
-     │
-     ▼
-✅ Done
+      Mission Start (/dag)
+              │
+              ▼
+      ┌───────────────┐
+      │   PLANNER     │ (Architect)
+      └───────┬───────┘
+              │
+      ┌───────┴───────┐
+      │               │ (Parallel Streams)
+      ▼               ▼
+┌───────────┐   ┌───────────┐
+│ Tasks (A) │   │ Tasks (B) │
+└─────┬─────┘   └─────┬─────┘
+      │               │
+      └───────┬───────┘
+              ▼
+      ┌───────────────┐
+      │   REVIEWER    │ (Style Guardian)
+      └───────┬───────┘
+              ▼
+          ✅ MISSION COMPLETE
 ```
 
 ---
@@ -87,7 +89,7 @@ bun install -g opencode-orchestrator
 > The plugin will automatically register itself in `~/.config/opencode/opencode.json` with its absolute path.
 
 ### Troubleshooting
-If the command `/auto` does not appear:
+If the command `/dag` does not appear:
 1. Uninstall: `npm uninstall -g opencode-orchestrator` (or `bun remove -g`)
 2. Clear config: `rm -rf ~/.config/opencode` (Warning: resets all plugins)
 3. Reinstall: `npm install -g opencode-orchestrator`
@@ -95,23 +97,19 @@ If the command `/auto` does not appear:
 
 ---
 
-## Usage
+**The only command you need:**
 
-**Just type one command:**
-
-```
-/auto "Implement user authentication with JWT"
+```bash
+/dag "Implement user authentication with JWT"
 ```
 
 The Orchestrator will:
-1. **Plan** the architecture
-2. **Search** for context
-3. **Write** the code
-4. **Review** for errors
-5. **Fix** any issues
-6. **Repeat** until 100% verified.
-
-**This is the only command you need.**
+1. **Decompose** the mission into a JSON Task DAG
+2. **Parallel Execute** independent streams
+3. **Search** proactively for patterns
+4. **Code** with atomic precision
+5. **Verify** via the Style Guardian (MANDATORY)
+6. **Self-Heal** if errors occur
 
 ---
 
@@ -128,9 +126,7 @@ The Orchestrator will:
 
 ---
 
-## Documentation
-
-- [Architecture](docs/ARCHITECTURE.md) — Detailed workflow
+- [Architecture Deep-Dive](docs/ARCHITECTURE.md) — How the DAG works
 - [Configuration](examples/orchestrator.jsonc) — Customize settings
 
 ---
