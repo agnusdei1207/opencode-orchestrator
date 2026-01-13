@@ -12,14 +12,22 @@
 ---
 
 <p align="center">
-  <img src="assets/logo.png" width="600" />
+  <img src="assets/logo.png" width="450" />
 </p>
 
 ## What is this?
 
-**OpenCode Orchestrator** is a multi-agent orchestration framework that **abstracts the generative intelligence of LLMs into a structured and reliable computing resource**. It is designed to extract **Ultimate Decision Quality** from affordable, lower-performance models by treating LLM inference as a precision engineering component.
+**OpenCode Orchestrator** is a collaborative framework that enables **low-benchmark models to deliver senior-level engineering results**. 
 
-**Core Philosophy**: We don't just "chat" with AI. We architect **deterministic execution flows** by decomposing complex missions into atomic, verifiable tasks. By orchestrating specialized agents through a rigorous **PDCA (Plan-Do-Check-Act)** cycle, we maximize the utility of LLM intelligence while ensuring every step is validated by a dedicated Quality Gate.
+By maximizing the **method of agent collaboration**, we overcome the inherent limitations of individual AI models. We don't just "chat" with AI; we use a structured engineering layer to ensure complex missions are executed with 100% reliability and relentlessly pushed to completion, regardless of the model's price point.
+
+**Core Philosophy: Excellence through Collaboration**
+
+We believe that **a perfect collaboration method is superior to individual intelligence**.
+
+*   **Systems Engineering Fusion**: We integrate Operating System principles (Scheduling), Distributed Systems (Actor Model), and Algorithm Theory (Divide & Conquer) to transform unpredictable LLMs into a **controlled computing resource**.
+*   **Relentless PDCA Loop**: Every change follows a strict **Plan-Do-Check-Act** cycle. This systematic approach ensures that high-level professional tasks are completed without the quality decay or hallucinations typical of raw LLM outputs.
+*   **Architecture over Benchmarks**: By decomposing missions into atomic, verifiable tasks, we extract **high-fidelity outcomes** from cost-effective models, proving that superior architecture can outperform raw scale.
 
 ---
 
