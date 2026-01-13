@@ -83,7 +83,6 @@ jobs:
       - name: Display structure of downloaded files
         run: ls -R binaries/
 
-      # GitHub Release 생성 (바이너리 첨부 + 커스텀 노트)
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v1
         with:
@@ -102,20 +101,18 @@ jobs:
           generate_release_notes: true
           fail_on_unmatched_files: false
 
-      # GitHub Packages 배포 (사이드바 노출용)
       - name: Publish to GitHub Packages
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '24'
           registry-url: 'https://npm.pkg.github.com'
           scope: '@agnusdei1207'
           
       - name: Install dependencies
-        run: npm ci
+        run: npm install
         
       - name: Publish to GitHub Registry
         run: |
-          # 패키지명을 임시로 변경 (@agnusdei1207/.. 범위여야 GPR 배포 가능)
           node -e "let pkg=require('./package.json'); pkg.name='@agnusdei1207/opencode-orchestrator'; pkg.publishConfig={registry:'https://npm.pkg.github.com'}; require('fs').writeFileSync('package.json', JSON.stringify(pkg, null, 2));"
           npm publish
         env:
