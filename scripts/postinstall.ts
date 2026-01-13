@@ -52,9 +52,11 @@ function install() {
     );
 
     if (!hasPlugin) {
-        config.plugin.push(PLUGIN_NAME);
+        // Use absolute path for reliability
+        config.plugin.push(pluginPath);
         writeFileSync(CONFIG_FILE, JSON.stringify(config, null, 2));
         console.log("✅ Plugin registered!");
+        console.log(`   Path: ${pluginPath}`);
         console.log(`   Config: ${CONFIG_FILE}`);
     } else {
         console.log("✅ Plugin already registered.");
