@@ -138,7 +138,8 @@ That's it. The agents handle the rest.
 
 ## 📚 Documentation
 
-- **[Architecture Guide](docs/ARCHITECTURE.md)** — Detailed workflow documentation
+- **[Architecture](docs/ARCHITECTURE.md)** — Agent roles, workflow, error recovery
+- **[Publishing](docs/PUBLISHING.md)** — How to release new versions
 - **[Configuration](examples/orchestrator.jsonc)** — Customize agent settings
 
 ---

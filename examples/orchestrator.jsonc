@@ -1,39 +1,43 @@
 {
-    "$schema": "https://opencode.ai/orchestrator-schema.json",
     // ═══════════════════════════════════════════════════════════════
-    // Orchestrator Plugin Configuration
-    // 6-Agent Micro-Tasking Architecture
-    //
-    // Location: ~/.config/opencode/orchestrator.json
-    //          or .opencode/orchestrator.json (per project)
-    //
-    // Default: Uses model connected via OpenCode /connect
+    // OpenCode Orchestrator - Configuration Example
     // ═══════════════════════════════════════════════════════════════
-    // Per-agent model override (optional)
-    // If not specified, uses /connect model
+    //
+    // Location:
+    //   ~/.config/opencode/orchestrator.json  (global)
+    //   .opencode/orchestrator.json           (per project)
+    //
+    // ═══════════════════════════════════════════════════════════════
+    // Agent model overrides (optional)
+    // By default, uses the model connected via OpenCode /connect
     "agents": {
-        // Available agents: orchestrator, planner, coder, reviewer, fixer, searcher
-        //
+        // Available agents:
+        // - orchestrator: Team leader, coordinates all agents
+        // - planner: Decomposes complex tasks into atomic units
+        // - coder: Implements one atomic task at a time
+        // - reviewer: Quality gate - catches all errors
+        // - fixer: Applies targeted fixes from reviewer
+        // - searcher: Finds patterns and context in codebase
         // Example: Use specific models for certain agents
-        // "coder": { "model": "anthropic/claude-sonnet-4-5" },
-        // "reviewer": { "model": "google/gemini-3-pro" },
-        //
-        // Recommended for cheap model setup:
-        // "planner": { "model": "zhipu/glm-4.7", "temperature": 0.3 },
-        // "coder": { "model": "zhipu/glm-4.7", "temperature": 0.2 },
-        // "reviewer": { "model": "zhipu/glm-4.7", "temperature": 0.1 },
-        // "fixer": { "model": "zhipu/glm-4.7", "temperature": 0.2 }
+        // "coder": { 
+        //     "model": "anthropic/claude-sonnet-4-5",
+        //     "temperature": 0.2
+        // },
+        // "reviewer": { 
+        //     "model": "google/gemini-2.0-flash",
+        //     "temperature": 0.1
+        // }
+    },
+    // /auto mode settings
+    "auto": {
+        // Maximum iterations before stopping (prevents runaway)
+        "max_iterations": 100,
+        // Maximum retries per error
+        // Same error 3 times = stop and ask user
+        "max_retries": 3
     },
     // Disabled hooks
     "disabled_hooks": [
-        // "auto"  // Uncomment to disable /auto
-    ],
-    // /auto mode settings
-    "auto": {
-        // Maximum iterations before stopping (circuit breaker)
-        "max_iterations": 50,
-        // Maximum retries per error before stopping
-        // If same error fails 3 times, stops and reports to user
-        "max_retries": 3
-    }
+        // "auto"  // Uncomment to disable /auto command
+    ]
 }

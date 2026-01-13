@@ -6,7 +6,7 @@
     "license": "MIT",
     "repository": {
         "type": "git",
-        "url": "https://github.com/agnusdei1207/opencode-orchestrator"
+        "url": "git+https://github.com/agnusdei1207/opencode-orchestrator.git"
     },
     "homepage": "https://github.com/agnusdei1207/opencode-orchestrator#readme",
     "bugs": {
@@ -25,9 +25,6 @@
     "main": "dist/index.js",
     "types": "dist/index.d.ts",
     "type": "module",
-    "bin": {
-        "opencode-orchestrator": "./bin/orchestrator"
-    },
     "exports": {
         ".": {
             "types": "./dist/index.d.ts",
@@ -37,36 +34,27 @@
     "files": [
         "dist",
         "bin",
-        "src",
-        "scripts",
         "README.md",
         "LICENSE"
     ],
     "scripts": {
-        "// === BUILD: Individual Steps ===": "",
         "build:rust": "docker compose run --rm dev",
         "build:rust:copy": "docker compose run --rm dev sh -c 'cp /app/target/release/orchestrator /app/bin/' && chmod +x bin/orchestrator",
         "build:ts": "bun build src/index.ts --outdir dist --target bun --format esm && tsc --emitDeclarationOnly",
         "build:scripts": "mkdir -p dist/scripts && bun build scripts/postinstall.ts --outdir dist/scripts --target node",
-        "// === BUILD: Combined ===": "",
         "build": "bun run build:ts && bun run build:scripts",
         "build:full": "bun run build:rust && bun run build:rust:copy && bun run build",
-        "// === TEST ===": "",
         "test": "docker compose run --rm test",
         "test:local": "cargo test",
-        "// === PUBLISH: Steps ===": "",
         "version:patch": "npm version patch --no-git-tag-version",
         "version:minor": "npm version minor --no-git-tag-version",
         "version:major": "npm version major --no-git-tag-version",
-        "// === PUBLISH: Combined ===": "",
         "prepublishOnly": "bun run build",
         "publish:npm": "npm publish --access public",
-        "// === RELEASE: Full Workflow ===": "",
         "release:patch": "bun run build:full && bun run test && bun run version:patch && bun run publish:npm && bun run release:git",
         "release:minor": "bun run build:full && bun run test && bun run version:minor && bun run publish:npm && bun run release:git",
         "release:major": "bun run build:full && bun run test && bun run version:major && bun run publish:npm && bun run release:git",
         "release:git": "git add -A && git commit -m \"Release v$(node -p \"require('./package.json').version\")\" && git tag \"v$(node -p \"require('./package.json').version\")\" && git push && git push --tags",
-        "// === INSTALL HOOKS ===": "",
         "postinstall": "node dist/scripts/postinstall.js 2>/dev/null || true"
     },
     "dependencies": {
