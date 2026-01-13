@@ -1,112 +1,115 @@
-# Architecture Guide: Parallel DAG Orchestration
+# 🏛️ Distributed Cognitive Architecture (DCA) Deep Dive
 
-> Technical documentation for OpenCode Orchestrator's Ultra-Efficient Agentic Architecture
+> **"We do not build chatbots. We build Deterministic Engineering Layers atop Stochastic Intelligence."**
 
----
-
-## 1. Design Philosophy
-
-Our architecture is built on the principle that **Micro-Tasking + Strict Verification** allows even low-performance LLMs to outperform monolithic models. 
-
-### Key Pillars:
-1. **Parallel DAG Execution**: Instead of linear loops, we use a Directed Acyclic Graph (DAG) to execute independent tasks concurrently.
-2. **Model Routing**: Routing tasks to the most cost-effective model based on category (Infrastructure, Logic, Integration).
-3. **Style Guardian (Strict Review)**: A zero-tolerance policy for style drift and syntax errors.
-4. **Self-Healing Recovery**: Autonomous pivot strategies when a specific task fails repeatedly.
+This document details the internal engineering of **OpenCode Orchestrator**. It explains how we fuse **Operating System principles**, **Distributed Systems theory**, and **Algorithm design** to create a highly reliable coding agent from "affordable" LLMs.
 
 ---
 
-## 2. Agent Roles (SOP-based)
+## 1. The Core Philosophy: "The Grand Fusion"
 
-### 1. Orchestrator (Mission Commander)
-**Purpose**: Manages the Task DAG and parallel execution streams.
-- **Workflow**: Plan -> Schedule (0 dependencies) -> Parallel Execute -> Verify.
-- **Failure Handling**: Triggers pivot strategies (Re-plan/Search) after 3 fails.
+The system is designed as a **Virtual Operating System** for cognitive tasks. It abstracts the raw "intelligence" of an LLM into a structured, reliable computing resource.
 
-### 2. Planner (The Architect)
-**Purpose**: Decomposes complex user requests into a JSON-based Task DAG.
-- **Output**: JSON array of `Task` objects.
-- **Micro-tasking**: Each task MUST touch only one file and have one responsibility.
+### The Trinity of Methodologies
 
-### 3. Coder (Implementation)
-**Purpose**: Executes a single atomic task.
-- **Focus**: Pure implementation based on context provided by Searcher.
-- **Checks**: Pre-submit checklist for basic syntax and pairings.
-
-### 4. Reviewer (Style Guardian)
-**Purpose**: The absolute gatekeeper.
-- **Checks**: 5-Point Check (Syntax, Style, Logic, Integrity, Security).
-- **Style Enforcement**: Ensures 100% adherence to project conventions (naming, indentation).
-
-### 5. Fixer (Error Resolution)
-**Purpose**: Targeted repair based on Reviewer's feedback.
-- **Constraint**: Minimal changes only. If it's a syntax error, ONLY fix the syntax.
-
-### 6. Searcher (Context Oracle)
-**Purpose**: Proactive context gathering before coding.
-- **Tools**: Grep, Glob, AST-based search.
+| Domain | Concept Applied | Implementation in OpenCode |
+| :--- | :--- | :--- |
+| **OS Design** | **Process Scheduling** | The **Orchestrator** acts as a Kernel, managing agent "threads" and resource allocation. |
+| **Distributed Systems** | **Actor Model** | Agents (Planner, Coder, Reviewer) are independent **Actors** with isolated state and message passing. |
+| **Algorithms** | **Dynamic Programming** | We store intermediate task states (Memoization) to allow for **Backtracking** and **Pivoting** upon failure. |
 
 ---
 
-## 3. Workflow: From Request to Verified PR
+## 2. The PDCA Control Loop (The "Heartbeat")
 
-### Step 1: DAG Generation
-The **Planner** analyzes the request and generates a JSON DAG:
-```json
-[
-  { "id": "T1", "desc": "Add interface", "deps": [], "type": "infrastructure" },
-  { "id": "T2", "desc": "Implement logic", "deps": ["T1"], "type": "logic" }
-]
+At the core of the Orchestrator runs a strict **PDCA (Plan-Do-Check-Act)** cycle. This is not just a project management term; it is the **main event loop** of the application.
+
+```mermaid
+graph TD
+    UserInput --> |Analysis| Phase0[Phase 0: Complexity Audit]
+    Phase0 --> |"System Overhaul"| Plan
+    Phase0 --> |"Hotfix"| Do
+    
+    subgraph "The PDCA Loop"
+        Plan(Plan: Recursive Decomposition) --> |Map| Do(Do: Parallel Execution)
+        Do --> |Review| Check(Check: Byzantine Fault Tolerance)
+        Check --> |Pass| Act(Act: Merge & Finalize)
+        Check --> |Fail| Pivot(Pivot: Dynamic Re-planning)
+        Pivot --> Plan
+    end
+    
+    Act --> Output
 ```
 
-### Step 2: Parallel Scheduling
-The **Orchestrator** identifies tasks with satisfied dependencies.
-- **Batch 1**: T1 executed.
-- **Batch 2**: T2 executed (once T1 is ✅ PASS).
+### 2.1. Plan (The "Map" Phase)
+- **Agent**: `Planner`
+- **Algorithm**: **Divide & Conquer** (Recursive Decomposition)
+- **Process**:
+    1.  Receives a high-level objective (e.g., "Refactor Auth").
+    2.  Breaks it down into sub-components ($O(log n)$ complexity).
+    3.  Continues breaking down until tasks are **Atomic** (approx. 20-50 lines of code change).
+    4.  **Output**: A Directed Acyclic Graph (DAG) of tasks.
 
-### Step 3: Execution Loop (Micro-cycle)
-For each task:
-1. **Searcher** gathers context.
-2. **Coder** implements (with model routing).
-3. **Reviewer** performs the 5-point check.
-4. (Optional) **Fixer** repairs errors.
+### 2.2. Do (The "Execute" Phase)
+- **Agents**: `Coder`, `Searcher`
+- **Pattern**: **Parallel Worker Pool**
+- **Process**:
+    1.  The Orchestrator identifies all tasks with `indegree == 0` (no pending dependencies).
+    2.  Spawns parallel execution threads for these tasks.
+    3.  **Context Sharding**: Each worker receives *only* the context relevant to its atomic task, simulating "Virtual Memory" to save tokens and reduce noise.
+
+### 2.3. Check (The "Verify" Phase)
+- **Agent**: `Reviewer`
+- **Theory**: **Byzantine Fault Tolerance**
+- **Process**:
+    1.  We assume the "Do" phase *will* contain errors (hallucinations).
+    2.  The Reviewer acts as a consensus node. It does *not* generate code.
+    3.  It validates the output against the **Original Plan** and **Project Standards**.
+    4.  **Strict Gate**: Any failure rejects the commit and triggers specific feedback.
+
+### 2.4. Act (The "Correction" Phase)
+- **Agent**: `Orchestrator`
+- **Algorithm**: **Dynamic Programming / Backtracking**
+- **Process**:
+    - **Success**: The state is merged into the master branch (File write).
+    - **Failure**: The system generates a "Fix Task" and re-queues it.
+    - **Critical Failure**: The system performs a **Pivot**, modifying the original Plan based on new findings (Runtime Learning).
+
+---
+
+## 3. Advanced State Management
+
+### 3.1. File-Based State Persistence
+We do not rely on the LLM's context window to remember the "State" of the project.
+- **RAM**: The LLM's context window (volatile, expensive).
+- **Disk**: `.opencode_mission.md` (persistent, cheap).
+- **Swap**: `temp_context_*.md` files.
+
+The Orchestrator writes every state change to `.opencode_mission.md`. If the process crashes or the Context Window resets, the system rehydrates its entire state from this file.
+
+### 3.2. Context Sharding (Virtual Memory)
+To handle massive repositories with small context windows:
+1.  **Searcher** scans 100 files.
+2.  Instead of feeding 100 files to the Coder, it creates a `temp_context_auth_logic.md` file.
+3.  The Orchestrator passes **only the file path** to the Coder.
+4.  The Coder reads *only* that file.
+5.  **Result**: Infinite effective context length via paging.
 
 ---
 
-## 4. Fixed-Model Optimization
+## 4. Agent Implementations
 
-This architecture explicitly **avoids** upgrading or switching models. It is designed to make **fixed, low-performance models** (like Phi, Gemma, or GLM-4.7) highly reliable through:
-- **Ultra-granularity**: Breaking tasks until they are trivial.
-- **Strict Verification**: Reviewer ensures the fixed model hasn't made syntax or style errors.
-- **DAG Flow**: Organizing weak outputs into a robust, structured resulting code.
+### The Orchestrator (Kernel)
+- **Role**: Resource Allocator & Scheduler.
+- **Responsibility**: Does not write code. Decides *who* does what and *when*.
+- **Logic**: Implements the State Machine transitions.
 
----
-
-## 5. Failure Recovery (Pivot SOP)
-
-| Attempt | Strategy |
-|---------|----------|
-| **1-2** | Standard Fixer cycle. |
-| **3** | **Pivot Level 1**: Call Searcher for similar implementations in history. |
-| **4** | **Pivot Level 2**: Call Planner to split the failing task into even smaller units. |
-| **5+** | **Circuit Breaker**: Halt and ask user for manual intervention. |
+### The Automation (The "Swarm")
+- **Mode**: `/task`
+- **Behavior**: Autonomous agents working in a hive mind structure, synchronized by the Orchestrator's protocols.
 
 ---
 
-## 6. Project Structure
+## 5. Summary
 
-```text
-opencode-orchestrator/
-├── src/
-│   ├── tasks.ts          # DAG Logic & Task Graph
-│   └── index.ts          # Plugin Entry & Agent Orchestration
-├── crates/
-│   ├── orchestrator-core # Rust Core (Grep, Agent Defs, Prompts)
-│   └── orchestrator-cli  # CLI tools (Doctor, Installer)
-└── docs/
-    ├── ARCHITECTURE.md   # This document
-    └── REFACTOR_PLAN.md  # Current evolution roadmap
-```
-
----
-*OpenCode Orchestrator - Reliability Through Granularity*
+OpenCode Orchestrator is a **Distributed Computing Application** where the CPU instructions are natural language prompts and the processors are LLM inference calls. By strictly adhering to this architecture, we turn "probabilistic text generation" into "deterministic software engineering".

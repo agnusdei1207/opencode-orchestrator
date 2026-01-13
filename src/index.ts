@@ -52,20 +52,20 @@ const AGENTS: Record<string, AgentDefinition> = {
    - Only engage full DAG if complexity > 3 or multiple files involved.
 2. **ANALYSIS PHASE (THINK FIRST)**: 
    - Call **searcher** to read docs.
-   - **Information Value Assessment**: constantly evaluate: "Is this info CRITICAL for the Next Step?"
-   - **Context Sharding**: If context > 4k tokens, instruct Searcher to create \`temp_context_[topic].md\` and ONLY keep the filename in memory.
-   - **Recursive Summarization**: Periodically read \`temp_context_*.md\`, summarize them into a master state, and delete old files.
-3. **PLAN (HIERARCHICAL)**: 
-   - Call **planner** to generate a DAG.
-   - **State Strategy**: Explicitly define how nodes share data (File I/O).
-   - **Dynamic Resource Allocation**: Assign the best agent/tool for each node. (e.g., Simple logic -> Coder; Complex Research -> Searcher + Coder).
-4. **SCHEDULE**: Identify all tasks with 0 pending dependencies.
-5. **EXECUTE**: search -> code -> review.
-6. **CONSISTENCY GATE (SYNC CHECK)**: 
-   - After parallel tasks complete, call **reviewer** to perform a **Global Sync Check**.
-   - Ensure interfaces, imports, and cross-file logic match perfectly.
-7. **VERIFY**: Mission complete only after Global Sync ✅ PASS.
+## Operational SOP
+1. PHASE 0: COMPLEXITY AUDIT. Hotfix (Linear) vs System Overhaul (Flow)?
+2. ANALYSIS: MapReduce data. Shard huge context.
+3. CONTRACT: Define Interface Agreement (\`_interface_contract.md\`) if parallel dependencies exist.
+4. PLAN: Decompose & Alloc. Assign Agents/Tools dynamically.
+5. SCHEDULE: Identify ready tasks.
+6. EXECUTE: search -> code -> review.
+7. GLOBAL SYNC GATE: Reviewer must verify cross-task consistency against Contract.
 8. **CLEANUP**: Automatically delete the temporary mission state file (*.mission.md) AND all \`temp_context_*.md\` shards upon completion.
+
+## Verification
+- Ensure you are not "guessing" libraries.
+- If a function signature is needed for a parallel task, READ \`_interface_contract.md\`.
+- If no contract exists, CREATE one.
 
 ## Global Consistency Rules (Mandatory)
 - **State Persistence**: Independent nodes MUST communicate via files, not memory.
@@ -504,32 +504,40 @@ Execute according to your role. Be thorough and precise.
 // ============================================================================
 
 const COMMANDS: Record<string, { description: string; template: string; argumentHint?: string }> = {
-    "flow": {
-        description: "Ignite the Distributed Cognitive Workflow (High Reliability)",
-        template: `🚀 MISSION: DISTRIBUTED FLOW ORCHESTRATION
+    "task": {
+        description: "Execute a mission using Distributed Cognitive Architecture (PDCA Cycle)",
+        template: `🚀 MISSION: DISTRIBUTED TASK EXECUTION (PDCA Methodology)
 <command-instruction>
-You are the **Kernel** of this operation.
+You are the **Kernel** of this operation. You employ **Dynamic Programming** and **Divide & Conquer**.
 
 ## Phase 0: Cost/Benefit & Complexity Analysis
-- **Assess**: Is this a quick "hotfix" (Linear) or a "System Overhaul" (Distributed Flow)?
+- **Assess**: Is this a quick "hotfix" (Linear) or a "System Overhaul" (Distributed Task)?
 - **Allocating Strategy**: If complex, activate the **Swarm**.
 
-## Phase 1: Deep Analysis & State Initialization
+## Phase 1: Deep Analysis & State Initialization (Plan)
 - BEFORE planning, call **searcher** to read all .md docs.
 - Create a temporary \`.opencode_mission.md\` as your **Shared Memory Segment**.
 - **State Strategy**: Define how independent nodes will share data (e.g., File I/O, config files).
 
-## Phase 2: Hierarchical Planning (MapReduce Strategy)
-- Call **planner** to Map the mission into atomic tasks.
-- Ensure explicit data passing between nodes (Result of A -> File -> Input of B).
+## Phase 1.5: Sync Contract Deal (Interface Agreement)
+- **CRITICAL**: If parallel tasks interact (e.g., A calls B), you MUST define the **Interface Contract** first.
+- Create \`_interface_contract.md\` containing:
+  - Exact Function Signatures & Types.
+  - API Routes & Parameter Structures.
+  - File Paths for shared data.
+- All Agents MUST read this contract before writing code.
+
+## Phase 2: Hierarchical Planning (Do - Step 1)
+- Call **planner** to Map the mission into atomic tasks ($O(1)$ complexity).
+- **Divide & Conquer**: Break down the problem recursively.
 - **Resource Binding**: Bind specific agents/tools to tasks.
 
-## Phase 3: Parallel Execution & Verification (The Actor Model)
+## Phase 3: Parallel Execution & Verification (Do - Step 2 & Check)
 - Execute READY tasks in parallel. Each agent acts as an independent Actor.
+- **PDCA Cycle**: Plan -> Do (Code) -> Check (Review) -> Act (Fix/Merge).
 - Route implementation to the **reviewer** (Byzantine Fault Tolerance check).
-- Maintain sync using the mission file.
 
-## Phase 4: Global Sync Gate
+## Phase 4: Global Sync Gate (Act)
 - Once all tasks are ✅ Completed, call **reviewer** for a **Global Consistency Check**.
 - verify imports, exports, and cross-file logic patterns.
 - DELETE \`.opencode_mission.md\` after final SUCCESS.
@@ -720,7 +728,7 @@ const OrchestratorPlugin = async (input: PluginInput) => {
                 if (command) {
                     parts[textPartIndex].text = command.template.replace(/\$ARGUMENTS/g, parsed.args || "continue");
 
-                    if (parsed.command === "dag" || parsed.command === "auto" || parsed.command === "ignite") {
+                    if (parsed.command === "task" || parsed.command === "flow" || parsed.command === "dag" || parsed.command === "auto" || parsed.command === "ignite") {
                         const sessionID = input.sessionID;
                         state.sessions.set(sessionID, {
                             enabled: true,

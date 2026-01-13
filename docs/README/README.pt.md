@@ -2,17 +2,23 @@
 
 > **Plugin de Colaboração Multi-Agente para [OpenCode](https://opencode.ai)**
 
-<div align="center">
-
 [![MIT License](https://img.shields.io/badge/license-MIT-blue.svg)](../../LICENSE)
-[![npm](https://img.shields.io/npm/v/@agnusdei1207/opencode-orchestrator.svg)](https://www.npmjs.com/package/@agnusdei1207/opencode-orchestrator)
-[![npm downloads](https://img.shields.io/npm/dt/@agnusdei1207/opencode-orchestrator.svg)](https://www.npmjs.com/package/@agnusdei1207/opencode-orchestrator)
+[![npm](https://img.shields.io/npm/v/opencode-orchestrator.svg)](https://www.npmjs.com/package/opencode-orchestrator)
+[![npm downloads](https://img.shields.io/npm/dt/opencode-orchestrator.svg)](https://www.npmjs.com/package/opencode-orchestrator)
 [![OpenCode Plugin](https://img.shields.io/badge/OpenCode-Plugin-purple.svg)](https://opencode.ai)
 
 [English](../../README.md) | [한국어](README.ko.md) | [简体中文](README.zh.md) | [日本語](README.ja.md) | [Español](README.es.md) | [Français](README.fr.md) | [Deutsch](README.de.md)
 [Русский](README.ru.md) | [Português](README.pt.md)
 
-</div>
+---
+
+<p align="center">
+  <img src="../../assets/logo.png" width="600" />
+</p>
+
+> **O Objetivo Final**
+>
+> Decompor o trabalho em unidades tão pequenas e fáceis de resolver que **até mesmo um 'tolo' possa executá-las**, permitindo uma **colaboração paralela massiva**. O modelo não precisa ser inteligente. **O método de colaboração precisa ser perfeito.**
 
 ---
 
@@ -20,7 +26,7 @@
 
 Um sistema colaborativo de 6 agentes que maximiza a **Orquestração de Agentes** para extrair a **Qualidade de Decisão Suprema (Ultimate Decision Quality)** de **modelos acessíveis e de menor desempenho**.
 
-**Ideia central**: Ao organizar estrategicamente os papéis, dividir o trabalho em micro-tarefas e impor regras de verificação rigorosas, alcançamos resultados de "Modelo Caro" com custos de "Modelo Econômico".
+**Ideia Central**: Através da alocação estratégica de papéis, decomposição microscópica de tarefas e aplicação rígida de validação, alcançamos **resultados de nível SOTA** usando **modelos econômicos**. Mesmo que o modelo subjacente não seja o "mais inteligente", nossa arquitetura garante que ele **faça o trabalho** impecavelmente.
 
 ---
 
@@ -51,7 +57,7 @@ Um sistema colaborativo de 6 agentes que maximiza a **Orquestração de Agentes*
 Em vez de uma sequência linear, usamos um **Grafo Acíclico Dirigido (DAG)** para modelar sua missão.
 
 ```
-      Início da Missão (/dag)
+      Início da Missão (/task)
               │
               ▼
       ┌───────────────┐
@@ -143,16 +149,6 @@ Licença MIT. Sem telemetria. Sem backdoors.
 
 ---
 
-## Nota do Autor
-
-> Meu objetivo é provar que **modelos acessíveis** podem produzir resultados tão bons quanto APIs caras — quando você estrutura o trabalho corretamente.
->
-> Divida as tarefas, verifique cada etapa, corrija erros automaticamente. O modelo não precisa ser inteligente. O processo precisa ser disciplinado.
->
-> — [@agnusdei1207](https://github.com/agnusdei1207)
-
----
-
 ## Licença
 
 Licença MIT. SEM GARANTIA.
@@ -167,6 +163,12 @@ Este projeto é uma **sinfonia dos maiores sucessos da Ciência da Computação*
 
 Projetamos explicitamente este sistema integrando **princípios de Kernel de Sistema Operacional (Agendamento), Computação Distribuída (Sharding de Estado) e Eficiência Algorítmica (Dividir e Conquistar, Programação Dinâmica)**. Ao orquestrar esses conceitos poderosos juntos, superamos as limitações de modelos de IA individuais através da **Superioridade Arquitetônica**.
 
+- **Cumprimento do Ciclo PDCA**: Garantimos qualidade por meio de um ciclo rigoroso.
+- **🔍 Micro-tasking**: Decomposição atômica para prevenir alucinações.
+- **🛡️ Guardião de Estilo**: Verificações rigorosas de consistência e linting baseadas em AST.
+- **🔄 Auto-cura (Self-healing)**: Estratégias autônomas de pivô para erros complexos.
+- **Sistema Cognitivo Distribuído**: Camada de inteligência que opera como um kernel de SO.
+- **Gestão de Estado Baseada em Arquivos**: Usa o sistema de arquivos físico como RAM.
 Tratamos a orquestração de agentes como um **problema de computação distribuída**, extraindo cada gota de inteligência de modelos acessíveis. e de menor desempenho** (como modelos locais ou APIs econômicas) podem alcançar **Qualidade de Decisão Suprema** quando organizados corretamente. Conseguimos isso imitando uma equipe de engenharia humana de alto desempenho.
 
 ### O Molho Secreto: Eficiência Extrema
@@ -175,6 +177,17 @@ Tratamos a orquestração de agentes como um **problema de computação distribu
 2.  **Execução e Verificação Paralela**: Ao executar tarefas independentes em paralelo, reduzimos o tempo real.
 3.  **Economia de Tokens**: Filtramos estritamente o contexto. Os agentes não leem toda a base de código; eles leem *atualizações* e *resumos*. Isso corta drasticamente os custos de tokens enquanto mantém a precisão.
 4.  **Verificação Implacável**: Aceitamos que modelos baratos cometem erros. O agente **Reviewer** existe apenas para pegá-los. Trocamos um pouco de tempo de computação por 100% de confiabilidade.
+5.  **Adaptação Dinâmica**: Se um caminho falhar, não apenas tentamos novamente; nós **pivotamos** (Re-planejamento Dinâmico).
+
+### 🚀 O Comando: `/flow`
+
+A interface para este poder é um único comando intuitivo:
+
+```bash
+/flow "Refatorar o middleware de autenticação e implementar rotação de JWT"
+```
+
+Isso garante o **"Fluxo Operacional"**. Significa um fluxo de ações inteligentes fluindo da intenção à realização, gerenciadas por um grafo rígido e autocorretivo.
 
 ### O Fluxo de Trabalho de Eficiência de 5 Fases
 

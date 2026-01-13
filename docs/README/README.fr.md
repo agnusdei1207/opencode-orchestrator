@@ -2,17 +2,23 @@
 
 > **Plugin de Collaboration Multi-Agents pour [OpenCode](https://opencode.ai)**
 
-<div align="center">
-
 [![MIT License](https://img.shields.io/badge/license-MIT-blue.svg)](../../LICENSE)
-[![npm](https://img.shields.io/npm/v/@agnusdei1207/opencode-orchestrator.svg)](https://www.npmjs.com/package/@agnusdei1207/opencode-orchestrator)
-[![npm downloads](https://img.shields.io/npm/dt/@agnusdei1207/opencode-orchestrator.svg)](https://www.npmjs.com/package/@agnusdei1207/opencode-orchestrator)
+[![npm](https://img.shields.io/npm/v/opencode-orchestrator.svg)](https://www.npmjs.com/package/opencode-orchestrator)
+[![npm downloads](https://img.shields.io/npm/dt/opencode-orchestrator.svg)](https://www.npmjs.com/package/opencode-orchestrator)
 [![OpenCode Plugin](https://img.shields.io/badge/OpenCode-Plugin-purple.svg)](https://opencode.ai)
 
 [English](../../README.md) | [한국어](README.ko.md) | [简体中文](README.zh.md) | [日本語](README.ja.md) | [Español](README.es.md) | [Français](README.fr.md) | [Deutsch](README.de.md)
 [Русский](README.ru.md) | [Português](README.pt.md)
 
-</div>
+---
+
+<p align="center">
+  <img src="../../assets/logo.png" width="600" />
+</p>
+
+> **L'Objectif Ultime**
+>
+> Décomposer le travail en unités si petites et faciles à résoudre que **même un 'imbécile' puisse les exécuter**, permettant une **collaboration parallèle massive**. Le modèle n'a pas besoin d'être intelligent. **La méthode de collaboration doit être parfaite.**
 
 ---
 
@@ -20,7 +26,7 @@
 
 Un système collaboratif de 6 agents qui maximise l'**Orchestration d'Agents** pour extraire une **Qualité de Décision Ultime (Ultimate Decision Quality)** à partir de **modèles abordables et moins performants**.
 
-**Idée centrale** : En organisant stratégiquement les rôles, en décomposant le travail en micro-tâches et en appliquant des règles de vérification strictes, nous obtenons des résultats de "Modèles Coûteux" avec des coûts de "Modèles Économiques".
+**Idée centrale** : Grâce à une répartition stratégique des rôles, une décomposition microscopique des tâches et l'application stricte de règles de validation, nous obtenons des **résultats de niveau SOTA** avec des **modèles économiques**. Même si le modèle sous-jacent n'est pas le "plus intelligent", notre architecture garantit qu'il **accomplit le travail** de manière impeccable.
 
 ---
 
@@ -51,7 +57,7 @@ Un système collaboratif de 6 agents qui maximise l'**Orchestration d'Agents** p
 Au lieu d'une séquence linéaire, nous utilisons un **Graphe Orienté Acyclique (DAG)** pour modéliser votre mission.
 
 ```
-      Début de Mission (/dag)
+      Début de la Mission (/task)
               │
               ▼
       ┌───────────────┐
@@ -143,16 +149,6 @@ Licence MIT. Pas de télémétrie. Pas de portes dérobées.
 
 ---
 
-## Note de l'Auteur
-
-> Mon objectif est de prouver que des **modèles abordables** peuvent produire des résultats aussi bons que des API coûteuses — si vous structurez le travail correctement.
->
-> Décomposez les tâches, vérifiez chaque étape, corrigez les erreurs automatiquement. Le modèle n'a pas besoin d'être intelligent. Le processus doit être discipliné.
->
-> — [@agnusdei1207](https://github.com/agnusdei1207)
-
----
-
 ## Licence
 
 Licence MIT. AUCUNE GARANTIE.
@@ -175,6 +171,18 @@ Nous traitons l'orchestration des agents comme un **problème de calcul distribu
 2.  **Exécution et Vérification Parallèles** : En exécutant des tâches indépendantes en parallèle, nous réduisons le temps réel.
 3.  **Économie de Tokens** : Nous filtrons strictement le contexte. Les agents ne lisent pas toute la base de code ; ils lisent les *mises à jour* et les *résumés*. Cela réduit considérablement les coûts de tokens tout en maintenant la précision.
 4.  **Vérification Implacable** : Nous acceptons que les modèles bon marché fassent des erreurs. L'agent **Reviewer** existe uniquement pour les attraper. Nous échangeons un peu de temps de calcul pour 100 % de fiabilité.
+5.  **Traitement Parallèle** : Plusieurs agents travaillent simultanément sur différents fichiers. Nous échangeons la concurrence des threads contre du temps réel.
+6.  **Adaptation Dynamique** : Si un chemin échoue, nous ne nous contentons pas de réessayer ; nous **pivotons** (Re-planification Dynamique).
+
+### 🚀 La Commande : `/flow`
+
+L'interface de cette puissance est une commande unique et intuitive :
+
+```bash
+/flow "Refactoriser le middleware d'authentification et implémenter la rotation JWT"
+```
+
+Cela garantit le **"Flux Opérationnel"**. Il signifie un flux d'actions intelligentes allant de l'intention à la réalisation, géré par un graphe rigide et auto-correcteur.
 
 ### Le Flux de Travail d'Efficacité en 5 Phases
 

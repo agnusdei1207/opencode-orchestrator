@@ -2,17 +2,23 @@
 
 > **Multi-Agenten Kollaborations-Plugin für [OpenCode](https://opencode.ai)**
 
-<div align="center">
-
 [![MIT License](https://img.shields.io/badge/license-MIT-blue.svg)](../../LICENSE)
-[![npm](https://img.shields.io/npm/v/@agnusdei1207/opencode-orchestrator.svg)](https://www.npmjs.com/package/@agnusdei1207/opencode-orchestrator)
-[![npm downloads](https://img.shields.io/npm/dt/@agnusdei1207/opencode-orchestrator.svg)](https://www.npmjs.com/package/@agnusdei1207/opencode-orchestrator)
+[![npm](https://img.shields.io/npm/v/opencode-orchestrator.svg)](https://www.npmjs.com/package/opencode-orchestrator)
+[![npm downloads](https://img.shields.io/npm/dt/opencode-orchestrator.svg)](https://www.npmjs.com/package/opencode-orchestrator)
 [![OpenCode Plugin](https://img.shields.io/badge/OpenCode-Plugin-purple.svg)](https://opencode.ai)
 
 [English](../../README.md) | [한국어](README.ko.md) | [简体中文](README.zh.md) | [日本語](README.ja.md) | [Español](README.es.md) | [Français](README.fr.md) | [Deutsch](README.de.md)
 [Русский](README.ru.md) | [Português](README.pt.md)
 
-</div>
+---
+
+<p align="center">
+  <img src="../../assets/logo.png" width="600" />
+</p>
+
+> **Das Ultimative Ziel**
+>
+> Die Arbeit in so kleine, leicht lösbare Einheiten zu zerlegen, dass **selbst ein 'Narr' sie ausführen kann**, was eine **massive parallele Zusammenarbeit** ermöglicht. Das Modell muss nicht klug sein. **Die Zusammenarbeit muss perfekt sein.**
 
 ---
 
@@ -20,7 +26,7 @@
 
 Ein kollaboratives System mit 6 Agenten, das die **Agenten-Orchestrierung** maximiert, um **Ultimative Entscheidungsqualität (Ultimate Decision Quality)** aus **erschwinglichen, leistungsärmeren Modellen** zu extrahieren.
 
-**Kernidee**: Durch strategische Rollenverteilung, Zerlegung der Arbeit in Mikro-Aufgaben und Durchsetzung strenger Verifizierungsregeln erzielen wir Ergebnisse von "Teuren Modellen" zu Kosten von "Budget-Modellen".
+**Kernidee**: Durch strategische Rollenverteilung, mikroskopische Aufgabenzerlegung und strikte Durchsetzung von Validierungsregeln erzielen wir **SOTA-Ergebnisse** mit **kostengünstigen Modellen**. Selbst wenn das zugrunde liegende Modell nicht das "klügste" ist, stellt unsere Architektur sicher, dass es die Aufgabe **einwandfrei erledigt**.
 
 ---
 
@@ -51,7 +57,7 @@ Ein kollaboratives System mit 6 Agenten, das die **Agenten-Orchestrierung** maxi
 Statt einer linearen Abfolge verwenden wir einen **Gerichteten Azyklischen Graphen (DAG)**, um Ihre Mission zu modellieren.
 
 ```
-      Missionsstart (/dag)
+      Missionsstart (/task)
               │
               ▼
       ┌───────────────┐
@@ -143,16 +149,6 @@ MIT-Lizenz. Keine Telemetrie. Keine Hintertüren.
 
 ---
 
-## Anmerkung des Autors
-
-> Mein Ziel ist es zu beweisen, dass **erschwingliche Modelle** Ergebnisse liefern können, die genauso gut sind wie teure APIs — wenn man die Arbeit richtig strukturiert.
->
-> Aufgaben zerlegen, jeden Schritt verifizieren, Fehler automatisch beheben. Das Modell muss nicht schlau sein. Der Prozess muss diszipliniert sein.
->
-> — [@agnusdei1207](https://github.com/agnusdei1207)
-
----
-
 ## Lizenz
 
 MIT License. KEINE GARANTIE.
@@ -172,9 +168,20 @@ Wir behandeln die Agenten-Orchestrierung als ein **verteiltes Computing-Problem*
 ### Die Geheimzutat: Extreme Effizienz
 
 1.  **Mikro-Tasking (Die "Streu"-Strategie)**: Wir bitten das Modell nicht, "eine Website zu bauen". Wir zerlegen es in atomare Änderungen von 20 Zeilen. Kleiner Kontext = Hohe Genauigkeit = Weniger Halluzinationen.
-2.  **Parallele Ausführung & Verifizierung**: Durch die parallele Ausführung unabhängiger Aufgaben reduzieren wir die reale Zeit.
-3.  **Token-Ökonomie**: Wir filtern den Kontext streng. Agenten lesen nicht die gesamte Codebasis; sie lesen *Updates* und *Zusammenfassungen*. Dies senkt die Token-Kosten drastisch bei gleichbleibender Genauigkeit.
-4.  **Unerbittliche Verifizierung**: Wir akzeptieren, dass billige Modelle Fehler machen. Der **Reviewer**-Agent existiert nur, um sie zu fangen. Wir tauschen ein wenig Rechenzeit gegen 100% Zuverlässigkeit.
+2.  **Parallelverarbeitung**: Mehrere Agenten arbeiten gleichzeitig an verschiedenen Dateien. Wir tauschen Thread-Parallelität gegen reale Zeit.
+3.  **Dynamische Anpassung**: Wenn ein Pfad fehlschlägt, versuchen wir es nicht einfach erneut; wir **pivotieren** (Dynamische Neuplanung).
+
+### 🚀 Der Befehl: `/flow`
+
+Die Schnittstelle zu dieser Leistung ist ein einziger, intuitiver Befehl:
+
+```bash
+/flow "Refactor authentication middleware and implement JWT rotation"
+```
+
+Dies gewährleistet den **"Operativen Fluss"**. Es bedeutet einen Strom intelligenter Handlungen, die von der Absicht zur Verwirklichung fließen, verwaltet durch einen starren, sich selbst korrigierenden Graphen.
+4.  **Token-Ökonomie**: Wir filtern den Kontext streng. Agenten lesen nicht die gesamte Codebasis; sie lesen *Updates* und *Zusammenfassungen*. Dies senkt die Token-Kosten drastisch bei gleichbleibender Genauigkeit.
+5.  **Unerbittliche Verifizierung**: Wir akzeptieren, dass billige Modelle Fehler machen. Der **Reviewer**-Agent existiert nur, um sie zu fangen. Wir tauschen ein wenig Rechenzeit gegen 100% Zuverlässigkeit.
 
 ### Der 5-Phasen-Effizienz-Workflow
 

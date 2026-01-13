@@ -2,17 +2,23 @@
 
 > **[OpenCode](https://opencode.ai) 的多智能体协同系统**
 
-<div align="center">
-
 [![MIT License](https://img.shields.io/badge/license-MIT-blue.svg)](../../LICENSE)
-[![npm](https://img.shields.io/npm/v/@agnusdei1207/opencode-orchestrator.svg)](https://www.npmjs.com/package/@agnusdei1207/opencode-orchestrator)
-[![npm downloads](https://img.shields.io/npm/dt/@agnusdei1207/opencode-orchestrator.svg)](https://www.npmjs.com/package/@agnusdei1207/opencode-orchestrator)
+[![npm](https://img.shields.io/npm/v/opencode-orchestrator.svg)](https://www.npmjs.com/package/opencode-orchestrator)
+[![npm downloads](https://img.shields.io/npm/dt/opencode-orchestrator.svg)](https://www.npmjs.com/package/opencode-orchestrator)
 [![OpenCode Plugin](https://img.shields.io/badge/OpenCode-Plugin-purple.svg)](https://opencode.ai)
 
 [English](../../README.md) | [한국어](README.ko.md) | [简体中文](README.zh.md) | [日本語](README.ja.md) | [Español](README.es.md) | [Français](README.fr.md) | [Deutsch](README.de.md)
 [Русский](README.ru.md) | [Português](README.pt.md)
 
-</div>
+---
+
+<p align="center">
+  <img src="../../assets/logo.png" width="600" />
+</p>
+
+> **终极目标**
+>
+> 将任务分解为极小的、易于解决的单元，以至于**即使是‘傻瓜’也能执行**，从而实现**大规模并行协作**。模型不需要很聪明。**协作方式必须是完美的。**
 
 ---
 
@@ -20,7 +26,7 @@
 
 一个由 6 个智能体组成的协作系统，通过最大化 **智能体编排 (Agent Orchestration)**，从 **平价、低性能模型** 中提取 **极致决策质量 (Ultimate Decision Quality)**。
 
-**核心理念**：通过战略性组织角色，将工作分解为微任务，并强制执行严格的验证规则，我们以“预算模型”的成本实现了“昂贵模型”的结果。
+**核心理念**：通过战略性的角色分配、微观任务分解和严格的验证规则强制，我们以 **“廉价模型”的成本** 实现了 **“昂贵模型”的结果**。即使基础性能不是最顶级的，我们的架构也能确保 **完美达成** 目标。
 
 ---
 
@@ -39,9 +45,12 @@
 - **🧩 战略性组织** — 通过智能角色分配最大化产出
 - **📉 Token 经济** — 过滤噪音以降低成本并提高专注度
 - **⚡ 并行 DAG** — 并发执行以提高速度和效率
-- **🔍 微任务化** — 原子分解以防止幻觉
-- **🛡️ 风格守卫** — 严格的基于 AST 的 Lint 和一致性检查
-- **🔄 自愈** — 针对复杂错误的自主规避策略
+- **遵循 PDCA 循环**: 通过计划-执行-检查-行动的严格循环来保证质量。
+- **🔍 微任务化 (Micro-tasking)**: 原子级任务分解以防止幻觉。
+- **🛡️ 风格守卫 (Style Guardian)**: Reviewer 执行严格的基于 AST 的 Lint 和一致性检查。
+- **🔄 自愈 (Self-healing)**: 针对复杂错误的自主规避与修复策略。
+- **分布式认知系统**: 不是简单的聊天机器人，而是像 OS 内核一样运行的智能层。
+- **基于文件的状态管理**: 不依赖上下文窗口，利用物理文件系统作为 RAM。针对复杂错误的自主规避策略
 - **🏗️ Rust 核心** — 用于繁重任务的原生性能处理重度计算任务
 
 ---
@@ -51,7 +60,7 @@
 我们不采用线性顺序，而是使用 **有向无环图 (DAG)** 来构建您的任务模型。
 
 ```
-      任务开始 (/dag)
+      任务开始 (/task)
               │
               ▼
       ┌───────────────┐
@@ -143,16 +152,6 @@ MIT 协议。无遥测。无后门。
 
 ---
 
-## 作者寄语
-
-> 我的目标是证明，只要结构正确，像 **平价模型** 也能产出与昂贵 API 相当的结果。
->
-> 分解任务，验证每一步，自动修复错误。模型不需要太聪明，流程必须足够严谨。
->
-> — [@agnusdei1207](https://github.com/agnusdei1207)
-
----
-
 ## 许可证
 
 MIT License. NO WARRANTY.
@@ -161,22 +160,38 @@ MIT License. NO WARRANTY.
 
 ---
 
-## 🏛️ 项目理念：架构的宏大融合 (Grand Fusion)
+## 🏛️ 架构：PDCA 与分布式认知循环 (The Architecture)
 
-本项目是 **计算机科学巅峰之作的交响曲**。它不仅仅是一个聊天机器人脚本；它是高级算法和架构模式的 **协同融合 (Collaborative Fusion)**。
+我们已经超越了简单“聊天机器人”的范式。**OpenCode Orchestrator** 在大语言模型的随机性之上，实施了一个严格遵循 **PDCA (计划-执行-检查-行动)** 循环的 **确定性工程层**。
 
-我们通过整合 **操作系统内核原理（调度）、分布式计算（状态分片）和算法效率（分治法、动态规划）** 明确设计了该系统。通过对这些强大的计算机科学概念进行 **编排**，我们通过 **架构优势 (Architectural Superiority)** 克服了单个 AI 模型的局限性。
+我们将智能体视为 **语义计算单元 (Semantic Compute Units)**。通过应用严谨的计算机科学原则，我们达到了单一模型无法匹敌的可靠性水平。
 
-我们将智能体编排视为一个 **分布式计算问题**，从平价模型中榨取每一分智能。
+### 🧬 方法论的“宏大融合 (Grand Fusion)”
+我们将三个巨大的领域显式地融合到一个无缝的工作流中：
 
-本项目证明，如果组织得当，**平价、低性能模型**（如本地模型或预算 API）也能达到 **极致决策质量**。我们通过模仿高绩效的人类工程团队来实现这一目标。
+1.  **PDCA 方法论 (质量保证)**:
+    *   **Plan (Planner)**: 将任务递归分解为原子任务 ($O(log n)$)。
+    *   **Do (Coder)**: 并行执行原子任务 (分布式行动)。
+    *   **Check (Reviewer)**: 作为 **拜占庭容错 (Byzantine Fault Tolerance)** 节点，严格根据需求验证代码。
+    *   **Act (Orchestrator)**: 合并成功状态，或在失败时 **转向 (Pivot)**（动态规划）。
 
-### 秘方：极致效率
+2.  **分布式系统理论 (Actor 模型)**:
+    *   每个智能体作为具有隔离状态的独立 **Actor** 运行。
+    *   **上下文分片**: 我们将上下文窗口视为 RAM，通过 `temp_context` 文件换入/换出数据 (分页交换) 以模拟 **无限上下文**。
 
-1.  **微任务化 ("分散" 策略)**：我们不要求模型“建立一个网站”。我们将任务分解为原子性的、20 行左右的变更。小上下文 = 高准确度 = 低幻觉。
-2.  **并行执行与验证**：通过并行运行独立任务，我们减少了挂钟时间（wall-clock time）。
-3.  **Token 经济**：我们严格过滤上下文。智能体不阅读整个代码库；它们只阅读 *更新* 和 *摘要*。这在保持准确性的同时大幅降低了 Token 成本。
-4.  **无情验证**：我们接受廉价模型会犯错的事实。**Reviewer** 智能体的存在完全是为了捕捉这些错误。我们用少量的计算时间换取 100% 的可靠性。
+3.  **算法效率**:
+    *   **分治法 (Divide & Conquer)**: 将复杂问题分解为微不足道的 $O(1)$ 子问题。
+    *   **动态规划 (Dynamic Programming)**: 存储中间结果 (状态) 以避免重复计算并允许智能回溯。
+
+### 🚀 命令：`/task`
+
+该系统的接口是一个单一、强大的命令：
+
+```bash
+/task "重构身份验证中间件并实现 JWT 轮换"
+```
+
+这触发了 **分布式任务循环 (Distributed Task Loop)**。这不仅仅是一个聊天； 这是一个任务承诺。**Reviewer** 智能体的存在完全是为了捕捉这些错误。我们用少量的计算时间换取 100% 的可靠性。
 
 ### 5 阶段效率工作流
 

@@ -2,17 +2,23 @@
 
 > **[OpenCode](https://opencode.ai)를 위한 멀티 에이전트 협업 플러그인**
 
-<div align="center">
-
 [![MIT License](https://img.shields.io/badge/license-MIT-blue.svg)](../../LICENSE)
-[![npm](https://img.shields.io/npm/v/@agnusdei1207/opencode-orchestrator.svg)](https://www.npmjs.com/package/@agnusdei1207/opencode-orchestrator)
-[![npm downloads](https://img.shields.io/npm/dt/@agnusdei1207/opencode-orchestrator.svg)](https://www.npmjs.com/package/@agnusdei1207/opencode-orchestrator)
+[![npm](https://img.shields.io/npm/v/opencode-orchestrator.svg)](https://www.npmjs.com/package/opencode-orchestrator)
+[![npm downloads](https://img.shields.io/npm/dt/opencode-orchestrator.svg)](https://www.npmjs.com/package/opencode-orchestrator)
 [![OpenCode Plugin](https://img.shields.io/badge/OpenCode-Plugin-purple.svg)](https://opencode.ai)
 
 [English](../../README.md) | [한국어](README.ko.md) | [简体中文](README.zh.md) | [日本語](README.ja.md) | [Español](README.es.md) | [Français](README.fr.md) | [Deutsch](README.de.md)
 [Русский](README.ru.md) | [Português](README.pt.md)
 
-</div>
+---
+
+<p align="center">
+  <img src="../../assets/logo.png" width="600" />
+</p>
+
+> **궁극의 목표**
+>
+> 해결하기 쉬운 아주 작은 단위로 업무를 쪼개서, **바보라도 수행할 수 있게 만들고**, 이를 통해 **병렬로 협업할 수 있게 하는 것**입니다. 모델이 똑똑할 필요는 없습니다. **협력하는 방식이 완벽하면 됩니다.**
 
 ---
 
@@ -20,7 +26,7 @@
 
 6개의 에이전트가 협업하여 **에이전트 오케스트레이션**을 극대화함으로써, **보급형 저성능 모델**에서도 **궁극의 결정 품질(Ultimate Decision Quality)**을 이끌어내는 시스템입니다.
 
-**핵심 아이디어**: 전략적인 역할 배치, 업무의 마이크로 단위 분해, 엄격한 검증 규칙 강제를 통해 "저렴한 모델" 비용으로 "비싼 모델"의 결과를 달성합니다.
+**핵심 아이디어**: 전략적인 역할 배치, 업무의 마이크로 단위 분해, 그리고 엄격한 검증 규칙 강제를 통해 **저렴한 모델**의 비용으로 **최고급 모델**의 성취를 달성합니다. 모델의 자체 성능이 최상급이 아니더라도, 우리의 아키텍처는 반드시 **훌륭한 결과**를 해내고야 맙니다.
 
 ---
 
@@ -39,9 +45,12 @@
 - **🧩 전략적 조직화** — 지능적인 역할 분배를 통한 산출물 극대화
 - **📉 토큰 경제 (Token Economy)** — 노이즈를 필터링하여 비용 절감 및 집중력 향상
 - **⚡ 병렬 DAG** — 속도와 효율성을 위한 동시 실행
-- **🔍 마이크로 태스킹** — 환각 방지를 위한 원자 단위 업무 분해
-- **🛡️ 스타일 가디언** — 엄격한 AST 기반 린팅 및 일관성 검사
-- **🔄 자가 치유** — 복잡한 오류에 대한 자율적인 우회 전략
+- **PDCA 사이클 준수**: 계획-실행-검토-수정의 엄격한 루프를 통해 품질을 보장합니다.
+- **🔍 마이크로 태스킹 (Micro-tasking)**: 환각 방지를 위해 업무를 원자 단위로 분해합니다.
+- **🛡️ 스타일 가디언 (Style Guardian)**: Reviewer가 엄격한 AST 기반 린팅 및 일관성 검사를 수행합니다.
+- **🔄 자가 치유 (Self-healing)**: 복잡한 오류 발생 시 자율적으로 우회 전략을 수립합니다.
+- **분산 인지 시스템**: 단순 챗봇이 아닌, OS 커널처럼 동작하는 인텔리전스 레이어.
+- **파일 기반 상태 관리**: 컨텍스트 창에 의존하지 않고, 물리적 파일 시스템을 RAM처럼 활용합니다.
 - **🏗️ Rust 코어** — 무거운 작업을 위한 네이티브 성능 네이티브 바이너리
 
 ---
@@ -51,7 +60,7 @@
 선형적인 순서 대신, 우리는 **유향 비순환 그래프 (DAG)**를 사용하여 미션을 모델링합니다.
 
 ```
-      미션 시작 (/dag)
+      미션 시작 (/task)
               │
               ▼
       ┌───────────────┐
@@ -143,16 +152,6 @@ MIT 라이선스. 텔레메트리 없음. 백도어 없음.
 
 ---
 
-## 저자의 한 마디
-
-> 저의 목표는 올바른 구조만 갖춰진다면 **보급형 모델**도 비싼 API만큼 훌륭한 결과를 낼 수 있음을 증명하는 것입니다.
->
-> 작업을 잘게 쪼개고, 모든 단계를 검증하며, 에러를 자동으로 수정하세요. 모델이 똑똑할 필요는 없습니다. 절차가 완벽하면 됩니다.
->
-> — [@agnusdei1207](https://github.com/agnusdei1207)
-
----
-
 ## 라이선스
 
 MIT License. NO WARRANTY.
@@ -161,21 +160,38 @@ MIT License. NO WARRANTY.
 
 ---
 
-## 🏛️ 프로젝트 철학: 아키텍처의 위대한 융합 (Grand Fusion)
+## 🏛️ 아키텍처: PDCA 및 분산 인지 루프 (The Architecture)
 
-이 프로젝트는 **컴퓨터 과학의 정수(Greatest Hits)를 집대성한 교향곡**입니다. 이는 단순한 챗봇 스크립트가 아니며, 고급 알고리즘과 아키텍처 패턴이 완벽하게 **협업(Collaboration)**하는 융합체입니다.
+우리는 더 이상 단순한 "챗봇"의 패러다임을 따르지 않습니다. **OpenCode Orchestrator**는 LLM의 확률적(stochastic) 본질 위에 **PDCA(Plan-Do-Check-Act) 사이클**을 엄격히 따르는 **결정론적 엔지니어링 레이어**를 구현합니다.
 
-우리는 **운영체제 커널 원리(스케줄링), 분산 컴퓨팅(상태 샤딩), 그리고 알고리즘 효율성(분할 정복, 동적 계획법)**을 하나로 통합하여 이 시스템을 설계했습니다. 이러한 강력한 컴퓨터 공학적 개념들을 **오케스트레이션**함으로써, 모델 개개의 한계를 **아키텍처적 우월성(Architectural Superiority)**으로 극복합니다.
+우리는 에이전트를 **의미론적 연산 유닛(Semantic Compute Units)**으로 취급합니다. 엄격한 컴퓨터 과학 원리를 적용함으로써, 우리는 단일 모델이 달성할 수 없는 수준의 신뢰성을 확보합니다.
 
-우리는 에이전트 오케스트레이션을 **분산 컴퓨팅 문제**로 다루며, 저비용 모델에서도 극한의 지능을 짜냅니다.
+### 🧬 방법론의 "위대한 융합 (Grand Fusion)"
+우리는 거대한 세 가지 도메인을 하나의 매끄러운 워크플로우로 융합했습니다:
 
-### 핵심 엔지니어링 원칙
+1.  **PDCA 방법론 (품질 보증)**:
+    *   **Plan (Planner)**: 미션을 원자 단위의 태스크로 재귀적으로 분해합니다 ($O(log n)$).
+    *   **Do (Coder)**: 원자적 태스크를 병렬로 실행합니다 (분산 작업).
+    *   **Check (Reviewer)**: **비잔틴 장애 허용(Byzantine Fault Tolerance)** 노드로서, 요구사항에 대해 코드를 엄격히 검증합니다.
+    *   **Act (Orchestrator)**: 성공적인 상태를 병합하거나, 실패 시 **피봇(Dynamic Programming)**합니다.
 
-1.  **DAG (Directed Acyclic Graph)**: 미션을 선형적인 대화가 아닌, 의존성 그래프로 모델링합니다. 이는 독립적인 태스크의 비차단(Non-blocking) 비동기 실행을 가능하게 합니다.
-2.  **분할 정복 (Divide & Conquer)**: **Planner**는 재귀적 분해를 통해 복잡한 문제를 원자 단위의 해결 가능한 단위(Coder에게는 $O(1)$ 난이도)로 쪼갭니다.
-3.  **상태 및 스케줄 관리**: 전용 Orchestrator가 **커널 스케줄러**처럼 동작하여 스레드 상태(Ready, Running, Success, Failed)를 관리하고, 분리된 실행 노드 간의 컨텍스트를 지속(File I/O)시킵니다.
-4.  **병렬 처리 (Parallel Processing)**: 여러 에이전트가 동시에 서로 다른 파일에서 작업합니다. 우리는 스레드 동시성을 실시간 속도와 교환합니다.
-5.  **동적 적응 (Dynamic Adaptation)**: 경로가 실패하면 단순히 재시도하지 않고, **피봇(Pivot)**하여 계획을 동적으로 수정합니다.
+2.  **분산 시스템 이론 (액터 모델)**:
+    *   각 에이전트는 독립적인 상태를 가진 **액터(Actor)**로 동작합니다.
+    *   **컨텍스트 샤딩**: 컨텍스트 윈도우를 RAM처럼 취급하며, 데이터를 `temp_context` 파일로 페이징(Page Swapping)하여 **무한 컨텍스트**를 시뮬레이션합니다.
+
+3.  **알고리즘 효율성**:
+    *   **분할 정복 (Divide & Conquer)**: 복잡한 문제를 사소한 $O(1)$ 하위 문제로 쪼갭니다.
+    *   **동적 계획법 (Dynamic Programming)**: 중간 결과(State)를 저장하여 중복 계산을 피하고 지능적인 역추적(Backtracking)을 허용합니다.
+
+### 🚀 명령어: `/task`
+
+이 시스템을 제어하는 인터페이스는 강력한 단 하나의 명령어입니다:
+
+```bash
+/task "인증 미들웨어를 리팩토링하고 JWT 로테이션을 구현해줘"
+```
+
+이것은 **"분산 태스크 루프(Distributed Task Loop)"**를 트리거합니다. 이것은 단순한 채팅이 아닙니다. 미션에 대한 약속(Commitment)입니다.
 
 ### 5단계 효율성 워크플로우
 
