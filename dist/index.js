@@ -12974,7 +12974,8 @@ var OrchestratorPlugin = async (input) => {
       for (const [name, cmd] of Object.entries(COMMANDS)) {
         orchestratorCommands[name] = {
           description: cmd.description,
-          template: cmd.template
+          template: cmd.template,
+          argumentHint: cmd.argumentHint
         };
       }
       config2.command = {
