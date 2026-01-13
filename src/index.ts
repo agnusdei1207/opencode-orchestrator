@@ -742,6 +742,7 @@ const OrchestratorPlugin = async (input: PluginInput) => {
                 orchestratorCommands[name] = {
                     description: cmd.description,
                     template: cmd.template,
+                    argumentHint: cmd.argumentHint, // Crucial for autocomplete menu
                 };
             }
 
