@@ -55,7 +55,8 @@
         "release:minor": "bun run build:full && bun run test && bun run version:minor && bun run publish:npm && bun run release:git",
         "release:major": "bun run build:full && bun run test && bun run version:major && bun run publish:npm && bun run release:git",
         "release:git": "git add -A && git commit -m \"Release v$(node -p \"require('./package.json').version\")\" && git tag \"v$(node -p \"require('./package.json').version\")\" && git push && git push --tags",
-        "postinstall": "node dist/scripts/postinstall.js 2>/dev/null || true"
+        "postinstall": "node dist/scripts/postinstall.js 2>/dev/null || true",
+        "stars": "gh api repos/agnusdei1207/opencode-orchestrator/stargazers --jq '.[].login'"
     },
     "dependencies": {
         "@opencode-ai/plugin": "^1.1.1",
