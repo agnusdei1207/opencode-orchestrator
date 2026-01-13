@@ -1,7 +1,8 @@
 {
     "name": "opencode-orchestrator",
-    "version": "0.1.46",
-    "description": "6-Agent collaborative architecture for OpenCode - Make any model reliable",
+    "displayName": "OpenCode Orchestrator",
+    "description": "Distributed Cognitive Architecture for OpenCode. Turns simple prompts into specialized multi-agent workflows (Planner, Coder, Reviewer).",
+    "version": "0.1.47",
     "author": "agnusdei1207",
     "license": "MIT",
     "repository": {

@@ -2,17 +2,23 @@
 
 > **Plugin de Colaboración Multi-Agente para [OpenCode](https://opencode.ai)**
 
-<div align="center">
-
 [![MIT License](https://img.shields.io/badge/license-MIT-blue.svg)](../../LICENSE)
-[![npm](https://img.shields.io/npm/v/@agnusdei1207/opencode-orchestrator.svg)](https://www.npmjs.com/package/@agnusdei1207/opencode-orchestrator)
-[![npm downloads](https://img.shields.io/npm/dt/@agnusdei1207/opencode-orchestrator.svg)](https://www.npmjs.com/package/@agnusdei1207/opencode-orchestrator)
+[![npm](https://img.shields.io/npm/v/opencode-orchestrator.svg)](https://www.npmjs.com/package/opencode-orchestrator)
+[![npm downloads](https://img.shields.io/npm/dt/opencode-orchestrator.svg)](https://www.npmjs.com/package/opencode-orchestrator)
 [![OpenCode Plugin](https://img.shields.io/badge/OpenCode-Plugin-purple.svg)](https://opencode.ai)
 
 [English](../../README.md) | [한국어](README.ko.md) | [简体中文](README.zh.md) | [日本語](README.ja.md) | [Español](README.es.md) | [Français](README.fr.md) | [Deutsch](README.de.md)
 [Русский](README.ru.md) | [Português](README.pt.md)
 
-</div>
+---
+
+<p align="center">
+  <img src="../../assets/logo.png" width="600" />
+</p>
+
+> **El Objetivo Final**
+>
+> Descomponer el trabajo en unidades tan pequeñas y fáciles de resolver que **incluso un 'tonto' pueda ejecutarlas**, permitiendo una **colaboración paralela masiva**. El modelo no necesita ser inteligente. **El método de colaboración debe ser perfecto.**
 
 ---
 
@@ -20,7 +26,7 @@
 
 Un sistema colaborativo de 6 agentes que maximiza la **Orquestación de Agentes** para extraer la **Calidad de Decisión Suprema (Ultimate Decision Quality)** de **modelos asequibles y de menor rendimiento**.
 
-**Idea central**: Al organizar estratégicamente los roles, dividir el trabajo en micro-tareas y hacer cumplir reglas de verificación estrictas, logramos resultados de "Modelo Costoso" con costos de "Modelo Económico".
+**Idea Central**: Mediante la asignación estratégica de roles, la descomposición micro de tareas y la aplicación estricta de reglas de validación, logramos resultados de **'modelo costoso'** a precios de **'modelo económico'**. Incluso si el rendimiento del modelo no es de primera línea, nuestra arquitectura asegura que **lograremos grandes resultados** sin falta.
 
 ---
 
@@ -51,7 +57,7 @@ Un sistema colaborativo de 6 agentes que maximiza la **Orquestación de Agentes*
 En lugar de una secuencia lineal, utilizamos un **Grafo Acíclico Dirigido (DAG)** para modelar tu misión.
 
 ```
-      Inicio de Misión (/dag)
+      Inicio de Misión (/task)
               │
               ▼
       ┌───────────────┐
@@ -143,16 +149,6 @@ Licencia MIT. Sin telemetría. Sin puertas traseras.
 
 ---
 
-## Nota del Autor
-
-> Mi objetivo es demostrar que **modelos asequibles** pueden producir resultados tan buenos como las APIs costosas — cuando estructuras el trabajo correctamente.
->
-> Divide las tareas, verifica cada paso, corrige errores automáticamente. El modelo no necesita ser inteligente. El proceso debe ser disciplinado.
->
-> — [@agnusdei1207](https://github.com/agnusdei1207)
-
----
-
 ## Licencia
 
 Licencia MIT. SIN GARANTÍA.
@@ -167,11 +163,25 @@ No nos limitamos a repetir prompts. Tratamos la orquestación de agentes como un
 
 ### Principios de Ingeniería Centrales
 
-1.  **Grafo Acíclico Dirigido (DAG)**: Modelamos las misiones no como un chat lineal, sino como un grafo de dependencias. Esto permite la ejecución asíncrona y no bloqueante de tareas independientes.
+1.  **Cumplimiento del Ciclo PDCA**: Garantizamos calidad mediante un bucle estricto de Planificar-Hacer-Verificar-Actuar.
 2.  **Divide y Vencerás (Algoritmo)**: El **Planner** utiliza la descomposición recursiva para dividir problemas complejos en unidades atómicas y solucionables (complejidad $O(1)$ para el Coder).
-3.  **Gestión de Estado y Programación**: Un Orchestrator dedicado actúa como un **Planificador de Kernel**, gestionando estados de hilos (Ready, Running, Success, Failed) y persistiendo el contexto a través de nodos de ejecución disjuntos (E/S de Archivos).
-4.  **Procesamiento Paralelo**: Múltiples agentes trabajan simultáneamente en diferentes archivos. Intercambiamos concurrencia de hilos por tiempo real.
-5.  **Adaptación Dinámica**: Si una ruta falla, no solo reintentamos; **pivotamos** (Re-planificación Dinámica).
+3.  **Programación Dinámica**: Si una ruta falla, no solo reintentamos; **pivotamos** (Re-planificación Dinámica).
+4.  **Modelo de Actor**: Cada agente opera de forma independiente, comunicándose a través de mensajes, lo que permite una concurrencia robusta.
+- **🔍 Micro-tasking**: Descomposición atómica para prevenir alucinaciones.
+- **🛡️ Guardián de Estilo**: Verificaciones estrictas de consistencia y linting basadas en AST.
+- **🔄 Auto-reparación (Self-healing)**: Estrategias autónomas de pivote para errores complejos.
+5.  **Sistema Cognitivo Distribuido**: No un simple chatbot, sino una capa de inteligencia que opera como un núcleo de SO.
+6.  **Gestión de Estado Basada en Archivos**: Utiliza el sistema de archivos físico como RAM, sin depender de la ventana de contexto.
+
+### 🚀 El Comando: `/task`
+
+La interfaz para este poder es un único comando intuitivo:
+
+```bash
+/flow "Refactoriza el middleware de autenticación e implementa la rotación JWT"
+```
+
+Esto asegura el **"Flujo Operativo"**. Significa una corriente de acciones inteligentes que fluyen desde la intención hasta la realización, gestionadas por un grafo rígido y autocorrectivo.
 
 ### El Flujo de Trabajo de Eficiencia de 5 Fases
 

@@ -1,18 +1,24 @@
-#OpenCode Orchestrator Plugin
+# OpenCode Orchestrator Plugin
 
 > **Multi-Agent Plugin for [OpenCode](https://opencode.ai)**
 
-<div align="center">
-
 [![MIT License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-[![npm](https://img.shields.io/npm/v/@agnusdei1207/opencode-orchestrator.svg)](https://www.npmjs.com/package/@agnusdei1207/opencode-orchestrator)
-[![npm downloads](https://img.shields.io/npm/dt/@agnusdei1207/opencode-orchestrator.svg)](https://www.npmjs.com/package/@agnusdei1207/opencode-orchestrator)
+[![npm](https://img.shields.io/npm/v/opencode-orchestrator.svg)](https://www.npmjs.com/package/opencode-orchestrator)
+[![npm downloads](https://img.shields.io/npm/dt/opencode-orchestrator.svg)](https://www.npmjs.com/package/opencode-orchestrator)
 [![OpenCode Plugin](https://img.shields.io/badge/OpenCode-Plugin-purple.svg)](https://opencode.ai)
 
 [English](README.md) | [한국어](docs/README/README.ko.md) | [简体中文](docs/README/README.zh.md) | [日本語](docs/README/README.ja.md) | [Español](docs/README/README.es.md) | [Français](docs/README/README.fr.md) | [Deutsch](docs/README/README.de.md)
 [Русский](docs/README/README.ru.md) | [Português](docs/README/README.pt.md)
 
-</div>
+---
+
+<p align="center">
+  <img src="assets/logo.png" width="600" />
+</p>
+
+> **The Ultimate Goal**
+>
+> To decompose tasks into such microscopic, easy-to-solve units that **even a 'fool' can execute them**, enabling **massive parallel collaboration**. The model doesn't need to be smart. **The collaborative method needs to be perfect.**
 
 ---
 
@@ -20,7 +26,7 @@
 
 A 6-agent collaborative system that maximizes **Agent Orchestration** to extract **Ultimate Decision Quality** from **affordable, lower-performance models**.
 
-**Core idea**: By strategically organizing roles, breaking work into micro-tasks, and enforcing strict verification rules, we achieve "Expensive Model" results with "Budget Model" costs.
+**Core Idea**: Through strategic role allocation, microscopic task decomposition, and rigid validation enforcement, we achieve **State-of-the-Art (SOTA) results** using **cost-effective models**. Even if the underlying model is not 'smartest', our architecture ensures it **gets the job done** flawlessly.
 
 ---
 
@@ -51,7 +57,7 @@ A 6-agent collaborative system that maximizes **Agent Orchestration** to extract
 Instead of a linear sequence, we use a **Directed Acyclic Graph (DAG)** to model your mission.
 
 ```
-      Mission Start (/dag)
+      Mission Start (/task)
               │
               ▼
       ┌───────────────┐
@@ -131,8 +137,8 @@ The Orchestrator will:
 
 ---
 
-- [Architecture Deep-Dive](docs/ARCHITECTURE.md) — How the DAG works
-- [Configuration](examples/orchestrator.jsonc) — Customize settings
+- **[System Architecture (Deep Dive)](docs/ARCHITECTURE.md)**: Explore the Distributed Cognitive Architecture (DCA), PDCA Loop, and Actor Model internals.
+- **[Configuration](docs/CONFIGURATION.md)**: `opencode.toml` setup guide.
 
 ---
 
@@ -144,16 +150,6 @@ MIT License. No telemetry. No backdoors.
 
 ---
 
-## Author's Note
-
-> My goal is to prove that **affordable models** can produce results as good as expensive APIs — when you structure the work right.
->
-> Break tasks down, verify every step, fix errors automatically. The model doesn't need to be smart. The process needs to be disciplined.
->
-> — [@agnusdei1207](https://github.com/agnusdei1207)
-
----
-
 ## License
 
 MIT License. NO WARRANTY.
@@ -162,36 +158,43 @@ MIT License. NO WARRANTY.
 
 ---
 
-## 🏛️ The Architecture: Distributed Cognitive Orchestration (DCO)
+## 🏛️ The Architecture: The PDCA & Distributed Cognitive Loop
 
-We have moved beyond the paradigm of a "single smart chatbot". **OpenCode Orchestrator** is a **Deterministic Engineering Layer** built atop the stochastic nature of Large Language Models.
+We have moved beyond simple "chatbots". **OpenCode Orchestrator** implements a **Deterministic Engineering Layer** built on top of the stochastic nature of LLMs,
+- **Strict PDCA Loop**: Guarantees quality via Plan-Do-Check-Act cycle.
+- **🔍 Micro-tasking**: Atomic decomposition to prevent hallucinations.
+- **🛡️ Style Guardian**: Strict AST-based linting and consistency checks by the Reviewer.
+- **🔄 Self-healing**: Autonomous pivoting strategies for complex errors.
+- **Distributed Cognitive System**: Intelligence layer acting like an OS Kernel.
+- **File-Based State**: Uses physical filesystem as RAM, ignoring context limits.
+We treat agents as **Semantic Compute Units**. By applying rigorous Computer Science principles, we achieve a level of reliability that no single model can match.
 
-We treat agents not as personalities, but as **Semantic Compute Units**. By applying rigorous Computer Science principles, we achieve a level of reliability that no single model—regardless of parameter count—can match.
-
-### 🧬 The "Grand Fusion" of Computer Science
+### 🧬 The "Grand Fusion" of Methodologies
 We explicitly fused three massive domains into one seamless workflow:
 
-1.  **Distributed Systems Theory (The "Actor Model")**:
-    *   **Independent Agents**: The Planner, Coder, and Searcher operate as independent **Actors** with isolated state.
-    *   **Byzantine Fault Tolerance**: The **Reviewer** acts as a consensus node, rigorously validating code against project standards to prevent "hallucinated" regressions.
+1.  **PDCA Methodology (Quality Assurance)**:
+    *   **Plan (Planner)**: Recursively decomposes mission into atomic tasks ($O(log n)$).
+    *   **Do (Coder)**: Executes the atomic tasks in parallel (Distributed Actions).
+    *   **Check (Reviewer)**: Acts as a **Byzantine Fault Tolerance** node, strictly validating code against requirements.
+    *   **Act (Orchestrator)**: Merges successful states or **Pivots** (Dynamic Programming) if failures occur.
 
-2.  **Algorithmic Efficiency (MapReduce & Divide & Conquer)**:
-    *   **Map (Planner)**: Complex missions are recursively decomposed ($O(log n)$ complexity) into atomic 20-line tasks.
-    *   **Reduce (Orchestrator)**: Parallel execution streams are aggregated, synchronized, and merged into the final consistent state.
+2.  **Distributed Systems Theory (Actor Model)**:
+    *   Each agent operates as an independent **Actor** with isolated state.
+    *   **Context Sharding**: We treat context windows like RAM, paging data in/out via `temp_context` files to simulate **Infinite Context**.
 
-3.  **Kernel Operating Principles (Scheduling & Memory)**:
-    *   **Context Sharding (Virtual Memory)**: We treat Context Window as RAM. Massive docs are sharded into `temp_context` files (Page Swapping) and loaded only on "Page Faults" (Information Gaps).
-    *   **DAG Scheduling**: Tasks form a non-blocking Directed Acyclic Graph, optimizing for wall-clock time over thread concurrency.
+3.  **Algorithmic Efficiency**:
+    *   **Divide & Conquer**: Breaking complex problems into trivial $O(1)$ sub-problems.
+    *   **Dynamic Programming**: Storing intermediate results (State) to avoid redundant computation and allow for intelligent backtracking.
 
-### 🚀 The Command: `/flow`
+### 🚀 The Command: `/task`
 
-The interface to this power is a single, intuitive command:
+The interface to this system is a single, powerful command:
 
 ```bash
-/flow "Refactor the authentication middleware and implement JWT rotation"
+/task "Refactor the authentication middleware and implement JWT rotation"
 ```
 
-This ensures **"Operational Flow"**. It signifies a stream of intelligent actions flowing from intent to realization, managed by a rigid, self-correcting graph.
+This triggers the **Distributed Task Loop**. It's not just a chat; it's a mission commitment.
 
 ### The 5-Phase Efficiency Workflow
 

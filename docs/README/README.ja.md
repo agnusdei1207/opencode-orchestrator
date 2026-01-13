@@ -2,17 +2,23 @@
 
 > **[OpenCode](https://opencode.ai)のためのマルチエージェントコラボレーションプラグイン**
 
-<div align="center">
-
 [![MIT License](https://img.shields.io/badge/license-MIT-blue.svg)](../../LICENSE)
-[![npm](https://img.shields.io/npm/v/@agnusdei1207/opencode-orchestrator.svg)](https://www.npmjs.com/package/@agnusdei1207/opencode-orchestrator)
-[![npm downloads](https://img.shields.io/npm/dt/@agnusdei1207/opencode-orchestrator.svg)](https://www.npmjs.com/package/@agnusdei1207/opencode-orchestrator)
+[![npm](https://img.shields.io/npm/v/opencode-orchestrator.svg)](https://www.npmjs.com/package/opencode-orchestrator)
+[![npm downloads](https://img.shields.io/npm/dt/opencode-orchestrator.svg)](https://www.npmjs.com/package/opencode-orchestrator)
 [![OpenCode Plugin](https://img.shields.io/badge/OpenCode-Plugin-purple.svg)](https://opencode.ai)
 
 [English](../../README.md) | [한국어](README.ko.md) | [简体中文](README.zh.md) | [日本語](README.ja.md) | [Español](README.es.md) | [Français](README.fr.md) | [Deutsch](README.de.md)
 [Русский](README.ru.md) | [Português](README.pt.md)
 
-</div>
+---
+
+<p align="center">
+  <img src="../../assets/logo.png" width="600" />
+</p>
+
+> **究極の目標**
+>
+> 非常に小さな単位に業務を分割し、**愚か者でも遂行できるようにして**、**並列で協業できるようにすること**です。モデルが賢い必要はありません. **協力する方法が完璧であればよいのです。**
 
 ---
 
@@ -20,7 +26,7 @@
 
 6つのエージェントが協力して、**エージェントオーケストレーション**を最大化し、**手頃な価格の低性能モデル**から**究極の意思決定品質 (Ultimate Decision Quality)**を引き出すシステムです。
 
-**コアアイデア**: 役割を戦略的に組織し、作業をマイクロタスクに分解し、厳格な検証ルールを強制することで、「高価なモデル」の結果を「予算モデル」のコストで実現します。
+**核心となるアイデア**: 戦略的な役割分担、タスクのマイクロ単位への分解、そして厳格な検証ルールの強制を通じて、**「安価なモデル」のコストで「高価なモデル」の成果**を達成します。モデル自体の性能が最上級でなくとも、このアーキテクチャは**素晴らしい結果**を必ずやり遂げます。
 
 ---
 
@@ -51,7 +57,7 @@
 線形な順序の代わりに、**有向非巡回グラフ (DAG)** を使用してミッションをモデル化します。
 
 ```
-      ミッション開始 (/dag)
+      ミッション開始 (/task)
               │
               ▼
       ┌───────────────┐
@@ -143,16 +149,6 @@ MITライセンス。テレメトリなし。バックドアなし。
 
 ---
 
-## 著者の一言
-
-> 私の目標は、適切な構造さえあれば、**普及型モデル**でも高価なAPIと同じくらい素晴らしい結果を出せることを証明することです。
->
-> 作業を細かく分割し、すべてのステップを検証し、エラーを自動的に修正する。モデルが賢い必要はありません。プロセスが完璧であればいいのです。
->
-> — [@agnusdei1207](https://github.com/agnusdei1207)
-
----
-
 ## ライセンス
 
 MIT License. NO WARRANTY.
@@ -170,9 +166,24 @@ MIT License. NO WARRANTY.
 ### 秘訣: 極限の効率性
 
 1.  **マイクロタスク化 (「分散」戦略)**: モデルに「Webサイトを作って」と頼むことはしません。作業を20行程度の原子的な変更に細分化します。小さなコンテキスト = 高い精度 = 低い幻覚 (Hallucination)。
-2.  **並列実行と検証**: 独立したタスクを並列に実行することで、実時間を短縮します。
-3.  **トークンエコノミー**: コンテキストを厳格にフィルタリングします。エージェントはコードベース全体を読むのではなく、*変更点*と*要約*のみを読みます。これにより、精度を維持しながらトークンコストを大幅に削減します。
-4.  **容赦ない検証**: 安価なモデルは間違いを犯すことを受け入れます。**Reviewer**エージェントは、その間違いを捕捉するためにのみ存在します。100%の信頼性のために、わずかな計算時間を投資します。
+2.  **並列処理**: 複数のエージェントが異なるファイルで同時に作業します。スレッドの並行性を実時間の短縮に変えます。
+- **PDCAサイクルの遵守**: 計画-実行-評価-改善の厳格なループを通じて品質を保証します。
+- **🔍 マイクロタスク化 (Micro-tasking)**: 幻覚（Hallucination）を防ぐためにタスクを原子単位に分解します。
+- **🛡️ スタイルガーディアン (Style Guardian)**: Reviewerが厳格なASTベースのLintと一貫性チェックを実行します。
+- **🔄 自己修復 (Self-healing)**: 複雑なエラーに対する自律的な回避戦略。
+- **分散認知システム**: 単なるチャットボットではなく、OSカーネルのように動作するインテリジェンスレイヤー。
+- **ファイルベースの状態管理**: コンテキストウィンドウに依存せず、物理ファイルシステムをRAMのように活用します。エージェントはコードベース全体を読むのではなく、*変更点*と*要約*のみを読みます。これにより、精度を維持しながらトークンコストを大幅に削減します。
+- **容赦ない検証**: 安価なモデルは間違いを犯すことを受け入れます。**Reviewer**エージェントは、その間違いを捕捉するためにのみ存在します。100%の信頼性のために、わずかな計算時間を投資します。
+
+### 🚀 コマンド: `/task`
+
+この力を利用するためのインターフェースは、単一の直感的なコマンドです：
+
+```bash
+/flow "認証ミドルウェアをリファクタリングし、JWTローテーションを実装して"
+```
+
+これは **「オペレーショナル・フロー (Operational Flow)」** を保証します。それは、意図から実現へと流れる知的な行動の流れを意味し、厳格で自己修正可能なグラフによって管理されます。
 
 ### 5段階の効率化ワークフロー
 
