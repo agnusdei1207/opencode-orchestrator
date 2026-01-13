@@ -2,22 +2,24 @@
 
 // scripts/postinstall.ts
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from "fs";
-import { join } from "path";
+import { join, dirname } from "path";
 import { homedir } from "os";
+import { fileURLToPath } from "url";
 var CONFIG_DIR = join(homedir(), ".config", "opencode");
 var CONFIG_FILE = join(CONFIG_DIR, "opencode.json");
 var PLUGIN_NAME = "opencode-orchestrator";
 function getPluginPath() {
   try {
-    let currentDir = new URL(".", import.meta.url).pathname;
-    while (currentDir !== "/" && currentDir !== ".") {
+    let currentDir = dirname(fileURLToPath(import.meta.url));
+    while (true) {
       if (existsSync(join(currentDir, "package.json"))) {
-        return currentDir.replace(/\/$/, "");
+        return currentDir;
       }
-      const parent = join(currentDir, "..");
-      if (parent === currentDir)
+      const parentDir = dirname(currentDir);
+      if (parentDir === currentDir) {
         break;
-      currentDir = parent;
+      }
+      currentDir = parentDir;
     }
     return PLUGIN_NAME;
   } catch {

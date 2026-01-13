@@ -1,4 +1,4 @@
-# OpenCode Orchestrator Plugin
+#OpenCode Orchestrator Plugin
 
 > **Multi-Agent Plugin for [OpenCode](https://opencode.ai)**
 
