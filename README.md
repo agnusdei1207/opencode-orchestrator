@@ -28,7 +28,7 @@ A 6-agent collaborative system that turns any LLM into a reliable coding team.
 | One big prompt → Hope it works | Atomic tasks → Verified every step |
 | Expensive model required | Fixed, affordable models work |
 | Errors compound silently | Self-correcting loop |
-| Unpredictable results | **Relentless execution (Sisyphus Strategy)** |
+| Unpredictable results | **Relentless execution strategy** |
 
 ---
 
@@ -159,9 +159,9 @@ MIT License. NO WARRANTY.
 
 ---
 
-## 🏛️ Project Philosophy: The Sisyphus Strategy
+## 🏛️ Project Philosophy: Relentless Execution
 
-We don't believe in "fast" AI. We believe in **correct** AI. Like Sisyphus, our agents are relentless. They don't stop when they hit an error; they pivot, re-plan, and push the boulder back up until it stays at the top.
+We don't believe in "fast" AI. We believe in **correct** AI. Our agents are relentless. They don't stop when they hit an error; they pivot, re-plan, and push forward until the goal is achieved.
 
 ### The 5-Phase Mission Workflow
 
