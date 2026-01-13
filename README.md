@@ -27,7 +27,7 @@ A 6-agent collaborative system that turns any LLM into a reliable coding team.
 | One big prompt → Hope it works | Atomic tasks → Verified every step |
 | Expensive model required | Any model works |
 | Errors compound silently | Self-correcting loop |
-| Unpredictable results | Consistent quality |
+| Unpredictable results | **Relentless execution until success** |
 
 ---
 
@@ -37,8 +37,8 @@ A 6-agent collaborative system that turns any LLM into a reliable coding team.
 - **🧠 Micro-Task Architecture** — Atomic task decomposition for reliability
 - **🔄 Self-Correcting Loop** — Every change reviewed, errors auto-fixed
 - **👥 6-Agent Team** — Specialized roles working together
-- **🛡️ Circuit Breaker** — Stops after 3 same errors, prevents infinite loops
-- **⚡ Full Autonomy** — `/auto` command handles everything
+- **🛡️ Resilient Execution** — Never stops on errors. Pivots strategy (Plan/Search) until success.
+- **⚡ Full Autonomy** — `/auto` is all you need. Relentless execution until 100% complete.
 
 ---
 
@@ -59,7 +59,7 @@ User Request
 │   Search → Code → Review → Fix           │
 │       ↑                      │           │
 │       └──────────────────────┘           │
-│           (until PASS)                   │
+│           (Never gives up)               │
 └──────────────────────────────────────────┘
      │
      ▼
