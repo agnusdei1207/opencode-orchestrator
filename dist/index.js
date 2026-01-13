@@ -12338,7 +12338,6 @@ function tool(input) {
 }
 tool.schema = exports_external;
 // src/index.ts
-import { appendFileSync } from "fs";
 var __dirname2 = dirname(fileURLToPath(import.meta.url));
 var AGENTS = {
   orchestrator: {
@@ -12960,17 +12959,8 @@ function detectSlashCommand(text) {
     return null;
   return { command: match[1], args: match[2] || "" };
 }
-var LOG_FILE = "/tmp/opencode_debug.log";
-var log = (msg) => {
-  try {
-    appendFileSync(LOG_FILE, `[${new Date().toISOString()}] ${msg}
-`);
-  } catch {}
-};
 var OrchestratorPlugin = async (input) => {
-  log("Plugin initializing...");
   const { directory } = input;
-  log(`Directory: ${directory}`);
   return {
     tool: {
       call_agent: callAgentTool,
@@ -12979,7 +12969,6 @@ var OrchestratorPlugin = async (input) => {
       glob_search: globSearchTool(directory)
     },
     config: async (config2) => {
-      log("Config handler called");
       const existingCommands = config2.command ?? {};
       const orchestratorCommands = {};
       for (const [name, cmd] of Object.entries(COMMANDS)) {

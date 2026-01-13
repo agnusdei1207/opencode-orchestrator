@@ -68,6 +68,62 @@ tool: {
 
 ---
 
+## Critical Fixes (2026-01-13)
+
+### 1. Plugin Not Loading? Use Absolute Paths!
+OpenCode often fails to resolve plugins by package name depending on the user's Node environment (nvm, global prefix, etc.).
+**Solution**: Always register the **absolute path** to the plugin in `opencode.json`.
+
+```typescript
+// scripts/postinstall.ts
+function getPluginPath() {
+    try {
+        const packagePath = new URL(".", import.meta.url).pathname;
+        // ... resolve to package root ...
+        return packageRoot; // e.g., /Users/user/.../opencode-orchestrator
+    } catch {
+        return "opencode-orchestrator"; // Fallback
+    }
+}
+// Register this path!
+config.plugin.push(pluginPath);
+```
+
+### 2. Commands Not Appearing in Menu? Add Config Handler!
+Registering a `slashcommand` tool makes the command *work* if you type it, but it **won't appear in the autocomplete menu** unless you register it via the `config` handler with metadata.
+
+**Required Handler in `src/index.ts`:**
+```typescript
+return {
+    tool: { ... },
+    
+    // MANDATORY for Autocomplete Menu
+    config: async (config: Record<string, unknown>) => {
+        config.command = {
+            ...(config.command as object),
+            "auto": {
+                description: "Autonomous execution",
+                template: "...",
+                argumentHint: '"task description"' // Optional but recommended
+            }
+        };
+    }
+};
+```
+
+### 3. Build Target
+Ensure your plugin is built for **Bun** (if using Bun) or **Node** explicitly.
+We found that `target: "bun"` works best if aiming for compatibility with existing plugins like `oh-my-opencode`.
+
+### 4. Bundling Dependencies
+Make sure your build script bundles dependencies (except `node_modules` if externals are set correctly).
+For oh-my-opencode compatibility:
+```bash
+bun build src/index.ts --outdir dist --target bun --format esm
+```
+
+---
+
 ## Checklist for Plugin Issues
 
 ### 1. Verify Installation
