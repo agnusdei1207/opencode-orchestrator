@@ -140,4 +140,6 @@ MIT License. No telemetry. No backdoors.
 
 ## License
 
+MIT License. NO WARRANTY.
+
 [MIT](LICENSE)
