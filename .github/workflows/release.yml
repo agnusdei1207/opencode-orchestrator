@@ -83,11 +83,22 @@ jobs:
       - name: Display structure of downloaded files
         run: ls -R binaries/
 
-      # GitHub Release 생성 (바이너리 첨부)
+      # GitHub Release 생성 (바이너리 첨부 + 커스텀 노트)
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v1
         with:
           files: binaries/**/*
+          body: |
+            ## 🚀 OpenCode Orchestrator ${{ github.ref_name }}
+            
+            **"Relentless execution until absolute success."**
+            
+            ### ✨ Highlights
+            - **🛡️ Resilient Execution**: Never stops. Pivots strategy (Plan/Search) on error.
+            - **⚡ Full Autonomy**: `/auto` command completes tasks 100%.
+            - **✅ Anti-Overengineering**: Smart fixers for simple errors.
+            
+            ---
           generate_release_notes: true
           fail_on_unmatched_files: false
 
