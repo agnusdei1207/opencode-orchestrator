@@ -4,12 +4,13 @@
 
 <div align="center">
 
-[![MIT License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![MIT License](https://img.shields.io/badge/license-MIT-blue.svg)](../../LICENSE)
 [![npm](https://img.shields.io/npm/v/@agnusdei1207/opencode-orchestrator.svg)](https://www.npmjs.com/package/@agnusdei1207/opencode-orchestrator)
 [![npm downloads](https://img.shields.io/npm/dt/@agnusdei1207/opencode-orchestrator.svg)](https://www.npmjs.com/package/@agnusdei1207/opencode-orchestrator)
 [![OpenCode Plugin](https://img.shields.io/badge/OpenCode-Plugin-purple.svg)](https://opencode.ai)
 
-[English](README.md) | [한국어](README.ko.md) | [简体中文](README.zh.md)
+[English](../../README.md) | [한국어](README.ko.md) | [简体中文](README.zh.md) | [日本語](README.ja.md) | [Español](README.es.md) | [Français](README.fr.md) | [Deutsch](README.de.md)
+[Русский](README.ru.md) | [Português](README.pt.md)
 
 </div>
 
@@ -17,7 +18,7 @@
 
 ## 这是什么？
 
-一个由 6 个智能体组成的协作系统，即使是 **低性能模型 (如 GLM-4.7)** 也能转化为高可靠的代码开发团队。
+一个由 6 个智能体组成的协作系统，即使是 **低性能模型** 也能转化为高可靠的代码开发团队。
 
 **核心理念**：将复杂任务分解为原子单位，验证每一步，并自动修复错误。
 
@@ -129,8 +130,8 @@ bun install -g opencode-orchestrator
 
 ---
 
-- [架构深度解析](docs/ARCHITECTURE.md) — DAG 工作原理
-- [配置说明](examples/orchestrator.jsonc) — 自定义设置
+- [架构深度解析](../ARCHITECTURE.md) — DAG 工作原理
+- [配置说明](../../examples/orchestrator.jsonc) — 自定义设置
 
 ---
 
@@ -144,7 +145,7 @@ MIT 协议。无遥测。无后门。
 
 ## 作者寄语
 
-> 我的目标是证明，只要结构正确，像 **GLM-4.7** 这样平价的模型也能产出与昂贵 API 相当的结果。
+> 我的目标是证明，只要结构正确，像 **平价模型** 也能产出与昂贵 API 相当的结果。
 >
 > 分解任务，验证每一步，自动修复错误。模型不需要太聪明，流程必须足够严谨。
 >
@@ -155,6 +156,8 @@ MIT 协议。无遥测。无后门。
 ## 许可证
 
 MIT License. NO WARRANTY.
+
+[MIT](../../LICENSE)
 
 ---
 

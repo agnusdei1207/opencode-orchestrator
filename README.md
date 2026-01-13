@@ -9,7 +9,8 @@
 [![npm downloads](https://img.shields.io/npm/dt/@agnusdei1207/opencode-orchestrator.svg)](https://www.npmjs.com/package/@agnusdei1207/opencode-orchestrator)
 [![OpenCode Plugin](https://img.shields.io/badge/OpenCode-Plugin-purple.svg)](https://opencode.ai)
 
-[English](README.md) | [한국어](README.ko.md) | [简体中文](README.zh.md)
+[English](README.md) | [한국어](docs/README/README.ko.md) | [简体中文](docs/README/README.zh.md) | [日本語](docs/README/README.ja.md) | [Español](docs/README/README.es.md) | [Français](docs/README/README.fr.md) | [Deutsch](docs/README/README.de.md)
+[Русский](docs/README/README.ru.md) | [Português](docs/README/README.pt.md)
 
 </div>
 
@@ -17,7 +18,7 @@
 
 ## What is this?
 
-A 6-agent collaborative system that makes even **low-performance models (like GLM-4.7)** act as a highly reliable coding team.
+A 6-agent collaborative system that makes even **lower-performance models** act as a highly reliable coding team.
 
 **Core idea**: Break complex tasks into atomic units, verify each step, fix errors automatically.
 
@@ -145,7 +146,7 @@ MIT License. No telemetry. No backdoors.
 
 ## Author's Note
 
-> My goal is to prove that **affordable models like GLM-4.7** can produce results as good as expensive APIs — when you structure the work right.
+> My goal is to prove that **affordable models** can produce results as good as expensive APIs — when you structure the work right.
 >
 > Break tasks down, verify every step, fix errors automatically. The model doesn't need to be smart. The process needs to be disciplined.
 >
