@@ -18,31 +18,31 @@
 
 ## O que é isto?
 
-Um sistema colaborativo de 6 agentes que transforma até **modelos de menor desempenho** em uma equipe de codificação altamente confiável.
+Um sistema colaborativo de 6 agentes que maximiza a **Orquestração de Agentes** para extrair a **Qualidade de Decisão Suprema (Ultimate Decision Quality)** de **modelos acessíveis e de menor desempenho**.
 
-**Ideia central**: Dividir tarefas complexas em unidades atômicas, verificar cada etapa e corrigir erros automaticamente.
+**Ideia central**: Ao organizar estrategicamente os papéis, dividir o trabalho em micro-tarefas e impor regras de verificação rigorosas, alcançamos resultados de "Modelo Caro" com custos de "Modelo Econômico".
 
 ---
 
 ## Por que Orchestrator?
 
 | Tradicional | Com Orchestrator |
-|-------------|------------------|
-| Um grande prompt → Torcer para funcionar | Tarefas atômicas → Verificadas em cada etapa |
-| Requer modelo caro | Modelos fixos e acessíveis funcionam |
-| Erros se acumulam silenciosamente | Loop de autocorreção (Self-correcting) |
-| Resultados imprevisíveis | **Estratégia de execução implacável** |
+|-------------|-------------------|
+| Requer Modelo "Inteligente" caro | **Modelo Acessível + Processo Inteligente** |
+| Altos Custos de Token (Contexto enorme) | **Eficiência de Token** (Contexto filtrado) |
+| Execução linear e lenta | **Execução Paralela e Rápida** |
+| Erros acumulam-se silenciosamente | **Loops de Verificação e Autocorreção** |
+| "Espero que funcione" | **Micro-Gerenciamento Estratégico** |
 
 ---
 
-- **🧩 Orquestração DAG Paralela** — Execução simultânea de tarefas independentes
-- **🎯 Otimização de Modelo Fixo** — Alta confiabilidade mesmo com LLMs de baixo desempenho
-- **🦀 Núcleo em Rust** — Ferramentas de busca e análise nativas, rápidas e seguras
-- **🧠 Micro-Tarefas 2.0** — Decomposição de tarefas atômicas baseada em JSON
-- **🛡️ Guardião de Estilo** — Linting estrito baseado em AST e verificações de consistência
-- **🔄 Loop de Autocorreção** — Estratégias de pivô autônomas para erros complexos
-- **🏘️ Agrupamento Inteligente** — Emparelhamento Coder + Reviewer para cada tarefa
-- **🏗️ Desempenho Impulsionado por Rust** — Desempenho nativo para tarefas pesadas
+- **🧩 Organização Estratégica** — Maximizando a produção através de distribuição inteligente de papéis
+- **📉 Economia de Tokens** — Filtrando ruído para reduzir custos e aumentar o foco
+- **⚡ DAG Paralelo** — Execução simultânea para velocidade e eficiência
+- **🔍 Micro-Tarefamento** — Decomposição atômica para prevenir alucinações
+- **🛡️ Guardião de Estilo** — Linting rigoroso baseado em AST e verificações de consistência
+- **🔄 Auto-Cura** — Estratégias de pivô autônomas para erros complexos
+- **🏗️ Core em Rust** — Desempenho nativo para tarefas pesadas
 
 ---
 
@@ -161,17 +161,28 @@ Licença MIT. SEM GARANTIA.
 
 ---
 
-## 🏛️ Filosofia do Projeto: Execução Implacável (Relentless Execution)
+## 🏛️ Filosofia do Projeto: A Grande Fusão de Arquiteturas
 
-Não acreditamos em IA "rápida". Acreditamos em IA **correta**. Nossos agentes são implacáveis. Eles não param quando encontram um erro; eles pivotam, re-planejam e seguem em frente até que o objetivo seja alcançado.
+Este projeto é uma **sinfonia dos maiores sucessos da Ciência da Computação**. Não é apenas um script de chatbot; é uma **fusão colaborativa** de algoritmos avançados e padrões arquitetônicos.
 
-### Fluxo de Missão de 5 Fases
+Projetamos explicitamente este sistema integrando **princípios de Kernel de Sistema Operacional (Agendamento), Computação Distribuída (Sharding de Estado) e Eficiência Algorítmica (Dividir e Conquistar, Programação Dinâmica)**. Ao orquestrar esses conceitos poderosos juntos, superamos as limitações de modelos de IA individuais através da **Superioridade Arquitetônica**.
 
-1.  **🧠 Fase 1: Análise Profunda (Pensar Primeiro)**: Nada de codificar às cegas. Agentes devem ler os documentos e resumir os limites centrais do projeto primeiro.
-2.  **🌲 Fase 2: Planejamento Hierárquico**: Decomposição de uma visão arquitetônica de alto nível até micro-tarefas atômicas e paralelas (DAG JSON).
-3.  **👥 Fase 3: Execução Paralela**: Execução simultânea de tarefas independentes para maximizar a eficiência.
-4.  **🛡️ Fase 4: Portão de Sincronização Global**: Após os fluxos paralelos se unirem, uma **Verificação de Consistência Global** garante que todos os arquivos, importações e exportações permaneçam em perfeita sincronia.
-5.  **⏳ Fase 5: Conclusão Implacável**: Sem limites de tempo artificiais. O sucesso é definido apenas por um "PASS" 100% verificado. Executamos o tempo que for necessário para alcançar a perfeição.
+Tratamos a orquestração de agentes como um **problema de computação distribuída**, extraindo cada gota de inteligência de modelos acessíveis. e de menor desempenho** (como modelos locais ou APIs econômicas) podem alcançar **Qualidade de Decisão Suprema** quando organizados corretamente. Conseguimos isso imitando uma equipe de engenharia humana de alto desempenho.
+
+### O Molho Secreto: Eficiência Extrema
+
+1.  **Micro-Gerenciamento (A Estratégia de "Dispersão")**: Não pedimos ao modelo para "construir um site". Nós o dividimos em mudanças atômicas de 20 linhas. Pequeno contexto = Alta precisão = Baixa alucinação.
+2.  **Execução e Verificação Paralela**: Ao executar tarefas independentes em paralelo, reduzimos o tempo real.
+3.  **Economia de Tokens**: Filtramos estritamente o contexto. Os agentes não leem toda a base de código; eles leem *atualizações* e *resumos*. Isso corta drasticamente os custos de tokens enquanto mantém a precisão.
+4.  **Verificação Implacável**: Aceitamos que modelos baratos cometem erros. O agente **Reviewer** existe apenas para pegá-los. Trocamos um pouco de tempo de computação por 100% de confiabilidade.
+
+### O Fluxo de Trabalho de Eficiência de 5 Fases
+
+1.  **🧠 Fase 1: Análise Filtrada**: O **Searcher** lê a documentação, mas filtra o ruído. Apenas alimentamos o "caminho crítico" para o Planner.
+2.  **🌲 Fase 2: Planejamento Estratégico**: O **Planner** cria um DAG JSON. Este é o nosso roteiro. Nenhum token é desperdiçado em divagações sem rumo.
+3.  **🚀 Fase 3: Execução Paralela**: O **Orchestrator** identifica tarefas independentes e as executa simultaneamente.
+4.  **🛡️ Fase 4: Sincronização e Verificação**: O **Reviewer** atua como guardião. Ele verifica sintaxe, lógica e *consistência entre arquivos*.
+5.  **💰 Fase 5: Conclusão Custo-Efetiva**: Alcançamos resultados de "Desenvolvedor Sênior" a preços de "Estagiário Júnior".
 
 ---
 

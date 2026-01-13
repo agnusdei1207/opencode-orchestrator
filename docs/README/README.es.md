@@ -18,31 +18,31 @@
 
 ## ¿Qué es esto?
 
-Un sistema colaborativo de 6 agentes que convierte incluso a **modelos de menor rendimiento** en un equipo de codificación altamente confiable.
+Un sistema colaborativo de 6 agentes que maximiza la **Orquestación de Agentes** para extraer la **Calidad de Decisión Suprema (Ultimate Decision Quality)** de **modelos asequibles y de menor rendimiento**.
 
-**Idea central**: Dividir tareas complejas en unidades atómicas, verificar cada paso y corregir errores automáticamente.
+**Idea central**: Al organizar estratégicamente los roles, dividir el trabajo en micro-tareas y hacer cumplir reglas de verificación estrictas, logramos resultados de "Modelo Costoso" con costos de "Modelo Económico".
 
 ---
 
 ## ¿Por qué Orchestrator?
 
 | Tradicional | Con Orchestrator |
-|-------------|------------------|
-| Un gran prompt → Con suerte funciona | Tareas atómicas → Verificadas en cada paso |
-| Requiere modelos costosos | Modelos fijos y asequibles funcionan bien |
-| Los errores se acumulan silenciosamente | Bucle de autocuración (Self-correcting) |
-| Resultados impredecibles | **Estrategia de ejecución implacable** |
+|-------------|-------------------|
+| Requiere modelo costoso e "inteligente" | **Modelo Asequible + Proceso Inteligente** |
+| Altos costos de tokens (contexto enorme) | **Eficiencia de Tokens** (contexto filtrado) |
+| Ejecución lineal y lenta | **Ejecución Paralela y Rápida** |
+| Los errores se acumulan silenciosamente | **Bucles de Verificación y Autocorrección** |
+| "Espero que funcione" | **Micro-Gestión Estratégica** |
 
 ---
 
-- **🧩 Orquestación DAG Paralela** — Ejecución concurrente de tareas independientes
-- **🎯 Optimización de Modelo Fijo** — Alta confiabilidad incluso con LLMs de bajo rendimiento
-- **🦀 Núcleo en Rust** — Herramientas de búsqueda y análisis nativas, rápidas y seguras
-- **🧠 Micro-Tareas 2.0** — Descomposición de tareas atómicas basada en JSON
+- **🧩 Organización Estratégica** — Maximizar la producción mediante una distribución de roles inteligente
+- **📉 Economía de Tokens** — Filtrar el ruido para reducir costos y aumentar el enfoque
+- **⚡ DAG Paralelo** — Ejecución concurrente para velocidad y eficiencia
+- **🔍 Micro-Tareas** — Descomposición atómica para prevenir alucinaciones
 - **🛡️ Guardián de Estilo** — Linting estricto basado en AST y comprobaciones de consistencia
-- **🔄 Bucle de Autocuración** — Estrategias de pivote autónomas para errores complejos
-- **🏘️ Agrupamiento Inteligente** — Emparejamiento de Coder + Reviewer para cada tarea
-- **🏗️ Rendimiento Impulsado por Rust** — Rendimiento nativo para tareas pesadas
+- **🔄 Auto-Reparación** — Estrategias de pivote autónomas para errores complejos
+- **🏗️ Núcleo Rust** — Rendimiento nativo para tareas pesadas
 
 ---
 
@@ -161,17 +161,25 @@ Licencia MIT. SIN GARANTÍA.
 
 ---
 
-## 🏛️ Filosofía del Proyecto: Ejecución Implacable (Relentless Execution)
+## 🏛️ Filosofía del Proyecto: Ingeniería de "Eficiencia Extrema"
 
-No creemos en la IA "rápida". Creemos en la IA **correcta**. Nuestros agentes son implacables. No se detienen cuando encuentran un error; pivotan, re-planifican y siguen adelante hasta lograr el objetivo.
+No nos limitamos a repetir prompts. Tratamos la orquestación de agentes como un **problema de computación distribuida**. Al tomar prestados conceptos del diseño de sistemas operativos y teoría de algoritmos—**Programación DAG, Divide y Vencerás, Gestión de Estado y Programación Dinámica**—exprimimos cada gramo de inteligencia de los modelos asequibles.
 
-### Flujo de Misión de 5 Fases
+### Principios de Ingeniería Centrales
 
-1.  **🧠 Fase 1: Análisis Profundo (Pensar Primero)**: Nada de codificar a ciegas. Los agentes deben leer los documentos y resumir los límites centrales del proyecto primero.
-2.  **🌲 Fase 2: Planificación Jerárquica**: Descomposición desde una visión arquitectónica de alto nivel hasta micro-tareas atómicas y paralelas (DAG JSON).
-3.  **👥 Fase 3: Ejecución Paralela**: Ejecución concurrente de tareas independientes para maximizar la eficiencia.
-4.  **🛡️ Fase 4: Puerta de Sincronización Global**: Después de que los flujos paralelos se unen, una **Comprobación de Consistencia Global** asegura que todos los archivos, importaciones y exportaciones se mantengan en perfecta sincronía.
-5.  **⏳ Fase 5: Finalización Implacable**: Sin límites de tiempo artificiales. El éxito solo se define por un "PASS" 100% verificado. Ejecutamos tanto tiempo como sea necesario para alcanzar la perfección.
+1.  **Grafo Acíclico Dirigido (DAG)**: Modelamos las misiones no como un chat lineal, sino como un grafo de dependencias. Esto permite la ejecución asíncrona y no bloqueante de tareas independientes.
+2.  **Divide y Vencerás (Algoritmo)**: El **Planner** utiliza la descomposición recursiva para dividir problemas complejos en unidades atómicas y solucionables (complejidad $O(1)$ para el Coder).
+3.  **Gestión de Estado y Programación**: Un Orchestrator dedicado actúa como un **Planificador de Kernel**, gestionando estados de hilos (Ready, Running, Success, Failed) y persistiendo el contexto a través de nodos de ejecución disjuntos (E/S de Archivos).
+4.  **Procesamiento Paralelo**: Múltiples agentes trabajan simultáneamente en diferentes archivos. Intercambiamos concurrencia de hilos por tiempo real.
+5.  **Adaptación Dinámica**: Si una ruta falla, no solo reintentamos; **pivotamos** (Re-planificación Dinámica).
+
+### El Flujo de Trabajo de Eficiencia de 5 Fases
+
+1.  **🧠 Fase 1: Análisis Filtrado**: El **Searcher** lee la documentación pero filtra el ruido. Solo alimentamos la "ruta crítica" al Planner.
+2.  **🌲 Fase 2: Planificación Estratégica**: El **Planner** crea un DAG JSON. Este es nuestro mapa. No se desperdician tokens en vagabundeos sin rumbo.
+3.  **🚀 Fase 3: Ejecución Paralela**: El **Orchestrator** identifica tareas independientes y las ejecuta simultáneamente.
+4.  **🛡️ Fase 4: Sincronización y Verificación**: El **Reviewer** actúa como guardián. Verifica la sintaxis, la lógica y la *consistencia entre archivos*.
+5.  **💰 Fase 5: Finalización Costo-Efectiva**: Logramos resultados de "Desarrollador Senior" a precios de "Pasante Junior".
 
 ---
 

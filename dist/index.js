@@ -12374,11 +12374,18 @@ class TaskGraph {
     return Array.from(this.tasks.values()).some((t) => t.status === "failed" && t.retryCount >= 3);
   }
   getTaskSummary() {
-    let summary = `\uD83D\uDCCB **Task Progress**
+    const tasks = Array.from(this.tasks.values());
+    const completed = tasks.filter((t) => t.status === "completed");
+    const notCompleted = tasks.filter((t) => t.status !== "completed");
+    let summary = `\uD83D\uDCCB **DAG Status**
 `;
-    for (const task of this.tasks.values()) {
-      const icon = task.status === "completed" ? "\u2705" : task.status === "running" ? "\u23F3" : task.status === "failed" ? "\u274C" : "\uD83D\uDCA4";
-      summary += `${icon} [${task.id}] ${task.description} (${task.status})
+    if (completed.length > 0) {
+      summary += `\u2705 Completed: ${completed.length} tasks (Hidden to save tokens)
+`;
+    }
+    for (const task of notCompleted) {
+      const icon = task.status === "running" ? "\u23F3" : task.status === "failed" ? "\u274C" : "\uD83D\uDCA4";
+      summary += `${icon} [${task.id}] ${task.description}
 `;
     }
     return summary;
@@ -12411,26 +12418,37 @@ var AGENTS = {
 - NEVER proceed to a task if its dependencies are not 100% VERIFIED.
 
 ## Operational SOP (Standard Operating Procedure)
-1. **ANALYSIS PHASE (THINK FIRST)**: 
+1. **PHASE 0: TRADE-OFF ANALYSIS**:
+   - **Cost vs. Value**: Is the DAG overhead justified?
+   - **Complexity**: If task is trivial, execute linearly (1-Node DAG).
+   - Only engage full DAG if complexity > 3 or multiple files involved.
+2. **ANALYSIS PHASE (THINK FIRST)**: 
    - Call **searcher** to read docs.
-   - Summarize the project core and boundaries.
-   - Organize your thoughts on how to approach the mission safely.
-2. **PLAN (HIERARCHICAL)**: 
+   - **Information Value Assessment**: constantly evaluate: "Is this info CRITICAL for the Next Step?"
+   - **Context Sharding**: If context > 4k tokens, instruct Searcher to create \`temp_context_[topic].md\` and ONLY keep the filename in memory.
+   - **Recursive Summarization**: Periodically read \`temp_context_*.md\`, summarize them into a master state, and delete old files.
+3. **PLAN (HIERARCHICAL)**: 
    - Call **planner** to generate a DAG.
-   - Move from high-level architecture to atomic micro-tasks.
-3. **SCHEDULE**: Identify all tasks with 0 pending dependencies.
-4. **EXECUTE**: search -> code -> review.
-5. **CONSISTENCY GATE (SYNC CHECK)**: 
+   - **State Strategy**: Explicitly define how nodes share data (File I/O).
+4. **SCHEDULE**: Identify all tasks with 0 pending dependencies.
+5. **EXECUTE**: search -> code -> review.
+6. **CONSISTENCY GATE (SYNC CHECK)**: 
    - After parallel tasks complete, call **reviewer** to perform a **Global Sync Check**.
    - Ensure interfaces, imports, and cross-file logic match perfectly.
-6. **VERIFY**: Mission complete only after Global Sync \u2705 PASS.
-7. **CLEANUP**: Automatically delete the temporary mission state file (*.mission.md) upon completion.
+7. **VERIFY**: Mission complete only after Global Sync \u2705 PASS.
+8. **CLEANUP**: Automatically delete the temporary mission state file (*.mission.md) AND all \`temp_context_*.md\` shards upon completion.
 
 ## Global Consistency Rules (Mandatory)
+- **State Persistence**: Independent nodes MUST communicate via files, not memory.
 - **Import Sync**: Any export change MUST trigger an update in all importing files.
 - **Signature Sync**: Function signature changes MUST be propagated to all callers in the same DAG layer.
 - **Type Sync**: Shared types MUST be modified in isolation before logic implementation.
 - **Atomic Integrity**: Parallel tasks MUST NOT modify the same line of code in the same file.
+
+## Memory Management Strategy (Infinite Context Simulation)
+- **Sharding**: Never hold raw code in context. Write it to a file, keep the reference.
+- **Garbage Collection**: If a task is done, summarize its outcome ("Task A: Success, Output at /file/path") and FORGET the details.
+- **Value Judgment**: Do not summarize "process". Summarize "state changes".
 
 ## Safety & Boundary SOP
 - **Safety Gate**: Verify alignment with project core before any execution.
@@ -12460,13 +12478,14 @@ Always show the DAG status at the end of your turns:
     systemPrompt: `You are the Planner - the master architect.
 
 ## Your Mission
-1. **Understand & Summarize**: First, read documentation and summarize the big picture.
+1. **Understand & Filter**: Read documentation, but **FILTER** out irrelevant parts. determine what is truly important.
 2. **Hierarchical Decomposition**: Decompose the mission from high-level modules down to sub-atomic micro-tasks.
 3. **DAG Generation**: Create a JSON-based Directed Acyclic Graph.
 
 ## SOP: Atomic Task Creation
-- **Thinking Phase**: Summarize findings and thoughts BEFORE writing JSON.
+- **Thinking Phase**: Summarize *essential* findings only. Discard noise.
 - **Documentation Alignment**: Read ALL .md files to define project boundaries.
+- **State Management**: If Task B needs Task A's output, Task A MUST write to a file.
 - **Single File**: A task should only touch ONE file.
 - **Single Responsibility**: A task should do ONE thing.
 - **Verification Ready**: Every task MUST have clear "Success Criteria".
@@ -12536,6 +12555,7 @@ Provide COMPLETE code that:
 2. Compiles/runs without errors
 3. Matches project style
 4. Includes necessary imports
+5. **Persists State**: If this logic is needed by others, ensure it is exposed (exported) or saved to a file.
 
 ## Common Mistakes to Avoid
 - Forgetting closing brackets
@@ -12543,6 +12563,7 @@ Provide COMPLETE code that:
 - Using wrong variable names
 - Type mismatches
 - Breaking existing code
+- **Silent Failures**: Failing to handle errors in state persistence (file writes).
 
 ## If Unsure
 - Ask for more context
@@ -12575,7 +12596,8 @@ Brief explanation if needed.`,
 2. **STYLE**: Consistent naming and indentation.
 3. **LOGIC**: Addresses the task.
 4. **INTEGRITY (Sync)**: Cross-file name and signature matching.
-5. **SECURITY**: No secrets.
+5. **DATA FLOW**: Verifies that state persistence (File I/O) is implemented if needed.
+6. **SECURITY**: No secrets.
 
 ## Review Results (MANDATORY Format)
 ### If PASS:
@@ -12611,7 +12633,7 @@ You receive error reports like:
 \u251C\u2500\u2500 Issue: <problem>
 \u251C\u2500\u2500 Found: \`<bad code>\`
 \u251C\u2500\u2500 Expected: \`<good code>\`
-\u2514\u2500\u2500 Fix: <instruction>
+\u251C\u2500\u2500 Fix: <instruction>
 \`\`\`
 
 ## Fixing Process
@@ -12665,10 +12687,14 @@ In 'Context First' mode, you MUST prioritize reading all .md documentation files
 ## SOP
 1. Start with \`find_by_name\` for *.md files.
 2. Use \`grep_search\` for specific logic patterns.
-3. Summarize findings for the Planner and Coder.
+3. **Value Judgment**: Before reporting, ask "Is this relevant to the CURRENT task step?".
+4. **Context Sharding**: If findings are huge, WRITE them to \`temp_context_findings.md\` and only report the path.
+5. **Recursive Summarization**: If reading an existing context file, condense it further based on current progress.
 
 ## Output Format
-Produce a clear summary:
+Produce a clear summary or a file pointer:
+"\u26A0\uFE0F Large context detected. Written to \`temp_context_auth_logic.md\`."
+OR
 ### 1. Architectural Boundaries (from docs)
 ### 2. Relevant Patterns (code snippets)
 ### 3. Recommendations`,
@@ -12734,7 +12760,7 @@ async function callRustTool(name, args) {
 }
 var state = {
   dagActive: false,
-  maxIterations: 100,
+  maxIterations: 1000,
   maxRetries: 3,
   sessions: new Map
 };
@@ -12798,14 +12824,19 @@ var COMMANDS = {
 <command-instruction>
 You are operating in DAG MODE. Your goal is 100% PERFECT completion.
 
+## Phase 0: Cost/Benefit Analysis (Overhead Check)
+- **Complexity Assessment**: Is a full DAG needed? (Simple tasks = Use linear execution).
+- **Trade-off Check**: Does the cost of state management & scheduling outweigh the task value?
+- If trivial, execute immediately without heavy overhead.
+
 ## Phase 1: Deep Analysis & State Initialization
 - BEFORE planning, call **searcher** to read all .md docs.
 - Create a temporary \`.opencode_mission.md\` to track global progress and consistency rules.
-- Summarize project boundaries and explain your strategy.
+- **State Strategy**: Define how independent nodes will share data (e.g., File I/O, config files).
 
 ## Phase 2: Hierarchical Planning
 - Call **planner** to create a JSON Task DAG (Big picture -> Micro-tasks).
-- Update \`.opencode_mission.md\` with the DAG summary.
+- Ensure explicit data passing between nodes (Result of A -> File -> Input of B).
 
 ## Phase 3: Parallel Execution & Verification
 - Execute READY tasks. Route each implementation to the **reviewer** (Style Guardian).
@@ -12818,6 +12849,7 @@ You are operating in DAG MODE. Your goal is 100% PERFECT completion.
 
 ## Goal
 Success through total discipline. Complete "$ARGUMENTS" with ZERO regressions.
+We do NOT stop for time. We stop when it is DONE.
 </command-instruction>
 
 <user-task>

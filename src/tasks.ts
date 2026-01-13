@@ -60,11 +60,23 @@ export class TaskGraph {
     }
 
     getTaskSummary(): string {
-        let summary = "📋 **Task Progress**\n";
-        for (const task of this.tasks.values()) {
-            const icon = task.status === "completed" ? "✅" : task.status === "running" ? "⏳" : task.status === "failed" ? "❌" : "💤";
-            summary += `${icon} [${task.id}] ${task.description} (${task.status})\n`;
+        const tasks = Array.from(this.tasks.values());
+        const completed = tasks.filter(t => t.status === "completed");
+        const notCompleted = tasks.filter(t => t.status !== "completed");
+
+        let summary = "📋 **DAG Status**\n";
+
+        // Compact summary for completed tasks to save tokens
+        if (completed.length > 0) {
+            summary += `✅ Completed: ${completed.length} tasks (Hidden to save tokens)\n`;
         }
+
+        // Detailed view for active/pending tasks
+        for (const task of notCompleted) {
+            const icon = task.status === "running" ? "⏳" : task.status === "failed" ? "❌" : "💤";
+            summary += `${icon} [${task.id}] ${task.description}\n`;
+        }
+
         return summary;
     }
 
