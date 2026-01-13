@@ -2,7 +2,7 @@
     "name": "opencode-orchestrator",
     "displayName": "OpenCode Orchestrator",
     "description": "Distributed Cognitive Architecture for OpenCode. Turns simple prompts into specialized multi-agent workflows (Planner, Coder, Reviewer).",
-    "version": "0.1.47",
+    "version": "0.1.48",
     "author": "agnusdei1207",
     "license": "MIT",
     "repository": {
