@@ -82,21 +82,21 @@ Auto-registers with OpenCode. Just restart.
 
 ## Usage
 
+**Just type one command:**
+
 ```
-/auto implement user authentication with JWT
+/auto "Implement user authentication with JWT"
 ```
 
----
+The Orchestrator will:
+1. **Plan** the architecture
+2. **Search** for context
+3. **Write** the code
+4. **Review** for errors
+5. **Fix** any issues
+6. **Repeat** until 100% verified.
 
-## Commands
-
-| Command | Description |
-|---------|-------------|
-| `/auto` | Autonomous execution until complete |
-| `/plan` | Decompose into atomic tasks |
-| `/review` | Quality check |
-| `/fix` | Fix specific error |
-| `/search` | Find patterns in codebase |
+**This is the only command you need.**
 
 ---
 
