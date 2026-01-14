@@ -15,7 +15,7 @@ export declare const grepSearchTool: (directory: string) => {
 };
 /**
  * Glob search tool - finds files by pattern
- * Used by Builder and Memory for file discovery
+ * Used by Builder and Recorder for file discovery
  */
 export declare const globSearchTool: (directory: string) => {
     description: string;

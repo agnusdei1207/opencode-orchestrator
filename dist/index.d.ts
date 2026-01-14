@@ -9,7 +9,7 @@
  * - Evidence-based completion requirements
  * - Autonomous execution loop
  *
- * Agents: Commander, Architect, Builder, Inspector, Memory
+ * Agents: Commander, Architect, Builder, Inspector, Recorder
  */
 import type { PluginInput } from "@opencode-ai/plugin";
 declare const OrchestratorPlugin: (input: PluginInput) => Promise<{
@@ -21,13 +21,13 @@ declare const OrchestratorPlugin: (input: PluginInput) => Promise<{
                     architect: "architect";
                     builder: "builder";
                     inspector: "inspector";
-                    memory: "memory";
+                    recorder: "recorder";
                 }>;
                 task: import("zod").ZodString;
                 context: import("zod").ZodOptional<import("zod").ZodString>;
             };
             execute(args: {
-                agent: "architect" | "builder" | "inspector" | "memory";
+                agent: "architect" | "builder" | "inspector" | "recorder";
                 task: string;
                 context?: string | undefined;
             }, context: import("@opencode-ai/plugin").ToolContext): Promise<string>;

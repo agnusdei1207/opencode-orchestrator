@@ -9,7 +9,7 @@
  * - Evidence-based completion requirements
  * - Autonomous execution loop
  * 
- * Agents: Commander, Architect, Builder, Inspector, Memory
+ * Agents: Commander, Architect, Builder, Inspector, Recorder
  */
 
 import type { PluginInput } from "@opencode-ai/plugin";
@@ -32,7 +32,7 @@ const AGENT_EMOJI: Record<string, string> = {
     "architect": "🏗️",
     "builder": "🔨",
     "inspector": "🔍",
-    "memory": "💾",
+    "recorder": "💾",
     "commander": "🎯",
 };
 

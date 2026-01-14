@@ -2,9 +2,9 @@
   <img src="assets/logo.png" alt="Logo" width="200" />
 </div>
 
-# OpenCode Orchestrator
+# OpenCode Orchestrator 🎯
 
-> **Multi-Agent Plugin for [OpenCode](https://opencode.ai)**
+> **Autonomous Multi-Agent Plugin for [OpenCode](https://opencode.ai)**
 
 [![MIT License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![npm](https://img.shields.io/npm/v/opencode-orchestrator.svg)](https://www.npmjs.com/package/opencode-orchestrator)
@@ -13,19 +13,17 @@
 
 ## What is this?
 
-A **5-agent structured architecture** that makes weak LLMs perform reliably.
+A **5-agent autonomous architecture** designed to solve complex engineering tasks with high reliability, even on mid-range LLMs.
 
-**Problem**: Models like GLM-4.7 struggle with complex engineering tasks.
-
-**Solution**: XML-structured prompts + explicit reasoning patterns + evidence-based completion.
+**Core Philosophy**: Intelligence is a resource. We orchestrate that resource through **Phase-based Workflows** and **Mandatory Environment Scans** to ensure code always fits the project's infrastructure.
 
 ### Key Features
-- **Structured Prompts** — XML tags provide clear boundaries for weak models
-- **Explicit Reasoning** — THINK → ACT → OBSERVE → ADJUST pattern
-- **Auto-Fix** — Inspector audits AND repairs automatically
-- **Persistent Memory** — Context saved to disk, never lost
-- **Parallel Execution** — Independent tasks run concurrently
-- **Relentless Loop** — Runs until mission complete (no user input needed)
+- **🎯 Autonomous Loop** — Commander runs relentlessly until the mission is complete.
+- **🔍 Environment Scan** — Mandatory analysis of Infra (Docker/OS), Stack, and Domain before any code change.
+- **🔨 Smart Implementation** — Builder matches existing codebase patterns exactly.
+- **🛡️ Rigorous Audit** — Inspector proves success with environment-specific evidence (Builds/Tests/Logs).
+- **💾 Persistent Context** — Recorder saves session state to disk, enabling resume at any time.
+- **🏗️ Parallel Tasking** — Architect splits work into concurrent DAG groups.
 
 ---
 
@@ -41,122 +39,68 @@ Restart OpenCode after installation.
 
 ## Usage
 
-### Just Select Commander Agent
-Press `tab` → Select **Commander** → Type your request!
+### Just Select Commander Agent 🎯
+Press `tab` → Select **Commander** → Type your mission!
 
 ```
-"Implement user authentication with JWT"
+"Fix the login bug in the docker-compose environment"
 ```
 
-That's it. Commander automatically:
-1. Enters mission mode
-2. Plans tasks in parallel
-3. Executes until complete
-4. Stops when done with evidence
+The Commander will:
+1. **Survey**: Scan the Docker environment and codebase.
+2. **Plan**: Break the fix into steps.
+3. **Execute**: Call Builder to fix while matching patterns.
+4. **Verify**: Run builds/tests to prove the fix works.
+5. **Complete**: Report results with concrete evidence.
 
 ### Or Use /task Command
 ```bash
 /task "Implement user authentication with JWT"
 ```
 
-Both work identically - Commander agent OR /task command.
-
----
-
-## How It Works
-
-```
-     Select Commander or /task
-           │
-           ▼
-    ┌─────────────┐
-    │  COMMANDER  │  ← THINK → ACT → OBSERVE → ADJUST
-    └──────┬──────┘
-           │
-    ┌──────┴──────┐
-    ▼             ▼
- ARCHITECT    MEMORY (load context)
-    │
-    ▼
- ┌──────────────────┐
- │  PARALLEL DAG    │
- │  Group 1: [T1, T2, T3] ← run together
- │  Group 2: [T4] ← wait for group 1
- └──────────────────┘
-           │
-    ┌──────┴──────┐
-    ▼             ▼
- BUILDER       BUILDER  (parallel)
-    │             │
-    └──────┬──────┘
-           ▼
-    ┌─────────────┐
-    │  INSPECTOR  │  ← AUDIT → [FAIL? → FIX] → PASS
-    └──────┬──────┘
-           ▼
-    ┌─────────────┐
-    │   MEMORY    │  ← Save progress
-    └──────┬──────┘
-           ▼
-        ✅ MISSION COMPLETE
-```
-
 ---
 
 ## Agents (5-Agent Architecture)
 
-| Agent | Role | What It Does |
-| :--- | :--- | :--- |
-| **Commander** | Orchestrator | Controls mission, delegates work, verifies completion |
-| **Architect** | Planner | Decomposes complex tasks into parallel DAGs |
-| **Builder** | Developer | Implements code (logic + UI combined) |
-| **Inspector** | Quality + Fix | Audits code AND auto-fixes problems |
-| **Memory** | Context | Saves/loads progress across sessions |
-
-### Why 5 Agents?
-- **Builder** = Coder + Visualist (full-stack in one agent)
-- **Inspector** = Reviewer + Fixer (auto-fixes on audit failure)
-- **Fewer agents = fewer handoffs = better for weak models**
+| Agent | Emoji | Role | Responsibility |
+| :--- | :--- | :--- | :--- |
+| **Commander** | 🎯 | Orchestrator | Autonomous mission control & delegation |
+| **Architect** | 🏗️ | Planner | Task decomposition & strategy correction |
+| **Builder** | 🔨 | Developer | Full-stack implementation (Logic + UI) |
+| **Inspector** | 🔍 | Quality | 5-point audit & automatic bug fixing |
+| **Recorder** | 💾 | Context | Persistent environment & progress tracking |
 
 ---
 
-## Optimized for Weak Models
+## The Workflow (Phases)
 
-| Technique | Purpose |
-|-----------|---------|
-| XML tags | Clear semantic boundaries |
-| THINK-ACT-OBSERVE-ADJUST | Explicit step-by-step reasoning |
-| Few-shot examples | Correct output format learning |
-| Tables/JSON output | Structured over prose |
-| Evidence required | Concrete verification criteria |
+1. **Phase 1: Environment Scan** (Mandatory)
+   - OS vs Container? Monorepo? Auth pattern? Build system?
+2. **Phase 2: Context Load**
+   - Load prior progress via Recorder.
+3. **Phase 3: Parallel Planning**
+   - Architect creates a DAG of atomic tasks.
+4. **Phase 4: Execution & Audit**
+   - Builder writes code ↔ Inspector verifies with evidence.
+5. **Phase 5: Completion**
+   - Mission Complete reported with proof of build/test success.
 
 ---
 
 ## Uninstall
 
 ```bash
+npm run dev:uninstall
+# OR
 npm uninstall -g opencode-orchestrator
-```
-
-The plugin automatically removes itself from OpenCode config.
-
----
-
-## Troubleshooting
-
-If Commander doesn't appear after install:
-```bash
-npm uninstall -g opencode-orchestrator
-npm install -g opencode-orchestrator
-# Restart OpenCode
 ```
 
 ---
 
 ## Docs
 
-- [Architecture & Design](docs/ARCHITECTURE.md) — System design, agents, and why it works
-- [Plugin Troubleshooting](docs/PLUGIN_TROUBLESHOOTING.md) — Setup issues
+- [Architecture & Design](docs/ARCHITECTURE.md) — Detailed system design and agent protocols
+- [Plugin Troubleshooting](docs/PLUGIN_TROUBLESHOOTING.md) — Setup and common issues
 
 ---
 
@@ -166,4 +110,4 @@ MIT License. [LICENSE](LICENSE)
 
 ---
 
-**Updates are frequent. Keep your version fresh.**
+**Reliability over slop. Environment over assumptions.**
