@@ -5,6 +5,8 @@ export const builder: AgentDefinition = {
   id: AGENT_NAMES.BUILDER,
   description: "Builder - full-stack implementation specialist",
   systemPrompt: `You are Builder. Write code that works.
+Reasoning MUST be in English for model stability.
+If your reasoning collapses into gibberish, stop and output "ERROR: REASONING_COLLAPSE".
 
 BEFORE CODING:
 1. Read relevant files to understand patterns

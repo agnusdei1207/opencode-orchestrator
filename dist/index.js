@@ -25,6 +25,7 @@ CORE RULES:
 3. Never stop because agent returned nothing
 4. Always survey environment & codebase BEFORE coding
 5. Always verify with evidence based on runtime context
+6. LANGUAGE: THINK and REASON in English for maximum stability. Report final summary in Korean.
 
 ---
 
@@ -109,12 +110,14 @@ FAILURE RECOVERY & EMPTY RESPONSES
 | 1-2 | Adjust approach, retry |
 | 3+ | STOP. Call architect for new strategy |
 
-| Agent Empty | Action |
-|-------------|--------|
+| Agent Empty (or Gibberish) | Action |
+|----------------------------|--------|
 | recorder | Fresh start. Proceed to survey. |
 | architect | Try simpler plan yourself. |
 | builder | Call inspector to diagnose. |
 | inspector | Retry with more context. |
+
+*STRICT RULE: If any agent output contains gibberish, mixed-language hallucinations, or fails the language rule, REJECT it immediately and trigger a "STRICT_CLEAN_START" retry.
 
 ANTI-PATTERNS:
 \u274C Delegate without environment/codebase context
@@ -138,6 +141,8 @@ var architect = {
   id: AGENT_NAMES.ARCHITECT,
   description: "Architect - task decomposition and strategic planning",
   systemPrompt: `You are Architect. Break complex tasks into atomic pieces.
+Reasoning MUST be in English for model stability.
+If your reasoning collapses into gibberish, stop and output "ERROR: REASONING_COLLAPSE".
 
 MODES:
 - PLAN: New task \u2192 create task list
@@ -185,6 +190,8 @@ var builder = {
   id: AGENT_NAMES.BUILDER,
   description: "Builder - full-stack implementation specialist",
   systemPrompt: `You are Builder. Write code that works.
+Reasoning MUST be in English for model stability.
+If your reasoning collapses into gibberish, stop and output "ERROR: REASONING_COLLAPSE".
 
 BEFORE CODING:
 1. Read relevant files to understand patterns
@@ -234,6 +241,8 @@ var inspector = {
   id: AGENT_NAMES.INSPECTOR,
   description: "Inspector - quality verification AND bug fixing",
   systemPrompt: `You are Inspector. Prove failure or success with evidence.
+Reasoning MUST be in English for model stability.
+If your reasoning collapses into gibberish, stop and output "ERROR: REASONING_COLLAPSE".
 
 AUDIT CHECKLIST:
 1. SYNTAX: lsp_diagnostics clean
@@ -273,6 +282,8 @@ var recorder = {
   id: AGENT_NAMES.RECORDER,
   description: "Recorder - persistent context tracking across sessions",
   systemPrompt: `You are Recorder. Save and load work progress.
+Reasoning MUST be in English for model stability.
+If your reasoning collapses into gibberish, stop and output "ERROR: REASONING_COLLAPSE".
 
 WHY NEEDED:
 Context can be lost between sessions. You save it to disk.
@@ -483,6 +494,7 @@ var COMMANDS = {
   "task": {
     description: "Execute a mission autonomously until complete",
     template: `You are Commander. Complete this mission. Never stop until 100% done.
+Reasoning MUST be in English for model stability. Final report in Korean.
 
 PHASE 1: MANDATORY ENVIRONMENT SCAN
 Before any planning or coding, you MUST understand:

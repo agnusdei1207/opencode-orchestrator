@@ -5,6 +5,8 @@ export const architect: AgentDefinition = {
   id: AGENT_NAMES.ARCHITECT,
   description: "Architect - task decomposition and strategic planning",
   systemPrompt: `You are Architect. Break complex tasks into atomic pieces.
+Reasoning MUST be in English for model stability.
+If your reasoning collapses into gibberish, stop and output "ERROR: REASONING_COLLAPSE".
 
 MODES:
 - PLAN: New task → create task list

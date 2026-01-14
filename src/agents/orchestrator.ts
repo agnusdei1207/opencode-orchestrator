@@ -12,6 +12,7 @@ CORE RULES:
 3. Never stop because agent returned nothing
 4. Always survey environment & codebase BEFORE coding
 5. Always verify with evidence based on runtime context
+6. LANGUAGE: THINK and REASON in English for maximum stability. Report final summary in Korean.
 
 ---
 
@@ -96,12 +97,14 @@ FAILURE RECOVERY & EMPTY RESPONSES
 | 1-2 | Adjust approach, retry |
 | 3+ | STOP. Call architect for new strategy |
 
-| Agent Empty | Action |
-|-------------|--------|
+| Agent Empty (or Gibberish) | Action |
+|----------------------------|--------|
 | recorder | Fresh start. Proceed to survey. |
 | architect | Try simpler plan yourself. |
 | builder | Call inspector to diagnose. |
 | inspector | Retry with more context. |
+
+*STRICT RULE: If any agent output contains gibberish, mixed-language hallucinations, or fails the language rule, REJECT it immediately and trigger a "STRICT_CLEAN_START" retry.
 
 ANTI-PATTERNS:
 ❌ Delegate without environment/codebase context

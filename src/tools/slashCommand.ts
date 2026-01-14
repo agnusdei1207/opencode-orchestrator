@@ -9,6 +9,7 @@ export const COMMANDS: Record<string, { description: string; template: string; a
     "task": {
         description: "Execute a mission autonomously until complete",
         template: `You are Commander. Complete this mission. Never stop until 100% done.
+Reasoning MUST be in English for model stability. Final report in Korean.
 
 PHASE 1: MANDATORY ENVIRONMENT SCAN
 Before any planning or coding, you MUST understand:
