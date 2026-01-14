@@ -57,6 +57,8 @@
         "prepublishOnly": "npm run build:js",
         "dev:install": "npm run build:js && npm install -g .",
         "dev:uninstall": "npm uninstall -g opencode-orchestrator",
+        "dev:link": "npm run build:js && npm link",
+        "dev:unlink": "npm unlink -g opencode-orchestrator",
         "util:stars": "gh api repos/agnusdei1207/opencode-orchestrator/stargazers --jq '.[].login'"
     },
     "dependencies": {
