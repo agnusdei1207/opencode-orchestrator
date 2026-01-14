@@ -36,9 +36,8 @@ const AGENT_EMOJI: Record<string, string> = {
     "commander": "🎯",
 };
 
-const CONTINUE_INSTRUCTION = `[AUTO-CONTINUE]
-
-Mission not complete. Keep executing.
+const CONTINUE_INSTRUCTION = `<auto_continue>
+<status>Mission not complete. Keep executing.</status>
 
 <rules>
 1. DO NOT stop - mission is incomplete
@@ -51,7 +50,8 @@ Mission not complete. Keep executing.
 What is the current state?
 What is the next action?
 Execute it NOW.
-</next_step>`;
+</next_step>
+</auto_continue>`;
 
 // ============================================================================
 // Plugin
