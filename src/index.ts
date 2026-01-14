@@ -1,14 +1,17 @@
 /**
  * OpenCode Orchestrator Plugin
  *
- * 6-Agent Collaborative Architecture for OpenCode
+ * 5-Agent Structured Architecture for OpenCode
  * 
- * Philosophy: Cheap models (GLM-4.7, Gemma, Phi) can outperform
- * expensive models through intelligent task decomposition and
- * team collaboration with quality gates.
+ * Optimized for weak models (GLM-4.7, Gemma, Phi) through:
+ * - XML-structured prompts with clear boundaries
+ * - Explicit reasoning patterns (THINK → ACT → OBSERVE → ADJUST)
+ * - Evidence-based completion requirements
+ * - Parallel execution by default
+ * 
+ * Agents: Commander, Architect, Builder, Inspector, Memory
  */
 
-import { tool } from "@opencode-ai/plugin";
 import type { PluginInput } from "@opencode-ai/plugin";
 import { AGENTS } from "./agents/definitions.js";
 import { TaskGraph, type Task } from "./core/tasks.js";
@@ -19,55 +22,14 @@ import { grepSearchTool, globSearchTool } from "./tools/search.js";
 import { detectSlashCommand } from "./utils/common.js";
 
 // ============================================================================
-// 6-Agent Collaborative Architecture
-// ============================================================================
-
-interface AgentDefinition {
-    id: string;
-    description: string;
-    systemPrompt: string;
-    canWrite: boolean;
-    canBash: boolean;
-}
-
-
-// ============================================================================
-// Binary Management
-// ============================================================================
-
-// ============================================================================
-// State Management
-// ============================================================================
-
-
-// ============================================================================
-// call_agent Tool
-// ============================================================================
-
-// ============================================================================
-// Slash Commands
-// ============================================================================
-
-// ============================================================================
-// Slash Command Tool
-// ============================================================================
-
-// ============================================================================
-// Search Tools
-// ============================================================================
-
-// ============================================================================
-// Utilities
-// ============================================================================
-
-// ============================================================================
-// Plugin
+// Plugin Implementation
 // ============================================================================
 
 const OrchestratorPlugin = async (input: PluginInput) => {
     const { directory } = input;
 
     return {
+        // Register tools
         tool: {
             call_agent: callAgentTool,
             slashcommand: createSlashcommandTool(),
@@ -75,12 +37,12 @@ const OrchestratorPlugin = async (input: PluginInput) => {
             glob_search: globSearchTool(directory),
         },
 
-        // Register commands and agents so they appear in OpenCode's UI
+        // Register commands and agents for OpenCode UI
         config: async (config: Record<string, unknown>) => {
             const existingCommands = (config.command as Record<string, unknown>) ?? {};
             const existingAgents = (config.agent as Record<string, unknown>) ?? {};
 
-            // Convert COMMANDS to OpenCode command format
+            // Register slash commands
             const orchestratorCommands: Record<string, unknown> = {};
             for (const [name, cmd] of Object.entries(COMMANDS)) {
                 orchestratorCommands[name] = {
@@ -90,14 +52,13 @@ const OrchestratorPlugin = async (input: PluginInput) => {
                 };
             }
 
-            // Register agents for OpenCode UI display
-            // Only expose Orchestrator - other agents are internal
-            // Note: Key must match exactly what OpenCode looks up (case-sensitive)
+            // Register Commander agent for OpenCode UI
+            // This is the main entry point - other agents are internal
             const orchestratorAgents: Record<string, unknown> = {
-                Orchestrator: {
-                    name: "Orchestrator",
-                    description: "Mission Commander - 6-agent collaborative AI for complex tasks",
-                    systemPrompt: AGENTS.orchestrator.systemPrompt,
+                Commander: {
+                    name: "Commander",
+                    description: "5-agent orchestrator - runs until mission complete",
+                    systemPrompt: AGENTS.commander.systemPrompt,
                 },
             };
 
@@ -112,6 +73,7 @@ const OrchestratorPlugin = async (input: PluginInput) => {
             };
         },
 
+        // Handle incoming messages - auto-activate mission mode
         "chat.message": async (input: any, output: any) => {
             const parts = output.parts as Array<{ type: string; text?: string }>;
             const textPartIndex = parts.findIndex(p => p.type === "text" && p.text);
@@ -120,10 +82,10 @@ const OrchestratorPlugin = async (input: PluginInput) => {
             const originalText = parts[textPartIndex].text || "";
             const parsed = detectSlashCommand(originalText);
 
-            // Auto-activate mission mode when Orchestrator agent is used
-            // This makes Orchestrator work like /task automatically
+            // Auto-activate mission mode when Commander agent is used
+            // This makes Commander work like /task automatically - no command needed
             const agentName = input.agent?.toLowerCase() || "";
-            if (agentName === "orchestrator" && !state.missionActive) {
+            if (agentName === "commander" && !state.missionActive) {
                 const sessionID = input.sessionID;
                 state.sessions.set(sessionID, {
                     enabled: true,
@@ -132,14 +94,31 @@ const OrchestratorPlugin = async (input: PluginInput) => {
                     currentTask: "",
                 });
                 state.missionActive = true;
+
+                // Inject the mission template for Commander
+                // This ensures Commander always gets the full structured prompt
+                if (!parsed) {
+                    const userMessage = originalText.trim();
+                    if (userMessage) {
+                        parts[textPartIndex].text = COMMANDS["task"].template.replace(
+                            /\$ARGUMENTS/g,
+                            userMessage
+                        );
+                    }
+                }
             }
 
+            // Handle explicit slash commands
             if (parsed) {
                 const command = COMMANDS[parsed.command];
                 if (command) {
-                    parts[textPartIndex].text = command.template.replace(/\$ARGUMENTS/g, parsed.args || "continue");
+                    parts[textPartIndex].text = command.template.replace(
+                        /\$ARGUMENTS/g,
+                        parsed.args || "continue from where we left off"
+                    );
 
-                    if (parsed.command === "task" || parsed.command === "flow" || parsed.command === "dag" || parsed.command === "auto" || parsed.command === "ignite") {
+                    // Activate mission mode for /task
+                    if (parsed.command === "task") {
                         const sessionID = input.sessionID;
                         state.sessions.set(sessionID, {
                             enabled: true,
@@ -148,14 +127,12 @@ const OrchestratorPlugin = async (input: PluginInput) => {
                             currentTask: "",
                         });
                         state.missionActive = true;
-                    } else if (parsed.command === "stop" || parsed.command === "cancel") {
-                        state.sessions.delete(input.sessionID);
-                        state.missionActive = false;
                     }
                 }
             }
         },
 
+        // Track tool execution and update task graph
         "tool.execute.after": async (
             input: { tool: string; sessionID: string; callID: string; arguments?: any },
             output: { title: string; output: string; metadata: any }
@@ -183,9 +160,11 @@ const OrchestratorPlugin = async (input: PluginInput) => {
                 return;
             }
 
-            if (output.output.includes("[") && output.output.includes("]") && output.output.includes("{") && input.tool === "call_agent") {
-                // Try to detect and parse Planner JSON output
-                const jsonMatch = output.output.match(/```json\n([\s\S]*?)\n```/) || output.output.match(/\[\s+\{[\s\S]*?\}\s+\]/);
+            // Parse Architect JSON output to create task graph
+            if (output.output.includes("[") && output.output.includes("]") &&
+                output.output.includes("{") && input.tool === "call_agent") {
+                const jsonMatch = output.output.match(/```json\n([\s\S]*?)\n```/) ||
+                    output.output.match(/\[\s+\{[\s\S]*?\}\s+\]/);
                 if (jsonMatch) {
                     try {
                         const tasks = JSON.parse(jsonMatch[1] || jsonMatch[0]) as Task[];
@@ -193,70 +172,49 @@ const OrchestratorPlugin = async (input: PluginInput) => {
                             session.graph = new TaskGraph(tasks);
                             output.output += `\n\n━━━━━━━━━━━━\n✅ MISSION INITIALIZED\n${session.graph.getTaskSummary()}`;
                         }
-                    } catch (e) {
-                        // Not valid JSON or not planner output, ignore
+                    } catch {
+                        // Not valid JSON, ignore
                     }
                 }
             }
 
-            // Sync TaskGraph status based on agent output
+            // Update task status based on agent output
             if (session.graph) {
-                if (output.output.includes("✅ PASS")) {
+                if (output.output.includes("✅ PASS") || output.output.includes("AUDIT RESULT: PASS")) {
                     const taskId = session.currentTask;
                     if (taskId) {
                         session.graph.updateTask(taskId, { status: "completed" });
                         session.taskRetries.clear();
                         output.output += `\n\n━━━━━━━━━━━━\n✅ TASK ${taskId} VERIFIED\n${session.graph.getTaskSummary()}`;
                     }
-                } else if (output.output.includes("❌ FAIL")) {
+                } else if (output.output.includes("❌ FAIL") || output.output.includes("AUDIT RESULT: FAIL")) {
                     const taskId = session.currentTask;
                     if (taskId) {
                         const errorId = `error-${taskId}`;
                         const retries = (session.taskRetries.get(errorId) || 0) + 1;
                         session.taskRetries.set(errorId, retries);
+
                         if (retries >= state.maxRetries) {
                             session.graph.updateTask(taskId, { status: "failed" });
-                            output.output += `\n\n━━━━━━━━━━━━\n⚠️ TASK ${taskId} FAILED (Retry Limit)\nPIVOT REQUIRED: Re-plan or seek context.`;
+                            output.output += `\n\n━━━━━━━━━━━━\n⚠️ TASK ${taskId} FAILED (${retries}x)\nCall Architect for new strategy.`;
                         } else {
                             output.output += `\n\n━━━━━━━━━━━━\n🔄 RETRY ${retries}/${state.maxRetries} for ${taskId}`;
                         }
                     }
                 }
-            } else {
-                // Legacy fallback for non-DAG mode
-                const errorMatch = output.output.match(/\[ERROR-(\d+)\]/);
-                if (errorMatch) {
-                    const errorId = `error-${session.currentTask || 'unknown'}`;
-                    const retries = (session.taskRetries.get(errorId) || 0) + 1;
-                    session.taskRetries.set(errorId, retries);
-
-                    if (retries >= state.maxRetries) {
-                        output.output += `\n\n━━━━━━━━━━━━\n⚠️ RETRY LIMIT (${state.maxRetries}x)\nPIVOT REQUIRED.`;
-                        return;
-                    }
-
-                    output.output += `\n\n━━━━━━━━━━━━\n🔄 RETRY ${retries}/${state.maxRetries}`;
-                    return;
-                }
-
-                if (output.output.includes("✅ PASS")) {
-                    session.taskRetries.clear();
-                    output.output += `\n\n━━━━━━━━━━━━\n✅ VERIFIED`;
-                    return;
-                }
             }
 
-            // Append DAG Status and Guidance
+            // Append DAG status and ready tasks
             if (session.graph) {
                 const readyTasks = session.graph.getReadyTasks();
                 const guidance = readyTasks.length > 0
-                    ? `\n👉 **READY TO EXECUTE**: ${readyTasks.map(t => `[${t.id}]`).join(", ")}`
-                    : `\n⚠️ NO READY TASKS. Check dependencies or completion.`;
+                    ? `\n👉 READY: ${readyTasks.map(t => `[${t.id}]`).join(", ")}`
+                    : `\n⚠️ No ready tasks. Check dependencies.`;
 
                 output.output += `\n\n━━━━━━━━━━━━\n${session.graph.getTaskSummary()}${guidance}`;
             }
 
-            output.output += `\n\n━━━━━━━━━━━━\n[DAG STEP: ${session.iterations}/${state.maxIterations}]`;
+            output.output += `\n\n[Step ${session.iterations}/${state.maxIterations}]`;
         },
 
         // Relentless Loop: Auto-continue until mission complete
@@ -266,17 +224,15 @@ const OrchestratorPlugin = async (input: PluginInput) => {
             const session = state.sessions.get(input.sessionID);
             if (!session?.enabled) return;
 
-            // Check for mission completion signals
             const text = output.text || "";
+
+            // Check for mission completion
             const isComplete =
                 text.includes("✅ MISSION COMPLETE") ||
                 text.includes("MISSION COMPLETE") ||
-                text.includes("모든 태스크 완료") ||
-                text.includes("All tasks completed") ||
                 (session.graph && session.graph.isCompleted?.());
 
             if (isComplete) {
-                // Mission complete - stop the loop
                 session.enabled = false;
                 state.missionActive = false;
                 state.sessions.delete(input.sessionID);
@@ -291,7 +247,6 @@ const OrchestratorPlugin = async (input: PluginInput) => {
             }
 
             // Auto-continue: inject next action prompt
-            // This makes the agent continue working without user input
             output.continue = true;
             output.continueMessage = "continue";
         },

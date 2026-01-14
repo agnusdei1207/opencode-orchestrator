@@ -1,3 +1,7 @@
+/**
+ * Grep search tool - finds patterns in code
+ * Used by Builder and Inspector for codebase analysis
+ */
 export declare const grepSearchTool: (directory: string) => {
     description: string;
     args: {
@@ -9,6 +13,10 @@ export declare const grepSearchTool: (directory: string) => {
         dir?: string | undefined;
     }, context: import("@opencode-ai/plugin").ToolContext): Promise<string>;
 };
+/**
+ * Glob search tool - finds files by pattern
+ * Used by Builder and Memory for file discovery
+ */
 export declare const globSearchTool: (directory: string) => {
     description: string;
     args: {
