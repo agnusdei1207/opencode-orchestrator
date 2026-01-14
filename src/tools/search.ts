@@ -21,7 +21,7 @@ export const grepSearchTool = (directory: string) => tool({
 
 /**
  * Glob search tool - finds files by pattern
- * Used by Builder and Memory for file discovery
+ * Used by Builder and Recorder for file discovery
  */
 export const globSearchTool = (directory: string) => tool({
     description: "Find files matching a glob pattern. Returns list of file paths.",

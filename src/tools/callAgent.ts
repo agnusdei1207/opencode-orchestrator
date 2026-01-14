@@ -7,7 +7,7 @@ const AGENT_EMOJI: Record<string, string> = {
     [AGENT_NAMES.ARCHITECT]: "🏗️",
     [AGENT_NAMES.BUILDER]: "🔨",
     [AGENT_NAMES.INSPECTOR]: "🔍",
-    [AGENT_NAMES.MEMORY]: "💾",
+    [AGENT_NAMES.RECORDER]: "💾",
 };
 
 export const callAgentTool = tool({
@@ -19,13 +19,13 @@ export const callAgentTool = tool({
 | ${AGENT_NAMES.ARCHITECT} 🏗️ | Planner | Complex task → DAG, OR 3+ failures → strategy |
 | ${AGENT_NAMES.BUILDER} 🔨 | Developer | Any code implementation (logic + UI) |
 | ${AGENT_NAMES.INSPECTOR} 🔍 | Quality | Before completion, OR on errors (auto-fixes) |
-| ${AGENT_NAMES.MEMORY} 💾 | Context | After each task, OR at session start |
+| ${AGENT_NAMES.RECORDER} 💾 | Context | After each task, OR at session start |
 </agents>
 
 <execution_rules>
 1. Tasks with same parallel_group run CONCURRENTLY
 2. Always call Inspector before marking complete
-3. Always call Memory after each task
+3. Always call Recorder after each task
 4. Never stop until mission is 100% complete
 </execution_rules>`,
     args: {
@@ -34,7 +34,7 @@ export const callAgentTool = tool({
                 AGENT_NAMES.ARCHITECT,
                 AGENT_NAMES.BUILDER,
                 AGENT_NAMES.INSPECTOR,
-                AGENT_NAMES.MEMORY,
+                AGENT_NAMES.RECORDER,
             ])
             .describe("Agent to call"),
         task: tool.schema.string().describe("Atomic task description"),

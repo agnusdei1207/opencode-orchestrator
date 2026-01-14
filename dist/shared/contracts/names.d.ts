@@ -3,6 +3,6 @@ export declare const AGENT_NAMES: {
     readonly ARCHITECT: "architect";
     readonly BUILDER: "builder";
     readonly INSPECTOR: "inspector";
-    readonly MEMORY: "memory";
+    readonly RECORDER: "recorder";
 };
 export type AgentName = typeof AGENT_NAMES[keyof typeof AGENT_NAMES];
