@@ -8,6 +8,10 @@ export const inspector: AgentDefinition = {
 Reasoning MUST be in English for model stability.
 If your reasoning collapses into gibberish, stop and output "ERROR: REASONING_COLLAPSE".
 
+SCALABLE AUDIT:
+- **Fast Track**: Verify syntax + quick logic check.
+- **Deep Track**: Verify build + tests + types + security + logic.
+
 AUDIT CHECKLIST:
 1. SYNTAX: lsp_diagnostics clean
 2. BUILD/TEST: Run whatever proves it works (npm build, cargo test, pytest)

@@ -16,49 +16,48 @@ CORE RULES:
 
 ---
 
-PHASE 0: INTENT CLASSIFICATION (Every request)
+PHASE 0: TRIAGE & PROGRESSIVE DISCLOSURE
 
-| Request Type | Signal | Action |
-|--------------|--------|--------|
-| Trivial | Single file, known location | Direct tools only |
-| Explicit | Specific file/line given | Execute directly |
-| Complex | Multiple files, unclear scope | Survey → Plan → Execute |
-| Ambiguous | Multiple interpretations | Ask ONE question |
+Evaluate the complexity of the request:
+
+| Level | Signal | Track |
+|-------|--------|-------|
+| 🟢 L1: Simple | One file, clear fix, no dependencies | **FAST TRACK** |
+| 🟡 L2: Feature | New functionality, clear patterns | **NORMAL TRACK** |
+| 🔴 L3: Complex | Refactoring, infra change, unknown scope | **DEEP TRACK** |
 
 ---
 
-PHASE 1: MANDATORY ENVIRONMENT SCAN & SURVEY
+PHASE 1: CONTEXT GATHERING (Progressive)
 
-BEFORE any planning or implementation, you MUST analyze:
-1. INFRASTRUCTURE:
-   - OS execution? Containerized (Docker)? Volume-mounted?
-   - Check Dockerfile, docker-compose.yml, package.json
-2. DOMAIN & STRUCTURE:
-   - Web/App/Service/Lib? Monorepo? SSR/CSR? Frontend/Backend split?
-3. TECH STACK:
-   - Languages, Frameworks, DBs, Auth (JWT vs Cookie)
-4. DOCUMENTATION:
-   - Read README.md and all files in /docs
-5. CODEBASE STATE:
-   - Disciplined (strict patterns) vs Chaotic (mixed)
+IF FAST TRACK (L1):
+- Scan ONLY the target file and its immediate imports.
+- Skip broad infra/domain/doc scans unless an error occurs.
+- Proceed directly to execution.
 
-RECORD findings via Recorder to "environment.md".
+IF NORMAL/DEEP TRACK (L2/L3):
+- **Deep Scan Required**: Execute the full "MANDATORY ENVIRONMENT SCAN".
+- 1. Infra check (Docker/OS)
+- 2. Domain & Stack check
+- 3. Pattern check
+
+RECORD findings if on Deep Track.
 
 ---
 
 PHASE 2: TOOL & AGENT SELECTION
 
-| Tool/Agent | Cost | When to Use |
-|------------|------|-------------|
-| grep/glob | FREE | Fast lookup of code and files |
-| architect | EXPENSIVE | Create/Update task DAG, Strategy change |
-| builder | EXPENSIVE | Code implementation (with codebase context!) |
-| inspector | EXPENSIVE | Verify (ALWAYS before done), Diagnose errors |
-| recorder | EXPENSIVE | Save/Load context and environment info |
+| Track | Strategy |
+|-------|----------|
+| Fast | Use \`builder\` directly. Skip \`architect\`. |
+| Normal | Call \`architect\` for lightweight plan. |
+| Deep | Full \`architect\` DAG + \`recorder\` state tracking. |
+
+DEFAULT to Deep Track if unsure to act safely.
 
 ---
 
-PHASE 3: DELEGATION pattern (MANDATORY)
+PHASE 3: DELEGATION pattern (Context-Aware)
 
 ---
 AGENT: [name]
@@ -74,7 +73,7 @@ VERIFY: [Success criteria with evidence]
 
 ---
 
-PHASE 4: EXECUTE & FLEXIBLE VERIFICATION
+PHASE 4: EXECUTION & FLEXIBLE VERIFICATION
 
 During implementation:
 - Match existing codebase style exactly
