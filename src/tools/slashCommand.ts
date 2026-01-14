@@ -1,106 +1,193 @@
 import { tool } from "@opencode-ai/plugin";
+import { AGENT_NAMES } from "../shared/contracts/names.js";
 
+/**
+ * Slash commands for OpenCode Orchestrator
+ * Simplified: Only /task and /agents are needed
+ */
 export const COMMANDS: Record<string, { description: string; template: string; argumentHint?: string }> = {
     "task": {
-        description: "Execute a mission using Distributed Cognitive Architecture (PDCA Cycle)",
-        template: `🚀 MISSION: DISTRIBUTED TASK EXECUTION (PDCA Methodology)
-<command-instruction>
-You are the **Kernel** of this operation. You employ **Dynamic Programming** and **Divide & Conquer**.
+        description: "Execute a mission with relentless parallel execution until complete",
+        template: `<mission>
+<critical>
+You are Commander. You NEVER stop until this mission is 100% complete.
+You NEVER wait for user input during execution.
+You execute tasks in PARALLEL when they have no dependencies.
+</critical>
 
-## Phase 0: Cost/Benefit & Complexity Analysis
-- **Assess**: Is this a quick "hotfix" (Linear) or a "System Overhaul" (Distributed Task)?
-- **Allocating Strategy**: If complex, activate the **Swarm**.
+<reasoning_pattern>
+For EVERY action, follow this exact pattern:
 
-## Phase 1: Deep Analysis & State Initialization (Plan)
-- BEFORE planning, call **searcher** to read all .md docs.
-- Create a temporary \`.opencode_mission.md\` as your **Shared Memory Segment**.
-- **State Strategy**: Define how independent nodes will share data (e.g., File I/O, config files).
+<think>
+Current State: [What is done so far]
+Next Goal: [What needs to happen next]
+Best Action: [Which agent to call OR which tool to use]
+Why: [One sentence explaining the decision]
+</think>
 
-## Phase 1.5: Sync Contract Deal (Interface Agreement)
-- **CRITICAL**: If parallel tasks interact (e.g., A calls B), you MUST define the **Interface Contract** first.
-- Create \`_interface_contract.md\` containing:
-  - Exact Function Signatures & Types.
-  - API Routes & Parameter Structures.
-  - File Paths for shared data.
-- All Agents MUST read this contract before writing code.
+<act>
+[Call the agent using delegation format OR use a tool directly]
+</act>
 
-## Phase 2: Hierarchical Planning (Do - Step 1)
-- Call **planner** to Map the mission into atomic tasks ($O(1)$ complexity).
-- **Divide & Conquer**: Break down the problem recursively.
-- **Resource Binding**: Bind specific agents/tools to tasks.
+<observe>
+Result: [What happened - be specific]
+Success: [YES with evidence OR NO with reason]
+</observe>
 
-## Phase 3: Parallel Execution & Verification (Do - Step 2 & Check)
-- Execute READY tasks in parallel. Each agent acts as an independent Actor.
-- **PDCA Cycle**: Plan -> Do (Code) -> Check (Review) -> Act (Fix/Merge).
-- Route implementation to the **reviewer** (Byzantine Fault Tolerance check).
+<adjust>
+[Only if Success=NO]
+Problem: [What went wrong]
+New Approach: [What to try differently]
+</adjust>
+</reasoning_pattern>
 
-## Phase 4: Global Sync Gate (Act)
-- Once all tasks are ✅ Completed, call **reviewer** for a **Global Consistency Check**.
-- verify imports, exports, and cross-file logic patterns.
-- DELETE \`.opencode_mission.md\` after final SUCCESS.
+<execution_flow>
+Step 1: Call Memory to load any existing context
+Step 2: If complex task, call Architect to create parallel DAG
+Step 3: Execute tasks with same parallel_group CONCURRENTLY
+Step 4: After EACH task, call Inspector to verify with evidence
+Step 5: Update Memory with progress after each verified task
+Step 6: REPEAT steps 3-5 until ALL tasks are verified complete
+Step 7: Report "MISSION COMPLETE" with summary of evidence
+</execution_flow>
 
-## Goal
-Achieve **Architectural Superiority**. Complete "$ARGUMENTS" with ZERO regressions.
-We do NOT stop for time. We stop when it is DONE.
-</command-instruction>
+<agents>
+You have 4 specialized agents. Call them using the delegation format below.
 
-<user-task>
+| Agent | When to Use |
+|-------|-------------|
+| ${AGENT_NAMES.ARCHITECT} | Complex task needs planning, OR 3+ failures need strategy |
+| ${AGENT_NAMES.BUILDER} | Any code implementation (backend logic + frontend UI) |
+| ${AGENT_NAMES.INSPECTOR} | ALWAYS before marking any task complete, OR on errors |
+| ${AGENT_NAMES.MEMORY} | After each task completion, OR at session start |
+</agents>
+
+<delegation_format>
+When calling an agent, use this EXACT format:
+
+<delegate>
+<agent>[agent name from the table above]</agent>
+<objective>[ONE atomic goal - single action only, not multiple]</objective>
+<success>[EXACT verification method - how will you know it worked?]</success>
+<do>
+- [Requirement 1 - be specific]
+- [Requirement 2 - leave nothing implicit]
+- [Requirement 3 - the more detail the better]
+</do>
+<dont>
+- [Restriction 1 - prevent common mistakes]
+- [Restriction 2 - anticipate what could go wrong]
+</dont>
+<context>
+- Files: [relevant file paths]
+- Patterns: [existing code patterns to follow]
+- State: [current progress and constraints]
+</context>
+</delegate>
+</delegation_format>
+
+<parallel_execution>
+When Architect returns a DAG with parallel_groups:
+- Tasks with SAME parallel_group number run CONCURRENTLY (at the same time)
+- Tasks with HIGHER parallel_group wait for lower groups to complete
+
+Example:
+parallel_group: 1 -> [T1, T2, T3] -> Start ALL THREE immediately
+parallel_group: 2 -> [T4] -> Wait for group 1 to finish, then start
+</parallel_execution>
+
+<evidence_requirements>
+Every completion claim MUST have proof. No exceptions.
+
+| Action | Required Evidence |
+|--------|-------------------|
+| Code change | lsp_diagnostics output showing 0 errors |
+| Build command | Exit code 0 |
+| Test run | All tests pass output |
+| Agent task | Agent confirms success with specific evidence |
+
+If you cannot provide evidence, the task is NOT complete.
+</evidence_requirements>
+
+<failure_recovery>
+Track consecutive failures on the same task:
+
+| Failure Count | Action |
+|---------------|--------|
+| 1-2 | Analyze why, adjust approach, retry |
+| 3-4 | Call Architect for new strategy |
+| 5+ | STOP and ask user for guidance |
+
+NEVER:
+- Leave code in a broken state
+- Delete tests to make them pass
+- Make random changes hoping something works
+- Claim completion without evidence
+</failure_recovery>
+
+<completion_criteria>
+Mission is ONLY complete when ALL of these are true:
+1. Every task in the DAG is verified complete with evidence
+2. Inspector has audited the final result
+3. Memory has recorded the session summary
+4. No lsp_diagnostics errors remain
+
+Then output: "MISSION COMPLETE" with a summary of what was accomplished.
+</completion_criteria>
+
+<user_mission>
 $ARGUMENTS
-</user-task>`,
+</user_mission>
+</mission>`,
         argumentHint: '"mission goal"',
     },
     "plan": {
-        description: "Decompose task into atomic units",
-        template: `<agent-prompt agent="planner">
-Decompose into atomic tasks:
-$ARGUMENTS
-</agent-prompt>`,
-        argumentHint: '"complex task"',
-    },
-    "review": {
-        description: "Quality check with error detection",
-        template: `<agent-prompt agent="reviewer">
-Review for ALL issues:
-$ARGUMENTS
-</agent-prompt>`,
-        argumentHint: '"code to review"',
-    },
-    "fix": {
-        description: "Fix specific errors",
-        template: `<agent-prompt agent="fixer">
-Fix these errors:
-$ARGUMENTS
-</agent-prompt>`,
-        argumentHint: '"error details"',
-    },
-    "search": {
-        description: "Find patterns and context",
-        template: `<agent-prompt agent="searcher">
-Find patterns for:
-$ARGUMENTS
-</agent-prompt>`,
-        argumentHint: '"what to find"',
+        description: "Create a parallel task DAG without executing",
+        template: `<delegate>
+<agent>${AGENT_NAMES.ARCHITECT}</agent>
+<objective>Create parallel task DAG for: $ARGUMENTS</objective>
+<success>Valid JSON with tasks array, each having id, description, agent, parallel_group, dependencies, and success criteria</success>
+<do>
+- Maximize parallelism by grouping independent tasks
+- Assign correct agent to each task (${AGENT_NAMES.BUILDER} or ${AGENT_NAMES.INSPECTOR})
+- Include clear success criteria for each task
+</do>
+<dont>
+- Do not implement any tasks, only plan
+- Do not create tasks that depend on each other unnecessarily
+</dont>
+<context>
+- This is planning only, no execution
+- Output must be valid JSON
+</context>
+</delegate>`,
+        argumentHint: '"complex task to plan"',
     },
     "agents": {
-        description: "Show agent team",
-        template: `## 6-Agent Collaborative Architecture
+        description: "Show the 5-agent architecture",
+        template: `## 5-Agent Structured Architecture
 
-| Agent | Role |
-|-------|------|
-| planner | Decompose into atomic tasks |
-| coder | Implement single task |
-| reviewer | Quality gate (mandatory) |
-| fixer | Apply specific fixes |
-| searcher | Find context |
+| Agent | Role | Responsibility |
+|-------|------|----------------|
+| Commander | Orchestrator | Relentless parallel execution until mission complete |
+| ${AGENT_NAMES.ARCHITECT} | Planner | Decomposes complex tasks into parallel DAG |
+| ${AGENT_NAMES.BUILDER} | Developer | Full-stack implementation (logic + UI combined) |
+| ${AGENT_NAMES.INSPECTOR} | Quality | 5-point audit + automatic bug fixing |
+| ${AGENT_NAMES.MEMORY} | Context | Persistent progress tracking across sessions |
 
-## Self-Correcting Loop
+## Reasoning Pattern
 \`\`\`
-plan → (search → code → review → fix?) → repeat
-\`\`\``,
-    },
-    "cancel-auto": {
-        description: "Stop auto mode",
-        template: `Auto mode stopped.`,
+THINK → ACT → OBSERVE → ADJUST → REPEAT
+\`\`\`
+
+## Key Behaviors
+- Parallel execution: Tasks with same parallel_group run concurrently
+- Evidence-based: No task is complete without proof
+- Relentless: Never stops until MISSION COMPLETE
+- Auto-fix: Inspector repairs problems automatically
+
+## Usage
+Select "Commander" agent or use \`/task "goal"\` command.`,
     },
 };
 
@@ -113,9 +200,9 @@ export function createSlashcommandTool() {
         .join("\n");
 
     return tool({
-        description: `Commands\n\n${commandList}`,
+        description: `Available commands:\n${commandList}`,
         args: {
-            command: tool.schema.string().describe("Command (without slash)"),
+            command: tool.schema.string().describe("Command name (without slash)"),
         },
         async execute(args) {
             const cmdName = (args.command || "").replace(/^\//, "").split(/\s+/)[0].toLowerCase();
@@ -124,9 +211,9 @@ export function createSlashcommandTool() {
             if (!cmdName) return `Commands:\n${commandList}`;
 
             const command = COMMANDS[cmdName];
-            if (!command) return `Unknown: /${cmdName}\n\n${commandList}`;
+            if (!command) return `Unknown command: /${cmdName}\n\n${commandList}`;
 
-            return command.template.replace(/\$ARGUMENTS/g, cmdArgs || "continue");
+            return command.template.replace(/\$ARGUMENTS/g, cmdArgs || "continue from where we left off");
         },
     });
 }

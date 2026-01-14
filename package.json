@@ -45,7 +45,7 @@
         "build:bin:linux-x64": "docker compose run --rm dev sh -c 'cargo build --release && cp target/release/orchestrator bin/orchestrator-linux-x64' && chmod +x bin/orchestrator-linux-x64",
         "build:bin:linux-arm64": "docker compose run --rm dev sh -c 'rustup target add aarch64-unknown-linux-gnu && apt-get update && apt-get install -y gcc-aarch64-linux-gnu && CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc cargo build --release --target aarch64-unknown-linux-gnu && cp target/aarch64-unknown-linux-gnu/release/orchestrator bin/orchestrator-linux-arm64' && chmod +x bin/orchestrator-linux-arm64",
         "build:bin": "npm run build:bin:linux-x64 && npm run build:bin:linux-arm64",
-        "build:js": "npx esbuild src/index.ts --bundle --outfile=dist/index.js --platform=node --format=esm --packages=external && npx esbuild src/cli.ts --bundle --outfile=dist/cli.js --platform=node --format=esm --packages=external && tsc --emitDeclarationOnly && mkdir -p dist/scripts && npx esbuild scripts/postinstall.ts --bundle --outfile=dist/scripts/postinstall.js --platform=node --format=esm --packages=external",
+        "build:js": "npx esbuild src/index.ts --bundle --outfile=dist/index.js --platform=node --format=esm --packages=external && npx esbuild src/cli.ts --bundle --outfile=dist/cli.js --platform=node --format=esm --packages=external && tsc --emitDeclarationOnly && mkdir -p dist/scripts && npx esbuild scripts/postinstall.ts --bundle --outfile=dist/scripts/postinstall.js --platform=node --format=esm --packages=external && npx esbuild scripts/preuninstall.ts --bundle --outfile=dist/scripts/preuninstall.js --platform=node --format=esm --packages=external",
         "build": "npm run build:bin && npm run build:js",
         "test": "docker compose run --rm test",
         "release:patch": "npm run build && npm run test && npm version patch --no-git-tag-version && npm run release:ship",
@@ -53,6 +53,7 @@
         "release:major": "npm run build && npm run test && npm version major --no-git-tag-version && npm run release:ship",
         "release:ship": "npm publish --access public && git add -A && git commit -m \"v$(node -p \"require('./package.json').version\")\" && git tag \"v$(node -p \"require('./package.json').version\")\" && git push && git push --tags",
         "postinstall": "node dist/scripts/postinstall.js 2>/dev/null || true",
+        "preuninstall": "node dist/scripts/preuninstall.js 2>/dev/null || true",
         "prepublishOnly": "npm run build:js",
         "util:stars": "gh api repos/agnusdei1207/opencode-orchestrator/stargazers --jq '.[].login'"
     },

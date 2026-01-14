@@ -16,7 +16,6 @@ const PLUGIN_NAME = "opencode-orchestrator";
 
 function getPluginPath() {
     try {
-        // Cross-platform safe path retrieval (handles Windows C:\ well)
         let currentDir = dirname(fileURLToPath(import.meta.url));
 
         // Search upwards for package.json
@@ -26,13 +25,11 @@ function getPluginPath() {
             }
 
             const parentDir = dirname(currentDir);
-            // If parent is same as current, we've reached the filesystem root
             if (parentDir === currentDir) {
                 break;
             }
             currentDir = parentDir;
         }
-        // Fallback
         return PLUGIN_NAME;
     } catch {
         return PLUGIN_NAME;
@@ -40,7 +37,7 @@ function getPluginPath() {
 }
 
 function install() {
-    console.log("🦀 OpenCode Orchestrator - Installing...");
+    console.log("🎯 OpenCode Orchestrator - Installing...");
 
     // Ensure config directory exists
     if (!existsSync(CONFIG_DIR)) {
@@ -57,7 +54,7 @@ function install() {
         }
     }
 
-    // Add plugin if not already present
+    // Initialize plugin array if needed
     if (!config.plugin) {
         config.plugin = [];
     }
@@ -68,14 +65,10 @@ function install() {
     );
 
     if (!hasPlugin) {
-        // CRITICAL: Must use absolute path!
-        // OpenCode often fails to resolve plugins by package name depending on the Node environment (nvm, global prefix, etc.).
-        // Registering the absolute path ensures it works 100% of the time.
         config.plugin.push(pluginPath);
         writeFileSync(CONFIG_FILE, JSON.stringify(config, null, 2));
         console.log("✅ Plugin registered!");
         console.log(`   Path: ${pluginPath}`);
-        console.log(`   Config: ${CONFIG_FILE}`);
     } else {
         console.log("✅ Plugin already registered.");
     }
@@ -83,10 +76,9 @@ function install() {
     console.log("");
     console.log("🚀 Ready! Restart OpenCode to use.");
     console.log("");
-    console.log("Commands:");
-    console.log("  /task \"goal\"   - Distributed Cognitive Task (PDCA Cycle)");
-    console.log("  /plan \"task\"   - Decompose into atomic tasks");
-    console.log("  /review        - Quality check");
+    console.log("Usage:");
+    console.log("  Select 'Commander' agent or use /task command");
+    console.log("  Commander runs until mission complete.");
     console.log("");
 }
 

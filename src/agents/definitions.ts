@@ -1,16 +1,15 @@
-import { AgentDefinition } from "./types.js";
+import { AgentDefinition } from "../shared/contracts/interfaces.js";
+import { AGENT_NAMES } from "../shared/contracts/names.js";
 import { orchestrator } from "./orchestrator.js";
-import { planner } from "./planner.js";
-import { coder } from "./coder.js";
-import { reviewer } from "./reviewer.js";
-import { fixer } from "./fixer.js";
-import { searcher } from "./searcher.js";
+import { architect } from "./subagents/architect.js";
+import { builder } from "./subagents/builder.js";
+import { inspector } from "./subagents/inspector.js";
+import { memory } from "./subagents/memory.js";
 
 export const AGENTS: Record<string, AgentDefinition> = {
-  orchestrator,
-  planner,
-  coder,
-  reviewer,
-  fixer,
-  searcher,
+  [AGENT_NAMES.COMMANDER]: orchestrator,
+  [AGENT_NAMES.ARCHITECT]: architect,
+  [AGENT_NAMES.BUILDER]: builder,
+  [AGENT_NAMES.INSPECTOR]: inspector,
+  [AGENT_NAMES.MEMORY]: memory,
 };

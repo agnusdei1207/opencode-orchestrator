@@ -13,14 +13,20 @@
 
 ## What is this?
 
-A 6-agent collaborative system that turns **affordable LLMs into reliable engineering teams**.
+A **5-agent structured architecture** that makes weak LLMs perform reliably.
 
-- **Relentless Loop** — Auto-continues until mission complete
-- **Atomic Decomposition** — Tasks broken into verifiable micro-units
-- **PDCA Loop** — Plan → Do → Check → Act (self-correcting)
-- **Parallel DAG** — Independent tasks run concurrently  
-- **Quality Gate** — Reviewer catches all errors before merge
-- **Structure** — **TypeScript Brain** for logic + **Rust Muscle** for speed
+**Problem**: Models like GLM-4.7 struggle with complex engineering tasks.
+
+**Solution**: XML-structured prompts + explicit reasoning patterns + evidence-based completion.
+
+### Key Features
+- **Structured Prompts** — XML tags provide clear boundaries for weak models
+- **Explicit Reasoning** — THINK → ACT → OBSERVE → ADJUST pattern
+- **Auto-Fix** — Inspector audits AND repairs automatically
+- **Persistent Memory** — Context saved to disk, never lost
+- **Parallel Execution** — Independent tasks run concurrently
+- **Relentless Loop** — Runs until mission complete (no user input needed)
+
 ---
 
 ## Installation
@@ -35,100 +41,122 @@ Restart OpenCode after installation.
 
 ## Usage
 
-### Option 1: Select Orchestrator Agent
-Press `tab` → Select **Orchestrator** → Just type your request!
+### Just Select Commander Agent
+Press `tab` → Select **Commander** → Type your request!
 
 ```
 "Implement user authentication with JWT"
 ```
 
-### Option 2: Use /task Command
+That's it. Commander automatically:
+1. Enters mission mode
+2. Plans tasks in parallel
+3. Executes until complete
+4. Stops when done with evidence
+
+### Or Use /task Command
 ```bash
 /task "Implement user authentication with JWT"
 ```
 
-Both methods activate **Relentless Loop** — the agent continues automatically until mission complete.
-
-### How It Works:
-1. **Plan** — Decompose into atomic tasks
-2. **Search** — Find patterns and context
-3. **Code** — Implement with precision
-4. **Review** — Verify via quality gate
-5. **Fix** — Self-heal if errors occur
-6. **Loop** — Repeat until ✅ MISSION COMPLETE
-
----
-
-## Agents
-
-| Agent | Role |
-|-------|------|
-| Orchestrator | Team leader — coordinates the mission |
-| Planner | Decomposes work into atomic tasks |
-| Coder | Implements one task at a time |
-| Reviewer | Quality gate — catches all errors |
-| Fixer | Targeted error resolution |
-| Searcher | Finds context before coding |
+Both work identically - Commander agent OR /task command.
 
 ---
 
 ## How It Works
 
 ```
-     /task "mission"
+     Select Commander or /task
            │
            ▼
     ┌─────────────┐
-    │   PLANNER   │
+    │  COMMANDER  │  ← THINK → ACT → OBSERVE → ADJUST
     └──────┬──────┘
            │
     ┌──────┴──────┐
     ▼             ▼
- [Task A]     [Task B]  (parallel)
+ ARCHITECT    MEMORY (load context)
+    │
+    ▼
+ ┌──────────────────┐
+ │  PARALLEL DAG    │
+ │  Group 1: [T1, T2, T3] ← run together
+ │  Group 2: [T4] ← wait for group 1
+ └──────────────────┘
+           │
+    ┌──────┴──────┐
+    ▼             ▼
+ BUILDER       BUILDER  (parallel)
     │             │
     └──────┬──────┘
            ▼
     ┌─────────────┐
-    │  REVIEWER   │
+    │  INSPECTOR  │  ← AUDIT → [FAIL? → FIX] → PASS
     └──────┬──────┘
            ▼
-        ✅ DONE
+    ┌─────────────┐
+    │   MEMORY    │  ← Save progress
+    └──────┬──────┘
+           ▼
+        ✅ MISSION COMPLETE
 ```
 
 ---
 
-## PDCA Control Loop
+## Agents (5-Agent Architecture)
 
+| Agent | Role | What It Does |
+| :--- | :--- | :--- |
+| **Commander** | Orchestrator | Controls mission, delegates work, verifies completion |
+| **Architect** | Planner | Decomposes complex tasks into parallel DAGs |
+| **Builder** | Developer | Implements code (logic + UI combined) |
+| **Inspector** | Quality + Fix | Audits code AND auto-fixes problems |
+| **Memory** | Context | Saves/loads progress across sessions |
+
+### Why 5 Agents?
+- **Builder** = Coder + Visualist (full-stack in one agent)
+- **Inspector** = Reviewer + Fixer (auto-fixes on audit failure)
+- **Fewer agents = fewer handoffs = better for weak models**
+
+---
+
+## Optimized for Weak Models
+
+| Technique | Purpose |
+|-----------|---------|
+| XML tags | Clear semantic boundaries |
+| THINK-ACT-OBSERVE-ADJUST | Explicit step-by-step reasoning |
+| Few-shot examples | Correct output format learning |
+| Tables/JSON output | Structured over prose |
+| Evidence required | Concrete verification criteria |
+
+---
+
+## Uninstall
+
+```bash
+npm uninstall -g opencode-orchestrator
 ```
-┌─────────────────────────────────────────────────────┐
-│                    PDCA LOOP                        │
-│                                                     │
-│   PLAN ──→ DO ──→ CHECK ──→ ACT                    │
-│     │       │        │        │                     │
-│   Planner  Coder   Reviewer  Orchestrator          │
-│     ↓       ↓        ↓        ↓                     │
-│   DAG     Code    Pass/Fail  Merge/Pivot           │
-│                      │                              │
-│              ┌───────┴───────┐                     │
-│              ↓               ↓                     │
-│           ✅ Pass         ❌ Fail → Fixer          │
-└─────────────────────────────────────────────────────┘
-```
+
+The plugin automatically removes itself from OpenCode config.
+
+---
 
 ## Troubleshooting
 
-If `/task` doesn't appear:
+If Commander doesn't appear after install:
 ```bash
 npm uninstall -g opencode-orchestrator
 npm install -g opencode-orchestrator
+# Restart OpenCode
 ```
 
 ---
 
 ## Docs
 
-- [Architecture](docs/ARCHITECTURE.md)
-- [Plugin Troubleshooting](docs/PLUGIN_TROUBLESHOOTING.md)
+- [Architecture & Design](docs/ARCHITECTURE.md) — System design, agents, and why it works
+- [Plugin Troubleshooting](docs/PLUGIN_TROUBLESHOOTING.md) — Setup issues
 
 ---
 
@@ -138,4 +166,4 @@ MIT License. [LICENSE](LICENSE)
 
 ---
 
-**Fast-Paced Development** — Updates are frequent. Keep your version fresh.
+**Updates are frequent. Keep your version fresh.**

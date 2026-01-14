@@ -27,7 +27,7 @@ function getPluginPath() {
   }
 }
 function install() {
-  console.log("\u{1F980} OpenCode Orchestrator - Installing...");
+  console.log("\u{1F3AF} OpenCode Orchestrator - Installing...");
   if (!existsSync(CONFIG_DIR)) {
     mkdirSync(CONFIG_DIR, { recursive: true });
   }
@@ -51,17 +51,15 @@ function install() {
     writeFileSync(CONFIG_FILE, JSON.stringify(config, null, 2));
     console.log("\u2705 Plugin registered!");
     console.log(`   Path: ${pluginPath}`);
-    console.log(`   Config: ${CONFIG_FILE}`);
   } else {
     console.log("\u2705 Plugin already registered.");
   }
   console.log("");
   console.log("\u{1F680} Ready! Restart OpenCode to use.");
   console.log("");
-  console.log("Commands:");
-  console.log('  /task "goal"   - Distributed Cognitive Task (PDCA Cycle)');
-  console.log('  /plan "task"   - Decompose into atomic tasks');
-  console.log("  /review        - Quality check");
+  console.log("Usage:");
+  console.log("  Select 'Commander' agent or use /task command");
+  console.log("  Commander runs until mission complete.");
   console.log("");
 }
 install();

@@ -1,30 +1,36 @@
 import { tool } from "@opencode-ai/plugin";
 import { AGENTS } from "../agents/definitions.js";
+import { AGENT_NAMES } from "../shared/contracts/names.js";
 
 export const callAgentTool = tool({
-    description: `Call a team member to perform specific work.
+    description: `Call a specialized agent for parallel execution.
 
-## Team
-- **planner**: Decompose complex task into atomic units
-- **coder**: Implement single atomic task
-- **reviewer**: Quality check (ALWAYS after coder)
-- **fixer**: Fix specific errors from reviewer
-- **searcher**: Find patterns and context
+<agents>
+| Agent | Role | When to Use |
+|-------|------|-------------|
+| ${AGENT_NAMES.ARCHITECT} | Planner | Complex task → DAG, OR 3+ failures → strategy |
+| ${AGENT_NAMES.BUILDER} | Developer | Any code implementation (logic + UI) |
+| ${AGENT_NAMES.INSPECTOR} | Quality | Before completion, OR on errors (auto-fixes) |
+| ${AGENT_NAMES.MEMORY} | Context | After each task, OR at session start |
+</agents>
 
-## Self-Correcting Workflow
-1. planner → atomic tasks
-2. For each task:
-   - searcher (if needed)
-   - coder
-   - reviewer (mandatory)
-   - fixer (if errors) → reviewer again
-3. Continue until all pass`,
+<execution_rules>
+1. Tasks with same parallel_group run CONCURRENTLY
+2. Always call Inspector before marking complete
+3. Always call Memory after each task
+4. Never stop until mission is 100% complete
+</execution_rules>`,
     args: {
         agent: tool.schema
-            .enum(["planner", "coder", "reviewer", "fixer", "searcher"])
-            .describe("Team member to call"),
-        task: tool.schema.string().describe("Atomic task or specific error to address"),
-        context: tool.schema.string().optional().describe("Relevant context from previous steps"),
+            .enum([
+                AGENT_NAMES.ARCHITECT,
+                AGENT_NAMES.BUILDER,
+                AGENT_NAMES.INSPECTOR,
+                AGENT_NAMES.MEMORY,
+            ])
+            .describe("Agent to call"),
+        task: tool.schema.string().describe("Atomic task description"),
+        context: tool.schema.string().optional().describe("Additional context"),
     },
     async execute(args) {
         const agentDef = AGENTS[args.agent];
@@ -32,17 +38,9 @@ export const callAgentTool = tool({
             return `Error: Unknown agent: ${args.agent}`;
         }
 
-        // Extract task ID for tracking if available
-        // Note: Actual tracking updates happen in tool.execute.after hook in the main plugin file
-        const taskIdMatch = args.task.match(/\[(TASK-\d+)\]/i);
-        if (taskIdMatch) {
-            // Placeholder for any immediate side effects if needed
-        }
-
         const prompt = `
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-${agentDef.id.toUpperCase()} AGENT
-${agentDef.description}
+${agentDef.id.toUpperCase()} :: ${agentDef.description}
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 <system>
@@ -55,7 +53,16 @@ ${args.task}
 
 ${args.context ? `<context>\n${args.context}\n</context>` : ""}
 
-Execute according to your role. Be thorough and precise.
+<execution>
+Follow this pattern:
+1. THINK - Reason about the task
+2. ACT - Execute the work
+3. OBSERVE - Check the result
+4. ADJUST - Fix if needed
+
+Report with evidence of success.
+Never claim completion without proof.
+</execution>
 `;
 
         return prompt;
