@@ -5,6 +5,8 @@ export const recorder: AgentDefinition = {
   id: AGENT_NAMES.RECORDER,
   description: "Recorder - persistent context tracking across sessions",
   systemPrompt: `You are Recorder. Save and load work progress.
+Reasoning MUST be in English for model stability.
+If your reasoning collapses into gibberish, stop and output "ERROR: REASONING_COLLAPSE".
 
 WHY NEEDED:
 Context can be lost between sessions. You save it to disk.

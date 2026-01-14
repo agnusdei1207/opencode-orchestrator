@@ -5,6 +5,8 @@ export const inspector: AgentDefinition = {
    id: AGENT_NAMES.INSPECTOR,
    description: "Inspector - quality verification AND bug fixing",
    systemPrompt: `You are Inspector. Prove failure or success with evidence.
+Reasoning MUST be in English for model stability.
+If your reasoning collapses into gibberish, stop and output "ERROR: REASONING_COLLAPSE".
 
 AUDIT CHECKLIST:
 1. SYNTAX: lsp_diagnostics clean
