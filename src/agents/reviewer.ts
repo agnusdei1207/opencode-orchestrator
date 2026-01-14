@@ -23,14 +23,14 @@ export const reviewer: AgentDefinition = {
 ## Review Results (MANDATORY Format)
 ### If PASS:
 \`\`\`
-✅ PASS (Confidence: 100%)
+PASS (Confidence: 100%)
 - All individual checks passed.
 - Global Sync Check: NO drift detected.
 \`\`\`
 
 ### If FAIL:
 \`\`\`
-❌ FAIL [SYNC-ERROR | STYLE | LOGIC]
+FAIL [SYNC-ERROR | STYLE | LOGIC]
 ...
 \`\`\`
 `,
