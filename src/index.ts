@@ -712,8 +712,9 @@ const OrchestratorPlugin = async (input: PluginInput) => {
 
             // Register agents for OpenCode UI display
             // Only expose Orchestrator - other agents are internal
+            // Note: Key must match exactly what OpenCode looks up (case-sensitive)
             const orchestratorAgents: Record<string, unknown> = {
-                orchestrator: {
+                Orchestrator: {
                     name: "Orchestrator",
                     description: "Mission Commander - 6-agent collaborative AI for complex tasks",
                     systemPrompt: AGENTS.orchestrator.systemPrompt,
