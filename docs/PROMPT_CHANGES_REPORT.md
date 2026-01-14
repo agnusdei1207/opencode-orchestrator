@@ -2,52 +2,16 @@
 
 ## 📋 요약
 
-**"최소 수정(Minimal Modification)"** 철학, **"FIXED/MODIFIABLE Zone"** 개념, **효율적인 에이전트 간 통신 프로토콜**을 구현했습니다.
+**"최소 수정(Minimal Modification)"** 철학과 **"FIXED/MODIFIABLE Zone"** 개념을 에이전트 프롬프트에 적용했습니다.
 
 ---
 
-## 🔧 수정/추가된 파일
+## 🔧 수정된 파일
 
 | 파일 | 변경 내용 |
 |------|-----------|
 | `crates/orchestrator-core/src/agents/prompts.rs` | 6개 에이전트 프롬프트에 규칙 추가 |
 | `crates/orchestrator-core/src/agents/definition.rs` | `RuntimeContext` 구조체 추가 |
-| `crates/orchestrator-core/src/agents/protocol.rs` | 🆕 에이전트 간 통신 프로토콜 추가 |
-
----
-
-## 🆕 신규: 효율적인 에이전트 간 통신
-
-**토큰 절약을 위한 간결한 JSON 메시지 포맷:**
-
-### Request (Orchestrator → Agent)
-```json
-{"task_id":"T001","to":"coder","action":"Add login","file":"src/auth.rs","fixed":["Cargo.toml"]}
-```
-
-### Response (Agent → Orchestrator)
-```json
-{"task_id":"T001","from":"coder","status":"ok","summary":"Added login fn"}
-```
-
-### Error (Reviewer → Orchestrator)
-```json
-{"task_id":"T001","from":"reviewer","status":"fail","errors":["E001: undefined var"]}
-```
-
-### Status Codes
-| 코드 | 의미 |
-|------|------|
-| `ok` | 성공 |
-| `fail` | 에러 발견 |
-| `need_info` | 추가 정보 필요 |
-| `partial` | 부분 완료 |
-
-### 통신 규칙
-- 메시지를 **짧게** 유지
-- 필요한 필드만 포함
-- null/빈 필드는 생략
-- 약어 사용: fn, var, impl, cfg
 
 ---
 

@@ -684,7 +684,7 @@ var OrchestratorPlugin = async (input) => {
         };
       }
       const orchestratorAgents = {
-        orchestrator: {
+        Orchestrator: {
           name: "Orchestrator",
           description: "Mission Commander - 6-agent collaborative AI for complex tasks",
           systemPrompt: AGENTS.orchestrator.systemPrompt
