@@ -25,8 +25,8 @@ import { detectSlashCommand } from "./utils/common.js";
 // Constants
 // ============================================================================
 
-const DEFAULT_MAX_STEPS = 50;
-const TASK_COMMAND_MAX_STEPS = 200;
+const DEFAULT_MAX_STEPS = 500;
+const TASK_COMMAND_MAX_STEPS = 1000;
 
 const AGENT_EMOJI: Record<string, string> = {
     "architect": "🏗️",
