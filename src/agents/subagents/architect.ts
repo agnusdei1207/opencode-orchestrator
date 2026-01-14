@@ -1,6 +1,6 @@
 import { AgentDefinition } from "../../shared/contracts/interfaces.js";
 import { AGENT_NAMES } from "../../shared/contracts/names.js";
-
+// stable
 export const architect: AgentDefinition = {
   id: AGENT_NAMES.ARCHITECT,
   description: "Architect - task decomposition and strategic planning",
