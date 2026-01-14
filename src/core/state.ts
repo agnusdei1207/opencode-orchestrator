@@ -6,6 +6,8 @@ export interface SessionState {
     taskRetries: Map<string, number>;
     currentTask: string;
     graph?: TaskGraph;
+    anomalyCount: number; // Consecutive gibberish/malformed output count
+    lastHealthyOutput?: string; // Last known good output for recovery context
 }
 
 export const state = {

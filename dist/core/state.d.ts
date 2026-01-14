@@ -5,6 +5,8 @@ export interface SessionState {
     taskRetries: Map<string, number>;
     currentTask: string;
     graph?: TaskGraph;
+    anomalyCount: number;
+    lastHealthyOutput?: string;
 }
 export declare const state: {
     missionActive: boolean;

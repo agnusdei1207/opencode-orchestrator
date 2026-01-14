@@ -780,6 +780,110 @@ function detectSlashCommand(text) {
   return { command: match[1], args: match[2] || "" };
 }
 
+// src/utils/sanity.ts
+function checkOutputSanity(text) {
+  if (!text || text.length < 50) {
+    return { isHealthy: true, severity: "ok" };
+  }
+  if (/(.)\1{15,}/.test(text)) {
+    return {
+      isHealthy: false,
+      reason: "Single character repetition detected",
+      severity: "critical"
+    };
+  }
+  if (/(.{2,6})\1{8,}/.test(text)) {
+    return {
+      isHealthy: false,
+      reason: "Pattern loop detected",
+      severity: "critical"
+    };
+  }
+  if (text.length > 200) {
+    const cleanText = text.replace(/\s/g, "");
+    if (cleanText.length > 100) {
+      const uniqueChars = new Set(cleanText).size;
+      const ratio = uniqueChars / cleanText.length;
+      if (ratio < 0.02) {
+        return {
+          isHealthy: false,
+          reason: "Low information density",
+          severity: "critical"
+        };
+      }
+    }
+  }
+  const boxChars = (text.match(/[\u2500-\u257f\u2580-\u259f\u2800-\u28ff]/g) || []).length;
+  if (boxChars > 100 && boxChars / text.length > 0.3) {
+    return {
+      isHealthy: false,
+      reason: "Visual gibberish detected",
+      severity: "critical"
+    };
+  }
+  const lines = text.split("\n").filter((l) => l.trim().length > 10);
+  if (lines.length > 10) {
+    const lineSet = new Set(lines);
+    if (lineSet.size < lines.length * 0.2) {
+      return {
+        isHealthy: false,
+        reason: "Excessive line repetition",
+        severity: "warning"
+      };
+    }
+  }
+  const cjkChars = (text.match(/[\u4e00-\u9fff\u3400-\u4dbf]/g) || []).length;
+  if (cjkChars > 200) {
+    const uniqueCjk = new Set(
+      text.match(/[\u4e00-\u9fff\u3400-\u4dbf]/g) || []
+    ).size;
+    if (uniqueCjk < 10 && cjkChars / uniqueCjk > 20) {
+      return {
+        isHealthy: false,
+        reason: "CJK character spam detected",
+        severity: "critical"
+      };
+    }
+  }
+  return { isHealthy: true, severity: "ok" };
+}
+var RECOVERY_PROMPT = `<anomaly_recovery>
+\u26A0\uFE0F SYSTEM NOTICE: Previous output was malformed (gibberish/loop detected).
+
+<recovery_protocol>
+1. DISCARD the corrupted output completely - do not reference it
+2. RECALL the original mission objective
+3. IDENTIFY the last confirmed successful step
+4. RESTART with a simpler, more focused approach
+</recovery_protocol>
+
+<instructions>
+- If a sub-agent produced bad output: try a different agent or simpler task
+- If stuck in a loop: break down the task into smaller pieces
+- If context seems corrupted: call recorder to restore context
+- THINK in English for maximum stability
+</instructions>
+
+What was the original task? Proceed from the last known good state.
+</anomaly_recovery>`;
+var ESCALATION_PROMPT = `<critical_anomaly>
+\u{1F6A8} CRITICAL: Multiple consecutive malformed outputs detected.
+
+<emergency_protocol>
+1. STOP current execution path immediately
+2. DO NOT continue with the same approach - it is failing
+3. CALL architect for a completely new strategy
+4. If architect also fails: report status to user and await guidance
+</emergency_protocol>
+
+<diagnosis>
+The current approach is producing corrupted output.
+This may indicate: context overload, model instability, or task complexity.
+</diagnosis>
+
+Request a fresh plan from architect with reduced scope.
+</critical_anomaly>`;
+
 // src/index.ts
 var DEFAULT_MAX_STEPS = 500;
 var TASK_COMMAND_MAX_STEPS = 1e3;
@@ -810,12 +914,18 @@ var OrchestratorPlugin = async (input) => {
   const { directory, client } = input;
   const sessions = /* @__PURE__ */ new Map();
   return {
+    // -----------------------------------------------------------------
+    // Tools we expose to the LLM
+    // -----------------------------------------------------------------
     tool: {
       call_agent: callAgentTool,
       slashcommand: createSlashcommandTool(),
       grep_search: grepSearchTool(directory),
       glob_search: globSearchTool(directory)
     },
+    // -----------------------------------------------------------------
+    // Config hook - registers our commands and agents with OpenCode
+    // -----------------------------------------------------------------
     config: async (config) => {
       const existingCommands = config.command ?? {};
       const existingAgents = config.agent ?? {};
@@ -837,6 +947,10 @@ var OrchestratorPlugin = async (input) => {
       config.command = { ...orchestratorCommands, ...existingCommands };
       config.agent = { ...orchestratorAgents, ...existingAgents };
     },
+    // -----------------------------------------------------------------
+    // chat.message hook - runs when user sends a message
+    // This is where we intercept commands and set up sessions
+    // -----------------------------------------------------------------
     "chat.message": async (msgInput, msgOutput) => {
       const parts = msgOutput.parts;
       const textPartIndex = parts.findIndex((p) => p.type === "text" && p.text);
@@ -857,7 +971,8 @@ var OrchestratorPlugin = async (input) => {
           enabled: true,
           iterations: 0,
           taskRetries: /* @__PURE__ */ new Map(),
-          currentTask: ""
+          currentTask: "",
+          anomalyCount: 0
         });
         if (!parsed) {
           const userMessage = originalText.trim();
@@ -881,7 +996,8 @@ var OrchestratorPlugin = async (input) => {
           enabled: true,
           iterations: 0,
           taskRetries: /* @__PURE__ */ new Map(),
-          currentTask: ""
+          currentTask: "",
+          anomalyCount: 0
         });
         parts[textPartIndex].text = COMMANDS["task"].template.replace(
           /\$ARGUMENTS/g,
@@ -897,12 +1013,39 @@ var OrchestratorPlugin = async (input) => {
         }
       }
     },
+    // -----------------------------------------------------------------
+    // tool.execute.after hook - runs after any tool call completes
+    // We use this to track progress and detect problems
+    // -----------------------------------------------------------------
     "tool.execute.after": async (toolInput, toolOutput) => {
       const session = sessions.get(toolInput.sessionID);
       if (!session?.active) return;
       session.step++;
       session.timestamp = Date.now();
       const stateSession = state.sessions.get(toolInput.sessionID);
+      if (toolInput.tool === "call_agent" && stateSession) {
+        const sanityResult = checkOutputSanity(toolOutput.output);
+        if (!sanityResult.isHealthy) {
+          stateSession.anomalyCount = (stateSession.anomalyCount || 0) + 1;
+          const agentName = toolInput.arguments?.agent || "unknown";
+          toolOutput.output = `\u26A0\uFE0F [${agentName.toUpperCase()}] OUTPUT ANOMALY DETECTED
+
+\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501
+\u26A0\uFE0F Gibberish/loop detected: ${sanityResult.reason}
+Anomaly count: ${stateSession.anomalyCount}
+\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501
+
+` + (stateSession.anomalyCount >= 2 ? ESCALATION_PROMPT : RECOVERY_PROMPT);
+          return;
+        } else {
+          if (stateSession.anomalyCount > 0) {
+            stateSession.anomalyCount = 0;
+          }
+          if (toolOutput.output.length < 5e3) {
+            stateSession.lastHealthyOutput = toolOutput.output.substring(0, 1e3);
+          }
+        }
+      }
       if (toolInput.tool === "call_agent" && toolInput.arguments?.task && stateSession) {
         const taskIdMatch = toolInput.arguments.task.match(/\[(TASK-\d+)\]/i);
         if (taskIdMatch) {
@@ -977,12 +1120,49 @@ ${stateSession.graph.getTaskSummary()}`;
 
 [${session.step}/${session.maxSteps}]`;
     },
+    // -----------------------------------------------------------------
+    // assistant.done hook - runs when the LLM finishes responding
+    // This is the heart of the "relentless loop" - we keep pushing it
+    // to continue until we see MISSION COMPLETE or hit the limit
+    // -----------------------------------------------------------------
     "assistant.done": async (assistantInput, assistantOutput) => {
       const sessionID = assistantInput.sessionID;
       const session = sessions.get(sessionID);
       if (!session?.active) return;
       const parts = assistantOutput.parts;
       const textContent = parts?.filter((p) => p.type === "text" || p.type === "reasoning").map((p) => p.text || "").join("\n") || "";
+      const stateSession = state.sessions.get(sessionID);
+      const sanityResult = checkOutputSanity(textContent);
+      if (!sanityResult.isHealthy && stateSession) {
+        stateSession.anomalyCount = (stateSession.anomalyCount || 0) + 1;
+        session.step++;
+        session.timestamp = Date.now();
+        const recoveryText = stateSession.anomalyCount >= 2 ? ESCALATION_PROMPT : RECOVERY_PROMPT;
+        try {
+          if (client?.session?.prompt) {
+            await client.session.prompt({
+              path: { id: sessionID },
+              body: {
+                parts: [{
+                  type: "text",
+                  text: `\u26A0\uFE0F ANOMALY #${stateSession.anomalyCount}: ${sanityResult.reason}
+
+` + recoveryText + `
+
+[Recovery Step ${session.step}/${session.maxSteps}]`
+                }]
+              }
+            });
+          }
+        } catch {
+          session.active = false;
+          state.missionActive = false;
+        }
+        return;
+      }
+      if (stateSession && stateSession.anomalyCount > 0) {
+        stateSession.anomalyCount = 0;
+      }
       if (textContent.includes("\u2705 MISSION COMPLETE") || textContent.includes("MISSION COMPLETE")) {
         session.active = false;
         state.missionActive = false;
@@ -1033,6 +1213,9 @@ ${stateSession.graph.getTaskSummary()}`;
         }
       }
     },
+    // -----------------------------------------------------------------
+    // Event handler - cleans up when sessions are deleted
+    // -----------------------------------------------------------------
     handler: async ({ event }) => {
       if (event.type === "session.deleted") {
         const props = event.properties;
