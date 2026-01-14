@@ -20,7 +20,7 @@ A 6-agent collaborative system that turns **affordable LLMs into reliable engine
 - **PDCA Loop** — Plan → Do → Check → Act (self-correcting)
 - **Parallel DAG** — Independent tasks run concurrently  
 - **Quality Gate** — Reviewer catches all errors before merge
-
+- **Structure** — **TypeScript Brain** for logic + **Rust Muscle** for speed
 ---
 
 ## Installation
