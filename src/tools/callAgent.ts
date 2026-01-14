@@ -2,16 +2,24 @@ import { tool } from "@opencode-ai/plugin";
 import { AGENTS } from "../agents/definitions.js";
 import { AGENT_NAMES } from "../shared/contracts/names.js";
 
+// Agent emoji indicators
+const AGENT_EMOJI: Record<string, string> = {
+    [AGENT_NAMES.ARCHITECT]: "🏗️",
+    [AGENT_NAMES.BUILDER]: "🔨",
+    [AGENT_NAMES.INSPECTOR]: "🔍",
+    [AGENT_NAMES.MEMORY]: "💾",
+};
+
 export const callAgentTool = tool({
     description: `Call a specialized agent for parallel execution.
 
 <agents>
 | Agent | Role | When to Use |
 |-------|------|-------------|
-| ${AGENT_NAMES.ARCHITECT} | Planner | Complex task → DAG, OR 3+ failures → strategy |
-| ${AGENT_NAMES.BUILDER} | Developer | Any code implementation (logic + UI) |
-| ${AGENT_NAMES.INSPECTOR} | Quality | Before completion, OR on errors (auto-fixes) |
-| ${AGENT_NAMES.MEMORY} | Context | After each task, OR at session start |
+| ${AGENT_NAMES.ARCHITECT} 🏗️ | Planner | Complex task → DAG, OR 3+ failures → strategy |
+| ${AGENT_NAMES.BUILDER} 🔨 | Developer | Any code implementation (logic + UI) |
+| ${AGENT_NAMES.INSPECTOR} 🔍 | Quality | Before completion, OR on errors (auto-fixes) |
+| ${AGENT_NAMES.MEMORY} 💾 | Context | After each task, OR at session start |
 </agents>
 
 <execution_rules>
@@ -35,12 +43,14 @@ export const callAgentTool = tool({
     async execute(args) {
         const agentDef = AGENTS[args.agent];
         if (!agentDef) {
-            return `Error: Unknown agent: ${args.agent}`;
+            return `❌ Error: Unknown agent: ${args.agent}`;
         }
+
+        const emoji = AGENT_EMOJI[args.agent] || "🤖";
 
         const prompt = `
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-${agentDef.id.toUpperCase()} :: ${agentDef.description}
+${emoji} ${agentDef.id.toUpperCase()} :: ${agentDef.description}
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 <system>

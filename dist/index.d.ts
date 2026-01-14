@@ -1,13 +1,13 @@
 /**
  * OpenCode Orchestrator Plugin
  *
- * 5-Agent Structured Architecture for OpenCode
+ * 5-Agent Structured Architecture
  *
- * Optimized for weak models (GLM-4.7, Gemma, Phi) through:
+ * Optimized for weak models through:
  * - XML-structured prompts with clear boundaries
  * - Explicit reasoning patterns (THINK → ACT → OBSERVE → ADJUST)
  * - Evidence-based completion requirements
- * - Parallel execution by default
+ * - Autonomous execution loop
  *
  * Agents: Commander, Architect, Builder, Inspector, Memory
  */
@@ -65,17 +65,23 @@ declare const OrchestratorPlugin: (input: PluginInput) => Promise<{
         };
     };
     config: (config: Record<string, unknown>) => Promise<void>;
-    "chat.message": (input: any, output: any) => Promise<void>;
-    "tool.execute.after": (input: {
+    "chat.message": (msgInput: any, msgOutput: any) => Promise<void>;
+    "tool.execute.after": (toolInput: {
         tool: string;
         sessionID: string;
         callID: string;
         arguments?: any;
-    }, output: {
+    }, toolOutput: {
         title: string;
         output: string;
         metadata: any;
     }) => Promise<void>;
-    "assistant.done": (input: any, output: any) => Promise<void>;
+    "assistant.done": (assistantInput: any, assistantOutput: any) => Promise<void>;
+    handler: ({ event }: {
+        event: {
+            type: string;
+            properties?: unknown;
+        };
+    }) => Promise<void>;
 }>;
 export default OrchestratorPlugin;
