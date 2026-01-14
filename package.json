@@ -2,7 +2,7 @@
     "name": "opencode-orchestrator",
     "displayName": "OpenCode Orchestrator",
     "description": "Distributed Cognitive Architecture for OpenCode. Turns simple prompts into specialized multi-agent workflows (Planner, Coder, Reviewer).",
-    "version": "0.1.61",
+    "version": "0.1.62",
     "author": "agnusdei1207",
     "license": "MIT",
     "repository": {
@@ -56,6 +56,7 @@
         "preuninstall": "node dist/scripts/preuninstall.js 2>/dev/null || true",
         "prepublishOnly": "npm run build:js",
         "dev:install": "npm run build:js && npm install -g .",
+        "dev:uninstall": "npm uninstall -g opencode-orchestrator",
         "util:stars": "gh api repos/agnusdei1207/opencode-orchestrator/stargazers --jq '.[].login'"
     },
     "dependencies": {
