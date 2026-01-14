@@ -727,8 +727,8 @@ function detectSlashCommand(text) {
 }
 
 // src/index.ts
-var DEFAULT_MAX_STEPS = 50;
-var TASK_COMMAND_MAX_STEPS = 200;
+var DEFAULT_MAX_STEPS = 500;
+var TASK_COMMAND_MAX_STEPS = 1e3;
 var AGENT_EMOJI2 = {
   "architect": "\u{1F3D7}\uFE0F",
   "builder": "\u{1F528}",
