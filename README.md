@@ -72,17 +72,18 @@ The Commander will:
 
 ---
 
-## The Workflow (Phases)
+## The Workflow (Progressive Phases)
 
-1. **Phase 1: Environment Scan** (Mandatory)
-   - OS vs Container? Monorepo? Auth pattern? Build system?
-2. **Phase 2: Context Load**
-   - Load prior progress via Recorder.
-3. **Phase 3: Parallel Planning**
-   - Architect creates a DAG of atomic tasks.
-4. **Phase 4: Execution & Audit**
+1. **Phase 0: Triage (Smart)**
+   - **Fast Track 🟢**: Simple fixes → Execute instantly (Skip heavy scans).
+   - **Deep Track 🔴**: Complex features → Full Environment Scan & Plan.
+2. **Phase 1: Environment Scan**
+   - Mandatory for Deep Track: Infra/Domain/Stack analysis.
+3. **Phase 2: Parallel Planning**
+   - Architect creates a DAG of atomic tasks (Scalable Planning).
+4. **Phase 3: Execution & Audit**
    - Builder writes code ↔ Inspector verifies with evidence.
-5. **Phase 5: Completion**
+5. **Phase 4: Completion**
    - Mission Complete reported with proof of build/test success.
 
 ---

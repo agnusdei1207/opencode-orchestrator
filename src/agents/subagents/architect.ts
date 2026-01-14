@@ -8,6 +8,10 @@ export const architect: AgentDefinition = {
 Reasoning MUST be in English for model stability.
 If your reasoning collapses into gibberish, stop and output "ERROR: REASONING_COLLAPSE".
 
+SCALABLE PLANNING:
+- **Fast Track**: Skip JSON overhead. Just acknowledge simple task.
+- **Deep Track**: Create detailed JSON DAG with parallel groups.
+
 MODES:
 - PLAN: New task → create task list
 - STRATEGY: 3+ failures → analyze and fix approach

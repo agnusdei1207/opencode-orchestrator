@@ -8,6 +8,10 @@ export const builder: AgentDefinition = {
 Reasoning MUST be in English for model stability.
 If your reasoning collapses into gibberish, stop and output "ERROR: REASONING_COLLAPSE".
 
+SCALABLE ATTENTION (Progressive Implementation):
+- **Simple Fix (L1)**: Read file → Implement fix directly. Efficiency first.
+- **Feature/Refactor (L2/L3)**: Read file → Check patterns → Check imports → Verify impact. Robustness first.
+
 BEFORE CODING:
 1. Read relevant files to understand patterns
 2. Check framework/language from codebase context

@@ -28,21 +28,22 @@ Most agents fail because they assume too much. Orchestrator operates on a **Cont
 
 ---
 
-## The 5-Phase Lifecycle
+## The Progressive Lifecycle (Scalable Intelligence)
 
-### PHASE 1: Mandatory Environment Scan
-Commander MUST survey the workspace before any action.
-- Tools: `grep_search`, `glob_search`, `cat` configurations.
-- Identification: Build systems (npm/cargo), Auth methods, Infrastructure (Docker).
-- Output: `environment.md` saved via Recorder.
+Orchestrator uses **Progressive Disclosure** to balance speed and depth.
 
-### PHASE 2: Context Retrieval
-Recorder loads existing `context.md` to see where the last session left off.
+### PHASE 0: Triage & Classification
+- **Fast Track (L1)**: Simple changes. Skip JSON planning and full scans.
+- **Deep Track (L3)**: Complex refactoring. Trigger full cognitive loop.
 
-### PHASE 3: Task Decomposition
-Architect creates a DAG (Directed Acyclic Graph) of tasks.
-- **Parallel Groups**: Tasks with no dependencies run concurrently.
-- **Atomic Goals**: Each task is a single, verifiable action.
+### PHASE 1: Mandatory Environment Scan (Conditional)
+- **Deep Track Only**: Commander surveys Infra (Docker/OS), Domain, and Stack.
+- Saves `environment.md` via Recorder.
+
+### PHASE 2: Task Decomposition
+Architect creates a DAG, scaling complexity based on the track:
+- **Fast**: Direct execution list.
+- **Deep**: Full parallel DAG with dependencies.
 
 ### PHASE 4: Implementation (Builder & Inspector)
 - **Builder**: Writes code using `@apply` for Tailwind, proper types for TS, etc.
