@@ -4,7 +4,17 @@
 
 ---
 
-## Overview
+## Hybrid Architecture
+
+OpenCode Orchestrator uses a **Dual-Engine Architecture** for maximum performance and flexibility:
+
+- **🧠 Brain (TypeScript):**  
+  All 6 agents (Orchestrator, Planner, Coder, etc.) and their prompts are defined in TypeScript (`src/agents/`). This allows for dynamic, context-aware prompt engineering and seamless integration with the OpenCode plugin API.
+
+- **💪 Muscle (Rust):**  
+  Performance-critical operations like regex searching (`grep_search`) and file pattern matching (`glob_search`) are handled by a high-performance Rust binary (`crates/orchestrator-core`). This ensures instant results even in large codebases.
+
+---
 
 OpenCode Orchestrator transforms LLMs into reliable engineering teams through:
 - **Atomic Decomposition** — Tasks broken into verifiable micro-units  
