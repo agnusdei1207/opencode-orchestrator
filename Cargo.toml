@@ -1,0 +1,35 @@
+[workspace]
+resolver = "2"
+members = ["crates/orchestrator-core", "crates/orchestrator-cli"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+license = "SUL-1.0"
+repository = "https://github.com/agnusdei1207/opencode-orchestrator"
+authors = ["agnusdei1207"]
+
+[workspace.dependencies]
+# Core
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+tokio = { version = "1.44", features = ["full"] }
+anyhow = "1.0"
+thiserror = "2.0"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+# Async
+futures = "0.3"
+async-trait = "0.1"
+
+# File system
+walkdir = "2.5"
+glob = "0.3"
+ignore = "0.4"
+
+# Text processing
+regex = "1.11"
+
+# Configuration
+toml = "0.8"

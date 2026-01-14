@@ -1,0 +1,14 @@
+# Dependencies
+node_modules/
+
+# Rust build cache
+target/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+
+# OS
+.DS_Store
+package-lock.json

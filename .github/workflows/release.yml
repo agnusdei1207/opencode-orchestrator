@@ -1,0 +1,137 @@
+name: Build & Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  packages: write
+
+jobs:
+  build:
+    name: Build ${{ matrix.target }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            binary: orchestrator-linux-x64
+          - os: ubuntu-latest
+            target: aarch64-unknown-linux-gnu
+            binary: orchestrator-linux-arm64
+          - os: macos-latest
+            target: x86_64-apple-darwin
+            binary: orchestrator-macos-x64
+          - os: macos-latest
+            target: aarch64-apple-darwin
+            binary: orchestrator-macos-arm64
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            binary: orchestrator-windows-x64.exe
+
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+          
+      - name: Install cross-compilation tools (Linux ARM64)
+        if: matrix.target == 'aarch64-unknown-linux-gnu'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-aarch64-linux-gnu
+
+      - name: Build
+        run: cargo build --release --target ${{ matrix.target }}
+        env:
+          CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: aarch64-linux-gnu-gcc
+
+      - name: Rename binary (Unix)
+        if: runner.os != 'Windows'
+        run: |
+          cp target/${{ matrix.target }}/release/orchestrator ${{ matrix.binary }}
+          chmod +x ${{ matrix.binary }}
+
+      - name: Rename binary (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          cp target/${{ matrix.target }}/release/orchestrator.exe ${{ matrix.binary }}
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.binary }}
+          path: ${{ matrix.binary }}
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: binaries
+
+      - name: Display structure of downloaded files
+        run: ls -R binaries/
+
+      - name: Create GitHub Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v1
+        with:
+          files: binaries/**/*
+          body: |
+            ## 🚀 OpenCode Orchestrator ${{ github.ref_name }}
+            
+            **"Relentless execution until absolute success."**
+            
+            ### ✨ Highlights
+            - **🛡️ Resilient Execution**: Never stops. Pivots strategy (Plan/Search) on error.
+            - **⚡ Full Autonomy**: `/auto` command completes tasks 100%.
+            - **✅ Anti-Overengineering**: Smart fixers for simple errors.
+            
+            ---
+          generate_release_notes: true
+          fail_on_unmatched_files: false
+
+      - name: Publish to GitHub Packages
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          registry-url: 'https://npm.pkg.github.com'
+          scope: '@agnusdei1207'
+
+      - name: Install Bun
+        uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: latest
+          registry-url: 'https://npm.pkg.github.com'
+          scope: '@agnusdei1207'
+          
+      - name: Install dependencies
+        run: npm install --force
+        
+      - name: Prepare binaries for NPM
+        run: |
+          mkdir -p bin
+          cp binaries/orchestrator-linux-x64/orchestrator-linux-x64 bin/
+          cp binaries/orchestrator-linux-arm64/orchestrator-linux-arm64 bin/
+          cp binaries/orchestrator-macos-x64/orchestrator-macos-x64 bin/
+          cp binaries/orchestrator-macos-arm64/orchestrator-macos-arm64 bin/
+          cp binaries/orchestrator-windows-x64.exe/orchestrator-windows-x64.exe bin/
+          chmod +x bin/*
+
+      - name: Publish to GitHub Registry
+        run: |
+          node -e "let pkg=require('./package.json'); pkg.name='@agnusdei1207/opencode-orchestrator'; pkg.publishConfig={registry:'https://npm.pkg.github.com'}; require('fs').writeFileSync('package.json', JSON.stringify(pkg, null, 2));"
+          npm publish
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

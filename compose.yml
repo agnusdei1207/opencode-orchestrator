@@ -1,0 +1,30 @@
+services:
+  build:
+    build: .
+    image: orchestrator:latest
+
+  dev:
+    image: rust:1.92-bookworm
+    working_dir: /app
+    volumes:
+      - .:/app
+      - cargo-cache:/usr/local/cargo/registry
+      - target-cache:/app/target
+    command: >
+      sh -c "
+        cargo build --release &&
+        echo 'Build complete: target/release/orchestrator'
+      "
+
+  test:
+    image: rust:1.92-bookworm
+    working_dir: /app
+    volumes:
+      - .:/app
+      - cargo-cache:/usr/local/cargo/registry
+      - target-cache:/app/target
+    command: cargo test
+
+volumes:
+  cargo-cache:
+  target-cache:

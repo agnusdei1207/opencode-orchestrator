@@ -1,0 +1,43 @@
+{
+    // ═══════════════════════════════════════════════════════════════
+    // OpenCode Orchestrator - Configuration Example
+    // ═══════════════════════════════════════════════════════════════
+    //
+    // Location:
+    //   ~/.config/opencode/orchestrator.json  (global)
+    //   .opencode/orchestrator.json           (per project)
+    //
+    // ═══════════════════════════════════════════════════════════════
+    // Agent model overrides (optional)
+    // By default, uses the model connected via OpenCode /connect
+    "agents": {
+        // Available agents:
+        // - orchestrator: Team leader, coordinates all agents
+        // - planner: Decomposes complex tasks into atomic units
+        // - coder: Implements one atomic task at a time
+        // - reviewer: Quality gate - catches all errors
+        // - fixer: Applies targeted fixes from reviewer
+        // - searcher: Finds patterns and context in codebase
+        // Example: Use specific models for certain agents
+        // "coder": { 
+        //     "model": "anthropic/claude-sonnet-4-5",
+        //     "temperature": 0.2
+        // },
+        // "reviewer": { 
+        //     "model": "google/gemini-2.0-flash",
+        //     "temperature": 0.1
+        // }
+    },
+    // /auto mode settings
+    "auto": {
+        // Maximum iterations before stopping (prevents runaway)
+        "max_iterations": 100,
+        // Maximum retries per error
+        // Same error 3 times = stop and ask user
+        "max_retries": 3
+    },
+    // Disabled hooks
+    "disabled_hooks": [
+        // "auto"  // Uncomment to disable /auto command
+    ]
+}
