@@ -73,5 +73,6 @@ declare const OrchestratorPlugin: (input: PluginInput) => Promise<{
         output: string;
         metadata: any;
     }) => Promise<void>;
+    "assistant.done": (input: any, output: any) => Promise<void>;
 }>;
 export default OrchestratorPlugin;

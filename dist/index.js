@@ -705,6 +705,17 @@ var OrchestratorPlugin = async (input) => {
       if (textPartIndex === -1) return;
       const originalText = parts[textPartIndex].text || "";
       const parsed = detectSlashCommand(originalText);
+      const agentName = input2.agent?.toLowerCase() || "";
+      if (agentName === "orchestrator" && !state.missionActive) {
+        const sessionID = input2.sessionID;
+        state.sessions.set(sessionID, {
+          enabled: true,
+          iterations: 0,
+          taskRetries: /* @__PURE__ */ new Map(),
+          currentTask: ""
+        });
+        state.missionActive = true;
+      }
       if (parsed) {
         const command = COMMANDS[parsed.command];
         if (command) {
@@ -839,6 +850,27 @@ ${session.graph.getTaskSummary()}${guidance}`;
 
 \u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501
 [DAG STEP: ${session.iterations}/${state.maxIterations}]`;
+    },
+    // Relentless Loop: Auto-continue until mission complete
+    "assistant.done": async (input2, output) => {
+      if (!state.missionActive) return;
+      const session = state.sessions.get(input2.sessionID);
+      if (!session?.enabled) return;
+      const text = output.text || "";
+      const isComplete = text.includes("\u2705 MISSION COMPLETE") || text.includes("MISSION COMPLETE") || text.includes("\uBAA8\uB4E0 \uD0DC\uC2A4\uD06C \uC644\uB8CC") || text.includes("All tasks completed") || session.graph && session.graph.isCompleted?.();
+      if (isComplete) {
+        session.enabled = false;
+        state.missionActive = false;
+        state.sessions.delete(input2.sessionID);
+        return;
+      }
+      if (session.iterations >= state.maxIterations) {
+        session.enabled = false;
+        state.missionActive = false;
+        return;
+      }
+      output.continue = true;
+      output.continueMessage = "continue";
     }
   };
 };
