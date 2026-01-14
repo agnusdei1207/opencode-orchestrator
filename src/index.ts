@@ -1,13 +1,13 @@
 /**
  * OpenCode Orchestrator Plugin
  *
- * 5-Agent Structured Architecture for OpenCode
+ * 5-Agent Structured Architecture
  * 
- * Optimized for weak models (GLM-4.7, Gemma, Phi) through:
+ * Optimized for weak models through:
  * - XML-structured prompts with clear boundaries
  * - Explicit reasoning patterns (THINK → ACT → OBSERVE → ADJUST)
  * - Evidence-based completion requirements
- * - Parallel execution by default
+ * - Autonomous execution loop
  * 
  * Agents: Commander, Architect, Builder, Inspector, Memory
  */
@@ -22,14 +22,52 @@ import { grepSearchTool, globSearchTool } from "./tools/search.js";
 import { detectSlashCommand } from "./utils/common.js";
 
 // ============================================================================
-// Plugin Implementation
+// Constants
+// ============================================================================
+
+const DEFAULT_MAX_STEPS = 50;
+const TASK_COMMAND_MAX_STEPS = 200;
+
+const AGENT_EMOJI: Record<string, string> = {
+    "architect": "🏗️",
+    "builder": "🔨",
+    "inspector": "🔍",
+    "memory": "💾",
+    "commander": "🎯",
+};
+
+const CONTINUE_INSTRUCTION = `[AUTO-CONTINUE]
+
+Mission not complete. Keep executing.
+
+<rules>
+1. DO NOT stop - mission is incomplete
+2. DO NOT wait for user input
+3. If previous action failed, try different approach
+4. If agent returned nothing, proceed to next step
+</rules>
+
+<next_step>
+What is the current state?
+What is the next action?
+Execute it NOW.
+</next_step>`;
+
+// ============================================================================
+// Plugin
 // ============================================================================
 
 const OrchestratorPlugin = async (input: PluginInput) => {
-    const { directory } = input;
+    const { directory, client } = input;
+
+    const sessions = new Map<string, {
+        active: boolean;
+        step: number;
+        maxSteps: number;
+        timestamp: number;
+    }>();
 
     return {
-        // Register tools
         tool: {
             call_agent: callAgentTool,
             slashcommand: createSlashcommandTool(),
@@ -37,12 +75,10 @@ const OrchestratorPlugin = async (input: PluginInput) => {
             glob_search: globSearchTool(directory),
         },
 
-        // Register commands and agents for OpenCode UI
         config: async (config: Record<string, unknown>) => {
             const existingCommands = (config.command as Record<string, unknown>) ?? {};
             const existingAgents = (config.agent as Record<string, unknown>) ?? {};
 
-            // Register slash commands
             const orchestratorCommands: Record<string, unknown> = {};
             for (const [name, cmd] of Object.entries(COMMANDS)) {
                 orchestratorCommands[name] = {
@@ -52,51 +88,44 @@ const OrchestratorPlugin = async (input: PluginInput) => {
                 };
             }
 
-            // Register Commander agent for OpenCode UI
-            // This is the main entry point - other agents are internal
             const orchestratorAgents: Record<string, unknown> = {
                 Commander: {
                     name: "Commander",
-                    description: "5-agent orchestrator - runs until mission complete",
+                    description: "Autonomous orchestrator - executes until mission complete",
                     systemPrompt: AGENTS.commander.systemPrompt,
                 },
             };
 
-            config.command = {
-                ...orchestratorCommands,
-                ...existingCommands,
-            };
-
-            config.agent = {
-                ...orchestratorAgents,
-                ...existingAgents,
-            };
+            config.command = { ...orchestratorCommands, ...existingCommands };
+            config.agent = { ...orchestratorAgents, ...existingAgents };
         },
 
-        // Handle incoming messages - auto-activate mission mode
-        "chat.message": async (input: any, output: any) => {
-            const parts = output.parts as Array<{ type: string; text?: string }>;
+        "chat.message": async (msgInput: any, msgOutput: any) => {
+            const parts = msgOutput.parts as Array<{ type: string; text?: string }>;
             const textPartIndex = parts.findIndex(p => p.type === "text" && p.text);
             if (textPartIndex === -1) return;
 
             const originalText = parts[textPartIndex].text || "";
             const parsed = detectSlashCommand(originalText);
+            const sessionID = msgInput.sessionID;
+            const agentName = (msgInput.agent || "").toLowerCase();
 
-            // Auto-activate mission mode when Commander agent is used
-            // This makes Commander work like /task automatically - no command needed
-            const agentName = input.agent?.toLowerCase() || "";
-            if (agentName === "commander" && !state.missionActive) {
-                const sessionID = input.sessionID;
+            // Commander agent: auto-activate with default steps
+            if (agentName === "commander" && !sessions.has(sessionID)) {
+                sessions.set(sessionID, {
+                    active: true,
+                    step: 0,
+                    maxSteps: DEFAULT_MAX_STEPS,
+                    timestamp: Date.now(),
+                });
+                state.missionActive = true;
                 state.sessions.set(sessionID, {
                     enabled: true,
                     iterations: 0,
                     taskRetries: new Map(),
                     currentTask: "",
                 });
-                state.missionActive = true;
 
-                // Inject the mission template for Commander
-                // This ensures Commander always gets the full structured prompt
                 if (!parsed) {
                     const userMessage = originalText.trim();
                     if (userMessage) {
@@ -108,147 +137,191 @@ const OrchestratorPlugin = async (input: PluginInput) => {
                 }
             }
 
-            // Handle explicit slash commands
-            if (parsed) {
+            // /task command: use extended steps for thorough execution
+            if (parsed?.command === "task") {
+                sessions.set(sessionID, {
+                    active: true,
+                    step: 0,
+                    maxSteps: TASK_COMMAND_MAX_STEPS,
+                    timestamp: Date.now(),
+                });
+                state.missionActive = true;
+                state.sessions.set(sessionID, {
+                    enabled: true,
+                    iterations: 0,
+                    taskRetries: new Map(),
+                    currentTask: "",
+                });
+
+                parts[textPartIndex].text = COMMANDS["task"].template.replace(
+                    /\$ARGUMENTS/g,
+                    parsed.args || "continue previous work"
+                );
+            } else if (parsed) {
                 const command = COMMANDS[parsed.command];
                 if (command) {
                     parts[textPartIndex].text = command.template.replace(
                         /\$ARGUMENTS/g,
-                        parsed.args || "continue from where we left off"
+                        parsed.args || "continue"
                     );
-
-                    // Activate mission mode for /task
-                    if (parsed.command === "task") {
-                        const sessionID = input.sessionID;
-                        state.sessions.set(sessionID, {
-                            enabled: true,
-                            iterations: 0,
-                            taskRetries: new Map(),
-                            currentTask: "",
-                        });
-                        state.missionActive = true;
-                    }
                 }
             }
         },
 
-        // Track tool execution and update task graph
         "tool.execute.after": async (
-            input: { tool: string; sessionID: string; callID: string; arguments?: any },
-            output: { title: string; output: string; metadata: any }
+            toolInput: { tool: string; sessionID: string; callID: string; arguments?: any },
+            toolOutput: { title: string; output: string; metadata: any }
         ) => {
-            if (!state.missionActive) return;
+            const session = sessions.get(toolInput.sessionID);
+            if (!session?.active) return;
 
-            const session = state.sessions.get(input.sessionID);
-            if (!session?.enabled) return;
+            session.step++;
+            session.timestamp = Date.now();
 
-            session.iterations++;
+            const stateSession = state.sessions.get(toolInput.sessionID);
 
-            // Track current task from call_agent arguments
-            if (input.tool === "call_agent" && input.arguments?.task) {
-                const taskIdMatch = input.arguments.task.match(/\[(TASK-\d+)\]/i);
+            if (toolInput.tool === "call_agent" && toolInput.arguments?.task && stateSession) {
+                const taskIdMatch = toolInput.arguments.task.match(/\[(TASK-\d+)\]/i);
                 if (taskIdMatch) {
-                    session.currentTask = taskIdMatch[1].toUpperCase();
-                    session.graph?.updateTask(session.currentTask, { status: "running" });
+                    stateSession.currentTask = taskIdMatch[1].toUpperCase();
+                    stateSession.graph?.updateTask(stateSession.currentTask, { status: "running" });
                 }
+
+                // Show current agent with emoji
+                const agentName = toolInput.arguments.agent as string;
+                const emoji = AGENT_EMOJI[agentName] || "🤖";
+                toolOutput.output = `${emoji} [${agentName.toUpperCase()}] Working...\n\n` + toolOutput.output;
             }
 
-            // Circuit breaker: max iterations
-            if (session.iterations >= state.maxIterations) {
+            if (session.step >= session.maxSteps) {
+                session.active = false;
                 state.missionActive = false;
-                session.enabled = false;
                 return;
             }
 
-            // Parse Architect JSON output to create task graph
-            if (output.output.includes("[") && output.output.includes("]") &&
-                output.output.includes("{") && input.tool === "call_agent") {
-                const jsonMatch = output.output.match(/```json\n([\s\S]*?)\n```/) ||
-                    output.output.match(/\[\s+\{[\s\S]*?\}\s+\]/);
+            // Parse task graph from Architect output
+            if (toolOutput.output.includes("[") && toolOutput.output.includes("{") &&
+                toolInput.tool === "call_agent" && stateSession) {
+                const jsonMatch = toolOutput.output.match(/```json\n([\s\S]*?)\n```/) ||
+                    toolOutput.output.match(/\[\s*\{[\s\S]*?\}\s*\]/);
                 if (jsonMatch) {
                     try {
                         const tasks = JSON.parse(jsonMatch[1] || jsonMatch[0]) as Task[];
                         if (Array.isArray(tasks) && tasks.length > 0) {
-                            session.graph = new TaskGraph(tasks);
-                            output.output += `\n\n━━━━━━━━━━━━\n✅ MISSION INITIALIZED\n${session.graph.getTaskSummary()}`;
+                            stateSession.graph = new TaskGraph(tasks);
+                            toolOutput.output += `\n\n━━━━━━━━━━━━\n✅ INITIALIZED\n${stateSession.graph.getTaskSummary()}`;
                         }
-                    } catch {
-                        // Not valid JSON, ignore
-                    }
+                    } catch { /* ignore */ }
                 }
             }
 
-            // Update task status based on agent output
-            if (session.graph) {
-                if (output.output.includes("✅ PASS") || output.output.includes("AUDIT RESULT: PASS")) {
-                    const taskId = session.currentTask;
+            // Update task status
+            if (stateSession?.graph) {
+                const taskId = stateSession.currentTask;
+                if (toolOutput.output.includes("✅ PASS") || toolOutput.output.includes("AUDIT RESULT: PASS")) {
                     if (taskId) {
-                        session.graph.updateTask(taskId, { status: "completed" });
-                        session.taskRetries.clear();
-                        output.output += `\n\n━━━━━━━━━━━━\n✅ TASK ${taskId} VERIFIED\n${session.graph.getTaskSummary()}`;
+                        stateSession.graph.updateTask(taskId, { status: "completed" });
+                        stateSession.taskRetries.clear();
+                        toolOutput.output += `\n\n━━━━━━━━━━━━\n✅ ${taskId} VERIFIED\n${stateSession.graph.getTaskSummary()}`;
                     }
-                } else if (output.output.includes("❌ FAIL") || output.output.includes("AUDIT RESULT: FAIL")) {
-                    const taskId = session.currentTask;
+                } else if (toolOutput.output.includes("❌ FAIL") || toolOutput.output.includes("AUDIT RESULT: FAIL")) {
                     if (taskId) {
-                        const errorId = `error-${taskId}`;
-                        const retries = (session.taskRetries.get(errorId) || 0) + 1;
-                        session.taskRetries.set(errorId, retries);
-
+                        const retries = (stateSession.taskRetries.get(taskId) || 0) + 1;
+                        stateSession.taskRetries.set(taskId, retries);
                         if (retries >= state.maxRetries) {
-                            session.graph.updateTask(taskId, { status: "failed" });
-                            output.output += `\n\n━━━━━━━━━━━━\n⚠️ TASK ${taskId} FAILED (${retries}x)\nCall Architect for new strategy.`;
+                            stateSession.graph.updateTask(taskId, { status: "failed" });
+                            toolOutput.output += `\n\n━━━━━━━━━━━━\n⚠️ ${taskId} FAILED (${retries}x)`;
                         } else {
-                            output.output += `\n\n━━━━━━━━━━━━\n🔄 RETRY ${retries}/${state.maxRetries} for ${taskId}`;
+                            toolOutput.output += `\n\n━━━━━━━━━━━━\n🔄 RETRY ${retries}/${state.maxRetries}`;
                         }
                     }
                 }
+
+                const readyTasks = stateSession.graph.getReadyTasks();
+                if (readyTasks.length > 0) {
+                    toolOutput.output += `\n👉 NEXT: ${readyTasks.map(t => `[${t.id}]`).join(", ")}`;
+                }
             }
 
-            // Append DAG status and ready tasks
-            if (session.graph) {
-                const readyTasks = session.graph.getReadyTasks();
-                const guidance = readyTasks.length > 0
-                    ? `\n👉 READY: ${readyTasks.map(t => `[${t.id}]`).join(", ")}`
-                    : `\n⚠️ No ready tasks. Check dependencies.`;
-
-                output.output += `\n\n━━━━━━━━━━━━\n${session.graph.getTaskSummary()}${guidance}`;
-            }
-
-            output.output += `\n\n[Step ${session.iterations}/${state.maxIterations}]`;
+            toolOutput.output += `\n\n[${session.step}/${session.maxSteps}]`;
         },
 
-        // Relentless Loop: Auto-continue until mission complete
-        "assistant.done": async (input: any, output: any) => {
-            if (!state.missionActive) return;
+        "assistant.done": async (assistantInput: any, assistantOutput: any) => {
+            const sessionID = assistantInput.sessionID;
+            const session = sessions.get(sessionID);
 
-            const session = state.sessions.get(input.sessionID);
-            if (!session?.enabled) return;
+            if (!session?.active) return;
 
-            const text = output.text || "";
+            const parts = assistantOutput.parts as Array<{ type: string; text?: string }> | undefined;
+            const textContent = parts
+                ?.filter((p: any) => p.type === "text" || p.type === "reasoning")
+                .map((p: any) => p.text || "")
+                .join("\n") || "";
 
-            // Check for mission completion
-            const isComplete =
-                text.includes("✅ MISSION COMPLETE") ||
-                text.includes("MISSION COMPLETE") ||
-                (session.graph && session.graph.isCompleted?.());
-
-            if (isComplete) {
-                session.enabled = false;
+            // Check completion
+            if (textContent.includes("✅ MISSION COMPLETE") || textContent.includes("MISSION COMPLETE")) {
+                session.active = false;
                 state.missionActive = false;
-                state.sessions.delete(input.sessionID);
+                sessions.delete(sessionID);
+                state.sessions.delete(sessionID);
                 return;
             }
 
-            // Check iteration limit
-            if (session.iterations >= state.maxIterations) {
-                session.enabled = false;
+            // Check stop request
+            if (textContent.includes("/stop") || textContent.includes("/cancel")) {
+                session.active = false;
+                state.missionActive = false;
+                sessions.delete(sessionID);
+                state.sessions.delete(sessionID);
+                return;
+            }
+
+            session.step++;
+            session.timestamp = Date.now();
+
+            if (session.step >= session.maxSteps) {
+                session.active = false;
                 state.missionActive = false;
                 return;
             }
 
-            // Auto-continue: inject next action prompt
-            output.continue = true;
-            output.continueMessage = "continue";
+            // Inject continuation
+            try {
+                if (client?.session?.prompt) {
+                    await client.session.prompt({
+                        path: { id: sessionID },
+                        body: {
+                            parts: [{
+                                type: "text",
+                                text: CONTINUE_INSTRUCTION + `\n\n[Step ${session.step}/${session.maxSteps}]`
+                            }],
+                        },
+                    });
+                }
+            } catch {
+                try {
+                    await new Promise(r => setTimeout(r, 500));
+                    if (client?.session?.prompt) {
+                        await client.session.prompt({
+                            path: { id: sessionID },
+                            body: { parts: [{ type: "text", text: "continue" }] },
+                        });
+                    }
+                } catch {
+                    session.active = false;
+                    state.missionActive = false;
+                }
+            }
+        },
+
+        handler: async ({ event }: { event: { type: string; properties?: unknown } }) => {
+            if (event.type === "session.deleted") {
+                const props = event.properties as { info?: { id?: string } } | undefined;
+                if (props?.info?.id) {
+                    sessions.delete(props.info.id);
+                    state.sessions.delete(props.info.id);
+                }
+            }
         },
     };
 };

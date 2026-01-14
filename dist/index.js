@@ -727,16 +727,22 @@ var state = {
 
 // src/tools/callAgent.ts
 import { tool } from "@opencode-ai/plugin";
+var AGENT_EMOJI = {
+  [AGENT_NAMES.ARCHITECT]: "\u{1F3D7}\uFE0F",
+  [AGENT_NAMES.BUILDER]: "\u{1F528}",
+  [AGENT_NAMES.INSPECTOR]: "\u{1F50D}",
+  [AGENT_NAMES.MEMORY]: "\u{1F4BE}"
+};
 var callAgentTool = tool({
   description: `Call a specialized agent for parallel execution.
 
 <agents>
 | Agent | Role | When to Use |
 |-------|------|-------------|
-| ${AGENT_NAMES.ARCHITECT} | Planner | Complex task \u2192 DAG, OR 3+ failures \u2192 strategy |
-| ${AGENT_NAMES.BUILDER} | Developer | Any code implementation (logic + UI) |
-| ${AGENT_NAMES.INSPECTOR} | Quality | Before completion, OR on errors (auto-fixes) |
-| ${AGENT_NAMES.MEMORY} | Context | After each task, OR at session start |
+| ${AGENT_NAMES.ARCHITECT} \u{1F3D7}\uFE0F | Planner | Complex task \u2192 DAG, OR 3+ failures \u2192 strategy |
+| ${AGENT_NAMES.BUILDER} \u{1F528} | Developer | Any code implementation (logic + UI) |
+| ${AGENT_NAMES.INSPECTOR} \u{1F50D} | Quality | Before completion, OR on errors (auto-fixes) |
+| ${AGENT_NAMES.MEMORY} \u{1F4BE} | Context | After each task, OR at session start |
 </agents>
 
 <execution_rules>
@@ -758,11 +764,12 @@ var callAgentTool = tool({
   async execute(args) {
     const agentDef = AGENTS[args.agent];
     if (!agentDef) {
-      return `Error: Unknown agent: ${args.agent}`;
+      return `\u274C Error: Unknown agent: ${args.agent}`;
     }
+    const emoji = AGENT_EMOJI[args.agent] || "\u{1F916}";
     const prompt = `
 \u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501
-${agentDef.id.toUpperCase()} :: ${agentDef.description}
+${emoji} ${agentDef.id.toUpperCase()} :: ${agentDef.description}
 \u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501
 
 <system>
@@ -832,13 +839,28 @@ New Approach: [What to try differently]
 
 <execution_flow>
 Step 1: Call Memory to load any existing context
+  - IF Memory returns empty/nothing: That's OK, proceed to Step 2
+  - Memory being empty just means fresh start
 Step 2: If complex task, call Architect to create parallel DAG
 Step 3: Execute tasks with same parallel_group CONCURRENTLY
 Step 4: After EACH task, call Inspector to verify with evidence
 Step 5: Update Memory with progress after each verified task
 Step 6: REPEAT steps 3-5 until ALL tasks are verified complete
-Step 7: Report "MISSION COMPLETE" with summary of evidence
+Step 7: Report "\u2705 MISSION COMPLETE" with summary of evidence
 </execution_flow>
+
+<empty_response_handling>
+If ANY agent returns empty, useless, or says "nothing found":
+- DO NOT STOP
+- DO NOT ask user what to do
+- TRY A DIFFERENT APPROACH:
+  1. If Memory empty \u2192 Proceed with Architect
+  2. If Architect failed \u2192 Try simpler breakdown
+  3. If Builder failed \u2192 Call Inspector to diagnose
+  4. If Inspector failed \u2192 Try again with more context
+
+NEVER stop because an agent returned nothing. ALWAYS try another way.
+</empty_response_handling>
 
 <agents>
 You have 4 specialized agents. Call them using the delegation format below.
@@ -1110,17 +1132,41 @@ function detectSlashCommand(text) {
 }
 
 // src/index.ts
+var DEFAULT_MAX_STEPS = 50;
+var TASK_COMMAND_MAX_STEPS = 200;
+var AGENT_EMOJI2 = {
+  "architect": "\u{1F3D7}\uFE0F",
+  "builder": "\u{1F528}",
+  "inspector": "\u{1F50D}",
+  "memory": "\u{1F4BE}",
+  "commander": "\u{1F3AF}"
+};
+var CONTINUE_INSTRUCTION = `[AUTO-CONTINUE]
+
+Mission not complete. Keep executing.
+
+<rules>
+1. DO NOT stop - mission is incomplete
+2. DO NOT wait for user input
+3. If previous action failed, try different approach
+4. If agent returned nothing, proceed to next step
+</rules>
+
+<next_step>
+What is the current state?
+What is the next action?
+Execute it NOW.
+</next_step>`;
 var OrchestratorPlugin = async (input) => {
-  const { directory } = input;
+  const { directory, client } = input;
+  const sessions = /* @__PURE__ */ new Map();
   return {
-    // Register tools
     tool: {
       call_agent: callAgentTool,
       slashcommand: createSlashcommandTool(),
       grep_search: grepSearchTool(directory),
       glob_search: globSearchTool(directory)
     },
-    // Register commands and agents for OpenCode UI
     config: async (config) => {
       const existingCommands = config.command ?? {};
       const existingAgents = config.agent ?? {};
@@ -1135,36 +1181,35 @@ var OrchestratorPlugin = async (input) => {
       const orchestratorAgents = {
         Commander: {
           name: "Commander",
-          description: "5-agent orchestrator - runs until mission complete",
+          description: "Autonomous orchestrator - executes until mission complete",
           systemPrompt: AGENTS.commander.systemPrompt
         }
       };
-      config.command = {
-        ...orchestratorCommands,
-        ...existingCommands
-      };
-      config.agent = {
-        ...orchestratorAgents,
-        ...existingAgents
-      };
+      config.command = { ...orchestratorCommands, ...existingCommands };
+      config.agent = { ...orchestratorAgents, ...existingAgents };
     },
-    // Handle incoming messages - auto-activate mission mode
-    "chat.message": async (input2, output) => {
-      const parts = output.parts;
+    "chat.message": async (msgInput, msgOutput) => {
+      const parts = msgOutput.parts;
       const textPartIndex = parts.findIndex((p) => p.type === "text" && p.text);
       if (textPartIndex === -1) return;
       const originalText = parts[textPartIndex].text || "";
       const parsed = detectSlashCommand(originalText);
-      const agentName = input2.agent?.toLowerCase() || "";
-      if (agentName === "commander" && !state.missionActive) {
-        const sessionID = input2.sessionID;
+      const sessionID = msgInput.sessionID;
+      const agentName = (msgInput.agent || "").toLowerCase();
+      if (agentName === "commander" && !sessions.has(sessionID)) {
+        sessions.set(sessionID, {
+          active: true,
+          step: 0,
+          maxSteps: DEFAULT_MAX_STEPS,
+          timestamp: Date.now()
+        });
+        state.missionActive = true;
         state.sessions.set(sessionID, {
           enabled: true,
           iterations: 0,
           taskRetries: /* @__PURE__ */ new Map(),
           currentTask: ""
         });
-        state.missionActive = true;
         if (!parsed) {
           const userMessage = originalText.trim();
           if (userMessage) {
@@ -1175,129 +1220,178 @@ var OrchestratorPlugin = async (input) => {
           }
         }
       }
-      if (parsed) {
+      if (parsed?.command === "task") {
+        sessions.set(sessionID, {
+          active: true,
+          step: 0,
+          maxSteps: TASK_COMMAND_MAX_STEPS,
+          timestamp: Date.now()
+        });
+        state.missionActive = true;
+        state.sessions.set(sessionID, {
+          enabled: true,
+          iterations: 0,
+          taskRetries: /* @__PURE__ */ new Map(),
+          currentTask: ""
+        });
+        parts[textPartIndex].text = COMMANDS["task"].template.replace(
+          /\$ARGUMENTS/g,
+          parsed.args || "continue previous work"
+        );
+      } else if (parsed) {
         const command = COMMANDS[parsed.command];
         if (command) {
           parts[textPartIndex].text = command.template.replace(
             /\$ARGUMENTS/g,
-            parsed.args || "continue from where we left off"
+            parsed.args || "continue"
           );
-          if (parsed.command === "task") {
-            const sessionID = input2.sessionID;
-            state.sessions.set(sessionID, {
-              enabled: true,
-              iterations: 0,
-              taskRetries: /* @__PURE__ */ new Map(),
-              currentTask: ""
-            });
-            state.missionActive = true;
-          }
         }
       }
     },
-    // Track tool execution and update task graph
-    "tool.execute.after": async (input2, output) => {
-      if (!state.missionActive) return;
-      const session = state.sessions.get(input2.sessionID);
-      if (!session?.enabled) return;
-      session.iterations++;
-      if (input2.tool === "call_agent" && input2.arguments?.task) {
-        const taskIdMatch = input2.arguments.task.match(/\[(TASK-\d+)\]/i);
+    "tool.execute.after": async (toolInput, toolOutput) => {
+      const session = sessions.get(toolInput.sessionID);
+      if (!session?.active) return;
+      session.step++;
+      session.timestamp = Date.now();
+      const stateSession = state.sessions.get(toolInput.sessionID);
+      if (toolInput.tool === "call_agent" && toolInput.arguments?.task && stateSession) {
+        const taskIdMatch = toolInput.arguments.task.match(/\[(TASK-\d+)\]/i);
         if (taskIdMatch) {
-          session.currentTask = taskIdMatch[1].toUpperCase();
-          session.graph?.updateTask(session.currentTask, { status: "running" });
+          stateSession.currentTask = taskIdMatch[1].toUpperCase();
+          stateSession.graph?.updateTask(stateSession.currentTask, { status: "running" });
         }
+        const agentName = toolInput.arguments.agent;
+        const emoji = AGENT_EMOJI2[agentName] || "\u{1F916}";
+        toolOutput.output = `${emoji} [${agentName.toUpperCase()}] Working...
+
+` + toolOutput.output;
       }
-      if (session.iterations >= state.maxIterations) {
+      if (session.step >= session.maxSteps) {
+        session.active = false;
         state.missionActive = false;
-        session.enabled = false;
         return;
       }
-      if (output.output.includes("[") && output.output.includes("]") && output.output.includes("{") && input2.tool === "call_agent") {
-        const jsonMatch = output.output.match(/```json\n([\s\S]*?)\n```/) || output.output.match(/\[\s+\{[\s\S]*?\}\s+\]/);
+      if (toolOutput.output.includes("[") && toolOutput.output.includes("{") && toolInput.tool === "call_agent" && stateSession) {
+        const jsonMatch = toolOutput.output.match(/```json\n([\s\S]*?)\n```/) || toolOutput.output.match(/\[\s*\{[\s\S]*?\}\s*\]/);
         if (jsonMatch) {
           try {
             const tasks = JSON.parse(jsonMatch[1] || jsonMatch[0]);
             if (Array.isArray(tasks) && tasks.length > 0) {
-              session.graph = new TaskGraph(tasks);
-              output.output += `
+              stateSession.graph = new TaskGraph(tasks);
+              toolOutput.output += `
 
 \u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501
-\u2705 MISSION INITIALIZED
-${session.graph.getTaskSummary()}`;
+\u2705 INITIALIZED
+${stateSession.graph.getTaskSummary()}`;
             }
           } catch {
           }
         }
       }
-      if (session.graph) {
-        if (output.output.includes("\u2705 PASS") || output.output.includes("AUDIT RESULT: PASS")) {
-          const taskId = session.currentTask;
+      if (stateSession?.graph) {
+        const taskId = stateSession.currentTask;
+        if (toolOutput.output.includes("\u2705 PASS") || toolOutput.output.includes("AUDIT RESULT: PASS")) {
           if (taskId) {
-            session.graph.updateTask(taskId, { status: "completed" });
-            session.taskRetries.clear();
-            output.output += `
+            stateSession.graph.updateTask(taskId, { status: "completed" });
+            stateSession.taskRetries.clear();
+            toolOutput.output += `
 
 \u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501
-\u2705 TASK ${taskId} VERIFIED
-${session.graph.getTaskSummary()}`;
+\u2705 ${taskId} VERIFIED
+${stateSession.graph.getTaskSummary()}`;
           }
-        } else if (output.output.includes("\u274C FAIL") || output.output.includes("AUDIT RESULT: FAIL")) {
-          const taskId = session.currentTask;
+        } else if (toolOutput.output.includes("\u274C FAIL") || toolOutput.output.includes("AUDIT RESULT: FAIL")) {
           if (taskId) {
-            const errorId = `error-${taskId}`;
-            const retries = (session.taskRetries.get(errorId) || 0) + 1;
-            session.taskRetries.set(errorId, retries);
+            const retries = (stateSession.taskRetries.get(taskId) || 0) + 1;
+            stateSession.taskRetries.set(taskId, retries);
             if (retries >= state.maxRetries) {
-              session.graph.updateTask(taskId, { status: "failed" });
-              output.output += `
+              stateSession.graph.updateTask(taskId, { status: "failed" });
+              toolOutput.output += `
 
 \u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501
-\u26A0\uFE0F TASK ${taskId} FAILED (${retries}x)
-Call Architect for new strategy.`;
+\u26A0\uFE0F ${taskId} FAILED (${retries}x)`;
             } else {
-              output.output += `
+              toolOutput.output += `
 
 \u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501
-\u{1F504} RETRY ${retries}/${state.maxRetries} for ${taskId}`;
+\u{1F504} RETRY ${retries}/${state.maxRetries}`;
             }
           }
         }
+        const readyTasks = stateSession.graph.getReadyTasks();
+        if (readyTasks.length > 0) {
+          toolOutput.output += `
+\u{1F449} NEXT: ${readyTasks.map((t) => `[${t.id}]`).join(", ")}`;
+        }
       }
-      if (session.graph) {
-        const readyTasks = session.graph.getReadyTasks();
-        const guidance = readyTasks.length > 0 ? `
-\u{1F449} READY: ${readyTasks.map((t) => `[${t.id}]`).join(", ")}` : `
-\u26A0\uFE0F No ready tasks. Check dependencies.`;
-        output.output += `
+      toolOutput.output += `
 
-\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501
-${session.graph.getTaskSummary()}${guidance}`;
-      }
-      output.output += `
-
-[Step ${session.iterations}/${state.maxIterations}]`;
+[${session.step}/${session.maxSteps}]`;
     },
-    // Relentless Loop: Auto-continue until mission complete
-    "assistant.done": async (input2, output) => {
-      if (!state.missionActive) return;
-      const session = state.sessions.get(input2.sessionID);
-      if (!session?.enabled) return;
-      const text = output.text || "";
-      const isComplete = text.includes("\u2705 MISSION COMPLETE") || text.includes("MISSION COMPLETE") || session.graph && session.graph.isCompleted?.();
-      if (isComplete) {
-        session.enabled = false;
+    "assistant.done": async (assistantInput, assistantOutput) => {
+      const sessionID = assistantInput.sessionID;
+      const session = sessions.get(sessionID);
+      if (!session?.active) return;
+      const parts = assistantOutput.parts;
+      const textContent = parts?.filter((p) => p.type === "text" || p.type === "reasoning").map((p) => p.text || "").join("\n") || "";
+      if (textContent.includes("\u2705 MISSION COMPLETE") || textContent.includes("MISSION COMPLETE")) {
+        session.active = false;
         state.missionActive = false;
-        state.sessions.delete(input2.sessionID);
+        sessions.delete(sessionID);
+        state.sessions.delete(sessionID);
         return;
       }
-      if (session.iterations >= state.maxIterations) {
-        session.enabled = false;
+      if (textContent.includes("/stop") || textContent.includes("/cancel")) {
+        session.active = false;
+        state.missionActive = false;
+        sessions.delete(sessionID);
+        state.sessions.delete(sessionID);
+        return;
+      }
+      session.step++;
+      session.timestamp = Date.now();
+      if (session.step >= session.maxSteps) {
+        session.active = false;
         state.missionActive = false;
         return;
       }
-      output.continue = true;
-      output.continueMessage = "continue";
+      try {
+        if (client?.session?.prompt) {
+          await client.session.prompt({
+            path: { id: sessionID },
+            body: {
+              parts: [{
+                type: "text",
+                text: CONTINUE_INSTRUCTION + `
+
+[Step ${session.step}/${session.maxSteps}]`
+              }]
+            }
+          });
+        }
+      } catch {
+        try {
+          await new Promise((r) => setTimeout(r, 500));
+          if (client?.session?.prompt) {
+            await client.session.prompt({
+              path: { id: sessionID },
+              body: { parts: [{ type: "text", text: "continue" }] }
+            });
+          }
+        } catch {
+          session.active = false;
+          state.missionActive = false;
+        }
+      }
+    },
+    handler: async ({ event }) => {
+      if (event.type === "session.deleted") {
+        const props = event.properties;
+        if (props?.info?.id) {
+          sessions.delete(props.info.id);
+          state.sessions.delete(props.info.id);
+        }
+      }
     }
   };
 };

@@ -17,19 +17,19 @@ Plugin commands (e.g., `/auto`) not appearing in OpenCode after installation.
    ```
 
 2. **Plugin Resolution**: OpenCode resolves the plugin from:
-   - Package name (e.g., `"oh-my-opencode"`) → looks in `node_modules`
+   - Package name (e.g., `"opencode-orchestrator"`) → looks in `node_modules`
    - Absolute path (e.g., `/path/to/plugin`)
 
 3. **Plugin Entry Point**: Must export a **default function** that returns plugin hooks and tools.
 
 ---
 
-## Key Findings from oh-my-opencode
+## Plugin Export Structure
 
-### 1. Plugin Export Structure
+### 1. Main Plugin Export
 ```typescript
 // src/index.ts
-const OhMyOpenCodePlugin: Plugin = async (ctx) => {
+const OrchestratorPlugin: Plugin = async (ctx) => {
   return {
     tool: {
       slashcommand: createSlashcommandTool(),
@@ -41,7 +41,7 @@ const OhMyOpenCodePlugin: Plugin = async (ctx) => {
   };
 };
 
-export default OhMyOpenCodePlugin;
+export default OrchestratorPlugin;
 ```
 
 ### 2. Slashcommand Tool

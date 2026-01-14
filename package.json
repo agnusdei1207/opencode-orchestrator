@@ -55,6 +55,7 @@
         "postinstall": "node dist/scripts/postinstall.js 2>/dev/null || true",
         "preuninstall": "node dist/scripts/preuninstall.js 2>/dev/null || true",
         "prepublishOnly": "npm run build:js",
+        "dev:install": "npm run build:js && npm install -g .",
         "util:stars": "gh api repos/agnusdei1207/opencode-orchestrator/stargazers --jq '.[].login'"
     },
     "dependencies": {
