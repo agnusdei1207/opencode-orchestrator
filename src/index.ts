@@ -740,6 +740,20 @@ const OrchestratorPlugin = async (input: PluginInput) => {
             const originalText = parts[textPartIndex].text || "";
             const parsed = detectSlashCommand(originalText);
 
+            // Auto-activate mission mode when Orchestrator agent is used
+            // This makes Orchestrator work like /task automatically
+            const agentName = input.agent?.toLowerCase() || "";
+            if (agentName === "orchestrator" && !state.missionActive) {
+                const sessionID = input.sessionID;
+                state.sessions.set(sessionID, {
+                    enabled: true,
+                    iterations: 0,
+                    taskRetries: new Map(),
+                    currentTask: "",
+                });
+                state.missionActive = true;
+            }
+
             if (parsed) {
                 const command = COMMANDS[parsed.command];
                 if (command) {
@@ -863,6 +877,43 @@ const OrchestratorPlugin = async (input: PluginInput) => {
             }
 
             output.output += `\n\n━━━━━━━━━━━━\n[DAG STEP: ${session.iterations}/${state.maxIterations}]`;
+        },
+
+        // Relentless Loop: Auto-continue until mission complete
+        "assistant.done": async (input: any, output: any) => {
+            if (!state.missionActive) return;
+
+            const session = state.sessions.get(input.sessionID);
+            if (!session?.enabled) return;
+
+            // Check for mission completion signals
+            const text = output.text || "";
+            const isComplete =
+                text.includes("✅ MISSION COMPLETE") ||
+                text.includes("MISSION COMPLETE") ||
+                text.includes("모든 태스크 완료") ||
+                text.includes("All tasks completed") ||
+                (session.graph && session.graph.isCompleted?.());
+
+            if (isComplete) {
+                // Mission complete - stop the loop
+                session.enabled = false;
+                state.missionActive = false;
+                state.sessions.delete(input.sessionID);
+                return;
+            }
+
+            // Check iteration limit
+            if (session.iterations >= state.maxIterations) {
+                session.enabled = false;
+                state.missionActive = false;
+                return;
+            }
+
+            // Auto-continue: inject next action prompt
+            // This makes the agent continue working without user input
+            output.continue = true;
+            output.continueMessage = "continue";
         },
     };
 };

@@ -15,10 +15,11 @@
 
 A 6-agent collaborative system that turns **affordable LLMs into reliable engineering teams**.
 
+- **Relentless Loop** — Auto-continues until mission complete
 - **Atomic Decomposition** — Tasks broken into verifiable micro-units
 - **PDCA Loop** — Plan → Do → Check → Act (self-correcting)
 - **Parallel DAG** — Independent tasks run concurrently  
-- **Style Guardian** — Reviewer catches all errors before merge
+- **Quality Gate** — Reviewer catches all errors before merge
 
 ---
 
@@ -34,16 +35,27 @@ Restart OpenCode after installation.
 
 ## Usage
 
+### Option 1: Select Orchestrator Agent
+Press `tab` → Select **Orchestrator** → Just type your request!
+
+```
+"Implement user authentication with JWT"
+```
+
+### Option 2: Use /task Command
 ```bash
 /task "Implement user authentication with JWT"
 ```
 
-The Orchestrator will:
+Both methods activate **Relentless Loop** — the agent continues automatically until mission complete.
+
+### How It Works:
 1. **Plan** — Decompose into atomic tasks
 2. **Search** — Find patterns and context
 3. **Code** — Implement with precision
 4. **Review** — Verify via quality gate
 5. **Fix** — Self-heal if errors occur
+6. **Loop** — Repeat until ✅ MISSION COMPLETE
 
 ---
 

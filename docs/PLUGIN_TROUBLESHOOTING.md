@@ -68,7 +68,7 @@ tool: {
 
 ---
 
-## Critical Fixes (2026-01-13)
+## Critical Fixes
 
 ### 1. Plugin Not Loading? Use Absolute Paths!
 OpenCode often fails to resolve plugins by package name depending on the user's Node environment (nvm, global prefix, etc.).
@@ -279,6 +279,24 @@ cat ~/.config/opencode/opencode.json | jq '.agent'
    ```bash
    npm run release:patch
    ```
+
+---
+
+## Relentless Loop (Auto-Continue)
+
+### How It Works
+
+1. **Auto-Activation**: Selecting Orchestrator agent or using `/task` activates mission mode
+2. **Auto-Continue**: After each response, system injects "continue" if mission not complete
+3. **Completion Signals**:
+   - `✅ MISSION COMPLETE`
+   - `All tasks completed`
+
+### Stopping the Loop
+
+- Type `/stop` or `/cancel`
+- Wait for `✅ MISSION COMPLETE`
+- Maximum 1000 iterations (safety limit)
 
 ---
 

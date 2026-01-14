@@ -68,9 +68,25 @@ OpenCode Orchestrator transforms LLMs into reliable engineering teams through:
 
 ---
 
+## Relentless Loop
+
+The system automatically continues until mission complete:
+
+1. **Auto-Activation**: Selecting Orchestrator agent activates mission mode
+2. **Completion Detection**:
+   - `✅ MISSION COMPLETE`
+   - `All tasks completed`
+   - TaskGraph `isCompleted()` returns true
+3. **Auto-Continue**: If not complete, system injects "continue" message
+4. **Safety Limit**: Maximum 1000 iterations (configurable)
+
+---
+
 ## Core Principles
 
 - **Minimal Modification** — Smallest change to achieve goal
 - **Existing Stack Preservation** — No language/framework conversion
 - **Quality First** — Reviewer always verifies before merge
 - **Self-Healing** — Automatic retry with Fixer on errors
+- **Relentless Execution** — Never stops until mission complete
+
