@@ -13793,9 +13793,14 @@ var ParallelAgentManager = class _ParallelAgentManager {
   static getInstance(client, directory) {
     if (!_ParallelAgentManager._instance) {
       if (!client || !directory) {
-        throw new Error("ParallelAgentManager requires client and directory on first call");
+        throw new Error(
+          "ParallelAgentManager requires client and directory on first call"
+        );
       }
-      _ParallelAgentManager._instance = new _ParallelAgentManager(client, directory);
+      _ParallelAgentManager._instance = new _ParallelAgentManager(
+        client,
+        directory
+      );
     }
     return _ParallelAgentManager._instance;
   }
@@ -13865,7 +13870,9 @@ var ParallelAgentManager = class _ParallelAgentManager {
    * Get all running tasks
    */
   getRunningTasks() {
-    return Array.from(this.tasks.values()).filter((t) => t.status === "running");
+    return Array.from(this.tasks.values()).filter(
+      (t) => t.status === "running"
+    );
   }
   /**
    * Get all tasks
@@ -13877,7 +13884,9 @@ var ParallelAgentManager = class _ParallelAgentManager {
    * Get tasks by parent session
    */
   getTasksByParent(parentSessionID) {
-    return Array.from(this.tasks.values()).filter((t) => t.parentSessionID === parentSessionID);
+    return Array.from(this.tasks.values()).filter(
+      (t) => t.parentSessionID === parentSessionID
+    );
   }
   /**
    * Cancel a running task
@@ -13898,9 +13907,13 @@ var ParallelAgentManager = class _ParallelAgentManager {
       await this.client.session.delete({
         path: { id: task.sessionID }
       });
-      console.log(`[parallel] \u{1F5D1}\uFE0F Session ${task.sessionID.slice(0, 8)}... deleted`);
+      console.log(
+        `[parallel] \u{1F5D1}\uFE0F Session ${task.sessionID.slice(0, 8)}... deleted`
+      );
     } catch {
-      console.log(`[parallel] \u{1F5D1}\uFE0F Session ${task.sessionID.slice(0, 8)}... already gone`);
+      console.log(
+        `[parallel] \u{1F5D1}\uFE0F Session ${task.sessionID.slice(0, 8)}... already gone`
+      );
     }
     this.scheduleCleanup(taskId);
     console.log(`[parallel] \u{1F6D1} CANCELLED ${taskId}`);
@@ -14034,8 +14047,13 @@ var ParallelAgentManager = class _ParallelAgentManager {
           this.queueNotification(task);
           this.notifyParentIfAllComplete(task.parentSessionID);
           this.scheduleCleanup(task.id);
-          const duration3 = this.formatDuration(task.startedAt, task.completedAt);
-          console.log(`[parallel] \u2705 COMPLETED ${task.id} \u2192 ${task.agent}: ${task.description} (${duration3})`);
+          const duration3 = this.formatDuration(
+            task.startedAt,
+            task.completedAt
+          );
+          console.log(
+            `[parallel] \u2705 COMPLETED ${task.id} \u2192 ${task.agent}: ${task.description} (${duration3})`
+          );
           log(`Completed ${task.id}`);
         }
       }
@@ -14081,14 +14099,20 @@ var ParallelAgentManager = class _ParallelAgentManager {
             this.concurrency.release(task.concurrencyKey);
           }
           this.untrackPending(task.parentSessionID, taskId);
-          console.log(`[parallel] \u23F1\uFE0F TIMEOUT ${taskId} \u2192 ${task.agent}: ${task.description}`);
+          console.log(
+            `[parallel] \u23F1\uFE0F TIMEOUT ${taskId} \u2192 ${task.agent}: ${task.description}`
+          );
         }
         this.client.session.delete({
           path: { id: task.sessionID }
         }).then(() => {
-          console.log(`[parallel] \u{1F5D1}\uFE0F CLEANED ${taskId} (timeout session deleted)`);
+          console.log(
+            `[parallel] \u{1F5D1}\uFE0F CLEANED ${taskId} (timeout session deleted)`
+          );
         }).catch(() => {
-          console.log(`[parallel] \u{1F5D1}\uFE0F CLEANED ${taskId} (timeout session already gone)`);
+          console.log(
+            `[parallel] \u{1F5D1}\uFE0F CLEANED ${taskId} (timeout session already gone)`
+          );
         });
         this.tasks.delete(taskId);
       }
