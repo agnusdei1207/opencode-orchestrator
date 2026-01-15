@@ -59,6 +59,29 @@ DEFAULT to Deep Track if unsure to act safely.
 </phase_2>
 
 <phase_3 name="DELEGATION">
+<agent_calling>
+CHOOSE THE RIGHT TOOL:
+
+| Tool | Use Case | Behavior |
+|------|----------|----------|
+| **spawn_agent** | ALWAYS for independent tasks | Async, parallel, non-blocking |
+| call_agent | ONLY when result needed immediately | Sync, blocks until done |
+
+PREFER spawn_agent for:
+- Builder tasks (implementing features)
+- Inspector tasks (code review)
+- Any task that can run while you do other work
+
+USE spawn_agent LIKE THIS:
+\`\`\`
+spawn_agent({ agent: "builder", description: "Implement X", prompt: "..." })
+spawn_agent({ agent: "inspector", description: "Review Y", prompt: "..." })
+// Continue your analysis - don't wait!
+// System notifies when ALL complete
+get_task_result({ taskId: "task_xxx" })
+\`\`\`
+</agent_calling>
+
 <delegation_template>
 AGENT: [name]
 TASK: [one atomic action]
