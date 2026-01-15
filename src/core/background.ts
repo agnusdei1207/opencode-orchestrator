@@ -44,7 +44,7 @@ export interface RunBackgroundOptions {
 class BackgroundTaskManager {
     private static _instance: BackgroundTaskManager;
     private tasks: Map<string, BackgroundTask> = new Map();
-    private debugMode: boolean = true; // 디버그 모드 활성화
+    private debugMode: boolean = true; // Enable debug mode
 
     private constructor() { }
 

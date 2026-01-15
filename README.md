@@ -36,7 +36,7 @@ A **5-agent autonomous architecture** designed to solve complex engineering task
 - **🔨 Smart Implementation** — Builder matches existing codebase patterns exactly.
 - **🛡️ Rigorous Audit** — Inspector proves success with environment-specific evidence (Builds/Tests/Logs).
 - **💾 Persistent Context** — Recorder saves session state to disk, enabling resume at any time.
-- **🏗️ Parallel Tasking** — Architect splits work into concurrent DAG groups.
+- **🏗️ Parallel Agents** — Spawn agents in parallel sessions with queue-based concurrency control.
 - **⏳ Background Tasks** — Run long commands (builds, tests) in background and check results later.
 - **🔎 mgrep** — Multi-pattern parallel search powered by Rust for blazing-fast codebase analysis.
 
@@ -127,7 +127,8 @@ npm uninstall -g opencode-orchestrator
 
 - [Architecture & Design](docs/ARCHITECTURE.md) — Detailed system design and agent protocols
 - [Plugin Troubleshooting](docs/PLUGIN_TROUBLESHOOTING.md) — Setup and common issues
-- [Background Tasks](docs/BACKGROUND_TASKS_IMPLEMENTATION.md) — Background command execution
+- [Changelog](CHANGELOG.md) — Version history and updates
+- [Changelogs](changelogs/) — Detailed implementation notes per release
 
 ---
 

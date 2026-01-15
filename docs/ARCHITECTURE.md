@@ -92,11 +92,43 @@ Orchestrator maintains a local "Brain" directory to survive session restarts:
 
 ---
 
-## Background Task Execution
+## Parallel Agent Execution
 
-Orchestrator supports **background command execution** for long-running operations like builds and tests.
+Orchestrator supports **parallel agent execution** through session-based spawning with queue-based concurrency control.
 
-### Tools Available. 
+### Parallel Agent Tools
+| Tool | Description |
+|------|-------------|
+| `spawn_agent` | Launch an agent in a parallel session |
+| `get_task_result` | Retrieve the result from a completed task |
+| `list_tasks` | View all parallel tasks and their status |
+| `cancel_task` | Stop a running task and free the concurrency slot |
+
+### Safety Features
+- **Queue-based concurrency**: Max 3 agents per type (extras automatically queue)
+- **Batched notifications**: System notifies when ALL tasks complete
+- **Auto-timeout**: 30 minute maximum runtime
+- **Auto-cleanup**: Removed from memory 5 minutes after completion
+- **Output validation**: Verifies session has actual content before completion
+
+### Architecture
+```
+┌────────────────────────────────────────────────────────┐
+│  ParallelAgentManager (TypeScript)                     │
+│  ├── ConcurrencyController (queue-based rate limiting) │
+│  ├── Task tracking per parent session                  │
+│  ├── Batched notification system                       │
+│  └── Delayed cleanup (5 min after completion)          │
+└────────────────────────────────────────────────────────┘
+```
+
+---
+
+## Background Command Execution
+
+For long-running shell commands (builds, tests, linting), use the background task tools.
+
+### Background Task Tools
 | Tool | Description |
 |------|-------------|
 | `run_background` | Start a command in background, returns task ID immediately |
@@ -104,28 +136,22 @@ Orchestrator supports **background command execution** for long-running operatio
 | `list_background` | List all background tasks and their status |
 | `kill_background` | Terminate a running background task |
 
-### Architecture
-```
-┌──────────────────────────────────────────────────┐
-│  TypeScript (In-memory tracking)                 │
-│  └── BackgroundTaskManager singleton             │
-│      └── child_process.spawn()                   │
-├──────────────────────────────────────────────────┤
-│  Rust (Native performance, file-based state)    │
-│  └── orchestrator-core/src/background.rs        │
-│      └── /tmp/opencode-orchestrator/bg_tasks.json│
-└──────────────────────────────────────────────────┘
-```
-
 ### Example Flow
 ```
-1. run_background({ command: "npm run build" })
-   → Task bg_a1b2c3d4 started (returns immediately)
+1. spawn_agent({ agent: "builder", prompt: "Implement feature X" })
+   spawn_agent({ agent: "inspector", prompt: "Review module Y" })
+   → Both agents start in parallel sessions
 
-2. (Agent continues other analysis work)
+2. run_background({ command: "npm run build" })
+   → Command starts, returns immediately
 
-3. check_background({ taskId: "bg_a1b2c3d4" })
-   → ✅ Build completed, Exit code: 0
+3. (Agent continues other work while tasks run)
+
+4. [System notification: "All Parallel Tasks Complete"]
+
+5. get_task_result({ taskId: "task_xxx" })
+   check_background({ taskId: "job_xxx" })
+   → Retrieve results
 ```
 
 ---
@@ -135,6 +161,5 @@ Orchestrator supports **background command execution** for long-running operatio
 - **Autonomous**: Once started, it requires zero user interaction.
 - **Reliable**: Environment-specific verification ensures the code actually runs.
 - **Consistent**: Mandatory pattern scanning prevents "code rotting."
-- **Efficient**: Parallel task groups maximize LLM throughput.
+- **Parallel**: Queue-based concurrency enables safe parallel agent execution.
 - **Non-blocking**: Background tasks allow concurrent work during long operations.
-

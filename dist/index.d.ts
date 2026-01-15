@@ -62,6 +62,19 @@ declare const OrchestratorPlugin: (input: PluginInput) => Promise<{
                 dir?: string | undefined;
             }, context: import("@opencode-ai/plugin").ToolContext): Promise<string>;
         };
+        mgrep: {
+            description: string;
+            args: {
+                patterns: import("zod").ZodArray<import("zod").ZodString>;
+                dir: import("zod").ZodOptional<import("zod").ZodString>;
+                max_results_per_pattern: import("zod").ZodOptional<import("zod").ZodNumber>;
+            };
+            execute(args: {
+                patterns: string[];
+                dir?: string | undefined;
+                max_results_per_pattern?: number | undefined;
+            }, context: import("@opencode-ai/plugin").ToolContext): Promise<string>;
+        };
         run_background: {
             description: string;
             args: {

@@ -24,6 +24,8 @@ import {
     listBackgroundTool,
     killBackgroundTool,
 } from "./tools/background.js";
+import { ParallelAgentManager } from "./core/async-agent.js";
+import { createAsyncAgentTools } from "./tools/async-agent.js";
 import { detectSlashCommand, formatTimestamp, formatElapsedTime } from "./utils/common.js";
 import {
     checkOutputSanity,
@@ -86,6 +88,10 @@ const OrchestratorPlugin = async (input: PluginInput) => {
         lastStepTime: number;   // Time of last step for step duration
     }>();
 
+    // Initialize parallel agent manager
+    const parallelAgentManager = ParallelAgentManager.getInstance(client, directory);
+    const asyncAgentTools = createAsyncAgentTools(parallelAgentManager);
+
     return {
         // -----------------------------------------------------------------
         // Tools we expose to the LLM
@@ -96,11 +102,13 @@ const OrchestratorPlugin = async (input: PluginInput) => {
             grep_search: grepSearchTool(directory),
             glob_search: globSearchTool(directory),
             mgrep: mgrepTool(directory),  // Multi-pattern grep (parallel, Rust-powered)
-            // Background task tools - run commands asynchronously
+            // Background task tools - run shell commands asynchronously
             run_background: runBackgroundTool,
             check_background: checkBackgroundTool,
             list_background: listBackgroundTool,
             kill_background: killBackgroundTool,
+            // Async agent tools - spawn agents in parallel sessions
+            ...asyncAgentTools,
         },
 
         // -----------------------------------------------------------------

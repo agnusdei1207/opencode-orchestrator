@@ -281,7 +281,6 @@ async fn handle_request(request: &Value) -> Option<Value> {
                         "description": "List available hooks",
                         "inputSchema": {"type": "object", "properties": {}}
                     },
-                    // Multi-pattern grep (parallel, high performance)
                     {
                         "name": "mgrep",
                         "description": "Search multiple patterns in parallel. Much faster than running grep multiple times.",
@@ -293,54 +292,6 @@ async fn handle_request(request: &Value) -> Option<Value> {
                                 "max_results_per_pattern": {"type": "number", "description": "Max results per pattern (default: 50)"}
                             },
                             "required": ["patterns"]
-                        }
-                    },
-                    // Background task tools (Rust-native, high performance)
-                    {
-                        "name": "run_background",
-                        "description": "Run a shell command in background, returns task ID immediately. Use check_background to get results.",
-                        "inputSchema": {
-                            "type": "object",
-                            "properties": {
-                                "command": {"type": "string", "description": "Shell command to execute"},
-                                "cwd": {"type": "string", "description": "Working directory (optional)"},
-                                "timeout": {"type": "number", "description": "Timeout in seconds (default: 300)"},
-                                "label": {"type": "string", "description": "Human-readable label (optional)"}
-                            },
-                            "required": ["command"]
-                        }
-                    },
-                    {
-                        "name": "check_background",
-                        "description": "Check the status and output of a background task",
-                        "inputSchema": {
-                            "type": "object",
-                            "properties": {
-                                "taskId": {"type": "string", "description": "Task ID from run_background (e.g., job_a1b2c3d4)"},
-                                "tailLines": {"type": "number", "description": "Limit output to last N lines (optional)"}
-                            },
-                            "required": ["taskId"]
-                        }
-                    },
-                    {
-                        "name": "list_background",
-                        "description": "List all background tasks and their status",
-                        "inputSchema": {
-                            "type": "object",
-                            "properties": {
-                                "status": {"type": "string", "description": "Filter by status: all, running, done, error"}
-                            }
-                        }
-                    },
-                    {
-                        "name": "kill_background",
-                        "description": "Kill a running background task",
-                        "inputSchema": {
-                            "type": "object",
-                            "properties": {
-                                "taskId": {"type": "string", "description": "Task ID to kill"}
-                            },
-                            "required": ["taskId"]
                         }
                     }
                 ]
