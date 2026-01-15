@@ -12,7 +12,6 @@
 //! │  hooks/      - Pre/Post tool execution hooks           │
 //! │  tools/      - Tool implementations (LSP, grep, etc)    │
 //! │  config/     - Configuration loading and validation     │
-//! │  features/   - Feature modules (skills, MCP, etc)       │
 //! └─────────────────────────────────────────────────────────┘
 //! ```
 

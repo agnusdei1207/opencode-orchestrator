@@ -27,7 +27,13 @@ You are Commander. Complete missions autonomously. Never stop until done.
 3. Never stop because agent returned nothing
 4. Always survey environment & codebase BEFORE coding
 5. Always verify with evidence based on runtime context
-6. LANGUAGE: THINK and REASON in English for maximum stability. Report final summary in Korean.
+6. LANGUAGE:
+   - THINK and REASON in English for maximum stability
+   - FINAL REPORT: Detect the user's language from their request and respond in the SAME language
+   - If user writes in Korean \u2192 Report in Korean
+   - If user writes in English \u2192 Report in English
+   - If user writes in Japanese \u2192 Report in Japanese
+   - Default to English if language is unclear
 </core_rules>
 
 <phase_0 name="TRIAGE">
@@ -66,6 +72,44 @@ DEFAULT to Deep Track if unsure to act safely.
 </phase_2>
 
 <phase_3 name="DELEGATION">
+<agent_calling>
+\u26A0\uFE0F CRITICAL: USE delegate_task FOR ALL DELEGATION \u26A0\uFE0F
+
+delegate_task has TWO MODES:
+- background=true: Non-blocking, parallel execution
+- background=false: Blocking, waits for result
+
+| Situation | How to Call |
+|-----------|-------------|
+| Multiple independent tasks | \`delegate_task({ ..., background: true })\` for each |
+| Single task, continue working | \`delegate_task({ ..., background: true })\` |
+| Need result for VERY next step | \`delegate_task({ ..., background: false })\` |
+
+PREFER background=true (PARALLEL):
+- Run multiple agents simultaneously
+- Continue analysis while they work
+- System notifies when ALL complete
+
+EXAMPLE - PARALLEL:
+\`\`\`
+// Multiple tasks in parallel
+delegate_task({ agent: "builder", description: "Implement X", prompt: "...", background: true })
+delegate_task({ agent: "inspector", description: "Review Y", prompt: "...", background: true })
+
+// Continue other work (don't wait!)
+
+// When notified "All Complete":
+get_task_result({ taskId: "task_xxx" })
+\`\`\`
+
+EXAMPLE - SYNC (rare):
+\`\`\`
+// Only when you absolutely need the result now
+const result = delegate_task({ agent: "builder", ..., background: false })
+// Result is immediately available
+\`\`\`
+</agent_calling>
+
 <delegation_template>
 AGENT: [name]
 TASK: [one atomic action]
@@ -83,6 +127,45 @@ VERIFY: [Success criteria with evidence]
 During implementation:
 - Match existing codebase style exactly
 - Run lsp_diagnostics after each change
+
+<background_parallel_execution>
+PARALLEL EXECUTION TOOLS:
+
+1. **spawn_agent** - Launch agents in parallel sessions
+   spawn_agent({ agent: "builder", description: "Implement X", prompt: "..." })
+   spawn_agent({ agent: "inspector", description: "Review Y", prompt: "..." })
+   \u2192 Agents run concurrently, system notifies when ALL complete
+   \u2192 Use get_task_result({ taskId }) to retrieve results
+
+2. **run_background** - Run shell commands asynchronously
+   run_background({ command: "npm run build" })
+   \u2192 Use check_background({ taskId }) for results
+
+SAFETY FEATURES:
+- Queue-based concurrency: Max 3 per agent type (extras queue automatically)
+- Auto-timeout: 30 minutes max runtime
+- Auto-cleanup: Removed from memory 5 min after completion
+- Batched notifications: Notifies when ALL tasks complete (not individually)
+
+MANAGEMENT TOOLS:
+- list_tasks: View all parallel tasks and status
+- cancel_task: Stop a running task (frees concurrency slot)
+
+SAFE PATTERNS:
+\u2705 Builder on file A + Inspector on file B (different files)
+\u2705 Multiple research agents (read-only)
+\u2705 Build command + Test command (independent)
+
+UNSAFE PATTERNS:
+\u274C Multiple builders editing SAME FILE (conflict!)
+
+WORKFLOW:
+1. list_tasks: Check current status first
+2. spawn_agent: Launch for INDEPENDENT tasks
+3. Continue working (NO WAITING)
+4. Wait for "All Complete" notification
+5. get_task_result: Retrieve each result
+</background_parallel_execution>
 
 <verification_methods>
 | Infra | Proof Method |
@@ -293,6 +376,16 @@ If your reasoning collapses into gibberish, stop and output "ERROR: REASONING_CO
 | Containerized | Syntax check + Config validation |
 | Volume-mount | Host-level syntax + internal service check |
 </verification_by_context>
+
+<background_tools>
+USE BACKGROUND TASKS FOR PARALLEL VERIFICATION:
+- run_background("npm run build") \u2192 Don't wait, continue analysis
+- run_background("npm test") \u2192 Run tests in parallel with build
+- list_background() \u2192 Check all running jobs
+- check_background(taskId) \u2192 Get results when ready
+
+ALWAYS prefer background for build/test commands.
+</background_tools>
 
 <output_format>
 <pass>
@@ -772,12 +865,1232 @@ var globSearchTool = (directory) => tool3({
     });
   }
 });
+var mgrepTool = (directory) => tool3({
+  description: `Search multiple patterns in parallel (high-performance).
+
+<purpose>
+Search for multiple regex patterns simultaneously using Rust's parallel execution.
+Much faster than running grep multiple times sequentially.
+</purpose>
+
+<examples>
+- patterns: ["useState", "useEffect", "useContext"] \u2192 Find all React hooks usage
+- patterns: ["TODO", "FIXME", "HACK"] \u2192 Find all code annotations
+- patterns: ["import.*lodash", "require.*lodash"] \u2192 Find all lodash imports
+</examples>
+
+<output>
+Returns matches grouped by pattern, with file paths and line numbers.
+</output>`,
+  args: {
+    patterns: tool3.schema.array(tool3.schema.string()).describe("Array of regex patterns to search for"),
+    dir: tool3.schema.string().optional().describe("Directory to search (defaults to project root)"),
+    max_results_per_pattern: tool3.schema.number().optional().describe("Max results per pattern (default: 50)")
+  },
+  async execute(args) {
+    return callRustTool("mgrep", {
+      patterns: args.patterns,
+      directory: args.dir || directory,
+      max_results_per_pattern: args.max_results_per_pattern || 50
+    });
+  }
+});
+
+// src/tools/background.ts
+import { tool as tool4 } from "@opencode-ai/plugin";
+
+// src/core/background.ts
+import { spawn as spawn2 } from "child_process";
+import { randomBytes } from "crypto";
+var BackgroundTaskManager = class _BackgroundTaskManager {
+  static _instance;
+  tasks = /* @__PURE__ */ new Map();
+  debugMode = true;
+  // Enable debug mode
+  constructor() {
+  }
+  static get instance() {
+    if (!_BackgroundTaskManager._instance) {
+      _BackgroundTaskManager._instance = new _BackgroundTaskManager();
+    }
+    return _BackgroundTaskManager._instance;
+  }
+  /**
+   * Generate a unique task ID in the format job_xxxxxxxx
+   */
+  generateId() {
+    const hex = randomBytes(4).toString("hex");
+    return `job_${hex}`;
+  }
+  /**
+   * Debug logging helper
+   */
+  debug(taskId, message) {
+    if (this.debugMode) {
+      const timestamp = (/* @__PURE__ */ new Date()).toISOString().substring(11, 23);
+      console.log(`[BG-DEBUG ${timestamp}] ${taskId}: ${message}`);
+    }
+  }
+  /**
+   * Run a command in the background
+   */
+  run(options) {
+    const id = this.generateId();
+    const { command, cwd = process.cwd(), timeout = 3e5, label } = options;
+    const isWindows = process.platform === "win32";
+    const shell = isWindows ? "cmd.exe" : "/bin/sh";
+    const shellFlag = isWindows ? "/c" : "-c";
+    const task = {
+      id,
+      command,
+      args: [shellFlag, command],
+      cwd,
+      label,
+      status: "running",
+      output: "",
+      errorOutput: "",
+      exitCode: null,
+      startTime: Date.now(),
+      timeout
+    };
+    this.tasks.set(id, task);
+    this.debug(id, `Starting: ${command} (cwd: ${cwd})`);
+    try {
+      const proc = spawn2(shell, task.args, {
+        cwd,
+        stdio: ["ignore", "pipe", "pipe"],
+        detached: false
+      });
+      task.process = proc;
+      proc.stdout?.on("data", (data) => {
+        const text = data.toString();
+        task.output += text;
+        this.debug(id, `stdout: ${text.substring(0, 100)}${text.length > 100 ? "..." : ""}`);
+      });
+      proc.stderr?.on("data", (data) => {
+        const text = data.toString();
+        task.errorOutput += text;
+        this.debug(id, `stderr: ${text.substring(0, 100)}${text.length > 100 ? "..." : ""}`);
+      });
+      proc.on("close", (code) => {
+        task.exitCode = code;
+        task.endTime = Date.now();
+        task.status = code === 0 ? "done" : "error";
+        task.process = void 0;
+        const duration = ((task.endTime - task.startTime) / 1e3).toFixed(2);
+        this.debug(id, `Completed with code ${code} in ${duration}s`);
+      });
+      proc.on("error", (err) => {
+        task.status = "error";
+        task.errorOutput += `
+Process error: ${err.message}`;
+        task.endTime = Date.now();
+        task.process = void 0;
+        this.debug(id, `Error: ${err.message}`);
+      });
+      setTimeout(() => {
+        if (task.status === "running" && task.process) {
+          this.debug(id, `Timeout after ${timeout}ms, killing process`);
+          task.process.kill("SIGKILL");
+          task.status = "timeout";
+          task.endTime = Date.now();
+          task.errorOutput += `
+Process killed: timeout after ${timeout}ms`;
+        }
+      }, timeout);
+    } catch (err) {
+      task.status = "error";
+      task.errorOutput = `Failed to spawn: ${err instanceof Error ? err.message : String(err)}`;
+      task.endTime = Date.now();
+      this.debug(id, `Spawn failed: ${task.errorOutput}`);
+    }
+    return task;
+  }
+  /**
+   * Get task by ID
+   */
+  get(taskId) {
+    return this.tasks.get(taskId);
+  }
+  /**
+   * Get all tasks
+   */
+  getAll() {
+    return Array.from(this.tasks.values());
+  }
+  /**
+   * Get tasks by status
+   */
+  getByStatus(status) {
+    return this.getAll().filter((t) => t.status === status);
+  }
+  /**
+   * Clear completed/failed tasks
+   */
+  clearCompleted() {
+    let count = 0;
+    for (const [id, task] of this.tasks) {
+      if (task.status !== "running" && task.status !== "pending") {
+        this.tasks.delete(id);
+        count++;
+      }
+    }
+    return count;
+  }
+  /**
+   * Kill a running task
+   */
+  kill(taskId) {
+    const task = this.tasks.get(taskId);
+    if (task?.process) {
+      task.process.kill("SIGKILL");
+      task.status = "error";
+      task.errorOutput += "\nKilled by user";
+      task.endTime = Date.now();
+      this.debug(taskId, "Killed by user");
+      return true;
+    }
+    return false;
+  }
+  /**
+   * Format duration for display
+   */
+  formatDuration(task) {
+    const end = task.endTime || Date.now();
+    const seconds = (end - task.startTime) / 1e3;
+    if (seconds < 60) {
+      return `${seconds.toFixed(1)}s`;
+    }
+    const minutes = Math.floor(seconds / 60);
+    const remainingSeconds = seconds % 60;
+    return `${minutes}m ${remainingSeconds.toFixed(0)}s`;
+  }
+  /**
+   * Get status emoji
+   */
+  getStatusEmoji(status) {
+    switch (status) {
+      case "pending":
+        return "\u23F8\uFE0F";
+      case "running":
+        return "\u23F3";
+      case "done":
+        return "\u2705";
+      case "error":
+        return "\u274C";
+      case "timeout":
+        return "\u23F0";
+      default:
+        return "\u2753";
+    }
+  }
+};
+var backgroundTaskManager = BackgroundTaskManager.instance;
+
+// src/tools/background.ts
+var runBackgroundTool = tool4({
+  description: `Run a shell command in the background and get a task ID.
+
+<purpose>
+Execute long-running commands (builds, tests, etc.) without blocking.
+The command runs asynchronously - use check_background to get results.
+</purpose>
+
+<examples>
+- "npm run build" \u2192 Build project in background
+- "cargo test" \u2192 Run Rust tests
+- "sleep 10 && echo done" \u2192 Delayed execution
+</examples>
+
+<flow>
+1. Call run_background with command
+2. Get task ID immediately (e.g., job_a1b2c3d4)
+3. Continue other work
+4. Call check_background with task ID to get results
+</flow>`,
+  args: {
+    command: tool4.schema.string().describe("Shell command to execute"),
+    cwd: tool4.schema.string().optional().describe("Working directory (default: project root)"),
+    timeout: tool4.schema.number().optional().describe("Timeout in milliseconds (default: 300000 = 5 min)"),
+    label: tool4.schema.string().optional().describe("Human-readable label for this task")
+  },
+  async execute(args) {
+    const { command, cwd, timeout, label } = args;
+    const task = backgroundTaskManager.run({
+      command,
+      cwd: cwd || process.cwd(),
+      timeout: timeout || 3e5,
+      label
+    });
+    const displayLabel = label ? ` (${label})` : "";
+    return `\u{1F680} **Background Task Started**${displayLabel}
+\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501
+| Property | Value |
+|----------|-------|
+| **Task ID** | \`${task.id}\` |
+| **Command** | \`${command}\` |
+| **Status** | ${backgroundTaskManager.getStatusEmoji(task.status)} ${task.status} |
+| **Working Dir** | ${task.cwd} |
+| **Timeout** | ${(task.timeout / 1e3).toFixed(0)}s |
+\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501
+
+\u{1F4CC} **Next Step**: Use \`check_background\` with task ID \`${task.id}\` to get results.`;
+  }
+});
+var checkBackgroundTool = tool4({
+  description: `Check the status and output of a background task.
+
+<purpose>
+Retrieve the current status and output of a previously started background task.
+Use this after run_background to get results.
+</purpose>
+
+<output_includes>
+- Status: running/done/error/timeout
+- Exit code (if completed)
+- Duration
+- Full output (stdout + stderr)
+</output_includes>`,
+  args: {
+    taskId: tool4.schema.string().describe("Task ID from run_background (e.g., job_a1b2c3d4)"),
+    tailLines: tool4.schema.number().optional().describe("Limit output to last N lines (default: show all)")
+  },
+  async execute(args) {
+    const { taskId, tailLines } = args;
+    const task = backgroundTaskManager.get(taskId);
+    if (!task) {
+      const allTasks = backgroundTaskManager.getAll();
+      if (allTasks.length === 0) {
+        return `\u274C Task \`${taskId}\` not found. No background tasks exist.`;
+      }
+      const taskList = allTasks.map((t) => `- \`${t.id}\`: ${t.command.substring(0, 30)}...`).join("\n");
+      return `\u274C Task \`${taskId}\` not found.
+
+**Available tasks:**
+${taskList}`;
+    }
+    const duration = backgroundTaskManager.formatDuration(task);
+    const statusEmoji = backgroundTaskManager.getStatusEmoji(task.status);
+    let output = task.output;
+    let stderr = task.errorOutput;
+    if (tailLines && tailLines > 0) {
+      const outputLines = output.split("\n");
+      const stderrLines = stderr.split("\n");
+      output = outputLines.slice(-tailLines).join("\n");
+      stderr = stderrLines.slice(-tailLines).join("\n");
+    }
+    const maxLen = 1e4;
+    if (output.length > maxLen) {
+      output = `[...truncated ${output.length - maxLen} chars...]
+` + output.substring(output.length - maxLen);
+    }
+    if (stderr.length > maxLen) {
+      stderr = `[...truncated ${stderr.length - maxLen} chars...]
+` + stderr.substring(stderr.length - maxLen);
+    }
+    const labelDisplay = task.label ? ` (${task.label})` : "";
+    let result = `${statusEmoji} **Task ${task.id}**${labelDisplay}
+\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501
+| Property | Value |
+|----------|-------|
+| **Command** | \`${task.command}\` |
+| **Status** | ${statusEmoji} **${task.status.toUpperCase()}** |
+| **Duration** | ${duration}${task.status === "running" ? " (ongoing)" : ""} |
+${task.exitCode !== null ? `| **Exit Code** | ${task.exitCode} |` : ""}
+\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501`;
+    if (output.trim()) {
+      result += `
+
+\u{1F4E4} **Output (stdout)**:
+\`\`\`
+${output.trim()}
+\`\`\``;
+    }
+    if (stderr.trim()) {
+      result += `
+
+\u26A0\uFE0F **Errors (stderr)**:
+\`\`\`
+${stderr.trim()}
+\`\`\``;
+    }
+    if (task.status === "running") {
+      result += `
+
+\u23F3 Task still running... Check again later with:
+\`check_background({ taskId: "${task.id}" })\``;
+    }
+    return result;
+  }
+});
+var listBackgroundTool = tool4({
+  description: `List all background tasks and their current status.
+
+<purpose>
+Get an overview of all running and completed background tasks.
+Useful to check what's in progress before starting new tasks.
+</purpose>`,
+  args: {
+    status: tool4.schema.enum(["all", "running", "done", "error"]).optional().describe("Filter by status (default: all)")
+  },
+  async execute(args) {
+    const { status = "all" } = args;
+    let tasks;
+    if (status === "all") {
+      tasks = backgroundTaskManager.getAll();
+    } else {
+      tasks = backgroundTaskManager.getByStatus(status);
+    }
+    if (tasks.length === 0) {
+      return `\u{1F4CB} **No background tasks** ${status !== "all" ? `with status "${status}"` : ""}
+
+Use \`run_background\` to start a new background task.`;
+    }
+    tasks.sort((a, b) => b.startTime - a.startTime);
+    const rows = tasks.map((task) => {
+      const emoji = backgroundTaskManager.getStatusEmoji(task.status);
+      const duration = backgroundTaskManager.formatDuration(task);
+      const cmdShort = task.command.length > 25 ? task.command.substring(0, 22) + "..." : task.command;
+      const labelPart = task.label ? ` [${task.label}]` : "";
+      return `| \`${task.id}\` | ${emoji} ${task.status.padEnd(7)} | ${cmdShort.padEnd(25)}${labelPart} | ${duration.padStart(8)} |`;
+    }).join("\n");
+    const runningCount = tasks.filter((t) => t.status === "running").length;
+    const doneCount = tasks.filter((t) => t.status === "done").length;
+    const errorCount = tasks.filter((t) => t.status === "error" || t.status === "timeout").length;
+    return `\u{1F4CB} **Background Tasks** (${tasks.length} total)
+\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501
+| \u23F3 Running: ${runningCount} | \u2705 Done: ${doneCount} | \u274C Error/Timeout: ${errorCount} |
+\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501
+
+| Task ID | Status | Command | Duration |
+|---------|--------|---------|----------|
+${rows}
+
+\u{1F4A1} Use \`check_background({ taskId: "job_xxxxx" })\` to see full output.`;
+  }
+});
+var killBackgroundTool = tool4({
+  description: `Kill a running background task.
+
+<purpose>
+Stop a background task that is taking too long or no longer needed.
+</purpose>`,
+  args: {
+    taskId: tool4.schema.string().describe("Task ID to kill (e.g., job_a1b2c3d4)")
+  },
+  async execute(args) {
+    const { taskId } = args;
+    const task = backgroundTaskManager.get(taskId);
+    if (!task) {
+      return `\u274C Task \`${taskId}\` not found.`;
+    }
+    if (task.status !== "running") {
+      return `\u26A0\uFE0F Task \`${taskId}\` is not running (status: ${task.status}).`;
+    }
+    const killed = backgroundTaskManager.kill(taskId);
+    if (killed) {
+      return `\u{1F6D1} Task \`${taskId}\` has been killed.
+Command: \`${task.command}\`
+Duration before kill: ${backgroundTaskManager.formatDuration(task)}`;
+    }
+    return `\u26A0\uFE0F Could not kill task \`${taskId}\`. It may have already finished.`;
+  }
+});
+
+// src/core/async-agent.ts
+var TASK_TTL_MS = 30 * 60 * 1e3;
+var CLEANUP_DELAY_MS = 5 * 60 * 1e3;
+var MIN_STABILITY_MS = 5 * 1e3;
+var POLL_INTERVAL_MS = 2e3;
+var DEFAULT_CONCURRENCY = 3;
+var DEBUG = process.env.DEBUG_PARALLEL_AGENT === "true";
+var log = (...args) => {
+  if (DEBUG) console.log("[parallel-agent]", ...args);
+};
+var ConcurrencyController = class {
+  counts = /* @__PURE__ */ new Map();
+  queues = /* @__PURE__ */ new Map();
+  limits = /* @__PURE__ */ new Map();
+  setLimit(key, limit) {
+    this.limits.set(key, limit);
+  }
+  getLimit(key) {
+    return this.limits.get(key) ?? DEFAULT_CONCURRENCY;
+  }
+  async acquire(key) {
+    const limit = this.getLimit(key);
+    if (limit === 0) return;
+    const current = this.counts.get(key) ?? 0;
+    if (current < limit) {
+      this.counts.set(key, current + 1);
+      log(`Acquired slot for ${key}: ${current + 1}/${limit}`);
+      return;
+    }
+    log(`Queueing for ${key}: ${current}/${limit} (waiting...)`);
+    return new Promise((resolve) => {
+      const queue = this.queues.get(key) ?? [];
+      queue.push(resolve);
+      this.queues.set(key, queue);
+    });
+  }
+  release(key) {
+    const limit = this.getLimit(key);
+    if (limit === 0) return;
+    const queue = this.queues.get(key);
+    if (queue && queue.length > 0) {
+      const next = queue.shift();
+      log(`Released slot for ${key}: next in queue`);
+      next();
+    } else {
+      const current = this.counts.get(key) ?? 0;
+      if (current > 0) {
+        this.counts.set(key, current - 1);
+        log(`Released slot for ${key}: ${current - 1}`);
+      }
+    }
+  }
+  getQueueLength(key) {
+    return this.queues.get(key)?.length ?? 0;
+  }
+};
+var ParallelAgentManager = class _ParallelAgentManager {
+  static _instance;
+  // Core state
+  tasks = /* @__PURE__ */ new Map();
+  pendingByParent = /* @__PURE__ */ new Map();
+  notifications = /* @__PURE__ */ new Map();
+  // Dependencies
+  client;
+  directory;
+  concurrency;
+  // Polling
+  pollingInterval;
+  constructor(client, directory) {
+    this.client = client;
+    this.directory = directory;
+    this.concurrency = new ConcurrencyController();
+  }
+  static getInstance(client, directory) {
+    if (!_ParallelAgentManager._instance) {
+      if (!client || !directory) {
+        throw new Error("ParallelAgentManager requires client and directory on first call");
+      }
+      _ParallelAgentManager._instance = new _ParallelAgentManager(client, directory);
+    }
+    return _ParallelAgentManager._instance;
+  }
+  // ========================================================================
+  // Public API
+  // ========================================================================
+  /**
+   * Launch an agent in a new session (async, non-blocking)
+   */
+  async launch(input) {
+    const concurrencyKey = input.agent;
+    await this.concurrency.acquire(concurrencyKey);
+    this.pruneExpiredTasks();
+    try {
+      const createResult = await this.client.session.create({
+        body: {
+          parentID: input.parentSessionID,
+          title: `Parallel: ${input.description}`
+        },
+        query: {
+          directory: this.directory
+        }
+      });
+      if (createResult.error) {
+        this.concurrency.release(concurrencyKey);
+        throw new Error(`Failed to create session: ${createResult.error}`);
+      }
+      const sessionID = createResult.data.id;
+      const taskId = `task_${crypto.randomUUID().slice(0, 8)}`;
+      const task = {
+        id: taskId,
+        sessionID,
+        parentSessionID: input.parentSessionID,
+        description: input.description,
+        agent: input.agent,
+        status: "running",
+        startedAt: /* @__PURE__ */ new Date(),
+        concurrencyKey
+      };
+      this.tasks.set(taskId, task);
+      this.trackPending(input.parentSessionID, taskId);
+      this.startPolling();
+      this.client.session.prompt({
+        path: { id: sessionID },
+        body: {
+          agent: input.agent,
+          parts: [{ type: "text", text: input.prompt }]
+        }
+      }).catch((error) => {
+        log(`Prompt error for ${taskId}:`, error);
+        this.handleTaskError(taskId, error);
+      });
+      log(`Launched ${taskId} in session ${sessionID}`);
+      return task;
+    } catch (error) {
+      this.concurrency.release(concurrencyKey);
+      throw error;
+    }
+  }
+  /**
+   * Get task by ID
+   */
+  getTask(id) {
+    return this.tasks.get(id);
+  }
+  /**
+   * Get all running tasks
+   */
+  getRunningTasks() {
+    return Array.from(this.tasks.values()).filter((t) => t.status === "running");
+  }
+  /**
+   * Get all tasks
+   */
+  getAllTasks() {
+    return Array.from(this.tasks.values());
+  }
+  /**
+   * Get tasks by parent session
+   */
+  getTasksByParent(parentSessionID) {
+    return Array.from(this.tasks.values()).filter((t) => t.parentSessionID === parentSessionID);
+  }
+  /**
+   * Cancel a running task
+   */
+  async cancelTask(taskId) {
+    const task = this.tasks.get(taskId);
+    if (!task || task.status !== "running") {
+      return false;
+    }
+    task.status = "error";
+    task.error = "Cancelled by user";
+    task.completedAt = /* @__PURE__ */ new Date();
+    if (task.concurrencyKey) {
+      this.concurrency.release(task.concurrencyKey);
+    }
+    this.untrackPending(task.parentSessionID, taskId);
+    try {
+      await this.client.session.delete({
+        path: { id: task.sessionID }
+      });
+      console.log(`[parallel] \u{1F5D1}\uFE0F Session ${task.sessionID.slice(0, 8)}... deleted`);
+    } catch {
+      console.log(`[parallel] \u{1F5D1}\uFE0F Session ${task.sessionID.slice(0, 8)}... already gone`);
+    }
+    this.scheduleCleanup(taskId);
+    console.log(`[parallel] \u{1F6D1} CANCELLED ${taskId}`);
+    log(`Cancelled ${taskId}`);
+    return true;
+  }
+  /**
+   * Get result from completed task
+   */
+  async getResult(taskId) {
+    const task = this.tasks.get(taskId);
+    if (!task) return null;
+    if (task.result) return task.result;
+    if (task.status === "error") return `Error: ${task.error}`;
+    if (task.status === "running") return null;
+    try {
+      const messagesResult = await this.client.session.messages({
+        path: { id: task.sessionID }
+      });
+      if (messagesResult.error) {
+        return `Error: ${messagesResult.error}`;
+      }
+      const messages = messagesResult.data ?? [];
+      const assistantMsgs = messages.filter((m) => m.info?.role === "assistant").reverse();
+      const lastMsg = assistantMsgs[0];
+      if (!lastMsg) return "(No response)";
+      const textParts = lastMsg.parts?.filter(
+        (p) => p.type === "text" || p.type === "reasoning"
+      ) ?? [];
+      const result = textParts.map((p) => p.text ?? "").filter(Boolean).join("\n");
+      task.result = result;
+      return result;
+    } catch (error) {
+      return `Error: ${error instanceof Error ? error.message : String(error)}`;
+    }
+  }
+  /**
+   * Set concurrency limit for agent type
+   */
+  setConcurrencyLimit(agentType, limit) {
+    this.concurrency.setLimit(agentType, limit);
+  }
+  /**
+   * Get pending notification count
+   */
+  getPendingCount(parentSessionID) {
+    return this.pendingByParent.get(parentSessionID)?.size ?? 0;
+  }
+  /**
+   * Cleanup all state
+   */
+  cleanup() {
+    this.stopPolling();
+    this.tasks.clear();
+    this.pendingByParent.clear();
+    this.notifications.clear();
+  }
+  // ========================================================================
+  // Internal: Tracking
+  // ========================================================================
+  trackPending(parentSessionID, taskId) {
+    const pending = this.pendingByParent.get(parentSessionID) ?? /* @__PURE__ */ new Set();
+    pending.add(taskId);
+    this.pendingByParent.set(parentSessionID, pending);
+  }
+  untrackPending(parentSessionID, taskId) {
+    const pending = this.pendingByParent.get(parentSessionID);
+    if (pending) {
+      pending.delete(taskId);
+      if (pending.size === 0) {
+        this.pendingByParent.delete(parentSessionID);
+      }
+    }
+  }
+  // ========================================================================
+  // Internal: Error Handling
+  // ========================================================================
+  handleTaskError(taskId, error) {
+    const task = this.tasks.get(taskId);
+    if (!task) return;
+    task.status = "error";
+    task.error = error instanceof Error ? error.message : String(error);
+    task.completedAt = /* @__PURE__ */ new Date();
+    if (task.concurrencyKey) {
+      this.concurrency.release(task.concurrencyKey);
+    }
+    this.untrackPending(task.parentSessionID, taskId);
+    this.queueNotification(task);
+    this.notifyParentIfAllComplete(task.parentSessionID);
+    this.scheduleCleanup(taskId);
+  }
+  // ========================================================================
+  // Internal: Polling
+  // ========================================================================
+  startPolling() {
+    if (this.pollingInterval) return;
+    this.pollingInterval = setInterval(() => {
+      this.pollRunningTasks();
+    }, POLL_INTERVAL_MS);
+    this.pollingInterval.unref();
+  }
+  stopPolling() {
+    if (this.pollingInterval) {
+      clearInterval(this.pollingInterval);
+      this.pollingInterval = void 0;
+    }
+  }
+  async pollRunningTasks() {
+    this.pruneExpiredTasks();
+    const runningTasks = this.getRunningTasks();
+    if (runningTasks.length === 0) {
+      this.stopPolling();
+      return;
+    }
+    try {
+      const statusResult = await this.client.session.status();
+      const allStatuses = statusResult.data ?? {};
+      for (const task of runningTasks) {
+        const sessionStatus = allStatuses[task.sessionID];
+        if (sessionStatus?.type === "idle") {
+          const elapsed = Date.now() - task.startedAt.getTime();
+          if (elapsed < MIN_STABILITY_MS) continue;
+          const hasOutput = await this.validateSessionHasOutput(task.sessionID);
+          if (!hasOutput) continue;
+          task.status = "completed";
+          task.completedAt = /* @__PURE__ */ new Date();
+          if (task.concurrencyKey) {
+            this.concurrency.release(task.concurrencyKey);
+          }
+          this.untrackPending(task.parentSessionID, task.id);
+          this.queueNotification(task);
+          this.notifyParentIfAllComplete(task.parentSessionID);
+          this.scheduleCleanup(task.id);
+          const duration = this.formatDuration(task.startedAt, task.completedAt);
+          console.log(`[parallel] \u2705 COMPLETED ${task.id} \u2192 ${task.agent}: ${task.description} (${duration})`);
+          log(`Completed ${task.id}`);
+        }
+      }
+    } catch (error) {
+      log("Polling error:", error);
+    }
+  }
+  // ========================================================================
+  // Internal: Validation
+  // ========================================================================
+  async validateSessionHasOutput(sessionID) {
+    try {
+      const response = await this.client.session.messages({
+        path: { id: sessionID }
+      });
+      const messages = response.data ?? [];
+      const hasContent = messages.some((m) => {
+        if (m.info?.role !== "assistant") return false;
+        const parts = m.parts ?? [];
+        return parts.some(
+          (p) => p.type === "text" && p.text?.trim() || p.type === "reasoning" && p.text?.trim() || p.type === "tool"
+        );
+      });
+      return hasContent;
+    } catch {
+      return true;
+    }
+  }
+  // ========================================================================
+  // Internal: Cleanup & TTL
+  // ========================================================================
+  pruneExpiredTasks() {
+    const now = Date.now();
+    for (const [taskId, task] of this.tasks.entries()) {
+      const age = now - task.startedAt.getTime();
+      if (age > TASK_TTL_MS) {
+        log(`Timeout: ${taskId} (${Math.round(age / 1e3)}s)`);
+        if (task.status === "running") {
+          task.status = "timeout";
+          task.error = "Task exceeded 30 minute time limit";
+          task.completedAt = /* @__PURE__ */ new Date();
+          if (task.concurrencyKey) {
+            this.concurrency.release(task.concurrencyKey);
+          }
+          this.untrackPending(task.parentSessionID, taskId);
+          console.log(`[parallel] \u23F1\uFE0F TIMEOUT ${taskId} \u2192 ${task.agent}: ${task.description}`);
+        }
+        this.client.session.delete({
+          path: { id: task.sessionID }
+        }).then(() => {
+          console.log(`[parallel] \u{1F5D1}\uFE0F CLEANED ${taskId} (timeout session deleted)`);
+        }).catch(() => {
+          console.log(`[parallel] \u{1F5D1}\uFE0F CLEANED ${taskId} (timeout session already gone)`);
+        });
+        this.tasks.delete(taskId);
+      }
+    }
+    for (const [sessionID, queue] of this.notifications.entries()) {
+      if (queue.length === 0) {
+        this.notifications.delete(sessionID);
+      }
+    }
+  }
+  scheduleCleanup(taskId) {
+    const task = this.tasks.get(taskId);
+    const sessionID = task?.sessionID;
+    setTimeout(async () => {
+      if (sessionID) {
+        try {
+          await this.client.session.delete({
+            path: { id: sessionID }
+          });
+          console.log(`[parallel] \u{1F5D1}\uFE0F CLEANED ${taskId} (session deleted)`);
+          log(`Deleted session ${sessionID}`);
+        } catch {
+          console.log(`[parallel] \u{1F5D1}\uFE0F CLEANED ${taskId} (session already gone)`);
+        }
+      }
+      this.tasks.delete(taskId);
+      log(`Cleaned up ${taskId} from memory`);
+    }, CLEANUP_DELAY_MS);
+  }
+  // ========================================================================
+  // Internal: Notifications
+  // ========================================================================
+  queueNotification(task) {
+    const queue = this.notifications.get(task.parentSessionID) ?? [];
+    queue.push(task);
+    this.notifications.set(task.parentSessionID, queue);
+  }
+  async notifyParentIfAllComplete(parentSessionID) {
+    const pending = this.pendingByParent.get(parentSessionID);
+    if (pending && pending.size > 0) {
+      log(`${pending.size} tasks still pending for ${parentSessionID}`);
+      return;
+    }
+    const completedTasks = this.notifications.get(parentSessionID) ?? [];
+    if (completedTasks.length === 0) return;
+    const summary = completedTasks.map((t) => {
+      const status = t.status === "completed" ? "\u2705" : "\u274C";
+      return `${status} \`${t.id}\`: ${t.description}`;
+    }).join("\n");
+    const notification = `<system-notification>
+**All Parallel Tasks Complete**
+
+${summary}
+
+Use \`get_task_result({ taskId: "task_xxx" })\` to retrieve results.
+</system-notification>`;
+    try {
+      await this.client.session.prompt({
+        path: { id: parentSessionID },
+        body: {
+          noReply: true,
+          parts: [{ type: "text", text: notification }]
+        }
+      });
+      log(`Notified parent ${parentSessionID}: ${completedTasks.length} tasks`);
+    } catch (error) {
+      log("Notification error:", error);
+    }
+    this.notifications.delete(parentSessionID);
+  }
+  // ========================================================================
+  // Internal: Formatting
+  // ========================================================================
+  formatDuration(start, end) {
+    const duration = (end ?? /* @__PURE__ */ new Date()).getTime() - start.getTime();
+    const seconds = Math.floor(duration / 1e3);
+    const minutes = Math.floor(seconds / 60);
+    if (minutes > 0) return `${minutes}m ${seconds % 60}s`;
+    return `${seconds}s`;
+  }
+};
+var parallelAgentManager = {
+  getInstance: ParallelAgentManager.getInstance.bind(ParallelAgentManager)
+};
+
+// src/tools/async-agent.ts
+import { tool as tool5 } from "@opencode-ai/plugin";
+var createDelegateTaskTool = (manager, client) => tool5({
+  description: `Delegate a task to an agent.
+
+<mode>
+- background=true: Non-blocking. Task runs in parallel session. Use get_task_result later.
+- background=false: Blocking. Waits for result. Use when you need output immediately.
+</mode>
+
+<when_to_use_background_true>
+- Multiple independent tasks to run in parallel
+- Long-running tasks (build, test, analysis)
+- You have other work to do while waiting
+- Example: "Build module A" + "Test module B" in parallel
+</when_to_use_background_true>
+
+<when_to_use_background_false>
+- You need the result for the very next step
+- Single task with nothing else to do
+- Quick questions that return fast
+</when_to_use_background_false>
+
+<safety>
+- Max 3 background tasks per agent type (extras queue automatically)
+- Auto-timeout: 30 minutes
+- Auto-cleanup: 5 minutes after completion
+</safety>`,
+  args: {
+    agent: tool5.schema.string().describe("Agent name (e.g., 'builder', 'inspector', 'architect')"),
+    description: tool5.schema.string().describe("Short task description"),
+    prompt: tool5.schema.string().describe("Full prompt/instructions for the agent"),
+    background: tool5.schema.boolean().describe("true=async (returns task_id), false=sync (waits for result). REQUIRED.")
+  },
+  async execute(args, context) {
+    const { agent, description, prompt, background } = args;
+    const ctx = context;
+    const sessionClient = client;
+    if (background === void 0) {
+      return `\u274C 'background' parameter is REQUIRED.
+- background=true: Run in parallel, returns task ID
+- background=false: Wait for result (blocking)`;
+    }
+    if (background === true) {
+      try {
+        const task = await manager.launch({
+          agent,
+          description,
+          prompt,
+          parentSessionID: ctx.sessionID
+        });
+        const runningCount = manager.getRunningTasks().length;
+        const pendingCount = manager.getPendingCount(ctx.sessionID);
+        console.log(`[parallel] \u{1F680} SPAWNED ${task.id} \u2192 ${agent}: ${description}`);
+        return `
+\u2554\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2557
+\u2551  \u{1F680} BACKGROUND TASK SPAWNED                                   \u2551
+\u2560\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2563
+\u2551  Task ID:     ${task.id.padEnd(45)}\u2551
+\u2551  Agent:       ${task.agent.padEnd(45)}\u2551
+\u2551  Description: ${task.description.slice(0, 45).padEnd(45)}\u2551
+\u2551  Status:      \u23F3 RUNNING (background)                          \u2551
+\u2560\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2563
+\u2551  Running: ${String(runningCount).padEnd(5)} \u2502 Pending: ${String(pendingCount).padEnd(5)}                      \u2551
+\u255A\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u255D
+
+\u{1F4CC} Continue your work! System notifies when ALL complete.
+\u{1F50D} Use \`get_task_result({ taskId: "${task.id}" })\` later.`;
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        console.log(`[parallel] \u274C FAILED: ${message}`);
+        return `\u274C Failed to spawn background task: ${message}`;
+      }
+    }
+    console.log(`[delegate] \u23F3 SYNC ${agent}: ${description}`);
+    try {
+      const session = sessionClient.session;
+      const directory = ".";
+      const createResult = await session.create({
+        body: {
+          parentID: ctx.sessionID,
+          title: `Task: ${description}`
+        },
+        query: { directory }
+      });
+      if (createResult.error || !createResult.data?.id) {
+        return `\u274C Failed to create session: ${createResult.error || "No session ID"}`;
+      }
+      const sessionID = createResult.data.id;
+      const startTime = Date.now();
+      try {
+        await session.prompt({
+          path: { id: sessionID },
+          body: {
+            agent,
+            parts: [{ type: "text", text: prompt }]
+          }
+        });
+      } catch (promptError) {
+        const errorMessage = promptError instanceof Error ? promptError.message : String(promptError);
+        return `\u274C Failed to send prompt: ${errorMessage}
+
+Session ID: ${sessionID}`;
+      }
+      const POLL_INTERVAL_MS2 = 500;
+      const MAX_POLL_TIME_MS = 10 * 60 * 1e3;
+      const MIN_STABILITY_MS2 = 5e3;
+      const STABILITY_POLLS_REQUIRED = 3;
+      let stablePolls = 0;
+      let lastMsgCount = 0;
+      while (Date.now() - startTime < MAX_POLL_TIME_MS) {
+        await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL_MS2));
+        const statusResult = await session.status();
+        const allStatuses = statusResult.data ?? {};
+        const sessionStatus = allStatuses[sessionID];
+        if (sessionStatus?.type !== "idle") {
+          stablePolls = 0;
+          lastMsgCount = 0;
+          continue;
+        }
+        if (Date.now() - startTime < MIN_STABILITY_MS2) continue;
+        const messagesResult2 = await session.messages({ path: { id: sessionID } });
+        const messages2 = messagesResult2.data ?? [];
+        const currentMsgCount = messages2.length;
+        if (currentMsgCount === lastMsgCount) {
+          stablePolls++;
+          if (stablePolls >= STABILITY_POLLS_REQUIRED) break;
+        } else {
+          stablePolls = 0;
+          lastMsgCount = currentMsgCount;
+        }
+      }
+      const messagesResult = await session.messages({ path: { id: sessionID } });
+      const messages = messagesResult.data ?? [];
+      const assistantMsgs = messages.filter((m) => m.info?.role === "assistant").reverse();
+      const lastMsg = assistantMsgs[0];
+      if (!lastMsg) {
+        return `\u274C No assistant response found.
+
+Session ID: ${sessionID}`;
+      }
+      const textParts = lastMsg.parts?.filter(
+        (p) => p.type === "text" || p.type === "reasoning"
+      ) ?? [];
+      const textContent = textParts.map((p) => p.text ?? "").filter(Boolean).join("\n");
+      const duration = Math.floor((Date.now() - startTime) / 1e3);
+      console.log(`[delegate] \u2705 COMPLETED ${agent}: ${description} (${duration}s)`);
+      return `\u2705 **Task Completed** (${duration}s)
+
+Agent: ${agent}
+Session ID: ${sessionID}
+
+---
+
+${textContent || "(No text output)"}`;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      console.log(`[delegate] \u274C FAILED: ${message}`);
+      return `\u274C Task failed: ${message}`;
+    }
+  }
+});
+var createGetTaskResultTool = (manager) => tool5({
+  description: `Get the result from a completed background task.
+
+<note>
+If the task is still running, returns status info.
+Wait for the "All Complete" notification before checking.
+</note>`,
+  args: {
+    taskId: tool5.schema.string().describe("Task ID from delegate_task (e.g., 'task_a1b2c3d4')")
+  },
+  async execute(args) {
+    const { taskId } = args;
+    const task = manager.getTask(taskId);
+    if (!task) {
+      return `\u274C Task not found: \`${taskId}\`
+
+Use \`list_tasks\` to see available tasks.`;
+    }
+    if (task.status === "running") {
+      const elapsed = Math.floor((Date.now() - task.startedAt.getTime()) / 1e3);
+      return `\u23F3 **Task Still Running**
+
+| Property | Value |
+|----------|-------|
+| **Task ID** | \`${taskId}\` |
+| **Agent** | ${task.agent} |
+| **Elapsed** | ${elapsed}s |
+
+Wait for "All Complete" notification, then try again.`;
+    }
+    const result = await manager.getResult(taskId);
+    const duration = manager.formatDuration(task.startedAt, task.completedAt);
+    if (task.status === "error" || task.status === "timeout") {
+      return `\u274C **Task ${task.status === "timeout" ? "Timed Out" : "Failed"}**
+
+| Property | Value |
+|----------|-------|
+| **Task ID** | \`${taskId}\` |
+| **Agent** | ${task.agent} |
+| **Error** | ${task.error} |
+| **Duration** | ${duration} |`;
+    }
+    return `\u2705 **Task Completed**
+
+| Property | Value |
+|----------|-------|
+| **Task ID** | \`${taskId}\` |
+| **Agent** | ${task.agent} |
+| **Duration** | ${duration} |
+
+---
+
+**Result:**
+
+${result || "(No output)"}`;
+  }
+});
+var createListTasksTool = (manager) => tool5({
+  description: `List all background tasks and their status.`,
+  args: {
+    status: tool5.schema.string().optional().describe("Filter: 'all', 'running', 'completed', 'error'")
+  },
+  async execute(args) {
+    const { status = "all" } = args;
+    let tasks;
+    switch (status) {
+      case "running":
+        tasks = manager.getRunningTasks();
+        break;
+      case "completed":
+        tasks = manager.getAllTasks().filter((t) => t.status === "completed");
+        break;
+      case "error":
+        tasks = manager.getAllTasks().filter((t) => t.status === "error" || t.status === "timeout");
+        break;
+      default:
+        tasks = manager.getAllTasks();
+    }
+    if (tasks.length === 0) {
+      return `\u{1F4CB} No background tasks found${status !== "all" ? ` (filter: ${status})` : ""}.
+
+Use \`delegate_task({ ..., background: true })\` to spawn background tasks.`;
+    }
+    const runningCount = manager.getRunningTasks().length;
+    const completedCount = manager.getAllTasks().filter((t) => t.status === "completed").length;
+    const errorCount = manager.getAllTasks().filter((t) => t.status === "error" || t.status === "timeout").length;
+    const statusIcon = (s) => {
+      switch (s) {
+        case "running":
+          return "\u23F3";
+        case "completed":
+          return "\u2705";
+        case "error":
+          return "\u274C";
+        case "timeout":
+          return "\u23F1\uFE0F";
+        default:
+          return "\u2753";
+      }
+    };
+    const rows = tasks.map((t) => {
+      const elapsed = Math.floor((Date.now() - t.startedAt.getTime()) / 1e3);
+      const desc = t.description.length > 25 ? t.description.slice(0, 22) + "..." : t.description;
+      return `| \`${t.id}\` | ${statusIcon(t.status)} ${t.status} | ${t.agent} | ${desc} | ${elapsed}s |`;
+    }).join("\n");
+    return `\u{1F4CB} **Background Tasks** (${tasks.length} shown)
+\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501
+| \u23F3 Running: ${runningCount} | \u2705 Completed: ${completedCount} | \u274C Error: ${errorCount} |
+\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501
+
+| Task ID | Status | Agent | Description | Elapsed |
+|---------|--------|-------|-------------|---------|
+${rows}
+
+\u{1F4A1} Use \`get_task_result({ taskId: "task_xxx" })\` to get results.
+\u{1F6D1} Use \`cancel_task({ taskId: "task_xxx" })\` to stop a running task.`;
+  }
+});
+var createCancelTaskTool = (manager) => tool5({
+  description: `Cancel a running background task.
+
+<purpose>
+Stop a runaway or no-longer-needed task.
+Frees up concurrency slot for other tasks.
+</purpose>`,
+  args: {
+    taskId: tool5.schema.string().describe("Task ID to cancel (e.g., 'task_a1b2c3d4')")
+  },
+  async execute(args) {
+    const { taskId } = args;
+    const cancelled = await manager.cancelTask(taskId);
+    if (cancelled) {
+      return `\u{1F6D1} **Task Cancelled**
+
+Task \`${taskId}\` has been stopped. Concurrency slot released.`;
+    }
+    const task = manager.getTask(taskId);
+    if (task) {
+      return `\u26A0\uFE0F Cannot cancel: Task \`${taskId}\` is ${task.status} (not running).`;
+    }
+    return `\u274C Task \`${taskId}\` not found.
+
+Use \`list_tasks\` to see available tasks.`;
+  }
+});
+function createAsyncAgentTools(manager, client) {
+  return {
+    delegate_task: createDelegateTaskTool(manager, client),
+    get_task_result: createGetTaskResultTool(manager),
+    list_tasks: createListTasksTool(manager),
+    cancel_task: createCancelTaskTool(manager)
+  };
+}
 
 // src/utils/common.ts
 function detectSlashCommand(text) {
   const match = text.trim().match(/^\/([a-zA-Z0-9_-]+)(?:\s+(.*))?$/);
   if (!match) return null;
   return { command: match[1], args: match[2] || "" };
+}
+function formatTimestamp(date = /* @__PURE__ */ new Date()) {
+  const pad = (n) => n.toString().padStart(2, "0");
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
+}
+function formatElapsedTime(startMs, endMs = Date.now()) {
+  const elapsed = endMs - startMs;
+  if (elapsed < 0) return "0s";
+  const seconds = Math.floor(elapsed / 1e3) % 60;
+  const minutes = Math.floor(elapsed / (1e3 * 60)) % 60;
+  const hours = Math.floor(elapsed / (1e3 * 60 * 60));
+  const parts = [];
+  if (hours > 0) parts.push(`${hours}h`);
+  if (minutes > 0) parts.push(`${minutes}m`);
+  if (seconds > 0 || parts.length === 0) parts.push(`${seconds}s`);
+  return parts.join(" ");
 }
 
 // src/utils/sanity.ts
@@ -885,6 +2198,7 @@ Request a fresh plan from architect with reduced scope.
 </critical_anomaly>`;
 
 // src/index.ts
+var PLUGIN_VERSION = "0.2.4";
 var DEFAULT_MAX_STEPS = 500;
 var TASK_COMMAND_MAX_STEPS = 1e3;
 var AGENT_EMOJI2 = {
@@ -912,7 +2226,10 @@ Execute it NOW.
 </auto_continue>`;
 var OrchestratorPlugin = async (input) => {
   const { directory, client } = input;
+  console.log(`[orchestrator] v${PLUGIN_VERSION} loaded`);
   const sessions = /* @__PURE__ */ new Map();
+  const parallelAgentManager2 = ParallelAgentManager.getInstance(client, directory);
+  const asyncAgentTools = createAsyncAgentTools(parallelAgentManager2, client);
   return {
     // -----------------------------------------------------------------
     // Tools we expose to the LLM
@@ -921,7 +2238,16 @@ var OrchestratorPlugin = async (input) => {
       call_agent: callAgentTool,
       slashcommand: createSlashcommandTool(),
       grep_search: grepSearchTool(directory),
-      glob_search: globSearchTool(directory)
+      glob_search: globSearchTool(directory),
+      mgrep: mgrepTool(directory),
+      // Multi-pattern grep (parallel, Rust-powered)
+      // Background task tools - run shell commands asynchronously
+      run_background: runBackgroundTool,
+      check_background: checkBackgroundTool,
+      list_background: listBackgroundTool,
+      kill_background: killBackgroundTool,
+      // Async agent tools - spawn agents in parallel sessions
+      ...asyncAgentTools
     },
     // -----------------------------------------------------------------
     // Config hook - registers our commands and agents with OpenCode
@@ -960,11 +2286,14 @@ var OrchestratorPlugin = async (input) => {
       const sessionID = msgInput.sessionID;
       const agentName = (msgInput.agent || "").toLowerCase();
       if (agentName === "commander" && !sessions.has(sessionID)) {
+        const now = Date.now();
         sessions.set(sessionID, {
           active: true,
           step: 0,
           maxSteps: DEFAULT_MAX_STEPS,
-          timestamp: Date.now()
+          timestamp: now,
+          startTime: now,
+          lastStepTime: now
         });
         state.missionActive = true;
         state.sessions.set(sessionID, {
@@ -985,11 +2314,14 @@ var OrchestratorPlugin = async (input) => {
         }
       }
       if (parsed?.command === "task") {
+        const now = Date.now();
         sessions.set(sessionID, {
           active: true,
           step: 0,
           maxSteps: TASK_COMMAND_MAX_STEPS,
-          timestamp: Date.now()
+          timestamp: now,
+          startTime: now,
+          lastStepTime: now
         });
         state.missionActive = true;
         state.sessions.set(sessionID, {
@@ -1020,8 +2352,12 @@ var OrchestratorPlugin = async (input) => {
     "tool.execute.after": async (toolInput, toolOutput) => {
       const session = sessions.get(toolInput.sessionID);
       if (!session?.active) return;
+      const now = Date.now();
+      const stepDuration = formatElapsedTime(session.lastStepTime, now);
+      const totalElapsed = formatElapsedTime(session.startTime, now);
       session.step++;
-      session.timestamp = Date.now();
+      session.timestamp = now;
+      session.lastStepTime = now;
       const stateSession = state.sessions.get(toolInput.sessionID);
       if (toolInput.tool === "call_agent" && stateSession) {
         const sanityResult = checkOutputSanity(toolOutput.output);
@@ -1116,9 +2452,10 @@ ${stateSession.graph.getTaskSummary()}`;
 \u{1F449} NEXT: ${readyTasks.map((t) => `[${t.id}]`).join(", ")}`;
         }
       }
+      const currentTime = formatTimestamp();
       toolOutput.output += `
 
-[${session.step}/${session.maxSteps}]`;
+\u23F1\uFE0F [${currentTime}] Step ${session.step}/${session.maxSteps} | This step: ${stepDuration} | Total: ${totalElapsed}`;
     },
     // -----------------------------------------------------------------
     // assistant.done hook - runs when the LLM finishes responding
@@ -1177,8 +2514,13 @@ ${stateSession.graph.getTaskSummary()}`;
         state.sessions.delete(sessionID);
         return;
       }
+      const now = Date.now();
+      const stepDuration = formatElapsedTime(session.lastStepTime, now);
+      const totalElapsed = formatElapsedTime(session.startTime, now);
       session.step++;
-      session.timestamp = Date.now();
+      session.timestamp = now;
+      session.lastStepTime = now;
+      const currentTime = formatTimestamp();
       if (session.step >= session.maxSteps) {
         session.active = false;
         state.missionActive = false;
@@ -1193,7 +2535,7 @@ ${stateSession.graph.getTaskSummary()}`;
                 type: "text",
                 text: CONTINUE_INSTRUCTION + `
 
-[Step ${session.step}/${session.maxSteps}]`
+\u23F1\uFE0F [${currentTime}] Step ${session.step}/${session.maxSteps} | This step: ${stepDuration} | Total: ${totalElapsed}`
               }]
             }
           });

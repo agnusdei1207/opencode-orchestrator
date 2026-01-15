@@ -280,6 +280,19 @@ async fn handle_request(request: &Value) -> Option<Value> {
                         "name": "list_hooks",
                         "description": "List available hooks",
                         "inputSchema": {"type": "object", "properties": {}}
+                    },
+                    {
+                        "name": "mgrep",
+                        "description": "Search multiple patterns in parallel. Much faster than running grep multiple times.",
+                        "inputSchema": {
+                            "type": "object",
+                            "properties": {
+                                "patterns": {"type": "array", "items": {"type": "string"}, "description": "Array of regex patterns to search"},
+                                "directory": {"type": "string", "description": "Search directory (optional)"},
+                                "max_results_per_pattern": {"type": "number", "description": "Max results per pattern (default: 50)"}
+                            },
+                            "required": ["patterns"]
+                        }
                     }
                 ]
             })

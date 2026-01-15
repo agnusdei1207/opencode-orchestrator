@@ -11,14 +11,24 @@
  * The agents are: Commander, Architect, Builder, Inspector, Recorder
  */
 
+const PLUGIN_VERSION = "0.2.4";  // Keep in sync with package.json
+
 import type { PluginInput } from "@opencode-ai/plugin";
 import { AGENTS } from "./agents/definitions.js";
 import { TaskGraph, type Task } from "./core/tasks.js";
 import { state } from "./core/state.js";
 import { callAgentTool } from "./tools/callAgent.js";
 import { createSlashcommandTool, COMMANDS } from "./tools/slashCommand.js";
-import { grepSearchTool, globSearchTool } from "./tools/search.js";
-import { detectSlashCommand } from "./utils/common.js";
+import { grepSearchTool, globSearchTool, mgrepTool } from "./tools/search.js";
+import {
+    runBackgroundTool,
+    checkBackgroundTool,
+    listBackgroundTool,
+    killBackgroundTool,
+} from "./tools/background.js";
+import { ParallelAgentManager } from "./core/async-agent.js";
+import { createAsyncAgentTools } from "./tools/async-agent.js";
+import { detectSlashCommand, formatTimestamp, formatElapsedTime } from "./utils/common.js";
 import {
     checkOutputSanity,
     RECOVERY_PROMPT,
@@ -69,14 +79,23 @@ Execute it NOW.
 const OrchestratorPlugin = async (input: PluginInput) => {
     const { directory, client } = input;
 
+    // Log version on startup
+    console.log(`[orchestrator] v${PLUGIN_VERSION} loaded`);
+
     // Track active sessions - each chat session gets its own state
     // so multiple users or conversations don't interfere with each other
     const sessions = new Map<string, {
         active: boolean;
         step: number;
         maxSteps: number;
-        timestamp: number;
+        timestamp: number;      // Last activity timestamp
+        startTime: number;      // Session start time for total elapsed
+        lastStepTime: number;   // Time of last step for step duration
     }>();
+
+    // Initialize parallel agent manager
+    const parallelAgentManager = ParallelAgentManager.getInstance(client, directory);
+    const asyncAgentTools = createAsyncAgentTools(parallelAgentManager, client);
 
     return {
         // -----------------------------------------------------------------
@@ -87,6 +106,14 @@ const OrchestratorPlugin = async (input: PluginInput) => {
             slashcommand: createSlashcommandTool(),
             grep_search: grepSearchTool(directory),
             glob_search: globSearchTool(directory),
+            mgrep: mgrepTool(directory),  // Multi-pattern grep (parallel, Rust-powered)
+            // Background task tools - run shell commands asynchronously
+            run_background: runBackgroundTool,
+            check_background: checkBackgroundTool,
+            list_background: listBackgroundTool,
+            kill_background: killBackgroundTool,
+            // Async agent tools - spawn agents in parallel sessions
+            ...asyncAgentTools,
         },
 
         // -----------------------------------------------------------------
@@ -137,11 +164,14 @@ const OrchestratorPlugin = async (input: PluginInput) => {
             // If someone picks the Commander agent, auto-start a mission
             // This makes it so users don't need to type /task every time
             if (agentName === "commander" && !sessions.has(sessionID)) {
+                const now = Date.now();
                 sessions.set(sessionID, {
                     active: true,
                     step: 0,
                     maxSteps: DEFAULT_MAX_STEPS,
-                    timestamp: Date.now(),
+                    timestamp: now,
+                    startTime: now,
+                    lastStepTime: now,
                 });
                 state.missionActive = true;
                 state.sessions.set(sessionID, {
@@ -166,11 +196,14 @@ const OrchestratorPlugin = async (input: PluginInput) => {
 
             // Handle /task command - this gets more steps since tasks are usually big
             if (parsed?.command === "task") {
+                const now = Date.now();
                 sessions.set(sessionID, {
                     active: true,
                     step: 0,
                     maxSteps: TASK_COMMAND_MAX_STEPS,
-                    timestamp: Date.now(),
+                    timestamp: now,
+                    startTime: now,
+                    lastStepTime: now,
                 });
                 state.missionActive = true;
                 state.sessions.set(sessionID, {
@@ -208,9 +241,13 @@ const OrchestratorPlugin = async (input: PluginInput) => {
             const session = sessions.get(toolInput.sessionID);
             if (!session?.active) return;
 
-            // Tick the step counter
+            // Tick the step counter and track timing
+            const now = Date.now();
+            const stepDuration = formatElapsedTime(session.lastStepTime, now);
+            const totalElapsed = formatElapsedTime(session.startTime, now);
             session.step++;
-            session.timestamp = Date.now();
+            session.timestamp = now;
+            session.lastStepTime = now;
 
             const stateSession = state.sessions.get(toolInput.sessionID);
 
@@ -328,8 +365,9 @@ const OrchestratorPlugin = async (input: PluginInput) => {
                 }
             }
 
-            // Always show the step counter at the bottom
-            toolOutput.output += `\n\n[${session.step}/${session.maxSteps}]`;
+            // Always show the step counter with timestamp at the bottom
+            const currentTime = formatTimestamp();
+            toolOutput.output += `\n\n⏱️ [${currentTime}] Step ${session.step}/${session.maxSteps} | This step: ${stepDuration} | Total: ${totalElapsed}`;
         },
 
         // -----------------------------------------------------------------
@@ -415,8 +453,13 @@ const OrchestratorPlugin = async (input: PluginInput) => {
                 return;
             }
 
+            const now = Date.now();
+            const stepDuration = formatElapsedTime(session.lastStepTime, now);
+            const totalElapsed = formatElapsedTime(session.startTime, now);
             session.step++;
-            session.timestamp = Date.now();
+            session.timestamp = now;
+            session.lastStepTime = now;
+            const currentTime = formatTimestamp();
 
             // Hit the limit? Time to stop.
             if (session.step >= session.maxSteps) {
@@ -437,7 +480,7 @@ const OrchestratorPlugin = async (input: PluginInput) => {
                         body: {
                             parts: [{
                                 type: "text",
-                                text: CONTINUE_INSTRUCTION + `\n\n[Step ${session.step}/${session.maxSteps}]`
+                                text: CONTINUE_INSTRUCTION + `\n\n⏱️ [${currentTime}] Step ${session.step}/${session.maxSteps} | This step: ${stepDuration} | Total: ${totalElapsed}`
                             }],
                         },
                     });
