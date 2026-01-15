@@ -26,6 +26,7 @@ import {
     listBackgroundTool,
     killBackgroundTool,
 } from "./tools/background.js";
+import { backgroundTaskManager } from "./core/background.js";
 import { ParallelAgentManager } from "./core/async-agent.js";
 import { createAsyncAgentTools } from "./tools/async-agent.js";
 import { detectSlashCommand, formatTimestamp, formatElapsedTime } from "./utils/common.js";
@@ -510,8 +511,14 @@ const OrchestratorPlugin = async (input: PluginInput) => {
             if (event.type === "session.deleted") {
                 const props = event.properties as { info?: { id?: string } } | undefined;
                 if (props?.info?.id) {
-                    sessions.delete(props.info.id);
-                    state.sessions.delete(props.info.id);
+                    const sessionID = props.info.id;
+                    sessions.delete(sessionID);
+                    state.sessions.delete(sessionID);
+
+                    const cleanedCount = backgroundTaskManager.cleanupBySession(sessionID);
+                    if (cleanedCount > 0) {
+                        console.log(`[background] Cleaned up ${cleanedCount} tasks for deleted session ${sessionID}`);
+                    }
                 }
             }
         },

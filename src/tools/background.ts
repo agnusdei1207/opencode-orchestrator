@@ -37,15 +37,17 @@ The command runs asynchronously - use check_background to get results.
         cwd: tool.schema.string().optional().describe("Working directory (default: project root)"),
         timeout: tool.schema.number().optional().describe("Timeout in milliseconds (default: 300000 = 5 min)"),
         label: tool.schema.string().optional().describe("Human-readable label for this task"),
+        sessionID: tool.schema.string().optional().describe("Session ID for automatic cleanup on session deletion"),
     },
     async execute(args) {
-        const { command, cwd, timeout, label } = args;
+        const { command, cwd, timeout, label, sessionID } = args;
 
         const task = backgroundTaskManager.run({
             command,
             cwd: cwd || process.cwd(),
             timeout: timeout || 300000,
             label,
+            sessionID,
         });
 
         const displayLabel = label ? ` (${label})` : "";

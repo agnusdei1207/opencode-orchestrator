@@ -8,6 +8,7 @@ import { ChildProcess } from "child_process";
 export type TaskStatus = "pending" | "running" | "done" | "error" | "timeout";
 export interface BackgroundTask {
     id: string;
+    sessionID?: string;
     command: string;
     args: string[];
     cwd: string;
@@ -26,17 +27,45 @@ export interface RunBackgroundOptions {
     cwd?: string;
     timeout?: number;
     label?: string;
+    sessionID?: string;
 }
 declare class BackgroundTaskManager {
     private static _instance;
     private tasks;
     private debugMode;
+    private storageDir;
+    private storageFile;
+    private monitoringInterval?;
     private constructor();
     static get instance(): BackgroundTaskManager;
     /**
      * Generate a unique task ID in the format job_xxxxxxxx
      */
     private generateId;
+    /**
+     * Ensure storage directory exists
+     */
+    private ensureStorageDir;
+    /**
+     * Load tasks from disk on startup
+     */
+    private loadFromDisk;
+    /**
+     * Save tasks to disk
+     */
+    private saveToDisk;
+    /**
+     * Start periodic monitoring of running processes
+     */
+    private startMonitoring;
+    /**
+     * Stop monitoring
+     */
+    private stopMonitoring;
+    /**
+     * Monitor running processes and detect zombie processes
+     */
+    private monitorRunningProcesses;
     /**
      * Debug logging helper
      */
@@ -57,6 +86,10 @@ declare class BackgroundTaskManager {
      * Get tasks by status
      */
     getByStatus(status: TaskStatus): BackgroundTask[];
+    /**
+     * Clean up tasks by session ID
+     */
+    cleanupBySession(sessionID: string): number;
     /**
      * Clear completed/failed tasks
      */
