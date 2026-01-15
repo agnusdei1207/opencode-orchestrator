@@ -42,26 +42,27 @@
         "LICENSE"
     ],
     "scripts": {
-        "build:bin:linux-x64": "docker compose run --rm dev sh -c 'cargo build --release && cp target/release/orchestrator bin/orchestrator-linux-x64' && chmod +x bin/orchestrator-linux-x64",
-        "build:bin:linux-arm64": "docker compose run --rm dev sh -c 'rustup target add aarch64-unknown-linux-gnu && apt-get update && apt-get install -y gcc-aarch64-linux-gnu && CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc cargo build --release --target aarch64-unknown-linux-gnu && cp target/aarch64-unknown-linux-gnu/release/orchestrator bin/orchestrator-linux-arm64' && chmod +x bin/orchestrator-linux-arm64",
-        "build:bin": "npm run build:bin:linux-x64 && npm run build:bin:linux-arm64",
-        "build:js": "npx esbuild src/index.ts --bundle --outfile=dist/index.js --platform=node --format=esm --packages=external && npx esbuild src/cli.ts --bundle --outfile=dist/cli.js --platform=node --format=esm --packages=external && tsc --emitDeclarationOnly && mkdir -p dist/scripts && npx esbuild scripts/postinstall.ts --bundle --outfile=dist/scripts/postinstall.js --platform=node --format=esm --packages=external && npx esbuild scripts/preuninstall.ts --bundle --outfile=dist/scripts/preuninstall.js --platform=node --format=esm --packages=external",
+        "build:bin:linux-x64": "docker compose run --rm dev sh -c 'cargo build --release && cp target/release/orchestrator bin/orchestrator-linux-x64' && shx chmod +x bin/orchestrator-linux-x64",
+        "build:bin:linux-arm64": "docker compose run --rm dev sh -c 'rustup target add aarch64-unknown-linux-gnu && apt-get update && apt-get install -y gcc-aarch64-linux-gnu && CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc cargo build --release --target aarch64-unknown-linux-gnu && cp target/aarch64-unknown-linux-gnu/release/orchestrator bin/orchestrator-linux-arm64' && shx chmod +x bin/orchestrator-linux-arm64",
+        "build:bin:win-x64": "docker compose run --rm win-builder sh -c 'cargo build --release --target x86_64-pc-windows-gnu && cp target/x86_64-pc-windows-gnu/release/orchestrator.exe bin/orchestrator-windows-x64.exe'",
+        "build:bin": "npm run build:bin:linux-x64 && npm run build:bin:linux-arm64 && npm run build:bin:win-x64",
+        "build:js": "npx esbuild src/index.ts --bundle --outfile=dist/index.js --platform=node --format=esm --packages=external && npx esbuild src/cli.ts --bundle --outfile=dist/cli.js --platform=node --format=esm --packages=external && tsc --emitDeclarationOnly && shx mkdir -p dist/scripts && npx esbuild scripts/postinstall.ts --bundle --outfile=dist/scripts/postinstall.js --platform=node --format=esm --packages=external && npx esbuild scripts/preuninstall.ts --bundle --outfile=dist/scripts/preuninstall.js --platform=node --format=esm --packages=external",
         "build": "npm run build:bin && npm run build:js",
         "test": "docker compose run --rm test",
         "release:ship": "npm publish --access public && git add -A && git commit -m \"v$(node -p \"require('./package.json').version\")\" && git tag -a \"v$(node -p \"require('./package.json').version\")\" -m \"v$(node -p \"require('./package.json').version\")\" && git push --follow-tags",
         "release:patch": "npm run build && npm run test && npm version patch --no-git-tag-version && npm run release:ship",
         "release:minor": "npm run build && npm run test && npm version minor --no-git-tag-version && npm run release:ship",
         "release:major": "npm run build && npm run test && npm version major --no-git-tag-version && npm run release:ship",
-        "postinstall": "node dist/scripts/postinstall.js 2>/dev/null || true",
-        "preuninstall": "node dist/scripts/preuninstall.js 2>/dev/null || true",
+        "postinstall": "node dist/scripts/postinstall.js",
+        "preuninstall": "node dist/scripts/preuninstall.js",
         "prepublishOnly": "npm run build:js",
-        "dev:install": "npm run build:js && npm uninstall -g opencode-orchestrator >/dev/null 2>&1 || true && npm install -g . && echo '✅ Installed globally'",
-        "dev:uninstall": "npm unlink -g opencode-orchestrator >/dev/null 2>&1 || true && npm uninstall -g opencode-orchestrator >/dev/null 2>&1 || true && rm -rf $(npm root -g)/opencode-orchestrator && echo '✅ Forcefully Uninstalled'",
-        "dev:link": "npm run build:js && npm unlink -g opencode-orchestrator >/dev/null 2>&1 || true && npm unlink >/dev/null 2>&1 || true && rm -rf $(npm root -g)/opencode-orchestrator && npm link && echo '✅ Re-linked. Restart OpenCode.'",
-        "dev:unlink": "npm unlink -g opencode-orchestrator >/dev/null 2>&1 || true && npm unlink >/dev/null 2>&1 || true && rm -rf $(npm root -g)/opencode-orchestrator && echo '✅ Unlinked and Cleaned'",
+        "dev:install": "npm run build:js && npm uninstall -g opencode-orchestrator || shx echo 'Not installed' && npm install -g . && echo '✅ Installed globally'",
+        "dev:uninstall": "npm unlink -g opencode-orchestrator || shx echo 'Not linked' && npm uninstall -g opencode-orchestrator || shx echo 'Not installed' && shx rm -rf $(npm root -g)/opencode-orchestrator && echo '✅ Forcefully Uninstalled'",
+        "dev:link": "npm run build:js && npm unlink -g opencode-orchestrator || shx echo 'Not linked' && npm unlink || shx echo 'Not linked' && shx rm -rf $(npm root -g)/opencode-orchestrator && npm link && echo '✅ Re-linked. Restart OpenCode.'",
+        "dev:unlink": "npm unlink -g opencode-orchestrator || shx echo 'Not linked' && npm unlink || shx echo 'Not linked' && shx rm -rf $(npm root -g)/opencode-orchestrator && echo '✅ Unlinked and Cleaned'",
         "dev:reload": "npm run dev:link",
         "dev:build": "npm run build:js && echo '✅ Built (no link change)'",
-        "dev:status": "echo '=== Global Link Status ===' && ls -l $(npm root -g)/opencode-orchestrator 2>/dev/null || echo 'Not found'",
+        "dev:status": "echo '=== Global Link Status ===' && shx ls -l $(npm root -g)/opencode-orchestrator || echo 'Not found'",
         "util:stars": "gh api repos/agnusdei1207/opencode-orchestrator/stargazers --jq '.[].login'",
         "util:forks": "gh api repos/agnusdei1207/opencode-orchestrator/forks --jq '.[].full_name'",
         "util:watchers": "gh api repos/agnusdei1207/opencode-orchestrator/subscribers --jq '.[].login'"
@@ -73,6 +74,7 @@
     "devDependencies": {
         "@types/node": "^22.0.0",
         "esbuild": "^0.24.0",
+        "shx": "^0.4.0",
         "typescript": "^5.7.0"
     }
 }

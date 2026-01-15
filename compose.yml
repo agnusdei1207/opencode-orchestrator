@@ -16,6 +16,16 @@ services:
         echo 'Build complete: target/release/orchestrator'
       "
 
+  win-builder:
+    build:
+      context: .
+      dockerfile: Dockerfile.windows
+    volumes:
+      - .:/app
+      - cargo-cache:/usr/local/cargo/registry
+      - target-cache:/app/target
+    command: cargo build --release --target x86_64-pc-windows-gnu
+
   test:
     image: rust:1.92-bookworm
     working_dir: /app
