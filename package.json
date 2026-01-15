@@ -2,7 +2,7 @@
   "name": "opencode-orchestrator",
   "displayName": "OpenCode Orchestrator",
   "description": "Distributed Cognitive Architecture for OpenCode. Turns simple prompts into specialized multi-agent workflows (Planner, Coder, Reviewer).",
-  "version": "0.4.18",
+  "version": "0.4.20",
   "author": "agnusdei1207",
   "license": "MIT",
   "repository": {
@@ -49,7 +49,9 @@
     "dev:link": "npm run build && npm unlink opencode-orchestrator || shx echo 'Not linked' && shx rm -rf $(npm root -g)/opencode-orchestrator && npm link && echo 'SUCCESS: Re-linked. Restart OpenCode.'",
     "dev:unlink": "npm unlink opencode-orchestrator || shx echo 'Not linked' && shx rm -rf $(npm root -g)/opencode-orchestrator && echo 'SUCCESS: Unlinked and Cleaned'",
     "dev:status": "echo '=== Global Link Status ===' && shx ls -l $(npm root -g)/opencode-orchestrator || echo 'Not linked'",
-    "dev:test": "node dist/scripts/postinstall.js && echo '---' && node dist/scripts/preuninstall.js"
+    "dev:test": "node dist/scripts/postinstall.js && echo '---' && node dist/scripts/preuninstall.js",
+    "delete": "brew uninstall opencode && rm -rf ~/.config/opencode && npm uninstall -g opencode-orchestrator",
+    "install": "brew install opencode && npm install -g opencode-orchestrator"
   },
   "dependencies": {
     "@opencode-ai/plugin": "^1.1.1",
