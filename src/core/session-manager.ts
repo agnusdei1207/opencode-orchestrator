@@ -32,21 +32,21 @@ export interface SessionOptions {
 export class SessionManager {
   private sessions: Map<string, SessionState> = new Map();
   private events: SessionEvents = {
-    created: () => {},
-    activated: () => {},
-    deactivated: () => {},
-    step: () => {},
-    completed: () => {},
-    error: () => {},
-    disposed: () => {},
+    created: () => { },
+    activated: () => { },
+    deactivated: () => { },
+    step: () => { },
+    completed: () => { },
+    error: () => { },
+    disposed: () => { },
   };
 
-  on(event: keyof SessionEvents, handler: SessionEvents[keyof SessionEvents]): () => {
+  on(event: keyof SessionEvents, handler: SessionEvents[keyof SessionEvents]): void {
     this.events[event] = handler as any;
-  };
+  }
 
   emit(event: keyof SessionEvents, sessionID: string, data?: any): void {
-    const handler = this.events[event];
+    const handler = this.events[event] as any;
     if (handler) {
       handler(sessionID, data);
     }

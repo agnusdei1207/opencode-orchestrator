@@ -14,7 +14,6 @@ export const AGENT_EMOJI: Record<string, string> = {
   [AGENT_NAMES.INSPECTOR]: "🔍",
   [AGENT_NAMES.RECORDER]: "💾",
   [AGENT_NAMES.COMMANDER]: "🎯",
-  [AGENT_NAMES.FRONTEND_DESIGNER]: "🎨",
 };
 
 // ============================================================================
