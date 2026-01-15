@@ -1,18 +1,3 @@
-/**
- * OpenCode Orchestrator Plugin
- *
- * This is the main entry point for the 5-Agent structured architecture.
- * We've optimized it for weaker models by using:
- * - XML-structured prompts with clear boundaries
- * - Explicit reasoning patterns (THINK -> ACT -> OBSERVE -> ADJUST)
- * - Evidence-based completion requirements
- * - Autonomous execution loop that keeps going until done
- *
- * The agents are: Commander, Architect, Builder, Inspector, Recorder
- */
-
-const PLUGIN_VERSION = "0.2.4";  // Keep in sync with package.json
-
 import type { PluginInput } from "@opencode-ai/plugin";
 import { AGENTS } from "./agents/definitions.js";
 import { AGENT_NAMES } from "./shared/contracts/names.js";
@@ -21,6 +6,7 @@ import { state } from "./core/state.js";
 import { callAgentTool } from "./tools/callAgent.js";
 import { createSlashcommandTool, COMMANDS } from "./tools/slashCommand.js";
 import { grepSearchTool, globSearchTool, mgrepTool } from "./tools/search.js";
+import { gitBranchTool } from "./tools/git.js";
 import {
     runBackgroundTool,
     checkBackgroundTool,
@@ -29,86 +15,26 @@ import {
 } from "./tools/background.js";
 import { ParallelAgentManager } from "./core/async-agent.js";
 import { createAsyncAgentTools } from "./tools/async-agent.js";
-import { detectSlashCommand, formatTimestamp, formatElapsedTime } from "./utils/common.js";
-import {
-    checkOutputSanity,
-    RECOVERY_PROMPT,
-    ESCALATION_PROMPT,
-} from "./utils/sanity.js";
-import { backgroundTaskManager } from "./core/background.js";
-
-// ============================================================================
-// Constants
-// ============================================================================
-
-// How many steps we allow before forcing a stop.
-// Default is 500, but /task gets 1000 for longer missions.
-const DEFAULT_MAX_STEPS = 500;
-const TASK_COMMAND_MAX_STEPS = 1000;
-
-// Just some fun emojis to make the logs prettier
-const AGENT_EMOJI: Record<string, string> = {
-    [AGENT_NAMES.ARCHITECT]: "🏗️",
-    [AGENT_NAMES.BUILDER]: "🔨",
-    [AGENT_NAMES.INSPECTOR]: "🔍",
-    [AGENT_NAMES.RECORDER]: "💾",
-    [AGENT_NAMES.COMMANDER]: "🎯",
-};
-
-// This gets injected when the assistant finishes but mission isn't complete.
-// Basically tells it "hey, you're not done yet, keep going!"
-const CONTINUE_INSTRUCTION = `<auto_continue>
-<status>Mission not complete. Keep executing.</status>
-
-<rules>
-1. DO NOT stop - mission is incomplete
-2. DO NOT wait for user input
-3. If previous action failed, try different approach
-4. If agent returned nothing, proceed to next step
-</rules>
-
-<next_step>
-What is the current state?
-What is the next action?
-Execute it NOW.
-</next_step>
-</auto_continue>`;
-
-// ============================================================================
-// Plugin Definition
-// ============================================================================
-
-const OrchestratorPlugin = async (input: PluginInput) => {
-    const { directory, client } = input;
-
-    // Log version on startup
-    console.log(`[orchestrator] v${PLUGIN_VERSION} loaded`);
-
-    // Track active sessions - each chat session gets its own state
-    // so multiple users or conversations don't interfere with each other
-    const sessions = new Map<string, {
-        active: boolean;
-        step: number;
-        maxSteps: number;
-        timestamp: number;      // Last activity timestamp
-        startTime: number;      // Session start time for total elapsed
-        lastStepTime: number;   // Time of last step for step duration
-    }>();
+import { createBatchTools } from "./tools/batch.js";
+import { createConfigTools } from "./tools/config.js";
 
     // Initialize parallel agent manager
     const parallelAgentManager = ParallelAgentManager.getInstance(client, directory);
     const asyncAgentTools = createAsyncAgentTools(parallelAgentManager, client);
+    const batchTools = createBatchTools(parallelAgentManager, client);
+    const configTools = createConfigTools(client);
 
     return {
         // -----------------------------------------------------------------
-        // Tools we expose to the LLM
+        // Tools we expose to LLM
         // -----------------------------------------------------------------
         tool: {
             call_agent: callAgentTool,
-            slashcommand: createSlashcommandTool(),
+            slashcommand: slashCommandTool,
             grep_search: grepSearchTool(directory),
             glob_search: globSearchTool(directory),
             mgrep: mgrepTool(directory),  // Multi-pattern grep (parallel, Rust-powered)
+            git_branch: gitBranchTool(directory),  // Git branch info and status
             // Background task tools - run shell commands asynchronously
             run_background: runBackgroundTool,
             check_background: checkBackgroundTool,
@@ -116,6 +42,10 @@ const OrchestratorPlugin = async (input: PluginInput) => {
             kill_background: killBackgroundTool,
             // Async agent tools - spawn agents in parallel sessions
             ...asyncAgentTools,
+            // Smart batch tools - centralized validation and retry
+            ...batchTools,
+            // Configuration tools - dynamic runtime settings
+            ...configTools,
         },
 
         // -----------------------------------------------------------------
@@ -300,8 +230,8 @@ const OrchestratorPlugin = async (input: PluginInput) => {
                 }
 
                 // Prepend a nice header so we know which agent is working
-                const agentName = toolInput.arguments.agent as string;
-                const emoji = AGENT_EMOJI[agentName] || "🤖";
+                const agentName = toolInput.arguments?.agent as string;
+                const emoji = AGENT_EMOJI_MERGED[agentName] || "🤖";
                 toolOutput.output = `${emoji} [${agentName.toUpperCase()}] Working...\n\n` + toolOutput.output;
             }
 
@@ -525,6 +455,5 @@ const OrchestratorPlugin = async (input: PluginInput) => {
             }
         },
     };
-};
 
 export default OrchestratorPlugin;

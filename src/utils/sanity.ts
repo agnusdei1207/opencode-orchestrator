@@ -1,30 +1,14 @@
-/**
- * Output Sanity Check - LLM degeneration/gibberish detection
- *
- * Detects common LLM failure modes:
- * - Single character repetition (SSSSSS...)
- * - Pattern loops (茅茅茅茅...)
- * - Low information density
- * - Visual gibberish (box drawing characters)
- * - Line repetition
- */
-
 export interface SanityResult {
     isHealthy: boolean;
     reason?: string;
     severity: "ok" | "warning" | "critical";
 }
 
-/**
- * Check if LLM output shows signs of degeneration
- */
 export function checkOutputSanity(text: string): SanityResult {
     if (!text || text.length < 50) {
         return { isHealthy: true, severity: "ok" };
     }
 
-    // Pattern 1: Single character repeated excessively (SSSSSS...)
-    // Matches same character repeated 15+ times
     if (/(.)\1{15,}/.test(text)) {
         return {
             isHealthy: false,
@@ -33,8 +17,6 @@ export function checkOutputSanity(text: string): SanityResult {
         };
     }
 
-    // Pattern 2: Short pattern repeated (茅茅茅茅..., ████...)
-    // Matches 2-6 char patterns repeated 8+ times
     if (/(.{2,6})\1{8,}/.test(text)) {
         return {
             isHealthy: false,
@@ -43,15 +25,12 @@ export function checkOutputSanity(text: string): SanityResult {
         };
     }
 
-    // Pattern 3: Very low character diversity
-    // Long text with very few unique characters indicates gibberish
     if (text.length > 200) {
         const cleanText = text.replace(/\s/g, "");
         if (cleanText.length > 100) {
             const uniqueChars = new Set(cleanText).size;
             const ratio = uniqueChars / cleanText.length;
             if (ratio < 0.02) {
-                // Less than 2% unique characters
                 return {
                     isHealthy: false,
                     reason: "Low information density",
@@ -61,8 +40,6 @@ export function checkOutputSanity(text: string): SanityResult {
         }
     }
 
-    // Pattern 4: Excessive block/box drawing characters (visual gibberish)
-    // These Unicode ranges: Box Drawing, Block Elements, Braille Patterns
     const boxChars = (
         text.match(/[\u2500-\u257f\u2580-\u259f\u2800-\u28ff]/g) || []
     ).length;
@@ -74,8 +51,6 @@ export function checkOutputSanity(text: string): SanityResult {
         };
     }
 
-    // Pattern 5: Line-by-line repetition check
-    // If 80%+ of lines are duplicates, likely a loop
     const lines = text.split("\n").filter((l) => l.trim().length > 10);
     if (lines.length > 10) {
         const lineSet = new Set(lines);
@@ -88,11 +63,8 @@ export function checkOutputSanity(text: string): SanityResult {
         }
     }
 
-    // Pattern 6: CJK character flood without meaningful structure
-    // Catches cases like random Chinese/Japanese character spam
     const cjkChars = (text.match(/[\u4e00-\u9fff\u3400-\u4dbf]/g) || []).length;
     if (cjkChars > 200) {
-        // Check if it's just repeated CJK characters
         const uniqueCjk = new Set(
             text.match(/[\u4e00-\u9fff\u3400-\u4dbf]/g) || []
         ).size;
@@ -108,18 +80,12 @@ export function checkOutputSanity(text: string): SanityResult {
     return { isHealthy: true, severity: "ok" };
 }
 
-/**
- * Check if text is completely empty or meaningless
- */
 export function isEmptyOrMeaningless(text: string): boolean {
     if (!text) return true;
     const cleaned = text.replace(/[\s\n\r\t]/g, "").trim();
     return cleaned.length < 10;
 }
 
-/**
- * Recovery prompt for single anomaly
- */
 export const RECOVERY_PROMPT = `<anomaly_recovery>
 ⚠️ SYSTEM NOTICE: Previous output was malformed (gibberish/loop detected).
 
@@ -140,9 +106,6 @@ export const RECOVERY_PROMPT = `<anomaly_recovery>
 What was the original task? Proceed from the last known good state.
 </anomaly_recovery>`;
 
-/**
- * Escalation prompt for multiple consecutive anomalies
- */
 export const ESCALATION_PROMPT = `<critical_anomaly>
 🚨 CRITICAL: Multiple consecutive malformed outputs detected.
 

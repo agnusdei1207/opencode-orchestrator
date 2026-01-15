@@ -1,0 +1,17 @@
+{
+  "name": "opencode-orchestrator",
+  "displayName": "OpenCode Orchestrator",
+  "version": "0.4.15",
+  "description": "Distributed Cognitive Architecture for OpenCode. Turns simple prompts into specialized multi-agent workflows with Smart Batch support.",
+  "scripts": {
+    "test": "vitest",
+    "test:unit": "vitest --run",
+    "test:watch": "vitest --watch",
+    "test:coverage": "vitest --coverage"
+  },
+  "devDependencies": {
+    "vitest": "^1.0.0",
+    "@vitest/ui": "^1.0.0",
+    "@vitest/coverage-v8": "^1.0.0"
+  }
+}

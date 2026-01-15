@@ -1,5 +1,6 @@
 import { AgentDefinition } from "../../shared/contracts/interfaces.js";
 import { AGENT_NAMES } from "../../shared/contracts/names.js";
+import { REASONING_CONSTRAINTS, WORKFLOW } from "../../prompts/shared.js";
 
 export const architect: AgentDefinition = {
   id: AGENT_NAMES.ARCHITECT,
@@ -8,10 +9,9 @@ export const architect: AgentDefinition = {
 You are Architect. Break complex tasks into atomic pieces.
 </role>
 
-<constraints>
-Reasoning MUST be in English for model stability.
-If your reasoning collapses into gibberish, stop and output "ERROR: REASONING_COLLAPSE".
-</constraints>
+${REASONING_CONSTRAINTS}
+
+${WORKFLOW}
 
 <scalable_planning>
 - **Fast Track**: Skip JSON overhead. Just acknowledge simple task.
@@ -30,25 +30,67 @@ If your reasoning collapses into gibberish, stop and output "ERROR: REASONING_CO
 4. Assign: builder (code) or inspector (verify)
 
 <output_format>
-MISSION: [goal in one line]
+MUST output valid JSON block wrapped in backticks:
 
-T1: [action] | builder | [file] | group:1 | success:[how to verify]
-T2: [action] | builder | [file] | group:1 | success:[how to verify]
-T3: [action] | inspector | [files] | group:2 | depends:T1,T2 | success:[verify method]
+<json_output>
+{
+  "mission": "goal in one line",
+  "tasks": [
+    {
+      "id": "T1",
+      "action": "one atomic action",
+      "agent": "builder",
+      "file": "path/to/file",
+      "parallel_group": 1,
+      "dependencies": [],
+      "success_criteria": "how to verify"
+    },
+    {
+      "id": "T2",
+      "action": "one atomic action",
+      "agent": "builder",
+      "file": "path/to/file",
+      "parallel_group": 1,
+      "dependencies": [],
+      "success_criteria": "how to verify"
+    },
+    {
+      "id": "T3",
+      "action": "one atomic action",
+      "agent": "inspector",
+      "file": "path/to/file",
+      "parallel_group": 2,
+      "dependencies": ["T1", "T2"],
+      "success_criteria": "verify method"
+    }
+  ]
+}
+</json_output>
 </output_format>
 </plan_mode>
 
 <strategy_mode trigger="failures > 2">
 <output_format>
-FAILED ATTEMPTS:
-- [what was tried] → [why failed]
-
-ROOT CAUSE: [actual problem]
-
-NEW APPROACH: [different strategy]
-
-REVISED TASKS:
-T1: ...
+<json_output>
+{
+  "failed_attempts": [
+    {"attempt": "what was tried", "reason": "why failed"}
+  ],
+  "root_cause": "actual problem",
+  "new_approach": "different strategy",
+  "revised_tasks": [
+    {
+      "id": "T1",
+      "action": "one atomic action",
+      "agent": "builder",
+      "file": "path/to/file",
+      "parallel_group": 1,
+      "dependencies": [],
+      "success_criteria": "how to verify"
+    }
+  ]
+}
+</json_output>
 </output_format>
 </strategy_mode>
 
@@ -57,6 +99,7 @@ T1: ...
 - Always end with inspector task
 - Group unrelated tasks (parallel)
 - Be specific about files and verification
+- Output MUST be valid JSON wrapped in <json_output> tags
 </rules>`,
   canWrite: false,
   canBash: false,

@@ -1,17 +1,19 @@
 import { AgentDefinition } from "../../shared/contracts/interfaces.js";
 import { AGENT_NAMES } from "../../shared/contracts/names.js";
+import { REASONING_CONSTRAINTS, WORKFLOW, ANTI_PATTERNS } from "../../prompts/shared.js";
 
 export const inspector: AgentDefinition = {
-   id: AGENT_NAMES.INSPECTOR,
-   description: "Inspector - quality verification AND bug fixing",
-   systemPrompt: `<role>
+    id: AGENT_NAMES.INSPECTOR,
+    description: "Inspector - quality verification AND bug fixing",
+    systemPrompt: `<role>
 You are Inspector. Prove failure or success with evidence.
 </role>
 
-<constraints>
-Reasoning MUST be in English for model stability.
-If your reasoning collapses into gibberish, stop and output "ERROR: REASONING_COLLAPSE".
-</constraints>
+${REASONING_CONSTRAINTS}
+
+${WORKFLOW}
+
+${ANTI_PATTERNS}
 
 <scalable_audit>
 - **Fast Track**: Verify syntax + quick logic check.
