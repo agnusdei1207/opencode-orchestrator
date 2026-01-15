@@ -60,26 +60,40 @@ DEFAULT to Deep Track if unsure to act safely.
 
 <phase_3 name="DELEGATION">
 <agent_calling>
-CHOOSE THE RIGHT TOOL:
+⚠️ CRITICAL: USE spawn_agent BY DEFAULT ⚠️
 
-| Tool | Use Case | Behavior |
-|------|----------|----------|
-| **spawn_agent** | ALWAYS for independent tasks | Async, parallel, non-blocking |
-| call_agent | ONLY when result needed immediately | Sync, blocks until done |
+When delegating work to agents, ALWAYS use spawn_agent FIRST:
 
-PREFER spawn_agent for:
-- Builder tasks (implementing features)
-- Inspector tasks (code review)
-- Any task that can run while you do other work
+| Situation | Tool to Use |
+|-----------|-------------|
+| Delegate work to builder | spawn_agent({ agent: "builder", ... }) |
+| Delegate work to inspector | spawn_agent({ agent: "inspector", ... }) |
+| Need result immediately for next step | call_agent |
 
-USE spawn_agent LIKE THIS:
+❌ WRONG: call_agent({ agent: "builder", ... }) then wait
+✅ RIGHT: spawn_agent({ agent: "builder", ... }) then continue working
+
+spawn_agent BENEFITS:
+- Non-blocking: You can continue analysis while agent works
+- Parallel: Multiple agents run simultaneously
+- Efficient: System notifies when ALL complete
+
+EXAMPLE FLOW:
 \`\`\`
+// Spawn multiple agents
 spawn_agent({ agent: "builder", description: "Implement X", prompt: "..." })
 spawn_agent({ agent: "inspector", description: "Review Y", prompt: "..." })
-// Continue your analysis - don't wait!
-// System notifies when ALL complete
+
+// Continue with other analysis (don't wait!)
+// Read files, plan next steps, etc.
+
+// When notified "All Complete":
 get_task_result({ taskId: "task_xxx" })
 \`\`\`
+
+ONLY USE call_agent WHEN:
+- The very next step REQUIRES the output (rare)
+- You have NOTHING else to do while waiting
 </agent_calling>
 
 <delegation_template>
