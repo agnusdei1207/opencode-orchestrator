@@ -28,6 +28,8 @@ A **5-agent autonomous architecture** designed to solve complex engineering task
 
 **Core Philosophy**: Intelligence is a resource. We orchestrate that resource through **Phase-based Workflows** and **Mandatory Environment Scans** to ensure code always fits the project's infrastructure.
 
+> 🦀 **Powered by Rust** — Background tasks and parallel searches run on native Rust binaries for maximum performance.
+
 ### Key Features
 - **🎯 Autonomous Loop** — Commander runs relentlessly until the mission is complete.
 - **🔍 Environment Scan** — Mandatory analysis of Infra (Docker/OS), Stack, and Domain before any code change.
@@ -35,6 +37,8 @@ A **5-agent autonomous architecture** designed to solve complex engineering task
 - **🛡️ Rigorous Audit** — Inspector proves success with environment-specific evidence (Builds/Tests/Logs).
 - **💾 Persistent Context** — Recorder saves session state to disk, enabling resume at any time.
 - **🏗️ Parallel Tasking** — Architect splits work into concurrent DAG groups.
+- **⏳ Background Tasks** — Run long commands (builds, tests) in background and check results later.
+- **🔎 mgrep** — Multi-pattern parallel search powered by Rust for blazing-fast codebase analysis.
 
 ---
 
@@ -123,6 +127,7 @@ npm uninstall -g opencode-orchestrator
 
 - [Architecture & Design](docs/ARCHITECTURE.md) — Detailed system design and agent protocols
 - [Plugin Troubleshooting](docs/PLUGIN_TROUBLESHOOTING.md) — Setup and common issues
+- [Background Tasks](docs/BACKGROUND_TASKS_IMPLEMENTATION.md) — Background command execution
 
 ---
 

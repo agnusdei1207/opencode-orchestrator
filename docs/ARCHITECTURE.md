@@ -92,9 +92,49 @@ Orchestrator maintains a local "Brain" directory to survive session restarts:
 
 ---
 
+## Background Task Execution
+
+Orchestrator supports **background command execution** for long-running operations like builds and tests.
+
+### Tools Available. 
+| Tool | Description |
+|------|-------------|
+| `run_background` | Start a command in background, returns task ID immediately |
+| `check_background` | Check status and output of a background task |
+| `list_background` | List all background tasks and their status |
+| `kill_background` | Terminate a running background task |
+
+### Architecture
+```
+┌──────────────────────────────────────────────────┐
+│  TypeScript (In-memory tracking)                 │
+│  └── BackgroundTaskManager singleton             │
+│      └── child_process.spawn()                   │
+├──────────────────────────────────────────────────┤
+│  Rust (Native performance, file-based state)    │
+│  └── orchestrator-core/src/background.rs        │
+│      └── /tmp/opencode-orchestrator/bg_tasks.json│
+└──────────────────────────────────────────────────┘
+```
+
+### Example Flow
+```
+1. run_background({ command: "npm run build" })
+   → Task bg_a1b2c3d4 started (returns immediately)
+
+2. (Agent continues other analysis work)
+
+3. check_background({ taskId: "bg_a1b2c3d4" })
+   → ✅ Build completed, Exit code: 0
+```
+
+---
+
 ## Summary of Benefits
 
 - **Autonomous**: Once started, it requires zero user interaction.
 - **Reliable**: Environment-specific verification ensures the code actually runs.
 - **Consistent**: Mandatory pattern scanning prevents "code rotting."
 - **Efficient**: Parallel task groups maximize LLM throughput.
+- **Non-blocking**: Background tasks allow concurrent work during long operations.
+
