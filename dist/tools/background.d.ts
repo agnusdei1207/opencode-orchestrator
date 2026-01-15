@@ -34,14 +34,14 @@ export declare const listBackgroundTool: {
     description: string;
     args: {
         status: import("zod").ZodOptional<import("zod").ZodEnum<{
-            error: "error";
             running: "running";
             done: "done";
+            error: "error";
             all: "all";
         }>>;
     };
     execute(args: {
-        status?: "error" | "running" | "done" | "all" | undefined;
+        status?: "running" | "done" | "error" | "all" | undefined;
     }, context: import("@opencode-ai/plugin").ToolContext): Promise<string>;
 };
 export declare const killBackgroundTool: {

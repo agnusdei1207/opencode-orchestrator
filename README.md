@@ -95,6 +95,157 @@ Trigger parallel agent execution with prompts like:
 
 Commander will automatically use `delegate_task` with `background: true` for independent tasks.
 
+**Parallel Execution UI**
+
+When tasks run in parallel, you'll see detailed progress in OpenCode:
+
+```
+## 🚀 BACKGROUND TASK SPAWNED
+
+**Task Details**
+- **ID**: `task_a1b2c3d4`
+- **Agent**: builder
+- **Description**: Implement authentication system
+- **Status**: ⏳ Running in background (non-blocking)
+
+**Active Tasks**
+- Running: 2
+- Pending: 1
+
+---
+
+**Monitoring Commands**
+
+Check progress anytime:
+- `list_tasks()` - View all parallel tasks
+- `get_task_result({ taskId: "task_a1b2c3d4" })` - Get latest result
+- `cancel_task({ taskId: "task_a1b2c3d4" })` - Stop this task
+
+---
+
+✓ System will notify when ALL tasks complete. You can continue working!
+```
+
+**Terminal Logs**
+
+Monitor parallel tasks in terminal:
+
+```
+[parallel] 🚀 SPAWNED task_a1b2c3d4 → builder: Implement authentication
+[parallel] 🚀 SPAWNED task_e5f6g7h8 → inspector: Review module
+[parallel] ✅ COMPLETED task_e5f6g7h8 → inspector: Review module (45s)
+[parallel] 🗑️ CLEANED task_e5f6g7h8 (session deleted)
+```
+
+**All Tasks Complete**
+
+When all parallel tasks finish, you'll see:
+
+```
+**All Parallel Tasks Complete**
+
+✅ `task_a1b2c3d4` (1m 30s): Implement authentication
+✅ `task_e5f6g7h8` (45s): Review module
+
+---
+
+**Retrieval Options**
+
+Use `get_task_result({ taskId: "task_xxx" })` to retrieve full results.
+
+---
+
+**Task Summary**
+
+Total Tasks: 2
+Status: All Complete
+Mode: Background (non-blocking)
+```
+"Build and test in parallel"
+"Implement feature X while reviewing module Y"
+"Run linting, tests, and build at the same time"
+```
+
+Commander will automatically use `delegate_task` with `background: true` for independent tasks.
+
+**Parallel Execution UI**
+
+When tasks run in parallel, you'll see detailed progress in OpenCode:
+
+```
+╔════════════════════════════════════════════════════════════╗
+║  🚀 BACKGROUND TASK SPAWNED                                   ║
+╠═════════════════════════════════════════════════════════════╣
+║  Task ID:     task_a1b2c3d4                                 ║
+║  Agent:       builder                                           ║
+║  Description: Implement authentication system                       ║
+║  Status:      ⏳ RUNNING (background)                          ║
+╠═════════════════════════════════════════════════════════════╣
+║  Running: 2     │ Pending: 1                                 ║
+╚══════════════════════════════════════════════════════════════╝
+
+---
+
+**Parallel Execution Started**
+
+- 📌 Task ID: `task_a1b2c3d4`
+- 🤖 Agent: builder
+- 📝 Description: Implement authentication system
+- ⏳ Status: Running in background (non-blocking)
+- 🔄 Active Tasks: 2 running, 1 pending
+
+**Monitoring**
+
+Check progress anytime with:
+- `list_tasks()` - View all parallel tasks
+- `get_task_result({ taskId: "task_a1b2c3d4" })` - Get latest result
+- `cancel_task({ taskId: "task_a1b2c3d4" })` - Stop this task
+
+System will notify when ALL tasks complete. You can continue working!
+```
+
+**Terminal Logs**
+
+Monitor parallel tasks in terminal:
+
+```
+[parallel] 🚀 SPAWNED task_a1b2c3d4 → builder: Implement authentication
+[parallel] 🚀 SPAWNED task_e5f6g7h8 → inspector: Review module
+[parallel] ✅ COMPLETED task_e5f6g7h8 → inspector: Review module (45s)
+[parallel] 🗑️ CLEANED task_e5f6g7h8 (session deleted)
+```
+
+**All Tasks Complete**
+
+When all parallel tasks finish, you'll see:
+
+```
+**All Parallel Tasks Complete**
+
+✅ `task_a1b2c3d4` (1m 30s): Implement authentication
+✅ `task_e5f6g7h8` (45s): Review module
+
+---
+
+**Retrieval Options**
+
+Use `get_task_result({ taskId: "task_xxx" })` to retrieve full results.
+
+---
+
+**Task Summary**
+
+Total Tasks: 2
+Status: All Complete
+Mode: Background (non-blocking)
+```
+"Build and test in parallel"
+"Implement feature X while reviewing module Y"
+"Run linting, tests, and build at the same time"
+```
+
+Commander will automatically use `delegate_task` with `background: true` for independent tasks.
+
 Monitor parallel tasks in the terminal:
 ```
 [parallel] 🚀 SPAWNED task_a1b2 → builder: Implement feature X
@@ -133,11 +284,96 @@ Monitor parallel tasks in the terminal:
 
 ---
 
+## Development
+
+### Quick Start (Local Development)
+
+```bash
+# Step 1: Build and link (run this ONCE)
+npm run dev:link
+
+# Step 2: Restart OpenCode
+
+# Step 3: Make code changes...
+
+# Step 4: Rebuild and re-link (after code changes)
+npm run dev:link
+
+# (Optional) Check link status
+npm run dev:status
+```
+
+### Development Scripts
+
+```bash
+# Build the plugin
+npm run build
+
+# Link for local testing (auto-rebuilds)
+npm run dev:link
+
+# Unlink from global
+npm run dev:unlink
+
+# Check if plugin is linked globally
+npm run dev:status
+
+# Test install/uninstall scripts locally
+npm run dev:test
+```
+
+### Development Workflow
+
+| Step | Command | Description |
+|------|----------|-------------|
+| 1️⃣ Initial setup | `npm run dev:link` | Build + link for the first time |
+| 2️⃣ Test | Open OpenCode | Test your changes |
+| 3️⃣ Make changes | Edit code | Modify TypeScript files |
+| 4️⃣ Rebuild | `npm run dev:link` | Rebuild + re-link |
+| 5️⃣ Repeat | 2-4 | Iterate on changes |
+| ❌ Cleanup | `npm run dev:unlink` | Unlink when done |
+
+### Common Scenarios
+
+```bash
+# 🔄 Changed code and want to test
+npm run dev:link
+
+# 🔍 Check if linked properly
+npm run dev:status
+
+# 🧹 Cleanup before committing
+npm run dev:unlink
+
+# 🧪 Test install/uninstall scripts
+npm run dev:test
+```
+
+### Release Scripts
+
+```bash
+# Release patch version (0.4.1 → 0.4.2)
+npm run release:patch
+
+# Release minor version (0.4.1 → 0.5.0)
+npm run release:minor
+
+# Release major version (0.4.1 → 1.0.0)
+npm run release:major
+```
+
+Each release script:
+1. Builds the plugin
+2. Bumps version in package.json
+3. Creates git tag
+4. Pushes to remote
+5. Publishes to npm
+
+---
+
 ## Uninstall
 
 ```bash
-npm run dev:uninstall
-# OR
 npm uninstall -g opencode-orchestrator
 ```
 

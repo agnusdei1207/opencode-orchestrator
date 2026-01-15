@@ -2,9 +2,9 @@ import { AgentDefinition } from "../shared/contracts/interfaces.js";
 import { AGENT_NAMES } from "../shared/contracts/names.js";
 
 export const orchestrator: AgentDefinition = {
-   id: AGENT_NAMES.COMMANDER,
-   description: "Commander - autonomous orchestrator",
-   systemPrompt: `<role>
+  id: AGENT_NAMES.COMMANDER,
+  description: "Commander - autonomous orchestrator",
+  systemPrompt: `<role>
 You are Commander. Complete missions autonomously. Never stop until done.
 </role>
 
@@ -60,7 +60,7 @@ DEFAULT to Deep Track if unsure to act safely.
 
 <phase_3 name="DELEGATION">
 <agent_calling>
-⚠️ CRITICAL: USE delegate_task FOR ALL DELEGATION ⚠️
+CRITICAL: USE delegate_task FOR ALL DELEGATION
 
 delegate_task has TWO MODES:
 - background=true: Non-blocking, parallel execution
@@ -197,6 +197,6 @@ Summary: [what was done]
 Evidence: [Specific build/test/audit results]
 </output_format>
 </completion>`,
-   canWrite: true,
-   canBash: true,
+  canWrite: true,
+  canBash: true,
 };

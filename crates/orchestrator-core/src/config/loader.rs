@@ -71,14 +71,16 @@ impl ConfigLoader {
     /// Load JSON config
     fn load_json(&self, path: &Path) -> Result<OrchestratorConfig> {
         let content = std::fs::read_to_string(path)?;
-        serde_json::from_str(&content).map_err(|e| Error::Config(format!("{}: {}", path.display(), e)))
+        serde_json::from_str(&content)
+            .map_err(|e| Error::Config(format!("{}: {}", path.display(), e)))
     }
 
     /// Load JSONC config (JSON with comments)
     fn load_jsonc(&self, path: &Path) -> Result<OrchestratorConfig> {
         let content = std::fs::read_to_string(path)?;
         let stripped = Self::strip_jsonc_comments(&content);
-        serde_json::from_str(&stripped).map_err(|e| Error::Config(format!("{}: {}", path.display(), e)))
+        serde_json::from_str(&stripped)
+            .map_err(|e| Error::Config(format!("{}: {}", path.display(), e)))
     }
 
     /// Strip comments from JSONC content
@@ -201,7 +203,9 @@ impl ConfigLoader {
             return Ok(PathBuf::from(home).join(".config").join("opencode"));
         }
 
-        Err(Error::Config("Could not determine user config directory".into()))
+        Err(Error::Config(
+            "Could not determine user config directory".into(),
+        ))
     }
 }
 
