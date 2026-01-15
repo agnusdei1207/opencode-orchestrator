@@ -325,9 +325,20 @@ fn get_opencode_config_path() -> Result<PathBuf> {
         return Ok(PathBuf::from(xdg).join("opencode").join("opencode.json"));
     }
 
-    let home = env::var("HOME").context("HOME not set")?;
-    Ok(PathBuf::from(home)
-        .join(".config")
-        .join("opencode")
-        .join("opencode.json"))
+    // 2. Try APPDATA (Windows legacy/native)
+    if let Ok(appdata) = env::var("APPDATA") {
+        return Ok(PathBuf::from(appdata)
+            .join("opencode")
+            .join("opencode.json"));
+    }
+
+    // 3. Try HOME or USERPROFILE (Windows) -> .config/opencode
+    if let Ok(home) = env::var("HOME").or_else(|_| env::var("USERPROFILE")) {
+        return Ok(PathBuf::from(home)
+            .join(".config")
+            .join("opencode")
+            .join("opencode.json"));
+    }
+
+    Err(anyhow::anyhow!("Could not determine config path (checked XDG_CONFIG_HOME, HOME, USERPROFILE, APPDATA)"))
 }

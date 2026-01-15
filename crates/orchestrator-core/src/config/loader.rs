@@ -186,12 +186,21 @@ impl ConfigLoader {
 
     /// Get user config directory
     fn get_user_config_dir(&self) -> Result<PathBuf> {
-        if let Ok(home) = std::env::var("HOME") {
-            return Ok(PathBuf::from(home).join(".config").join("opencode"));
+        // 1. Try XDG_CONFIG_HOME
+        if let Ok(xdg) = std::env::var("XDG_CONFIG_HOME") {
+            return Ok(PathBuf::from(xdg).join("opencode"));
         }
+
+        // 2. Try APPDATA (Windows legacy/native)
         if let Ok(appdata) = std::env::var("APPDATA") {
             return Ok(PathBuf::from(appdata).join("opencode"));
         }
+
+        // 3. Try HOME or USERPROFILE (Windows) -> .config/opencode
+        if let Ok(home) = std::env::var("HOME").or_else(|_| std::env::var("USERPROFILE")) {
+            return Ok(PathBuf::from(home).join(".config").join("opencode"));
+        }
+
         Err(Error::Config("Could not determine user config directory".into()))
     }
 }
