@@ -352,13 +352,13 @@ npm run dev:test
 ### Release Scripts
 
 ```bash
-# Release patch version (0.4.1 → 0.4.2)
+# Release patch version (0.4.7 → 0.4.8)
 npm run release:patch
 
-# Release minor version (0.4.1 → 0.5.0)
+# Release minor version (0.4.7 → 0.5.0)
 npm run release:minor
 
-# Release major version (0.4.1 → 1.0.0)
+# Release major version (0.4.7 → 1.0.0)
 npm run release:major
 ```
 
