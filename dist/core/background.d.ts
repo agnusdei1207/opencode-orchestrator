@@ -34,7 +34,7 @@ declare class BackgroundTaskManager {
     private constructor();
     static get instance(): BackgroundTaskManager;
     /**
-     * Generate a unique task ID in the format bg_xxxxxxxx
+     * Generate a unique task ID in the format job_xxxxxxxx
      */
     private generateId;
     /**
