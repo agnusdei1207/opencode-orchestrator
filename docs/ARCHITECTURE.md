@@ -92,9 +92,74 @@ Orchestrator maintains a local "Brain" directory to survive session restarts:
 
 ---
 
+## Parallel Agent Execution
+
+Orchestrator supports **parallel agent execution** through session-based spawning with queue-based concurrency control.
+
+### Parallel Agent Tools
+| Tool | Description |
+|------|-------------|
+| `delegate_task` | Delegate work to an agent (sync or async) |
+| `get_task_result` | Retrieve the result from a completed task |
+| `list_tasks` | View all parallel tasks and their status |
+| `cancel_task` | Stop a running task and free the concurrency slot |
+
+### Safety Features
+- **Queue-based concurrency**: Max 3 agents per type (extras automatically queue)
+- **Batched notifications**: System notifies when ALL tasks complete
+- **Auto-timeout**: 30 minute maximum runtime
+- **Auto-cleanup**: Removed from memory 5 minutes after completion
+- **Output validation**: Verifies session has actual content before completion
+
+### Architecture
+```
+┌────────────────────────────────────────────────────────┐
+│  ParallelAgentManager (TypeScript)                     │
+│  ├── ConcurrencyController (queue-based rate limiting) │
+│  ├── Task tracking per parent session                  │
+│  ├── Batched notification system                       │
+│  └── Delayed cleanup (5 min after completion)          │
+└────────────────────────────────────────────────────────┘
+```
+
+---
+
+## Background Command Execution
+
+For long-running shell commands (builds, tests, linting), use the background task tools.
+
+### Background Task Tools
+| Tool | Description |
+|------|-------------|
+| `run_background` | Start a command in background, returns task ID immediately |
+| `check_background` | Check status and output of a background task |
+| `list_background` | List all background tasks and their status |
+| `kill_background` | Terminate a running background task |
+
+### Example Flow
+```
+1. delegate_task({ agent: "builder", prompt: "Features", background: true })
+   delegate_task({ agent: "inspector", prompt: "Review", background: true })
+   → Both agents start in parallel sessions (Non-blocking)
+
+2. run_background({ command: "npm run build" })
+   → Command starts, returns immediately
+
+3. (Agent continues other work while tasks run)
+
+4. [System notification: "All Parallel Tasks Complete"]
+
+5. get_task_result({ taskId: "task_xxx" })
+   check_background({ taskId: "job_xxx" })
+   → Retrieve results
+```
+
+---
+
 ## Summary of Benefits
 
 - **Autonomous**: Once started, it requires zero user interaction.
 - **Reliable**: Environment-specific verification ensures the code actually runs.
 - **Consistent**: Mandatory pattern scanning prevents "code rotting."
-- **Efficient**: Parallel task groups maximize LLM throughput.
+- **Parallel**: Queue-based concurrency enables safe parallel agent execution.
+- **Non-blocking**: Background tasks allow concurrent work during long operations.
