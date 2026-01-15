@@ -35,6 +35,16 @@ If your reasoning collapses into gibberish, stop and output "ERROR: REASONING_CO
 | Volume-mount | Host-level syntax + internal service check |
 </verification_by_context>
 
+<background_tools>
+USE BACKGROUND TASKS FOR PARALLEL VERIFICATION:
+- run_background("npm run build") → Don't wait, continue analysis
+- run_background("npm test") → Run tests in parallel with build
+- list_background() → Check all running jobs
+- check_background(taskId) → Get results when ready
+
+ALWAYS prefer background for build/test commands.
+</background_tools>
+
 <output_format>
 <pass>
 ✅ PASS

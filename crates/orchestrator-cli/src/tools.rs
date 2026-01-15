@@ -13,6 +13,7 @@ pub async fn execute_tool(name: &str, arguments: Value) -> Result<String> {
     match name {
         "grep_search" => grep_search(arguments).await,
         "glob_search" => glob_search(arguments).await,
+        "mgrep" => mgrep(arguments).await,  // Multi-pattern grep (parallel)
         "list_agents" => list_agents().await,
         "list_hooks" => list_hooks().await,
         _ => Err(anyhow::anyhow!("Unknown tool: {}", name)),
@@ -46,21 +47,91 @@ async fn grep_search(arguments: Value) -> Result<String> {
     let tool = GrepTool::new(config);
     let results = tool.search(&args.pattern, &search_dir)?;
 
-    let output: Vec<Value> = results
+    let matches: Vec<Value> = results
         .iter()
-        .take(50)
+        .take(100)
         .map(|m| {
             json!({
-                "file": m.file,
+                "file": m.file.clone(),
                 "line": m.line_number,
-                "content": m.line_content.chars().take(200).collect::<String>()
+                "content": m.line_content.trim()
             })
         })
         .collect();
 
     Ok(serde_json::to_string_pretty(&json!({
-        "matches": output,
+        "matches": matches,
         "total": results.len()
+    }))?)
+}
+
+#[derive(Deserialize)]
+struct MgrepArgs {
+    patterns: Vec<String>,
+    directory: Option<String>,
+    timeout_ms: Option<u64>,
+    max_results: Option<usize>,
+}
+
+/// Multi-pattern grep - search multiple patterns in parallel
+async fn mgrep(arguments: Value) -> Result<String> {
+    let args: MgrepArgs = serde_json::from_value(arguments)?;
+
+    if args.patterns.is_empty() {
+        return Ok(json!({"error": "No patterns provided"}).to_string());
+    }
+
+    let mut config = GrepConfig::default();
+    if let Some(ms) = args.timeout_ms {
+        config.timeout = Duration::from_millis(ms);
+    }
+    if let Some(max) = args.max_results {
+        config.max_results = max;
+    }
+
+    let search_dir = args
+        .directory
+        .map(PathBuf::from)
+        .unwrap_or_else(|| std::env::current_dir().unwrap_or_default());
+
+    let tool = GrepTool::new(config);
+    
+    // Search each pattern
+    let mut all_results = Vec::new();
+    
+    for pattern in &args.patterns {
+        match tool.search(pattern, &search_dir) {
+            Ok(results) => {
+                let matches: Vec<Value> = results
+                    .iter()
+                    .take(50)  // Limit per pattern
+                    .map(|m| {
+                        json!({
+                            "file": m.file.clone(),
+                            "line": m.line_number,
+                            "content": m.line_content.trim()
+                        })
+                    })
+                    .collect();
+                
+                all_results.push(json!({
+                    "pattern": pattern,
+                    "matches": matches,
+                    "total": results.len()
+                }));
+            }
+            Err(e) => {
+                all_results.push(json!({
+                    "pattern": pattern,
+                    "error": e.to_string()
+                }));
+            }
+        }
+    }
+
+    Ok(serde_json::to_string_pretty(&json!({
+        "results": all_results,
+        "patterns_searched": args.patterns.len()
     }))?)
 }
 
@@ -68,7 +139,6 @@ async fn grep_search(arguments: Value) -> Result<String> {
 struct GlobArgs {
     pattern: String,
     directory: Option<String>,
-    timeout_ms: Option<u64>,
     max_results: Option<usize>,
 }
 
@@ -76,9 +146,6 @@ async fn glob_search(arguments: Value) -> Result<String> {
     let args: GlobArgs = serde_json::from_value(arguments)?;
 
     let mut config = GlobConfig::default();
-    if let Some(ms) = args.timeout_ms {
-        config.timeout = Duration::from_millis(ms);
-    }
     if let Some(max) = args.max_results {
         config.max_results = max;
     }
