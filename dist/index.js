@@ -1642,6 +1642,10 @@ var ParallelAgentManager = class _ParallelAgentManager {
           }
           this.untrackPending(task.parentSessionID, taskId);
         }
+        this.client.session.delete({
+          path: { id: task.sessionID }
+        }).catch(() => {
+        });
         this.tasks.delete(taskId);
       }
     }
@@ -1652,7 +1656,18 @@ var ParallelAgentManager = class _ParallelAgentManager {
     }
   }
   scheduleCleanup(taskId) {
-    setTimeout(() => {
+    const task = this.tasks.get(taskId);
+    const sessionID = task?.sessionID;
+    setTimeout(async () => {
+      if (sessionID) {
+        try {
+          await this.client.session.delete({
+            path: { id: sessionID }
+          });
+          log(`Deleted session ${sessionID}`);
+        } catch {
+        }
+      }
       this.tasks.delete(taskId);
       log(`Cleaned up ${taskId} from memory`);
     }, CLEANUP_DELAY_MS);
