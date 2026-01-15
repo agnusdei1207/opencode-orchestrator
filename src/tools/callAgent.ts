@@ -9,7 +9,6 @@ const AGENT_EMOJI: Record<string, string> = {
     [AGENT_NAMES.BUILDER]: "🔨",
     [AGENT_NAMES.INSPECTOR]: "🔍",
     [AGENT_NAMES.RECORDER]: "💾",
-    [AGENT_NAMES.FRONTEND_DESIGNER]: "🎨",
 };
 
 export const callAgentTool = tool({
@@ -37,7 +36,6 @@ export const callAgentTool = tool({
                 AGENT_NAMES.BUILDER,
                 AGENT_NAMES.INSPECTOR,
                 AGENT_NAMES.RECORDER,
-                AGENT_NAMES.FRONTEND_DESIGNER,
             ])
             .describe("Agent to call"),
         task: tool.schema.string().describe("Atomic task description"),

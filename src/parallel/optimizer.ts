@@ -83,7 +83,10 @@ export class ParallelOptimizer {
   /**
    * Check if task dependencies are satisfied
    */
-  private areDependenciesSatisfied(task: Task, taskMap: Map<string, Task>): boolean {
+  private areDependenciesSatisfied(
+    task: Task,
+    taskMap: Map<string, Task>,
+  ): boolean {
     for (const depId of task.dependencies) {
       const depTask = taskMap.get(depId);
       if (!depTask) {
@@ -187,7 +190,8 @@ export class ParallelOptimizer {
 
     const current = tasks.length;
     const optimal = fileAgents.size;
-    const improvement = optimal > current ? ((optimal - current) / current) * 100 : 0;
+    const improvement =
+      optimal > current ? ((optimal - current) / current) * 100 : 0;
 
     return {
       current,
