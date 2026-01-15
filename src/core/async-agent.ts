@@ -518,6 +518,11 @@ export class ParallelAgentManager {
                     this.untrackPending(task.parentSessionID, taskId);
                 }
 
+                // Delete session from OpenCode
+                this.client.session.delete({
+                    path: { id: task.sessionID },
+                }).catch(() => { /* ignore */ });
+
                 // Remove immediately on timeout
                 this.tasks.delete(taskId);
             }
@@ -532,7 +537,22 @@ export class ParallelAgentManager {
     }
 
     private scheduleCleanup(taskId: string): void {
-        setTimeout(() => {
+        const task = this.tasks.get(taskId);
+        const sessionID = task?.sessionID;
+
+        setTimeout(async () => {
+            // Delete session from OpenCode
+            if (sessionID) {
+                try {
+                    await this.client.session.delete({
+                        path: { id: sessionID },
+                    });
+                    log(`Deleted session ${sessionID}`);
+                } catch {
+                    // Ignore - session may already be gone
+                }
+            }
+
             this.tasks.delete(taskId);
             log(`Cleaned up ${taskId} from memory`);
         }, CLEANUP_DELAY_MS);
