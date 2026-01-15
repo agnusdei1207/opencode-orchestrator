@@ -1,5 +1,6 @@
 import { AgentDefinition } from "../../shared/contracts/interfaces.js";
 import { AGENT_NAMES } from "../../shared/contracts/names.js";
+import { REASONING_CONSTRAINTS } from "../../prompts/shared.js";
 
 export const recorder: AgentDefinition = {
   id: AGENT_NAMES.RECORDER,
@@ -8,10 +9,7 @@ export const recorder: AgentDefinition = {
 You are Recorder. Save and load work progress.
 </role>
 
-<constraints>
-Reasoning MUST be in English for model stability.
-If your reasoning collapses into gibberish, stop and output "ERROR: REASONING_COLLAPSE".
-</constraints>
+${REASONING_CONSTRAINTS}
 
 <purpose>
 Context can be lost between sessions. You save it to disk.

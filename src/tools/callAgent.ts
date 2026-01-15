@@ -1,6 +1,7 @@
 import { tool } from "@opencode-ai/plugin";
 import { AGENTS } from "../agents/definitions.js";
 import { AGENT_NAMES } from "../shared/contracts/names.js";
+import { contextEnforcer } from "../context/enforcer.js";
 
 // Agent emoji indicators
 const AGENT_EMOJI: Record<string, string> = {
@@ -8,6 +9,7 @@ const AGENT_EMOJI: Record<string, string> = {
     [AGENT_NAMES.BUILDER]: "🔨",
     [AGENT_NAMES.INSPECTOR]: "🔍",
     [AGENT_NAMES.RECORDER]: "💾",
+    [AGENT_NAMES.FRONTEND_DESIGNER]: "🎨",
 };
 
 export const callAgentTool = tool({
@@ -35,6 +37,7 @@ export const callAgentTool = tool({
                 AGENT_NAMES.BUILDER,
                 AGENT_NAMES.INSPECTOR,
                 AGENT_NAMES.RECORDER,
+                AGENT_NAMES.FRONTEND_DESIGNER,
             ])
             .describe("Agent to call"),
         task: tool.schema.string().describe("Atomic task description"),
@@ -43,15 +46,23 @@ export const callAgentTool = tool({
     async execute(args) {
         const agentDef = AGENTS[args.agent];
         if (!agentDef) {
-            return `❌ Error: Unknown agent: ${args.agent}`;
+            return "Error: Unknown agent: " + args.agent;
         }
 
         const emoji = AGENT_EMOJI[args.agent] || "🤖";
 
+        // Validate context before proceeding
+        if (args.context) {
+            const validation = contextEnforcer.validate(args.agent, args.context);
+            if (!validation.valid) {
+                return "Context Validation Failed:\n" + contextEnforcer.formatValidation(validation);
+            }
+        }
+
         const prompt = `
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ${emoji} ${agentDef.id.toUpperCase()} :: ${agentDef.description}
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 <system>
 ${agentDef.systemPrompt}
@@ -61,7 +72,7 @@ ${agentDef.systemPrompt}
 ${args.task}
 </task>
 
-${args.context ? `<context>\n${args.context}\n</context>` : ""}
+${args.context ? "<context>\n" + args.context + "\n</context>" : ""}
 
 <execution>
 Follow this pattern:

@@ -1,4 +1,5 @@
 import { TaskGraph } from "./tasks.js";
+import { MAX_TASK_RETRIES } from "../constants/time.js";
 
 export interface SessionState {
     enabled: boolean;
@@ -13,6 +14,6 @@ export interface SessionState {
 export const state = {
     missionActive: false,
     maxIterations: 1000, // Effectively infinite - "Relentless" mode
-    maxRetries: 3,
+    maxRetries: MAX_TASK_RETRIES,
     sessions: new Map<string, SessionState>(),
 };

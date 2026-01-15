@@ -5,6 +5,8 @@ export const AGENT_NAMES = {
   BUILDER: "builder", // Coder + Visualist combined (full-stack)
   INSPECTOR: "inspector", // Reviewer + Fixer combined (quality + fix)
   RECORDER: "recorder", // Persistent context - saves/loads session state
+  // Specialist Agents
+  FRONTEND_DESIGNER: "frontend-designer", // Frontend UI/UX specialist - visual design only
 } as const;
 
 export type AgentName = (typeof AGENT_NAMES)[keyof typeof AGENT_NAMES];

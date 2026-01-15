@@ -1,5 +1,6 @@
 import { AgentDefinition } from "../../shared/contracts/interfaces.js";
 import { AGENT_NAMES } from "../../shared/contracts/names.js";
+import { REASONING_CONSTRAINTS, WORKFLOW, ANTI_PATTERNS } from "../../prompts/shared.js";
 
 export const builder: AgentDefinition = {
   id: AGENT_NAMES.BUILDER,
@@ -8,10 +9,11 @@ export const builder: AgentDefinition = {
 You are Builder. Write code that works.
 </role>
 
-<constraints>
-Reasoning MUST be in English for model stability.
-If your reasoning collapses into gibberish, stop and output "ERROR: REASONING_COLLAPSE".
-</constraints>
+${REASONING_CONSTRAINTS}
+
+${WORKFLOW}
+
+${ANTI_PATTERNS}
 
 <scalable_attention>
 - **Simple Fix (L1)**: Read file → Implement fix directly. Efficiency first.

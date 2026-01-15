@@ -9,6 +9,7 @@ export interface Task {
     description: string;
     action: string;
     file: string;
+    agent: string;
     dependencies: string[];
     status: TaskStatus;
     result?: string;

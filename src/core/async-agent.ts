@@ -11,16 +11,18 @@
  */
 
 import type { PluginInput } from "@opencode-ai/plugin";
+import { configManager } from "./config.js";
 
-// Configuration
-const TASK_TTL_MS = 30 * 60 * 1000; // 30 minutes max runtime
-const CLEANUP_DELAY_MS = 5 * 60 * 1000; // 5 min after completion
-const MIN_STABILITY_MS = 5 * 1000; // Minimum 5s before completion
-const POLL_INTERVAL_MS = 2000; // Poll every 2s
-const DEFAULT_CONCURRENCY = 3; // Default max parallel per agent type
+// Configuration (dynamic from config manager)
+const TASK_TTL_MS = configManager.getParallelAgentConfig().taskTtlMs;
+const CLEANUP_DELAY_MS = configManager.getParallelAgentConfig().cleanupDelayMs;
+const MIN_STABILITY_MS = configManager.getParallelAgentConfig().minStabilityMs;
+const POLL_INTERVAL_MS = configManager.getParallelAgentConfig().pollIntervalMs;
+const DEFAULT_CONCURRENCY = configManager.getParallelAgentConfig().defaultConcurrency;
+const MAX_CONCURRENCY = configManager.getParallelAgentConfig().maxConcurrency;
 
 // Debug logger
-const DEBUG = process.env.DEBUG_PARALLEL_AGENT === "true";
+const DEBUG = configManager.getParallelAgentConfig().enableDebug;
 const log = (...args: unknown[]) => {
   if (DEBUG) console.log("[parallel-agent]", ...args);
 };
@@ -62,7 +64,9 @@ class ConcurrencyController {
   private limits: Map<string, number> = new Map();
 
   setLimit(key: string, limit: number): void {
-    this.limits.set(key, limit);
+    const cappedLimit = Math.min(limit, MAX_CONCURRENCY);
+    this.limits.set(key, cappedLimit);
+    log(`Set limit for ${key}: ${cappedLimit}`);
   }
 
   getLimit(key: string): number {
@@ -109,6 +113,25 @@ class ConcurrencyController {
 
   getQueueLength(key: string): number {
     return this.queues.get(key)?.length ?? 0;
+  }
+
+  updateConcurrency(agentType: string, newLimit: number): void {
+    this.setLimit(agentType, newLimit);
+    log(`Updated concurrency for ${agentType}: ${newLimit}`);
+  }
+
+  getStats(): Record<string, { running: number; queued: number; limit: number }> {
+    const stats: Record<string, { running: number; queued: number; limit: number }> = {};
+    
+    for (const [agentType, limit] of this.limits.entries()) {
+      stats[agentType] = {
+        running: this.counts.get(agentType) ?? 0,
+        queued: this.getQueueLength(agentType),
+        limit,
+      };
+    }
+    
+    return stats;
   }
 }
 
@@ -348,10 +371,24 @@ export class ParallelAgentManager {
   }
 
   /**
-   * Set concurrency limit for agent type
-   */
+    * Set concurrency limit for agent type
+    */
   setConcurrencyLimit(agentType: string, limit: number): void {
     this.concurrency.setLimit(agentType, limit);
+  }
+
+  /**
+    * Get concurrency statistics for all agent types
+    */
+  getConcurrencyStats(): Record<string, { running: number; queued: number; limit: number }> {
+    return this.concurrency.getStats();
+  }
+
+  /**
+    * Update concurrency limit dynamically at runtime
+    */
+  updateConcurrency(agentType: string, newLimit: number): void {
+    this.concurrency.updateConcurrency(agentType, newLimit);
   }
 
   /**
