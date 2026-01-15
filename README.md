@@ -95,6 +95,157 @@ Trigger parallel agent execution with prompts like:
 
 Commander will automatically use `delegate_task` with `background: true` for independent tasks.
 
+**Parallel Execution UI**
+
+When tasks run in parallel, you'll see detailed progress in OpenCode:
+
+```
+## 🚀 BACKGROUND TASK SPAWNED
+
+**Task Details**
+- **ID**: `task_a1b2c3d4`
+- **Agent**: builder
+- **Description**: Implement authentication system
+- **Status**: ⏳ Running in background (non-blocking)
+
+**Active Tasks**
+- Running: 2
+- Pending: 1
+
+---
+
+**Monitoring Commands**
+
+Check progress anytime:
+- `list_tasks()` - View all parallel tasks
+- `get_task_result({ taskId: "task_a1b2c3d4" })` - Get latest result
+- `cancel_task({ taskId: "task_a1b2c3d4" })` - Stop this task
+
+---
+
+✓ System will notify when ALL tasks complete. You can continue working!
+```
+
+**Terminal Logs**
+
+Monitor parallel tasks in terminal:
+
+```
+[parallel] 🚀 SPAWNED task_a1b2c3d4 → builder: Implement authentication
+[parallel] 🚀 SPAWNED task_e5f6g7h8 → inspector: Review module
+[parallel] ✅ COMPLETED task_e5f6g7h8 → inspector: Review module (45s)
+[parallel] 🗑️ CLEANED task_e5f6g7h8 (session deleted)
+```
+
+**All Tasks Complete**
+
+When all parallel tasks finish, you'll see:
+
+```
+**All Parallel Tasks Complete**
+
+✅ `task_a1b2c3d4` (1m 30s): Implement authentication
+✅ `task_e5f6g7h8` (45s): Review module
+
+---
+
+**Retrieval Options**
+
+Use `get_task_result({ taskId: "task_xxx" })` to retrieve full results.
+
+---
+
+**Task Summary**
+
+Total Tasks: 2
+Status: All Complete
+Mode: Background (non-blocking)
+```
+"Build and test in parallel"
+"Implement feature X while reviewing module Y"
+"Run linting, tests, and build at the same time"
+```
+
+Commander will automatically use `delegate_task` with `background: true` for independent tasks.
+
+**Parallel Execution UI**
+
+When tasks run in parallel, you'll see detailed progress in OpenCode:
+
+```
+╔════════════════════════════════════════════════════════════╗
+║  🚀 BACKGROUND TASK SPAWNED                                   ║
+╠═════════════════════════════════════════════════════════════╣
+║  Task ID:     task_a1b2c3d4                                 ║
+║  Agent:       builder                                           ║
+║  Description: Implement authentication system                       ║
+║  Status:      ⏳ RUNNING (background)                          ║
+╠═════════════════════════════════════════════════════════════╣
+║  Running: 2     │ Pending: 1                                 ║
+╚══════════════════════════════════════════════════════════════╝
+
+---
+
+**Parallel Execution Started**
+
+- 📌 Task ID: `task_a1b2c3d4`
+- 🤖 Agent: builder
+- 📝 Description: Implement authentication system
+- ⏳ Status: Running in background (non-blocking)
+- 🔄 Active Tasks: 2 running, 1 pending
+
+**Monitoring**
+
+Check progress anytime with:
+- `list_tasks()` - View all parallel tasks
+- `get_task_result({ taskId: "task_a1b2c3d4" })` - Get latest result
+- `cancel_task({ taskId: "task_a1b2c3d4" })` - Stop this task
+
+System will notify when ALL tasks complete. You can continue working!
+```
+
+**Terminal Logs**
+
+Monitor parallel tasks in terminal:
+
+```
+[parallel] 🚀 SPAWNED task_a1b2c3d4 → builder: Implement authentication
+[parallel] 🚀 SPAWNED task_e5f6g7h8 → inspector: Review module
+[parallel] ✅ COMPLETED task_e5f6g7h8 → inspector: Review module (45s)
+[parallel] 🗑️ CLEANED task_e5f6g7h8 (session deleted)
+```
+
+**All Tasks Complete**
+
+When all parallel tasks finish, you'll see:
+
+```
+**All Parallel Tasks Complete**
+
+✅ `task_a1b2c3d4` (1m 30s): Implement authentication
+✅ `task_e5f6g7h8` (45s): Review module
+
+---
+
+**Retrieval Options**
+
+Use `get_task_result({ taskId: "task_xxx" })` to retrieve full results.
+
+---
+
+**Task Summary**
+
+Total Tasks: 2
+Status: All Complete
+Mode: Background (non-blocking)
+```
+"Build and test in parallel"
+"Implement feature X while reviewing module Y"
+"Run linting, tests, and build at the same time"
+```
+
+Commander will automatically use `delegate_task` with `background: true` for independent tasks.
+
 Monitor parallel tasks in the terminal:
 ```
 [parallel] 🚀 SPAWNED task_a1b2 → builder: Implement feature X
