@@ -278,6 +278,7 @@ export class ParallelAgentManager {
         }
 
         this.scheduleCleanup(taskId);
+        console.log(`[parallel] 🛑 CANCELLED ${taskId}`);
         log(`Cancelled ${taskId}`);
         return true;
     }
@@ -452,6 +453,8 @@ export class ParallelAgentManager {
                     this.notifyParentIfAllComplete(task.parentSessionID);
                     this.scheduleCleanup(task.id);
 
+                    const duration = this.formatDuration(task.startedAt, task.completedAt);
+                    console.log(`[parallel] ✅ COMPLETED ${task.id} → ${task.agent}: ${task.description} (${duration})`);
                     log(`Completed ${task.id}`);
                 }
             }
@@ -516,6 +519,7 @@ export class ParallelAgentManager {
                     }
 
                     this.untrackPending(task.parentSessionID, taskId);
+                    console.log(`[parallel] ⏱️ TIMEOUT ${taskId} → ${task.agent}: ${task.description}`);
                 }
 
                 // Delete session from OpenCode
@@ -547,9 +551,10 @@ export class ParallelAgentManager {
                     await this.client.session.delete({
                         path: { id: sessionID },
                     });
+                    console.log(`[parallel] 🗑️ CLEANED ${taskId} (session deleted)`);
                     log(`Deleted session ${sessionID}`);
                 } catch {
-                    // Ignore - session may already be gone
+                    console.log(`[parallel] 🗑️ CLEANED ${taskId} (session already gone)`);
                 }
             }
 
