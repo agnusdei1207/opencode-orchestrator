@@ -1,9 +1,9 @@
 //! Tool implementations
 
-pub mod grep;
 pub mod glob;
+pub mod grep;
 pub mod lsp;
 
-pub use grep::GrepTool;
 pub use glob::GlobTool;
+pub use grep::GrepTool;
 pub use lsp::LspTools;
