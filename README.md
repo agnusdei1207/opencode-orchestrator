@@ -133,11 +133,96 @@ Monitor parallel tasks in the terminal:
 
 ---
 
+## Development
+
+### Quick Start (Local Development)
+
+```bash
+# Step 1: Build and link (run this ONCE)
+npm run dev:link
+
+# Step 2: Restart OpenCode
+
+# Step 3: Make code changes...
+
+# Step 4: Rebuild and re-link (after code changes)
+npm run dev:link
+
+# (Optional) Check link status
+npm run dev:status
+```
+
+### Development Scripts
+
+```bash
+# Build the plugin
+npm run build
+
+# Link for local testing (auto-rebuilds)
+npm run dev:link
+
+# Unlink from global
+npm run dev:unlink
+
+# Check if plugin is linked globally
+npm run dev:status
+
+# Test install/uninstall scripts locally
+npm run dev:test
+```
+
+### Development Workflow
+
+| Step | Command | Description |
+|------|----------|-------------|
+| 1️⃣ Initial setup | `npm run dev:link` | Build + link for the first time |
+| 2️⃣ Test | Open OpenCode | Test your changes |
+| 3️⃣ Make changes | Edit code | Modify TypeScript files |
+| 4️⃣ Rebuild | `npm run dev:link` | Rebuild + re-link |
+| 5️⃣ Repeat | 2-4 | Iterate on changes |
+| ❌ Cleanup | `npm run dev:unlink` | Unlink when done |
+
+### Common Scenarios
+
+```bash
+# 🔄 Changed code and want to test
+npm run dev:link
+
+# 🔍 Check if linked properly
+npm run dev:status
+
+# 🧹 Cleanup before committing
+npm run dev:unlink
+
+# 🧪 Test install/uninstall scripts
+npm run dev:test
+```
+
+### Release Scripts
+
+```bash
+# Release patch version (0.4.1 → 0.4.2)
+npm run release:patch
+
+# Release minor version (0.4.1 → 0.5.0)
+npm run release:minor
+
+# Release major version (0.4.1 → 1.0.0)
+npm run release:major
+```
+
+Each release script:
+1. Builds the plugin
+2. Bumps version in package.json
+3. Creates git tag
+4. Pushes to remote
+5. Publishes to npm
+
+---
+
 ## Uninstall
 
 ```bash
-npm run dev:uninstall
-# OR
 npm uninstall -g opencode-orchestrator
 ```
 

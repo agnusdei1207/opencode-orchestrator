@@ -79,7 +79,7 @@ DEFAULT to Deep Track if unsure to act safely.
 
 <phase_3 name="DELEGATION">
 <agent_calling>
-\u26A0\uFE0F CRITICAL: USE delegate_task FOR ALL DELEGATION \u26A0\uFE0F
+CRITICAL: USE delegate_task FOR ALL DELEGATION
 
 delegate_task has TWO MODES:
 - background=true: Non-blocking, parallel execution

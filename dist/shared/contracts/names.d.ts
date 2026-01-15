@@ -5,4 +5,4 @@ export declare const AGENT_NAMES: {
     readonly INSPECTOR: "inspector";
     readonly RECORDER: "recorder";
 };
-export type AgentName = typeof AGENT_NAMES[keyof typeof AGENT_NAMES];
+export type AgentName = (typeof AGENT_NAMES)[keyof typeof AGENT_NAMES];
