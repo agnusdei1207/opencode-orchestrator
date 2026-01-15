@@ -300,6 +300,63 @@ cat ~/.config/opencode/opencode.json | jq '.agent'
 
 ---
 
+## UI Corruption: Unsupported Hook (2026-01-16)
+
+### Problem: OpenCode UI Breaks When Plugin Loads
+
+After enabling the plugin, OpenCode UI displays garbled text like:
+- `tools: input.tools,`
+- Random code fragments in the interface
+- Chat interface becomes unusable
+
+### Root Cause
+
+Using **unsupported hooks** in the plugin return object causes OpenCode to misinterpret the plugin structure and corrupt the UI rendering.
+
+**The problematic hook:**
+```typescript
+// ❌ DO NOT USE - This hook does NOT exist in OpenCode Plugin API
+return {
+    tool: { ... },
+    
+    // THIS CAUSES UI CORRUPTION
+    "assistant.done": async (input, output) => {
+        // ... relentless loop logic
+    },
+};
+```
+
+### Solution
+
+Remove any hooks that are not officially documented in the OpenCode Plugin API.
+
+**Supported hooks only:**
+```typescript
+// ✅ CORRECT - Only use documented hooks
+return {
+    tool: { ... },
+    config: async (config) => { ... },
+    "chat.message": async (input, output) => { ... },
+    "tool.execute.before": async (input, output) => { ... },
+    "tool.execute.after": async (input, output) => { ... },
+    event: async (input) => { ... },
+};
+```
+
+### Verification
+
+After fixing, restart OpenCode and check:
+1. UI renders correctly
+2. Plugin loads without errors: `[orchestrator] vX.X.X loaded`
+3. Commands appear in autocomplete
+
+### Notes
+
+- The "relentless loop" feature that used `assistant.done` needs to be reimplemented using `tool.execute.after` or `event` hooks
+- Always check the official [OpenCode Plugin API](https://opencode.ai/docs/plugins) for supported hooks
+
+---
+
 ## References
 
 - [OpenCode Plugin API](https://opencode.ai/docs/plugins)
@@ -307,5 +364,4 @@ cat ~/.config/opencode/opencode.json | jq '.agent'
 
 ---
 
-**Last Updated**: 2026-01-14
-
+**Last Updated**: 2026-01-16

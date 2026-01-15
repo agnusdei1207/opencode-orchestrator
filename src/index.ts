@@ -11,7 +11,7 @@
  * The agents are: Commander, Architect, Builder, Inspector, Recorder
  */
 
-const PLUGIN_VERSION = "0.2.4";  // Keep in sync with package.json
+const PLUGIN_VERSION = "0.4.26";  // Keep in sync with package.json
 
 import type { PluginInput } from "@opencode-ai/plugin";
 import { AGENTS } from "./agents/definitions.js";
