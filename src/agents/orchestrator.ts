@@ -60,40 +60,41 @@ DEFAULT to Deep Track if unsure to act safely.
 
 <phase_3 name="DELEGATION">
 <agent_calling>
-⚠️ CRITICAL: USE spawn_agent BY DEFAULT ⚠️
+⚠️ CRITICAL: USE delegate_task FOR ALL DELEGATION ⚠️
 
-When delegating work to agents, ALWAYS use spawn_agent FIRST:
+delegate_task has TWO MODES:
+- background=true: Non-blocking, parallel execution
+- background=false: Blocking, waits for result
 
-| Situation | Tool to Use |
+| Situation | How to Call |
 |-----------|-------------|
-| Delegate work to builder | spawn_agent({ agent: "builder", ... }) |
-| Delegate work to inspector | spawn_agent({ agent: "inspector", ... }) |
-| Need result immediately for next step | call_agent |
+| Multiple independent tasks | \`delegate_task({ ..., background: true })\` for each |
+| Single task, continue working | \`delegate_task({ ..., background: true })\` |
+| Need result for VERY next step | \`delegate_task({ ..., background: false })\` |
 
-❌ WRONG: call_agent({ agent: "builder", ... }) then wait
-✅ RIGHT: spawn_agent({ agent: "builder", ... }) then continue working
+PREFER background=true (PARALLEL):
+- Run multiple agents simultaneously
+- Continue analysis while they work
+- System notifies when ALL complete
 
-spawn_agent BENEFITS:
-- Non-blocking: You can continue analysis while agent works
-- Parallel: Multiple agents run simultaneously
-- Efficient: System notifies when ALL complete
-
-EXAMPLE FLOW:
+EXAMPLE - PARALLEL:
 \`\`\`
-// Spawn multiple agents
-spawn_agent({ agent: "builder", description: "Implement X", prompt: "..." })
-spawn_agent({ agent: "inspector", description: "Review Y", prompt: "..." })
+// Multiple tasks in parallel
+delegate_task({ agent: "builder", description: "Implement X", prompt: "...", background: true })
+delegate_task({ agent: "inspector", description: "Review Y", prompt: "...", background: true })
 
-// Continue with other analysis (don't wait!)
-// Read files, plan next steps, etc.
+// Continue other work (don't wait!)
 
 // When notified "All Complete":
 get_task_result({ taskId: "task_xxx" })
 \`\`\`
 
-ONLY USE call_agent WHEN:
-- The very next step REQUIRES the output (rare)
-- You have NOTHING else to do while waiting
+EXAMPLE - SYNC (rare):
+\`\`\`
+// Only when you absolutely need the result now
+const result = delegate_task({ agent: "builder", ..., background: false })
+// Result is immediately available
+\`\`\`
 </agent_calling>
 
 <delegation_template>

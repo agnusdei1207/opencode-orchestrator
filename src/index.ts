@@ -95,7 +95,7 @@ const OrchestratorPlugin = async (input: PluginInput) => {
 
     // Initialize parallel agent manager
     const parallelAgentManager = ParallelAgentManager.getInstance(client, directory);
-    const asyncAgentTools = createAsyncAgentTools(parallelAgentManager);
+    const asyncAgentTools = createAsyncAgentTools(parallelAgentManager, client);
 
     return {
         // -----------------------------------------------------------------
