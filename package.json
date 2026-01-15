@@ -42,7 +42,7 @@
     "postinstall": "node dist/scripts/postinstall.js",
     "preuninstall": "node dist/scripts/preuninstall.js",
     "prepublishOnly": "npm run build",
-    "release:ship": "npm publish --access public && git add -A && git commit -m \"chore(release): v$(node -p \\\"require('./package.json').version\\\")\" && git tag -a \"v$(node -p \\\"require('./package.json').version\\\")\" -m \"v$(node -p \\\"require('./package.json').version\\\")\" && git push --follow-tags",
+    "release:ship": "npm publish --access public && git add -A && git commit -m \"chore(release): v$(node -p \\\"require('./package.json').version\\\")\" && git tag -a \"v$(node -p \\\"require('./package.json').version\\\")\" -m \"v$(node -p \\\"require('./package.json').version\\\")\" && git push --follow-tags && gh release create \"v$(node -p \\\"require('./package.json').version\\\")\" --title \"v$(node -p \\\"require('./package.json').version\\\")\" --notes \"Release v$(node -p \\\"require('./package.json').version\\\")\" --latest",
     "release:patch": "npm run build && npm version patch && npm run release:ship",
     "release:minor": "npm run build && npm version minor && npm run release:ship",
     "release:major": "npm run build && npm version major && npm run release:ship",
