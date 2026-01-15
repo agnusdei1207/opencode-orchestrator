@@ -1,6 +1,7 @@
 //! Tool implementations for the orchestrator CLI
 
 use anyhow::Result;
+use orchestrator_core::background::{BackgroundTaskManager, RunOptions, TaskStatus};
 use orchestrator_core::hooks::Hook;
 use orchestrator_core::tools::{GlobTool, GrepTool, glob::GlobConfig, grep::GrepConfig};
 use serde::Deserialize;
@@ -8,12 +9,20 @@ use serde_json::{Value, json};
 use std::path::PathBuf;
 use std::time::Duration;
 
+lazy_static::lazy_static! {
+    static ref TASK_MANAGER: BackgroundTaskManager = BackgroundTaskManager::new();
+}
+
 /// Execute a tool by name
 pub async fn execute_tool(name: &str, arguments: Value) -> Result<String> {
     match name {
         "grep_search" => grep_search(arguments).await,
         "glob_search" => glob_search(arguments).await,
-        "mgrep" => mgrep(arguments).await, // Multi-pattern grep (parallel)
+        "mgrep" => mgrep(arguments).await,
+        "run_background" => run_background(arguments),
+        "check_background" => check_background(arguments),
+        "list_background" => list_background(arguments),
+        "kill_background" => kill_background(arguments),
         "list_agents" => list_agents().await,
         "list_hooks" => list_hooks().await,
         _ => Err(anyhow::anyhow!("Unknown tool: {}", name)),
@@ -210,4 +219,84 @@ async fn list_hooks() -> Result<String> {
         .collect();
 
     Ok(serde_json::to_string_pretty(&json!({"hooks": hooks}))?)
+}
+
+#[derive(Deserialize)]
+struct RunBackgroundArgs {
+    command: String,
+    cwd: Option<String>,
+    timeout: Option<u64>,
+    label: Option<String>,
+}
+
+fn run_background(arguments: Value) -> Result<String> {
+    let args: RunBackgroundArgs = serde_json::from_value(arguments)?;
+    let options = RunOptions {
+        command: args.command,
+        cwd: args.cwd,
+        timeout: args.timeout.unwrap_or(300_000),
+        label: args.label,
+    };
+
+    TASK_MANAGER.run(options).map_err(|e| anyhow::anyhow!(e))
+}
+
+#[derive(Deserialize)]
+struct CheckBackgroundArgs {
+    task_id: String,
+    tail_lines: Option<usize>,
+}
+
+fn check_background(arguments: Value) -> Result<String> {
+    let args: CheckBackgroundArgs = serde_json::from_value(arguments)?;
+    TASK_MANAGER
+        .format_task_output(&args.task_id, args.tail_lines)
+        .map_err(|e| anyhow::anyhow!(e))
+}
+
+#[derive(Deserialize)]
+struct ListBackgroundArgs {
+    status: Option<String>,
+}
+
+fn list_background(arguments: Value) -> Result<String> {
+    let args: ListBackgroundArgs = serde_json::from_value(arguments)?;
+    let filter = args.status.and_then(|s| match s.as_str() {
+        "running" => Some(TaskStatus::Running),
+        "done" => Some(TaskStatus::Done),
+        "error" | "timeout" => Some(TaskStatus::Error),
+        _ => None,
+    });
+
+    TASK_MANAGER
+        .list_tasks(filter)
+        .map_err(|e| anyhow::anyhow!(e))
+}
+
+#[derive(Deserialize)]
+struct KillBackgroundArgs {
+    task_id: String,
+}
+
+fn kill_background(arguments: Value) -> Result<String> {
+    let args: KillBackgroundArgs = serde_json::from_value(arguments)?;
+    match TASK_MANAGER
+        .kill(&args.task_id)
+        .map_err(|e| anyhow::anyhow!(e))
+    {
+        Ok(()) => {
+            let task = TASK_MANAGER.get(&args.task_id);
+            if let Some(t) = task {
+                Ok(format!(
+                    "🛑 Task `{}` has been killed.\nCommand: `{}`\nDuration before kill: {}",
+                    args.task_id,
+                    t.command,
+                    t.format_duration()
+                ))
+            } else {
+                Ok(format!("🛑 Task `{}` has been killed.", args.task_id))
+            }
+        }
+        Err(e) => Ok(format!("⚠️ Could not kill task `{}`: {}", args.task_id, e)),
+    }
 }

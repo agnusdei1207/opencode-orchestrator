@@ -286,6 +286,53 @@ async fn handle_request(request: &Value) -> Option<Value> {
                         }
                     },
                     {
+                        "name": "run_background",
+                        "description": "Run a shell command in the background and get a task ID",
+                        "inputSchema": {
+                            "type": "object",
+                            "properties": {
+                                "command": {"type": "string", "description": "Shell command to execute"},
+                                "cwd": {"type": "string", "description": "Working directory (default: project root)"},
+                                "timeout": {"type": "number", "description": "Timeout in milliseconds (default: 300000 = 5 min)"},
+                                "label": {"type": "string", "description": "Human-readable label for this task"}
+                            },
+                            "required": ["command"]
+                        }
+                    },
+                    {
+                        "name": "check_background",
+                        "description": "Check status and output of a background task",
+                        "inputSchema": {
+                            "type": "object",
+                            "properties": {
+                                "taskId": {"type": "string", "description": "Task ID from run_background (e.g., job_a1b2c3d4)"},
+                                "tailLines": {"type": "number", "description": "Limit output to last N lines (default: show all)"}
+                            },
+                            "required": ["taskId"]
+                        }
+                    },
+                    {
+                        "name": "list_background",
+                        "description": "List all background tasks and their current status",
+                        "inputSchema": {
+                            "type": "object",
+                            "properties": {
+                                "status": {"type": "string", "enum": ["all", "running", "done", "error"], "description": "Filter by status (default: all)"}
+                            }
+                        }
+                    },
+                    {
+                        "name": "kill_background",
+                        "description": "Kill a running background task",
+                        "inputSchema": {
+                            "type": "object",
+                            "properties": {
+                                "taskId": {"type": "string", "description": "Task ID to kill (e.g., job_a1b2c3d4)"}
+                            },
+                            "required": ["taskId"]
+                        }
+                    },
+                    {
                         "name": "list_agents",
                         "description": "List available agents",
                         "inputSchema": {"type": "object", "properties": {}}

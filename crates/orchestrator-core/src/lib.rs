@@ -15,10 +15,12 @@
 //! └─────────────────────────────────────────────────────────┘
 //! ```
 
+pub mod background;
 pub mod config;
 pub mod error;
 pub mod hooks;
 pub mod tools;
 
+pub use background::{BackgroundTask, BackgroundTaskManager, RunOptions, TaskStatus};
 pub use config::OrchestratorConfig;
 pub use error::{Error, Result};

@@ -13319,197 +13319,9 @@ Returns matches grouped by pattern, with file paths and line numbers.
   }
 });
 
-// src/core/background.ts
-import { spawn as spawn2 } from "child_process";
-import { randomBytes } from "crypto";
-var BackgroundTaskManager = class _BackgroundTaskManager {
-  static _instance;
-  tasks = /* @__PURE__ */ new Map();
-  debugMode = true;
-  // Enable debug mode
-  constructor() {
-  }
-  static get instance() {
-    if (!_BackgroundTaskManager._instance) {
-      _BackgroundTaskManager._instance = new _BackgroundTaskManager();
-    }
-    return _BackgroundTaskManager._instance;
-  }
-  /**
-   * Generate a unique task ID in the format job_xxxxxxxx
-   */
-  generateId() {
-    const hex3 = randomBytes(4).toString("hex");
-    return `job_${hex3}`;
-  }
-  /**
-   * Debug logging helper
-   */
-  debug(taskId, message) {
-    if (this.debugMode) {
-      const timestamp = (/* @__PURE__ */ new Date()).toISOString().substring(11, 23);
-      console.log(`[BG-DEBUG ${timestamp}] ${taskId}: ${message}`);
-    }
-  }
-  /**
-   * Run a command in the background
-   */
-  run(options) {
-    const id = this.generateId();
-    const { command, cwd = process.cwd(), timeout = 3e5, label } = options;
-    const isWindows = process.platform === "win32";
-    const shell = isWindows ? "cmd.exe" : "/bin/sh";
-    const shellFlag = isWindows ? "/c" : "-c";
-    const task = {
-      id,
-      command,
-      args: [shellFlag, command],
-      cwd,
-      label,
-      status: "running",
-      output: "",
-      errorOutput: "",
-      exitCode: null,
-      startTime: Date.now(),
-      timeout
-    };
-    this.tasks.set(id, task);
-    this.debug(id, `Starting: ${command} (cwd: ${cwd})`);
-    try {
-      const proc = spawn2(shell, task.args, {
-        cwd,
-        stdio: ["ignore", "pipe", "pipe"],
-        detached: false
-      });
-      task.process = proc;
-      proc.stdout?.on("data", (data) => {
-        const text = data.toString();
-        task.output += text;
-        this.debug(id, `stdout: ${text.substring(0, 100)}${text.length > 100 ? "..." : ""}`);
-      });
-      proc.stderr?.on("data", (data) => {
-        const text = data.toString();
-        task.errorOutput += text;
-        this.debug(id, `stderr: ${text.substring(0, 100)}${text.length > 100 ? "..." : ""}`);
-      });
-      proc.on("close", (code) => {
-        task.exitCode = code;
-        task.endTime = Date.now();
-        task.status = code === 0 ? "done" : "error";
-        task.process = void 0;
-        const duration3 = ((task.endTime - task.startTime) / 1e3).toFixed(2);
-        this.debug(id, `Completed with code ${code} in ${duration3}s`);
-      });
-      proc.on("error", (err) => {
-        task.status = "error";
-        task.errorOutput += `
-Process error: ${err.message}`;
-        task.endTime = Date.now();
-        task.process = void 0;
-        this.debug(id, `Error: ${err.message}`);
-      });
-      setTimeout(() => {
-        if (task.status === "running" && task.process) {
-          this.debug(id, `Timeout after ${timeout}ms, killing process`);
-          task.process.kill("SIGKILL");
-          task.status = "timeout";
-          task.endTime = Date.now();
-          task.errorOutput += `
-Process killed: timeout after ${timeout}ms`;
-        }
-      }, timeout);
-    } catch (err) {
-      task.status = "error";
-      task.errorOutput = `Failed to spawn: ${err instanceof Error ? err.message : String(err)}`;
-      task.endTime = Date.now();
-      this.debug(id, `Spawn failed: ${task.errorOutput}`);
-    }
-    return task;
-  }
-  /**
-   * Get task by ID
-   */
-  get(taskId) {
-    return this.tasks.get(taskId);
-  }
-  /**
-   * Get all tasks
-   */
-  getAll() {
-    return Array.from(this.tasks.values());
-  }
-  /**
-   * Get tasks by status
-   */
-  getByStatus(status) {
-    return this.getAll().filter((t) => t.status === status);
-  }
-  /**
-   * Clear completed/failed tasks
-   */
-  clearCompleted() {
-    let count = 0;
-    for (const [id, task] of this.tasks) {
-      if (task.status !== "running" && task.status !== "pending") {
-        this.tasks.delete(id);
-        count++;
-      }
-    }
-    return count;
-  }
-  /**
-   * Kill a running task
-   */
-  kill(taskId) {
-    const task = this.tasks.get(taskId);
-    if (task?.process) {
-      task.process.kill("SIGKILL");
-      task.status = "error";
-      task.errorOutput += "\nKilled by user";
-      task.endTime = Date.now();
-      this.debug(taskId, "Killed by user");
-      return true;
-    }
-    return false;
-  }
-  /**
-   * Format duration for display
-   */
-  formatDuration(task) {
-    const end = task.endTime || Date.now();
-    const seconds = (end - task.startTime) / 1e3;
-    if (seconds < 60) {
-      return `${seconds.toFixed(1)}s`;
-    }
-    const minutes = Math.floor(seconds / 60);
-    const remainingSeconds = seconds % 60;
-    return `${minutes}m ${remainingSeconds.toFixed(0)}s`;
-  }
-  /**
-   * Get status emoji
-   */
-  getStatusEmoji(status) {
-    switch (status) {
-      case "pending":
-        return "\u23F8\uFE0F";
-      case "running":
-        return "\u23F3";
-      case "done":
-        return "\u2705";
-      case "error":
-        return "\u274C";
-      case "timeout":
-        return "\u23F0";
-      default:
-        return "\u2753";
-    }
-  }
-};
-var backgroundTaskManager = BackgroundTaskManager.instance;
-
 // src/tools/background.ts
 var runBackgroundTool = tool({
-  description: `Run a shell command in the background and get a task ID.
+  description: `Run a shell command in background and get a task ID.
 
 <purpose>
 Execute long-running commands (builds, tests, etc.) without blocking.
@@ -13535,26 +13347,7 @@ The command runs asynchronously - use check_background to get results.
     label: tool.schema.string().optional().describe("Human-readable label for this task")
   },
   async execute(args) {
-    const { command, cwd, timeout, label } = args;
-    const task = backgroundTaskManager.run({
-      command,
-      cwd: cwd || process.cwd(),
-      timeout: timeout || 3e5,
-      label
-    });
-    const displayLabel = label ? ` (${label})` : "";
-    return `\u{1F680} **Background Task Started**${displayLabel}
-\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501
-| Property | Value |
-|----------|-------|
-| **Task ID** | \`${task.id}\` |
-| **Command** | \`${command}\` |
-| **Status** | ${backgroundTaskManager.getStatusEmoji(task.status)} ${task.status} |
-| **Working Dir** | ${task.cwd} |
-| **Timeout** | ${(task.timeout / 1e3).toFixed(0)}s |
-\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501
-
-\u{1F4CC} **Next Step**: Use \`check_background\` with task ID \`${task.id}\` to get results.`;
+    return callRustTool("run_background", args);
   }
 });
 var checkBackgroundTool = tool({
@@ -13572,75 +13365,11 @@ Use this after run_background to get results.
 - Full output (stdout + stderr)
 </output_includes>`,
   args: {
-    taskId: tool.schema.string().describe("Task ID from run_background (e.g., job_a1b2c3d4)"),
-    tailLines: tool.schema.number().optional().describe("Limit output to last N lines (default: show all)")
+    task_id: tool.schema.string().describe("Task ID from run_background (e.g., job_a1b2c3d4)"),
+    tail_lines: tool.schema.number().optional().describe("Limit output to last N lines (default: show all)")
   },
   async execute(args) {
-    const { taskId, tailLines } = args;
-    const task = backgroundTaskManager.get(taskId);
-    if (!task) {
-      const allTasks = backgroundTaskManager.getAll();
-      if (allTasks.length === 0) {
-        return `\u274C Task \`${taskId}\` not found. No background tasks exist.`;
-      }
-      const taskList = allTasks.map((t) => `- \`${t.id}\`: ${t.command.substring(0, 30)}...`).join("\n");
-      return `\u274C Task \`${taskId}\` not found.
-
-**Available tasks:**
-${taskList}`;
-    }
-    const duration3 = backgroundTaskManager.formatDuration(task);
-    const statusEmoji = backgroundTaskManager.getStatusEmoji(task.status);
-    let output = task.output;
-    let stderr = task.errorOutput;
-    if (tailLines && tailLines > 0) {
-      const outputLines = output.split("\n");
-      const stderrLines = stderr.split("\n");
-      output = outputLines.slice(-tailLines).join("\n");
-      stderr = stderrLines.slice(-tailLines).join("\n");
-    }
-    const maxLen = 1e4;
-    if (output.length > maxLen) {
-      output = `[...truncated ${output.length - maxLen} chars...]
-` + output.substring(output.length - maxLen);
-    }
-    if (stderr.length > maxLen) {
-      stderr = `[...truncated ${stderr.length - maxLen} chars...]
-` + stderr.substring(stderr.length - maxLen);
-    }
-    const labelDisplay = task.label ? ` (${task.label})` : "";
-    let result = `${statusEmoji} **Task ${task.id}**${labelDisplay}
-\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501
-| Property | Value |
-|----------|-------|
-| **Command** | \`${task.command}\` |
-| **Status** | ${statusEmoji} **${task.status.toUpperCase()}** |
-| **Duration** | ${duration3}${task.status === "running" ? " (ongoing)" : ""} |
-${task.exitCode !== null ? `| **Exit Code** | ${task.exitCode} |` : ""}
-\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501`;
-    if (output.trim()) {
-      result += `
-
-\u{1F4E4} **Output (stdout)**:
-\`\`\`
-${output.trim()}
-\`\`\``;
-    }
-    if (stderr.trim()) {
-      result += `
-
-\u26A0\uFE0F **Errors (stderr)**:
-\`\`\`
-${stderr.trim()}
-\`\`\``;
-    }
-    if (task.status === "running") {
-      result += `
-
-\u23F3 Task still running... Check again later with:
-\`check_background({ taskId: "${task.id}" })\``;
-    }
-    return result;
+    return callRustTool("check_background", args);
   }
 });
 var listBackgroundTool = tool({
@@ -13654,39 +13383,7 @@ Useful to check what's in progress before starting new tasks.
     status: tool.schema.enum(["all", "running", "done", "error"]).optional().describe("Filter by status (default: all)")
   },
   async execute(args) {
-    const { status = "all" } = args;
-    let tasks;
-    if (status === "all") {
-      tasks = backgroundTaskManager.getAll();
-    } else {
-      tasks = backgroundTaskManager.getByStatus(status);
-    }
-    if (tasks.length === 0) {
-      return `\u{1F4CB} **No background tasks** ${status !== "all" ? `with status "${status}"` : ""}
-
-Use \`run_background\` to start a new background task.`;
-    }
-    tasks.sort((a, b) => b.startTime - a.startTime);
-    const rows = tasks.map((task) => {
-      const emoji3 = backgroundTaskManager.getStatusEmoji(task.status);
-      const duration3 = backgroundTaskManager.formatDuration(task);
-      const cmdShort = task.command.length > 25 ? task.command.substring(0, 22) + "..." : task.command;
-      const labelPart = task.label ? ` [${task.label}]` : "";
-      return `| \`${task.id}\` | ${emoji3} ${task.status.padEnd(7)} | ${cmdShort.padEnd(25)}${labelPart} | ${duration3.padStart(8)} |`;
-    }).join("\n");
-    const runningCount = tasks.filter((t) => t.status === "running").length;
-    const doneCount = tasks.filter((t) => t.status === "done").length;
-    const errorCount = tasks.filter((t) => t.status === "error" || t.status === "timeout").length;
-    return `\u{1F4CB} **Background Tasks** (${tasks.length} total)
-\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501
-| \u23F3 Running: ${runningCount} | \u2705 Done: ${doneCount} | \u274C Error/Timeout: ${errorCount} |
-\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501
-
-| Task ID | Status | Command | Duration |
-|---------|--------|---------|----------|
-${rows}
-
-\u{1F4A1} Use \`check_background({ taskId: "job_xxxxx" })\` to see full output.`;
+    return callRustTool("list_background", args);
   }
 });
 var killBackgroundTool = tool({
@@ -13696,24 +13393,10 @@ var killBackgroundTool = tool({
 Stop a background task that is taking too long or no longer needed.
 </purpose>`,
   args: {
-    taskId: tool.schema.string().describe("Task ID to kill (e.g., job_a1b2c3d4)")
+    task_id: tool.schema.string().describe("Task ID to kill (e.g., job_a1b2c3d4)")
   },
   async execute(args) {
-    const { taskId } = args;
-    const task = backgroundTaskManager.get(taskId);
-    if (!task) {
-      return `\u274C Task \`${taskId}\` not found.`;
-    }
-    if (task.status !== "running") {
-      return `\u26A0\uFE0F Task \`${taskId}\` is not running (status: ${task.status}).`;
-    }
-    const killed = backgroundTaskManager.kill(taskId);
-    if (killed) {
-      return `\u{1F6D1} Task \`${taskId}\` has been killed.
-Command: \`${task.command}\`
-Duration before kill: ${backgroundTaskManager.formatDuration(task)}`;
-    }
-    return `\u26A0\uFE0F Could not kill task \`${taskId}\`. It may have already finished.`;
+    return callRustTool("kill_background", args);
   }
 });
 
