@@ -2,7 +2,7 @@
     "name": "opencode-orchestrator",
     "displayName": "OpenCode Orchestrator",
     "description": "Distributed Cognitive Architecture for OpenCode. Turns simple prompts into specialized multi-agent workflows (Planner, Coder, Reviewer).",
-    "version": "0.2.4",
+    "version": "0.4.0",
     "author": "agnusdei1207",
     "license": "MIT",
     "repository": {
@@ -55,13 +55,13 @@
         "postinstall": "node dist/scripts/postinstall.js 2>/dev/null || true",
         "preuninstall": "node dist/scripts/preuninstall.js 2>/dev/null || true",
         "prepublishOnly": "npm run build:js",
-        "dev:install": "npm run build:js && npm unlink -g opencode-orchestrator 2>/dev/null; npm install -g . && echo '✅ Installed globally'",
-        "dev:uninstall": "npm unlink -g opencode-orchestrator 2>/dev/null; npm uninstall -g opencode-orchestrator 2>/dev/null; echo '✅ Uninstalled'",
-        "dev:link": "npm run build:js && npm unlink -g opencode-orchestrator 2>/dev/null; npm unlink 2>/dev/null; npm link && echo '✅ Linked. Restart OpenCode.'",
-        "dev:unlink": "npm unlink -g opencode-orchestrator 2>/dev/null; npm unlink 2>/dev/null; echo '✅ Unlinked'",
-        "dev:reload": "npm run build:js && npm unlink -g opencode-orchestrator 2>/dev/null; npm unlink 2>/dev/null; npm link && echo '✅ Rebuilt and re-linked. Restart OpenCode.'",
+        "dev:install": "npm run build:js && npm uninstall -g opencode-orchestrator >/dev/null 2>&1 || true && npm install -g . && echo '✅ Installed globally'",
+        "dev:uninstall": "npm unlink -g opencode-orchestrator >/dev/null 2>&1 || true && npm uninstall -g opencode-orchestrator >/dev/null 2>&1 || true && rm -rf $(npm root -g)/opencode-orchestrator && echo '✅ Forcefully Uninstalled'",
+        "dev:link": "npm run build:js && npm unlink -g opencode-orchestrator >/dev/null 2>&1 || true && npm unlink >/dev/null 2>&1 || true && rm -rf $(npm root -g)/opencode-orchestrator && npm link && echo '✅ Re-linked. Restart OpenCode.'",
+        "dev:unlink": "npm unlink -g opencode-orchestrator >/dev/null 2>&1 || true && npm unlink >/dev/null 2>&1 || true && rm -rf $(npm root -g)/opencode-orchestrator && echo '✅ Unlinked and Cleaned'",
+        "dev:reload": "npm run dev:link",
         "dev:build": "npm run build:js && echo '✅ Built (no link change)'",
-        "dev:status": "echo '=== Global Install ===' && (npm list -g opencode-orchestrator 2>/dev/null || echo 'Not installed') && echo '' && echo '=== Symlink Check ===' && (ls -la $(npm root -g)/opencode-orchestrator 2>/dev/null || echo 'No symlink')",
+        "dev:status": "echo '=== Global Link Status ===' && ls -l $(npm root -g)/opencode-orchestrator 2>/dev/null || echo 'Not found'",
         "util:stars": "gh api repos/agnusdei1207/opencode-orchestrator/stargazers --jq '.[].login'"
     },
     "dependencies": {
