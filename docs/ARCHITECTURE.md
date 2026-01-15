@@ -99,7 +99,7 @@ Orchestrator supports **parallel agent execution** through session-based spawnin
 ### Parallel Agent Tools
 | Tool | Description |
 |------|-------------|
-| `spawn_agent` | Launch an agent in a parallel session |
+| `delegate_task` | Delegate work to an agent (sync or async) |
 | `get_task_result` | Retrieve the result from a completed task |
 | `list_tasks` | View all parallel tasks and their status |
 | `cancel_task` | Stop a running task and free the concurrency slot |
@@ -138,9 +138,9 @@ For long-running shell commands (builds, tests, linting), use the background tas
 
 ### Example Flow
 ```
-1. spawn_agent({ agent: "builder", prompt: "Implement feature X" })
-   spawn_agent({ agent: "inspector", prompt: "Review module Y" })
-   → Both agents start in parallel sessions
+1. delegate_task({ agent: "builder", prompt: "Features", background: true })
+   delegate_task({ agent: "inspector", prompt: "Review", background: true })
+   → Both agents start in parallel sessions (Non-blocking)
 
 2. run_background({ command: "npm run build" })
    → Command starts, returns immediately
