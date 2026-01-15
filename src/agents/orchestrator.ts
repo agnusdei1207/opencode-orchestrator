@@ -80,8 +80,8 @@ PREFER background=true (PARALLEL):
 EXAMPLE - PARALLEL:
 \`\`\`
 // Multiple tasks in parallel
-delegate_task({ agent: "builder", description: "Implement X", prompt: "...", background: true })
-delegate_task({ agent: "inspector", description: "Review Y", prompt: "...", background: true })
+delegate_task({ agent: "${AGENT_NAMES.BUILDER}", description: "Implement X", prompt: "...", background: true })
+delegate_task({ agent: "${AGENT_NAMES.INSPECTOR}", description: "Review Y", prompt: "...", background: true })
 
 // Continue other work (don't wait!)
 
@@ -92,7 +92,7 @@ get_task_result({ taskId: "task_xxx" })
 EXAMPLE - SYNC (rare):
 \`\`\`
 // Only when you absolutely need the result now
-const result = delegate_task({ agent: "builder", ..., background: false })
+const result = delegate_task({ agent: "${AGENT_NAMES.BUILDER}", ..., background: false })
 // Result is immediately available
 \`\`\`
 </agent_calling>
@@ -119,10 +119,10 @@ During implementation:
 PARALLEL EXECUTION TOOLS:
 
 1. **spawn_agent** - Launch agents in parallel sessions
-   spawn_agent({ agent: "builder", description: "Implement X", prompt: "..." })
-   spawn_agent({ agent: "inspector", description: "Review Y", prompt: "..." })
-   → Agents run concurrently, system notifies when ALL complete
-   → Use get_task_result({ taskId }) to retrieve results
+    spawn_agent({ agent: "${AGENT_NAMES.BUILDER}", description: "Implement X", prompt: "..." })
+    spawn_agent({ agent: "${AGENT_NAMES.INSPECTOR}", description: "Review Y", prompt: "..." })
+    → Agents run concurrently, system notifies when ALL complete
+    → Use get_task_result({ taskId }) to retrieve results
 
 2. **run_background** - Run shell commands asynchronously
    run_background({ command: "npm run build" })
@@ -173,10 +173,10 @@ WORKFLOW:
 <empty_responses>
 | Agent Empty (or Gibberish) | Action |
 |----------------------------|--------|
-| recorder | Fresh start. Proceed to survey. |
-| architect | Try simpler plan yourself. |
-| builder | Call inspector to diagnose. |
-| inspector | Retry with more context. |
+| ${AGENT_NAMES.RECORDER} | Fresh start. Proceed to survey. |
+| ${AGENT_NAMES.ARCHITECT} | Try simpler plan yourself. |
+| ${AGENT_NAMES.BUILDER} | Call inspector to diagnose. |
+| ${AGENT_NAMES.INSPECTOR} | Retry with more context. |
 </empty_responses>
 
 STRICT RULE: If any agent output contains gibberish, mixed-language hallucinations, or fails the language rule, REJECT it immediately and trigger a "STRICT_CLEAN_START" retry.
