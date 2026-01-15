@@ -28,13 +28,17 @@ A **5-agent autonomous architecture** designed to solve complex engineering task
 
 **Core Philosophy**: Intelligence is a resource. We orchestrate that resource through **Phase-based Workflows** and **Mandatory Environment Scans** to ensure code always fits the project's infrastructure.
 
+> 🦀 **Powered by Rust** — Background tasks and parallel searches run on native Rust binaries for maximum performance.
+
 ### Key Features
 - **🎯 Autonomous Loop** — Commander runs relentlessly until the mission is complete.
 - **🔍 Environment Scan** — Mandatory analysis of Infra (Docker/OS), Stack, and Domain before any code change.
 - **🔨 Smart Implementation** — Builder matches existing codebase patterns exactly.
 - **🛡️ Rigorous Audit** — Inspector proves success with environment-specific evidence (Builds/Tests/Logs).
 - **💾 Persistent Context** — Recorder saves session state to disk, enabling resume at any time.
-- **🏗️ Parallel Tasking** — Architect splits work into concurrent DAG groups.
+- **🏗️ Parallel Agents** — Delegated agent execution (`delegate_task`) with sync/async modes.
+- **⏳ Background Tasks** — Run long commands (builds, tests) in background and check results later.
+- **🔎 mgrep** — Multi-pattern parallel search powered by Rust for blazing-fast codebase analysis.
 
 ---
 
@@ -78,6 +82,26 @@ The Commander will:
 
 > **💡 Tip:** Using the `/task` command makes Commander mode run **2x longer**.
 > Use `/task` for complex tasks that need extended processing!
+
+### ⚡ Example: Parallel Execution
+
+Trigger parallel agent execution with prompts like:
+
+```
+"Build and test in parallel"
+"Implement feature X while reviewing module Y"
+"Run linting, tests, and build at the same time"
+```
+
+Commander will automatically use `delegate_task` with `background: true` for independent tasks.
+
+Monitor parallel tasks in the terminal:
+```
+[parallel] 🚀 SPAWNED task_a1b2 → builder: Implement feature X
+[parallel] 🚀 SPAWNED task_c3d4 → inspector: Review module Y
+[parallel] ✅ COMPLETED task_c3d4 → inspector: Review module Y (45s)
+[parallel] 🗑️ CLEANED task_c3d4 (session deleted)
+```
 
 ---
 
@@ -123,6 +147,8 @@ npm uninstall -g opencode-orchestrator
 
 - [Architecture & Design](docs/ARCHITECTURE.md) — Detailed system design and agent protocols
 - [Plugin Troubleshooting](docs/PLUGIN_TROUBLESHOOTING.md) — Setup and common issues
+- [Changelog](CHANGELOG.md) — Version history and updates
+- [Changelogs](changelogs/) — Detailed implementation notes per release
 
 ---
 

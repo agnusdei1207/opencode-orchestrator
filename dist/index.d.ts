@@ -62,6 +62,68 @@ declare const OrchestratorPlugin: (input: PluginInput) => Promise<{
                 dir?: string | undefined;
             }, context: import("@opencode-ai/plugin").ToolContext): Promise<string>;
         };
+        mgrep: {
+            description: string;
+            args: {
+                patterns: import("zod").ZodArray<import("zod").ZodString>;
+                dir: import("zod").ZodOptional<import("zod").ZodString>;
+                max_results_per_pattern: import("zod").ZodOptional<import("zod").ZodNumber>;
+            };
+            execute(args: {
+                patterns: string[];
+                dir?: string | undefined;
+                max_results_per_pattern?: number | undefined;
+            }, context: import("@opencode-ai/plugin").ToolContext): Promise<string>;
+        };
+        run_background: {
+            description: string;
+            args: {
+                command: import("zod").ZodString;
+                cwd: import("zod").ZodOptional<import("zod").ZodString>;
+                timeout: import("zod").ZodOptional<import("zod").ZodNumber>;
+                label: import("zod").ZodOptional<import("zod").ZodString>;
+            };
+            execute(args: {
+                command: string;
+                cwd?: string | undefined;
+                timeout?: number | undefined;
+                label?: string | undefined;
+            }, context: import("@opencode-ai/plugin").ToolContext): Promise<string>;
+        };
+        check_background: {
+            description: string;
+            args: {
+                taskId: import("zod").ZodString;
+                tailLines: import("zod").ZodOptional<import("zod").ZodNumber>;
+            };
+            execute(args: {
+                taskId: string;
+                tailLines?: number | undefined;
+            }, context: import("@opencode-ai/plugin").ToolContext): Promise<string>;
+        };
+        list_background: {
+            description: string;
+            args: {
+                status: import("zod").ZodOptional<import("zod").ZodEnum<{
+                    error: "error";
+                    running: "running";
+                    done: "done";
+                    all: "all";
+                }>>;
+            };
+            execute(args: {
+                status?: "error" | "running" | "done" | "all" | undefined;
+            }, context: import("@opencode-ai/plugin").ToolContext): Promise<string>;
+        };
+        kill_background: {
+            description: string;
+            args: {
+                taskId: import("zod").ZodString;
+            };
+            execute(args: {
+                taskId: string;
+            }, context: import("@opencode-ai/plugin").ToolContext): Promise<string>;
+        };
     };
     config: (config: Record<string, unknown>) => Promise<void>;
     "chat.message": (msgInput: any, msgOutput: any) => Promise<void>;

@@ -36,3 +36,44 @@ export const globSearchTool = (directory: string) => tool({
         });
     },
 });
+
+/**
+ * Multi-grep (mgrep) tool - search multiple patterns in parallel
+ * High-performance parallel search powered by Rust
+ * 
+ * Use cases:
+ * - Find all usages of multiple functions at once
+ * - Search for related patterns (imports, exports, usages)
+ * - Codebase-wide refactoring analysis
+ */
+export const mgrepTool = (directory: string) => tool({
+    description: `Search multiple patterns in parallel (high-performance).
+
+<purpose>
+Search for multiple regex patterns simultaneously using Rust's parallel execution.
+Much faster than running grep multiple times sequentially.
+</purpose>
+
+<examples>
+- patterns: ["useState", "useEffect", "useContext"] → Find all React hooks usage
+- patterns: ["TODO", "FIXME", "HACK"] → Find all code annotations
+- patterns: ["import.*lodash", "require.*lodash"] → Find all lodash imports
+</examples>
+
+<output>
+Returns matches grouped by pattern, with file paths and line numbers.
+</output>`,
+    args: {
+        patterns: tool.schema.array(tool.schema.string()).describe("Array of regex patterns to search for"),
+        dir: tool.schema.string().optional().describe("Directory to search (defaults to project root)"),
+        max_results_per_pattern: tool.schema.number().optional().describe("Max results per pattern (default: 50)"),
+    },
+    async execute(args) {
+        return callRustTool("mgrep", {
+            patterns: args.patterns,
+            directory: args.dir || directory,
+            max_results_per_pattern: args.max_results_per_pattern || 50,
+        });
+    },
+});
+
