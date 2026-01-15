@@ -21,7 +21,7 @@ import { state } from "./core/state.js";
 import { callAgentTool } from "./tools/callAgent.js";
 import { createSlashcommandTool, COMMANDS } from "./tools/slashCommand.js";
 import { grepSearchTool, globSearchTool, mgrepTool } from "./tools/search.js";
-import { gitBranchTool } from "./tools/git.js";
+// import { gitBranchTool } from "./tools/git.js";
 import {
     runBackgroundTool,
     checkBackgroundTool,
@@ -30,8 +30,8 @@ import {
 } from "./tools/background.js";
 import { ParallelAgentManager } from "./core/async-agent.js";
 import { createAsyncAgentTools } from "./tools/async-agent.js";
-import { createBatchTools } from "./tools/batch.js";
-import { createConfigTools } from "./tools/config.js";
+// import { createBatchTools } from "./tools/batch.js";
+// import { createConfigTools } from "./tools/config.js";
 import { detectSlashCommand, formatTimestamp, formatElapsedTime } from "./utils/common.js";
 import {
     checkOutputSanity,
@@ -101,8 +101,8 @@ const OrchestratorPlugin = async (input: PluginInput) => {
     // Initialize parallel agent manager
     const parallelAgentManager = ParallelAgentManager.getInstance(client, directory);
     const asyncAgentTools = createAsyncAgentTools(parallelAgentManager, client);
-    const batchTools = createBatchTools(parallelAgentManager, client);
-    const configTools = createConfigTools(client);
+    // const batchTools = createBatchTools(parallelAgentManager, client);
+    // const configTools = createConfigTools(client);
 
     return {
         // -----------------------------------------------------------------
@@ -122,11 +122,11 @@ const OrchestratorPlugin = async (input: PluginInput) => {
             // Async agent tools - spawn agents in parallel sessions
             ...asyncAgentTools,
             // Git tools - branch info and status
-            git_branch: gitBranchTool(directory),
+            // git_branch: gitBranchTool(directory),
             // Smart batch tools - centralized validation and retry
-            ...batchTools,
+            // ...batchTools,
             // Configuration tools - dynamic runtime settings
-            ...configTools,
+            // ...configTools,
         },
 
         // -----------------------------------------------------------------
@@ -385,142 +385,18 @@ const OrchestratorPlugin = async (input: PluginInput) => {
         },
 
         // -----------------------------------------------------------------
-        // assistant.done hook - runs when the LLM finishes responding
-        // This is the heart of the "relentless loop" - we keep pushing it
-        // to continue until we see MISSION COMPLETE or hit the limit
+        // NOTE: assistant.done hook has been REMOVED
+        // It was NOT in the official OpenCode plugin API and was causing
+        // UI rendering issues. The "relentless loop" feature needs to be
+        // reimplemented using supported hooks like tool.execute.after
+        // or the event hook.
         // -----------------------------------------------------------------
-        "assistant.done": async (assistantInput: any, assistantOutput: any) => {
-            const sessionID = assistantInput.sessionID;
-            const session = sessions.get(sessionID);
-
-            if (!session?.active) return;
-
-            // Gather all the text from the response
-            const parts = assistantOutput.parts as Array<{ type: string; text?: string }> | undefined;
-            const textContent = parts
-                ?.filter((p: any) => p.type === "text" || p.type === "reasoning")
-                .map((p: any) => p.text || "")
-                .join("\n") || "";
-
-            const stateSession = state.sessions.get(sessionID);
-
-            // =========================================================
-            // SANITY CHECK (again, for the final response)
-            // Sometimes the whole response is garbage, not just tool output
-            // =========================================================
-            const sanityResult = checkOutputSanity(textContent);
-            if (!sanityResult.isHealthy && stateSession) {
-                stateSession.anomalyCount = (stateSession.anomalyCount || 0) + 1;
-                session.step++;
-                session.timestamp = Date.now();
-
-                // Pick the right recovery prompt based on how many times this happened
-                const recoveryText = stateSession.anomalyCount >= 2
-                    ? ESCALATION_PROMPT
-                    : RECOVERY_PROMPT;
-
-                try {
-                    if (client?.session?.prompt) {
-                        await client.session.prompt({
-                            path: { id: sessionID },
-                            body: {
-                                parts: [{
-                                    type: "text",
-                                    text: `⚠️ ANOMALY #${stateSession.anomalyCount}: ${sanityResult.reason}\n\n` +
-                                        recoveryText +
-                                        `\n\n[Recovery Step ${session.step}/${session.maxSteps}]`
-                                }],
-                            },
-                        });
-                    }
-                } catch {
-                    // Can't even inject recovery? Give up.
-                    session.active = false;
-                    state.missionActive = false;
-                }
-                return;
-            }
-
-            // Good response, reset the anomaly counter
-            if (stateSession && stateSession.anomalyCount > 0) {
-                stateSession.anomalyCount = 0;
-            }
-
-            // =========================================================
-            // COMPLETION CHECK
-            // If we see the magic words, we're done!
-            // =========================================================
-            if (textContent.includes("✅ MISSION COMPLETE") || textContent.includes("MISSION COMPLETE")) {
-                session.active = false;
-                state.missionActive = false;
-                sessions.delete(sessionID);
-                state.sessions.delete(sessionID);
-                return;
-            }
-
-            // Let users bail out manually if needed
-            if (textContent.includes("/stop") || textContent.includes("/cancel")) {
-                session.active = false;
-                state.missionActive = false;
-                sessions.delete(sessionID);
-                state.sessions.delete(sessionID);
-                return;
-            }
-
-            const now = Date.now();
-            const stepDuration = formatElapsedTime(session.lastStepTime, now);
-            const totalElapsed = formatElapsedTime(session.startTime, now);
-            session.step++;
-            session.timestamp = now;
-            session.lastStepTime = now;
-            const currentTime = formatTimestamp();
-
-            // Hit the limit? Time to stop.
-            if (session.step >= session.maxSteps) {
-                session.active = false;
-                state.missionActive = false;
-                return;
-            }
-
-            // =========================================================
-            // THE RELENTLESS LOOP
-            // Mission not complete? Inject a "keep going" prompt.
-            // This is what makes Commander never give up.
-            // =========================================================
-            try {
-                if (client?.session?.prompt) {
-                    await client.session.prompt({
-                        path: { id: sessionID },
-                        body: {
-                            parts: [{
-                                type: "text",
-                                text: CONTINUE_INSTRUCTION + `\n\n⏱️ [${currentTime}] Step ${session.step}/${session.maxSteps} | This step: ${stepDuration} | Total: ${totalElapsed}`
-                            }],
-                        },
-                    });
-                }
-            } catch {
-                // First attempt failed, wait a bit and try simpler prompt
-                try {
-                    await new Promise(r => setTimeout(r, 500));
-                    if (client?.session?.prompt) {
-                        await client.session.prompt({
-                            path: { id: sessionID },
-                            body: { parts: [{ type: "text", text: "continue" }] },
-                        });
-                    }
-                } catch {
-                    // Both failed, probably a real problem. Stop the session.
-                    session.active = false;
-                    state.missionActive = false;
-                }
-            }
-        },
 
         // -----------------------------------------------------------------
         // Event handler - cleans up when sessions are deleted
         // -----------------------------------------------------------------
-        handler: async ({ event }: { event: { type: string; properties?: unknown } }) => {
+        event: async (input: { event: { type: string; properties?: unknown } }) => {
+            const { event } = input;
             if (event.type === "session.deleted") {
                 const props = event.properties as { info?: { id?: string } } | undefined;
                 if (props?.info?.id) {
