@@ -4,6 +4,10 @@ node_modules/
 # Rust build cache
 target/
 
+# Build outputs
+dist/
+bin/
+
 # IDE
 .idea/
 .vscode/
