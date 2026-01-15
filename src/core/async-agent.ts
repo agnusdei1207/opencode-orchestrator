@@ -273,8 +273,9 @@ export class ParallelAgentManager {
             await this.client.session.delete({
                 path: { id: task.sessionID },
             });
+            console.log(`[parallel] 🗑️ Session ${task.sessionID.slice(0, 8)}... deleted`);
         } catch {
-            // Ignore
+            console.log(`[parallel] 🗑️ Session ${task.sessionID.slice(0, 8)}... already gone`);
         }
 
         this.scheduleCleanup(taskId);
@@ -525,7 +526,11 @@ export class ParallelAgentManager {
                 // Delete session from OpenCode
                 this.client.session.delete({
                     path: { id: task.sessionID },
-                }).catch(() => { /* ignore */ });
+                }).then(() => {
+                    console.log(`[parallel] 🗑️ CLEANED ${taskId} (timeout session deleted)`);
+                }).catch(() => {
+                    console.log(`[parallel] 🗑️ CLEANED ${taskId} (timeout session already gone)`);
+                });
 
                 // Remove immediately on timeout
                 this.tasks.delete(taskId);

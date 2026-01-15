@@ -1463,7 +1463,9 @@ var ParallelAgentManager = class _ParallelAgentManager {
       await this.client.session.delete({
         path: { id: task.sessionID }
       });
+      console.log(`[parallel] \u{1F5D1}\uFE0F Session ${task.sessionID.slice(0, 8)}... deleted`);
     } catch {
+      console.log(`[parallel] \u{1F5D1}\uFE0F Session ${task.sessionID.slice(0, 8)}... already gone`);
     }
     this.scheduleCleanup(taskId);
     console.log(`[parallel] \u{1F6D1} CANCELLED ${taskId}`);
@@ -1648,7 +1650,10 @@ var ParallelAgentManager = class _ParallelAgentManager {
         }
         this.client.session.delete({
           path: { id: task.sessionID }
+        }).then(() => {
+          console.log(`[parallel] \u{1F5D1}\uFE0F CLEANED ${taskId} (timeout session deleted)`);
         }).catch(() => {
+          console.log(`[parallel] \u{1F5D1}\uFE0F CLEANED ${taskId} (timeout session already gone)`);
         });
         this.tasks.delete(taskId);
       }

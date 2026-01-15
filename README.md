@@ -83,6 +83,24 @@ The Commander will:
 > **💡 Tip:** Using the `/task` command makes Commander mode run **2x longer**.
 > Use `/task` for complex tasks that need extended processing!
 
+### ⚡ Example: Parallel Execution
+
+Trigger parallel agent execution with prompts like:
+
+```
+"Build and test in parallel"
+"Implement feature X while reviewing module Y"
+"Run linting, tests, and build at the same time"
+```
+
+Monitor parallel tasks in the terminal:
+```
+[parallel] 🚀 SPAWNED task_a1b2 → builder: Implement feature X
+[parallel] 🚀 SPAWNED task_c3d4 → inspector: Review module Y
+[parallel] ✅ COMPLETED task_a1b2 → builder (45s)
+[parallel] 🗑️ CLEANED task_a1b2 (session deleted)
+```
+
 ---
 
 ## Agents (5-Agent Architecture)
