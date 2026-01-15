@@ -1773,22 +1773,24 @@ and start when a slot opens. Different agent types have separate limits.
       });
       const runningCount = manager.getRunningTasks().length;
       const pendingCount = manager.getPendingCount(ctx.sessionID);
-      return `\u{1F680} **Agent Spawned**
-\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501
-| Property | Value |
-|----------|-------|
-| **Task ID** | \`${task.id}\` |
-| **Agent** | ${task.agent} |
-| **Description** | ${task.description} |
-| **Status** | \u23F3 running |
-| **Total Running** | ${runningCount} |
-| **Pending This Session** | ${pendingCount} |
-\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501
+      console.log(`[parallel] \u{1F680} SPAWNED ${task.id} \u2192 ${agent}: ${description}`);
+      return `
+\u2554\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2557
+\u2551  \u{1F680} PARALLEL AGENT SPAWNED                                    \u2551
+\u2560\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2563
+\u2551  Task ID:     ${task.id.padEnd(45)}\u2551
+\u2551  Agent:       ${task.agent.padEnd(45)}\u2551
+\u2551  Description: ${task.description.slice(0, 45).padEnd(45)}\u2551
+\u2551  Status:      \u23F3 RUNNING                                       \u2551
+\u2560\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2563
+\u2551  Running: ${String(runningCount).padEnd(5)} \u2502 Pending: ${String(pendingCount).padEnd(5)}                      \u2551
+\u255A\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u255D
 
-\u{1F4CC} **Continue your work!** System notifies when ALL tasks complete.
-Use \`get_task_result({ taskId: "${task.id}" })\` to check result later.`;
+\u{1F4CC} Continue your work! System notifies when ALL complete.
+\u{1F50D} Use \`get_task_result({ taskId: "${task.id}" })\` later.`;
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
+      console.log(`[parallel] \u274C FAILED: ${message}`);
       return `\u274C Failed to spawn agent: ${message}`;
     }
   }
@@ -2075,6 +2077,7 @@ Request a fresh plan from architect with reduced scope.
 </critical_anomaly>`;
 
 // src/index.ts
+var PLUGIN_VERSION = "0.2.4";
 var DEFAULT_MAX_STEPS = 500;
 var TASK_COMMAND_MAX_STEPS = 1e3;
 var AGENT_EMOJI2 = {
@@ -2102,6 +2105,7 @@ Execute it NOW.
 </auto_continue>`;
 var OrchestratorPlugin = async (input) => {
   const { directory, client } = input;
+  console.log(`[orchestrator] v${PLUGIN_VERSION} loaded`);
   const sessions = /* @__PURE__ */ new Map();
   const parallelAgentManager2 = ParallelAgentManager.getInstance(client, directory);
   const asyncAgentTools = createAsyncAgentTools(parallelAgentManager2);

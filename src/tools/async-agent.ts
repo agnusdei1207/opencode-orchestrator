@@ -63,22 +63,26 @@ and start when a slot opens. Different agent types have separate limits.
             const runningCount = manager.getRunningTasks().length;
             const pendingCount = manager.getPendingCount(ctx.sessionID);
 
-            return `🚀 **Agent Spawned**
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-| Property | Value |
-|----------|-------|
-| **Task ID** | \`${task.id}\` |
-| **Agent** | ${task.agent} |
-| **Description** | ${task.description} |
-| **Status** | ⏳ running |
-| **Total Running** | ${runningCount} |
-| **Pending This Session** | ${pendingCount} |
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+            // Console log for visibility
+            console.log(`[parallel] 🚀 SPAWNED ${task.id} → ${agent}: ${description}`);
 
-📌 **Continue your work!** System notifies when ALL tasks complete.
-Use \`get_task_result({ taskId: "${task.id}" })\` to check result later.`;
+            return `
+╔═══════════════════════════════════════════════════════════════╗
+║  🚀 PARALLEL AGENT SPAWNED                                    ║
+╠═══════════════════════════════════════════════════════════════╣
+║  Task ID:     ${task.id.padEnd(45)}║
+║  Agent:       ${task.agent.padEnd(45)}║
+║  Description: ${task.description.slice(0, 45).padEnd(45)}║
+║  Status:      ⏳ RUNNING                                       ║
+╠═══════════════════════════════════════════════════════════════╣
+║  Running: ${String(runningCount).padEnd(5)} │ Pending: ${String(pendingCount).padEnd(5)}                      ║
+╚═══════════════════════════════════════════════════════════════╝
+
+📌 Continue your work! System notifies when ALL complete.
+🔍 Use \`get_task_result({ taskId: "${task.id}" })\` later.`;
         } catch (error) {
             const message = error instanceof Error ? error.message : String(error);
+            console.log(`[parallel] ❌ FAILED: ${message}`);
             return `❌ Failed to spawn agent: ${message}`;
         }
     },
