@@ -11,6 +11,8 @@
  * The agents are: Commander, Architect, Builder, Inspector, Recorder
  */
 
+const PLUGIN_VERSION = "0.2.4";  // Keep in sync with package.json
+
 import type { PluginInput } from "@opencode-ai/plugin";
 import { AGENTS } from "./agents/definitions.js";
 import { TaskGraph, type Task } from "./core/tasks.js";
@@ -76,6 +78,9 @@ Execute it NOW.
 
 const OrchestratorPlugin = async (input: PluginInput) => {
     const { directory, client } = input;
+
+    // Log version on startup
+    console.log(`[orchestrator] v${PLUGIN_VERSION} loaded`);
 
     // Track active sessions - each chat session gets its own state
     // so multiple users or conversations don't interfere with each other
