@@ -13322,12 +13322,22 @@ Returns matches grouped by pattern, with file paths and line numbers.
 // src/core/background.ts
 import { spawn as spawn2 } from "child_process";
 import { randomBytes } from "crypto";
+import { mkdirSync, readFileSync, writeFileSync, existsSync as existsSync3 } from "fs";
+import { join as join2 } from "path";
+import { homedir } from "os";
 var BackgroundTaskManager = class _BackgroundTaskManager {
   static _instance;
   tasks = /* @__PURE__ */ new Map();
   debugMode = true;
   // Enable debug mode
+  storageDir;
+  storageFile;
+  monitoringInterval;
   constructor() {
+    this.storageDir = join2(homedir(), ".opencode-orchestrator");
+    this.storageFile = join2(this.storageDir, "tasks.json");
+    this.loadFromDisk();
+    this.startMonitoring();
   }
   static get instance() {
     if (!_BackgroundTaskManager._instance) {
@@ -13341,6 +13351,115 @@ var BackgroundTaskManager = class _BackgroundTaskManager {
   generateId() {
     const hex3 = randomBytes(4).toString("hex");
     return `job_${hex3}`;
+  }
+  /**
+   * Ensure storage directory exists
+   */
+  ensureStorageDir() {
+    if (!existsSync3(this.storageDir)) {
+      mkdirSync(this.storageDir, { recursive: true });
+      this.debug("system", `Created storage directory: ${this.storageDir}`);
+    }
+  }
+  /**
+   * Load tasks from disk on startup
+   */
+  loadFromDisk() {
+    this.ensureStorageDir();
+    if (!existsSync3(this.storageFile)) {
+      this.debug("system", "No existing task data on disk");
+      return;
+    }
+    try {
+      const data = readFileSync(this.storageFile, "utf-8");
+      const tasksData = JSON.parse(data);
+      for (const [id, taskData] of Object.entries(tasksData)) {
+        const task = taskData;
+        task.process = void 0;
+        if (task.status === "running") {
+          task.status = "error";
+          task.errorOutput += "\n[Process lost on restart]";
+          task.endTime = Date.now();
+          task.exitCode = null;
+        }
+        this.tasks.set(id, task);
+      }
+      this.debug("system", `Loaded ${this.tasks.size} tasks from disk`);
+    } catch (error45) {
+      this.debug("system", `Failed to load tasks: ${error45 instanceof Error ? error45.message : String(error45)}`);
+    }
+  }
+  /**
+   * Save tasks to disk
+   */
+  saveToDisk() {
+    this.ensureStorageDir();
+    try {
+      const tasksData = {};
+      for (const [id, task] of this.tasks.entries()) {
+        tasksData[id] = task;
+      }
+      writeFileSync(this.storageFile, JSON.stringify(tasksData, null, 2), "utf-8");
+    } catch (error45) {
+      this.debug("system", `Failed to save tasks: ${error45 instanceof Error ? error45.message : String(error45)}`);
+    }
+  }
+  /**
+   * Start periodic monitoring of running processes
+   */
+  startMonitoring() {
+    const MONITOR_INTERVAL_MS = 5e3;
+    this.monitoringInterval = setInterval(() => {
+      this.monitorRunningProcesses();
+    }, MONITOR_INTERVAL_MS);
+    if (this.monitoringInterval) {
+      this.monitoringInterval.unref();
+    }
+  }
+  /**
+   * Stop monitoring
+   */
+  stopMonitoring() {
+    if (this.monitoringInterval) {
+      clearInterval(this.monitoringInterval);
+      this.monitoringInterval = void 0;
+    }
+  }
+  /**
+   * Monitor running processes and detect zombie processes
+   */
+  monitorRunningProcesses() {
+    const now = Date.now();
+    let hasRunningTasks = false;
+    for (const [id, task] of this.tasks.entries()) {
+      if (task.status !== "running") continue;
+      hasRunningTasks = true;
+      if (task.process && task.process.pid) {
+        const pid = task.process.pid;
+        try {
+          process.kill(pid, 0);
+        } catch (error45) {
+          task.status = "error";
+          task.errorOutput += `
+Process disappeared (PID ${pid})`;
+          task.endTime = Date.now();
+          task.exitCode = null;
+          task.process = void 0;
+          this.saveToDisk();
+          this.debug(id, `Process dead (PID ${pid}), marked as error`);
+        }
+      } else if (task.process) {
+        task.status = "error";
+        task.errorOutput += "\nProcess reference lost";
+        task.endTime = Date.now();
+        task.exitCode = null;
+        this.saveToDisk();
+        this.debug(id, "Process reference lost, marked as error");
+      }
+    }
+    if (!hasRunningTasks && this.monitoringInterval) {
+      this.stopMonitoring();
+    }
   }
   /**
    * Debug logging helper
@@ -13374,6 +13493,7 @@ var BackgroundTaskManager = class _BackgroundTaskManager {
       timeout
     };
     this.tasks.set(id, task);
+    this.saveToDisk();
     this.debug(id, `Starting: ${command} (cwd: ${cwd})`);
     try {
       const proc = spawn2(shell, task.args, {
@@ -13397,6 +13517,7 @@ var BackgroundTaskManager = class _BackgroundTaskManager {
         task.endTime = Date.now();
         task.status = code === 0 ? "done" : "error";
         task.process = void 0;
+        this.saveToDisk();
         const duration3 = ((task.endTime - task.startTime) / 1e3).toFixed(2);
         this.debug(id, `Completed with code ${code} in ${duration3}s`);
       });
@@ -13406,6 +13527,7 @@ var BackgroundTaskManager = class _BackgroundTaskManager {
 Process error: ${err.message}`;
         task.endTime = Date.now();
         task.process = void 0;
+        this.saveToDisk();
         this.debug(id, `Error: ${err.message}`);
       });
       setTimeout(() => {
@@ -13416,12 +13538,14 @@ Process error: ${err.message}`;
           task.endTime = Date.now();
           task.errorOutput += `
 Process killed: timeout after ${timeout}ms`;
+          this.saveToDisk();
         }
       }, timeout);
     } catch (err) {
       task.status = "error";
       task.errorOutput = `Failed to spawn: ${err instanceof Error ? err.message : String(err)}`;
       task.endTime = Date.now();
+      this.saveToDisk();
       this.debug(id, `Spawn failed: ${task.errorOutput}`);
     }
     return task;
@@ -13445,6 +13569,24 @@ Process killed: timeout after ${timeout}ms`;
     return this.getAll().filter((t) => t.status === status);
   }
   /**
+   * Clean up tasks by session ID
+   */
+  cleanupBySession(sessionID) {
+    let count = 0;
+    for (const [id, task] of this.tasks) {
+      if (task.sessionID === sessionID) {
+        if (task.process && task.status === "running") {
+          task.process.kill("SIGKILL");
+        }
+        this.tasks.delete(id);
+        count++;
+        this.debug(id, `Cleaned up for session ${sessionID}`);
+      }
+    }
+    this.saveToDisk();
+    return count;
+  }
+  /**
    * Clear completed/failed tasks
    */
   clearCompleted() {
@@ -13455,6 +13597,7 @@ Process killed: timeout after ${timeout}ms`;
         count++;
       }
     }
+    this.saveToDisk();
     return count;
   }
   /**
@@ -13467,6 +13610,7 @@ Process killed: timeout after ${timeout}ms`;
       task.status = "error";
       task.errorOutput += "\nKilled by user";
       task.endTime = Date.now();
+      this.saveToDisk();
       this.debug(taskId, "Killed by user");
       return true;
     }
@@ -13532,15 +13676,17 @@ The command runs asynchronously - use check_background to get results.
     command: tool.schema.string().describe("Shell command to execute"),
     cwd: tool.schema.string().optional().describe("Working directory (default: project root)"),
     timeout: tool.schema.number().optional().describe("Timeout in milliseconds (default: 300000 = 5 min)"),
-    label: tool.schema.string().optional().describe("Human-readable label for this task")
+    label: tool.schema.string().optional().describe("Human-readable label for this task"),
+    sessionID: tool.schema.string().optional().describe("Session ID for automatic cleanup on session deletion")
   },
   async execute(args) {
-    const { command, cwd, timeout, label } = args;
+    const { command, cwd, timeout, label, sessionID } = args;
     const task = backgroundTaskManager.run({
       command,
       cwd: cwd || process.cwd(),
       timeout: timeout || 3e5,
-      label
+      label,
+      sessionID
     });
     const displayLabel = label ? ` (${label})` : "";
     return `\u{1F680} **Background Task Started**${displayLabel}
@@ -15029,8 +15175,13 @@ ${stateSession.graph.getTaskSummary()}`;
       if (event.type === "session.deleted") {
         const props = event.properties;
         if (props?.info?.id) {
-          sessions.delete(props.info.id);
-          state.sessions.delete(props.info.id);
+          const sessionID = props.info.id;
+          sessions.delete(sessionID);
+          state.sessions.delete(sessionID);
+          const cleanedCount = backgroundTaskManager.cleanupBySession(sessionID);
+          if (cleanedCount > 0) {
+            console.log(`[background] Cleaned up ${cleanedCount} tasks for deleted session ${sessionID}`);
+          }
         }
       }
     }
