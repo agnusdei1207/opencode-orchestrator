@@ -15,6 +15,7 @@ const PLUGIN_VERSION = "0.2.4";  // Keep in sync with package.json
 
 import type { PluginInput } from "@opencode-ai/plugin";
 import { AGENTS } from "./agents/definitions.js";
+import { AGENT_NAMES } from "./shared/contracts/names.js";
 import { TaskGraph, type Task } from "./core/tasks.js";
 import { state } from "./core/state.js";
 import { callAgentTool } from "./tools/callAgent.js";
@@ -26,7 +27,6 @@ import {
     listBackgroundTool,
     killBackgroundTool,
 } from "./tools/background.js";
-import { backgroundTaskManager } from "./core/background.js";
 import { ParallelAgentManager } from "./core/async-agent.js";
 import { createAsyncAgentTools } from "./tools/async-agent.js";
 import { detectSlashCommand, formatTimestamp, formatElapsedTime } from "./utils/common.js";
@@ -35,6 +35,7 @@ import {
     RECOVERY_PROMPT,
     ESCALATION_PROMPT,
 } from "./utils/sanity.js";
+import { backgroundTaskManager } from "./core/background.js";
 
 // ============================================================================
 // Constants
@@ -164,7 +165,7 @@ const OrchestratorPlugin = async (input: PluginInput) => {
 
             // If someone picks the Commander agent, auto-start a mission
             // This makes it so users don't need to type /task every time
-            if (agentName === "commander" && !sessions.has(sessionID)) {
+            if (agentName === AGENT_NAMES.COMMANDER && !sessions.has(sessionID)) {
                 const now = Date.now();
                 sessions.set(sessionID, {
                     active: true,

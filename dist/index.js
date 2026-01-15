@@ -99,8 +99,8 @@ PREFER background=true (PARALLEL):
 EXAMPLE - PARALLEL:
 \`\`\`
 // Multiple tasks in parallel
-delegate_task({ agent: "builder", description: "Implement X", prompt: "...", background: true })
-delegate_task({ agent: "inspector", description: "Review Y", prompt: "...", background: true })
+delegate_task({ agent: "${AGENT_NAMES.BUILDER}", description: "Implement X", prompt: "...", background: true })
+delegate_task({ agent: "${AGENT_NAMES.INSPECTOR}", description: "Review Y", prompt: "...", background: true })
 
 // Continue other work (don't wait!)
 
@@ -111,7 +111,7 @@ get_task_result({ taskId: "task_xxx" })
 EXAMPLE - SYNC (rare):
 \`\`\`
 // Only when you absolutely need the result now
-const result = delegate_task({ agent: "builder", ..., background: false })
+const result = delegate_task({ agent: "${AGENT_NAMES.BUILDER}", ..., background: false })
 // Result is immediately available
 \`\`\`
 </agent_calling>
@@ -138,10 +138,10 @@ During implementation:
 PARALLEL EXECUTION TOOLS:
 
 1. **spawn_agent** - Launch agents in parallel sessions
-   spawn_agent({ agent: "builder", description: "Implement X", prompt: "..." })
-   spawn_agent({ agent: "inspector", description: "Review Y", prompt: "..." })
-   \u2192 Agents run concurrently, system notifies when ALL complete
-   \u2192 Use get_task_result({ taskId }) to retrieve results
+    spawn_agent({ agent: "${AGENT_NAMES.BUILDER}", description: "Implement X", prompt: "..." })
+    spawn_agent({ agent: "${AGENT_NAMES.INSPECTOR}", description: "Review Y", prompt: "..." })
+    \u2192 Agents run concurrently, system notifies when ALL complete
+    \u2192 Use get_task_result({ taskId }) to retrieve results
 
 2. **run_background** - Run shell commands asynchronously
    run_background({ command: "npm run build" })
@@ -192,10 +192,10 @@ WORKFLOW:
 <empty_responses>
 | Agent Empty (or Gibberish) | Action |
 |----------------------------|--------|
-| recorder | Fresh start. Proceed to survey. |
-| architect | Try simpler plan yourself. |
-| builder | Call inspector to diagnose. |
-| inspector | Retry with more context. |
+| ${AGENT_NAMES.RECORDER} | Fresh start. Proceed to survey. |
+| ${AGENT_NAMES.ARCHITECT} | Try simpler plan yourself. |
+| ${AGENT_NAMES.BUILDER} | Call inspector to diagnose. |
+| ${AGENT_NAMES.INSPECTOR} | Retry with more context. |
 </empty_responses>
 
 STRICT RULE: If any agent output contains gibberish, mixed-language hallucinations, or fails the language rule, REJECT it immediately and trigger a "STRICT_CLEAN_START" retry.
@@ -13386,7 +13386,10 @@ var BackgroundTaskManager = class _BackgroundTaskManager {
       }
       this.debug("system", `Loaded ${this.tasks.size} tasks from disk`);
     } catch (error45) {
-      this.debug("system", `Failed to load tasks: ${error45 instanceof Error ? error45.message : String(error45)}`);
+      this.debug(
+        "system",
+        `Failed to load tasks: ${error45 instanceof Error ? error45.message : String(error45)}`
+      );
     }
   }
   /**
@@ -13399,9 +13402,16 @@ var BackgroundTaskManager = class _BackgroundTaskManager {
       for (const [id, task] of this.tasks.entries()) {
         tasksData[id] = task;
       }
-      writeFileSync(this.storageFile, JSON.stringify(tasksData, null, 2), "utf-8");
+      writeFileSync(
+        this.storageFile,
+        JSON.stringify(tasksData, null, 2),
+        "utf-8"
+      );
     } catch (error45) {
-      this.debug("system", `Failed to save tasks: ${error45 instanceof Error ? error45.message : String(error45)}`);
+      this.debug(
+        "system",
+        `Failed to save tasks: ${error45 instanceof Error ? error45.message : String(error45)}`
+      );
     }
   }
   /**
@@ -13505,12 +13515,18 @@ Process disappeared (PID ${pid})`;
       proc.stdout?.on("data", (data) => {
         const text = data.toString();
         task.output += text;
-        this.debug(id, `stdout: ${text.substring(0, 100)}${text.length > 100 ? "..." : ""}`);
+        this.debug(
+          id,
+          `stdout: ${text.substring(0, 100)}${text.length > 100 ? "..." : ""}`
+        );
       });
       proc.stderr?.on("data", (data) => {
         const text = data.toString();
         task.errorOutput += text;
-        this.debug(id, `stderr: ${text.substring(0, 100)}${text.length > 100 ? "..." : ""}`);
+        this.debug(
+          id,
+          `stderr: ${text.substring(0, 100)}${text.length > 100 ? "..." : ""}`
+        );
       });
       proc.on("close", (code) => {
         task.exitCode = code;
@@ -14385,10 +14401,14 @@ var createDelegateTaskTool = (manager, client) => tool({
 - Auto-cleanup: 5 minutes after completion
 </safety>`,
   args: {
-    agent: tool.schema.string().describe("Agent name (e.g., 'builder', 'inspector', 'architect')"),
+    agent: tool.schema.string().describe(
+      `Agent name (e.g., '${AGENT_NAMES.BUILDER}', '${AGENT_NAMES.INSPECTOR}', '${AGENT_NAMES.ARCHITECT}')`
+    ),
     description: tool.schema.string().describe("Short task description"),
     prompt: tool.schema.string().describe("Full prompt/instructions for the agent"),
-    background: tool.schema.boolean().describe("true=async (returns task_id), false=sync (waits for result). REQUIRED.")
+    background: tool.schema.boolean().describe(
+      "true=async (returns task_id), false=sync (waits for result). REQUIRED."
+    )
   },
   async execute(args, context) {
     const { agent, description, prompt, background } = args;
@@ -14409,7 +14429,9 @@ var createDelegateTaskTool = (manager, client) => tool({
         });
         const runningCount = manager.getRunningTasks().length;
         const pendingCount = manager.getPendingCount(ctx.sessionID);
-        console.log(`[parallel] \u{1F680} SPAWNED ${task.id} \u2192 ${agent}: ${description}`);
+        console.log(
+          `[parallel] \u{1F680} SPAWNED ${task.id} \u2192 ${agent}: ${description}`
+        );
         return `
 ## \u{1F680} BACKGROUND TASK SPAWNED
 
@@ -14488,7 +14510,9 @@ Session ID: ${sessionID}`;
           continue;
         }
         if (Date.now() - startTime < MIN_STABILITY_MS2) continue;
-        const messagesResult2 = await session.messages({ path: { id: sessionID } });
+        const messagesResult2 = await session.messages({
+          path: { id: sessionID }
+        });
         const messages2 = messagesResult2.data ?? [];
         const currentMsgCount = messages2.length;
         if (currentMsgCount === lastMsgCount) {
@@ -14499,7 +14523,9 @@ Session ID: ${sessionID}`;
           lastMsgCount = currentMsgCount;
         }
       }
-      const messagesResult = await session.messages({ path: { id: sessionID } });
+      const messagesResult = await session.messages({
+        path: { id: sessionID }
+      });
       const messages = messagesResult.data ?? [];
       const assistantMsgs = messages.filter((m) => m.info?.role === "assistant").reverse();
       const lastMsg = assistantMsgs[0];
@@ -14513,7 +14539,9 @@ Session ID: ${sessionID}`;
       ) ?? [];
       const textContent = textParts.map((p) => p.text ?? "").filter(Boolean).join("\n");
       const duration3 = Math.floor((Date.now() - startTime) / 1e3);
-      console.log(`[delegate] \u2705 COMPLETED ${agent}: ${description} (${duration3}s)`);
+      console.log(
+        `[delegate] \u2705 COMPLETED ${agent}: ${description} (${duration3}s)`
+      );
       return `\u2705 **Task Completed** (${duration3}s)
 
 Agent: ${agent}
@@ -14548,7 +14576,9 @@ Wait for the "All Complete" notification before checking.
 Use \`list_tasks\` to see available tasks.`;
     }
     if (task.status === "running") {
-      const elapsed = Math.floor((Date.now() - task.startedAt.getTime()) / 1e3);
+      const elapsed = Math.floor(
+        (Date.now() - task.startedAt.getTime()) / 1e3
+      );
       return `\u23F3 **Task Still Running**
 
 | Property | Value |
@@ -14630,7 +14660,9 @@ Use \`delegate_task({ ..., background: true })\` to spawn background tasks.`;
       }
     };
     const rows = tasks.map((t) => {
-      const elapsed = Math.floor((Date.now() - t.startedAt.getTime()) / 1e3);
+      const elapsed = Math.floor(
+        (Date.now() - t.startedAt.getTime()) / 1e3
+      );
       const desc = t.description.length > 25 ? t.description.slice(0, 22) + "..." : t.description;
       return `| \`${t.id}\` | ${statusIcon(t.status)} ${t.status} | ${t.agent} | ${desc} | ${elapsed}s |`;
     }).join("\n");
@@ -14898,7 +14930,7 @@ var OrchestratorPlugin = async (input) => {
       const parsed = detectSlashCommand(originalText);
       const sessionID = msgInput.sessionID;
       const agentName = (msgInput.agent || "").toLowerCase();
-      if (agentName === "commander" && !sessions.has(sessionID)) {
+      if (agentName === AGENT_NAMES.COMMANDER && !sessions.has(sessionID)) {
         const now = Date.now();
         sessions.set(sessionID, {
           active: true,
