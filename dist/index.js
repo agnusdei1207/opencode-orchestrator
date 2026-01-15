@@ -14847,11 +14847,11 @@ var PLUGIN_VERSION = "0.2.4";
 var DEFAULT_MAX_STEPS = 500;
 var TASK_COMMAND_MAX_STEPS = 1e3;
 var AGENT_EMOJI2 = {
-  "architect": "\u{1F3D7}\uFE0F",
-  "builder": "\u{1F528}",
-  "inspector": "\u{1F50D}",
-  "recorder": "\u{1F4BE}",
-  "commander": "\u{1F3AF}"
+  [AGENT_NAMES.ARCHITECT]: "\u{1F3D7}\uFE0F",
+  [AGENT_NAMES.BUILDER]: "\u{1F528}",
+  [AGENT_NAMES.INSPECTOR]: "\u{1F50D}",
+  [AGENT_NAMES.RECORDER]: "\u{1F4BE}",
+  [AGENT_NAMES.COMMANDER]: "\u{1F3AF}"
 };
 var CONTINUE_INSTRUCTION = `<auto_continue>
 <status>Mission not complete. Keep executing.</status>
@@ -14910,7 +14910,7 @@ var OrchestratorPlugin = async (input) => {
       }
       const orchestratorAgents = {
         Commander: {
-          name: "Commander",
+          name: AGENT_NAMES.COMMANDER,
           description: "Autonomous orchestrator - executes until mission complete",
           systemPrompt: AGENTS.commander.systemPrompt
         }

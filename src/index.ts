@@ -48,11 +48,11 @@ const TASK_COMMAND_MAX_STEPS = 1000;
 
 // Just some fun emojis to make the logs prettier
 const AGENT_EMOJI: Record<string, string> = {
-    "architect": "🏗️",
-    "builder": "🔨",
-    "inspector": "🔍",
-    "recorder": "💾",
-    "commander": "🎯",
+    [AGENT_NAMES.ARCHITECT]: "🏗️",
+    [AGENT_NAMES.BUILDER]: "🔨",
+    [AGENT_NAMES.INSPECTOR]: "🔍",
+    [AGENT_NAMES.RECORDER]: "💾",
+    [AGENT_NAMES.COMMANDER]: "🎯",
 };
 
 // This gets injected when the assistant finishes but mission isn't complete.
@@ -134,15 +134,16 @@ const OrchestratorPlugin = async (input: PluginInput) => {
                     argumentHint: cmd.argumentHint,
                 };
             }
-
-            // Register the Commander agent so it shows up in the agent picker
+            
+            // Register of Commander agent so it shows up in agent picker
             const orchestratorAgents: Record<string, unknown> = {
                 Commander: {
-                    name: "Commander",
+                    name: AGENT_NAMES.COMMANDER,
                     description: "Autonomous orchestrator - executes until mission complete",
                     systemPrompt: AGENTS.commander.systemPrompt,
                 },
             };
+
 
             // Merge with existing config, our stuff takes lower priority
             config.command = { ...orchestratorCommands, ...existingCommands };
