@@ -36,7 +36,7 @@ A **5-agent autonomous architecture** designed to solve complex engineering task
 - **🔨 Smart Implementation** — Builder matches existing codebase patterns exactly.
 - **🛡️ Rigorous Audit** — Inspector proves success with environment-specific evidence (Builds/Tests/Logs).
 - **💾 Persistent Context** — Recorder saves session state to disk, enabling resume at any time.
-- **🏗️ Parallel Agents** — Spawn agents in parallel sessions with queue-based concurrency control.
+- **🏗️ Parallel Agents** — Delegated agent execution (`delegate_task`) with sync/async modes.
 - **⏳ Background Tasks** — Run long commands (builds, tests) in background and check results later.
 - **🔎 mgrep** — Multi-pattern parallel search powered by Rust for blazing-fast codebase analysis.
 
@@ -93,12 +93,14 @@ Trigger parallel agent execution with prompts like:
 "Run linting, tests, and build at the same time"
 ```
 
+Commander will automatically use `delegate_task` with `background: true` for independent tasks.
+
 Monitor parallel tasks in the terminal:
 ```
 [parallel] 🚀 SPAWNED task_a1b2 → builder: Implement feature X
 [parallel] 🚀 SPAWNED task_c3d4 → inspector: Review module Y
-[parallel] ✅ COMPLETED task_a1b2 → builder (45s)
-[parallel] 🗑️ CLEANED task_a1b2 (session deleted)
+[parallel] ✅ COMPLETED task_c3d4 → inspector: Review module Y (45s)
+[parallel] 🗑️ CLEANED task_c3d4 (session deleted)
 ```
 
 ---
