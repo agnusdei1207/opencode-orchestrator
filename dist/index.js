@@ -73,40 +73,41 @@ DEFAULT to Deep Track if unsure to act safely.
 
 <phase_3 name="DELEGATION">
 <agent_calling>
-\u26A0\uFE0F CRITICAL: USE spawn_agent BY DEFAULT \u26A0\uFE0F
+\u26A0\uFE0F CRITICAL: USE delegate_task FOR ALL DELEGATION \u26A0\uFE0F
 
-When delegating work to agents, ALWAYS use spawn_agent FIRST:
+delegate_task has TWO MODES:
+- background=true: Non-blocking, parallel execution
+- background=false: Blocking, waits for result
 
-| Situation | Tool to Use |
+| Situation | How to Call |
 |-----------|-------------|
-| Delegate work to builder | spawn_agent({ agent: "builder", ... }) |
-| Delegate work to inspector | spawn_agent({ agent: "inspector", ... }) |
-| Need result immediately for next step | call_agent |
+| Multiple independent tasks | \`delegate_task({ ..., background: true })\` for each |
+| Single task, continue working | \`delegate_task({ ..., background: true })\` |
+| Need result for VERY next step | \`delegate_task({ ..., background: false })\` |
 
-\u274C WRONG: call_agent({ agent: "builder", ... }) then wait
-\u2705 RIGHT: spawn_agent({ agent: "builder", ... }) then continue working
+PREFER background=true (PARALLEL):
+- Run multiple agents simultaneously
+- Continue analysis while they work
+- System notifies when ALL complete
 
-spawn_agent BENEFITS:
-- Non-blocking: You can continue analysis while agent works
-- Parallel: Multiple agents run simultaneously
-- Efficient: System notifies when ALL complete
-
-EXAMPLE FLOW:
+EXAMPLE - PARALLEL:
 \`\`\`
-// Spawn multiple agents
-spawn_agent({ agent: "builder", description: "Implement X", prompt: "..." })
-spawn_agent({ agent: "inspector", description: "Review Y", prompt: "..." })
+// Multiple tasks in parallel
+delegate_task({ agent: "builder", description: "Implement X", prompt: "...", background: true })
+delegate_task({ agent: "inspector", description: "Review Y", prompt: "...", background: true })
 
-// Continue with other analysis (don't wait!)
-// Read files, plan next steps, etc.
+// Continue other work (don't wait!)
 
 // When notified "All Complete":
 get_task_result({ taskId: "task_xxx" })
 \`\`\`
 
-ONLY USE call_agent WHEN:
-- The very next step REQUIRES the output (rare)
-- You have NOTHING else to do while waiting
+EXAMPLE - SYNC (rare):
+\`\`\`
+// Only when you absolutely need the result now
+const result = delegate_task({ agent: "builder", ..., background: false })
+// Result is immediately available
+\`\`\`
 </agent_calling>
 
 <delegation_template>
@@ -1755,80 +1756,175 @@ var parallelAgentManager = {
 
 // src/tools/async-agent.ts
 import { tool as tool5 } from "@opencode-ai/plugin";
-var createSpawnAgentTool = (manager) => tool5({
-  description: `Spawn an agent to run in a parallel session.
+var createDelegateTaskTool = (manager, client) => tool5({
+  description: `Delegate a task to an agent.
 
-<purpose>
-Launch an agent in a separate session that runs concurrently with your work.
-Perfect for delegating tasks while continuing other analysis.
-</purpose>
+<mode>
+- background=true: Non-blocking. Task runs in parallel session. Use get_task_result later.
+- background=false: Blocking. Waits for result. Use when you need output immediately.
+</mode>
+
+<when_to_use_background_true>
+- Multiple independent tasks to run in parallel
+- Long-running tasks (build, test, analysis)
+- You have other work to do while waiting
+- Example: "Build module A" + "Test module B" in parallel
+</when_to_use_background_true>
+
+<when_to_use_background_false>
+- You need the result for the very next step
+- Single task with nothing else to do
+- Quick questions that return fast
+</when_to_use_background_false>
 
 <safety>
-- Max 3 agents per type (queued if at limit)
-- Auto-timeout after 30 minutes
-- Auto-cleanup from memory after 5 minutes
-- System batches notifications (notifies when ALL complete)
-</safety>
-
-<workflow>
-1. spawn_agent({ agent: "builder", ... }) \u2192 Returns task ID immediately
-2. Continue your work (agent runs in background)
-3. System notifies when ALL spawned agents complete
-4. get_task_result({ taskId }) \u2192 Retrieve the result
-</workflow>
-
-<concurrency>
-If you spawn 3 "builder" agents at limit, the 4th will queue
-and start when a slot opens. Different agent types have separate limits.
-</concurrency>`,
+- Max 3 background tasks per agent type (extras queue automatically)
+- Auto-timeout: 30 minutes
+- Auto-cleanup: 5 minutes after completion
+</safety>`,
   args: {
     agent: tool5.schema.string().describe("Agent name (e.g., 'builder', 'inspector', 'architect')"),
     description: tool5.schema.string().describe("Short task description"),
-    prompt: tool5.schema.string().describe("Full prompt/instructions for the agent")
+    prompt: tool5.schema.string().describe("Full prompt/instructions for the agent"),
+    background: tool5.schema.boolean().describe("true=async (returns task_id), false=sync (waits for result). REQUIRED.")
   },
   async execute(args, context) {
-    const { agent, description, prompt } = args;
+    const { agent, description, prompt, background } = args;
     const ctx = context;
-    try {
-      const task = await manager.launch({
-        agent,
-        description,
-        prompt,
-        parentSessionID: ctx.sessionID
-      });
-      const runningCount = manager.getRunningTasks().length;
-      const pendingCount = manager.getPendingCount(ctx.sessionID);
-      console.log(`[parallel] \u{1F680} SPAWNED ${task.id} \u2192 ${agent}: ${description}`);
-      return `
+    const sessionClient = client;
+    if (background === void 0) {
+      return `\u274C 'background' parameter is REQUIRED.
+- background=true: Run in parallel, returns task ID
+- background=false: Wait for result (blocking)`;
+    }
+    if (background === true) {
+      try {
+        const task = await manager.launch({
+          agent,
+          description,
+          prompt,
+          parentSessionID: ctx.sessionID
+        });
+        const runningCount = manager.getRunningTasks().length;
+        const pendingCount = manager.getPendingCount(ctx.sessionID);
+        console.log(`[parallel] \u{1F680} SPAWNED ${task.id} \u2192 ${agent}: ${description}`);
+        return `
 \u2554\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2557
-\u2551  \u{1F680} PARALLEL AGENT SPAWNED                                    \u2551
+\u2551  \u{1F680} BACKGROUND TASK SPAWNED                                   \u2551
 \u2560\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2563
 \u2551  Task ID:     ${task.id.padEnd(45)}\u2551
 \u2551  Agent:       ${task.agent.padEnd(45)}\u2551
 \u2551  Description: ${task.description.slice(0, 45).padEnd(45)}\u2551
-\u2551  Status:      \u23F3 RUNNING                                       \u2551
+\u2551  Status:      \u23F3 RUNNING (background)                          \u2551
 \u2560\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2563
 \u2551  Running: ${String(runningCount).padEnd(5)} \u2502 Pending: ${String(pendingCount).padEnd(5)}                      \u2551
 \u255A\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u255D
 
 \u{1F4CC} Continue your work! System notifies when ALL complete.
 \u{1F50D} Use \`get_task_result({ taskId: "${task.id}" })\` later.`;
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        console.log(`[parallel] \u274C FAILED: ${message}`);
+        return `\u274C Failed to spawn background task: ${message}`;
+      }
+    }
+    console.log(`[delegate] \u23F3 SYNC ${agent}: ${description}`);
+    try {
+      const session = sessionClient.session;
+      const directory = ".";
+      const createResult = await session.create({
+        body: {
+          parentID: ctx.sessionID,
+          title: `Task: ${description}`
+        },
+        query: { directory }
+      });
+      if (createResult.error || !createResult.data?.id) {
+        return `\u274C Failed to create session: ${createResult.error || "No session ID"}`;
+      }
+      const sessionID = createResult.data.id;
+      const startTime = Date.now();
+      try {
+        await session.prompt({
+          path: { id: sessionID },
+          body: {
+            agent,
+            parts: [{ type: "text", text: prompt }]
+          }
+        });
+      } catch (promptError) {
+        const errorMessage = promptError instanceof Error ? promptError.message : String(promptError);
+        return `\u274C Failed to send prompt: ${errorMessage}
+
+Session ID: ${sessionID}`;
+      }
+      const POLL_INTERVAL_MS2 = 500;
+      const MAX_POLL_TIME_MS = 10 * 60 * 1e3;
+      const MIN_STABILITY_MS2 = 5e3;
+      const STABILITY_POLLS_REQUIRED = 3;
+      let stablePolls = 0;
+      let lastMsgCount = 0;
+      while (Date.now() - startTime < MAX_POLL_TIME_MS) {
+        await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL_MS2));
+        const statusResult = await session.status();
+        const allStatuses = statusResult.data ?? {};
+        const sessionStatus = allStatuses[sessionID];
+        if (sessionStatus?.type !== "idle") {
+          stablePolls = 0;
+          lastMsgCount = 0;
+          continue;
+        }
+        if (Date.now() - startTime < MIN_STABILITY_MS2) continue;
+        const messagesResult2 = await session.messages({ path: { id: sessionID } });
+        const messages2 = messagesResult2.data ?? [];
+        const currentMsgCount = messages2.length;
+        if (currentMsgCount === lastMsgCount) {
+          stablePolls++;
+          if (stablePolls >= STABILITY_POLLS_REQUIRED) break;
+        } else {
+          stablePolls = 0;
+          lastMsgCount = currentMsgCount;
+        }
+      }
+      const messagesResult = await session.messages({ path: { id: sessionID } });
+      const messages = messagesResult.data ?? [];
+      const assistantMsgs = messages.filter((m) => m.info?.role === "assistant").reverse();
+      const lastMsg = assistantMsgs[0];
+      if (!lastMsg) {
+        return `\u274C No assistant response found.
+
+Session ID: ${sessionID}`;
+      }
+      const textParts = lastMsg.parts?.filter(
+        (p) => p.type === "text" || p.type === "reasoning"
+      ) ?? [];
+      const textContent = textParts.map((p) => p.text ?? "").filter(Boolean).join("\n");
+      const duration = Math.floor((Date.now() - startTime) / 1e3);
+      console.log(`[delegate] \u2705 COMPLETED ${agent}: ${description} (${duration}s)`);
+      return `\u2705 **Task Completed** (${duration}s)
+
+Agent: ${agent}
+Session ID: ${sessionID}
+
+---
+
+${textContent || "(No text output)"}`;
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      console.log(`[parallel] \u274C FAILED: ${message}`);
-      return `\u274C Failed to spawn agent: ${message}`;
+      console.log(`[delegate] \u274C FAILED: ${message}`);
+      return `\u274C Task failed: ${message}`;
     }
   }
 });
 var createGetTaskResultTool = (manager) => tool5({
-  description: `Get the result from a completed parallel task.
+  description: `Get the result from a completed background task.
 
 <note>
 If the task is still running, returns status info.
 Wait for the "All Complete" notification before checking.
 </note>`,
   args: {
-    taskId: tool5.schema.string().describe("Task ID from spawn_agent (e.g., 'task_a1b2c3d4')")
+    taskId: tool5.schema.string().describe("Task ID from delegate_task (e.g., 'task_a1b2c3d4')")
   },
   async execute(args) {
     const { taskId } = args;
@@ -1878,7 +1974,7 @@ ${result || "(No output)"}`;
   }
 });
 var createListTasksTool = (manager) => tool5({
-  description: `List all parallel tasks and their status.`,
+  description: `List all background tasks and their status.`,
   args: {
     status: tool5.schema.string().optional().describe("Filter: 'all', 'running', 'completed', 'error'")
   },
@@ -1899,9 +1995,9 @@ var createListTasksTool = (manager) => tool5({
         tasks = manager.getAllTasks();
     }
     if (tasks.length === 0) {
-      return `\u{1F4CB} No parallel tasks found${status !== "all" ? ` (filter: ${status})` : ""}.
+      return `\u{1F4CB} No background tasks found${status !== "all" ? ` (filter: ${status})` : ""}.
 
-Use \`spawn_agent\` to launch agents in parallel.`;
+Use \`delegate_task({ ..., background: true })\` to spawn background tasks.`;
     }
     const runningCount = manager.getRunningTasks().length;
     const completedCount = manager.getAllTasks().filter((t) => t.status === "completed").length;
@@ -1925,7 +2021,7 @@ Use \`spawn_agent\` to launch agents in parallel.`;
       const desc = t.description.length > 25 ? t.description.slice(0, 22) + "..." : t.description;
       return `| \`${t.id}\` | ${statusIcon(t.status)} ${t.status} | ${t.agent} | ${desc} | ${elapsed}s |`;
     }).join("\n");
-    return `\u{1F4CB} **Parallel Tasks** (${tasks.length} shown)
+    return `\u{1F4CB} **Background Tasks** (${tasks.length} shown)
 \u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501
 | \u23F3 Running: ${runningCount} | \u2705 Completed: ${completedCount} | \u274C Error: ${errorCount} |
 \u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501
@@ -1939,7 +2035,7 @@ ${rows}
   }
 });
 var createCancelTaskTool = (manager) => tool5({
-  description: `Cancel a running parallel task.
+  description: `Cancel a running background task.
 
 <purpose>
 Stop a runaway or no-longer-needed task.
@@ -1965,9 +2061,9 @@ Task \`${taskId}\` has been stopped. Concurrency slot released.`;
 Use \`list_tasks\` to see available tasks.`;
   }
 });
-function createAsyncAgentTools(manager) {
+function createAsyncAgentTools(manager, client) {
   return {
-    spawn_agent: createSpawnAgentTool(manager),
+    delegate_task: createDelegateTaskTool(manager, client),
     get_task_result: createGetTaskResultTool(manager),
     list_tasks: createListTasksTool(manager),
     cancel_task: createCancelTaskTool(manager)
@@ -2133,7 +2229,7 @@ var OrchestratorPlugin = async (input) => {
   console.log(`[orchestrator] v${PLUGIN_VERSION} loaded`);
   const sessions = /* @__PURE__ */ new Map();
   const parallelAgentManager2 = ParallelAgentManager.getInstance(client, directory);
-  const asyncAgentTools = createAsyncAgentTools(parallelAgentManager2);
+  const asyncAgentTools = createAsyncAgentTools(parallelAgentManager2, client);
   return {
     // -----------------------------------------------------------------
     // Tools we expose to the LLM
