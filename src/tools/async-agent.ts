@@ -91,19 +91,30 @@ export const createDelegateTaskTool = (manager: ParallelAgentManager, client: un
                 console.log(`[parallel] 🚀 SPAWNED ${task.id} → ${agent}: ${description}`);
 
                 return `
-╔═══════════════════════════════════════════════════════════════╗
-║  🚀 BACKGROUND TASK SPAWNED                                   ║
-╠═══════════════════════════════════════════════════════════════╣
-║  Task ID:     ${task.id.padEnd(45)}║
-║  Agent:       ${task.agent.padEnd(45)}║
-║  Description: ${task.description.slice(0, 45).padEnd(45)}║
-║  Status:      ⏳ RUNNING (background)                          ║
-╠═══════════════════════════════════════════════════════════════╣
-║  Running: ${String(runningCount).padEnd(5)} │ Pending: ${String(pendingCount).padEnd(5)}                      ║
-╚═══════════════════════════════════════════════════════════════╝
+## 🚀 BACKGROUND TASK SPAWNED
 
-📌 Continue your work! System notifies when ALL complete.
-🔍 Use \`get_task_result({ taskId: "${task.id}" })\` later.`;
+**Task Details**
+- **ID**: \`${task.id}\`
+- **Agent**: ${agent}
+- **Description**: ${description}
+- **Status**: ⏳ Running in background (non-blocking)
+
+**Active Tasks**
+- Running: ${runningCount}
+- Pending: ${pendingCount}
+
+---
+
+**Monitoring Commands**
+
+Check progress anytime:
+- \`list_tasks()\` - View all parallel tasks
+- \`get_task_result({ taskId: "${task.id}" })\` - Get latest result
+- \`cancel_task({ taskId: "${task.id}" })\` - Stop this task
+
+---
+
+✓ System will notify when ALL tasks complete. You can continue working!`;
             } catch (error) {
                 const message = error instanceof Error ? error.message : String(error);
                 console.log(`[parallel] ❌ FAILED: ${message}`);

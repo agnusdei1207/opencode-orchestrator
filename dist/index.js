@@ -79,7 +79,7 @@ DEFAULT to Deep Track if unsure to act safely.
 
 <phase_3 name="DELEGATION">
 <agent_calling>
-\u26A0\uFE0F CRITICAL: USE delegate_task FOR ALL DELEGATION \u26A0\uFE0F
+CRITICAL: USE delegate_task FOR ALL DELEGATION
 
 delegate_task has TWO MODES:
 - background=true: Non-blocking, parallel execution
@@ -14136,14 +14136,27 @@ var ParallelAgentManager = class _ParallelAgentManager {
     if (completedTasks.length === 0) return;
     const summary = completedTasks.map((t) => {
       const status = t.status === "completed" ? "\u2705" : "\u274C";
-      return `${status} \`${t.id}\`: ${t.description}`;
+      const duration3 = this.formatDuration(t.startedAt, t.completedAt);
+      return `${status} \`${t.id}\` (${duration3}): ${t.description}`;
     }).join("\n");
     const notification = `<system-notification>
 **All Parallel Tasks Complete**
 
 ${summary}
 
-Use \`get_task_result({ taskId: "task_xxx" })\` to retrieve results.
+---
+
+**Retrieval Options**
+
+Use \`get_task_result({ taskId: "task_xxx" })\` to retrieve full results.
+
+---
+
+**Task Summary**
+
+Total Tasks: ${completedTasks.length}
+Status: All Complete
+Mode: Background (non-blocking)
 </system-notification>`;
     try {
       await this.client.session.prompt({
@@ -14228,19 +14241,30 @@ var createDelegateTaskTool = (manager, client) => tool({
         const pendingCount = manager.getPendingCount(ctx.sessionID);
         console.log(`[parallel] \u{1F680} SPAWNED ${task.id} \u2192 ${agent}: ${description}`);
         return `
-\u2554\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2557
-\u2551  \u{1F680} BACKGROUND TASK SPAWNED                                   \u2551
-\u2560\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2563
-\u2551  Task ID:     ${task.id.padEnd(45)}\u2551
-\u2551  Agent:       ${task.agent.padEnd(45)}\u2551
-\u2551  Description: ${task.description.slice(0, 45).padEnd(45)}\u2551
-\u2551  Status:      \u23F3 RUNNING (background)                          \u2551
-\u2560\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2563
-\u2551  Running: ${String(runningCount).padEnd(5)} \u2502 Pending: ${String(pendingCount).padEnd(5)}                      \u2551
-\u255A\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u255D
+## \u{1F680} BACKGROUND TASK SPAWNED
 
-\u{1F4CC} Continue your work! System notifies when ALL complete.
-\u{1F50D} Use \`get_task_result({ taskId: "${task.id}" })\` later.`;
+**Task Details**
+- **ID**: \`${task.id}\`
+- **Agent**: ${agent}
+- **Description**: ${description}
+- **Status**: \u23F3 Running in background (non-blocking)
+
+**Active Tasks**
+- Running: ${runningCount}
+- Pending: ${pendingCount}
+
+---
+
+**Monitoring Commands**
+
+Check progress anytime:
+- \`list_tasks()\` - View all parallel tasks
+- \`get_task_result({ taskId: "${task.id}" })\` - Get latest result
+- \`cancel_task({ taskId: "${task.id}" })\` - Stop this task
+
+---
+
+\u2713 System will notify when ALL tasks complete. You can continue working!`;
       } catch (error45) {
         const message = error45 instanceof Error ? error45.message : String(error45);
         console.log(`[parallel] \u274C FAILED: ${message}`);

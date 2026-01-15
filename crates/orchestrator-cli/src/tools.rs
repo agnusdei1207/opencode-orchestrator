@@ -2,9 +2,9 @@
 
 use anyhow::Result;
 use orchestrator_core::hooks::Hook;
-use orchestrator_core::tools::{glob::GlobConfig, grep::GrepConfig, GlobTool, GrepTool};
+use orchestrator_core::tools::{GlobTool, GrepTool, glob::GlobConfig, grep::GrepConfig};
 use serde::Deserialize;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use std::path::PathBuf;
 use std::time::Duration;
 
@@ -13,7 +13,7 @@ pub async fn execute_tool(name: &str, arguments: Value) -> Result<String> {
     match name {
         "grep_search" => grep_search(arguments).await,
         "glob_search" => glob_search(arguments).await,
-        "mgrep" => mgrep(arguments).await,  // Multi-pattern grep (parallel)
+        "mgrep" => mgrep(arguments).await, // Multi-pattern grep (parallel)
         "list_agents" => list_agents().await,
         "list_hooks" => list_hooks().await,
         _ => Err(anyhow::anyhow!("Unknown tool: {}", name)),
@@ -95,16 +95,16 @@ async fn mgrep(arguments: Value) -> Result<String> {
         .unwrap_or_else(|| std::env::current_dir().unwrap_or_default());
 
     let tool = GrepTool::new(config);
-    
+
     // Search each pattern
     let mut all_results = Vec::new();
-    
+
     for pattern in &args.patterns {
         match tool.search(pattern, &search_dir) {
             Ok(results) => {
                 let matches: Vec<Value> = results
                     .iter()
-                    .take(50)  // Limit per pattern
+                    .take(50) // Limit per pattern
                     .map(|m| {
                         json!({
                             "file": m.file.clone(),
@@ -113,7 +113,7 @@ async fn mgrep(arguments: Value) -> Result<String> {
                         })
                     })
                     .collect();
-                
+
                 all_results.push(json!({
                     "pattern": pattern,
                     "matches": matches,
@@ -170,32 +170,28 @@ async fn glob_search(arguments: Value) -> Result<String> {
     }))?)
 }
 
-/// List all available agents (6-agent micro-tasking architecture)
+/// List all available agents (5-agent architecture)
 async fn list_agents() -> Result<String> {
     let agents = vec![
         json!({
-            "id": "orchestrator",
-            "description": "Traffic controller - routes tasks, never executes directly"
+            "id": "commander",
+            "description": "Autonomous orchestrator - executes until mission complete"
         }),
         json!({
-            "id": "planner",
-            "description": "Micro-task decomposition - breaks work into atomic units"
+            "id": "architect",
+            "description": "Task decomposition & strategy correction"
         }),
         json!({
-            "id": "coder",
-            "description": "Single-focus execution - one task at a time"
+            "id": "builder",
+            "description": "Full-stack implementation (Logic + UI)"
         }),
         json!({
-            "id": "reviewer",
-            "description": "Quality gate - style, errors, modern stack, security"
+            "id": "inspector",
+            "description": "Quality audit & automatic bug fixing"
         }),
         json!({
-            "id": "fixer",
-            "description": "Minimal fixes - one error at a time, no refactoring"
-        }),
-        json!({
-            "id": "searcher",
-            "description": "Context provider - find patterns before coding"
+            "id": "recorder",
+            "description": "Persistent context & progress tracking"
         }),
     ];
 

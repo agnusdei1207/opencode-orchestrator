@@ -20,7 +20,7 @@
 
 use anyhow::{Context, Result};
 use orchestrator_core::hooks::Hook;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use std::env;
 use std::fs;
 use std::io::{self, BufRead, Write};
@@ -84,20 +84,34 @@ fn list_hooks() -> Result<()> {
 
 /// List available agents
 fn list_agents() -> Result<()> {
-    println!("🤖 Available Agents (6-Agent Architecture)");
+    println!("🤖 Available Agents (5-Agent Architecture)");
     println!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
     println!();
     println!("  {:15} {}", "ID", "Role");
     println!("  {:15} {}", "─".repeat(15), "─".repeat(45));
-    println!("  {:15} {}", "orchestrator", "Team leader - coordinates, decides, adapts");
-    println!("  {:15} {}", "planner", "Task decomposition - breaks work into steps");
-    println!("  {:15} {}", "coder", "Implementation - writes clean, working code");
-    println!("  {:15} {}", "reviewer", "Quality gate - syntax, logic, style, security");
-    println!("  {:15} {}", "fixer", "Error resolution - fixes specific issues");
-    println!("  {:15} {}", "searcher", "Context provider - finds patterns in codebase");
+    println!(
+        "  {:15} {}",
+        "commander", "Autonomous orchestrator - executes until mission complete"
+    );
+    println!(
+        "  {:15} {}",
+        "architect", "Task decomposition & strategy correction"
+    );
+    println!(
+        "  {:15} {}",
+        "builder", "Full-stack implementation (Logic + UI)"
+    );
+    println!(
+        "  {:15} {}",
+        "inspector", "Quality audit & automatic bug fixing"
+    );
+    println!(
+        "  {:15} {}",
+        "recorder", "Persistent context & progress tracking"
+    );
     println!();
     println!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-    println!("To change model in config: agents.coder.model = \"custom/model\"");
+    println!("To change model in config: agents.builder.model = \"custom/model\"");
 
     Ok(())
 }
@@ -304,7 +318,9 @@ async fn handle_request(request: &Value) -> Option<Value> {
 
             match tools::execute_tool(tool_name, arguments).await {
                 Ok(result) => json!({"content": [{"type": "text", "text": result}]}),
-                Err(e) => json!({"content": [{"type": "text", "text": format!("Error: {}", e)}], "isError": true}),
+                Err(e) => {
+                    json!({"content": [{"type": "text", "text": format!("Error: {}", e)}], "isError": true})
+                }
             }
         }
         _ => {
@@ -340,5 +356,7 @@ fn get_opencode_config_path() -> Result<PathBuf> {
             .join("opencode.json"));
     }
 
-    Err(anyhow::anyhow!("Could not determine config path (checked XDG_CONFIG_HOME, HOME, USERPROFILE, APPDATA)"))
+    Err(anyhow::anyhow!(
+        "Could not determine config path (checked XDG_CONFIG_HOME, HOME, USERPROFILE, APPDATA)"
+    ))
 }
