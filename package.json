@@ -48,7 +48,7 @@
         "build:js": "npx esbuild src/index.ts --bundle --outfile=dist/index.js --platform=node --format=esm --packages=external && npx esbuild src/cli.ts --bundle --outfile=dist/cli.js --platform=node --format=esm --packages=external && tsc --emitDeclarationOnly && mkdir -p dist/scripts && npx esbuild scripts/postinstall.ts --bundle --outfile=dist/scripts/postinstall.js --platform=node --format=esm --packages=external && npx esbuild scripts/preuninstall.ts --bundle --outfile=dist/scripts/preuninstall.js --platform=node --format=esm --packages=external",
         "build": "npm run build:bin && npm run build:js",
         "test": "docker compose run --rm test",
-        "release:ship": "npm publish --access public && git add -A && git commit -m \"v$(node -p \"require('./package.json').version\")\" && git tag \"v$(node -p \"require('./package.json').version\")\" && git push --follow-tags",
+        "release:ship": "npm publish --access public && git add -A && git commit -m \"v$(node -p \"require('./package.json').version\")\" && git tag -a \"v$(node -p \"require('./package.json').version\")\" -m \"v$(node -p \"require('./package.json').version\")\" && git push --follow-tags",
         "release:patch": "npm run build && npm run test && npm version patch --no-git-tag-version && npm run release:ship",
         "release:minor": "npm run build && npm run test && npm version minor --no-git-tag-version && npm run release:ship",
         "release:major": "npm run build && npm run test && npm version major --no-git-tag-version && npm run release:ship",
@@ -62,7 +62,9 @@
         "dev:reload": "npm run dev:link",
         "dev:build": "npm run build:js && echo '✅ Built (no link change)'",
         "dev:status": "echo '=== Global Link Status ===' && ls -l $(npm root -g)/opencode-orchestrator 2>/dev/null || echo 'Not found'",
-        "util:stars": "gh api repos/agnusdei1207/opencode-orchestrator/stargazers --jq '.[].login'"
+        "util:stars": "gh api repos/agnusdei1207/opencode-orchestrator/stargazers --jq '.[].login'",
+        "util:forks": "gh api repos/agnusdei1207/opencode-orchestrator/forks --jq '.[].full_name'",
+        "util:watchers": "gh api repos/agnusdei1207/opencode-orchestrator/subscribers --jq '.[].login'"
     },
     "dependencies": {
         "@opencode-ai/plugin": "^1.1.1",
