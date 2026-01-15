@@ -60,7 +60,10 @@ impl GlobTool {
             walker = walker.max_depth(max_depth);
         }
 
-        for entry in walker.into_iter().filter_entry(|e| self.should_include(e.path())) {
+        for entry in walker
+            .into_iter()
+            .filter_entry(|e| self.should_include(e.path()))
+        {
             // Check timeout
             if start.elapsed() > self.config.timeout {
                 break;
@@ -107,7 +110,10 @@ impl GlobTool {
             walker = walker.max_depth(max_depth);
         }
 
-        for entry in walker.into_iter().filter_entry(|e| self.should_include(e.path())) {
+        for entry in walker
+            .into_iter()
+            .filter_entry(|e| self.should_include(e.path()))
+        {
             if start.elapsed() > self.config.timeout {
                 break;
             }
