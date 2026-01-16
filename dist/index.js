@@ -16503,8 +16503,9 @@ var OrchestratorPlugin = async (input) => {
       };
       config2.command = { ...existingCommands, ...orchestratorCommands };
       config2.agent = { ...existingAgents, ...orchestratorAgents };
+      config2.default_agent = AGENT_NAMES.COMMANDER;
       console.log(`[orchestrator] Registered agents: ${Object.keys(orchestratorAgents).join(", ")}`);
-      console.log(`[orchestrator] Commander prompt length: ${(AGENTS[AGENT_NAMES.COMMANDER]?.systemPrompt || "").length}`);
+      console.log(`[orchestrator] Default agent: ${AGENT_NAMES.COMMANDER}`);
     },
     // -----------------------------------------------------------------
     // chat.message hook - runs when user sends a message
