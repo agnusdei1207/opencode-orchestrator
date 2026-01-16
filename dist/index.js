@@ -485,7 +485,7 @@ var AGENTS = {
   [AGENT_NAMES.RECORDER]: recorder
 };
 
-// src/core/session/task-graph.ts
+// src/core/orchestrator/task-graph.ts
 var TaskGraph = class _TaskGraph {
   tasks = /* @__PURE__ */ new Map();
   constructor(tasks) {
@@ -549,7 +549,7 @@ var TaskGraph = class _TaskGraph {
   }
 };
 
-// src/core/session/state.ts
+// src/core/orchestrator/state.ts
 var state = {
   missionActive: false,
   maxIterations: 1e3,
@@ -13297,7 +13297,7 @@ var mgrepTool = (directory) => tool({
   }
 });
 
-// src/core/background-task/manager.ts
+// src/core/commands/manager.ts
 import { spawn as spawn2 } from "child_process";
 import { randomBytes } from "crypto";
 
@@ -13340,7 +13340,7 @@ function getStatusEmoji(status) {
   return STATUS_EMOJI[status] ?? "\u2753";
 }
 
-// src/core/background-task/manager.ts
+// src/core/commands/manager.ts
 var BackgroundTaskManager = class _BackgroundTaskManager {
   static _instance;
   tasks = /* @__PURE__ */ new Map();
@@ -13678,7 +13678,7 @@ Duration before kill: ${backgroundTaskManager.formatDuration(task)}`;
   }
 });
 
-// src/core/parallel/concurrency.ts
+// src/core/agents/concurrency.ts
 var DEBUG = process.env.DEBUG_PARALLEL_AGENT === "true";
 var log = (...args) => {
   if (DEBUG) console.log("[concurrency]", ...args);
@@ -13730,7 +13730,7 @@ var ConcurrencyController = class {
   }
 };
 
-// src/core/parallel/task-store.ts
+// src/core/agents/task-store.ts
 var TaskStore = class {
   tasks = /* @__PURE__ */ new Map();
   pendingByParent = /* @__PURE__ */ new Map();
@@ -13800,7 +13800,7 @@ var TaskStore = class {
   }
 };
 
-// src/core/parallel/config.ts
+// src/core/agents/config.ts
 var CONFIG = {
   TASK_TTL_MS: PARALLEL_TASK.TTL_MS,
   CLEANUP_DELAY_MS: PARALLEL_TASK.CLEANUP_DELAY_MS,
@@ -13808,13 +13808,13 @@ var CONFIG = {
   POLL_INTERVAL_MS: PARALLEL_TASK.POLL_INTERVAL_MS
 };
 
-// src/core/parallel/logger.ts
+// src/core/agents/logger.ts
 var DEBUG2 = process.env.DEBUG_PARALLEL_AGENT === "true";
 function log2(...args) {
   if (DEBUG2) console.log("[parallel-agent]", ...args);
 }
 
-// src/core/parallel/format.ts
+// src/core/agents/format.ts
 function formatDuration(start, end) {
   const duration3 = (end ?? /* @__PURE__ */ new Date()).getTime() - start.getTime();
   const seconds = Math.floor(duration3 / 1e3);
@@ -13836,7 +13836,7 @@ Use \`get_task_result({ taskId: "task_xxx" })\` to retrieve results.
 </system-notification>`;
 }
 
-// src/core/parallel/manager.ts
+// src/core/agents/manager.ts
 var ParallelAgentManager = class _ParallelAgentManager {
   static _instance;
   store = new TaskStore();
