@@ -86,4 +86,18 @@ export class TaskStore {
             }
         }
     }
+
+    /**
+     * Remove a specific task from all notification queues
+     */
+    clearNotificationsForTask(taskId: string): void {
+        for (const [sessionID, tasks] of this.notifications.entries()) {
+            const filtered = tasks.filter(t => t.id !== taskId);
+            if (filtered.length === 0) {
+                this.notifications.delete(sessionID);
+            } else if (filtered.length !== tasks.length) {
+                this.notifications.set(sessionID, filtered);
+            }
+        }
+    }
 }

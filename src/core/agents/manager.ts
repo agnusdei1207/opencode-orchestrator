@@ -179,6 +179,107 @@ export class ParallelAgentManager {
     formatDuration = formatDuration;
 
     // ========================================================================
+    // Event Handling (from OpenCode hooks)
+    // ========================================================================
+
+    /**
+     * Handle OpenCode session events for proper resource cleanup.
+     * Call this from your plugin's event hook.
+     */
+    handleEvent(event: { type: string; properties?: { sessionID?: string; info?: { id?: string } } }): void {
+        const props = event.properties;
+
+        // Handle session.idle - task might be complete
+        if (event.type === "session.idle") {
+            const sessionID = props?.sessionID;
+            if (!sessionID) return;
+
+            const task = this.findBySession(sessionID);
+            if (!task || task.status !== "running") return;
+
+            // Validate and complete
+            this.handleSessionIdle(task).catch(err => {
+                log("Error handling session.idle:", err);
+            });
+        }
+
+        // Handle session.deleted - cleanup resources immediately
+        if (event.type === "session.deleted") {
+            const sessionID = props?.info?.id ?? props?.sessionID;
+            if (!sessionID) return;
+
+            const task = this.findBySession(sessionID);
+            if (!task) return;
+
+            log(`Session deleted event for task ${task.id}`);
+
+            // Mark as cancelled if was running
+            if (task.status === "running") {
+                task.status = "error";
+                task.error = "Session deleted";
+                task.completedAt = new Date();
+            }
+
+            // Release concurrency (with double-release prevention)
+            if (task.concurrencyKey) {
+                this.concurrency.release(task.concurrencyKey);
+                task.concurrencyKey = undefined; // Prevent double-release
+            }
+
+            // Cleanup tracking
+            this.store.untrackPending(task.parentSessionID, task.id);
+            this.store.clearNotificationsForTask(task.id);
+            this.store.delete(task.id);
+
+            log(`Cleaned up deleted session task: ${task.id}`);
+        }
+    }
+
+    /**
+     * Find task by session ID
+     */
+    private findBySession(sessionID: string): ParallelTask | undefined {
+        return this.store.getAll().find(t => t.sessionID === sessionID);
+    }
+
+    /**
+     * Handle session.idle event - validate and complete task
+     */
+    private async handleSessionIdle(task: ParallelTask): Promise<void> {
+        // Check minimum stability time
+        const elapsed = Date.now() - task.startedAt.getTime();
+        if (elapsed < CONFIG.MIN_STABILITY_MS) {
+            log(`Session idle but too early for ${task.id}, waiting...`);
+            return;
+        }
+
+        // Validate has actual output
+        const hasOutput = await this.validateSessionHasOutput(task.sessionID);
+        if (!hasOutput) {
+            log(`Session idle but no output for ${task.id}, waiting...`);
+            return;
+        }
+
+        // Mark complete
+        task.status = "completed";
+        task.completedAt = new Date();
+
+        // Release concurrency (with double-release prevention)
+        if (task.concurrencyKey) {
+            this.concurrency.release(task.concurrencyKey);
+            task.concurrencyKey = undefined;
+        }
+
+        // Cleanup and notify
+        this.store.untrackPending(task.parentSessionID, task.id);
+        this.store.queueNotification(task);
+        await this.notifyParentIfAllComplete(task.parentSessionID);
+        this.scheduleCleanup(task.id);
+
+        log(`Task ${task.id} completed via session.idle event (${formatDuration(task.startedAt, task.completedAt)})`);
+    }
+
+    // ========================================================================
     // Internal
     // ========================================================================
 
