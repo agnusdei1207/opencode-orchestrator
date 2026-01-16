@@ -133,7 +133,7 @@ export const RECOVERY_PROMPT = `<anomaly_recovery>
 <instructions>
 - If a sub-agent produced bad output: try a different agent or simpler task
 - If stuck in a loop: break down the task into smaller pieces
-- If context seems corrupted: call recorder to restore context
+- If context seems corrupted: call Recorder to restore context
 - THINK in English for maximum stability
 </instructions>
 
@@ -149,8 +149,8 @@ export const ESCALATION_PROMPT = `<critical_anomaly>
 <emergency_protocol>
 1. STOP current execution path immediately
 2. DO NOT continue with the same approach - it is failing
-3. CALL architect for a completely new strategy
-4. If architect also fails: report status to user and await guidance
+3. CALL Architect for a completely new strategy
+4. If Architect also fails: report status to user and await guidance
 </emergency_protocol>
 
 <diagnosis>
@@ -158,5 +158,5 @@ The current approach is producing corrupted output.
 This may indicate: context overload, model instability, or task complexity.
 </diagnosis>
 
-Request a fresh plan from architect with reduced scope.
+Request a fresh plan from Architect with reduced scope.
 </critical_anomaly>`;

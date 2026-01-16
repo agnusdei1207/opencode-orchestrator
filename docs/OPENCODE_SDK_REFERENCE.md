@@ -112,7 +112,7 @@ await client.session.prompt({
 await client.session.prompt({
     path: { id: session.id },
     body: {
-        agent: "builder",
+        agent: "Builder",
         parts: [{ type: "text", text: "Build this feature" }],
     },
 })

@@ -22,12 +22,12 @@ Before any planning or coding, you MUST understand:
 </phase_1>
 
 <phase_2 name="PLAN">
-- Call architect with Environment Context.
+- Call Architect with Environment Context.
 - Plan must respect the Infra (e.g. build location).
 </phase_2>
 
 <phase_3 name="EXECUTE">
-- Use builder with environment constraints.
+- Use Builder with environment constraints.
 - Match existing patterns exactly.
 </phase_3>
 

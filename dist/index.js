@@ -114,13 +114,13 @@ var MISSION = {
   CANCEL_COMMAND: "/cancel"
 };
 var AGENT_EMOJI = {
-  architect: "\u{1F3D7}\uFE0F",
-  builder: "\u{1F528}",
-  inspector: "\u{1F50D}",
-  recorder: "\u{1F4BE}",
-  commander: "\u{1F3AF}",
-  librarian: "\u{1F4DA}",
-  researcher: "\u{1F52C}"
+  Architect: "\u{1F3D7}\uFE0F",
+  Builder: "\u{1F528}",
+  Inspector: "\u{1F50D}",
+  Recorder: "\u{1F4BE}",
+  Commander: "\u{1F3AF}",
+  Librarian: "\u{1F4DA}",
+  Researcher: "\u{1F52C}"
 };
 var PART_TYPES = {
   TEXT: "text",
@@ -507,15 +507,15 @@ MISSION: [goal in one line]
 
 TODO_HIERARCHY:
 - [L1] Main objective 1
-  - [L2] Sub-task 1.1 | agent:builder | parallel_group:A
-  - [L2] Sub-task 1.2 | agent:builder | parallel_group:A
-  - [L2] Sub-task 1.3 | agent:inspector | depends:1.1,1.2
+  - [L2] Sub-task 1.1 | agent:Builder | parallel_group:A
+  - [L2] Sub-task 1.2 | agent:Builder | parallel_group:A
+  - [L2] Sub-task 1.3 | agent:Inspector | depends:1.1,1.2
 - [L1] Main objective 2
-  - [L2] Sub-task 2.1 | agent:librarian
-  - [L2] Sub-task 2.2 | agent:builder | depends:2.1
-    - [L3] Atomic action 2.2.1 | agent:builder
-    - [L3] Atomic action 2.2.2 | agent:builder | parallel_group:B
-    - [L3] Verify 2.2 | agent:inspector | depends:2.2.1,2.2.2
+  - [L2] Sub-task 2.1 | agent:Librarian
+  - [L2] Sub-task 2.2 | agent:Builder | depends:2.1
+    - [L3] Atomic action 2.2.1 | agent:Builder
+    - [L3] Atomic action 2.2.2 | agent:Builder | parallel_group:B
+    - [L3] Verify 2.2 | agent:Inspector | depends:2.2.1,2.2.2
 
 PARALLEL_EXECUTION:
 - Group A: [1.1, 1.2] \u2192 Run simultaneously
@@ -540,17 +540,17 @@ REVISED_HIERARCHY:
 </strategy_mode>
 
 <agents_available>
-- builder: Code implementation
-- inspector: Verification and bug fixing
-- librarian: Documentation research (use BEFORE unfamiliar APIs)
-- researcher: Pre-task investigation
+- Builder: Code implementation
+- Inspector: Verification and bug fixing
+- Librarian: Documentation research (use BEFORE unfamiliar APIs)
+- Researcher: Pre-task investigation
 </agents_available>
 
 <rules>
 - One action per task
-- Always end branches with inspector task
+- Always end branches with Inspector task
 - Group unrelated tasks (parallel execution)
-- Use librarian/researcher before implementing unfamiliar features
+- Use Librarian/Researcher before implementing unfamiliar features
 - Be specific about files, patterns, and verification
 </rules>`,
   canWrite: false,
@@ -13582,12 +13582,12 @@ Before any planning or coding, you MUST understand:
 </phase_1>
 
 <phase_2 name="PLAN">
-- Call architect with Environment Context.
+- Call Architect with Environment Context.
 - Plan must respect the Infra (e.g. build location).
 </phase_2>
 
 <phase_3 name="EXECUTE">
-- Use builder with environment constraints.
+- Use Builder with environment constraints.
 - Match existing patterns exactly.
 </phase_3>
 
@@ -15387,7 +15387,7 @@ var RECOVERY_PROMPT = `<anomaly_recovery>
 <instructions>
 - If a sub-agent produced bad output: try a different agent or simpler task
 - If stuck in a loop: break down the task into smaller pieces
-- If context seems corrupted: call recorder to restore context
+- If context seems corrupted: call Recorder to restore context
 - THINK in English for maximum stability
 </instructions>
 
@@ -15399,8 +15399,8 @@ var ESCALATION_PROMPT = `<critical_anomaly>
 <emergency_protocol>
 1. STOP current execution path immediately
 2. DO NOT continue with the same approach - it is failing
-3. CALL architect for a completely new strategy
-4. If architect also fails: report status to user and await guidance
+3. CALL Architect for a completely new strategy
+4. If Architect also fails: report status to user and await guidance
 </emergency_protocol>
 
 <diagnosis>
@@ -15408,7 +15408,7 @@ The current approach is producing corrupted output.
 This may indicate: context overload, model instability, or task complexity.
 </diagnosis>
 
-Request a fresh plan from architect with reduced scope.
+Request a fresh plan from Architect with reduced scope.
 </critical_anomaly>`;
 
 // src/core/cache/constants.ts

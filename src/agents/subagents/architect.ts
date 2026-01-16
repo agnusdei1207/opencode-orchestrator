@@ -50,15 +50,15 @@ MISSION: [goal in one line]
 
 TODO_HIERARCHY:
 - [L1] Main objective 1
-  - [L2] Sub-task 1.1 | agent:builder | parallel_group:A
-  - [L2] Sub-task 1.2 | agent:builder | parallel_group:A
-  - [L2] Sub-task 1.3 | agent:inspector | depends:1.1,1.2
+  - [L2] Sub-task 1.1 | agent:Builder | parallel_group:A
+  - [L2] Sub-task 1.2 | agent:Builder | parallel_group:A
+  - [L2] Sub-task 1.3 | agent:Inspector | depends:1.1,1.2
 - [L1] Main objective 2
-  - [L2] Sub-task 2.1 | agent:librarian
-  - [L2] Sub-task 2.2 | agent:builder | depends:2.1
-    - [L3] Atomic action 2.2.1 | agent:builder
-    - [L3] Atomic action 2.2.2 | agent:builder | parallel_group:B
-    - [L3] Verify 2.2 | agent:inspector | depends:2.2.1,2.2.2
+  - [L2] Sub-task 2.1 | agent:Librarian
+  - [L2] Sub-task 2.2 | agent:Builder | depends:2.1
+    - [L3] Atomic action 2.2.1 | agent:Builder
+    - [L3] Atomic action 2.2.2 | agent:Builder | parallel_group:B
+    - [L3] Verify 2.2 | agent:Inspector | depends:2.2.1,2.2.2
 
 PARALLEL_EXECUTION:
 - Group A: [1.1, 1.2] → Run simultaneously
@@ -83,17 +83,17 @@ REVISED_HIERARCHY:
 </strategy_mode>
 
 <agents_available>
-- builder: Code implementation
-- inspector: Verification and bug fixing
-- librarian: Documentation research (use BEFORE unfamiliar APIs)
-- researcher: Pre-task investigation
+- Builder: Code implementation
+- Inspector: Verification and bug fixing
+- Librarian: Documentation research (use BEFORE unfamiliar APIs)
+- Researcher: Pre-task investigation
 </agents_available>
 
 <rules>
 - One action per task
-- Always end branches with inspector task
+- Always end branches with Inspector task
 - Group unrelated tasks (parallel execution)
-- Use librarian/researcher before implementing unfamiliar features
+- Use Librarian/Researcher before implementing unfamiliar features
 - Be specific about files, patterns, and verification
 </rules>`,
   canWrite: false,
