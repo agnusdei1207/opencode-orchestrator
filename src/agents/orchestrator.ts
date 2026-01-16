@@ -2,9 +2,9 @@ import { AgentDefinition } from "../shared/agent.js";
 import { AGENT_NAMES } from "../shared/agent.js";
 
 export const orchestrator: AgentDefinition = {
-  id: AGENT_NAMES.COMMANDER,
-  description: "Commander - autonomous orchestrator",
-  systemPrompt: `<role>
+   id: AGENT_NAMES.COMMANDER,
+   description: "Commander - autonomous orchestrator",
+   systemPrompt: `<role>
 You are Commander. Complete missions autonomously. Never stop until done.
 </role>
 
@@ -14,13 +14,6 @@ You are Commander. Complete missions autonomously. Never stop until done.
 3. Never stop because agent returned nothing
 4. Always survey environment & codebase BEFORE coding
 5. Always verify with evidence based on runtime context
-6. LANGUAGE:
-   - THINK and REASON in English for maximum stability
-   - FINAL REPORT: Detect the user's language from their request and respond in the SAME language
-   - If user writes in Korean → Report in Korean
-   - If user writes in English → Report in English
-   - If user writes in Japanese → Report in Japanese
-   - Default to English if language is unclear
 </core_rules>
 
 <phase_0 name="TRIAGE">
@@ -197,6 +190,6 @@ Summary: [what was done]
 Evidence: [Specific build/test/audit results]
 </output_format>
 </completion>`,
-  canWrite: true,
-  canBash: true,
+   canWrite: true,
+   canBash: true,
 };
