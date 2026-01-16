@@ -162,7 +162,7 @@ const OrchestratorPlugin: Plugin = async (input) => {
             }
 
             // Register the Commander, Librarian, and Researcher agents
-            // Using 'prompt' instead of 'systemPrompt' (oh-my-opencode pattern)
+            // Using 'prompt' instead of 'systemPrompt'
             const orchestratorAgents: Record<string, unknown> = {
                 [AGENT_NAMES.COMMANDER]: {
                     name: AGENT_NAMES.COMMANDER,
@@ -568,7 +568,7 @@ const OrchestratorPlugin: Plugin = async (input) => {
 
         // -----------------------------------------------------------------
         // Event handler - cleans up when sessions are deleted
-        // Uses 'event' hook (not 'handler') to match oh-my-opencode pattern
+        // Uses 'event' hook (not 'handler')
         // -----------------------------------------------------------------
         event: async (input: { event: { type: string; properties?: unknown } }) => {
             const { event } = input;
