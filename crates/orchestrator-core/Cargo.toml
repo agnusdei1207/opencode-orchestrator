@@ -21,6 +21,7 @@ glob.workspace = true
 ignore.workspace = true
 regex.workspace = true
 toml.workspace = true
+rayon = "1.10"
 
 [dev-dependencies]
 tokio-test = "0.4"
