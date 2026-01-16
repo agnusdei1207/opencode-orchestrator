@@ -12,7 +12,7 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 
 // Mock the dependencies
-vi.mock("../src/core/agents/config", () => ({
+vi.mock("../../src/core/agents/config", () => ({
     CONFIG: {
         TASK_TTL_MS: 30 * 60 * 1000,
         CLEANUP_DELAY_MS: 5 * 60 * 1000,
@@ -21,13 +21,13 @@ vi.mock("../src/core/agents/config", () => ({
     },
 }));
 
-vi.mock("../src/core/agents/logger", () => ({
+vi.mock("../../src/core/agents/logger", () => ({
     log: vi.fn(),
 }));
 
-import { TaskStore } from "../src/core/agents/task-store";
-import { ConcurrencyController } from "../src/core/agents/concurrency";
-import type { ParallelTask } from "../src/core/agents/interfaces/parallel-task";
+import { TaskStore } from "../../src/core/agents/task-store";
+import { ConcurrencyController } from "../../src/core/agents/concurrency";
+import type { ParallelTask } from "../../src/core/agents/interfaces/parallel-task";
 
 // Create mock task for testing
 function createMockTask(overrides: Partial<ParallelTask> = {}): ParallelTask {

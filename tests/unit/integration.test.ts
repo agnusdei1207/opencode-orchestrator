@@ -10,13 +10,13 @@
 
 import { describe, it, expect, beforeEach, vi, afterEach } from "vitest";
 
-vi.mock("../src/core/agents/logger", () => ({
+vi.mock("../../src/core/agents/logger", () => ({
     log: vi.fn(),
 }));
 
-import { TaskStore } from "../src/core/agents/task-store";
-import { ConcurrencyController } from "../src/core/agents/concurrency";
-import type { ParallelTask } from "../src/core/agents/interfaces/parallel-task";
+import { TaskStore } from "../../src/core/agents/task-store";
+import { ConcurrencyController } from "../../src/core/agents/concurrency";
+import type { ParallelTask } from "../../src/core/agents/interfaces/parallel-task";
 
 function createMockTask(overrides: Partial<ParallelTask> = {}): ParallelTask {
     return {
