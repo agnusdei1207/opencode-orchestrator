@@ -15308,22 +15308,27 @@ function formatElapsedTime(startMs, endMs = Date.now()) {
 }
 
 // src/utils/sanity.ts
+var SEVERITY = {
+  OK: "ok",
+  WARNING: "warning",
+  CRITICAL: "critical"
+};
 function checkOutputSanity(text) {
   if (!text || text.length < 50) {
-    return { isHealthy: true, severity: "ok" };
+    return { isHealthy: true, severity: SEVERITY.OK };
   }
   if (/(.)\1{15,}/.test(text)) {
     return {
       isHealthy: false,
       reason: "Single character repetition detected",
-      severity: "critical"
+      severity: SEVERITY.CRITICAL
     };
   }
   if (/(.{2,6})\1{8,}/.test(text)) {
     return {
       isHealthy: false,
       reason: "Pattern loop detected",
-      severity: "critical"
+      severity: SEVERITY.CRITICAL
     };
   }
   if (text.length > 200) {
@@ -15335,7 +15340,7 @@ function checkOutputSanity(text) {
         return {
           isHealthy: false,
           reason: "Low information density",
-          severity: "critical"
+          severity: SEVERITY.CRITICAL
         };
       }
     }
@@ -15345,7 +15350,7 @@ function checkOutputSanity(text) {
     return {
       isHealthy: false,
       reason: "Visual gibberish detected",
-      severity: "critical"
+      severity: SEVERITY.CRITICAL
     };
   }
   const lines = text.split("\n").filter((l) => l.trim().length > 10);
@@ -15355,7 +15360,7 @@ function checkOutputSanity(text) {
       return {
         isHealthy: false,
         reason: "Excessive line repetition",
-        severity: "warning"
+        severity: SEVERITY.WARNING
       };
     }
   }
@@ -15368,11 +15373,11 @@ function checkOutputSanity(text) {
       return {
         isHealthy: false,
         reason: "CJK character spam detected",
-        severity: "critical"
+        severity: SEVERITY.CRITICAL
       };
     }
   }
-  return { isHealthy: true, severity: "ok" };
+  return { isHealthy: true, severity: SEVERITY.OK };
 }
 var RECOVERY_PROMPT = `<anomaly_recovery>
 \u26A0\uFE0F SYSTEM NOTICE: Previous output was malformed (gibberish/loop detected).

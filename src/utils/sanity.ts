@@ -9,10 +9,22 @@
  * - Line repetition
  */
 
+// ============================================================================
+// Severity Constants
+// ============================================================================
+
+export const SEVERITY = {
+    OK: "ok",
+    WARNING: "warning",
+    CRITICAL: "critical",
+} as const;
+
+export type Severity = (typeof SEVERITY)[keyof typeof SEVERITY];
+
 export interface SanityResult {
     isHealthy: boolean;
     reason?: string;
-    severity: "ok" | "warning" | "critical";
+    severity: Severity;
 }
 
 /**
@@ -20,7 +32,7 @@ export interface SanityResult {
  */
 export function checkOutputSanity(text: string): SanityResult {
     if (!text || text.length < 50) {
-        return { isHealthy: true, severity: "ok" };
+        return { isHealthy: true, severity: SEVERITY.OK };
     }
 
     // Pattern 1: Single character repeated excessively (SSSSSS...)
@@ -29,7 +41,7 @@ export function checkOutputSanity(text: string): SanityResult {
         return {
             isHealthy: false,
             reason: "Single character repetition detected",
-            severity: "critical",
+            severity: SEVERITY.CRITICAL,
         };
     }
 
@@ -39,7 +51,7 @@ export function checkOutputSanity(text: string): SanityResult {
         return {
             isHealthy: false,
             reason: "Pattern loop detected",
-            severity: "critical",
+            severity: SEVERITY.CRITICAL,
         };
     }
 
@@ -55,7 +67,7 @@ export function checkOutputSanity(text: string): SanityResult {
                 return {
                     isHealthy: false,
                     reason: "Low information density",
-                    severity: "critical",
+                    severity: SEVERITY.CRITICAL,
                 };
             }
         }
@@ -70,7 +82,7 @@ export function checkOutputSanity(text: string): SanityResult {
         return {
             isHealthy: false,
             reason: "Visual gibberish detected",
-            severity: "critical",
+            severity: SEVERITY.CRITICAL,
         };
     }
 
@@ -83,7 +95,7 @@ export function checkOutputSanity(text: string): SanityResult {
             return {
                 isHealthy: false,
                 reason: "Excessive line repetition",
-                severity: "warning",
+                severity: SEVERITY.WARNING,
             };
         }
     }
@@ -100,12 +112,12 @@ export function checkOutputSanity(text: string): SanityResult {
             return {
                 isHealthy: false,
                 reason: "CJK character spam detected",
-                severity: "critical",
+                severity: SEVERITY.CRITICAL,
             };
         }
     }
 
-    return { isHealthy: true, severity: "ok" };
+    return { isHealthy: true, severity: SEVERITY.OK };
 }
 
 /**
