@@ -4,19 +4,13 @@ var __export = (target, all) => {
     __defProp(target, name, { get: all[name], enumerable: true });
 };
 
-// src/shared/contracts/names.ts
+// src/shared/agent.ts
 var AGENT_NAMES = {
-  // Core Agents (5)
   COMMANDER: "commander",
-  // Orchestrator - ReAct loop controller
   ARCHITECT: "architect",
-  // Planner + Strategist - Plan-and-Execute
   BUILDER: "builder",
-  // Coder + Visualist combined (full-stack)
   INSPECTOR: "inspector",
-  // Reviewer + Fixer combined (quality + fix)
   RECORDER: "recorder"
-  // Persistent context - saves/loads session state
 };
 
 // src/agents/orchestrator.ts
@@ -13319,7 +13313,7 @@ Returns matches grouped by pattern, with file paths and line numbers.
   }
 });
 
-// src/core/background.ts
+// src/core/background-task/manager.ts
 import { spawn as spawn2 } from "child_process";
 import { randomBytes } from "crypto";
 
@@ -13349,13 +13343,24 @@ var BACKGROUND_TASK = {
   DEFAULT_TIMEOUT_MS: 5 * TIME.MINUTE,
   MAX_OUTPUT_LENGTH: 1e4
 };
+var STATUS_EMOJI = {
+  pending: "\u23F3",
+  running: "\u{1F504}",
+  completed: "\u2705",
+  done: "\u2705",
+  error: "\u274C",
+  timeout: "\u23F0",
+  cancelled: "\u{1F6AB}"
+};
+function getStatusEmoji(status) {
+  return STATUS_EMOJI[status] ?? "\u2753";
+}
 
-// src/core/background.ts
+// src/core/background-task/manager.ts
 var BackgroundTaskManager = class _BackgroundTaskManager {
   static _instance;
   tasks = /* @__PURE__ */ new Map();
   debugMode = true;
-  // Enable debug mode
   constructor() {
   }
   static get instance() {
@@ -13364,25 +13369,15 @@ var BackgroundTaskManager = class _BackgroundTaskManager {
     }
     return _BackgroundTaskManager._instance;
   }
-  /**
-   * Generate a unique task ID
-   */
   generateId() {
-    const hex3 = randomBytes(4).toString("hex");
-    return `${ID_PREFIX.JOB}${hex3}`;
+    return `${ID_PREFIX.JOB}${randomBytes(4).toString("hex")}`;
   }
-  /**
-   * Debug logging helper
-   */
   debug(taskId, message) {
     if (this.debugMode) {
-      const timestamp = (/* @__PURE__ */ new Date()).toISOString().substring(11, 23);
-      console.log(`[BG-DEBUG ${timestamp}] ${taskId}: ${message}`);
+      const ts = (/* @__PURE__ */ new Date()).toISOString().substring(11, 23);
+      console.log(`[BG ${ts}] ${taskId}: ${message}`);
     }
   }
-  /**
-   * Run a command in the background
-   */
   run(options) {
     const id = this.generateId();
     const { command, cwd = process.cwd(), timeout = 3e5, label } = options;
@@ -13403,7 +13398,7 @@ var BackgroundTaskManager = class _BackgroundTaskManager {
       timeout
     };
     this.tasks.set(id, task);
-    this.debug(id, `Starting: ${command} (cwd: ${cwd})`);
+    this.debug(id, `Starting: ${command}`);
     try {
       const proc = spawn2(shell, task.args, {
         cwd,
@@ -13412,22 +13407,17 @@ var BackgroundTaskManager = class _BackgroundTaskManager {
       });
       task.process = proc;
       proc.stdout?.on("data", (data) => {
-        const text = data.toString();
-        task.output += text;
-        this.debug(id, `stdout: ${text.substring(0, 100)}${text.length > 100 ? "..." : ""}`);
+        task.output += data.toString();
       });
       proc.stderr?.on("data", (data) => {
-        const text = data.toString();
-        task.errorOutput += text;
-        this.debug(id, `stderr: ${text.substring(0, 100)}${text.length > 100 ? "..." : ""}`);
+        task.errorOutput += data.toString();
       });
       proc.on("close", (code) => {
         task.exitCode = code;
         task.endTime = Date.now();
         task.status = code === 0 ? "done" : "error";
         task.process = void 0;
-        const duration3 = ((task.endTime - task.startTime) / 1e3).toFixed(2);
-        this.debug(id, `Completed with code ${code} in ${duration3}s`);
+        this.debug(id, `Done (code=${code})`);
       });
       proc.on("error", (err) => {
         task.status = "error";
@@ -13435,47 +13425,31 @@ var BackgroundTaskManager = class _BackgroundTaskManager {
 Process error: ${err.message}`;
         task.endTime = Date.now();
         task.process = void 0;
-        this.debug(id, `Error: ${err.message}`);
       });
       setTimeout(() => {
         if (task.status === "running" && task.process) {
-          this.debug(id, `Timeout after ${timeout}ms, killing process`);
           task.process.kill("SIGKILL");
           task.status = "timeout";
           task.endTime = Date.now();
-          task.errorOutput += `
-Process killed: timeout after ${timeout}ms`;
+          this.debug(id, "Timeout");
         }
       }, timeout);
     } catch (err) {
       task.status = "error";
-      task.errorOutput = `Failed to spawn: ${err instanceof Error ? err.message : String(err)}`;
+      task.errorOutput = `Spawn failed: ${err instanceof Error ? err.message : String(err)}`;
       task.endTime = Date.now();
-      this.debug(id, `Spawn failed: ${task.errorOutput}`);
     }
     return task;
   }
-  /**
-   * Get task by ID
-   */
   get(taskId) {
     return this.tasks.get(taskId);
   }
-  /**
-   * Get all tasks
-   */
   getAll() {
     return Array.from(this.tasks.values());
   }
-  /**
-   * Get tasks by status
-   */
   getByStatus(status) {
     return this.getAll().filter((t) => t.status === status);
   }
-  /**
-   * Clear completed/failed tasks
-   */
   clearCompleted() {
     let count = 0;
     for (const [id, task] of this.tasks) {
@@ -13486,9 +13460,6 @@ Process killed: timeout after ${timeout}ms`;
     }
     return count;
   }
-  /**
-   * Kill a running task
-   */
   kill(taskId) {
     const task = this.tasks.get(taskId);
     if (task?.process) {
@@ -13496,42 +13467,18 @@ Process killed: timeout after ${timeout}ms`;
       task.status = "error";
       task.errorOutput += "\nKilled by user";
       task.endTime = Date.now();
-      this.debug(taskId, "Killed by user");
       return true;
     }
     return false;
   }
-  /**
-   * Format duration for display
-   */
   formatDuration(task) {
     const end = task.endTime || Date.now();
     const seconds = (end - task.startTime) / 1e3;
-    if (seconds < 60) {
-      return `${seconds.toFixed(1)}s`;
-    }
-    const minutes = Math.floor(seconds / 60);
-    const remainingSeconds = seconds % 60;
-    return `${minutes}m ${remainingSeconds.toFixed(0)}s`;
+    if (seconds < 60) return `${seconds.toFixed(1)}s`;
+    return `${Math.floor(seconds / 60)}m ${(seconds % 60).toFixed(0)}s`;
   }
-  /**
-   * Get status emoji
-   */
   getStatusEmoji(status) {
-    switch (status) {
-      case "pending":
-        return "\u23F8\uFE0F";
-      case "running":
-        return "\u23F3";
-      case "done":
-        return "\u2705";
-      case "error":
-        return "\u274C";
-      case "timeout":
-        return "\u23F0";
-      default:
-        return "\u2753";
-    }
+    return getStatusEmoji(status);
   }
 };
 var backgroundTaskManager = BackgroundTaskManager.instance;

@@ -1,5 +1,5 @@
-import { AgentDefinition } from "../shared/contracts/interfaces.js";
-import { AGENT_NAMES } from "../shared/contracts/names.js";
+import { AgentDefinition } from "../shared/agent.js";
+import { AGENT_NAMES } from "../shared/agent.js";
 
 export const orchestrator: AgentDefinition = {
   id: AGENT_NAMES.COMMANDER,

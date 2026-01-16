@@ -6,7 +6,7 @@
  */
 
 import { tool } from "@opencode-ai/plugin";
-import { backgroundTaskManager, type BackgroundTask } from "../../core/background.js";
+import { backgroundTaskManager, type BackgroundTask } from "../../core/background-task/index.js";
 
 // ============================================================================
 // run_background Tool

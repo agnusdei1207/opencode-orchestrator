@@ -1,5 +1,5 @@
-import { AgentDefinition } from "../shared/contracts/interfaces.js";
-import { AGENT_NAMES } from "../shared/contracts/names.js";
+import { AgentDefinition } from "../shared/agent.js";
+import { AGENT_NAMES } from "../shared/agent.js";
 import { orchestrator } from "./orchestrator.js";
 import { architect } from "./subagents/architect.js";
 import { builder } from "./subagents/builder.js";
