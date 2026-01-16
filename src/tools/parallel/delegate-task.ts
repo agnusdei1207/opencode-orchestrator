@@ -47,7 +47,6 @@ export const createDelegateTaskTool = (manager: ParallelAgentManager, client: un
                     agent, description, prompt,
                     parentSessionID: ctx.sessionID,
                 });
-                console.log(`[parallel] 🚀 ${task.id} → ${agent}`);
                 return `🚀 Task spawned: \`${task.id}\` (${agent})`;
             } catch (error) {
                 return `❌ Failed: ${error instanceof Error ? error.message : String(error)}`;

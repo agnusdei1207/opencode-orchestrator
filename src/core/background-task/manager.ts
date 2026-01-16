@@ -12,7 +12,7 @@ import type { BackgroundTask, BackgroundTaskStatus, RunBackgroundOptions } from 
 class BackgroundTaskManager {
     private static _instance: BackgroundTaskManager;
     private tasks: Map<string, BackgroundTask> = new Map();
-    private debugMode = true;
+    private debugMode = process.env.DEBUG_BG_TASK === "true"; // Disabled by default
 
     private constructor() { }
 

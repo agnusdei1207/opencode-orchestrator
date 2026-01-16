@@ -13346,7 +13346,8 @@ function getStatusEmoji(status) {
 var BackgroundTaskManager = class _BackgroundTaskManager {
   static _instance;
   tasks = /* @__PURE__ */ new Map();
-  debugMode = true;
+  debugMode = process.env.DEBUG_BG_TASK === "true";
+  // Disabled by default
   constructor() {
   }
   static get instance() {
@@ -13860,12 +13861,12 @@ var ParallelAgentManager = class _ParallelAgentManager {
       await this.client.session.delete({
         path: { id: task.sessionID }
       });
-      console.log(`[parallel] \u{1F5D1}\uFE0F Session ${task.sessionID.slice(0, 8)}... deleted`);
+      log(`[parallel] \u{1F5D1}\uFE0F Session ${task.sessionID.slice(0, 8)}... deleted`);
     } catch {
-      console.log(`[parallel] \u{1F5D1}\uFE0F Session ${task.sessionID.slice(0, 8)}... already gone`);
+      log(`[parallel] \u{1F5D1}\uFE0F Session ${task.sessionID.slice(0, 8)}... already gone`);
     }
     this.scheduleCleanup(taskId);
-    console.log(`[parallel] \u{1F6D1} CANCELLED ${taskId}`);
+    log(`[parallel] \u{1F6D1} CANCELLED ${taskId}`);
     log(`Cancelled ${taskId}`);
     return true;
   }
@@ -13997,7 +13998,7 @@ var ParallelAgentManager = class _ParallelAgentManager {
           this.notifyParentIfAllComplete(task.parentSessionID);
           this.scheduleCleanup(task.id);
           const duration3 = this.formatDuration(task.startedAt, task.completedAt);
-          console.log(`[parallel] \u2705 COMPLETED ${task.id} \u2192 ${task.agent}: ${task.description} (${duration3})`);
+          log(`[parallel] \u2705 COMPLETED ${task.id} \u2192 ${task.agent}: ${task.description} (${duration3})`);
           log(`Completed ${task.id}`);
         }
       }
@@ -14043,14 +14044,14 @@ var ParallelAgentManager = class _ParallelAgentManager {
             this.concurrency.release(task.concurrencyKey);
           }
           this.untrackPending(task.parentSessionID, taskId);
-          console.log(`[parallel] \u23F1\uFE0F TIMEOUT ${taskId} \u2192 ${task.agent}: ${task.description}`);
+          log(`[parallel] \u23F1\uFE0F TIMEOUT ${taskId} \u2192 ${task.agent}: ${task.description}`);
         }
         this.client.session.delete({
           path: { id: task.sessionID }
         }).then(() => {
-          console.log(`[parallel] \u{1F5D1}\uFE0F CLEANED ${taskId} (timeout session deleted)`);
+          log(`[parallel] \u{1F5D1}\uFE0F CLEANED ${taskId} (timeout session deleted)`);
         }).catch(() => {
-          console.log(`[parallel] \u{1F5D1}\uFE0F CLEANED ${taskId} (timeout session already gone)`);
+          log(`[parallel] \u{1F5D1}\uFE0F CLEANED ${taskId} (timeout session already gone)`);
         });
         this.tasks.delete(taskId);
       }
@@ -14070,10 +14071,10 @@ var ParallelAgentManager = class _ParallelAgentManager {
           await this.client.session.delete({
             path: { id: sessionID }
           });
-          console.log(`[parallel] \u{1F5D1}\uFE0F CLEANED ${taskId} (session deleted)`);
+          log(`[parallel] \u{1F5D1}\uFE0F CLEANED ${taskId} (session deleted)`);
           log(`Deleted session ${sessionID}`);
         } catch {
-          console.log(`[parallel] \u{1F5D1}\uFE0F CLEANED ${taskId} (session already gone)`);
+          log(`[parallel] \u{1F5D1}\uFE0F CLEANED ${taskId} (session already gone)`);
         }
       }
       this.tasks.delete(taskId);
@@ -14170,7 +14171,6 @@ var createDelegateTaskTool = (manager, client) => tool({
           prompt,
           parentSessionID: ctx.sessionID
         });
-        console.log(`[parallel] \u{1F680} ${task.id} \u2192 ${agent}`);
         return `\u{1F680} Task spawned: \`${task.id}\` (${agent})`;
       } catch (error45) {
         return `\u274C Failed: ${error45 instanceof Error ? error45.message : String(error45)}`;
