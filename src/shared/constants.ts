@@ -32,12 +32,12 @@ export const ID_PREFIX = {
 // ============================================================================
 
 export const PARALLEL_TASK = {
-    TTL_MS: 30 * TIME.MINUTE,
-    CLEANUP_DELAY_MS: 5 * TIME.MINUTE,
-    MIN_STABILITY_MS: 5 * TIME.SECOND,
-    POLL_INTERVAL_MS: 2000,
-    DEFAULT_CONCURRENCY: 3,
-    MAX_CONCURRENCY: 10,
+    TTL_MS: 60 * TIME.MINUTE,           // 60분 (증가)
+    CLEANUP_DELAY_MS: 10 * TIME.MINUTE,  // 10분 (증가)
+    MIN_STABILITY_MS: 3 * TIME.SECOND,   // 3초 (감소, 더 빠른 감지)
+    POLL_INTERVAL_MS: 1000,              // 1초 (감소, 더 빠른 폴링)
+    DEFAULT_CONCURRENCY: 10,             // 10개 (증가: 대규모 병렬 처리)
+    MAX_CONCURRENCY: 50,                 // 50개 (증가: 분산 처리용)
 } as const;
 
 // ============================================================================

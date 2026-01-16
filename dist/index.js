@@ -1624,10 +1624,10 @@ function mergeDefs(...defs) {
 function cloneDef(schema) {
   return mergeDefs(schema._zod.def);
 }
-function getElementAtPath(obj, path2) {
-  if (!path2)
+function getElementAtPath(obj, path3) {
+  if (!path3)
     return obj;
-  return path2.reduce((acc, key) => acc?.[key], obj);
+  return path3.reduce((acc, key) => acc?.[key], obj);
 }
 function promiseAllObject(promisesObj) {
   const keys = Object.keys(promisesObj);
@@ -1988,11 +1988,11 @@ function aborted(x, startIndex = 0) {
   }
   return false;
 }
-function prefixIssues(path2, issues) {
+function prefixIssues(path3, issues) {
   return issues.map((iss) => {
     var _a;
     (_a = iss).path ?? (_a.path = []);
-    iss.path.unshift(path2);
+    iss.path.unshift(path3);
     return iss;
   });
 }
@@ -2160,7 +2160,7 @@ function treeifyError(error45, _mapper) {
     return issue2.message;
   };
   const result = { errors: [] };
-  const processError = (error46, path2 = []) => {
+  const processError = (error46, path3 = []) => {
     var _a, _b;
     for (const issue2 of error46.issues) {
       if (issue2.code === "invalid_union" && issue2.errors.length) {
@@ -2170,7 +2170,7 @@ function treeifyError(error45, _mapper) {
       } else if (issue2.code === "invalid_element") {
         processError({ issues: issue2.issues }, issue2.path);
       } else {
-        const fullpath = [...path2, ...issue2.path];
+        const fullpath = [...path3, ...issue2.path];
         if (fullpath.length === 0) {
           result.errors.push(mapper(issue2));
           continue;
@@ -2202,8 +2202,8 @@ function treeifyError(error45, _mapper) {
 }
 function toDotPath(_path) {
   const segs = [];
-  const path2 = _path.map((seg) => typeof seg === "object" ? seg.key : seg);
-  for (const seg of path2) {
+  const path3 = _path.map((seg) => typeof seg === "object" ? seg.key : seg);
+  for (const seg of path3) {
     if (typeof seg === "number")
       segs.push(`[${seg}]`);
     else if (typeof seg === "symbol")
@@ -13648,12 +13648,18 @@ var ID_PREFIX = {
   SESSION: "session_"
 };
 var PARALLEL_TASK = {
-  TTL_MS: 30 * TIME.MINUTE,
-  CLEANUP_DELAY_MS: 5 * TIME.MINUTE,
-  MIN_STABILITY_MS: 5 * TIME.SECOND,
-  POLL_INTERVAL_MS: 2e3,
-  DEFAULT_CONCURRENCY: 3,
-  MAX_CONCURRENCY: 10
+  TTL_MS: 60 * TIME.MINUTE,
+  // 60분 (증가)
+  CLEANUP_DELAY_MS: 10 * TIME.MINUTE,
+  // 10분 (증가)
+  MIN_STABILITY_MS: 3 * TIME.SECOND,
+  // 3초 (감소, 더 빠른 감지)
+  POLL_INTERVAL_MS: 1e3,
+  // 1초 (감소, 더 빠른 폴링)
+  DEFAULT_CONCURRENCY: 10,
+  // 10개 (증가: 대규모 병렬 처리)
+  MAX_CONCURRENCY: 50
+  // 50개 (증가: 분산 처리용)
 };
 var BACKGROUND_TASK = {
   DEFAULT_TIMEOUT_MS: 5 * TIME.MINUTE,
@@ -14039,12 +14045,21 @@ var ConcurrencyController = class {
 };
 
 // src/core/agents/task-store.ts
+import * as fs from "node:fs/promises";
+import * as path from "node:path";
+var MAX_TASKS_IN_MEMORY = 1e3;
+var MAX_NOTIFICATIONS_PER_PARENT = 100;
+var ARCHIVE_DIR = ".cache/task-archive";
 var TaskStore = class {
   tasks = /* @__PURE__ */ new Map();
   pendingByParent = /* @__PURE__ */ new Map();
   notifications = /* @__PURE__ */ new Map();
+  archivedCount = 0;
   set(id, task) {
     this.tasks.set(id, task);
+    if (this.tasks.size > MAX_TASKS_IN_MEMORY) {
+      this.gc();
+    }
   }
   get(id) {
     return this.tasks.get(id);
@@ -14087,10 +14102,13 @@ var TaskStore = class {
   hasPending(parentSessionID) {
     return this.getPendingCount(parentSessionID) > 0;
   }
-  // Notifications
+  // Notifications with limit
   queueNotification(task) {
     const queue = this.notifications.get(task.parentSessionID) ?? [];
     queue.push(task);
+    if (queue.length > MAX_NOTIFICATIONS_PER_PARENT) {
+      queue.shift();
+    }
     this.notifications.set(task.parentSessionID, queue);
   }
   getNotifications(parentSessionID) {
@@ -14106,9 +14124,6 @@ var TaskStore = class {
       }
     }
   }
-  /**
-   * Remove a specific task from all notification queues
-   */
   clearNotificationsForTask(taskId) {
     for (const [sessionID, tasks] of this.notifications.entries()) {
       const filtered = tasks.filter((t) => t.id !== taskId);
@@ -14118,6 +14133,88 @@ var TaskStore = class {
         this.notifications.set(sessionID, filtered);
       }
     }
+  }
+  // =========================================================================
+  // Garbage Collection & Memory Management
+  // =========================================================================
+  /**
+   * Get memory statistics
+   */
+  getStats() {
+    return {
+      tasksInMemory: this.tasks.size,
+      runningTasks: this.getRunning().length,
+      archivedTasks: this.archivedCount,
+      notificationQueues: this.notifications.size,
+      pendingParents: this.pendingByParent.size
+    };
+  }
+  /**
+   * Garbage collect completed tasks
+   * Archives old completed tasks to disk
+   */
+  async gc() {
+    const now = Date.now();
+    const toRemove = [];
+    const toArchive = [];
+    for (const [id, task] of this.tasks) {
+      if (task.status === "running") continue;
+      const completedAt = task.completedAt?.getTime() ?? 0;
+      const age = now - completedAt;
+      if (age > 30 * 60 * 1e3 && task.status === "completed") {
+        toArchive.push(task);
+        toRemove.push(id);
+      } else if (age > 10 * 60 * 1e3 && (task.status === "error" || task.status === "cancelled")) {
+        toRemove.push(id);
+      }
+    }
+    if (toArchive.length > 0) {
+      await this.archiveTasks(toArchive);
+    }
+    for (const id of toRemove) {
+      this.tasks.delete(id);
+    }
+    return toRemove.length;
+  }
+  /**
+   * Archive tasks to disk for later analysis
+   */
+  async archiveTasks(tasks) {
+    try {
+      await fs.mkdir(ARCHIVE_DIR, { recursive: true });
+      const date5 = (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
+      const filename = `tasks_${date5}.jsonl`;
+      const filepath = path.join(ARCHIVE_DIR, filename);
+      const lines = tasks.map((task) => JSON.stringify({
+        id: task.id,
+        agent: task.agent,
+        prompt: task.prompt.slice(0, 200),
+        // Truncate
+        status: task.status,
+        startedAt: task.startedAt,
+        completedAt: task.completedAt,
+        parentSessionID: task.parentSessionID
+      }));
+      await fs.appendFile(filepath, lines.join("\n") + "\n");
+      this.archivedCount += tasks.length;
+    } catch (error45) {
+      console.error("[TaskStore] Archive failed:", error45);
+    }
+  }
+  /**
+   * Force cleanup of all completed tasks
+   */
+  forceCleanup() {
+    const toRemove = [];
+    for (const [id, task] of this.tasks) {
+      if (task.status !== "running") {
+        toRemove.push(id);
+      }
+    }
+    for (const id of toRemove) {
+      this.tasks.delete(id);
+    }
+    return toRemove.length;
   }
 };
 
@@ -14473,7 +14570,7 @@ var EVENT_TYPES = {
   ...SPECIAL_EVENTS
 };
 
-// src/core/bus/index.ts
+// src/core/bus/event-bus.ts
 var EventBusImpl = class {
   subscriptions = /* @__PURE__ */ new Map();
   eventHistory = [];
@@ -14600,6 +14697,8 @@ var EventBusImpl = class {
     });
   }
 };
+
+// src/core/bus/index.ts
 var EventBus = new EventBusImpl();
 
 // src/core/agents/manager/event-handler.ts
@@ -15183,16 +15282,21 @@ This may indicate: context overload, model instability, or task complexity.
 Request a fresh plan from architect with reduced scope.
 </critical_anomaly>`;
 
-// src/core/cache/document-cache.ts
-import * as fs from "node:fs/promises";
-import * as path from "node:path";
-import { existsSync as existsSync3 } from "node:fs";
+// src/core/cache/constants.ts
 var CACHE_DIR = ".cache/docs";
 var METADATA_FILE = ".cache/docs/_metadata.json";
 var DEFAULT_TTL_MS = 24 * 60 * 60 * 1e3;
+
+// src/core/cache/operations.ts
+import * as fs3 from "node:fs/promises";
+import * as path2 from "node:path";
+
+// src/core/cache/utils.ts
+import * as fs2 from "node:fs/promises";
+import { existsSync as existsSync3 } from "node:fs";
 async function ensureCacheDir() {
   if (!existsSync3(CACHE_DIR)) {
-    await fs.mkdir(CACHE_DIR, { recursive: true });
+    await fs2.mkdir(CACHE_DIR, { recursive: true });
   }
 }
 function urlToFilename(url2) {
@@ -15207,7 +15311,7 @@ function urlToFilename(url2) {
 }
 async function readMetadata() {
   try {
-    const content = await fs.readFile(METADATA_FILE, "utf-8");
+    const content = await fs2.readFile(METADATA_FILE, "utf-8");
     return JSON.parse(content);
   } catch {
     return { documents: {}, lastUpdated: (/* @__PURE__ */ new Date()).toISOString() };
@@ -15216,8 +15320,10 @@ async function readMetadata() {
 async function writeMetadata(metadata) {
   await ensureCacheDir();
   metadata.lastUpdated = (/* @__PURE__ */ new Date()).toISOString();
-  await fs.writeFile(METADATA_FILE, JSON.stringify(metadata, null, 2));
+  await fs2.writeFile(METADATA_FILE, JSON.stringify(metadata, null, 2));
 }
+
+// src/core/cache/operations.ts
 async function get(url2) {
   const metadata = await readMetadata();
   const filename = urlToFilename(url2);
@@ -15228,12 +15334,9 @@ async function get(url2) {
     return null;
   }
   try {
-    const filepath = path.join(CACHE_DIR, filename);
-    const content = await fs.readFile(filepath, "utf-8");
-    return {
-      ...entry,
-      content
-    };
+    const filepath = path2.join(CACHE_DIR, filename);
+    const content = await fs3.readFile(filepath, "utf-8");
+    return { ...entry, content };
   } catch {
     return null;
   }
@@ -15243,12 +15346,9 @@ async function getByFilename(filename) {
   const entry = metadata.documents[filename];
   if (!entry) return null;
   try {
-    const filepath = path.join(CACHE_DIR, filename);
-    const content = await fs.readFile(filepath, "utf-8");
-    return {
-      ...entry,
-      content
-    };
+    const filepath = path2.join(CACHE_DIR, filename);
+    const content = await fs3.readFile(filepath, "utf-8");
+    return { ...entry, content };
   } catch {
     return null;
   }
@@ -15256,7 +15356,7 @@ async function getByFilename(filename) {
 async function set2(url2, content, title, ttlMs = DEFAULT_TTL_MS) {
   await ensureCacheDir();
   const filename = urlToFilename(url2);
-  const filepath = path.join(CACHE_DIR, filename);
+  const filepath = path2.join(CACHE_DIR, filename);
   const now = /* @__PURE__ */ new Date();
   const header = `# ${title}
 
@@ -15267,7 +15367,7 @@ async function set2(url2, content, title, ttlMs = DEFAULT_TTL_MS) {
 
 `;
   const fullContent = header + content;
-  await fs.writeFile(filepath, fullContent);
+  await fs3.writeFile(filepath, fullContent);
   const metadata = await readMetadata();
   metadata.documents[filename] = {
     url: url2,
@@ -15281,9 +15381,9 @@ async function set2(url2, content, title, ttlMs = DEFAULT_TTL_MS) {
 }
 async function remove(url2) {
   const filename = urlToFilename(url2);
-  const filepath = path.join(CACHE_DIR, filename);
+  const filepath = path2.join(CACHE_DIR, filename);
   try {
-    await fs.unlink(filepath);
+    await fs3.unlink(filepath);
     const metadata = await readMetadata();
     delete metadata.documents[filename];
     await writeMetadata(metadata);
@@ -15305,9 +15405,9 @@ async function clear() {
   const metadata = await readMetadata();
   const count = Object.keys(metadata.documents).length;
   for (const filename of Object.keys(metadata.documents)) {
-    const filepath = path.join(CACHE_DIR, filename);
+    const filepath = path2.join(CACHE_DIR, filename);
     try {
-      await fs.unlink(filepath);
+      await fs3.unlink(filepath);
     } catch {
     }
   }

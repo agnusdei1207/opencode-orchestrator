@@ -4,7 +4,7 @@
 
 # OpenCode Orchestrator 🎯
 
-> **Autonomous Multi-Agent Plugin for [OpenCode](https://opencode.ai)**
+> **Enterprise-Grade Autonomous Multi-Agent Plugin for [OpenCode](https://opencode.ai)**
 
 [![MIT License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![npm](https://img.shields.io/npm/v/opencode-orchestrator.svg)](https://www.npmjs.com/package/opencode-orchestrator)
@@ -14,36 +14,75 @@
 
 ## 🚀 What's New in v0.6.0
 
-**Ultimate Agent Architecture** - The most powerful orchestration system yet!
+**Ultimate Agent Architecture** - Production-ready distributed agent orchestration!
 
 | Feature | Description |
 |---------|-------------|
 | **♾️ Unlimited Mode** | No step limits - runs until mission complete |
 | **🧠 Anti-Hallucination** | Research before coding, verify with docs |
-| **📚 New Agents** | Librarian & Researcher for accurate information |
+| **⚡ 50x Parallel Sessions** | Massive concurrent task execution |
+| **📊 Auto Memory Management** | GC, archiving, zero memory leaks |
 | **🔄 Auto Recovery** | Handles rate limits, errors automatically |
-| **📊 211 Tests** | Comprehensive test coverage |
+| **📡 Event-Driven** | Real-time pub/sub across all components |
 
 ---
 
-## Why?
+## ⚡ Why This Architecture?
 
-Tested GLM-4, got disappointed. Built this to make mid-tier models work like premium ones through structured orchestration.
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│                     ORCHESTRATOR ARCHITECTURE                            │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                          │
+│   User Request                                                           │
+│        │                                                                 │
+│        ▼                                                                 │
+│   ┌─────────────────────────────────────────────────────────────────┐   │
+│   │                    PARENT SESSION                                │   │
+│   │  ┌─────────┐  ┌─────────┐  ┌─────────┐  ┌─────────┐             │   │
+│   │  │Commander│─▶│Architect│─▶│ Builder │─▶│Inspector│             │   │
+│   │  └─────────┘  └─────────┘  └────┬────┘  └─────────┘             │   │
+│   │                                 │                                │   │
+│   │                    launch_parallel_agent()                       │   │
+│   └─────────────────────────────────┼───────────────────────────────┘   │
+│                                     │                                    │
+│   ┌─────────────────────────────────▼───────────────────────────────┐   │
+│   │              PARALLEL SESSION POOL (up to 50 concurrent)         │   │
+│   │  ┌───────┐ ┌───────┐ ┌───────┐ ┌───────┐ ┌───────┐ ┌───────┐   │   │
+│   │  │Task 1 │ │Task 2 │ │Task 3 │ │Task 4 │ │Task 5 │ │ ...   │   │   │
+│   │  │Builder│ │Research││Library│ │Builder│ │Inspect│ │       │   │   │
+│   │  └───┬───┘ └───┬───┘ └───┬───┘ └───┬───┘ └───┬───┘ └───────┘   │   │
+│   │      │         │         │         │         │                   │   │
+│   └──────┼─────────┼─────────┼─────────┼─────────┼──────────────────┘   │
+│          │         │         │         │         │                       │
+│   ┌──────▼─────────▼─────────▼─────────▼─────────▼──────────────────┐   │
+│   │                        EVENT BUS                                 │   │
+│   │  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐            │   │
+│   │  │task.start│ │task.done │ │session.* │ │mission.* │            │   │
+│   │  └────┬─────┘ └────┬─────┘ └────┬─────┘ └────┬─────┘            │   │
+│   └───────┼────────────┼────────────┼────────────┼──────────────────┘   │
+│           │            │            │            │                       │
+│   ┌───────▼────────────▼────────────▼────────────▼──────────────────┐   │
+│   │                     CORE SYSTEMS                                 │   │
+│   │  ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐   │   │
+│   │  │ Toast   │ │Progress │ │Recovery │ │ Cache   │ │ Context │   │   │
+│   │  │Notifier │ │ Tracker │ │ Manager │ │ Manager │ │ Sharing │   │   │
+│   │  └─────────┘ └─────────┘ └─────────┘ └─────────┘ └─────────┘   │   │
+│   └─────────────────────────────────────────────────────────────────┘   │
+│                                                                          │
+└──────────────────────────────────────────────────────────────────────────┘
+```
 
-### Key Features
+### 🎯 Key Differentiators
 
-- **♾️ Unlimited Execution** — Runs until ALL todos are complete (default!)
-- **🧠 Anti-Hallucination** — Researches documentation before implementation
-- **📚 Document Caching** — Stores verified docs in `.cache/docs/`
-- **🎯 Autonomous Loop** — Commander runs until the mission is complete
-- **🔍 Environment Scan** — Analyzes Infra, Stack, and Domain before coding
-- **🔨 Smart Implementation** — Matches existing codebase patterns
-- **🛡️ Rigorous Audit** — Proves success with builds/tests/logs
-- **💾 Persistent Context** — Saves session state to disk
-- **🏗️ Parallel Agents** — Run multiple agents concurrently
-- **⏳ Background Tasks** — Non-blocking command execution
-- **🔄 Auto Recovery** — Handles errors, rate limits automatically
-- **📡 Event Bus** — Real-time inter-component communication
+| Capability | OpenCode Orchestrator | Basic Plugins |
+|------------|----------------------|---------------|
+| **Parallel Sessions** | Up to 50 concurrent | Single session |
+| **Memory Management** | Auto GC + disk archiving | Memory leaks |
+| **Error Recovery** | Pattern-based auto retry | Crash |
+| **Context Sharing** | Parent-child merge | Isolated |
+| **Event System** | Real-time pub/sub | None |
+| **Task Decomposition** | 3-level hierarchy | Flat |
 
 ---
 
@@ -99,40 +138,113 @@ Press `Tab` in OpenCode → Select **Commander** → Type your mission!
 
 ---
 
-## 🛠️ New Tools in v0.6.0
+## 🏗️ Core Systems Architecture
 
-| Tool | Description |
-|------|-------------|
-| `webfetch` | Fetch URL content as Markdown |
-| `websearch` | Search the web for information |
-| `codesearch` | Search open source code patterns |
-| `cache_docs` | Manage cached documentation |
+### 📡 Event Bus - Real-time Communication
+
+```typescript
+// Every component communicates via events
+EventBus.subscribe(TASK_EVENTS.COMPLETED, (event) => {
+    Toast.show({ title: "Task Done!", message: event.taskId });
+    ProgressTracker.recordSnapshot(sessionId, { completed: true });
+});
+
+// Fire and forget
+EventBus.emit(TASK_EVENTS.STARTED, { taskId, agent: "builder" });
+```
+
+### ⚡ Parallel Session Manager
+
+```
+┌────────────────────────────────────────────────────┐
+│              ParallelAgentManager                   │
+├────────────────────────────────────────────────────┤
+│  ┌──────────────┐    ┌──────────────┐             │
+│  │ TaskLauncher │    │ TaskResumer  │             │
+│  │ Create new   │    │ Resume paused│             │
+│  │ sessions     │    │ sessions     │             │
+│  └──────┬───────┘    └──────────────┘             │
+│         │                                          │
+│  ┌──────▼───────┐    ┌──────────────┐             │
+│  │ TaskPoller   │    │ TaskCleaner  │             │
+│  │ Detect done  │    │ GC + Archive │             │
+│  │ (1s interval)│    │ (auto)       │             │
+│  └──────────────┘    └──────────────┘             │
+│                                                    │
+│  ┌─────────────────────────────────────────────┐  │
+│  │           ConcurrencyController              │  │
+│  │  • Default: 10 concurrent per agent type    │  │
+│  │  • Maximum: 50 total parallel sessions      │  │
+│  │  • Queue overflow: Auto-wait                │  │
+│  └─────────────────────────────────────────────┘  │
+└────────────────────────────────────────────────────┘
+```
+
+### 🛡️ Auto Recovery System
+
+```
+Error Detected
+      │
+      ▼
+┌─────────────────────────────────────────┐
+│           Pattern Matcher               │
+│  • /rate.?limit/ → Retry + Backoff     │
+│  • /token.?limit/ → Compact context    │
+│  • /network/ → Retry 3x                │
+│  • /parse.?error/ → Skip               │
+└─────────────────────────────────────────┘
+      │
+      ▼
+   Recover
+```
+
+### 💾 Memory Management
+
+```
+┌─────────────────────────────────────────┐
+│           TaskStore GC                  │
+├─────────────────────────────────────────┤
+│  MAX_TASKS_IN_MEMORY: 1000             │
+│  MAX_NOTIFICATIONS: 100/parent          │
+│                                         │
+│  Auto Cleanup:                          │
+│  • Completed > 30min → Archive to disk  │
+│  • Failed > 10min → Delete              │
+│  • Over limit → Trigger GC              │
+│                                         │
+│  Archive Location:                      │
+│  .cache/task-archive/tasks_YYYY-MM-DD   │
+└─────────────────────────────────────────┘
+```
 
 ---
 
-## 🏗️ Architecture Highlights
+## 🛠️ Available Tools
 
-### Event-Driven System
-```
-Event Bus → Toast Notifications
-         → Progress Tracking
-         → Auto Recovery
-```
+| Tool | Description |
+|------|-------------|
+| `call_agent` | Call another agent synchronously |
+| `launch_parallel_agent` | Start parallel async session |
+| `check_parallel_task` | Check task status |
+| `collect_parallel_results` | Gather completed results |
+| `webfetch` | Fetch URL content as Markdown |
+| `websearch` | Search web (SearXNG → Brave → DuckDuckGo) |
+| `codesearch` | Search open source code patterns |
+| `cache_docs` | Manage cached documentation |
+| `run_background` | Run command in background |
+| `grep_search` / `glob_search` | Fast file search |
 
-### Hierarchical Task Decomposition
-```
-[L1] Main Objective
-  [L2] Sub-task (parallel: A)
-  [L2] Sub-task (parallel: A)
-    [L3] Atomic action
-    [L3] Verify (depends: above)
-```
+---
 
-### Auto Recovery
-- **Rate Limit** → Exponential backoff
-- **Context Overflow** → Auto compact
-- **Network Error** → Retry with fallback
-- **Parse Error** → Retry then skip
+## 📊 Resource Guarantees
+
+| Resource | Limit | Safety Mechanism |
+|----------|-------|------------------|
+| Parallel Sessions | 50 | Queue overflow protection |
+| Tasks in Memory | 1,000 | Auto GC + disk archive |
+| Notifications | 100/parent | FIFO eviction |
+| Event History | 100 | Ring buffer |
+| Session TTL | 60 min | Auto cleanup |
 
 ---
 
@@ -142,6 +254,16 @@ Event Bus → Toast Notifications
 Test Files:  18 passed
 Tests:       211 passed
 Duration:    ~4.3s
+
+Modules Tested:
+• Event Bus (11 tests)
+• Document Cache (8 tests)
+• Progress Tracker (12 tests)
+• Auto Recovery (10 tests)
+• Task Decomposer (12 tests)
+• Shared Context (10 tests)
+• Integration (9 tests)
+• ...and more
 ```
 
 ---
@@ -156,9 +278,9 @@ npm uninstall -g opencode-orchestrator
 
 ## Documentation
 
-- [Architecture & Design](docs/ARCHITECTURE.md)
-- [Release Notes v0.6.0 (EN)](docs/RELEASE_NOTES_v0.6.0.md)
-- [릴리즈 노트 v0.6.0 (KO)](docs/RELEASE_NOTES_v0.6.0_KO.md)
+- **[System Architecture](docs/SYSTEM_ARCHITECTURE.md)** — Complete system flow diagrams
+- [Component Architecture](docs/ARCHITECTURE.md)
+- [Release Notes](docs/releases/) — Version history
 - [Troubleshooting](docs/PLUGIN_TROUBLESHOOTING.md)
 
 ---
@@ -169,4 +291,6 @@ MIT License. [LICENSE](LICENSE)
 
 ---
 
-**Reliability over slop. Research before code. Unlimited until done.**
+<div align="center">
+  <b>Enterprise-scale. Memory-safe. Self-healing. Unlimited.</b>
+</div>
