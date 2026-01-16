@@ -325,33 +325,53 @@ Restart OpenCode after installation.
 
 ## Usage
 
-### 🚀 Select Commander via Tab Key (Recommended)
+### 🚀 Two Modes of Operation
 
-Press `Tab` in OpenCode → Select **Commander** → Type your mission!
+| Mode | Trigger | Behavior |
+|------|---------|----------|
+| **Commander Mode** 🎯 | `/task "mission"` | Full autonomous execution until **MISSION COMPLETE** |
+| **Chat Mode** 💬 | Regular conversation | Simple Q&A, no autonomous behavior |
+
+---
+
+### 🎯 Commander Mode - `/task` (Recommended for Real Work)
+
+Use `/task` when you need the AI to **complete a mission autonomously**:
+
+```bash
+/task "Fix the login bug in the docker-compose environment"
+/task "Add dark mode support to the entire app"
+/task "Refactor the API to use TypeScript"
+```
+
+**What Commander Mode Does:**
+- ♾️ **Runs until done** — Never stops until "MISSION COMPLETE"
+- 🧠 **Anti-Hallucination** — Researches docs before coding
+- ⚡ **Parallel Execution** — Up to 50 concurrent agents
+- 🔄 **Auto-Recovery** — Handles errors automatically
+- 📊 **Trriage System** — Adapts strategy to complexity (L1/L2/L3)
 
 <div align="center">
   <img src="assets/tui_image.png" alt="Commander TUI" width="600" />
-  <p><sub><b>Commander</b> agent selection interface in OpenCode (TUI)</sub></p>
-
-  <br/> <img src="assets/window_image.png" alt="Commander Windows" width="600" />
-  <p><sub>Execution of <b>Commander</b> agent on Windows environment</sub></p>
+  <p><sub><b>/task "mission"</b> triggers full Commander mode</sub></p>
 </div>
 
+---
+
+### 💬 Chat Mode - Regular Conversation (Simple Q&A)
+
+Just type normally without `/task` for simple questions:
+
 ```
-"Fix the login bug in the docker-compose environment"
-```
-
-> **💡 Recommended:** For complex missions, select **Commander** directly via `Tab` to use the full orchestration system with parallel processing, anti-hallucination, and auto-recovery features.
-
-### 📋 Use /task Command (Simple Tasks)
-
-For quick, simple tasks, you can use the `/task` command:
-
-```bash
-/task "Add a loading spinner to the button"
+How do I add a loading spinner?
+What's the difference between useState and useReducer?
 ```
 
-> **⚠️ Note:** `/task` uses a simplified prompt template. For complex multi-step missions, use **Commander** directly via `Tab` key.
+**Chat Mode is just regular conversation** — no autonomous execution, no parallel agents, no mission tracking.
+
+---
+
+> **💡 Pro Tip:** Use `/task` for anything that requires multiple steps, file changes, or verification. Use Chat Mode for quick questions.
 
 ---
 
