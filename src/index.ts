@@ -195,8 +195,11 @@ const OrchestratorPlugin: Plugin = async (input) => {
             config.command = { ...existingCommands, ...orchestratorCommands };
             config.agent = { ...existingAgents, ...orchestratorAgents };
 
+            // Set Commander as the default agent (like oh-my-opencode sets Sisyphus)
+            (config as { default_agent?: string }).default_agent = AGENT_NAMES.COMMANDER;
+
             console.log(`[orchestrator] Registered agents: ${Object.keys(orchestratorAgents).join(", ")}`);
-            console.log(`[orchestrator] Commander prompt length: ${(AGENTS[AGENT_NAMES.COMMANDER]?.systemPrompt || "").length}`);
+            console.log(`[orchestrator] Default agent: ${AGENT_NAMES.COMMANDER}`);
         },
 
         // -----------------------------------------------------------------
