@@ -507,6 +507,14 @@ const OrchestratorPlugin = async (input: PluginInput) => {
         // Event handler - cleans up when sessions are deleted
         // -----------------------------------------------------------------
         handler: async ({ event }: { event: { type: string; properties?: unknown } }) => {
+            // Pass events to ParallelAgentManager for resource cleanup
+            try {
+                const manager = ParallelAgentManager.getInstance();
+                manager.handleEvent(event as { type: string; properties?: { sessionID?: string; info?: { id?: string } } });
+            } catch {
+                // Manager not initialized yet, ignore
+            }
+
             if (event.type === "session.deleted") {
                 const props = event.properties as { info?: { id?: string } } | undefined;
                 if (props?.info?.id) {

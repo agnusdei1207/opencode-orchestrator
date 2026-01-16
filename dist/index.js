@@ -13733,6 +13733,19 @@ var TaskStore = class {
       }
     }
   }
+  /**
+   * Remove a specific task from all notification queues
+   */
+  clearNotificationsForTask(taskId) {
+    for (const [sessionID, tasks] of this.notifications.entries()) {
+      const filtered = tasks.filter((t) => t.id !== taskId);
+      if (filtered.length === 0) {
+        this.notifications.delete(sessionID);
+      } else if (filtered.length !== tasks.length) {
+        this.notifications.set(sessionID, filtered);
+      }
+    }
+  }
 };
 
 // src/core/agents/config.ts
@@ -13897,6 +13910,77 @@ var ParallelAgentManager = class _ParallelAgentManager {
     this.store.clear();
   }
   formatDuration = formatDuration;
+  // ========================================================================
+  // Event Handling (from OpenCode hooks)
+  // ========================================================================
+  /**
+   * Handle OpenCode session events for proper resource cleanup.
+   * Call this from your plugin's event hook.
+   */
+  handleEvent(event) {
+    const props = event.properties;
+    if (event.type === "session.idle") {
+      const sessionID = props?.sessionID;
+      if (!sessionID) return;
+      const task = this.findBySession(sessionID);
+      if (!task || task.status !== "running") return;
+      this.handleSessionIdle(task).catch((err) => {
+        log2("Error handling session.idle:", err);
+      });
+    }
+    if (event.type === "session.deleted") {
+      const sessionID = props?.info?.id ?? props?.sessionID;
+      if (!sessionID) return;
+      const task = this.findBySession(sessionID);
+      if (!task) return;
+      log2(`Session deleted event for task ${task.id}`);
+      if (task.status === "running") {
+        task.status = "error";
+        task.error = "Session deleted";
+        task.completedAt = /* @__PURE__ */ new Date();
+      }
+      if (task.concurrencyKey) {
+        this.concurrency.release(task.concurrencyKey);
+        task.concurrencyKey = void 0;
+      }
+      this.store.untrackPending(task.parentSessionID, task.id);
+      this.store.clearNotificationsForTask(task.id);
+      this.store.delete(task.id);
+      log2(`Cleaned up deleted session task: ${task.id}`);
+    }
+  }
+  /**
+   * Find task by session ID
+   */
+  findBySession(sessionID) {
+    return this.store.getAll().find((t) => t.sessionID === sessionID);
+  }
+  /**
+   * Handle session.idle event - validate and complete task
+   */
+  async handleSessionIdle(task) {
+    const elapsed = Date.now() - task.startedAt.getTime();
+    if (elapsed < CONFIG.MIN_STABILITY_MS) {
+      log2(`Session idle but too early for ${task.id}, waiting...`);
+      return;
+    }
+    const hasOutput = await this.validateSessionHasOutput(task.sessionID);
+    if (!hasOutput) {
+      log2(`Session idle but no output for ${task.id}, waiting...`);
+      return;
+    }
+    task.status = "completed";
+    task.completedAt = /* @__PURE__ */ new Date();
+    if (task.concurrencyKey) {
+      this.concurrency.release(task.concurrencyKey);
+      task.concurrencyKey = void 0;
+    }
+    this.store.untrackPending(task.parentSessionID, task.id);
+    this.store.queueNotification(task);
+    await this.notifyParentIfAllComplete(task.parentSessionID);
+    this.scheduleCleanup(task.id);
+    log2(`Task ${task.id} completed via session.idle event (${formatDuration(task.startedAt, task.completedAt)})`);
+  }
   // ========================================================================
   // Internal
   // ========================================================================
@@ -14671,6 +14755,11 @@ ${stateSession.graph.getTaskSummary()}`;
     // Event handler - cleans up when sessions are deleted
     // -----------------------------------------------------------------
     handler: async ({ event }) => {
+      try {
+        const manager = ParallelAgentManager.getInstance();
+        manager.handleEvent(event);
+      } catch {
+      }
       if (event.type === "session.deleted") {
         const props = event.properties;
         if (props?.info?.id) {
