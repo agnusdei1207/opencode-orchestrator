@@ -11,11 +11,23 @@
 
 ---
 
-## What is this?
+## Why I Built This
 
-A **5-agent autonomous architecture** for OpenCode that completes complex engineering tasks reliably.
+I tested **GLM-4** and was deeply disappointed. The model showed severe reasoning collapse, mixed-language hallucinations, and couldn't complete even simple multi-step tasks reliably.
+
+But I didn't give up. Instead, I asked: **"What if the right orchestration could make even budget models perform like premium ones?"**
+
+This plugin is that experiment. A **5-agent autonomous architecture** that breaks down complex tasks, enforces strict quality gates, and never stops until the mission is truly complete.
 
 > *"Intelligence is a resource. Orchestrate it."*
+
+### The Result
+
+With this orchestration layer, even mid-tier models can:
+- Complete multi-file refactoring tasks autonomously
+- Self-correct errors through Inspector audits
+- Maintain context across long sessions via Recorder
+- Run parallel agents for speed without conflicts
 
 ### Key Features
 - **🎯 Autonomous Loop** — Commander runs until the mission is complete
