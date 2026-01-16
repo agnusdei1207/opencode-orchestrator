@@ -16,6 +16,7 @@
 Tested GLM-4, got disappointed. Built this to make mid-tier models work like premium ones through structured orchestration.
 
 ### Key Features
+
 - **🎯 Autonomous Loop** — Commander runs until the mission is complete
 - **🔍 Environment Scan** — Analyzes Infra, Stack, and Domain before coding
 - **🔨 Smart Implementation** — Matches existing codebase patterns
@@ -42,6 +43,11 @@ Restart OpenCode after installation.
 
 Press `Tab` in OpenCode → Select **Commander** → Type your mission!
 
+<div align="center">
+  <img src="assets/image.png" alt="Commander on Windows" width="500" />
+  <p><em>Commander agent selected in OpenCode (Windows)</em></p>
+</div>
+
 ```
 "Fix the login bug in the docker-compose environment"
 ```
@@ -58,13 +64,13 @@ Press `Tab` in OpenCode → Select **Commander** → Type your mission!
 
 ## The 5 Agents
 
-| Agent | Role | Responsibility |
-| :--- | :--- | :--- |
+| Agent            | Role         | Responsibility             |
+| :--------------- | :----------- | :------------------------- |
 | **Commander** 🎯 | Orchestrator | Autonomous mission control |
-| **Architect** 🏗️ | Planner | Task decomposition |
-| **Builder** 🔨 | Developer | Full-stack implementation |
-| **Inspector** 🔍 | Quality | Audit & auto-fix |
-| **Recorder** 💾 | Context | Progress tracking |
+| **Architect** 🏗️ | Planner      | Task decomposition         |
+| **Builder** 🔨   | Developer    | Full-stack implementation  |
+| **Inspector** 🔍 | Quality      | Audit & auto-fix           |
+| **Recorder** 💾  | Context      | Progress tracking          |
 
 ---
 
