@@ -11,23 +11,9 @@
 
 ---
 
-## Why I Built This
+## Why?
 
-I tested **GLM-4** and was deeply disappointed. The model showed severe reasoning collapse, mixed-language hallucinations, and couldn't complete even simple multi-step tasks reliably.
-
-But I didn't give up. Instead, I asked: **"What if the right orchestration could make even budget models perform like premium ones?"**
-
-This plugin is that experiment. A **5-agent autonomous architecture** that breaks down complex tasks, enforces strict quality gates, and never stops until the mission is truly complete.
-
-> *"Intelligence is a resource. Orchestrate it."*
-
-### The Result
-
-With this orchestration layer, even mid-tier models can:
-- Complete multi-file refactoring tasks autonomously
-- Self-correct errors through Inspector audits
-- Maintain context across long sessions via Recorder
-- Run parallel agents for speed without conflicts
+Tested GLM-4, got disappointed. Built this to make mid-tier models work like premium ones through structured orchestration.
 
 ### Key Features
 - **🎯 Autonomous Loop** — Commander runs until the mission is complete
