@@ -1,7 +1,3 @@
-/**
- * Slash commands for OpenCode Orchestrator
- * Simplified: Only /task and /agents are needed
- */
 export declare const COMMANDS: Record<string, {
     description: string;
     template: string;
