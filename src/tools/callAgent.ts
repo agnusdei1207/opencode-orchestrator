@@ -1,6 +1,6 @@
 import { tool } from "@opencode-ai/plugin";
 import { AGENTS } from "../agents/definitions.js";
-import { AGENT_NAMES } from "../shared/contracts/names.js";
+import { AGENT_NAMES } from "../shared/agent.js";
 
 // Agent emoji indicators
 const AGENT_EMOJI: Record<string, string> = {

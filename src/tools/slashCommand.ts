@@ -1,5 +1,5 @@
 import { tool } from "@opencode-ai/plugin";
-import { AGENT_NAMES } from "../shared/contracts/names.js";
+import { AGENT_NAMES } from "../shared/agent.js";
 
 /**
  * Slash commands for OpenCode Orchestrator

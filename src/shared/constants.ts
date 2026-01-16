@@ -76,7 +76,7 @@ export const TOOL_NAMES = {
 // Agent Names - Re-export from contracts for convenience
 // ============================================================================
 
-export { AGENT_NAMES } from "./contracts/names.js";
+export { AGENT_NAMES } from "./agent.js";
 
 // ============================================================================
 // Status Emoji
