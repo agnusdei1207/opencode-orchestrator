@@ -32,12 +32,36 @@ export const ID_PREFIX = {
 // ============================================================================
 
 export const PARALLEL_TASK = {
-    TTL_MS: 60 * TIME.MINUTE,           // 60분 (증가)
-    CLEANUP_DELAY_MS: 10 * TIME.MINUTE,  // 10분 (증가)
-    MIN_STABILITY_MS: 3 * TIME.SECOND,   // 3초 (감소, 더 빠른 감지)
-    POLL_INTERVAL_MS: 1000,              // 1초 (감소, 더 빠른 폴링)
-    DEFAULT_CONCURRENCY: 10,             // 10개 (증가: 대규모 병렬 처리)
-    MAX_CONCURRENCY: 50,                 // 50개 (증가: 분산 처리용)
+    TTL_MS: 60 * TIME.MINUTE,           // 60 minutes
+    CLEANUP_DELAY_MS: 10 * TIME.MINUTE,  // 10 minutes
+    MIN_STABILITY_MS: 3 * TIME.SECOND,   // 3 seconds
+    POLL_INTERVAL_MS: 1000,              // 1 second
+    DEFAULT_CONCURRENCY: 10,             // 10 per agent type
+    MAX_CONCURRENCY: 50,                 // 50 total
+    SYNC_TIMEOUT_MS: 10 * TIME.MINUTE,   // 10 minutes for sync mode
+} as const;
+
+// ============================================================================
+// Memory Limits
+// ============================================================================
+
+export const MEMORY_LIMITS = {
+    MAX_TASKS_IN_MEMORY: 1000,
+    MAX_NOTIFICATIONS_PER_PARENT: 100,
+    MAX_EVENT_HISTORY: 100,
+    MAX_TOAST_HISTORY: 50,
+    MAX_PROGRESS_HISTORY_PER_SESSION: 100,
+    ARCHIVE_AGE_MS: 30 * TIME.MINUTE,      // Archive completed after 30 min
+    ERROR_CLEANUP_AGE_MS: 10 * TIME.MINUTE, // Remove errors after 10 min
+} as const;
+
+// ============================================================================
+// Paths
+// ============================================================================
+
+export const PATHS = {
+    TASK_ARCHIVE: ".cache/task-archive",
+    DOC_CACHE: ".cache/docs",
 } as const;
 
 // ============================================================================
@@ -68,8 +92,14 @@ export const TOOL_NAMES = {
     GREP_SEARCH: "grep_search",
     GLOB_SEARCH: "glob_search",
     MGREP: "mgrep",
+    // Web tools
+    WEBFETCH: "webfetch",
+    WEBSEARCH: "websearch",
+    CODESEARCH: "codesearch",
+    CACHE_DOCS: "cache_docs",
     // Other tools
     CALL_AGENT: "call_agent",
+    SLASHCOMMAND: "slashcommand",
 } as const;
 
 // ============================================================================
@@ -77,6 +107,13 @@ export const TOOL_NAMES = {
 // ============================================================================
 
 export { AGENT_NAMES } from "./agent.js";
+
+// ============================================================================
+// Task Status - Re-export from types
+// ============================================================================
+
+export { TASK_STATUS } from "../core/agents/types/parallel-task-status.js";
+export type { ParallelTaskStatus } from "../core/agents/types/parallel-task-status.js";
 
 // ============================================================================
 // Status Emoji

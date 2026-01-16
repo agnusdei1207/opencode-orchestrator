@@ -2,10 +2,11 @@
  * Task Decomposer Interfaces
  */
 
-/**
- * Task status
- */
-export type TaskStatus = "pending" | "running" | "completed" | "failed" | "cancelled";
+import { TASK_STATUS, ParallelTaskStatus } from "../../shared/constants.js";
+
+// Re-export for convenience
+export { TASK_STATUS };
+export type TaskStatus = ParallelTaskStatus;
 
 /**
  * Single task node

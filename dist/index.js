@@ -4,6 +4,9 @@ var __export = (target, all) => {
     __defProp(target, name, { get: all[name], enumerable: true });
 };
 
+// src/index.ts
+import { createRequire } from "node:module";
+
 // src/shared/agent.ts
 var AGENT_NAMES = {
   COMMANDER: "commander",
@@ -204,41 +207,75 @@ During implementation:
 - Run lsp_diagnostics after each change
 
 <background_parallel_execution>
-PARALLEL EXECUTION TOOLS:
+PARALLEL EXECUTION SYSTEM:
 
-1. **spawn_agent** - Launch agents in parallel sessions
-   spawn_agent({ agent: "builder", description: "Implement X", prompt: "..." })
-   spawn_agent({ agent: "inspector", description: "Review Y", prompt: "..." })
-   \u2192 Agents run concurrently, system notifies when ALL complete
-   \u2192 Use get_task_result({ taskId }) to retrieve results
+You have access to a powerful parallel agent execution system.
+Up to 50 agents can run simultaneously with automatic resource management.
 
-2. **run_background** - Run shell commands asynchronously
-   run_background({ command: "npm run build" })
-   \u2192 Use check_background({ taskId }) for results
+1. **delegate_task** - Launch agents in parallel or sync mode
+   \`\`\`
+   // PARALLEL (recommended - non-blocking)
+   delegate_task({ 
+     agent: "builder", 
+     description: "Implement X", 
+     prompt: "...", 
+     background: true 
+   })
+   
+   // SYNC (blocking - wait for result)
+   delegate_task({ 
+     agent: "librarian", 
+     description: "Research Y", 
+     prompt: "...", 
+     background: false 
+   })
+   
+   // RESUME (continue previous session)
+   delegate_task({ 
+     agent: "builder", 
+     description: "Fix error", 
+     prompt: "...", 
+     background: true,
+     resume: "ses_abc123"  // From previous task output
+   })
+   \`\`\`
 
-SAFETY FEATURES:
-- Queue-based concurrency: Max 3 per agent type (extras queue automatically)
-- Auto-timeout: 30 minutes max runtime
-- Auto-cleanup: Removed from memory 5 min after completion
-- Batched notifications: Notifies when ALL tasks complete (not individually)
+2. **get_task_result** - Retrieve completed task output
+   \`\`\`
+   get_task_result({ taskId: "task_xxx" })
+   \`\`\`
 
-MANAGEMENT TOOLS:
-- list_tasks: View all parallel tasks and status
-- cancel_task: Stop a running task (frees concurrency slot)
+3. **list_tasks** - View all parallel tasks
+   \`\`\`
+   list_tasks({})
+   \`\`\`
+
+4. **cancel_task** - Stop a running task
+   \`\`\`
+   cancel_task({ taskId: "task_xxx" })
+   \`\`\`
+
+CONCURRENCY LIMITS:
+- Max 10 tasks per agent type (queue automatically)
+- Max 50 total parallel sessions
+- Auto-timeout: 60 minutes
+- Auto-cleanup: 30 min after completion \u2192 archived to disk
 
 SAFE PATTERNS:
 \u2705 Builder on file A + Inspector on file B (different files)
 \u2705 Multiple research agents (read-only)
 \u2705 Build command + Test command (independent)
+\u2705 Librarian research + Builder implementation (sequential deps)
 
 UNSAFE PATTERNS:
 \u274C Multiple builders editing SAME FILE (conflict!)
+\u274C Waiting synchronously for many tasks (use background=true)
 
 WORKFLOW:
 1. list_tasks: Check current status first
-2. spawn_agent: Launch for INDEPENDENT tasks
+2. delegate_task (background=true): Launch for INDEPENDENT tasks
 3. Continue working (NO WAITING)
-4. Wait for "All Complete" notification
+4. Wait for system notification "All Parallel Tasks Complete"
 5. get_task_result: Retrieve each result
 </background_parallel_execution>
 
@@ -438,6 +475,20 @@ Depending on project type, verify with:
 
 If build command exists in package.json, use it.
 If using Docker/containers, verify syntax only.
+
+BACKGROUND COMMANDS (for long-running builds):
+\`\`\`
+// Non-blocking build
+run_background({ command: "npm run build" })
+
+// Check status later
+check_background({ taskId: "job_xxx" })
+
+// List all background jobs
+list_background({})
+\`\`\`
+
+Use background for builds taking >5 seconds.
 </verification>
 
 <output_format>
@@ -611,7 +662,7 @@ Never stop the flow. No context = fresh start = OK.
 
 // src/agents/subagents/librarian.ts
 var librarian = {
-  id: AGENT_NAMES.LIBRARIAN || "librarian",
+  id: AGENT_NAMES.LIBRARIAN,
   description: "Librarian - Documentation and API research specialist",
   systemPrompt: `<role>
 You are Librarian. Find official documentation and verified information.
@@ -711,7 +762,7 @@ Q: "What's the correct way to use useEffect cleanup?"
 
 // src/agents/subagents/researcher.ts
 var researcher = {
-  id: AGENT_NAMES.RESEARCHER || "researcher",
+  id: AGENT_NAMES.RESEARCHER,
   description: "Researcher - Pre-task investigation and documentation specialist",
   systemPrompt: `<role>
 You are Researcher. Gather all necessary information BEFORE implementation begins.
@@ -820,6 +871,79 @@ var AGENTS = {
   [AGENT_NAMES.LIBRARIAN]: librarian,
   [AGENT_NAMES.RESEARCHER]: researcher
 };
+
+// src/core/agents/types/parallel-task-status.ts
+var TASK_STATUS = {
+  PENDING: "pending",
+  RUNNING: "running",
+  COMPLETED: "completed",
+  FAILED: "failed",
+  ERROR: "error",
+  TIMEOUT: "timeout",
+  CANCELLED: "cancelled"
+};
+
+// src/shared/constants.ts
+var TIME = {
+  SECOND: 1e3,
+  MINUTE: 60 * 1e3,
+  HOUR: 60 * 60 * 1e3
+};
+var ID_PREFIX = {
+  /** Parallel agent task ID (e.g., task_a1b2c3d4) */
+  TASK: "task_",
+  /** Background command job ID (e.g., job_a1b2c3d4) */
+  JOB: "job_",
+  /** Session ID prefix */
+  SESSION: "session_"
+};
+var PARALLEL_TASK = {
+  TTL_MS: 60 * TIME.MINUTE,
+  // 60 minutes
+  CLEANUP_DELAY_MS: 10 * TIME.MINUTE,
+  // 10 minutes
+  MIN_STABILITY_MS: 3 * TIME.SECOND,
+  // 3 seconds
+  POLL_INTERVAL_MS: 1e3,
+  // 1 second
+  DEFAULT_CONCURRENCY: 10,
+  // 10 per agent type
+  MAX_CONCURRENCY: 50,
+  // 50 total
+  SYNC_TIMEOUT_MS: 10 * TIME.MINUTE
+  // 10 minutes for sync mode
+};
+var MEMORY_LIMITS = {
+  MAX_TASKS_IN_MEMORY: 1e3,
+  MAX_NOTIFICATIONS_PER_PARENT: 100,
+  MAX_EVENT_HISTORY: 100,
+  MAX_TOAST_HISTORY: 50,
+  MAX_PROGRESS_HISTORY_PER_SESSION: 100,
+  ARCHIVE_AGE_MS: 30 * TIME.MINUTE,
+  // Archive completed after 30 min
+  ERROR_CLEANUP_AGE_MS: 10 * TIME.MINUTE
+  // Remove errors after 10 min
+};
+var PATHS = {
+  TASK_ARCHIVE: ".cache/task-archive",
+  DOC_CACHE: ".cache/docs"
+};
+var BACKGROUND_TASK = {
+  DEFAULT_TIMEOUT_MS: 5 * TIME.MINUTE,
+  MAX_OUTPUT_LENGTH: 1e4
+};
+var STATUS_EMOJI = {
+  pending: "\u23F3",
+  running: "\u{1F504}",
+  completed: "\u2705",
+  done: "\u2705",
+  error: "\u274C",
+  timeout: "\u23F0",
+  cancelled: "\u{1F6AB}"
+};
+function getStatusEmoji(status) {
+  return STATUS_EMOJI[status] ?? "\u2753";
+}
 
 // src/core/orchestrator/task-graph.ts
 var TaskGraph = class _TaskGraph {
@@ -13632,53 +13756,6 @@ var mgrepTool = (directory) => tool({
 // src/core/commands/manager.ts
 import { spawn as spawn2 } from "child_process";
 import { randomBytes } from "crypto";
-
-// src/shared/constants.ts
-var TIME = {
-  SECOND: 1e3,
-  MINUTE: 60 * 1e3,
-  HOUR: 60 * 60 * 1e3
-};
-var ID_PREFIX = {
-  /** Parallel agent task ID (e.g., task_a1b2c3d4) */
-  TASK: "task_",
-  /** Background command job ID (e.g., job_a1b2c3d4) */
-  JOB: "job_",
-  /** Session ID prefix */
-  SESSION: "session_"
-};
-var PARALLEL_TASK = {
-  TTL_MS: 60 * TIME.MINUTE,
-  // 60분 (증가)
-  CLEANUP_DELAY_MS: 10 * TIME.MINUTE,
-  // 10분 (증가)
-  MIN_STABILITY_MS: 3 * TIME.SECOND,
-  // 3초 (감소, 더 빠른 감지)
-  POLL_INTERVAL_MS: 1e3,
-  // 1초 (감소, 더 빠른 폴링)
-  DEFAULT_CONCURRENCY: 10,
-  // 10개 (증가: 대규모 병렬 처리)
-  MAX_CONCURRENCY: 50
-  // 50개 (증가: 분산 처리용)
-};
-var BACKGROUND_TASK = {
-  DEFAULT_TIMEOUT_MS: 5 * TIME.MINUTE,
-  MAX_OUTPUT_LENGTH: 1e4
-};
-var STATUS_EMOJI = {
-  pending: "\u23F3",
-  running: "\u{1F504}",
-  completed: "\u2705",
-  done: "\u2705",
-  error: "\u274C",
-  timeout: "\u23F0",
-  cancelled: "\u{1F6AB}"
-};
-function getStatusEmoji(status) {
-  return STATUS_EMOJI[status] ?? "\u2753";
-}
-
-// src/core/commands/manager.ts
 var BackgroundTaskManager = class _BackgroundTaskManager {
   static _instance;
   tasks = /* @__PURE__ */ new Map();
@@ -14047,9 +14124,6 @@ var ConcurrencyController = class {
 // src/core/agents/task-store.ts
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
-var MAX_TASKS_IN_MEMORY = 1e3;
-var MAX_NOTIFICATIONS_PER_PARENT = 100;
-var ARCHIVE_DIR = ".cache/task-archive";
 var TaskStore = class {
   tasks = /* @__PURE__ */ new Map();
   pendingByParent = /* @__PURE__ */ new Map();
@@ -14057,7 +14131,7 @@ var TaskStore = class {
   archivedCount = 0;
   set(id, task) {
     this.tasks.set(id, task);
-    if (this.tasks.size > MAX_TASKS_IN_MEMORY) {
+    if (this.tasks.size > MEMORY_LIMITS.MAX_TASKS_IN_MEMORY) {
       this.gc();
     }
   }
@@ -14068,7 +14142,7 @@ var TaskStore = class {
     return Array.from(this.tasks.values());
   }
   getRunning() {
-    return this.getAll().filter((t) => t.status === "running");
+    return this.getAll().filter((t) => t.status === TASK_STATUS.RUNNING);
   }
   getByParent(parentSessionID) {
     return this.getAll().filter((t) => t.parentSessionID === parentSessionID);
@@ -14106,7 +14180,7 @@ var TaskStore = class {
   queueNotification(task) {
     const queue = this.notifications.get(task.parentSessionID) ?? [];
     queue.push(task);
-    if (queue.length > MAX_NOTIFICATIONS_PER_PARENT) {
+    if (queue.length > MEMORY_LIMITS.MAX_NOTIFICATIONS_PER_PARENT) {
       queue.shift();
     }
     this.notifications.set(task.parentSessionID, queue);
@@ -14158,13 +14232,13 @@ var TaskStore = class {
     const toRemove = [];
     const toArchive = [];
     for (const [id, task] of this.tasks) {
-      if (task.status === "running") continue;
+      if (task.status === TASK_STATUS.RUNNING) continue;
       const completedAt = task.completedAt?.getTime() ?? 0;
       const age = now - completedAt;
-      if (age > 30 * 60 * 1e3 && task.status === "completed") {
+      if (age > MEMORY_LIMITS.ARCHIVE_AGE_MS && task.status === TASK_STATUS.COMPLETED) {
         toArchive.push(task);
         toRemove.push(id);
-      } else if (age > 10 * 60 * 1e3 && (task.status === "error" || task.status === "cancelled")) {
+      } else if (age > MEMORY_LIMITS.ERROR_CLEANUP_AGE_MS && (task.status === TASK_STATUS.ERROR || task.status === TASK_STATUS.CANCELLED)) {
         toRemove.push(id);
       }
     }
@@ -14181,10 +14255,10 @@ var TaskStore = class {
    */
   async archiveTasks(tasks) {
     try {
-      await fs.mkdir(ARCHIVE_DIR, { recursive: true });
+      await fs.mkdir(PATHS.TASK_ARCHIVE, { recursive: true });
       const date5 = (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
       const filename = `tasks_${date5}.jsonl`;
-      const filepath = path.join(ARCHIVE_DIR, filename);
+      const filepath = path.join(PATHS.TASK_ARCHIVE, filename);
       const lines = tasks.map((task) => JSON.stringify({
         id: task.id,
         agent: task.agent,
@@ -14700,6 +14774,9 @@ var EventBusImpl = class {
 
 // src/core/bus/index.ts
 var EventBus = new EventBusImpl();
+function emit(type, properties) {
+  EventBus.emit(type, properties);
+}
 
 // src/core/agents/manager/event-handler.ts
 var EventHandler = class {
@@ -14951,8 +15028,8 @@ var createDelegateTaskTool = (manager, client) => tool({
 </resume>
 
 <safety>
-- Max 3 tasks per agent type
-- Auto-timeout: 30 minutes
+- Max 10 tasks per agent type (configurable)
+- Auto-timeout: 60 minutes
 </safety>`,
   args: {
     agent: tool.schema.string().describe("Agent name"),
@@ -14983,7 +15060,7 @@ Previous context preserved. Use \`get_task_result({ taskId: "${task.id}" })\` wh
         const startTime = Date.now();
         const session = sessionClient.session;
         let stablePolls = 0, lastMsgCount = 0;
-        while (Date.now() - startTime < 10 * 60 * 1e3) {
+        while (Date.now() - startTime < PARALLEL_TASK.SYNC_TIMEOUT_MS) {
           await new Promise((r) => setTimeout(r, 500));
           const statusResult = await session.status();
           if (statusResult.data?.[task.sessionID]?.type !== "idle") {
@@ -16056,8 +16133,215 @@ ${r.content}
   }
 });
 
+// src/core/notification/toast-core.ts
+var toasts = [];
+var MAX_HISTORY = 50;
+var handlers = [];
+function show(options) {
+  const toast = {
+    id: `toast_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+    title: options.title,
+    message: options.message,
+    variant: options.variant || "info",
+    timestamp: /* @__PURE__ */ new Date(),
+    duration: options.duration ?? 5e3,
+    dismissed: false
+  };
+  toasts.push(toast);
+  if (toasts.length > MAX_HISTORY) {
+    toasts.shift();
+  }
+  for (const handler of handlers) {
+    try {
+      handler(toast);
+    } catch (error45) {
+      console.error("[Toast] Handler error:", error45);
+    }
+  }
+  const icons = { info: "\u2139\uFE0F", success: "\u2705", warning: "\u26A0\uFE0F", error: "\u274C" };
+  console.log(`${icons[toast.variant]} [${toast.title}] ${toast.message}`);
+  return toast;
+}
+
+// src/core/notification/presets.ts
+var presets = {
+  taskStarted: (taskId, agent) => show({
+    title: "Task Started",
+    message: `${agent}: ${taskId}`,
+    variant: "info",
+    duration: 3e3
+  }),
+  taskCompleted: (taskId, agent) => show({
+    title: "Task Completed",
+    message: `${agent}: ${taskId}`,
+    variant: "success",
+    duration: 3e3
+  }),
+  taskFailed: (taskId, error45) => show({
+    title: "Task Failed",
+    message: `${taskId}: ${error45}`,
+    variant: "error",
+    duration: 0
+    // Persistent
+  }),
+  allTasksComplete: (count) => show({
+    title: "All Tasks Complete",
+    message: `${count} tasks finished successfully`,
+    variant: "success",
+    duration: 5e3
+  }),
+  missionComplete: (summary) => show({
+    title: "\u{1F389} Mission Complete",
+    message: summary,
+    variant: "success",
+    duration: 0
+  }),
+  documentCached: (filename) => show({
+    title: "Document Cached",
+    message: `.cache/docs/${filename}`,
+    variant: "info",
+    duration: 2e3
+  }),
+  researchStarted: (topic) => show({
+    title: "Research Started",
+    message: topic,
+    variant: "info",
+    duration: 3e3
+  }),
+  warningRateLimited: () => show({
+    title: "Rate Limited",
+    message: "Waiting before retry...",
+    variant: "warning",
+    duration: 5e3
+  }),
+  errorRecovery: (action) => show({
+    title: "Error Recovery",
+    message: `Attempting: ${action}`,
+    variant: "warning",
+    duration: 3e3
+  })
+};
+
+// src/core/notification/event-integration.ts
+function enableAutoToasts() {
+  const unsubscribers = [];
+  unsubscribers.push(EventBus.subscribe(TASK_EVENTS.STARTED, (event) => {
+    const { taskId, agent } = event.properties;
+    presets.taskStarted(taskId, agent);
+  }));
+  unsubscribers.push(EventBus.subscribe(TASK_EVENTS.COMPLETED, (event) => {
+    const { taskId, agent } = event.properties;
+    presets.taskCompleted(taskId, agent);
+  }));
+  unsubscribers.push(EventBus.subscribe(TASK_EVENTS.FAILED, (event) => {
+    const { taskId, error: error45 } = event.properties;
+    presets.taskFailed(taskId, error45);
+  }));
+  unsubscribers.push(EventBus.subscribe(MISSION_EVENTS.ALL_TASKS_COMPLETE, (event) => {
+    const { count } = event.properties;
+    presets.allTasksComplete(count);
+  }));
+  unsubscribers.push(EventBus.subscribe(MISSION_EVENTS.COMPLETE, (event) => {
+    const { summary } = event.properties;
+    presets.missionComplete(summary);
+  }));
+  unsubscribers.push(EventBus.subscribe(DOCUMENT_EVENTS.CACHED, (event) => {
+    const { filename } = event.properties;
+    presets.documentCached(filename);
+  }));
+  return () => {
+    for (const unsub of unsubscribers) {
+      unsub();
+    }
+  };
+}
+
+// src/core/progress/store.ts
+var progressHistory = /* @__PURE__ */ new Map();
+var sessionStartTimes = /* @__PURE__ */ new Map();
+var MAX_HISTORY2 = 100;
+function startSession(sessionId) {
+  sessionStartTimes.set(sessionId, /* @__PURE__ */ new Date());
+  progressHistory.set(sessionId, []);
+}
+function recordSnapshot(sessionId, data) {
+  const startedAt = sessionStartTimes.get(sessionId) || /* @__PURE__ */ new Date();
+  const now = /* @__PURE__ */ new Date();
+  const snapshot = {
+    sessionId,
+    timestamp: now,
+    todos: {
+      total: data.todoTotal || 0,
+      completed: data.todoCompleted || 0,
+      pending: (data.todoTotal || 0) - (data.todoCompleted || 0),
+      percentage: data.todoTotal ? Math.round((data.todoCompleted || 0) / data.todoTotal * 100) : 0
+    },
+    tasks: {
+      total: data.taskTotal || 0,
+      running: data.taskRunning || 0,
+      completed: data.taskCompleted || 0,
+      failed: data.taskFailed || 0,
+      percentage: data.taskTotal ? Math.round(((data.taskCompleted || 0) + (data.taskFailed || 0)) / data.taskTotal * 100) : 0
+    },
+    steps: {
+      current: data.currentStep || 0,
+      max: data.maxSteps || Infinity
+    },
+    startedAt,
+    elapsedMs: now.getTime() - startedAt.getTime()
+  };
+  const history = progressHistory.get(sessionId) || [];
+  history.push(snapshot);
+  if (history.length > MAX_HISTORY2) {
+    history.shift();
+  }
+  progressHistory.set(sessionId, history);
+  return snapshot;
+}
+function getLatest(sessionId) {
+  const history = progressHistory.get(sessionId);
+  return history?.[history.length - 1];
+}
+function clearSession(sessionId) {
+  progressHistory.delete(sessionId);
+  sessionStartTimes.delete(sessionId);
+}
+
+// src/core/progress/formatters.ts
+function formatElapsed(ms) {
+  const seconds = Math.floor(ms / 1e3);
+  const minutes = Math.floor(seconds / 60);
+  const hours = Math.floor(minutes / 60);
+  if (hours > 0) {
+    return `${hours}h ${minutes % 60}m`;
+  } else if (minutes > 0) {
+    return `${minutes}m ${seconds % 60}s`;
+  } else {
+    return `${seconds}s`;
+  }
+}
+function formatCompact(snapshot) {
+  const parts = [];
+  if (snapshot.todos.total > 0) {
+    parts.push(`\u2705${snapshot.todos.completed}/${snapshot.todos.total}`);
+  }
+  if (snapshot.tasks.running > 0) {
+    parts.push(`\u26A1${snapshot.tasks.running}`);
+  }
+  parts.push(`\u23F1${formatElapsed(snapshot.elapsedMs)}`);
+  return parts.join(" | ");
+}
+
+// src/core/progress/tracker.ts
+function formatCompact2(sessionId) {
+  const snapshot = getLatest(sessionId);
+  if (!snapshot) return "...";
+  return formatCompact(snapshot);
+}
+
 // src/index.ts
-var PLUGIN_VERSION = "0.2.4";
+var require2 = createRequire(import.meta.url);
+var { version: PLUGIN_VERSION } = require2("../package.json");
 var UNLIMITED_MODE = true;
 var DEFAULT_MAX_STEPS = UNLIMITED_MODE ? Infinity : 500;
 var TASK_COMMAND_MAX_STEPS = UNLIMITED_MODE ? Infinity : 1e3;
@@ -16100,6 +16384,8 @@ Then output: \u2705 MISSION COMPLETE
 var OrchestratorPlugin = async (input) => {
   const { directory, client } = input;
   console.log(`[orchestrator] v${PLUGIN_VERSION} loaded`);
+  const disableAutoToasts = enableAutoToasts();
+  console.log(`[orchestrator] Toast notifications enabled`);
   const sessions = /* @__PURE__ */ new Map();
   const parallelAgentManager2 = ParallelAgentManager.getInstance(client, directory);
   const asyncAgentTools = createAsyncAgentTools(parallelAgentManager2, client);
@@ -16191,6 +16477,12 @@ var OrchestratorPlugin = async (input) => {
           currentTask: "",
           anomalyCount: 0
         });
+        startSession(sessionID);
+        emit(TASK_EVENTS.STARTED, {
+          taskId: sessionID,
+          agent: "commander",
+          description: "Mission started"
+        });
         if (!parsed) {
           const userMessage = originalText.trim();
           if (userMessage) {
@@ -16218,6 +16510,12 @@ var OrchestratorPlugin = async (input) => {
           taskRetries: /* @__PURE__ */ new Map(),
           currentTask: "",
           anomalyCount: 0
+        });
+        startSession(sessionID);
+        emit(TASK_EVENTS.STARTED, {
+          taskId: sessionID,
+          agent: "commander",
+          description: parsed.args || "task command"
         });
         parts[textPartIndex].text = COMMANDS["task"].template.replace(
           /\$ARGUMENTS/g,
@@ -16391,6 +16689,11 @@ ${stateSession.graph.getTaskSummary()}`;
       if (textContent.includes("\u2705 MISSION COMPLETE") || textContent.includes("MISSION COMPLETE")) {
         session.active = false;
         state.missionActive = false;
+        emit(MISSION_EVENTS.COMPLETE, {
+          sessionId: sessionID,
+          summary: "Mission completed successfully"
+        });
+        clearSession(sessionID);
         sessions.delete(sessionID);
         state.sessions.delete(sessionID);
         return;
@@ -16398,6 +16701,11 @@ ${stateSession.graph.getTaskSummary()}`;
       if (textContent.includes("/stop") || textContent.includes("/cancel")) {
         session.active = false;
         state.missionActive = false;
+        emit(TASK_EVENTS.FAILED, {
+          taskId: sessionID,
+          error: "Cancelled by user"
+        });
+        clearSession(sessionID);
         sessions.delete(sessionID);
         state.sessions.delete(sessionID);
         return;
@@ -16414,6 +16722,11 @@ ${stateSession.graph.getTaskSummary()}`;
         state.missionActive = false;
         return;
       }
+      recordSnapshot(sessionID, {
+        currentStep: session.step,
+        maxSteps: session.maxSteps
+      });
+      const progressInfo = formatCompact2(sessionID);
       try {
         if (client?.session?.prompt) {
           await client.session.prompt({
@@ -16423,7 +16736,7 @@ ${stateSession.graph.getTaskSummary()}`;
                 type: "text",
                 text: CONTINUE_INSTRUCTION + `
 
-\u23F1\uFE0F [${currentTime}] Step ${session.step}/${session.maxSteps} | This step: ${stepDuration} | Total: ${totalElapsed}`
+\u23F1\uFE0F [${currentTime}] Step ${session.step}/${session.maxSteps} | ${progressInfo} | This step: ${stepDuration} | Total: ${totalElapsed}`
               }]
             }
           });
@@ -16455,8 +16768,10 @@ ${stateSession.graph.getTaskSummary()}`;
       if (event.type === SESSION_EVENTS.DELETED) {
         const props = event.properties;
         if (props?.info?.id) {
-          sessions.delete(props.info.id);
-          state.sessions.delete(props.info.id);
+          const sessionId = props.info.id;
+          sessions.delete(sessionId);
+          state.sessions.delete(sessionId);
+          clearSession(sessionId);
         }
       }
     }

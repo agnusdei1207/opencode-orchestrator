@@ -1,4 +1,4 @@
 /**
- * TaskStatus - Status of a task in the DAG
+ * Task Status - Re-export from central location
  */
-export type TaskStatus = "pending" | "running" | "completed" | "failed";
+export { TASK_STATUS, ParallelTaskStatus as TaskStatus } from "../../../shared/constants.js";

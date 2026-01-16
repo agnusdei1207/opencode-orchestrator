@@ -11,7 +11,9 @@
  * The agents are: Commander, Architect, Builder, Inspector, Recorder
  */
 
-const PLUGIN_VERSION = "0.2.4";  // Keep in sync with package.json
+import { createRequire } from "node:module";
+const require = createRequire(import.meta.url);
+const { version: PLUGIN_VERSION } = require("../package.json");
 
 import type { PluginInput } from "@opencode-ai/plugin";
 import { AGENTS } from "./agents/definitions.js";
@@ -35,9 +37,10 @@ import {
     ESCALATION_PROMPT,
 } from "./utils/sanity.js";
 import { webfetchTool, websearchTool, cacheDocsTool, codesearchTool } from "./tools/web/index.js";
-import { EventBus, emit, SESSION_EVENTS } from "./core/bus/index.js";
+import { emit, SESSION_EVENTS, TASK_EVENTS, MISSION_EVENTS } from "./core/bus/index.js";
 import * as TodoEnforcer from "./core/loop/todo-enforcer.js";
 import * as Toast from "./core/notification/toast.js";
+import * as ProgressTracker from "./core/progress/tracker.js";
 
 // ============================================================================
 // Constants
@@ -101,6 +104,14 @@ const OrchestratorPlugin = async (input: PluginInput) => {
 
     // Log version on startup
     console.log(`[orchestrator] v${PLUGIN_VERSION} loaded`);
+
+    // =========================================================================
+    // Initialize Core Systems
+    // =========================================================================
+
+    // Enable auto toast notifications for events
+    const disableAutoToasts = Toast.enableAutoToasts();
+    console.log(`[orchestrator] Toast notifications enabled`);
 
     // Track active sessions - each chat session gets its own state
     // so multiple users or conversations don't interfere with each other
@@ -217,6 +228,16 @@ const OrchestratorPlugin = async (input: PluginInput) => {
                     anomalyCount: 0,
                 });
 
+                // Initialize progress tracking for this session
+                ProgressTracker.startSession(sessionID);
+
+                // Emit session started event
+                emit(TASK_EVENTS.STARTED, {
+                    taskId: sessionID,
+                    agent: "commander",
+                    description: "Mission started",
+                });
+
                 // Wrap their message in our task template for better results
                 if (!parsed) {
                     const userMessage = originalText.trim();
@@ -247,6 +268,16 @@ const OrchestratorPlugin = async (input: PluginInput) => {
                     taskRetries: new Map(),
                     currentTask: "",
                     anomalyCount: 0,
+                });
+
+                // Initialize progress tracking
+                ProgressTracker.startSession(sessionID);
+
+                // Emit task started event
+                emit(TASK_EVENTS.STARTED, {
+                    taskId: sessionID,
+                    agent: "commander",
+                    description: parsed.args || "task command",
                 });
 
                 parts[textPartIndex].text = COMMANDS["task"].template.replace(
@@ -474,6 +505,16 @@ const OrchestratorPlugin = async (input: PluginInput) => {
             if (textContent.includes("✅ MISSION COMPLETE") || textContent.includes("MISSION COMPLETE")) {
                 session.active = false;
                 state.missionActive = false;
+
+                // Emit mission complete event
+                emit(MISSION_EVENTS.COMPLETE, {
+                    sessionId: sessionID,
+                    summary: "Mission completed successfully",
+                });
+
+                // Clear progress tracker
+                ProgressTracker.clearSession(sessionID);
+
                 sessions.delete(sessionID);
                 state.sessions.delete(sessionID);
                 return;
@@ -483,6 +524,15 @@ const OrchestratorPlugin = async (input: PluginInput) => {
             if (textContent.includes("/stop") || textContent.includes("/cancel")) {
                 session.active = false;
                 state.missionActive = false;
+
+                // Emit task failed/cancelled event
+                emit(TASK_EVENTS.FAILED, {
+                    taskId: sessionID,
+                    error: "Cancelled by user",
+                });
+
+                ProgressTracker.clearSession(sessionID);
+
                 sessions.delete(sessionID);
                 state.sessions.delete(sessionID);
                 return;
@@ -508,6 +558,16 @@ const OrchestratorPlugin = async (input: PluginInput) => {
             // Mission not complete? Inject a "keep going" prompt.
             // This is what makes Commander never give up.
             // =========================================================
+
+            // Record progress snapshot
+            ProgressTracker.recordSnapshot(sessionID, {
+                currentStep: session.step,
+                maxSteps: session.maxSteps,
+            });
+
+            // Get progress info
+            const progressInfo = ProgressTracker.formatCompact(sessionID);
+
             try {
                 if (client?.session?.prompt) {
                     await client.session.prompt({
@@ -515,7 +575,7 @@ const OrchestratorPlugin = async (input: PluginInput) => {
                         body: {
                             parts: [{
                                 type: "text",
-                                text: CONTINUE_INSTRUCTION + `\n\n⏱️ [${currentTime}] Step ${session.step}/${session.maxSteps} | This step: ${stepDuration} | Total: ${totalElapsed}`
+                                text: CONTINUE_INSTRUCTION + `\n\n⏱️ [${currentTime}] Step ${session.step}/${session.maxSteps} | ${progressInfo} | This step: ${stepDuration} | Total: ${totalElapsed}`
                             }],
                         },
                     });
@@ -553,8 +613,12 @@ const OrchestratorPlugin = async (input: PluginInput) => {
             if (event.type === SESSION_EVENTS.DELETED) {
                 const props = event.properties as { info?: { id?: string } } | undefined;
                 if (props?.info?.id) {
-                    sessions.delete(props.info.id);
-                    state.sessions.delete(props.info.id);
+                    const sessionId = props.info.id;
+
+                    // Clean up all session resources
+                    sessions.delete(sessionId);
+                    state.sessions.delete(sessionId);
+                    ProgressTracker.clearSession(sessionId);
                 }
             }
         },

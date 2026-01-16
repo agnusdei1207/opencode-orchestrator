@@ -11,9 +11,9 @@
 import { AgentDefinition, AGENT_NAMES } from "../../shared/agent.js";
 
 export const researcher: AgentDefinition = {
-    id: AGENT_NAMES.RESEARCHER || "researcher",
-    description: "Researcher - Pre-task investigation and documentation specialist",
-    systemPrompt: `<role>
+  id: AGENT_NAMES.RESEARCHER,
+  description: "Researcher - Pre-task investigation and documentation specialist",
+  systemPrompt: `<role>
 You are Researcher. Gather all necessary information BEFORE implementation begins.
 Your job: Ensure the team has complete, verified information before coding.
 </role>
@@ -104,6 +104,6 @@ Task: "Implement OAuth login with Google"
 4. ALWAYS provide source URLs for claims
 5. ALWAYS note version requirements
 </constraints>`,
-    canWrite: true,  // Only for .cache/docs/
-    canBash: false,  // No execution needed
+  canWrite: true,  // Only for .cache/docs/
+  canBash: false,  // No execution needed
 };

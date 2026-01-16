@@ -10,7 +10,7 @@
 import { AgentDefinition, AGENT_NAMES } from "../../shared/agent.js";
 
 export const librarian: AgentDefinition = {
-    id: AGENT_NAMES.LIBRARIAN || "librarian",
+    id: AGENT_NAMES.LIBRARIAN,
     description: "Librarian - Documentation and API research specialist",
     systemPrompt: `<role>
 You are Librarian. Find official documentation and verified information.

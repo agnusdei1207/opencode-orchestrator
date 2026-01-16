@@ -1,177 +1,95 @@
 # OpenCode Orchestrator - System Architecture
 
-> 전체 시스템 흐름, 구성 요소, 리소스 관리에 대한 완전한 기술 문서
+> Complete technical documentation for system flow, components, and resource management.
+
+**See [README.md](../README.md) for the complete architecture diagram.**
 
 ---
 
-## 🎯 시스템 개요
+## 📞 Caller / Callee Relationship Table
 
-OpenCode Orchestrator는 **이벤트 기반 분산 다중 세션 병렬 에이전트 실행 시스템**입니다.
+### System Components (Automatic, No Agent Involvement)
 
-### 핵심 설계 원칙
+| Caller | Calls | When | Purpose |
+|--------|-------|------|---------|
+| `index.ts` | `Toast.enableAutoToasts()` | Plugin init | Subscribe to all events |
+| `index.ts` | `ParallelAgentManager.getInstance()` | Plugin init | Initialize manager |
+| `index.ts` | `ProgressTracker.startSession()` | Session start | Begin tracking |
+| `index.ts` | `ProgressTracker.recordSnapshot()` | Each loop step | Record progress |
+| `index.ts` | `ProgressTracker.clearSession()` | Session end | Cleanup |
+| `index.ts` | `emit(TASK_EVENTS.STARTED)` | Session start | Notify subscribers |
+| `index.ts` | `emit(MISSION_EVENTS.COMPLETE)` | Mission done | Notify subscribers |
+| `index.ts` | `emit(TASK_EVENTS.FAILED)` | Cancelled | Notify subscribers |
+| `index.ts` (handler) | `ParallelAgentManager.handleEvent()` | Any event | Resource cleanup |
+| `TaskLauncher` | `ConcurrencyController.acquire()` | Task start | Get slot |
+| `TaskLauncher` | `TaskStore.set()` | Task start | Store task |
+| `TaskLauncher` | `TaskPoller.start()` | First task | Begin polling |
+| `TaskPoller` (1s) | `TaskStore.getRunning()` | Poll loop | Find active tasks |
+| `TaskPoller` | `TaskCleaner.scheduleCleanup()` | Task done | Schedule GC |
+| `EventHandler` | `ConcurrencyController.release()` | session.idle/deleted | Free slot |
+| `EventHandler` | `TaskStore.delete()` | session.deleted | Remove task |
+| `TaskCleaner` | `TaskStore.gc()` | Prune | Archive old tasks |
+| `TaskStore` | `archiveTasks()` | gc() | Write to disk |
+| `Toast.enableAutoToasts()` | `EventBus.subscribe()` | Init | Listen for events |
 
-| 원칙 | 구현 |
-|------|------|
-| **느슨한 결합** | Event Bus를 통한 비동기 통신 |
-| **수평 확장** | 최대 50개 병렬 세션 지원 |
-| **메모리 안전** | 자동 GC + 디스크 아카이빙 |
-| **자동 복구** | 패턴 기반 에러 핸들링 |
-| **컨텍스트 공유** | 부모-자식 세션 간 데이터 병합 |
+### Agent-Callable Tools (Used in Prompts)
 
----
+| Tool | Agent User | Function | Core System Used |
+|------|------------|----------|------------------|
+| `delegate_task` | Commander, Architect | Spawn parallel agent | `ParallelAgentManager.launch()` |
+| `get_task_result` | Commander | Get completed result | `ParallelAgentManager.getResult()` |
+| `list_tasks` | Commander | View all tasks | `ParallelAgentManager.getAllTasks()` |
+| `cancel_task` | Commander | Stop task | `ParallelAgentManager.cancelTask()` |
+| `webfetch` | Librarian, Researcher | Fetch URL | `DocumentCache.set()` |
+| `websearch` | Librarian, Researcher | Search web | External API |
+| `codesearch` | Librarian, Researcher | Search code | External API |
+| `cache_docs` | Librarian, Inspector | Manage docs | `DocumentCache.get/list/clear()` |
+| `run_background` | Inspector, Builder | Run command | `BackgroundManager.run()` |
+| `check_background` | Inspector | Check command | `BackgroundManager.check()` |
+| `grep_search` | All agents | Search files | Node fs |
+| `glob_search` | All agents | Find files | Node fs |
+| `call_agent` | Commander | Sync agent call | Direct session |
 
-## 🏛️ 전체 아키텍처 다이어그램
+### EventBus Subscribers (Auto-Triggered)
 
-```
-┌──────────────────────────────────────────────────────────────────────────────────────────┐
-│                                    USER REQUEST                                           │
-│                             (OpenCode Terminal / UI)                                      │
-└──────────────────────────────────────┬───────────────────────────────────────────────────┘
-                                       │
-                                       ▼
-┌──────────────────────────────────────────────────────────────────────────────────────────┐
-│                            ORCHESTRATOR PLUGIN (src/index.ts)                             │
-│  ┌────────────────┐  ┌────────────────┐  ┌────────────────┐  ┌────────────────┐          │
-│  │   Session      │  │    Agent       │  │    Tools       │  │   EventBus     │          │
-│  │   State Map    │  │  Definitions   │  │   Registry     │  │   (Singleton)  │          │
-│  └───────┬────────┘  └────────────────┘  └────────────────┘  └───────┬────────┘          │
-│          │                                                            │                   │
-│          ▼                                                            ▼                   │
-│  ┌─────────────────────────────────────────────────────────────────────────────────────┐ │
-│  │                         PARENT SESSION (Main Execution Loop)                         │ │
-│  │                                                                                       │ │
-│  │   ┌──────────┐    ┌──────────┐    ┌──────────┐    ┌──────────┐    ┌──────────┐      │ │
-│  │   │Commander │───▶│Architect │───▶│ Builder  │───▶│Inspector │───▶│ Recorder │      │ │
-│  │   │   🎯     │    │   🏗️    │    │   🔨     │    │   🔍     │    │   💾     │      │ │
-│  │   └──────────┘    └──────────┘    └────┬─────┘    └──────────┘    └──────────┘      │ │
-│  │                                        │                                             │ │
-│  │                             ┌──────────▼──────────┐                                  │ │
-│  │                             │ launch_parallel_    │                                  │ │
-│  │                             │      agent()        │                                  │ │
-│  │                             └──────────┬──────────┘                                  │ │
-│  └──────────────────────────────────────────┼───────────────────────────────────────────┘ │
-└─────────────────────────────────────────────┼───────────────────────────────────────────┘
-                                              │
-                                              ▼
-┌──────────────────────────────────────────────────────────────────────────────────────────┐
-│                          PARALLEL AGENT MANAGER (src/core/agents/)                        │
-│                                                                                           │
-│   ┌────────────────────────────────────────────────────────────────────────────────┐     │
-│   │                            Component Composition                                │     │
-│   │                                                                                 │     │
-│   │   ┌──────────────────┐        ┌──────────────────┐        ┌─────────────────┐ │     │
-│   │   │   TaskLauncher   │        │   TaskResumer    │        │   TaskPoller    │ │     │
-│   │   │   ──────────────  │        │   ─────────────  │        │   ────────────  │ │     │
-│   │   │ • Create session │        │ • Resume paused  │        │ • Poll every 1s │ │     │
-│   │   │ • Set up agent   │        │ • Restore state  │        │ • Detect idle   │ │     │
-│   │   │ • Track pending  │        │ • Continue work  │        │ • Mark complete │ │     │
-│   │   └────────┬─────────┘        └──────────────────┘        └────────┬────────┘ │     │
-│   │            │                                                        │          │     │
-│   │            ▼                                                        ▼          │     │
-│   │   ┌──────────────────┐        ┌──────────────────┐        ┌─────────────────┐ │     │
-│   │   │   TaskCleaner    │        │  EventHandler    │        │ ConcurrencyCtrl │ │     │
-│   │   │   ─────────────  │        │  ─────────────── │        │ ─────────────── │ │     │
-│   │   │ • Schedule GC    │        │ • session.idle   │        │ • Max 10/agent  │ │     │
-│   │   │ • Archive to disk│        │ • session.deleted│        │ • Max 50 total  │ │     │
-│   │   │ • Prune expired  │        │ • Notify parent  │        │ • Queue waiting │ │     │
-│   │   └──────────────────┘        └──────────────────┘        └─────────────────┘ │     │
-│   └────────────────────────────────────────────────────────────────────────────────┘     │
-│                                              │                                            │
-│                                              ▼                                            │
-│   ┌────────────────────────────────────────────────────────────────────────────────┐     │
-│   │                           CHILD SESSIONS (Parallel Pool)                        │     │
-│   │                                                                                 │     │
-│   │   ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐     │     │
-│   │   │Session 1│ │Session 2│ │Session 3│ │Session 4│ │Session 5│ │ ... 50  │     │     │
-│   │   │ Builder │ │Librarian│ │Researcher│ │Inspector│ │ Builder │ │         │     │     │
-│   │   │   🔨    │ │   📚    │ │   🔬    │ │   🔍    │ │   🔨    │ │         │     │     │
-│   │   └────┬────┘ └────┬────┘ └────┬────┘ └────┬────┘ └────┬────┘ └─────────┘     │     │
-│   │        │           │           │           │           │                       │     │
-│   │        └───────────┴───────────┴───────────┴───────────┘                       │     │
-│   │                                    │                                            │     │
-│   └────────────────────────────────────┼────────────────────────────────────────────┘     │
-└────────────────────────────────────────┼────────────────────────────────────────────────┘
-                                         │
-                                         ▼
-┌──────────────────────────────────────────────────────────────────────────────────────────┐
-│                              EVENT BUS (src/core/bus/)                                    │
-│                                                                                           │
-│   ┌─────────────────────────────────────────────────────────────────────────────────┐    │
-│   │                              Event Types (Pub/Sub)                               │    │
-│   │                                                                                  │    │
-│   │   ┌────────────┐  ┌────────────┐  ┌────────────┐  ┌────────────┐  ┌──────────┐ │    │
-│   │   │task.started│  │task.complete│  │task.failed │  │session.idle│  │mission.* │ │    │
-│   │   └─────┬──────┘  └─────┬──────┘  └─────┬──────┘  └─────┬──────┘  └─────┬────┘ │    │
-│   │         │               │               │               │               │       │    │
-│   │         └───────────────┴───────────────┴───────────────┴───────────────┘       │    │
-│   │                                         │                                        │    │
-│   │                                         ▼                                        │    │
-│   │   ┌──────────────────────────────────────────────────────────────────────────┐  │    │
-│   │   │                           Subscribers                                     │  │    │
-│   │   │   • Toast Notifier      • Progress Tracker     • Auto Recovery           │  │    │
-│   │   │   • Parent Session      • Task Cleaner         • Shared Context          │  │    │
-│   │   └──────────────────────────────────────────────────────────────────────────┘  │    │
-│   └─────────────────────────────────────────────────────────────────────────────────┘    │
-└──────────────────────────────────────────────────────────────────────────────────────────┘
-                                         │
-                                         ▼
-┌──────────────────────────────────────────────────────────────────────────────────────────┐
-│                                CORE SYSTEMS LAYER                                         │
-│                                                                                           │
-│   ┌─────────────────┐ ┌─────────────────┐ ┌─────────────────┐ ┌─────────────────┐        │
-│   │    Progress     │ │   Auto          │ │   Shared        │ │    Task         │        │
-│   │    Tracker      │ │   Recovery      │ │   Context       │ │    Decomposer   │        │
-│   │   ───────────   │ │   ─────────     │ │   ──────────    │ │   ───────────   │        │
-│   │ • recordSnapshot│ │ • handleError   │ │ • create()      │ │ • create()      │        │
-│   │ • formatProgress│ │ • withRecovery  │ │ • getMerged()   │ │ • addTask()     │        │
-│   │ • calculateRate │ │ • errorPatterns │ │ • addFinding()  │ │ • getNextTasks()│        │
-│   └─────────────────┘ └─────────────────┘ └─────────────────┘ └─────────────────┘        │
-│                                                                                           │
-│   ┌─────────────────┐ ┌─────────────────┐ ┌─────────────────┐ ┌─────────────────┐        │
-│   │   Toast         │ │   Document      │ │   Async         │ │   Background    │        │
-│   │   Notifier      │ │   Cache         │ │   Queue         │ │   Commands      │        │
-│   │   ─────────     │ │   ──────────    │ │   ───────       │ │   ──────────    │        │
-│   │ • show()        │ │ • get/set()     │ │ • workPool()    │ │ • run/check()   │        │
-│   │ • presets       │ │ • list/clear()  │ │ • retryBackoff()│ │ • kill/list()   │        │
-│   │ • autoToasts    │ │ • cleanExpired()│ │ • withTimeout() │ │ • backgroundJob │        │
-│   └─────────────────┘ └─────────────────┘ └─────────────────┘ └─────────────────┘        │
-│                                                                                           │
-└──────────────────────────────────────────────────────────────────────────────────────────┘
-```
+| Subscriber | Event | Action |
+|------------|-------|--------|
+| `Toast.presets.taskStarted` | `task.started` | Show notification |
+| `Toast.presets.taskCompleted` | `task.completed` | Show notification |
+| `Toast.presets.taskFailed` | `task.failed` | Show notification |
+| `Toast.presets.missionComplete` | `mission.complete` | Show notification |
+| `Toast.presets.documentCached` | `document.cached` | Show notification |
+
+### Unused Infrastructure (Available for Future Integration)
+
+| Module | Status | Integration Path |
+|--------|--------|------------------|
+| `SharedContext` | ✅ Tested | Use in `delegate_task` for context passing |
+| `TaskDecomposer` | ✅ Tested | Use in Architect agent prompt output parsing |
+| `AutoRecovery` | ✅ Tested | Wrap API calls in `withRecovery()` |
+| `AsyncQueue` | ✅ Tested | Use for batch processing |
+| `TodoEnforcer` | ✅ Imported | Integrate with CONTINUE_INSTRUCTION |
 
 ---
 
-## 📂 디렉토리 구조
+## 📂 Directory Structure
 
 ```
 src/
-├── index.ts                    # 플러그인 메인 엔트리
+├── index.ts                    # Plugin main entry
 ├── agents/
-│   ├── definitions.ts          # 7개 에이전트 정의
-│   └── subagents/              # 개별 에이전트 프롬프트
+│   ├── definitions.ts          # 7 agent definitions
+│   └── subagents/              # Individual agent prompts
 ├── core/
 │   ├── bus/                    # Event Bus (4 files)
-│   │   ├── index.ts           # Re-exports + singleton
-│   │   ├── types.ts           # Type aliases
-│   │   ├── interfaces.ts      # Interfaces
-│   │   └── event-bus.ts       # Implementation
 │   ├── agents/                 # Parallel Agent Manager (12 files)
-│   │   ├── manager.ts         # Main facade
-│   │   ├── manager/           # Composed components
-│   │   │   ├── task-launcher.ts
-│   │   │   ├── task-resumer.ts
-│   │   │   ├── task-poller.ts
-│   │   │   ├── task-cleaner.ts
-│   │   │   └── event-handler.ts
-│   │   ├── task-store.ts      # GC + archiving
-│   │   ├── concurrency.ts     # Rate limiting
-│   │   └── interfaces/
 │   ├── notification/           # Toast System (5 files)
-│   ├── cache/                  # Document Cache (5 files)
+│   ├── cache/                  # Document Cache (6 files)
 │   ├── progress/               # Progress Tracker (5 files)
 │   ├── recovery/               # Auto Recovery (5 files)
 │   ├── session/                # Shared Context (4 files)
 │   ├── task/                   # Task Decomposer (6 files)
+│   ├── loop/                   # Todo Enforcer (5 files)
 │   └── queue/                  # Async Utilities (4 files)
 ├── tools/
 │   ├── callAgent.ts            # Synchronous agent call
@@ -186,318 +104,140 @@ src/
 
 ---
 
-## 🔄 실행 흐름 상세
+## 🔄 Execution Flow
 
-### Phase 1: 요청 수신 및 초기화
+### Phase 1: Plugin Initialization
 
 ```typescript
-// src/index.ts - OrchestratorPlugin
-export default async function OrchestratorPlugin(input: PluginInput) {
-    const { client, directory } = input;
-    
-    // 1. 세션 상태 초기화
-    state.sessions.set(sessionId, {
-        step: 0,
-        maxSteps: UNLIMITED_MODE ? Infinity : 500,
-        startedAt: Date.now(),
-    });
-    
-    // 2. ParallelAgentManager 초기화
-    ParallelAgentManager.getInstance(client, directory);
-    
-    // 3. Tools 및 Provider 반환
-    return { provider, tools };
-}
+OrchestratorPlugin(input):
+  1. Toast.enableAutoToasts() → Subscribe to all events
+  2. sessions Map initialization
+  3. ParallelAgentManager.getInstance(client, directory)
+  4. Return { provider, tools, hooks }
 ```
 
-### Phase 2: 에이전트 실행
+### Phase 2: Session Lifecycle
 
 ```typescript
-// Commander가 다른 에이전트 호출
-await callAgent({ agent: "architect", task: "Break down this task" });
+hooks["chat.message"]:
+  1. Parse slash commands (/task, /plan)
+  2. Auto-start on Commander agent selection
+  3. ProgressTracker.startSession(sessionId)
+  4. emit(TASK_EVENTS.STARTED)
 
-// Architect가 태스크 분해
-const hierarchy = TaskDecomposer.create(sessionId, "Main objective");
-TaskDecomposer.addTask(sessionId, {
-    description: "Build feature A",
-    level: 2,
-    parallelGroup: "impl",
-});
+hooks["tool.execute.after"]:
+  1. Check "MISSION COMPLETE" → emit(MISSION_EVENTS.COMPLETE)
+  2. ProgressTracker.recordSnapshot()
+  3. Inject CONTINUE_INSTRUCTION
+
+hooks["handler"]:
+  1. session.deleted → cleanup all resources
+  2. ParallelAgentManager.handleEvent()
 ```
 
-### Phase 3: 병렬 태스크 실행
+### Phase 3: Parallel Task Execution
 
 ```typescript
-// Builder가 병렬 태스크 시작
-const taskId = await launchParallelAgent({
-    agent: "builder",
-    task: "Implement login component",
-});
+TaskLauncher.launch():
+  1. concurrency.acquire(key)
+  2. client.session.create()
+  3. store.set(task)
+  4. emit(TASK_EVENTS.STARTED) // Via notify
+  5. client.session.message()
+  6. poller.start()
 
-// TaskLauncher 내부
-async launch(input: LaunchInput): Promise<string> {
-    // 1. 동시성 슬롯 획득 (최대 10개 대기)
-    await this.concurrency.acquire(key);
-    
-    // 2. 새 OpenCode 세션 생성
-    const session = await this.client.session.create({
-        directory: this.directory,
-    });
-    
-    // 3. 태스크 등록
-    const task: ParallelTask = {
-        id: generateId(),
-        sessionID: session.id,
-        parentSessionID: input.parentSessionID,
-        agent: input.agent,
-        status: "running",
-        startedAt: new Date(),
-    };
-    this.store.set(task.id, task);
-    
-    // 4. 이벤트 발행
-    EventBus.emit(TASK_EVENTS.STARTED, { taskId: task.id, agent });
-    
-    // 5. 에이전트 메시지 전송
-    await this.client.session.message({
-        sessionId: session.id,
-        message: agentPrompt + userPrompt,
-    });
-    
-    return task.id;
-}
+TaskPoller.poll() every 1s:
+  1. Get running tasks
+  2. Check session events
+  3. If idle + stable → completed
+  4. emit(TASK_EVENTS.COMPLETED)
+  5. scheduleCleanup()
 ```
 
-### Phase 4: 완료 감지 (Polling)
+### Phase 4: Resource Cleanup
 
 ```typescript
-// TaskPoller - 1초마다 실행
-async poll(): Promise<void> {
-    for (const task of this.store.getRunning()) {
-        // 1. 세션 상태 확인
-        const events = await this.client.events.list({
-            sessionId: task.sessionID,
-        });
-        
-        // 2. idle 이벤트 감지
-        const isIdle = events.some(e => 
-            e.type === "session.idle" && 
-            e.timestamp > task.lastCheck
-        );
-        
-        // 3. 출력 안정성 확인 (5초간 변화 없음)
-        const isStable = (Date.now() - task.lastMsgChange) > MIN_STABILITY_MS;
-        
-        if (isIdle && isStable) {
-            // 4. 완료 처리
-            task.status = "completed";
-            task.completedAt = new Date();
-            
-            // 5. 이벤트 발행
-            EventBus.emit(TASK_EVENTS.COMPLETED, {
-                taskId: task.id,
-                agent: task.agent,
-            });
-            
-            // 6. 부모에게 알림
-            this.notifyParent(task.parentSessionID);
-            
-            // 7. 정리 스케줄링
-            this.scheduleCleanup(task.id);
-        }
-    }
-}
-```
+EventHandler.handle(session.deleted):
+  1. concurrency.release(key)
+  2. store.delete(taskId)
 
-### Phase 5: 리소스 정리 (GC)
+TaskCleaner.scheduleCleanup():
+  1. setTimeout(10min)
+  2. session.delete()
+  3. store.delete()
 
-```typescript
-// TaskStore - 자동 GC
-async gc(): Promise<number> {
-    const toRemove: string[] = [];
-    const toArchive: ParallelTask[] = [];
-    
-    for (const [id, task] of this.tasks) {
-        if (task.status === "running") continue;
-        
-        const age = Date.now() - (task.completedAt?.getTime() ?? 0);
-        
-        // 30분 이상 된 완료 태스크 → 아카이브
-        if (age > 30 * 60 * 1000 && task.status === "completed") {
-            toArchive.push(task);
-            toRemove.push(id);
-        }
-        // 10분 이상 된 실패 태스크 → 삭제
-        else if (age > 10 * 60 * 1000 && task.status === "error") {
-            toRemove.push(id);
-        }
-    }
-    
-    // 디스크에 아카이브 (JSONL 형식)
-    if (toArchive.length > 0) {
-        await this.archiveTasks(toArchive);
-        // → .cache/task-archive/tasks_2024-01-16.jsonl
-    }
-    
-    // 메모리에서 제거
-    for (const id of toRemove) {
-        this.tasks.delete(id);
-    }
-    
-    return toRemove.length;
-}
+TaskStore.gc():
+  1. completed > 30min → archiveTasks()
+  2. error > 10min → delete
 ```
 
 ---
 
-## 🛡️ 리소스 안전 보장
+## 🛡️ Resource Safety
 
-### 동시성 제어
+### Subscription Cleanup
 
-```typescript
-// ConcurrencyController
-export class ConcurrencyController {
-    private counts: Map<string, number> = new Map();
-    private queues: Map<string, Array<() => void>> = new Map();
-    
-    async acquire(key: string): Promise<void> {
-        const limit = this.getConcurrencyLimit(key); // 기본 10
-        const current = this.counts.get(key) ?? 0;
-        
-        if (current < limit) {
-            this.counts.set(key, current + 1);
-            return; // 즉시 획득
-        }
-        
-        // 슬롯 부족 → 큐에서 대기
-        return new Promise((resolve) => {
-            const queue = this.queues.get(key) ?? [];
-            queue.push(resolve);
-            this.queues.set(key, queue);
-        });
-    }
-    
-    release(key: string): void {
-        const queue = this.queues.get(key);
-        if (queue && queue.length > 0) {
-            const next = queue.shift()!;
-            next(); // 다음 대기자 깨우기
-        } else {
-            const current = this.counts.get(key) ?? 0;
-            if (current > 0) {
-                this.counts.set(key, current - 1);
-            }
-        }
-    }
-}
-```
+| Subscription | Returns | Cleanup Timing |
+|--------------|---------|----------------|
+| `Toast.enableAutoToasts()` | `() => void` | Plugin unload (not needed - singleton) |
+| `EventBus.subscribe()` | `() => void` | Manual call when done |
 
-### 메모리 제한
-
-| 데이터 구조 | 최대 크기 | 초과 시 동작 |
-|------------|----------|-------------|
-| `TaskStore.tasks` | 1,000 | Auto GC 트리거 |
-| `TaskStore.notifications` | 100/parent | FIFO 제거 |
-| `EventBus.history` | 100 | FIFO 제거 |
-| `Toast.history` | 50 | FIFO 제거 |
-| `ProgressTracker.history` | 100/session | FIFO 제거 |
-
-### 에러 복구
+### Concurrency Control
 
 ```typescript
-// Auto Recovery 패턴
-const errorPatterns: ErrorPattern[] = [
-    {
-        pattern: /rate.?limit|429/i,
-        category: "rate_limit",
-        handler: (ctx) => ({
-            type: "retry",
-            delay: 1000 * Math.pow(2, ctx.attempt), // 지수 백오프
-            attempt: ctx.attempt + 1,
-        }),
-    },
-    {
-        pattern: /token.?limit|context.?length/i,
-        category: "context_overflow",
-        handler: () => ({
-            type: "compact",
-            reason: "Context limit reached",
-        }),
-    },
-    // ...
-];
+ConcurrencyController:
+  acquire(key):
+    if count < limit → immediate
+    else → queue.push(resolve)
+
+  release(key):
+    if queue.length → queue.shift()()
+    else → count--
+```
+
+### Memory Limits
+
+| Data Structure | Max Size | Overflow |
+|----------------|----------|----------|
+| TaskStore.tasks | 1,000 | Auto GC |
+| notifications | 100/parent | FIFO |
+| EventBus.history | 100 | FIFO |
+| ProgressTracker | 100/session | FIFO |
+
+---
+
+## 📊 Performance Metrics
+
+| Metric | Value |
+|--------|-------|
+| Max Parallel Sessions | 50 |
+| Default Concurrency/Agent | 10 |
+| Poll Interval | 1 second |
+| Stability Wait | 3 seconds |
+| Session TTL | 60 minutes |
+| GC Trigger | >1,000 tasks |
+| Archive After | 30 minutes |
+
+---
+
+## 🧪 Test Coverage
+
+```
+Test Suites: 18 passed
+Tests: 211 passed
+Duration: ~4.3s
 ```
 
 ---
 
-## 📊 성능 지표
+## 📝 Summary
 
-| 메트릭 | 값 |
-|--------|-----|
-| **최대 병렬 세션** | 50개 |
-| **기본 동시성/에이전트** | 10개 |
-| **폴링 간격** | 1초 |
-| **완료 감지 지연** | 3초 (안정화 대기) |
-| **세션 TTL** | 60분 |
-| **GC 트리거** | 1,000 태스크 초과 시 |
-| **아카이브** | 30분 후 디스크 저장 |
+This architecture is:
 
----
-
-## 🧪 테스트 커버리지
-
-```
-Test Suites:
-├── unit/event-bus.test.ts         (11 tests)
-├── unit/document-cache.test.ts    (8 tests)
-├── unit/progress-tracker.test.ts  (12 tests)
-├── unit/auto-recovery.test.ts     (10 tests)
-├── unit/task-decomposer.test.ts   (12 tests)
-├── unit/shared-context.test.ts    (10 tests)
-├── unit/toast.test.ts             (9 tests)
-├── integration/event-bus-integration.test.ts (9 tests)
-└── ... more
-
-Total: 18 files, 211 tests, ~4.3s
-```
-
----
-
-## 🔗 모듈 의존성
-
-```
-                    ┌─────────────────┐
-                    │   index.ts      │
-                    └────────┬────────┘
-                             │
-         ┌───────────────────┼───────────────────┐
-         │                   │                   │
-         ▼                   ▼                   ▼
-┌─────────────────┐ ┌─────────────────┐ ┌─────────────────┐
-│ agents/manager  │ │  core/bus       │ │  tools/*        │
-└────────┬────────┘ └────────┬────────┘ └────────┬────────┘
-         │                   │                   │
-         │    ┌──────────────┴──────────────┐    │
-         │    │                             │    │
-         ▼    ▼                             ▼    ▼
-┌─────────────────┐                 ┌─────────────────┐
-│ core/queue      │                 │ core/cache      │
-│ core/progress   │                 │ core/session    │
-│ core/recovery   │                 │ core/task       │
-│ core/notification│                │ core/commands   │
-└─────────────────┘                 └─────────────────┘
-```
-
----
-
-## 📝 결론
-
-이 아키텍처는:
-
-1. **확장 가능** - 50개 병렬 세션으로 대규모 작업 처리
-2. **메모리 안전** - 자동 GC, 디스크 아카이빙, 크기 제한
-3. **자동 복구** - 패턴 기반 에러 핸들링, 지수 백오프
-4. **느슨한 결합** - Event Bus로 컴포넌트 분리
-5. **추적 가능** - 이벤트 히스토리, 진행률 추적
+1. **Scalable** - 50 parallel sessions
+2. **Memory-safe** - Auto GC, disk archiving
+3. **Self-healing** - Pattern-based error handling
+4. **Loosely coupled** - Event Bus
+5. **Observable** - Event history, progress tracking
 
 **Enterprise-grade, memory-safe, self-healing distributed agent orchestration.**

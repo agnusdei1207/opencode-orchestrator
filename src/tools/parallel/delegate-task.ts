@@ -7,6 +7,7 @@
 
 import { tool } from "@opencode-ai/plugin";
 import { ParallelAgentManager } from "../../core/agents/index.js";
+import { PARALLEL_TASK } from "../../shared/constants.js";
 
 export const createDelegateTaskTool = (manager: ParallelAgentManager, client: unknown) => tool({
     description: `Delegate a task to an agent.
@@ -24,8 +25,8 @@ export const createDelegateTaskTool = (manager: ParallelAgentManager, client: un
 </resume>
 
 <safety>
-- Max 3 tasks per agent type
-- Auto-timeout: 30 minutes
+- Max 10 tasks per agent type (configurable)
+- Auto-timeout: 60 minutes
 </safety>`,
     args: {
         agent: tool.schema.string().describe("Agent name"),
@@ -71,7 +72,7 @@ export const createDelegateTaskTool = (manager: ParallelAgentManager, client: un
                 const session = sessionClient.session;
 
                 let stablePolls = 0, lastMsgCount = 0;
-                while (Date.now() - startTime < 10 * 60 * 1000) {
+                while (Date.now() - startTime < PARALLEL_TASK.SYNC_TIMEOUT_MS) {
                     await new Promise(r => setTimeout(r, 500));
                     const statusResult = await session.status();
                     if (statusResult.data?.[task.sessionID]?.type !== "idle") { stablePolls = 0; continue; }

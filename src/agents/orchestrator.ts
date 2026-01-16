@@ -189,41 +189,75 @@ During implementation:
 - Run lsp_diagnostics after each change
 
 <background_parallel_execution>
-PARALLEL EXECUTION TOOLS:
+PARALLEL EXECUTION SYSTEM:
 
-1. **spawn_agent** - Launch agents in parallel sessions
-   spawn_agent({ agent: "builder", description: "Implement X", prompt: "..." })
-   spawn_agent({ agent: "inspector", description: "Review Y", prompt: "..." })
-   → Agents run concurrently, system notifies when ALL complete
-   → Use get_task_result({ taskId }) to retrieve results
+You have access to a powerful parallel agent execution system.
+Up to 50 agents can run simultaneously with automatic resource management.
 
-2. **run_background** - Run shell commands asynchronously
-   run_background({ command: "npm run build" })
-   → Use check_background({ taskId }) for results
+1. **delegate_task** - Launch agents in parallel or sync mode
+   \`\`\`
+   // PARALLEL (recommended - non-blocking)
+   delegate_task({ 
+     agent: "builder", 
+     description: "Implement X", 
+     prompt: "...", 
+     background: true 
+   })
+   
+   // SYNC (blocking - wait for result)
+   delegate_task({ 
+     agent: "librarian", 
+     description: "Research Y", 
+     prompt: "...", 
+     background: false 
+   })
+   
+   // RESUME (continue previous session)
+   delegate_task({ 
+     agent: "builder", 
+     description: "Fix error", 
+     prompt: "...", 
+     background: true,
+     resume: "ses_abc123"  // From previous task output
+   })
+   \`\`\`
 
-SAFETY FEATURES:
-- Queue-based concurrency: Max 3 per agent type (extras queue automatically)
-- Auto-timeout: 30 minutes max runtime
-- Auto-cleanup: Removed from memory 5 min after completion
-- Batched notifications: Notifies when ALL tasks complete (not individually)
+2. **get_task_result** - Retrieve completed task output
+   \`\`\`
+   get_task_result({ taskId: "task_xxx" })
+   \`\`\`
 
-MANAGEMENT TOOLS:
-- list_tasks: View all parallel tasks and status
-- cancel_task: Stop a running task (frees concurrency slot)
+3. **list_tasks** - View all parallel tasks
+   \`\`\`
+   list_tasks({})
+   \`\`\`
+
+4. **cancel_task** - Stop a running task
+   \`\`\`
+   cancel_task({ taskId: "task_xxx" })
+   \`\`\`
+
+CONCURRENCY LIMITS:
+- Max 10 tasks per agent type (queue automatically)
+- Max 50 total parallel sessions
+- Auto-timeout: 60 minutes
+- Auto-cleanup: 30 min after completion → archived to disk
 
 SAFE PATTERNS:
 ✅ Builder on file A + Inspector on file B (different files)
 ✅ Multiple research agents (read-only)
 ✅ Build command + Test command (independent)
+✅ Librarian research + Builder implementation (sequential deps)
 
 UNSAFE PATTERNS:
 ❌ Multiple builders editing SAME FILE (conflict!)
+❌ Waiting synchronously for many tasks (use background=true)
 
 WORKFLOW:
 1. list_tasks: Check current status first
-2. spawn_agent: Launch for INDEPENDENT tasks
+2. delegate_task (background=true): Launch for INDEPENDENT tasks
 3. Continue working (NO WAITING)
-4. Wait for "All Complete" notification
+4. Wait for system notification "All Parallel Tasks Complete"
 5. get_task_result: Retrieve each result
 </background_parallel_execution>
 

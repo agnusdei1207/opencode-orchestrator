@@ -104,13 +104,13 @@ declare const OrchestratorPlugin: (input: PluginInput) => Promise<{
             args: {
                 status: import("zod").ZodOptional<import("zod").ZodEnum<{
                     running: "running";
-                    done: "done";
                     error: "error";
+                    done: "done";
                     all: "all";
                 }>>;
             };
             execute(args: {
-                status?: "running" | "done" | "error" | "all" | undefined;
+                status?: "running" | "error" | "done" | "all" | undefined;
             }, context: import("@opencode-ai/plugin").ToolContext): Promise<string>;
         };
         kill_background: {

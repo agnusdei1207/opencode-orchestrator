@@ -10,11 +10,7 @@
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import type { ParallelTask } from "./interfaces/parallel-task.js";
-
-// Memory limits
-const MAX_TASKS_IN_MEMORY = 1000;
-const MAX_NOTIFICATIONS_PER_PARENT = 100;
-const ARCHIVE_DIR = ".cache/task-archive";
+import { MEMORY_LIMITS, PATHS, TASK_STATUS } from "../../shared/constants.js";
 
 export class TaskStore {
     private tasks: Map<string, ParallelTask> = new Map();
@@ -26,7 +22,7 @@ export class TaskStore {
         this.tasks.set(id, task);
 
         // Auto-GC if over limit
-        if (this.tasks.size > MAX_TASKS_IN_MEMORY) {
+        if (this.tasks.size > MEMORY_LIMITS.MAX_TASKS_IN_MEMORY) {
             this.gc();
         }
     }
@@ -40,7 +36,7 @@ export class TaskStore {
     }
 
     getRunning(): ParallelTask[] {
-        return this.getAll().filter(t => t.status === "running");
+        return this.getAll().filter(t => t.status === TASK_STATUS.RUNNING);
     }
 
     getByParent(parentSessionID: string): ParallelTask[] {
@@ -88,7 +84,7 @@ export class TaskStore {
         queue.push(task);
 
         // Limit notifications per parent
-        if (queue.length > MAX_NOTIFICATIONS_PER_PARENT) {
+        if (queue.length > MEMORY_LIMITS.MAX_NOTIFICATIONS_PER_PARENT) {
             queue.shift(); // Remove oldest
         }
 
@@ -156,18 +152,18 @@ export class TaskStore {
 
         for (const [id, task] of this.tasks) {
             // Skip running tasks
-            if (task.status === "running") continue;
+            if (task.status === TASK_STATUS.RUNNING) continue;
 
             const completedAt = task.completedAt?.getTime() ?? 0;
             const age = now - completedAt;
 
-            // Archive tasks older than 30 minutes
-            if (age > 30 * 60 * 1000 && task.status === "completed") {
+            // Archive tasks older than ARCHIVE_AGE_MS
+            if (age > MEMORY_LIMITS.ARCHIVE_AGE_MS && task.status === TASK_STATUS.COMPLETED) {
                 toArchive.push(task);
                 toRemove.push(id);
             }
-            // Remove failed/cancelled tasks older than 10 minutes
-            else if (age > 10 * 60 * 1000 && (task.status === "error" || task.status === "cancelled")) {
+            // Remove failed/cancelled tasks older than ERROR_CLEANUP_AGE_MS
+            else if (age > MEMORY_LIMITS.ERROR_CLEANUP_AGE_MS && (task.status === TASK_STATUS.ERROR || task.status === TASK_STATUS.CANCELLED)) {
                 toRemove.push(id);
             }
         }
@@ -190,11 +186,11 @@ export class TaskStore {
      */
     private async archiveTasks(tasks: ParallelTask[]): Promise<void> {
         try {
-            await fs.mkdir(ARCHIVE_DIR, { recursive: true });
+            await fs.mkdir(PATHS.TASK_ARCHIVE, { recursive: true });
 
             const date = new Date().toISOString().slice(0, 10);
             const filename = `tasks_${date}.jsonl`;
-            const filepath = path.join(ARCHIVE_DIR, filename);
+            const filepath = path.join(PATHS.TASK_ARCHIVE, filename);
 
             const lines = tasks.map(task => JSON.stringify({
                 id: task.id,
