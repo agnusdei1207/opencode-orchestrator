@@ -25,9 +25,9 @@ import {
     checkBackgroundTool,
     listBackgroundTool,
     killBackgroundTool,
-} from "./tools/background.js";
+} from "./tools/background-cmd/index.js";
 import { ParallelAgentManager } from "./core/async-agent.js";
-import { createAsyncAgentTools } from "./tools/async-agent.js";
+import { createAsyncAgentTools } from "./tools/parallel/index.js";
 import { detectSlashCommand, formatTimestamp, formatElapsedTime } from "./utils/common.js";
 import {
     checkOutputSanity,

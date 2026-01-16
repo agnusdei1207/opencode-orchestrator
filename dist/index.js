@@ -13507,7 +13507,7 @@ Process killed: timeout after ${timeout}ms`;
 };
 var backgroundTaskManager = BackgroundTaskManager.instance;
 
-// src/tools/background.ts
+// src/tools/background-cmd/tools.ts
 var runBackgroundTool = tool({
   description: `Run a shell command in the background and get a task ID.
 
@@ -14174,7 +14174,7 @@ var parallelAgentManager = {
   getInstance: ParallelAgentManager.getInstance.bind(ParallelAgentManager)
 };
 
-// src/tools/async-agent.ts
+// src/tools/parallel/tools.ts
 var createDelegateTaskTool = (manager, client) => tool({
   description: `Delegate a task to an agent.
 
@@ -14187,7 +14187,6 @@ var createDelegateTaskTool = (manager, client) => tool({
 - Multiple independent tasks to run in parallel
 - Long-running tasks (build, test, analysis)
 - You have other work to do while waiting
-- Example: "Build module A" + "Test module B" in parallel
 </when_to_use_background_true>
 
 <when_to_use_background_false>
@@ -14252,10 +14251,7 @@ var createDelegateTaskTool = (manager, client) => tool({
       const session = sessionClient.session;
       const directory = ".";
       const createResult = await session.create({
-        body: {
-          parentID: ctx.sessionID,
-          title: `Task: ${description}`
-        },
+        body: { parentID: ctx.sessionID, title: `Task: ${description}` },
         query: { directory }
       });
       if (createResult.error || !createResult.data?.id) {
@@ -14266,10 +14262,7 @@ var createDelegateTaskTool = (manager, client) => tool({
       try {
         await session.prompt({
           path: { id: sessionID },
-          body: {
-            agent,
-            parts: [{ type: "text", text: prompt }]
-          }
+          body: { agent, parts: [{ type: "text", text: prompt }] }
         });
       } catch (promptError) {
         const errorMessage = promptError instanceof Error ? promptError.message : String(promptError);
@@ -14314,9 +14307,7 @@ Session ID: ${sessionID}`;
 
 Session ID: ${sessionID}`;
       }
-      const textParts = lastMsg.parts?.filter(
-        (p) => p.type === "text" || p.type === "reasoning"
-      ) ?? [];
+      const textParts = lastMsg.parts?.filter((p) => p.type === "text" || p.type === "reasoning") ?? [];
       const textContent = textParts.map((p) => p.text ?? "").filter(Boolean).join("\n");
       const duration3 = Math.floor((Date.now() - startTime) / 1e3);
       console.log(`[delegate] \u2705 COMPLETED ${agent}: ${description} (${duration3}s)`);
@@ -14336,14 +14327,9 @@ ${textContent || "(No text output)"}`;
   }
 });
 var createGetTaskResultTool = (manager) => tool({
-  description: `Get the result from a completed background task.
-
-<note>
-If the task is still running, returns status info.
-Wait for the "All Complete" notification before checking.
-</note>`,
+  description: `Get the result from a completed background task.`,
   args: {
-    taskId: tool.schema.string().describe("Task ID from delegate_task (e.g., 'task_a1b2c3d4')")
+    taskId: tool.schema.string().describe("Task ID from delegate_task")
   },
   async execute(args) {
     const { taskId } = args;
@@ -14355,39 +14341,23 @@ Use \`list_tasks\` to see available tasks.`;
     }
     if (task.status === "running") {
       const elapsed = Math.floor((Date.now() - task.startedAt.getTime()) / 1e3);
-      return `\u23F3 **Task Still Running**
+      return `\u23F3 **Task Still Running** (${elapsed}s)
 
-| Property | Value |
-|----------|-------|
-| **Task ID** | \`${taskId}\` |
-| **Agent** | ${task.agent} |
-| **Elapsed** | ${elapsed}s |
-
-Wait for "All Complete" notification, then try again.`;
+Wait for "All Complete" notification.`;
     }
     const result = await manager.getResult(taskId);
     const duration3 = manager.formatDuration(task.startedAt, task.completedAt);
     if (task.status === "error" || task.status === "timeout") {
       return `\u274C **Task ${task.status === "timeout" ? "Timed Out" : "Failed"}**
 
-| Property | Value |
-|----------|-------|
-| **Task ID** | \`${taskId}\` |
-| **Agent** | ${task.agent} |
-| **Error** | ${task.error} |
-| **Duration** | ${duration3} |`;
+Error: ${task.error}
+Duration: ${duration3}`;
     }
-    return `\u2705 **Task Completed**
+    return `\u2705 **Task Completed** (${duration3})
 
-| Property | Value |
-|----------|-------|
-| **Task ID** | \`${taskId}\` |
-| **Agent** | ${task.agent} |
-| **Duration** | ${duration3} |
+Agent: ${task.agent}
 
 ---
-
-**Result:**
 
 ${result || "(No output)"}`;
   }
@@ -14414,13 +14384,8 @@ var createListTasksTool = (manager) => tool({
         tasks = manager.getAllTasks();
     }
     if (tasks.length === 0) {
-      return `\u{1F4CB} No background tasks found${status !== "all" ? ` (filter: ${status})` : ""}.
-
-Use \`delegate_task({ ..., background: true })\` to spawn background tasks.`;
+      return `\u{1F4CB} No background tasks found.`;
     }
-    const runningCount = manager.getRunningTasks().length;
-    const completedCount = manager.getAllTasks().filter((t) => t.status === "completed").length;
-    const errorCount = manager.getAllTasks().filter((t) => t.status === "error" || t.status === "timeout").length;
     const statusIcon = (s) => {
       switch (s) {
         case "running":
@@ -14437,47 +14402,31 @@ Use \`delegate_task({ ..., background: true })\` to spawn background tasks.`;
     };
     const rows = tasks.map((t) => {
       const elapsed = Math.floor((Date.now() - t.startedAt.getTime()) / 1e3);
-      const desc = t.description.length > 25 ? t.description.slice(0, 22) + "..." : t.description;
-      return `| \`${t.id}\` | ${statusIcon(t.status)} ${t.status} | ${t.agent} | ${desc} | ${elapsed}s |`;
+      return `| \`${t.id}\` | ${statusIcon(t.status)} ${t.status} | ${t.agent} | ${elapsed}s |`;
     }).join("\n");
-    return `\u{1F4CB} **Background Tasks** (${tasks.length} shown)
-\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501
-| \u23F3 Running: ${runningCount} | \u2705 Completed: ${completedCount} | \u274C Error: ${errorCount} |
-\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501
+    return `\u{1F4CB} **Background Tasks**
 
-| Task ID | Status | Agent | Description | Elapsed |
-|---------|--------|-------|-------------|---------|
-${rows}
-
-\u{1F4A1} Use \`get_task_result({ taskId: "task_xxx" })\` to get results.
-\u{1F6D1} Use \`cancel_task({ taskId: "task_xxx" })\` to stop a running task.`;
+| Task ID | Status | Agent | Elapsed |
+|---------|--------|-------|---------|
+${rows}`;
   }
 });
 var createCancelTaskTool = (manager) => tool({
-  description: `Cancel a running background task.
-
-<purpose>
-Stop a runaway or no-longer-needed task.
-Frees up concurrency slot for other tasks.
-</purpose>`,
+  description: `Cancel a running background task.`,
   args: {
-    taskId: tool.schema.string().describe("Task ID to cancel (e.g., 'task_a1b2c3d4')")
+    taskId: tool.schema.string().describe("Task ID to cancel")
   },
   async execute(args) {
     const { taskId } = args;
     const cancelled = await manager.cancelTask(taskId);
     if (cancelled) {
-      return `\u{1F6D1} **Task Cancelled**
-
-Task \`${taskId}\` has been stopped. Concurrency slot released.`;
+      return `\u{1F6D1} **Task Cancelled**: \`${taskId}\``;
     }
     const task = manager.getTask(taskId);
     if (task) {
-      return `\u26A0\uFE0F Cannot cancel: Task \`${taskId}\` is ${task.status} (not running).`;
+      return `\u26A0\uFE0F Cannot cancel: Task is ${task.status}`;
     }
-    return `\u274C Task \`${taskId}\` not found.
-
-Use \`list_tasks\` to see available tasks.`;
+    return `\u274C Task not found: \`${taskId}\``;
   }
 });
 function createAsyncAgentTools(manager, client) {
