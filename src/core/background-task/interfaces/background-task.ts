@@ -1,10 +1,8 @@
 /**
- * Background Task Types
+ * BackgroundTask - Represents a shell command running in background
  */
-
 import { ChildProcess } from "child_process";
-
-export type BackgroundTaskStatus = "pending" | "running" | "done" | "error" | "timeout";
+import { BackgroundTaskStatus } from "../types/background-task-status.js";
 
 export interface BackgroundTask {
     id: string;
@@ -20,11 +18,4 @@ export interface BackgroundTask {
     endTime?: number;
     timeout: number;
     process?: ChildProcess;
-}
-
-export interface RunBackgroundOptions {
-    command: string;
-    cwd?: string;
-    timeout?: number;
-    label?: string;
 }

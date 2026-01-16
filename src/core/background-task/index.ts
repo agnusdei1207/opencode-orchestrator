@@ -2,5 +2,11 @@
  * Background Task Module
  */
 
-export * from "./types.js";
+// Types
+export * from "./types/index.js";
+
+// Interfaces
+export * from "./interfaces/index.js";
+
+// Manager
 export { backgroundTaskManager } from "./manager.js";
