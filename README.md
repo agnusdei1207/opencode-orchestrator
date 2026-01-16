@@ -44,8 +44,11 @@ Restart OpenCode after installation.
 Press `Tab` in OpenCode → Select **Commander** → Type your mission!
 
 <div align="center">
-  <img src="assets/image.png" alt="Commander on Windows" width="500" />
-  <p><em>Commander agent selected in OpenCode (Windows)</em></p>
+  <img src="assets/tui_image.png" alt="Commander TUI" width="600" />
+  <p><sub><b>Commander</b> agent selection interface in OpenCode (TUI)</sub></p>
+
+  <br/> <img src="assets/window_image.png" alt="Commander Windows" width="600" />
+  <p><sub>Execution of <b>Commander</b> agent on Windows environment</sub></p>
 </div>
 
 ```
