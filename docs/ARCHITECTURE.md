@@ -158,6 +158,7 @@ Orchestrator supports **parallel agent execution** through session-based spawnin
 
 ## Background Command Execution
 
+
 For long-running shell commands (builds, tests, linting), use the background task tools.
 
 ### Background Task Tools
