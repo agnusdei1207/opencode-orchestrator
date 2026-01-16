@@ -274,13 +274,13 @@ export class ParallelAgentManager {
             await this.client.session.delete({
                 path: { id: task.sessionID },
             });
-            console.log(`[parallel] 🗑️ Session ${task.sessionID.slice(0, 8)}... deleted`);
+            log(`[parallel] 🗑️ Session ${task.sessionID.slice(0, 8)}... deleted`);
         } catch {
-            console.log(`[parallel] 🗑️ Session ${task.sessionID.slice(0, 8)}... already gone`);
+            log(`[parallel] 🗑️ Session ${task.sessionID.slice(0, 8)}... already gone`);
         }
 
         this.scheduleCleanup(taskId);
-        console.log(`[parallel] 🛑 CANCELLED ${taskId}`);
+        log(`[parallel] 🛑 CANCELLED ${taskId}`);
         log(`Cancelled ${taskId}`);
         return true;
     }
@@ -456,7 +456,7 @@ export class ParallelAgentManager {
                     this.scheduleCleanup(task.id);
 
                     const duration = this.formatDuration(task.startedAt, task.completedAt);
-                    console.log(`[parallel] ✅ COMPLETED ${task.id} → ${task.agent}: ${task.description} (${duration})`);
+                    log(`[parallel] ✅ COMPLETED ${task.id} → ${task.agent}: ${task.description} (${duration})`);
                     log(`Completed ${task.id}`);
                 }
             }
@@ -521,16 +521,16 @@ export class ParallelAgentManager {
                     }
 
                     this.untrackPending(task.parentSessionID, taskId);
-                    console.log(`[parallel] ⏱️ TIMEOUT ${taskId} → ${task.agent}: ${task.description}`);
+                    log(`[parallel] ⏱️ TIMEOUT ${taskId} → ${task.agent}: ${task.description}`);
                 }
 
                 // Delete session from OpenCode
                 this.client.session.delete({
                     path: { id: task.sessionID },
                 }).then(() => {
-                    console.log(`[parallel] 🗑️ CLEANED ${taskId} (timeout session deleted)`);
+                    log(`[parallel] 🗑️ CLEANED ${taskId} (timeout session deleted)`);
                 }).catch(() => {
-                    console.log(`[parallel] 🗑️ CLEANED ${taskId} (timeout session already gone)`);
+                    log(`[parallel] 🗑️ CLEANED ${taskId} (timeout session already gone)`);
                 });
 
                 // Remove immediately on timeout
@@ -557,10 +557,10 @@ export class ParallelAgentManager {
                     await this.client.session.delete({
                         path: { id: sessionID },
                     });
-                    console.log(`[parallel] 🗑️ CLEANED ${taskId} (session deleted)`);
+                    log(`[parallel] 🗑️ CLEANED ${taskId} (session deleted)`);
                     log(`Deleted session ${sessionID}`);
                 } catch {
-                    console.log(`[parallel] 🗑️ CLEANED ${taskId} (session already gone)`);
+                    log(`[parallel] 🗑️ CLEANED ${taskId} (session already gone)`);
                 }
             }
 
