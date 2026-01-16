@@ -13622,15 +13622,44 @@ var ConcurrencyController = class {
   counts = /* @__PURE__ */ new Map();
   queues = /* @__PURE__ */ new Map();
   limits = /* @__PURE__ */ new Map();
+  config;
+  constructor(config2) {
+    this.config = config2 ?? {};
+  }
   setLimit(key, limit) {
     this.limits.set(key, limit);
   }
+  /**
+   * Get concurrency limit for a key.
+   * Priority: explicit limit > model > provider > agent > default
+   */
+  getConcurrencyLimit(key) {
+    const explicitLimit = this.limits.get(key);
+    if (explicitLimit !== void 0) {
+      return explicitLimit === 0 ? Infinity : explicitLimit;
+    }
+    if (this.config.modelConcurrency?.[key] !== void 0) {
+      const limit = this.config.modelConcurrency[key];
+      return limit === 0 ? Infinity : limit;
+    }
+    const provider = key.split("/")[0];
+    if (this.config.providerConcurrency?.[provider] !== void 0) {
+      const limit = this.config.providerConcurrency[provider];
+      return limit === 0 ? Infinity : limit;
+    }
+    if (this.config.agentConcurrency?.[key] !== void 0) {
+      const limit = this.config.agentConcurrency[key];
+      return limit === 0 ? Infinity : limit;
+    }
+    return this.config.defaultConcurrency ?? PARALLEL_TASK.DEFAULT_CONCURRENCY;
+  }
+  // Backwards compatible alias
   getLimit(key) {
-    return this.limits.get(key) ?? PARALLEL_TASK.DEFAULT_CONCURRENCY;
+    return this.getConcurrencyLimit(key);
   }
   async acquire(key) {
-    const limit = this.getLimit(key);
-    if (limit === 0) return;
+    const limit = this.getConcurrencyLimit(key);
+    if (limit === Infinity) return;
     const current = this.counts.get(key) ?? 0;
     if (current < limit) {
       this.counts.set(key, current + 1);
@@ -13645,8 +13674,8 @@ var ConcurrencyController = class {
     });
   }
   release(key) {
-    const limit = this.getLimit(key);
-    if (limit === 0) return;
+    const limit = this.getConcurrencyLimit(key);
+    if (limit === Infinity) return;
     const queue = this.queues.get(key);
     if (queue && queue.length > 0) {
       const next = queue.shift();
@@ -13662,6 +13691,18 @@ var ConcurrencyController = class {
   }
   getQueueLength(key) {
     return this.queues.get(key)?.length ?? 0;
+  }
+  getActiveCount(key) {
+    return this.counts.get(key) ?? 0;
+  }
+  /**
+   * Get formatted concurrency info string (e.g., "2/5 slots")
+   */
+  getConcurrencyInfo(key) {
+    const active = this.getActiveCount(key);
+    const limit = this.getConcurrencyLimit(key);
+    if (limit === Infinity) return "";
+    return ` (${active}/${limit} slots)`;
   }
 };
 
@@ -14018,23 +14059,85 @@ var ParallelAgentManager = class _ParallelAgentManager {
       const statusResult = await this.client.session.status();
       const allStatuses = statusResult.data ?? {};
       for (const task of running) {
-        const status = allStatuses[task.sessionID];
-        if (status?.type !== "idle") continue;
-        const elapsed = Date.now() - task.startedAt.getTime();
-        if (elapsed < CONFIG.MIN_STABILITY_MS) continue;
-        if (!await this.validateSessionHasOutput(task.sessionID)) continue;
-        task.status = "completed";
-        task.completedAt = /* @__PURE__ */ new Date();
-        if (task.concurrencyKey) this.concurrency.release(task.concurrencyKey);
-        this.store.untrackPending(task.parentSessionID, task.id);
-        this.store.queueNotification(task);
-        this.notifyParentIfAllComplete(task.parentSessionID);
-        this.scheduleCleanup(task.id);
-        log2(`Completed ${task.id} (${formatDuration(task.startedAt, task.completedAt)})`);
+        try {
+          const sessionStatus = allStatuses[task.sessionID];
+          if (sessionStatus?.type === "idle") {
+            const elapsed2 = Date.now() - task.startedAt.getTime();
+            if (elapsed2 < CONFIG.MIN_STABILITY_MS) continue;
+            if (!await this.validateSessionHasOutput(task.sessionID)) continue;
+            await this.completeTask(task);
+            continue;
+          }
+          await this.updateTaskProgress(task);
+          const elapsed = Date.now() - task.startedAt.getTime();
+          if (elapsed >= CONFIG.MIN_STABILITY_MS && task.stablePolls && task.stablePolls >= 3) {
+            if (await this.validateSessionHasOutput(task.sessionID)) {
+              log2(`Task ${task.id} stable for 3 polls, completing...`);
+              await this.completeTask(task);
+            }
+          }
+        } catch (error45) {
+          log2(`Poll error for task ${task.id}:`, error45);
+        }
       }
     } catch (error45) {
       log2("Polling error:", error45);
     }
+  }
+  /**
+   * Update task progress and stability tracking
+   */
+  async updateTaskProgress(task) {
+    try {
+      const result = await this.client.session.messages({ path: { id: task.sessionID } });
+      if (result.error) return;
+      const messages = result.data ?? [];
+      const assistantMsgs = messages.filter((m) => m.info?.role === "assistant");
+      let toolCalls = 0;
+      let lastTool;
+      let lastMessage;
+      for (const msg of assistantMsgs) {
+        for (const part of msg.parts ?? []) {
+          if (part.type === "tool_use" || part.tool) {
+            toolCalls++;
+            lastTool = part.tool || part.name;
+          }
+          if (part.type === "text" && part.text) {
+            lastMessage = part.text;
+          }
+        }
+      }
+      task.progress = {
+        toolCalls,
+        lastTool,
+        lastMessage: lastMessage?.slice(0, 100),
+        lastUpdate: /* @__PURE__ */ new Date()
+      };
+      const currentMsgCount = messages.length;
+      if (task.lastMsgCount === currentMsgCount) {
+        task.stablePolls = (task.stablePolls ?? 0) + 1;
+      } else {
+        task.stablePolls = 0;
+      }
+      task.lastMsgCount = currentMsgCount;
+    } catch {
+    }
+  }
+  /**
+   * Complete a task and cleanup
+   */
+  async completeTask(task) {
+    task.status = "completed";
+    task.completedAt = /* @__PURE__ */ new Date();
+    if (task.concurrencyKey) {
+      this.concurrency.release(task.concurrencyKey);
+      task.concurrencyKey = void 0;
+    }
+    this.store.untrackPending(task.parentSessionID, task.id);
+    this.store.queueNotification(task);
+    await this.notifyParentIfAllComplete(task.parentSessionID);
+    this.scheduleCleanup(task.id);
+    log2(`Completed ${task.id} (${formatDuration(task.startedAt, task.completedAt)})`);
   }
   async validateSessionHasOutput(sessionID) {
     try {

@@ -321,27 +321,109 @@ export class ParallelAgentManager {
             const allStatuses = (statusResult.data ?? {}) as Record<string, { type: string }>;
 
             for (const task of running) {
-                const status = allStatuses[task.sessionID];
-                if (status?.type !== "idle") continue;
+                try {
+                    const sessionStatus = allStatuses[task.sessionID];
 
-                const elapsed = Date.now() - task.startedAt.getTime();
-                if (elapsed < CONFIG.MIN_STABILITY_MS) continue;
-                if (!(await this.validateSessionHasOutput(task.sessionID))) continue;
+                    // If session is idle, try to complete
+                    if (sessionStatus?.type === "idle") {
+                        const elapsed = Date.now() - task.startedAt.getTime();
+                        if (elapsed < CONFIG.MIN_STABILITY_MS) continue;
+                        if (!(await this.validateSessionHasOutput(task.sessionID))) continue;
 
-                task.status = "completed";
-                task.completedAt = new Date();
+                        await this.completeTask(task);
+                        continue;
+                    }
 
-                if (task.concurrencyKey) this.concurrency.release(task.concurrencyKey);
-                this.store.untrackPending(task.parentSessionID, task.id);
-                this.store.queueNotification(task);
-                this.notifyParentIfAllComplete(task.parentSessionID);
-                this.scheduleCleanup(task.id);
+                    // Update progress tracking
+                    await this.updateTaskProgress(task);
 
-                log(`Completed ${task.id} (${formatDuration(task.startedAt, task.completedAt)})`);
+                    // Stability detection: complete when message count stable for 3 polls
+                    const elapsed = Date.now() - task.startedAt.getTime();
+                    if (elapsed >= CONFIG.MIN_STABILITY_MS && task.stablePolls && task.stablePolls >= 3) {
+                        if (await this.validateSessionHasOutput(task.sessionID)) {
+                            log(`Task ${task.id} stable for 3 polls, completing...`);
+                            await this.completeTask(task);
+                        }
+                    }
+                } catch (error) {
+                    log(`Poll error for task ${task.id}:`, error);
+                }
             }
         } catch (error) {
             log("Polling error:", error);
         }
+    }
+
+    /**
+     * Update task progress and stability tracking
+     */
+    private async updateTaskProgress(task: ParallelTask): Promise<void> {
+        try {
+            const result = await this.client.session.messages({ path: { id: task.sessionID } });
+            if (result.error) return;
+
+            const messages = (result.data ?? []) as Array<{
+                info?: { role?: string };
+                parts?: Array<{ type?: string; tool?: string; name?: string; text?: string }>;
+            }>;
+
+            const assistantMsgs = messages.filter(m => m.info?.role === "assistant");
+            let toolCalls = 0;
+            let lastTool: string | undefined;
+            let lastMessage: string | undefined;
+
+            for (const msg of assistantMsgs) {
+                for (const part of msg.parts ?? []) {
+                    if (part.type === "tool_use" || part.tool) {
+                        toolCalls++;
+                        lastTool = part.tool || part.name;
+                    }
+                    if (part.type === "text" && part.text) {
+                        lastMessage = part.text;
+                    }
+                }
+            }
+
+            // Update progress
+            task.progress = {
+                toolCalls,
+                lastTool,
+                lastMessage: lastMessage?.slice(0, 100),
+                lastUpdate: new Date(),
+            };
+
+            // Stability detection
+            const currentMsgCount = messages.length;
+            if (task.lastMsgCount === currentMsgCount) {
+                task.stablePolls = (task.stablePolls ?? 0) + 1;
+            } else {
+                task.stablePolls = 0;
+            }
+            task.lastMsgCount = currentMsgCount;
+
+        } catch {
+            // Ignore errors in progress tracking
+        }
+    }
+
+    /**
+     * Complete a task and cleanup
+     */
+    private async completeTask(task: ParallelTask): Promise<void> {
+        task.status = "completed";
+        task.completedAt = new Date();
+
+        if (task.concurrencyKey) {
+            this.concurrency.release(task.concurrencyKey);
+            task.concurrencyKey = undefined;
+        }
+
+        this.store.untrackPending(task.parentSessionID, task.id);
+        this.store.queueNotification(task);
+        await this.notifyParentIfAllComplete(task.parentSessionID);
+        this.scheduleCleanup(task.id);
+
+        log(`Completed ${task.id} (${formatDuration(task.startedAt, task.completedAt)})`);
     }
 
     private async validateSessionHasOutput(sessionID: string): Promise<boolean> {

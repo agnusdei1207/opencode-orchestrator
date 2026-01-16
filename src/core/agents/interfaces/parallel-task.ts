@@ -3,6 +3,13 @@
  */
 import { ParallelTaskStatus } from "../types/parallel-task-status.js";
 
+export interface TaskProgress {
+    toolCalls: number;
+    lastTool?: string;
+    lastMessage?: string;
+    lastUpdate: Date;
+}
+
 export interface ParallelTask {
     id: string;
     sessionID: string;
@@ -15,4 +22,12 @@ export interface ParallelTask {
     error?: string;
     result?: string;
     concurrencyKey?: string;
+
+    // Stability detection
+    lastMsgCount?: number;
+    stablePolls?: number;
+
+    // Progress tracking
+    progress?: TaskProgress;
 }
+
