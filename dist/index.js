@@ -16495,8 +16495,10 @@ var OrchestratorPlugin = async (input) => {
           color: "#45B7D1"
         }
       };
-      config2.command = { ...orchestratorCommands, ...existingCommands };
-      config2.agent = { ...orchestratorAgents, ...existingAgents };
+      config2.command = { ...existingCommands, ...orchestratorCommands };
+      config2.agent = { ...existingAgents, ...orchestratorAgents };
+      console.log(`[orchestrator] Registered agents: ${Object.keys(orchestratorAgents).join(", ")}`);
+      console.log(`[orchestrator] Commander prompt length: ${(AGENTS.commander.systemPrompt || "").length}`);
     },
     // -----------------------------------------------------------------
     // chat.message hook - runs when user sends a message
