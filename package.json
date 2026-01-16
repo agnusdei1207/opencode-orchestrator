@@ -44,7 +44,7 @@
     "test:coverage": "vitest run --coverage",
     "test:unit": "vitest run tests/unit --reporter=verbose",
     "test:e2e": "vitest run tests/e2e --reporter=verbose",
-    "test:all": "vitest run --reporter=verbose && echo '✅ ALL TESTS PASSED'",
+    "test:all": "vitest run --reporter=verbose && echo '=== ALL TESTS PASSED ==='",
     "postinstall": "node dist/scripts/postinstall.js",
     "preuninstall": "node dist/scripts/preuninstall.js",
     "prepublishOnly": "npm run build",
