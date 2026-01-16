@@ -2,4 +2,4 @@
  * Parallel Module Types Index
  */
 
-export { ParallelTaskStatus } from "./parallel-task-status.js";
+export type { ParallelTaskStatus } from "./parallel-task-status.type.js";

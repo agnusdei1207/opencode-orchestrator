@@ -1,21 +1,16 @@
 /**
- * ParallelTask - Represents a task running in a parallel session
+ * ParallelTask Interface - Represents a task running in a parallel session
  */
-import { ParallelTaskStatus } from "../types/parallel-task-status.js";
 
-export interface TaskProgress {
-    toolCalls: number;
-    lastTool?: string;
-    lastMessage?: string;
-    lastUpdate: Date;
-}
+import type { ParallelTaskStatus } from "../types/parallel-task-status.type.js";
+import type { TaskProgress } from "./task-progress.interface.js";
 
 export interface ParallelTask {
     id: string;
     sessionID: string;
     parentSessionID: string;
     description: string;
-    prompt: string;  // Store original prompt for resume context
+    prompt: string;
     agent: string;
     status: ParallelTaskStatus;
     startedAt: Date;
@@ -31,5 +26,3 @@ export interface ParallelTask {
     // Progress tracking
     progress?: TaskProgress;
 }
-
-

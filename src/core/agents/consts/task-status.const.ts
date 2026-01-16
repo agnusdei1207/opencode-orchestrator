@@ -1,5 +1,5 @@
 /**
- * ParallelTaskStatus - Task status union type
+ * TASK_STATUS - Task status constants
  */
 
 export const TASK_STATUS = {
@@ -11,5 +11,3 @@ export const TASK_STATUS = {
     TIMEOUT: "timeout",
     CANCELLED: "cancelled",
 } as const;
-
-export type ParallelTaskStatus = typeof TASK_STATUS[keyof typeof TASK_STATUS];

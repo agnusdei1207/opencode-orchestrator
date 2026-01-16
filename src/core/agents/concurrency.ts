@@ -8,18 +8,15 @@
  */
 
 import { PARALLEL_TASK } from "../../shared/constants.js";
+import type { ConcurrencyConfig } from "./interfaces/concurrency-config.interface.js";
+
+// Re-export interface
+export type { ConcurrencyConfig } from "./interfaces/concurrency-config.interface.js";
 
 const DEBUG = process.env.DEBUG_PARALLEL_AGENT === "true";
 const log = (...args: unknown[]) => {
     if (DEBUG) console.log("[concurrency]", ...args);
 };
-
-export interface ConcurrencyConfig {
-    defaultConcurrency?: number;
-    agentConcurrency?: Record<string, number>;
-    providerConcurrency?: Record<string, number>;
-    modelConcurrency?: Record<string, number>;
-}
 
 export class ConcurrencyController {
     private counts: Map<string, number> = new Map();

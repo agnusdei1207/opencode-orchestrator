@@ -3,6 +3,7 @@
  */
 
 import type { PluginInput } from "@opencode-ai/plugin";
+import { TASK_STATUS } from "../../../shared/constants.js";
 import { TaskStore } from "../task-store.js";
 import { ConcurrencyController } from "../concurrency.js";
 import { CONFIG } from "../config.js";
@@ -25,8 +26,8 @@ export class TaskCleaner {
             if (age <= CONFIG.TASK_TTL_MS) continue;
 
             log(`Timeout: ${taskId}`);
-            if (task.status === "running") {
-                task.status = "timeout";
+            if (task.status === TASK_STATUS.RUNNING) {
+                task.status = TASK_STATUS.TIMEOUT;
                 task.error = "Task exceeded 30 minute time limit";
                 task.completedAt = new Date();
                 if (task.concurrencyKey) this.concurrency.release(task.concurrencyKey);

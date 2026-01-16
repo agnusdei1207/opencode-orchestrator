@@ -8,7 +8,7 @@ import { ConcurrencyController } from "../concurrency.js";
 import { CONFIG } from "../config.js";
 import { log } from "../logger.js";
 import { formatDuration } from "../format.js";
-import type { ParallelTask } from "../interfaces/parallel-task.js";
+import type { ParallelTask } from "../interfaces/parallel-task.interface.js";
 
 type OpencodeClient = PluginInput["client"];
 

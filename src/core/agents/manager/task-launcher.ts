@@ -3,11 +3,11 @@
  */
 
 import type { PluginInput } from "@opencode-ai/plugin";
-import { ID_PREFIX } from "../../../shared/constants.js";
+import { ID_PREFIX, TASK_STATUS } from "../../../shared/constants.js";
 import { ConcurrencyController } from "../concurrency.js";
 import { TaskStore } from "../task-store.js";
 import { log } from "../logger.js";
-import type { ParallelTask } from "../interfaces/parallel-task.js";
+import type { ParallelTask } from "../interfaces/parallel-task.interface.js";
 import type { LaunchInput } from "../interfaces/launch-input.interface.js";
 
 type OpencodeClient = PluginInput["client"];
@@ -47,7 +47,7 @@ export class TaskLauncher {
                 description: input.description,
                 prompt: input.prompt,
                 agent: input.agent,
-                status: "running",
+                status: TASK_STATUS.RUNNING,
                 startedAt: new Date(),
                 concurrencyKey,
             };

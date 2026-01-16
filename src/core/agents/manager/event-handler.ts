@@ -3,12 +3,13 @@
  */
 
 import type { PluginInput } from "@opencode-ai/plugin";
+import { TASK_STATUS } from "../../../shared/constants.js";
 import { TaskStore } from "../task-store.js";
 import { ConcurrencyController } from "../concurrency.js";
 import { CONFIG } from "../config.js";
 import { log } from "../logger.js";
 import { formatDuration } from "../format.js";
-import type { ParallelTask } from "../interfaces/parallel-task.js";
+import type { ParallelTask } from "../interfaces/parallel-task.interface.js";
 import { SESSION_EVENTS } from "../../bus/index.js";
 
 type OpencodeClient = PluginInput["client"];
@@ -37,7 +38,7 @@ export class EventHandler {
             if (!sessionID) return;
 
             const task = this.findBySession(sessionID);
-            if (!task || task.status !== "running") return;
+            if (!task || task.status !== TASK_STATUS.RUNNING) return;
 
             this.handleSessionIdle(task).catch(err => {
                 log("Error handling session.idle:", err);
@@ -72,7 +73,7 @@ export class EventHandler {
         }
 
         // Mark complete
-        task.status = "completed";
+        task.status = TASK_STATUS.COMPLETED;
         task.completedAt = new Date();
 
         // Release concurrency
@@ -94,8 +95,8 @@ export class EventHandler {
         log(`Session deleted event for task ${task.id}`);
 
         // Mark as cancelled if was running
-        if (task.status === "running") {
-            task.status = "error";
+        if (task.status === TASK_STATUS.RUNNING) {
+            task.status = TASK_STATUS.ERROR;
             task.error = "Session deleted";
             task.completedAt = new Date();
         }
