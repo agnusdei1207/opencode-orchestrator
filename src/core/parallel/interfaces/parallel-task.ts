@@ -1,8 +1,7 @@
 /**
- * Parallel Task Types
+ * ParallelTask - Represents a task running in a parallel session
  */
-
-export type ParallelTaskStatus = "pending" | "running" | "completed" | "error" | "timeout";
+import { ParallelTaskStatus } from "../types/parallel-task-status.js";
 
 export interface ParallelTask {
     id: string;
@@ -16,11 +15,4 @@ export interface ParallelTask {
     error?: string;
     result?: string;
     concurrencyKey?: string;
-}
-
-export interface LaunchInput {
-    description: string;
-    prompt: string;
-    agent: string;
-    parentSessionID: string;
 }
