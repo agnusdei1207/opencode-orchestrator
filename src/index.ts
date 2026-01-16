@@ -15,7 +15,7 @@ import { createRequire } from "node:module";
 const require = createRequire(import.meta.url);
 const { version: PLUGIN_VERSION } = require("../package.json");
 
-import type { PluginInput } from "@opencode-ai/plugin";
+import type { Plugin } from "@opencode-ai/plugin";
 import { AGENTS } from "./agents/definitions.js";
 import { TaskGraph, type Task } from "./core/orchestrator/index.js";
 import { state } from "./core/orchestrator/index.js";
@@ -91,7 +91,7 @@ Then output: ✅ MISSION COMPLETE
 // Plugin Definition
 // ============================================================================
 
-const OrchestratorPlugin = async (input: PluginInput) => {
+const OrchestratorPlugin: Plugin = async (input) => {
     const { directory, client } = input;
 
     // Log version on startup
@@ -551,8 +551,11 @@ const OrchestratorPlugin = async (input: PluginInput) => {
 
         // -----------------------------------------------------------------
         // Event handler - cleans up when sessions are deleted
+        // Uses 'event' hook (not 'handler') to match oh-my-opencode pattern
         // -----------------------------------------------------------------
-        handler: async ({ event }: { event: { type: string; properties?: unknown } }) => {
+        event: async (input: { event: { type: string; properties?: unknown } }) => {
+            const { event } = input;
+
             // Pass events to ParallelAgentManager for resource cleanup
             try {
                 const manager = ParallelAgentManager.getInstance();
@@ -576,8 +579,7 @@ const OrchestratorPlugin = async (input: PluginInput) => {
     };
 };
 
-// Named export as per OpenCode plugin documentation
-export { OrchestratorPlugin };
-
-// Also keep default export for backwards compatibility
+// NOTE: Do NOT export functions from main index.ts!
+// OpenCode treats ALL exports as plugin instances and calls them.
+// Only default export the plugin.
 export default OrchestratorPlugin;

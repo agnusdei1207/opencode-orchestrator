@@ -16762,8 +16762,10 @@ ${stateSession.graph.getTaskSummary()}`;
     },
     // -----------------------------------------------------------------
     // Event handler - cleans up when sessions are deleted
+    // Uses 'event' hook (not 'handler') to match oh-my-opencode pattern
     // -----------------------------------------------------------------
-    handler: async ({ event }) => {
+    event: async (input2) => {
+      const { event } = input2;
       try {
         const manager = ParallelAgentManager.getInstance();
         manager.handleEvent(event);
@@ -16783,6 +16785,5 @@ ${stateSession.graph.getTaskSummary()}`;
 };
 var index_default = OrchestratorPlugin;
 export {
-  OrchestratorPlugin,
   index_default as default
 };

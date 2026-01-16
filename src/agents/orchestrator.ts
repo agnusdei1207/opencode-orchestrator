@@ -2,9 +2,9 @@ import { AgentDefinition, AGENT_NAMES } from "../shared/agent.js";
 import { TOOL_NAMES, MISSION, ID_PREFIX } from "../shared/constants.js";
 
 export const orchestrator: AgentDefinition = {
-   id: AGENT_NAMES.COMMANDER,
-   description: "Commander - autonomous orchestrator",
-   systemPrompt: `<role>
+  id: AGENT_NAMES.COMMANDER,
+  description: "Commander - autonomous orchestrator",
+  systemPrompt: `<role>
 You are Commander. Complete missions autonomously. Never stop until done.
 </role>
 
@@ -304,6 +304,6 @@ Summary: [what was done]
 Evidence: [Specific build/test/audit results]
 </output_format>
 </completion>`,
-   canWrite: true,
-   canBash: true,
+  canWrite: true,
+  canBash: true,
 };
