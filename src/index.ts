@@ -38,6 +38,7 @@ import {
 } from "./utils/sanity.js";
 import { webfetchTool, websearchTool, cacheDocsTool, codesearchTool } from "./tools/web/index.js";
 import { emit, SESSION_EVENTS, TASK_EVENTS, MISSION_EVENTS } from "./core/bus/index.js";
+import { MISSION, AGENT_EMOJI, AGENT_NAMES, TOOL_NAMES } from "./shared/constants.js";
 import * as TodoEnforcer from "./core/loop/todo-enforcer.js";
 import * as Toast from "./core/notification/toast.js";
 import * as ProgressTracker from "./core/progress/tracker.js";
@@ -54,16 +55,7 @@ const UNLIMITED_MODE = true;
 const DEFAULT_MAX_STEPS = UNLIMITED_MODE ? Infinity : 500;
 const TASK_COMMAND_MAX_STEPS = UNLIMITED_MODE ? Infinity : 1000;
 
-// Just some fun emojis to make the logs prettier
-const AGENT_EMOJI: Record<string, string> = {
-    "architect": "🏗️",
-    "builder": "🔨",
-    "inspector": "🔍",
-    "recorder": "💾",
-    "commander": "🎯",
-    "librarian": "📚",
-    "researcher": "🔬",
-};
+// AGENT_EMOJI is imported from shared/constants.js
 
 // This gets injected when the assistant finishes but mission isn't complete.
 // Now includes Todo enforcement for relentless execution
@@ -133,21 +125,21 @@ const OrchestratorPlugin = async (input: PluginInput) => {
         // Tools we expose to the LLM
         // -----------------------------------------------------------------
         tool: {
-            call_agent: callAgentTool,
-            slashcommand: createSlashcommandTool(),
-            grep_search: grepSearchTool(directory),
-            glob_search: globSearchTool(directory),
-            mgrep: mgrepTool(directory),  // Multi-pattern grep (parallel, Rust-powered)
+            [TOOL_NAMES.CALL_AGENT]: callAgentTool,
+            [TOOL_NAMES.SLASHCOMMAND]: createSlashcommandTool(),
+            [TOOL_NAMES.GREP_SEARCH]: grepSearchTool(directory),
+            [TOOL_NAMES.GLOB_SEARCH]: globSearchTool(directory),
+            [TOOL_NAMES.MGREP]: mgrepTool(directory),  // Multi-pattern grep (parallel, Rust-powered)
             // Background task tools - run shell commands asynchronously
-            run_background: runBackgroundTool,
-            check_background: checkBackgroundTool,
-            list_background: listBackgroundTool,
-            kill_background: killBackgroundTool,
+            [TOOL_NAMES.RUN_BACKGROUND]: runBackgroundTool,
+            [TOOL_NAMES.CHECK_BACKGROUND]: checkBackgroundTool,
+            [TOOL_NAMES.LIST_BACKGROUND]: listBackgroundTool,
+            [TOOL_NAMES.KILL_BACKGROUND]: killBackgroundTool,
             // Web tools - documentation research and caching
-            webfetch: webfetchTool,
-            websearch: websearchTool,
-            cache_docs: cacheDocsTool,
-            codesearch: codesearchTool,
+            [TOOL_NAMES.WEBFETCH]: webfetchTool,
+            [TOOL_NAMES.WEBSEARCH]: websearchTool,
+            [TOOL_NAMES.CACHE_DOCS]: cacheDocsTool,
+            [TOOL_NAMES.CODESEARCH]: codesearchTool,
             // Async agent tools - spawn agents in parallel sessions
             ...asyncAgentTools,
         },
@@ -171,18 +163,18 @@ const OrchestratorPlugin = async (input: PluginInput) => {
 
             // Register the Commander, Librarian, and Researcher agents
             const orchestratorAgents: Record<string, unknown> = {
-                Commander: {
-                    name: "Commander",
+                [AGENT_NAMES.COMMANDER]: {
+                    name: AGENT_NAMES.COMMANDER,
                     description: "Autonomous orchestrator - executes until mission complete",
                     systemPrompt: AGENTS.commander.systemPrompt,
                 },
-                Librarian: {
-                    name: "Librarian",
+                [AGENT_NAMES.LIBRARIAN]: {
+                    name: AGENT_NAMES.LIBRARIAN,
                     description: "Documentation research specialist - reduces hallucination",
                     systemPrompt: AGENTS.librarian?.systemPrompt || "",
                 },
-                Researcher: {
-                    name: "Researcher",
+                [AGENT_NAMES.RESEARCHER]: {
+                    name: AGENT_NAMES.RESEARCHER,
                     description: "Pre-task investigation - gathers all info before implementation",
                     systemPrompt: AGENTS.researcher?.systemPrompt || "",
                 },
@@ -209,7 +201,7 @@ const OrchestratorPlugin = async (input: PluginInput) => {
 
             // If someone picks the Commander agent, auto-start a mission
             // This makes it so users don't need to type /task every time
-            if (agentName === "commander" && !sessions.has(sessionID)) {
+            if (agentName === AGENT_NAMES.COMMANDER && !sessions.has(sessionID)) {
                 const now = Date.now();
                 sessions.set(sessionID, {
                     active: true,
@@ -234,7 +226,7 @@ const OrchestratorPlugin = async (input: PluginInput) => {
                 // Emit session started event
                 emit(TASK_EVENTS.STARTED, {
                     taskId: sessionID,
-                    agent: "commander",
+                    agent: AGENT_NAMES.COMMANDER,
                     description: "Mission started",
                 });
 
@@ -276,7 +268,7 @@ const OrchestratorPlugin = async (input: PluginInput) => {
                 // Emit task started event
                 emit(TASK_EVENTS.STARTED, {
                     taskId: sessionID,
-                    agent: "commander",
+                    agent: AGENT_NAMES.COMMANDER,
                     description: parsed.args || "task command",
                 });
 
@@ -502,7 +494,7 @@ const OrchestratorPlugin = async (input: PluginInput) => {
             // COMPLETION CHECK
             // If we see the magic words, we're done!
             // =========================================================
-            if (textContent.includes("✅ MISSION COMPLETE") || textContent.includes("MISSION COMPLETE")) {
+            if (textContent.includes(MISSION.COMPLETE) || textContent.includes(MISSION.COMPLETE_TEXT)) {
                 session.active = false;
                 state.missionActive = false;
 
@@ -521,7 +513,7 @@ const OrchestratorPlugin = async (input: PluginInput) => {
             }
 
             // Let users bail out manually if needed
-            if (textContent.includes("/stop") || textContent.includes("/cancel")) {
+            if (textContent.includes(MISSION.STOP_COMMAND) || textContent.includes(MISSION.CANCEL_COMMAND)) {
                 session.active = false;
                 state.missionActive = false;
 

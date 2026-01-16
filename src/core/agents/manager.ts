@@ -10,11 +10,12 @@
  */
 
 import type { PluginInput } from "@opencode-ai/plugin";
+import { TASK_STATUS } from "../../shared/constants.js";
 import { ConcurrencyController } from "./concurrency.js";
 import { TaskStore } from "./task-store.js";
 import { log } from "./logger.js";
 import { formatDuration } from "./format.js";
-import type { ParallelTask } from "./interfaces/parallel-task.js";
+import type { ParallelTask } from "./interfaces/parallel-task.interface.js";
 import type { LaunchInput } from "./interfaces/launch-input.interface.js";
 import type { ResumeInput } from "./interfaces/resume-input.interface.js";
 
@@ -135,9 +136,9 @@ export class ParallelAgentManager {
 
     async cancelTask(taskId: string): Promise<boolean> {
         const task = this.store.get(taskId);
-        if (!task || task.status !== "running") return false;
+        if (!task || task.status !== TASK_STATUS.RUNNING) return false;
 
-        task.status = "error";
+        task.status = TASK_STATUS.ERROR;
         task.error = "Cancelled by user";
         task.completedAt = new Date();
 
@@ -160,8 +161,8 @@ export class ParallelAgentManager {
         const task = this.store.get(taskId);
         if (!task) return null;
         if (task.result) return task.result;
-        if (task.status === "error") return `Error: ${task.error}`;
-        if (task.status === "running") return null;
+        if (task.status === TASK_STATUS.ERROR) return `Error: ${task.error}`;
+        if (task.status === TASK_STATUS.RUNNING) return null;
 
         try {
             const result = await this.client.session.messages({ path: { id: task.sessionID } });

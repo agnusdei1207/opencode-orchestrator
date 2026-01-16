@@ -3,9 +3,10 @@
  */
 
 import type { PluginInput } from "@opencode-ai/plugin";
+import { TASK_STATUS } from "../../../shared/constants.js";
 import { TaskStore } from "../task-store.js";
 import { log } from "../logger.js";
-import type { ParallelTask } from "../interfaces/parallel-task.js";
+import type { ParallelTask } from "../interfaces/parallel-task.interface.js";
 import type { ResumeInput } from "../interfaces/resume-input.interface.js";
 
 type OpencodeClient = PluginInput["client"];
@@ -27,7 +28,7 @@ export class TaskResumer {
         }
 
         // Reset task state for new execution
-        existingTask.status = "running";
+        existingTask.status = TASK_STATUS.RUNNING;
         existingTask.completedAt = undefined;
         existingTask.error = undefined;
         existingTask.result = undefined;
@@ -50,7 +51,7 @@ export class TaskResumer {
             },
         }).catch((error) => {
             log(`Resume prompt error for ${existingTask.id}:`, error);
-            existingTask.status = "error";
+            existingTask.status = TASK_STATUS.ERROR;
             existingTask.error = error instanceof Error ? error.message : String(error);
             existingTask.completedAt = new Date();
             this.store.untrackPending(input.parentSessionID, existingTask.id);

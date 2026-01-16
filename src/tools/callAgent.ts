@@ -1,14 +1,6 @@
 import { tool } from "@opencode-ai/plugin";
 import { AGENTS } from "../agents/definitions.js";
-import { AGENT_NAMES } from "../shared/agent.js";
-
-// Agent emoji indicators
-const AGENT_EMOJI: Record<string, string> = {
-    [AGENT_NAMES.ARCHITECT]: "🏗️",
-    [AGENT_NAMES.BUILDER]: "🔨",
-    [AGENT_NAMES.INSPECTOR]: "🔍",
-    [AGENT_NAMES.RECORDER]: "💾",
-};
+import { AGENT_NAMES, AGENT_EMOJI } from "../shared/constants.js";
 
 export const callAgentTool = tool({
     description: `Call a specialized agent for parallel execution.

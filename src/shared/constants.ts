@@ -103,6 +103,47 @@ export const TOOL_NAMES = {
 } as const;
 
 // ============================================================================
+// Mission Markers - Critical completion detection strings
+// ============================================================================
+
+export const MISSION = {
+    /** Mission completion marker (with emoji) */
+    COMPLETE: "✅ MISSION COMPLETE",
+    /** Mission completion marker (text only) */
+    COMPLETE_TEXT: "MISSION COMPLETE",
+    /** Stop command */
+    STOP_COMMAND: "/stop",
+    /** Cancel command */
+    CANCEL_COMMAND: "/cancel",
+} as const;
+
+// ============================================================================
+// Slash Commands
+// ============================================================================
+
+export const SLASH_COMMANDS = {
+    TASK: "/task",
+    PLAN: "/plan",
+    STATUS: "/status",
+    STOP: "/stop",
+    CANCEL: "/cancel",
+} as const;
+
+// ============================================================================
+// Agent Emoji
+// ============================================================================
+
+export const AGENT_EMOJI: Record<string, string> = {
+    architect: "🏗️",
+    builder: "🔨",
+    inspector: "🔍",
+    recorder: "💾",
+    commander: "🎯",
+    librarian: "📚",
+    researcher: "🔬",
+} as const;
+
+// ============================================================================
 // Agent Names - Re-export from contracts for convenience
 // ============================================================================
 
@@ -112,8 +153,8 @@ export { AGENT_NAMES } from "./agent.js";
 // Task Status - Re-export from types
 // ============================================================================
 
-export { TASK_STATUS } from "../core/agents/types/parallel-task-status.js";
-export type { ParallelTaskStatus } from "../core/agents/types/parallel-task-status.js";
+export { TASK_STATUS } from "../core/agents/consts/task-status.const.js";
+export type { ParallelTaskStatus } from "../core/agents/types/parallel-task-status.type.js";
 
 // ============================================================================
 // Status Emoji

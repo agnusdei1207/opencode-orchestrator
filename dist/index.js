@@ -872,7 +872,7 @@ var AGENTS = {
   [AGENT_NAMES.RESEARCHER]: researcher
 };
 
-// src/core/agents/types/parallel-task-status.ts
+// src/core/agents/consts/task-status.const.ts
 var TASK_STATUS = {
   PENDING: "pending",
   RUNNING: "running",
@@ -931,6 +931,49 @@ var PATHS = {
 var BACKGROUND_TASK = {
   DEFAULT_TIMEOUT_MS: 5 * TIME.MINUTE,
   MAX_OUTPUT_LENGTH: 1e4
+};
+var TOOL_NAMES = {
+  // Parallel task tools
+  DELEGATE_TASK: "delegate_task",
+  GET_TASK_RESULT: "get_task_result",
+  LIST_TASKS: "list_tasks",
+  CANCEL_TASK: "cancel_task",
+  // Background command tools
+  RUN_BACKGROUND: "run_background",
+  CHECK_BACKGROUND: "check_background",
+  LIST_BACKGROUND: "list_background",
+  KILL_BACKGROUND: "kill_background",
+  // Search tools
+  GREP_SEARCH: "grep_search",
+  GLOB_SEARCH: "glob_search",
+  MGREP: "mgrep",
+  // Web tools
+  WEBFETCH: "webfetch",
+  WEBSEARCH: "websearch",
+  CODESEARCH: "codesearch",
+  CACHE_DOCS: "cache_docs",
+  // Other tools
+  CALL_AGENT: "call_agent",
+  SLASHCOMMAND: "slashcommand"
+};
+var MISSION = {
+  /** Mission completion marker (with emoji) */
+  COMPLETE: "\u2705 MISSION COMPLETE",
+  /** Mission completion marker (text only) */
+  COMPLETE_TEXT: "MISSION COMPLETE",
+  /** Stop command */
+  STOP_COMMAND: "/stop",
+  /** Cancel command */
+  CANCEL_COMMAND: "/cancel"
+};
+var AGENT_EMOJI = {
+  architect: "\u{1F3D7}\uFE0F",
+  builder: "\u{1F528}",
+  inspector: "\u{1F50D}",
+  recorder: "\u{1F4BE}",
+  commander: "\u{1F3AF}",
+  librarian: "\u{1F4DA}",
+  researcher: "\u{1F52C}"
 };
 var STATUS_EMOJI = {
   pending: "\u23F3",
@@ -13440,12 +13483,6 @@ function tool(input) {
 tool.schema = external_exports;
 
 // src/tools/callAgent.ts
-var AGENT_EMOJI = {
-  [AGENT_NAMES.ARCHITECT]: "\u{1F3D7}\uFE0F",
-  [AGENT_NAMES.BUILDER]: "\u{1F528}",
-  [AGENT_NAMES.INSPECTOR]: "\u{1F50D}",
-  [AGENT_NAMES.RECORDER]: "\u{1F4BE}"
-};
 var callAgentTool = tool({
   description: `Call a specialized agent for parallel execution.
 
@@ -14351,7 +14388,7 @@ var TaskLauncher = class {
         description: input.description,
         prompt: input.prompt,
         agent: input.agent,
-        status: "running",
+        status: TASK_STATUS.RUNNING,
         startedAt: /* @__PURE__ */ new Date(),
         concurrencyKey
       };
@@ -14388,7 +14425,7 @@ var TaskResumer = class {
     if (!existingTask) {
       throw new Error(`Task not found for session: ${input.sessionId}`);
     }
-    existingTask.status = "running";
+    existingTask.status = TASK_STATUS.RUNNING;
     existingTask.completedAt = void 0;
     existingTask.error = void 0;
     existingTask.result = void 0;
@@ -14406,7 +14443,7 @@ var TaskResumer = class {
       }
     }).catch((error45) => {
       log2(`Resume prompt error for ${existingTask.id}:`, error45);
-      existingTask.status = "error";
+      existingTask.status = TASK_STATUS.ERROR;
       existingTask.error = error45 instanceof Error ? error45.message : String(error45);
       existingTask.completedAt = /* @__PURE__ */ new Date();
       this.store.untrackPending(input.parentSessionID, existingTask.id);
@@ -14560,8 +14597,8 @@ var TaskCleaner = class {
       const age = now - task.startedAt.getTime();
       if (age <= CONFIG.TASK_TTL_MS) continue;
       log2(`Timeout: ${taskId}`);
-      if (task.status === "running") {
-        task.status = "timeout";
+      if (task.status === TASK_STATUS.RUNNING) {
+        task.status = TASK_STATUS.TIMEOUT;
         task.error = "Task exceeded 30 minute time limit";
         task.completedAt = /* @__PURE__ */ new Date();
         if (task.concurrencyKey) this.concurrency.release(task.concurrencyKey);
@@ -14799,7 +14836,7 @@ var EventHandler = class {
       const sessionID = props?.sessionID;
       if (!sessionID) return;
       const task = this.findBySession(sessionID);
-      if (!task || task.status !== "running") return;
+      if (!task || task.status !== TASK_STATUS.RUNNING) return;
       this.handleSessionIdle(task).catch((err) => {
         log2("Error handling session.idle:", err);
       });
@@ -14823,7 +14860,7 @@ var EventHandler = class {
       log2(`Session idle but no output for ${task.id}, waiting...`);
       return;
     }
-    task.status = "completed";
+    task.status = TASK_STATUS.COMPLETED;
     task.completedAt = /* @__PURE__ */ new Date();
     if (task.concurrencyKey) {
       this.concurrency.release(task.concurrencyKey);
@@ -14837,8 +14874,8 @@ var EventHandler = class {
   }
   handleSessionDeleted(task) {
     log2(`Session deleted event for task ${task.id}`);
-    if (task.status === "running") {
-      task.status = "error";
+    if (task.status === TASK_STATUS.RUNNING) {
+      task.status = TASK_STATUS.ERROR;
       task.error = "Session deleted";
       task.completedAt = /* @__PURE__ */ new Date();
     }
@@ -14936,8 +14973,8 @@ var ParallelAgentManager = class _ParallelAgentManager {
   }
   async cancelTask(taskId) {
     const task = this.store.get(taskId);
-    if (!task || task.status !== "running") return false;
-    task.status = "error";
+    if (!task || task.status !== TASK_STATUS.RUNNING) return false;
+    task.status = TASK_STATUS.ERROR;
     task.error = "Cancelled by user";
     task.completedAt = /* @__PURE__ */ new Date();
     if (task.concurrencyKey) this.concurrency.release(task.concurrencyKey);
@@ -14956,8 +14993,8 @@ var ParallelAgentManager = class _ParallelAgentManager {
     const task = this.store.get(taskId);
     if (!task) return null;
     if (task.result) return task.result;
-    if (task.status === "error") return `Error: ${task.error}`;
-    if (task.status === "running") return null;
+    if (task.status === TASK_STATUS.ERROR) return `Error: ${task.error}`;
+    if (task.status === TASK_STATUS.RUNNING) return null;
     try {
       const result = await this.client.session.messages({ path: { id: task.sessionID } });
       if (result.error) return `Error: ${result.error}`;
@@ -16345,15 +16382,6 @@ var { version: PLUGIN_VERSION } = require2("../package.json");
 var UNLIMITED_MODE = true;
 var DEFAULT_MAX_STEPS = UNLIMITED_MODE ? Infinity : 500;
 var TASK_COMMAND_MAX_STEPS = UNLIMITED_MODE ? Infinity : 1e3;
-var AGENT_EMOJI2 = {
-  "architect": "\u{1F3D7}\uFE0F",
-  "builder": "\u{1F528}",
-  "inspector": "\u{1F50D}",
-  "recorder": "\u{1F4BE}",
-  "commander": "\u{1F3AF}",
-  "librarian": "\u{1F4DA}",
-  "researcher": "\u{1F52C}"
-};
 var CONTINUE_INSTRUCTION = `<auto_continue>
 <status>Mission not complete. Keep executing.</status>
 
@@ -16394,22 +16422,22 @@ var OrchestratorPlugin = async (input) => {
     // Tools we expose to the LLM
     // -----------------------------------------------------------------
     tool: {
-      call_agent: callAgentTool,
-      slashcommand: createSlashcommandTool(),
-      grep_search: grepSearchTool(directory),
-      glob_search: globSearchTool(directory),
-      mgrep: mgrepTool(directory),
+      [TOOL_NAMES.CALL_AGENT]: callAgentTool,
+      [TOOL_NAMES.SLASHCOMMAND]: createSlashcommandTool(),
+      [TOOL_NAMES.GREP_SEARCH]: grepSearchTool(directory),
+      [TOOL_NAMES.GLOB_SEARCH]: globSearchTool(directory),
+      [TOOL_NAMES.MGREP]: mgrepTool(directory),
       // Multi-pattern grep (parallel, Rust-powered)
       // Background task tools - run shell commands asynchronously
-      run_background: runBackgroundTool,
-      check_background: checkBackgroundTool,
-      list_background: listBackgroundTool,
-      kill_background: killBackgroundTool,
+      [TOOL_NAMES.RUN_BACKGROUND]: runBackgroundTool,
+      [TOOL_NAMES.CHECK_BACKGROUND]: checkBackgroundTool,
+      [TOOL_NAMES.LIST_BACKGROUND]: listBackgroundTool,
+      [TOOL_NAMES.KILL_BACKGROUND]: killBackgroundTool,
       // Web tools - documentation research and caching
-      webfetch: webfetchTool,
-      websearch: websearchTool,
-      cache_docs: cacheDocsTool,
-      codesearch: codesearchTool,
+      [TOOL_NAMES.WEBFETCH]: webfetchTool,
+      [TOOL_NAMES.WEBSEARCH]: websearchTool,
+      [TOOL_NAMES.CACHE_DOCS]: cacheDocsTool,
+      [TOOL_NAMES.CODESEARCH]: codesearchTool,
       // Async agent tools - spawn agents in parallel sessions
       ...asyncAgentTools
     },
@@ -16428,18 +16456,18 @@ var OrchestratorPlugin = async (input) => {
         };
       }
       const orchestratorAgents = {
-        Commander: {
-          name: "Commander",
+        [AGENT_NAMES.COMMANDER]: {
+          name: AGENT_NAMES.COMMANDER,
           description: "Autonomous orchestrator - executes until mission complete",
           systemPrompt: AGENTS.commander.systemPrompt
         },
-        Librarian: {
-          name: "Librarian",
+        [AGENT_NAMES.LIBRARIAN]: {
+          name: AGENT_NAMES.LIBRARIAN,
           description: "Documentation research specialist - reduces hallucination",
           systemPrompt: AGENTS.librarian?.systemPrompt || ""
         },
-        Researcher: {
-          name: "Researcher",
+        [AGENT_NAMES.RESEARCHER]: {
+          name: AGENT_NAMES.RESEARCHER,
           description: "Pre-task investigation - gathers all info before implementation",
           systemPrompt: AGENTS.researcher?.systemPrompt || ""
         }
@@ -16459,7 +16487,7 @@ var OrchestratorPlugin = async (input) => {
       const parsed = detectSlashCommand(originalText);
       const sessionID = msgInput.sessionID;
       const agentName = (msgInput.agent || "").toLowerCase();
-      if (agentName === "commander" && !sessions.has(sessionID)) {
+      if (agentName === AGENT_NAMES.COMMANDER && !sessions.has(sessionID)) {
         const now = Date.now();
         sessions.set(sessionID, {
           active: true,
@@ -16480,7 +16508,7 @@ var OrchestratorPlugin = async (input) => {
         startSession(sessionID);
         emit(TASK_EVENTS.STARTED, {
           taskId: sessionID,
-          agent: "commander",
+          agent: AGENT_NAMES.COMMANDER,
           description: "Mission started"
         });
         if (!parsed) {
@@ -16514,7 +16542,7 @@ var OrchestratorPlugin = async (input) => {
         startSession(sessionID);
         emit(TASK_EVENTS.STARTED, {
           taskId: sessionID,
-          agent: "commander",
+          agent: AGENT_NAMES.COMMANDER,
           description: parsed.args || "task command"
         });
         parts[textPartIndex].text = COMMANDS["task"].template.replace(
@@ -16575,7 +16603,7 @@ Anomaly count: ${stateSession.anomalyCount}
           stateSession.graph?.updateTask(stateSession.currentTask, { status: "running" });
         }
         const agentName = toolInput.arguments.agent;
-        const emoji3 = AGENT_EMOJI2[agentName] || "\u{1F916}";
+        const emoji3 = AGENT_EMOJI[agentName] || "\u{1F916}";
         toolOutput.output = `${emoji3} [${agentName.toUpperCase()}] Working...
 
 ` + toolOutput.output;
@@ -16686,7 +16714,7 @@ ${stateSession.graph.getTaskSummary()}`;
       if (stateSession && stateSession.anomalyCount > 0) {
         stateSession.anomalyCount = 0;
       }
-      if (textContent.includes("\u2705 MISSION COMPLETE") || textContent.includes("MISSION COMPLETE")) {
+      if (textContent.includes(MISSION.COMPLETE) || textContent.includes(MISSION.COMPLETE_TEXT)) {
         session.active = false;
         state.missionActive = false;
         emit(MISSION_EVENTS.COMPLETE, {
@@ -16698,7 +16726,7 @@ ${stateSession.graph.getTaskSummary()}`;
         state.sessions.delete(sessionID);
         return;
       }
-      if (textContent.includes("/stop") || textContent.includes("/cancel")) {
+      if (textContent.includes(MISSION.STOP_COMMAND) || textContent.includes(MISSION.CANCEL_COMMAND)) {
         session.active = false;
         state.missionActive = false;
         emit(TASK_EVENTS.FAILED, {
