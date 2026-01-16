@@ -15,8 +15,8 @@ const PLUGIN_VERSION = "0.2.4";  // Keep in sync with package.json
 
 import type { PluginInput } from "@opencode-ai/plugin";
 import { AGENTS } from "./agents/definitions.js";
-import { TaskGraph, type Task } from "./core/tasks.js";
-import { state } from "./core/state.js";
+import { TaskGraph, type Task } from "./core/session/index.js";
+import { state } from "./core/session/index.js";
 import { callAgentTool } from "./tools/callAgent.js";
 import { createSlashcommandTool, COMMANDS } from "./tools/slashCommand.js";
 import { grepSearchTool, globSearchTool, mgrepTool } from "./tools/search.js";
@@ -26,7 +26,7 @@ import {
     listBackgroundTool,
     killBackgroundTool,
 } from "./tools/background-cmd/index.js";
-import { ParallelAgentManager } from "./core/async-agent.js";
+import { ParallelAgentManager } from "./core/parallel/index.js";
 import { createAsyncAgentTools } from "./tools/parallel/index.js";
 import { detectSlashCommand, formatTimestamp, formatElapsedTime } from "./utils/common.js";
 import {

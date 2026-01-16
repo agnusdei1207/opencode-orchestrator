@@ -3,7 +3,7 @@
  */
 
 import { tool } from "@opencode-ai/plugin";
-import { ParallelAgentManager, type ParallelTask } from "../../core/async-agent.js";
+import { ParallelAgentManager, type ParallelTask } from "../../core/parallel/index.js";
 import { getStatusEmoji } from "../../shared/constants.js";
 
 export const createListTasksTool = (manager: ParallelAgentManager) => tool({

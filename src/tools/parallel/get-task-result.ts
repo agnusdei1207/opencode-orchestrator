@@ -3,7 +3,7 @@
  */
 
 import { tool } from "@opencode-ai/plugin";
-import { ParallelAgentManager } from "../../core/async-agent.js";
+import { ParallelAgentManager } from "../../core/parallel/index.js";
 
 export const createGetTaskResultTool = (manager: ParallelAgentManager) => tool({
     description: `Get result from a completed background task.`,

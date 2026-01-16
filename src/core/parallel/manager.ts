@@ -8,10 +8,10 @@
  */
 
 import type { PluginInput } from "@opencode-ai/plugin";
-import { ID_PREFIX, PARALLEL_TASK } from "../shared/constants.js";
-import { ConcurrencyController } from "./parallel/concurrency.js";
-import type { ParallelTask } from "./parallel/interfaces/parallel-task.js";
-import type { LaunchInput } from "./parallel/interfaces/launch-input.js";
+import { ID_PREFIX, PARALLEL_TASK } from "../../shared/constants.js";
+import { ConcurrencyController } from "./concurrency.js";
+import type { ParallelTask } from "./interfaces/parallel-task.js";
+import type { LaunchInput } from "./interfaces/launch-input.js";
 
 // Re-export for external use
 export type { ParallelTask };
