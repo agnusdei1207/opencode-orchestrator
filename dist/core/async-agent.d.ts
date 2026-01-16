@@ -1,35 +1,16 @@
 /**
- * Parallel Agent Manager - Session-based async agent execution
+ * Parallel Agent Manager
  *
- * Key safety features:
- * - Concurrency control per agent type (queue-based)
- * - Batched notifications (notify when ALL complete)
- * - Automatic memory cleanup (5 min after completion)
- * - TTL enforcement (30 min timeout)
- * - Output validation before completion
- * - Process-safe polling (unref)
+ * Session-based async agent execution with:
+ * - Concurrency control per agent type
+ * - Batched notifications
+ * - Automatic cleanup
  */
 import type { PluginInput } from "@opencode-ai/plugin";
+import type { ParallelTask } from "./parallel/interfaces/parallel-task.js";
+import type { LaunchInput } from "./parallel/interfaces/launch-input.js";
+export type { ParallelTask };
 type OpencodeClient = PluginInput["client"];
-export interface ParallelTask {
-    id: string;
-    sessionID: string;
-    parentSessionID: string;
-    description: string;
-    agent: string;
-    status: "pending" | "running" | "completed" | "error" | "timeout";
-    startedAt: Date;
-    completedAt?: Date;
-    error?: string;
-    result?: string;
-    concurrencyKey?: string;
-}
-interface LaunchInput {
-    description: string;
-    prompt: string;
-    agent: string;
-    parentSessionID: string;
-}
 export declare class ParallelAgentManager {
     private static _instance;
     private tasks;
@@ -97,4 +78,3 @@ export declare class ParallelAgentManager {
 export declare const parallelAgentManager: {
     getInstance: typeof ParallelAgentManager.getInstance;
 };
-export {};

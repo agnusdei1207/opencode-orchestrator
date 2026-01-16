@@ -13680,15 +13680,10 @@ Duration before kill: ${backgroundTaskManager.formatDuration(task)}`;
   }
 });
 
-// src/core/async-agent.ts
-var TASK_TTL_MS = PARALLEL_TASK.TTL_MS;
-var CLEANUP_DELAY_MS = PARALLEL_TASK.CLEANUP_DELAY_MS;
-var MIN_STABILITY_MS = PARALLEL_TASK.MIN_STABILITY_MS;
-var POLL_INTERVAL_MS = PARALLEL_TASK.POLL_INTERVAL_MS;
-var DEFAULT_CONCURRENCY = PARALLEL_TASK.DEFAULT_CONCURRENCY;
+// src/core/parallel/concurrency.ts
 var DEBUG = process.env.DEBUG_PARALLEL_AGENT === "true";
 var log = (...args) => {
-  if (DEBUG) console.log("[parallel-agent]", ...args);
+  if (DEBUG) console.log("[concurrency]", ...args);
 };
 var ConcurrencyController = class {
   counts = /* @__PURE__ */ new Map();
@@ -13698,7 +13693,7 @@ var ConcurrencyController = class {
     this.limits.set(key, limit);
   }
   getLimit(key) {
-    return this.limits.get(key) ?? DEFAULT_CONCURRENCY;
+    return this.limits.get(key) ?? PARALLEL_TASK.DEFAULT_CONCURRENCY;
   }
   async acquire(key) {
     const limit = this.getLimit(key);
@@ -13706,10 +13701,10 @@ var ConcurrencyController = class {
     const current = this.counts.get(key) ?? 0;
     if (current < limit) {
       this.counts.set(key, current + 1);
-      log(`Acquired slot for ${key}: ${current + 1}/${limit}`);
+      log(`Acquired ${key}: ${current + 1}/${limit}`);
       return;
     }
-    log(`Queueing for ${key}: ${current}/${limit} (waiting...)`);
+    log(`Queueing ${key}: ${current}/${limit}`);
     return new Promise((resolve) => {
       const queue = this.queues.get(key) ?? [];
       queue.push(resolve);
@@ -13722,19 +13717,29 @@ var ConcurrencyController = class {
     const queue = this.queues.get(key);
     if (queue && queue.length > 0) {
       const next = queue.shift();
-      log(`Released slot for ${key}: next in queue`);
+      log(`Released ${key}: next in queue`);
       next();
     } else {
       const current = this.counts.get(key) ?? 0;
       if (current > 0) {
         this.counts.set(key, current - 1);
-        log(`Released slot for ${key}: ${current - 1}`);
+        log(`Released ${key}: ${current - 1}/${limit}`);
       }
     }
   }
   getQueueLength(key) {
     return this.queues.get(key)?.length ?? 0;
   }
+};
+
+// src/core/async-agent.ts
+var TASK_TTL_MS = PARALLEL_TASK.TTL_MS;
+var CLEANUP_DELAY_MS = PARALLEL_TASK.CLEANUP_DELAY_MS;
+var MIN_STABILITY_MS = PARALLEL_TASK.MIN_STABILITY_MS;
+var POLL_INTERVAL_MS = PARALLEL_TASK.POLL_INTERVAL_MS;
+var DEBUG2 = process.env.DEBUG_PARALLEL_AGENT === "true";
+var log2 = (...args) => {
+  if (DEBUG2) console.log("[parallel-agent]", ...args);
 };
 var ParallelAgentManager = class _ParallelAgentManager {
   static _instance;
@@ -13808,10 +13813,10 @@ var ParallelAgentManager = class _ParallelAgentManager {
           parts: [{ type: "text", text: input.prompt }]
         }
       }).catch((error45) => {
-        log(`Prompt error for ${taskId}:`, error45);
+        log2(`Prompt error for ${taskId}:`, error45);
         this.handleTaskError(taskId, error45);
       });
-      log(`Launched ${taskId} in session ${sessionID}`);
+      log2(`Launched ${taskId} in session ${sessionID}`);
       return task;
     } catch (error45) {
       this.concurrency.release(concurrencyKey);
@@ -13861,13 +13866,13 @@ var ParallelAgentManager = class _ParallelAgentManager {
       await this.client.session.delete({
         path: { id: task.sessionID }
       });
-      log(`[parallel] \u{1F5D1}\uFE0F Session ${task.sessionID.slice(0, 8)}... deleted`);
+      log2(`[parallel] \u{1F5D1}\uFE0F Session ${task.sessionID.slice(0, 8)}... deleted`);
     } catch {
-      log(`[parallel] \u{1F5D1}\uFE0F Session ${task.sessionID.slice(0, 8)}... already gone`);
+      log2(`[parallel] \u{1F5D1}\uFE0F Session ${task.sessionID.slice(0, 8)}... already gone`);
     }
     this.scheduleCleanup(taskId);
-    log(`[parallel] \u{1F6D1} CANCELLED ${taskId}`);
-    log(`Cancelled ${taskId}`);
+    log2(`[parallel] \u{1F6D1} CANCELLED ${taskId}`);
+    log2(`Cancelled ${taskId}`);
     return true;
   }
   /**
@@ -13998,12 +14003,12 @@ var ParallelAgentManager = class _ParallelAgentManager {
           this.notifyParentIfAllComplete(task.parentSessionID);
           this.scheduleCleanup(task.id);
           const duration3 = this.formatDuration(task.startedAt, task.completedAt);
-          log(`[parallel] \u2705 COMPLETED ${task.id} \u2192 ${task.agent}: ${task.description} (${duration3})`);
-          log(`Completed ${task.id}`);
+          log2(`[parallel] \u2705 COMPLETED ${task.id} \u2192 ${task.agent}: ${task.description} (${duration3})`);
+          log2(`Completed ${task.id}`);
         }
       }
     } catch (error45) {
-      log("Polling error:", error45);
+      log2("Polling error:", error45);
     }
   }
   // ========================================================================
@@ -14035,7 +14040,7 @@ var ParallelAgentManager = class _ParallelAgentManager {
     for (const [taskId, task] of this.tasks.entries()) {
       const age = now - task.startedAt.getTime();
       if (age > TASK_TTL_MS) {
-        log(`Timeout: ${taskId} (${Math.round(age / 1e3)}s)`);
+        log2(`Timeout: ${taskId} (${Math.round(age / 1e3)}s)`);
         if (task.status === "running") {
           task.status = "timeout";
           task.error = "Task exceeded 30 minute time limit";
@@ -14044,14 +14049,14 @@ var ParallelAgentManager = class _ParallelAgentManager {
             this.concurrency.release(task.concurrencyKey);
           }
           this.untrackPending(task.parentSessionID, taskId);
-          log(`[parallel] \u23F1\uFE0F TIMEOUT ${taskId} \u2192 ${task.agent}: ${task.description}`);
+          log2(`[parallel] \u23F1\uFE0F TIMEOUT ${taskId} \u2192 ${task.agent}: ${task.description}`);
         }
         this.client.session.delete({
           path: { id: task.sessionID }
         }).then(() => {
-          log(`[parallel] \u{1F5D1}\uFE0F CLEANED ${taskId} (timeout session deleted)`);
+          log2(`[parallel] \u{1F5D1}\uFE0F CLEANED ${taskId} (timeout session deleted)`);
         }).catch(() => {
-          log(`[parallel] \u{1F5D1}\uFE0F CLEANED ${taskId} (timeout session already gone)`);
+          log2(`[parallel] \u{1F5D1}\uFE0F CLEANED ${taskId} (timeout session already gone)`);
         });
         this.tasks.delete(taskId);
       }
@@ -14071,14 +14076,14 @@ var ParallelAgentManager = class _ParallelAgentManager {
           await this.client.session.delete({
             path: { id: sessionID }
           });
-          log(`[parallel] \u{1F5D1}\uFE0F CLEANED ${taskId} (session deleted)`);
-          log(`Deleted session ${sessionID}`);
+          log2(`[parallel] \u{1F5D1}\uFE0F CLEANED ${taskId} (session deleted)`);
+          log2(`Deleted session ${sessionID}`);
         } catch {
-          log(`[parallel] \u{1F5D1}\uFE0F CLEANED ${taskId} (session already gone)`);
+          log2(`[parallel] \u{1F5D1}\uFE0F CLEANED ${taskId} (session already gone)`);
         }
       }
       this.tasks.delete(taskId);
-      log(`Cleaned up ${taskId} from memory`);
+      log2(`Cleaned up ${taskId} from memory`);
     }, CLEANUP_DELAY_MS);
   }
   // ========================================================================
@@ -14092,7 +14097,7 @@ var ParallelAgentManager = class _ParallelAgentManager {
   async notifyParentIfAllComplete(parentSessionID) {
     const pending = this.pendingByParent.get(parentSessionID);
     if (pending && pending.size > 0) {
-      log(`${pending.size} tasks still pending for ${parentSessionID}`);
+      log2(`${pending.size} tasks still pending for ${parentSessionID}`);
       return;
     }
     const completedTasks = this.notifications.get(parentSessionID) ?? [];
@@ -14116,9 +14121,9 @@ Use \`get_task_result({ taskId: "task_xxx" })\` to retrieve results.
           parts: [{ type: "text", text: notification }]
         }
       });
-      log(`Notified parent ${parentSessionID}: ${completedTasks.length} tasks`);
+      log2(`Notified parent ${parentSessionID}: ${completedTasks.length} tasks`);
     } catch (error45) {
-      log("Notification error:", error45);
+      log2("Notification error:", error45);
     }
     this.notifications.delete(parentSessionID);
   }
