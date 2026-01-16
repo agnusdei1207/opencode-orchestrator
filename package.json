@@ -39,6 +39,11 @@
   ],
   "scripts": {
     "build": "shx rm -rf dist && npx esbuild src/index.ts --bundle --outfile=dist/index.js --platform=node --format=esm && tsc --emitDeclarationOnly && shx mkdir -p dist/scripts && npx esbuild scripts/postinstall.ts --bundle --outfile=dist/scripts/postinstall.js --platform=node --format=esm && npx esbuild scripts/preuninstall.ts --bundle --outfile=dist/scripts/preuninstall.js --platform=node --format=esm",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "test:unit": "vitest run tests/concurrency.test.ts tests/task-store.test.ts",
+    "test:integration": "vitest run tests/integration.test.ts tests/parallel-manager.test.ts",
     "postinstall": "node dist/scripts/postinstall.js",
     "preuninstall": "node dist/scripts/preuninstall.js",
     "prepublishOnly": "npm run build",
@@ -60,6 +65,7 @@
     "@types/node": "^22.0.0",
     "esbuild": "^0.24.0",
     "shx": "^0.4.0",
-    "typescript": "^5.7.0"
+    "typescript": "^5.7.0",
+    "vitest": "^4.0.17"
   }
 }
