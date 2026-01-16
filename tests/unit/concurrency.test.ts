@@ -10,7 +10,7 @@
  */
 
 import { describe, it, expect, beforeEach } from "vitest";
-import { ConcurrencyController, type ConcurrencyConfig } from "../src/core/agents/concurrency";
+import { ConcurrencyController, type ConcurrencyConfig } from "../../src/core/agents/concurrency";
 
 describe("ConcurrencyController", () => {
     let controller: ConcurrencyController;
