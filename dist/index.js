@@ -13730,31 +13730,123 @@ var ConcurrencyController = class {
   }
 };
 
-// src/core/parallel/manager.ts
-var TASK_TTL_MS = PARALLEL_TASK.TTL_MS;
-var CLEANUP_DELAY_MS = PARALLEL_TASK.CLEANUP_DELAY_MS;
-var MIN_STABILITY_MS = PARALLEL_TASK.MIN_STABILITY_MS;
-var POLL_INTERVAL_MS = PARALLEL_TASK.POLL_INTERVAL_MS;
-var DEBUG2 = process.env.DEBUG_PARALLEL_AGENT === "true";
-var log2 = (...args) => {
-  if (DEBUG2) console.log("[parallel-agent]", ...args);
-};
-var ParallelAgentManager = class _ParallelAgentManager {
-  static _instance;
-  // Core state
+// src/core/parallel/task-store.ts
+var TaskStore = class {
   tasks = /* @__PURE__ */ new Map();
   pendingByParent = /* @__PURE__ */ new Map();
   notifications = /* @__PURE__ */ new Map();
-  // Dependencies
+  set(id, task) {
+    this.tasks.set(id, task);
+  }
+  get(id) {
+    return this.tasks.get(id);
+  }
+  getAll() {
+    return Array.from(this.tasks.values());
+  }
+  getRunning() {
+    return this.getAll().filter((t) => t.status === "running");
+  }
+  getByParent(parentSessionID) {
+    return this.getAll().filter((t) => t.parentSessionID === parentSessionID);
+  }
+  delete(id) {
+    return this.tasks.delete(id);
+  }
+  clear() {
+    this.tasks.clear();
+    this.pendingByParent.clear();
+    this.notifications.clear();
+  }
+  // Pending tracking
+  trackPending(parentSessionID, taskId) {
+    const pending = this.pendingByParent.get(parentSessionID) ?? /* @__PURE__ */ new Set();
+    pending.add(taskId);
+    this.pendingByParent.set(parentSessionID, pending);
+  }
+  untrackPending(parentSessionID, taskId) {
+    const pending = this.pendingByParent.get(parentSessionID);
+    if (pending) {
+      pending.delete(taskId);
+      if (pending.size === 0) {
+        this.pendingByParent.delete(parentSessionID);
+      }
+    }
+  }
+  getPendingCount(parentSessionID) {
+    return this.pendingByParent.get(parentSessionID)?.size ?? 0;
+  }
+  hasPending(parentSessionID) {
+    return this.getPendingCount(parentSessionID) > 0;
+  }
+  // Notifications
+  queueNotification(task) {
+    const queue = this.notifications.get(task.parentSessionID) ?? [];
+    queue.push(task);
+    this.notifications.set(task.parentSessionID, queue);
+  }
+  getNotifications(parentSessionID) {
+    return this.notifications.get(parentSessionID) ?? [];
+  }
+  clearNotifications(parentSessionID) {
+    this.notifications.delete(parentSessionID);
+  }
+  cleanEmptyNotifications() {
+    for (const [sessionID, queue] of this.notifications.entries()) {
+      if (queue.length === 0) {
+        this.notifications.delete(sessionID);
+      }
+    }
+  }
+};
+
+// src/core/parallel/config.ts
+var CONFIG = {
+  TASK_TTL_MS: PARALLEL_TASK.TTL_MS,
+  CLEANUP_DELAY_MS: PARALLEL_TASK.CLEANUP_DELAY_MS,
+  MIN_STABILITY_MS: PARALLEL_TASK.MIN_STABILITY_MS,
+  POLL_INTERVAL_MS: PARALLEL_TASK.POLL_INTERVAL_MS
+};
+
+// src/core/parallel/logger.ts
+var DEBUG2 = process.env.DEBUG_PARALLEL_AGENT === "true";
+function log2(...args) {
+  if (DEBUG2) console.log("[parallel-agent]", ...args);
+}
+
+// src/core/parallel/format.ts
+function formatDuration(start, end) {
+  const duration3 = (end ?? /* @__PURE__ */ new Date()).getTime() - start.getTime();
+  const seconds = Math.floor(duration3 / 1e3);
+  const minutes = Math.floor(seconds / 60);
+  if (minutes > 0) return `${minutes}m ${seconds % 60}s`;
+  return `${seconds}s`;
+}
+function buildNotificationMessage(tasks) {
+  const summary = tasks.map((t) => {
+    const status = t.status === "completed" ? "\u2705" : "\u274C";
+    return `${status} \`${t.id}\`: ${t.description}`;
+  }).join("\n");
+  return `<system-notification>
+**All Parallel Tasks Complete**
+
+${summary}
+
+Use \`get_task_result({ taskId: "task_xxx" })\` to retrieve results.
+</system-notification>`;
+}
+
+// src/core/parallel/manager.ts
+var ParallelAgentManager = class _ParallelAgentManager {
+  static _instance;
+  store = new TaskStore();
   client;
   directory;
-  concurrency;
-  // Polling
+  concurrency = new ConcurrencyController();
   pollingInterval;
   constructor(client, directory) {
     this.client = client;
     this.directory = directory;
-    this.concurrency = new ConcurrencyController();
   }
   static getInstance(client, directory) {
     if (!_ParallelAgentManager._instance) {
@@ -13768,22 +13860,14 @@ var ParallelAgentManager = class _ParallelAgentManager {
   // ========================================================================
   // Public API
   // ========================================================================
-  /**
-   * Launch an agent in a new session (async, non-blocking)
-   */
   async launch(input) {
     const concurrencyKey = input.agent;
     await this.concurrency.acquire(concurrencyKey);
     this.pruneExpiredTasks();
     try {
       const createResult = await this.client.session.create({
-        body: {
-          parentID: input.parentSessionID,
-          title: `Parallel: ${input.description}`
-        },
-        query: {
-          directory: this.directory
-        }
+        body: { parentID: input.parentSessionID, title: `Parallel: ${input.description}` },
+        query: { directory: this.directory }
       });
       if (createResult.error) {
         this.concurrency.release(concurrencyKey);
@@ -13801,15 +13885,12 @@ var ParallelAgentManager = class _ParallelAgentManager {
         startedAt: /* @__PURE__ */ new Date(),
         concurrencyKey
       };
-      this.tasks.set(taskId, task);
-      this.trackPending(input.parentSessionID, taskId);
+      this.store.set(taskId, task);
+      this.store.trackPending(input.parentSessionID, taskId);
       this.startPolling();
       this.client.session.prompt({
         path: { id: sessionID },
-        body: {
-          agent: input.agent,
-          parts: [{ type: "text", text: input.prompt }]
-        }
+        body: { agent: input.agent, parts: [{ type: "text", text: input.prompt }] }
       }).catch((error45) => {
         log2(`Prompt error for ${taskId}:`, error45);
         this.handleTaskError(taskId, error45);
@@ -13821,151 +13902,84 @@ var ParallelAgentManager = class _ParallelAgentManager {
       throw error45;
     }
   }
-  /**
-   * Get task by ID
-   */
   getTask(id) {
-    return this.tasks.get(id);
+    return this.store.get(id);
   }
-  /**
-   * Get all running tasks
-   */
   getRunningTasks() {
-    return Array.from(this.tasks.values()).filter((t) => t.status === "running");
+    return this.store.getRunning();
   }
-  /**
-   * Get all tasks
-   */
   getAllTasks() {
-    return Array.from(this.tasks.values());
+    return this.store.getAll();
   }
-  /**
-   * Get tasks by parent session
-   */
   getTasksByParent(parentSessionID) {
-    return Array.from(this.tasks.values()).filter((t) => t.parentSessionID === parentSessionID);
+    return this.store.getByParent(parentSessionID);
   }
-  /**
-   * Cancel a running task
-   */
   async cancelTask(taskId) {
-    const task = this.tasks.get(taskId);
-    if (!task || task.status !== "running") {
-      return false;
-    }
+    const task = this.store.get(taskId);
+    if (!task || task.status !== "running") return false;
     task.status = "error";
     task.error = "Cancelled by user";
     task.completedAt = /* @__PURE__ */ new Date();
-    if (task.concurrencyKey) {
-      this.concurrency.release(task.concurrencyKey);
-    }
-    this.untrackPending(task.parentSessionID, taskId);
+    if (task.concurrencyKey) this.concurrency.release(task.concurrencyKey);
+    this.store.untrackPending(task.parentSessionID, taskId);
     try {
-      await this.client.session.delete({
-        path: { id: task.sessionID }
-      });
-      log2(`[parallel] \u{1F5D1}\uFE0F Session ${task.sessionID.slice(0, 8)}... deleted`);
+      await this.client.session.delete({ path: { id: task.sessionID } });
+      log2(`Session ${task.sessionID.slice(0, 8)}... deleted`);
     } catch {
-      log2(`[parallel] \u{1F5D1}\uFE0F Session ${task.sessionID.slice(0, 8)}... already gone`);
+      log2(`Session ${task.sessionID.slice(0, 8)}... already gone`);
     }
     this.scheduleCleanup(taskId);
-    log2(`[parallel] \u{1F6D1} CANCELLED ${taskId}`);
     log2(`Cancelled ${taskId}`);
     return true;
   }
-  /**
-   * Get result from completed task
-   */
   async getResult(taskId) {
-    const task = this.tasks.get(taskId);
+    const task = this.store.get(taskId);
     if (!task) return null;
     if (task.result) return task.result;
     if (task.status === "error") return `Error: ${task.error}`;
     if (task.status === "running") return null;
     try {
-      const messagesResult = await this.client.session.messages({
-        path: { id: task.sessionID }
-      });
-      if (messagesResult.error) {
-        return `Error: ${messagesResult.error}`;
-      }
-      const messages = messagesResult.data ?? [];
-      const assistantMsgs = messages.filter((m) => m.info?.role === "assistant").reverse();
-      const lastMsg = assistantMsgs[0];
+      const result = await this.client.session.messages({ path: { id: task.sessionID } });
+      if (result.error) return `Error: ${result.error}`;
+      const messages = result.data ?? [];
+      const lastMsg = messages.filter((m) => m.info?.role === "assistant").reverse()[0];
       if (!lastMsg) return "(No response)";
-      const textParts = lastMsg.parts?.filter(
-        (p) => p.type === "text" || p.type === "reasoning"
-      ) ?? [];
-      const result = textParts.map((p) => p.text ?? "").filter(Boolean).join("\n");
-      task.result = result;
-      return result;
+      const text = lastMsg.parts?.filter((p) => p.type === "text" || p.type === "reasoning").map((p) => p.text ?? "").filter(Boolean).join("\n") ?? "";
+      task.result = text;
+      return text;
     } catch (error45) {
       return `Error: ${error45 instanceof Error ? error45.message : String(error45)}`;
     }
   }
-  /**
-   * Set concurrency limit for agent type
-   */
   setConcurrencyLimit(agentType, limit) {
     this.concurrency.setLimit(agentType, limit);
   }
-  /**
-   * Get pending notification count
-   */
   getPendingCount(parentSessionID) {
-    return this.pendingByParent.get(parentSessionID)?.size ?? 0;
+    return this.store.getPendingCount(parentSessionID);
   }
-  /**
-   * Cleanup all state
-   */
   cleanup() {
     this.stopPolling();
-    this.tasks.clear();
-    this.pendingByParent.clear();
-    this.notifications.clear();
+    this.store.clear();
   }
+  formatDuration = formatDuration;
   // ========================================================================
-  // Internal: Tracking
-  // ========================================================================
-  trackPending(parentSessionID, taskId) {
-    const pending = this.pendingByParent.get(parentSessionID) ?? /* @__PURE__ */ new Set();
-    pending.add(taskId);
-    this.pendingByParent.set(parentSessionID, pending);
-  }
-  untrackPending(parentSessionID, taskId) {
-    const pending = this.pendingByParent.get(parentSessionID);
-    if (pending) {
-      pending.delete(taskId);
-      if (pending.size === 0) {
-        this.pendingByParent.delete(parentSessionID);
-      }
-    }
-  }
-  // ========================================================================
-  // Internal: Error Handling
+  // Internal
   // ========================================================================
   handleTaskError(taskId, error45) {
-    const task = this.tasks.get(taskId);
+    const task = this.store.get(taskId);
     if (!task) return;
     task.status = "error";
     task.error = error45 instanceof Error ? error45.message : String(error45);
     task.completedAt = /* @__PURE__ */ new Date();
-    if (task.concurrencyKey) {
-      this.concurrency.release(task.concurrencyKey);
-    }
-    this.untrackPending(task.parentSessionID, taskId);
-    this.queueNotification(task);
+    if (task.concurrencyKey) this.concurrency.release(task.concurrencyKey);
+    this.store.untrackPending(task.parentSessionID, taskId);
+    this.store.queueNotification(task);
     this.notifyParentIfAllComplete(task.parentSessionID);
     this.scheduleCleanup(taskId);
   }
-  // ========================================================================
-  // Internal: Polling
-  // ========================================================================
   startPolling() {
     if (this.pollingInterval) return;
-    this.pollingInterval = setInterval(() => {
-      this.pollRunningTasks();
-    }, POLL_INTERVAL_MS);
+    this.pollingInterval = setInterval(() => this.pollRunningTasks(), CONFIG.POLL_INTERVAL_MS);
     this.pollingInterval.unref();
   }
   stopPolling() {
@@ -13976,164 +13990,90 @@ var ParallelAgentManager = class _ParallelAgentManager {
   }
   async pollRunningTasks() {
     this.pruneExpiredTasks();
-    const runningTasks = this.getRunningTasks();
-    if (runningTasks.length === 0) {
+    const running = this.store.getRunning();
+    if (running.length === 0) {
       this.stopPolling();
       return;
     }
     try {
       const statusResult = await this.client.session.status();
       const allStatuses = statusResult.data ?? {};
-      for (const task of runningTasks) {
-        const sessionStatus = allStatuses[task.sessionID];
-        if (sessionStatus?.type === "idle") {
-          const elapsed = Date.now() - task.startedAt.getTime();
-          if (elapsed < MIN_STABILITY_MS) continue;
-          const hasOutput = await this.validateSessionHasOutput(task.sessionID);
-          if (!hasOutput) continue;
-          task.status = "completed";
-          task.completedAt = /* @__PURE__ */ new Date();
-          if (task.concurrencyKey) {
-            this.concurrency.release(task.concurrencyKey);
-          }
-          this.untrackPending(task.parentSessionID, task.id);
-          this.queueNotification(task);
-          this.notifyParentIfAllComplete(task.parentSessionID);
-          this.scheduleCleanup(task.id);
-          const duration3 = this.formatDuration(task.startedAt, task.completedAt);
-          log2(`[parallel] \u2705 COMPLETED ${task.id} \u2192 ${task.agent}: ${task.description} (${duration3})`);
-          log2(`Completed ${task.id}`);
-        }
+      for (const task of running) {
+        const status = allStatuses[task.sessionID];
+        if (status?.type !== "idle") continue;
+        const elapsed = Date.now() - task.startedAt.getTime();
+        if (elapsed < CONFIG.MIN_STABILITY_MS) continue;
+        if (!await this.validateSessionHasOutput(task.sessionID)) continue;
+        task.status = "completed";
+        task.completedAt = /* @__PURE__ */ new Date();
+        if (task.concurrencyKey) this.concurrency.release(task.concurrencyKey);
+        this.store.untrackPending(task.parentSessionID, task.id);
+        this.store.queueNotification(task);
+        this.notifyParentIfAllComplete(task.parentSessionID);
+        this.scheduleCleanup(task.id);
+        log2(`Completed ${task.id} (${formatDuration(task.startedAt, task.completedAt)})`);
       }
     } catch (error45) {
       log2("Polling error:", error45);
     }
   }
-  // ========================================================================
-  // Internal: Validation
-  // ========================================================================
   async validateSessionHasOutput(sessionID) {
     try {
-      const response = await this.client.session.messages({
-        path: { id: sessionID }
-      });
+      const response = await this.client.session.messages({ path: { id: sessionID } });
       const messages = response.data ?? [];
-      const hasContent = messages.some((m) => {
-        if (m.info?.role !== "assistant") return false;
-        const parts = m.parts ?? [];
-        return parts.some(
-          (p) => p.type === "text" && p.text?.trim() || p.type === "reasoning" && p.text?.trim() || p.type === "tool"
-        );
-      });
-      return hasContent;
+      return messages.some((m) => m.info?.role === "assistant" && m.parts?.some((p) => p.type === "text" && p.text?.trim() || p.type === "tool"));
     } catch {
       return true;
     }
   }
-  // ========================================================================
-  // Internal: Cleanup & TTL
-  // ========================================================================
   pruneExpiredTasks() {
     const now = Date.now();
-    for (const [taskId, task] of this.tasks.entries()) {
+    for (const [taskId, task] of this.store.getAll().map((t) => [t.id, t])) {
       const age = now - task.startedAt.getTime();
-      if (age > TASK_TTL_MS) {
-        log2(`Timeout: ${taskId} (${Math.round(age / 1e3)}s)`);
-        if (task.status === "running") {
-          task.status = "timeout";
-          task.error = "Task exceeded 30 minute time limit";
-          task.completedAt = /* @__PURE__ */ new Date();
-          if (task.concurrencyKey) {
-            this.concurrency.release(task.concurrencyKey);
-          }
-          this.untrackPending(task.parentSessionID, taskId);
-          log2(`[parallel] \u23F1\uFE0F TIMEOUT ${taskId} \u2192 ${task.agent}: ${task.description}`);
-        }
-        this.client.session.delete({
-          path: { id: task.sessionID }
-        }).then(() => {
-          log2(`[parallel] \u{1F5D1}\uFE0F CLEANED ${taskId} (timeout session deleted)`);
-        }).catch(() => {
-          log2(`[parallel] \u{1F5D1}\uFE0F CLEANED ${taskId} (timeout session already gone)`);
-        });
-        this.tasks.delete(taskId);
+      if (age <= CONFIG.TASK_TTL_MS) continue;
+      log2(`Timeout: ${taskId}`);
+      if (task.status === "running") {
+        task.status = "timeout";
+        task.error = "Task exceeded 30 minute time limit";
+        task.completedAt = /* @__PURE__ */ new Date();
+        if (task.concurrencyKey) this.concurrency.release(task.concurrencyKey);
+        this.store.untrackPending(task.parentSessionID, taskId);
       }
+      this.client.session.delete({ path: { id: task.sessionID } }).catch(() => {
+      });
+      this.store.delete(taskId);
     }
-    for (const [sessionID, queue] of this.notifications.entries()) {
-      if (queue.length === 0) {
-        this.notifications.delete(sessionID);
-      }
-    }
+    this.store.cleanEmptyNotifications();
   }
   scheduleCleanup(taskId) {
-    const task = this.tasks.get(taskId);
+    const task = this.store.get(taskId);
     const sessionID = task?.sessionID;
     setTimeout(async () => {
       if (sessionID) {
         try {
-          await this.client.session.delete({
-            path: { id: sessionID }
-          });
-          log2(`[parallel] \u{1F5D1}\uFE0F CLEANED ${taskId} (session deleted)`);
-          log2(`Deleted session ${sessionID}`);
+          await this.client.session.delete({ path: { id: sessionID } });
         } catch {
-          log2(`[parallel] \u{1F5D1}\uFE0F CLEANED ${taskId} (session already gone)`);
         }
       }
-      this.tasks.delete(taskId);
-      log2(`Cleaned up ${taskId} from memory`);
-    }, CLEANUP_DELAY_MS);
-  }
-  // ========================================================================
-  // Internal: Notifications
-  // ========================================================================
-  queueNotification(task) {
-    const queue = this.notifications.get(task.parentSessionID) ?? [];
-    queue.push(task);
-    this.notifications.set(task.parentSessionID, queue);
+      this.store.delete(taskId);
+      log2(`Cleaned up ${taskId}`);
+    }, CONFIG.CLEANUP_DELAY_MS);
   }
   async notifyParentIfAllComplete(parentSessionID) {
-    const pending = this.pendingByParent.get(parentSessionID);
-    if (pending && pending.size > 0) {
-      log2(`${pending.size} tasks still pending for ${parentSessionID}`);
-      return;
-    }
-    const completedTasks = this.notifications.get(parentSessionID) ?? [];
-    if (completedTasks.length === 0) return;
-    const summary = completedTasks.map((t) => {
-      const status = t.status === "completed" ? "\u2705" : "\u274C";
-      return `${status} \`${t.id}\`: ${t.description}`;
-    }).join("\n");
-    const notification = `<system-notification>
-**All Parallel Tasks Complete**
-
-${summary}
-
-Use \`get_task_result({ taskId: "task_xxx" })\` to retrieve results.
-</system-notification>`;
+    if (this.store.hasPending(parentSessionID)) return;
+    const notifications = this.store.getNotifications(parentSessionID);
+    if (notifications.length === 0) return;
+    const message = buildNotificationMessage(notifications);
     try {
       await this.client.session.prompt({
         path: { id: parentSessionID },
-        body: {
-          noReply: true,
-          parts: [{ type: "text", text: notification }]
-        }
+        body: { noReply: true, parts: [{ type: "text", text: message }] }
       });
-      log2(`Notified parent ${parentSessionID}: ${completedTasks.length} tasks`);
+      log2(`Notified parent ${parentSessionID}`);
     } catch (error45) {
       log2("Notification error:", error45);
     }
-    this.notifications.delete(parentSessionID);
-  }
-  // ========================================================================
-  // Internal: Formatting
-  // ========================================================================
-  formatDuration(start, end) {
-    const duration3 = (end ?? /* @__PURE__ */ new Date()).getTime() - start.getTime();
-    const seconds = Math.floor(duration3 / 1e3);
-    const minutes = Math.floor(seconds / 60);
-    if (minutes > 0) return `${minutes}m ${seconds % 60}s`;
-    return `${seconds}s`;
+    this.store.clearNotifications(parentSessionID);
   }
 };
 var parallelAgentManager = {
