@@ -10,7 +10,7 @@
  */
 
 import type { PluginInput } from "@opencode-ai/plugin";
-import { TASK_STATUS } from "../../shared/constants.js";
+import { TASK_STATUS, PART_TYPES } from "../../shared/constants.js";
 import { ConcurrencyController } from "./concurrency.js";
 import { TaskStore } from "./task-store.js";
 import { log } from "./logger.js";
@@ -172,7 +172,7 @@ export class ParallelAgentManager {
             const lastMsg = messages.filter(m => m.info?.role === "assistant").reverse()[0];
             if (!lastMsg) return "(No response)";
 
-            const text = lastMsg.parts?.filter(p => p.type === "text" || p.type === "reasoning").map(p => p.text ?? "").filter(Boolean).join("\n") ?? "";
+            const text = lastMsg.parts?.filter(p => p.type === PART_TYPES.TEXT || p.type === PART_TYPES.REASONING).map(p => p.text ?? "").filter(Boolean).join("\n") ?? "";
             task.result = text;
             return text;
         } catch (error) {

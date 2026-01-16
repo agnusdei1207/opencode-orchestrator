@@ -18,6 +18,136 @@ var AGENT_NAMES = {
   RESEARCHER: "researcher"
 };
 
+// src/core/agents/consts/task-status.const.ts
+var TASK_STATUS = {
+  PENDING: "pending",
+  RUNNING: "running",
+  COMPLETED: "completed",
+  FAILED: "failed",
+  ERROR: "error",
+  TIMEOUT: "timeout",
+  CANCELLED: "cancelled"
+};
+
+// src/shared/constants.ts
+var TIME = {
+  SECOND: 1e3,
+  MINUTE: 60 * 1e3,
+  HOUR: 60 * 60 * 1e3
+};
+var ID_PREFIX = {
+  /** Parallel agent task ID (e.g., task_a1b2c3d4) */
+  TASK: "task_",
+  /** Background command job ID (e.g., job_a1b2c3d4) */
+  JOB: "job_",
+  /** Session ID prefix */
+  SESSION: "session_"
+};
+var PARALLEL_TASK = {
+  TTL_MS: 60 * TIME.MINUTE,
+  // 60 minutes
+  CLEANUP_DELAY_MS: 10 * TIME.MINUTE,
+  // 10 minutes
+  MIN_STABILITY_MS: 3 * TIME.SECOND,
+  // 3 seconds
+  POLL_INTERVAL_MS: 1e3,
+  // 1 second
+  DEFAULT_CONCURRENCY: 10,
+  // 10 per agent type
+  MAX_CONCURRENCY: 50,
+  // 50 total
+  SYNC_TIMEOUT_MS: 10 * TIME.MINUTE
+  // 10 minutes for sync mode
+};
+var MEMORY_LIMITS = {
+  MAX_TASKS_IN_MEMORY: 1e3,
+  MAX_NOTIFICATIONS_PER_PARENT: 100,
+  MAX_EVENT_HISTORY: 100,
+  MAX_TOAST_HISTORY: 50,
+  MAX_PROGRESS_HISTORY_PER_SESSION: 100,
+  ARCHIVE_AGE_MS: 30 * TIME.MINUTE,
+  // Archive completed after 30 min
+  ERROR_CLEANUP_AGE_MS: 10 * TIME.MINUTE
+  // Remove errors after 10 min
+};
+var PATHS = {
+  TASK_ARCHIVE: ".cache/task-archive",
+  DOC_CACHE: ".cache/docs"
+};
+var BACKGROUND_TASK = {
+  DEFAULT_TIMEOUT_MS: 5 * TIME.MINUTE,
+  MAX_OUTPUT_LENGTH: 1e4
+};
+var TOOL_NAMES = {
+  // Parallel task tools
+  DELEGATE_TASK: "delegate_task",
+  GET_TASK_RESULT: "get_task_result",
+  LIST_TASKS: "list_tasks",
+  CANCEL_TASK: "cancel_task",
+  // Background command tools
+  RUN_BACKGROUND: "run_background",
+  CHECK_BACKGROUND: "check_background",
+  LIST_BACKGROUND: "list_background",
+  KILL_BACKGROUND: "kill_background",
+  // Search tools
+  GREP_SEARCH: "grep_search",
+  GLOB_SEARCH: "glob_search",
+  MGREP: "mgrep",
+  // Web tools
+  WEBFETCH: "webfetch",
+  WEBSEARCH: "websearch",
+  CODESEARCH: "codesearch",
+  CACHE_DOCS: "cache_docs",
+  // Other tools
+  CALL_AGENT: "call_agent",
+  SLASHCOMMAND: "slashcommand"
+};
+var MISSION = {
+  /** Mission completion marker (with emoji) */
+  COMPLETE: "\u2705 MISSION COMPLETE",
+  /** Mission completion marker (text only) */
+  COMPLETE_TEXT: "MISSION COMPLETE",
+  /** Stop command */
+  STOP_COMMAND: "/stop",
+  /** Cancel command */
+  CANCEL_COMMAND: "/cancel"
+};
+var AGENT_EMOJI = {
+  architect: "\u{1F3D7}\uFE0F",
+  builder: "\u{1F528}",
+  inspector: "\u{1F50D}",
+  recorder: "\u{1F4BE}",
+  commander: "\u{1F3AF}",
+  librarian: "\u{1F4DA}",
+  researcher: "\u{1F52C}"
+};
+var PART_TYPES = {
+  TEXT: "text",
+  REASONING: "reasoning",
+  TOOL_CALL: "tool_call",
+  TOOL_RESULT: "tool_result"
+};
+var PROMPTS = {
+  /** Simple continue prompt for auto-continue loop */
+  CONTINUE: "continue",
+  /** Default fallback for empty arguments */
+  CONTINUE_PREVIOUS: "continue previous work",
+  /** Default fallback for slash commands */
+  CONTINUE_DEFAULT: "continue from where we left off"
+};
+var STATUS_EMOJI = {
+  pending: "\u23F3",
+  running: "\u{1F504}",
+  completed: "\u2705",
+  done: "\u2705",
+  error: "\u274C",
+  timeout: "\u23F0",
+  cancelled: "\u{1F6AB}"
+};
+function getStatusEmoji(status) {
+  return STATUS_EMOJI[status] ?? "\u2753";
+}
+
 // src/agents/orchestrator.ts
 var orchestrator = {
   id: AGENT_NAMES.COMMANDER,
@@ -27,7 +157,7 @@ You are Commander. Complete missions autonomously. Never stop until done.
 </role>
 
 <core_rules>
-1. Never stop until "\u2705 MISSION COMPLETE"
+1. Never stop until "${MISSION.COMPLETE}"
 2. Never wait for user during execution
 3. Never stop because agent returned nothing
 4. Always survey environment & codebase BEFORE coding
@@ -64,8 +194,8 @@ webfetch({ url: "https://nextjs.org/docs/app/..." })
 cache_docs({ action: "list" })
 
 // Step 4: For complex research, delegate to Librarian
-delegate_task({
-  agent: "librarian",
+${TOOL_NAMES.DELEGATE_TASK}({
+  agent: "${AGENT_NAMES.LIBRARIAN}",
   description: "Research X API",
   prompt: "Find official documentation for...",
   background: false  // Wait for research before implementing
@@ -103,16 +233,16 @@ RECORD findings if on Deep Track.
 <phase_2 name="TOOL_AGENT_SELECTION">
 | Track | Strategy |
 |-------|----------|
-| Fast | Use \`builder\` directly. Skip \`architect\`. |
-| Normal | Call \`architect\` for lightweight plan. |
-| Deep | Full \`architect\` DAG + \`recorder\` state tracking. |
+| Fast | Use \`${AGENT_NAMES.BUILDER}\` directly. Skip \`${AGENT_NAMES.ARCHITECT}\`. |
+| Normal | Call \`${AGENT_NAMES.ARCHITECT}\` for lightweight plan. |
+| Deep | Full \`${AGENT_NAMES.ARCHITECT}\` DAG + \`${AGENT_NAMES.RECORDER}\` state tracking. |
 
 AVAILABLE AGENTS:
-- \`architect\`: Task decomposition and planning
-- \`builder\`: Code implementation
-- \`inspector\`: Verification and bug fixing
-- \`recorder\`: State tracking (Deep Track only)
-- \`librarian\`: Documentation research (Anti-Hallucination) \u2B50 NEW
+- \`${AGENT_NAMES.ARCHITECT}\`: Task decomposition and planning
+- \`${AGENT_NAMES.BUILDER}\`: Code implementation
+- \`${AGENT_NAMES.INSPECTOR}\`: Verification and bug fixing
+- \`${AGENT_NAMES.RECORDER}\`: State tracking (Deep Track only)
+- \`${AGENT_NAMES.LIBRARIAN}\`: Documentation research (Anti-Hallucination) \u2B50 NEW
 
 WHEN TO USE LIBRARIAN:
 - Before using new APIs/libraries
@@ -125,20 +255,20 @@ DEFAULT to Deep Track if unsure to act safely.
 
 <phase_3 name="DELEGATION">
 <agent_calling>
-CRITICAL: USE delegate_task FOR ALL DELEGATION
+CRITICAL: USE ${TOOL_NAMES.DELEGATE_TASK} FOR ALL DELEGATION
 
-delegate_task has THREE MODES:
+${TOOL_NAMES.DELEGATE_TASK} has THREE MODES:
 - background=true: Non-blocking, parallel execution
 - background=false: Blocking, waits for result
 - resume: Continue existing session
 
 | Situation | How to Call |
 |-----------|-------------|
-| Multiple independent tasks | \`delegate_task({ ..., background: true })\` for each |
-| Single task, continue working | \`delegate_task({ ..., background: true })\` |
-| Need result for VERY next step | \`delegate_task({ ..., background: false })\` |
-| Retry after failure | \`delegate_task({ ..., resume: "session_id", ... })\` |
-| Follow-up question | \`delegate_task({ ..., resume: "session_id", ... })\` |
+| Multiple independent tasks | \`${TOOL_NAMES.DELEGATE_TASK}({ ..., background: true })\` for each |
+| Single task, continue working | \`${TOOL_NAMES.DELEGATE_TASK}({ ..., background: true })\` |
+| Need result for VERY next step | \`${TOOL_NAMES.DELEGATE_TASK}({ ..., background: false })\` |
+| Retry after failure | \`${TOOL_NAMES.DELEGATE_TASK}({ ..., resume: "session_id", ... })\` |
+| Follow-up question | \`${TOOL_NAMES.DELEGATE_TASK}({ ..., resume: "session_id", ... })\` |
 
 PREFER background=true (PARALLEL):
 - Run multiple agents simultaneously
@@ -148,42 +278,42 @@ PREFER background=true (PARALLEL):
 EXAMPLE - PARALLEL:
 \`\`\`
 // Multiple tasks in parallel
-delegate_task({ agent: "builder", description: "Implement X", prompt: "...", background: true })
-delegate_task({ agent: "inspector", description: "Review Y", prompt: "...", background: true })
+${TOOL_NAMES.DELEGATE_TASK}({ agent: "${AGENT_NAMES.BUILDER}", description: "Implement X", prompt: "...", background: true })
+${TOOL_NAMES.DELEGATE_TASK}({ agent: "${AGENT_NAMES.INSPECTOR}", description: "Review Y", prompt: "...", background: true })
 
 // Continue other work (don't wait!)
 
 // When notified "All Complete":
-get_task_result({ taskId: "task_xxx" })
+${TOOL_NAMES.GET_TASK_RESULT}({ taskId: "${ID_PREFIX.TASK}xxx" })
 \`\`\`
 
 EXAMPLE - SYNC (rare):
 \`\`\`
 // Only when you absolutely need the result now
-const result = delegate_task({ agent: "builder", ..., background: false })
+const result = ${TOOL_NAMES.DELEGATE_TASK}({ agent: "${AGENT_NAMES.BUILDER}", ..., background: false })
 // Result is immediately available
 \`\`\`
 
 EXAMPLE - RESUME (for retry or follow-up):
 \`\`\`
-// Previous task output shows: Session: \`ses_abc123\` (save for resume)
+// Previous task output shows: Session: \`${ID_PREFIX.SESSION}abc123\` (save for resume)
 
 // Retry after failure (keeps all context!)
-delegate_task({ 
-  agent: "builder", 
+\${TOOL_NAMES.DELEGATE_TASK}({ 
+  agent: "\${AGENT_NAMES.BUILDER}", 
   description: "Fix previous error", 
   prompt: "The build failed with X. Please fix it.",
   background: true,
-  resume: "ses_abc123"  // \u2190 Continue existing session
+  resume: "${ID_PREFIX.SESSION}abc123"  // \u2190 Continue existing session
 })
 
 // Follow-up question (saves tokens!)
-delegate_task({
-  agent: "inspector",
+\${TOOL_NAMES.DELEGATE_TASK}({
+  agent: "\${AGENT_NAMES.INSPECTOR}",
   description: "Additional check",
   prompt: "Also check for Y in the files you just reviewed.",
   background: true,
-  resume: "ses_xyz789"
+  resume: "${ID_PREFIX.SESSION}xyz789"
 })
 \`\`\`
 </agent_calling>
@@ -212,47 +342,47 @@ PARALLEL EXECUTION SYSTEM:
 You have access to a powerful parallel agent execution system.
 Up to 50 agents can run simultaneously with automatic resource management.
 
-1. **delegate_task** - Launch agents in parallel or sync mode
+1. **${TOOL_NAMES.DELEGATE_TASK}** - Launch agents in parallel or sync mode
    \`\`\`
    // PARALLEL (recommended - non-blocking)
-   delegate_task({ 
-     agent: "builder", 
+   ${TOOL_NAMES.DELEGATE_TASK}({ 
+     agent: "${AGENT_NAMES.BUILDER}", 
      description: "Implement X", 
      prompt: "...", 
      background: true 
    })
    
    // SYNC (blocking - wait for result)
-   delegate_task({ 
-     agent: "librarian", 
+   ${TOOL_NAMES.DELEGATE_TASK}({ 
+     agent: "${AGENT_NAMES.LIBRARIAN}", 
      description: "Research Y", 
      prompt: "...", 
      background: false 
    })
    
    // RESUME (continue previous session)
-   delegate_task({ 
-     agent: "builder", 
+   ${TOOL_NAMES.DELEGATE_TASK}({ 
+     agent: "${AGENT_NAMES.BUILDER}", 
      description: "Fix error", 
      prompt: "...", 
      background: true,
-     resume: "ses_abc123"  // From previous task output
+     resume: "${ID_PREFIX.SESSION}abc123"  // From previous task output
    })
    \`\`\`
 
-2. **get_task_result** - Retrieve completed task output
+2. **${TOOL_NAMES.GET_TASK_RESULT}** - Retrieve completed task output
    \`\`\`
-   get_task_result({ taskId: "task_xxx" })
-   \`\`\`
-
-3. **list_tasks** - View all parallel tasks
-   \`\`\`
-   list_tasks({})
+   ${TOOL_NAMES.GET_TASK_RESULT}({ taskId: "${ID_PREFIX.TASK}xxx" })
    \`\`\`
 
-4. **cancel_task** - Stop a running task
+3. **${TOOL_NAMES.LIST_TASKS}** - View all parallel tasks
    \`\`\`
-   cancel_task({ taskId: "task_xxx" })
+   ${TOOL_NAMES.LIST_TASKS}({})
+   \`\`\`
+
+4. **${TOOL_NAMES.CANCEL_TASK}** - Stop a running task
+   \`\`\`
+   ${TOOL_NAMES.CANCEL_TASK}({ taskId: "${ID_PREFIX.TASK}xxx" })
    \`\`\`
 
 CONCURRENCY LIMITS:
@@ -272,11 +402,11 @@ UNSAFE PATTERNS:
 \u274C Waiting synchronously for many tasks (use background=true)
 
 WORKFLOW:
-1. list_tasks: Check current status first
-2. delegate_task (background=true): Launch for INDEPENDENT tasks
+1. ${TOOL_NAMES.LIST_TASKS}: Check current status first
+2. ${TOOL_NAMES.DELEGATE_TASK} (background=true): Launch for INDEPENDENT tasks
 3. Continue working (NO WAITING)
 4. Wait for system notification "All Parallel Tasks Complete"
-5. get_task_result: Retrieve each result
+5. ${TOOL_NAMES.GET_TASK_RESULT}: Retrieve each result
 </background_parallel_execution>
 
 <verification_methods>
@@ -293,15 +423,15 @@ WORKFLOW:
 | Failures | Action |
 |----------|--------|
 | 1-2 | Adjust approach, retry |
-| 3+ | STOP. Call architect for new strategy |
+| 3+ | STOP. Call ${AGENT_NAMES.ARCHITECT} for new strategy |
 
 <empty_responses>
 | Agent Empty (or Gibberish) | Action |
 |----------------------------|--------|
-| recorder | Fresh start. Proceed to survey. |
-| architect | Try simpler plan yourself. |
-| builder | Call inspector to diagnose. |
-| inspector | Retry with more context. |
+| ${AGENT_NAMES.RECORDER} | Fresh start. Proceed to survey. |
+| ${AGENT_NAMES.ARCHITECT} | Try simpler plan yourself. |
+| ${AGENT_NAMES.BUILDER} | Call ${AGENT_NAMES.INSPECTOR} to diagnose. |
+| ${AGENT_NAMES.INSPECTOR} | Retry with more context. |
 </empty_responses>
 
 STRICT RULE: If any agent output contains gibberish, mixed-language hallucinations, or fails the language rule, REJECT it immediately and trigger a "STRICT_CLEAN_START" retry.
@@ -317,7 +447,7 @@ STRICT RULE: If any agent output contains gibberish, mixed-language hallucinatio
 Done when: Request fulfilled + lsp clean + build/test/audit pass.
 
 <output_format>
-\u2705 MISSION COMPLETE
+${MISSION.COMPLETE}
 Summary: [what was done]
 Evidence: [Specific build/test/audit results]
 </output_format>
@@ -871,122 +1001,6 @@ var AGENTS = {
   [AGENT_NAMES.LIBRARIAN]: librarian,
   [AGENT_NAMES.RESEARCHER]: researcher
 };
-
-// src/core/agents/consts/task-status.const.ts
-var TASK_STATUS = {
-  PENDING: "pending",
-  RUNNING: "running",
-  COMPLETED: "completed",
-  FAILED: "failed",
-  ERROR: "error",
-  TIMEOUT: "timeout",
-  CANCELLED: "cancelled"
-};
-
-// src/shared/constants.ts
-var TIME = {
-  SECOND: 1e3,
-  MINUTE: 60 * 1e3,
-  HOUR: 60 * 60 * 1e3
-};
-var ID_PREFIX = {
-  /** Parallel agent task ID (e.g., task_a1b2c3d4) */
-  TASK: "task_",
-  /** Background command job ID (e.g., job_a1b2c3d4) */
-  JOB: "job_",
-  /** Session ID prefix */
-  SESSION: "session_"
-};
-var PARALLEL_TASK = {
-  TTL_MS: 60 * TIME.MINUTE,
-  // 60 minutes
-  CLEANUP_DELAY_MS: 10 * TIME.MINUTE,
-  // 10 minutes
-  MIN_STABILITY_MS: 3 * TIME.SECOND,
-  // 3 seconds
-  POLL_INTERVAL_MS: 1e3,
-  // 1 second
-  DEFAULT_CONCURRENCY: 10,
-  // 10 per agent type
-  MAX_CONCURRENCY: 50,
-  // 50 total
-  SYNC_TIMEOUT_MS: 10 * TIME.MINUTE
-  // 10 minutes for sync mode
-};
-var MEMORY_LIMITS = {
-  MAX_TASKS_IN_MEMORY: 1e3,
-  MAX_NOTIFICATIONS_PER_PARENT: 100,
-  MAX_EVENT_HISTORY: 100,
-  MAX_TOAST_HISTORY: 50,
-  MAX_PROGRESS_HISTORY_PER_SESSION: 100,
-  ARCHIVE_AGE_MS: 30 * TIME.MINUTE,
-  // Archive completed after 30 min
-  ERROR_CLEANUP_AGE_MS: 10 * TIME.MINUTE
-  // Remove errors after 10 min
-};
-var PATHS = {
-  TASK_ARCHIVE: ".cache/task-archive",
-  DOC_CACHE: ".cache/docs"
-};
-var BACKGROUND_TASK = {
-  DEFAULT_TIMEOUT_MS: 5 * TIME.MINUTE,
-  MAX_OUTPUT_LENGTH: 1e4
-};
-var TOOL_NAMES = {
-  // Parallel task tools
-  DELEGATE_TASK: "delegate_task",
-  GET_TASK_RESULT: "get_task_result",
-  LIST_TASKS: "list_tasks",
-  CANCEL_TASK: "cancel_task",
-  // Background command tools
-  RUN_BACKGROUND: "run_background",
-  CHECK_BACKGROUND: "check_background",
-  LIST_BACKGROUND: "list_background",
-  KILL_BACKGROUND: "kill_background",
-  // Search tools
-  GREP_SEARCH: "grep_search",
-  GLOB_SEARCH: "glob_search",
-  MGREP: "mgrep",
-  // Web tools
-  WEBFETCH: "webfetch",
-  WEBSEARCH: "websearch",
-  CODESEARCH: "codesearch",
-  CACHE_DOCS: "cache_docs",
-  // Other tools
-  CALL_AGENT: "call_agent",
-  SLASHCOMMAND: "slashcommand"
-};
-var MISSION = {
-  /** Mission completion marker (with emoji) */
-  COMPLETE: "\u2705 MISSION COMPLETE",
-  /** Mission completion marker (text only) */
-  COMPLETE_TEXT: "MISSION COMPLETE",
-  /** Stop command */
-  STOP_COMMAND: "/stop",
-  /** Cancel command */
-  CANCEL_COMMAND: "/cancel"
-};
-var AGENT_EMOJI = {
-  architect: "\u{1F3D7}\uFE0F",
-  builder: "\u{1F528}",
-  inspector: "\u{1F50D}",
-  recorder: "\u{1F4BE}",
-  commander: "\u{1F3AF}",
-  librarian: "\u{1F4DA}",
-  researcher: "\u{1F52C}"
-};
-var STATUS_EMOJI = {
-  pending: "\u23F3",
-  running: "\u{1F504}",
-  completed: "\u2705",
-  done: "\u2705",
-  error: "\u274C",
-  timeout: "\u23F0",
-  cancelled: "\u{1F6AB}"
-};
-function getStatusEmoji(status) {
-  return STATUS_EMOJI[status] ?? "\u2753";
-}
 
 // src/core/orchestrator/task-graph.ts
 var TaskGraph = class _TaskGraph {
@@ -13674,7 +13688,7 @@ ${commandList}`;
       if (!command) return `Unknown command: /${cmdName}
 
 ${commandList}`;
-      return command.template.replace(/\$ARGUMENTS/g, cmdArgs || "continue from where we left off");
+      return command.template.replace(/\$ARGUMENTS/g, cmdArgs || PROMPTS.CONTINUE_DEFAULT);
     }
   });
 }
@@ -14397,7 +14411,7 @@ var TaskLauncher = class {
       this.startPolling();
       this.client.session.prompt({
         path: { id: sessionID },
-        body: { agent: input.agent, parts: [{ type: "text", text: input.prompt }] }
+        body: { agent: input.agent, parts: [{ type: PART_TYPES.TEXT, text: input.prompt }] }
       }).catch((error45) => {
         log2(`Prompt error for ${taskId}:`, error45);
         this.onTaskError(taskId, error45);
@@ -14439,7 +14453,7 @@ var TaskResumer = class {
       path: { id: existingTask.sessionID },
       body: {
         agent: existingTask.agent,
-        parts: [{ type: "text", text: input.prompt }]
+        parts: [{ type: PART_TYPES.TEXT, text: input.prompt }]
       }
     }).catch((error45) => {
       log2(`Resume prompt error for ${existingTask.id}:`, error45);
@@ -14528,13 +14542,13 @@ var TaskPoller = class {
     try {
       const response = await this.client.session.messages({ path: { id: sessionID } });
       const messages = response.data ?? [];
-      return messages.some((m) => m.info?.role === "assistant" && m.parts?.some((p) => p.type === "text" && p.text?.trim() || p.type === "tool"));
+      return messages.some((m) => m.info?.role === "assistant" && m.parts?.some((p) => p.type === PART_TYPES.TEXT && p.text?.trim() || p.type === "tool"));
     } catch {
       return true;
     }
   }
   async completeTask(task) {
-    task.status = "completed";
+    task.status = TASK_STATUS.COMPLETED;
     task.completedAt = /* @__PURE__ */ new Date();
     if (task.concurrencyKey) {
       this.concurrency.release(task.concurrencyKey);
@@ -14561,7 +14575,7 @@ var TaskPoller = class {
             toolCalls++;
             lastTool = part.tool || part.name;
           }
-          if (part.type === "text" && part.text) {
+          if (part.type === PART_TYPES.TEXT && part.text) {
             lastMessage = part.text;
           }
         }
@@ -14632,7 +14646,7 @@ var TaskCleaner = class {
     try {
       await this.client.session.prompt({
         path: { id: parentSessionID },
-        body: { noReply: true, parts: [{ type: "text", text: message }] }
+        body: { noReply: true, parts: [{ type: PART_TYPES.TEXT, text: message }] }
       });
       log2(`Notified parent ${parentSessionID}`);
     } catch (error45) {
@@ -15001,7 +15015,7 @@ var ParallelAgentManager = class _ParallelAgentManager {
       const messages = result.data ?? [];
       const lastMsg = messages.filter((m) => m.info?.role === "assistant").reverse()[0];
       if (!lastMsg) return "(No response)";
-      const text = lastMsg.parts?.filter((p) => p.type === "text" || p.type === "reasoning").map((p) => p.text ?? "").filter(Boolean).join("\n") ?? "";
+      const text = lastMsg.parts?.filter((p) => p.type === PART_TYPES.TEXT || p.type === PART_TYPES.REASONING).map((p) => p.text ?? "").filter(Boolean).join("\n") ?? "";
       task.result = text;
       return text;
     } catch (error45) {
@@ -15118,7 +15132,7 @@ Previous context preserved. Use \`get_task_result({ taskId: "${task.id}" })\` wh
         const msgs = await session.messages({ path: { id: task.sessionID } });
         const messages = msgs.data ?? [];
         const lastMsg = messages.filter((m) => m.info?.role === "assistant").reverse()[0];
-        const text = lastMsg?.parts?.filter((p) => p.type === "text" || p.type === "reasoning").map((p) => p.text ?? "").join("\n") || "";
+        const text = lastMsg?.parts?.filter((p) => p.type === PART_TYPES.TEXT || p.type === PART_TYPES.REASONING).map((p) => p.text ?? "").join("\n") || "";
         return `\u{1F504} Resumed & Completed (${Math.floor((Date.now() - startTime) / 1e3)}s)
 
 ${text || "(No output)"}`;
@@ -15153,7 +15167,7 @@ Session: \`${task.sessionID}\` (save for resume)`;
       const startTime = Date.now();
       await session.prompt({
         path: { id: sessionID },
-        body: { agent, parts: [{ type: "text", text: prompt }] }
+        body: { agent, parts: [{ type: PART_TYPES.TEXT, text: prompt }] }
       });
       let stablePolls = 0, lastMsgCount = 0;
       while (Date.now() - startTime < 10 * 60 * 1e3) {
@@ -15177,7 +15191,7 @@ Session: \`${task.sessionID}\` (save for resume)`;
       const msgs = await session.messages({ path: { id: sessionID } });
       const messages = msgs.data ?? [];
       const lastMsg = messages.filter((m) => m.info?.role === "assistant").reverse()[0];
-      const text = lastMsg?.parts?.filter((p) => p.type === "text" || p.type === "reasoning").map((p) => p.text ?? "").join("\n") || "";
+      const text = lastMsg?.parts?.filter((p) => p.type === PART_TYPES.TEXT || p.type === PART_TYPES.REASONING).map((p) => p.text ?? "").join("\n") || "";
       return `\u2705 Completed (${Math.floor((Date.now() - startTime) / 1e3)}s)
 Session: \`${sessionID}\` (save for resume)
 
@@ -16481,7 +16495,7 @@ var OrchestratorPlugin = async (input) => {
     // -----------------------------------------------------------------
     "chat.message": async (msgInput, msgOutput) => {
       const parts = msgOutput.parts;
-      const textPartIndex = parts.findIndex((p) => p.type === "text" && p.text);
+      const textPartIndex = parts.findIndex((p) => p.type === PART_TYPES.TEXT && p.text);
       if (textPartIndex === -1) return;
       const originalText = parts[textPartIndex].text || "";
       const parsed = detectSlashCommand(originalText);
@@ -16547,14 +16561,14 @@ var OrchestratorPlugin = async (input) => {
         });
         parts[textPartIndex].text = COMMANDS["task"].template.replace(
           /\$ARGUMENTS/g,
-          parsed.args || "continue previous work"
+          parsed.args || PROMPTS.CONTINUE_PREVIOUS
         );
       } else if (parsed) {
         const command = COMMANDS[parsed.command];
         if (command) {
           parts[textPartIndex].text = command.template.replace(
             /\$ARGUMENTS/g,
-            parsed.args || "continue"
+            parsed.args || PROMPTS.CONTINUE
           );
         }
       }
@@ -16573,7 +16587,7 @@ var OrchestratorPlugin = async (input) => {
       session.timestamp = now;
       session.lastStepTime = now;
       const stateSession = state.sessions.get(toolInput.sessionID);
-      if (toolInput.tool === "call_agent" && stateSession) {
+      if (toolInput.tool === TOOL_NAMES.CALL_AGENT && stateSession) {
         const sanityResult = checkOutputSanity(toolOutput.output);
         if (!sanityResult.isHealthy) {
           stateSession.anomalyCount = (stateSession.anomalyCount || 0) + 1;
@@ -16596,11 +16610,11 @@ Anomaly count: ${stateSession.anomalyCount}
           }
         }
       }
-      if (toolInput.tool === "call_agent" && toolInput.arguments?.task && stateSession) {
+      if (toolInput.tool === TOOL_NAMES.CALL_AGENT && toolInput.arguments?.task && stateSession) {
         const taskIdMatch = toolInput.arguments.task.match(/\[(TASK-\d+)\]/i);
         if (taskIdMatch) {
           stateSession.currentTask = taskIdMatch[1].toUpperCase();
-          stateSession.graph?.updateTask(stateSession.currentTask, { status: "running" });
+          stateSession.graph?.updateTask(stateSession.currentTask, { status: TASK_STATUS.RUNNING });
         }
         const agentName = toolInput.arguments.agent;
         const emoji3 = AGENT_EMOJI[agentName] || "\u{1F916}";
@@ -16613,7 +16627,7 @@ Anomaly count: ${stateSession.anomalyCount}
         state.missionActive = false;
         return;
       }
-      if (toolOutput.output.includes("[") && toolOutput.output.includes("{") && toolInput.tool === "call_agent" && stateSession) {
+      if (toolOutput.output.includes("[") && toolOutput.output.includes("{") && toolInput.tool === TOOL_NAMES.CALL_AGENT && stateSession) {
         const jsonMatch = toolOutput.output.match(/```json\n([\s\S]*?)\n```/) || toolOutput.output.match(/\[\s*\{[\s\S]*?\}\s*\]/);
         if (jsonMatch) {
           try {
@@ -16634,7 +16648,7 @@ ${stateSession.graph.getTaskSummary()}`;
         const taskId = stateSession.currentTask;
         if (toolOutput.output.includes("\u2705 PASS") || toolOutput.output.includes("AUDIT RESULT: PASS")) {
           if (taskId) {
-            stateSession.graph.updateTask(taskId, { status: "completed" });
+            stateSession.graph.updateTask(taskId, { status: TASK_STATUS.COMPLETED });
             stateSession.taskRetries.clear();
             toolOutput.output += `
 
@@ -16647,7 +16661,7 @@ ${stateSession.graph.getTaskSummary()}`;
             const retries = (stateSession.taskRetries.get(taskId) || 0) + 1;
             stateSession.taskRetries.set(taskId, retries);
             if (retries >= state.maxRetries) {
-              stateSession.graph.updateTask(taskId, { status: "failed" });
+              stateSession.graph.updateTask(taskId, { status: TASK_STATUS.FAILED });
               toolOutput.output += `
 
 \u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501
@@ -16681,7 +16695,7 @@ ${stateSession.graph.getTaskSummary()}`;
       const session = sessions.get(sessionID);
       if (!session?.active) return;
       const parts = assistantOutput.parts;
-      const textContent = parts?.filter((p) => p.type === "text" || p.type === "reasoning").map((p) => p.text || "").join("\n") || "";
+      const textContent = parts?.filter((p) => p.type === PART_TYPES.TEXT || p.type === PART_TYPES.REASONING).map((p) => p.text || "").join("\n") || "";
       const stateSession = state.sessions.get(sessionID);
       const sanityResult = checkOutputSanity(textContent);
       if (!sanityResult.isHealthy && stateSession) {
@@ -16695,7 +16709,7 @@ ${stateSession.graph.getTaskSummary()}`;
               path: { id: sessionID },
               body: {
                 parts: [{
-                  type: "text",
+                  type: PART_TYPES.TEXT,
                   text: `\u26A0\uFE0F ANOMALY #${stateSession.anomalyCount}: ${sanityResult.reason}
 
 ` + recoveryText + `
@@ -16761,7 +16775,7 @@ ${stateSession.graph.getTaskSummary()}`;
             path: { id: sessionID },
             body: {
               parts: [{
-                type: "text",
+                type: PART_TYPES.TEXT,
                 text: CONTINUE_INSTRUCTION + `
 
 \u23F1\uFE0F [${currentTime}] Step ${session.step}/${session.maxSteps} | ${progressInfo} | This step: ${stepDuration} | Total: ${totalElapsed}`
@@ -16775,7 +16789,7 @@ ${stateSession.graph.getTaskSummary()}`;
           if (client?.session?.prompt) {
             await client.session.prompt({
               path: { id: sessionID },
-              body: { parts: [{ type: "text", text: "continue" }] }
+              body: { parts: [{ type: PART_TYPES.TEXT, text: PROMPTS.CONTINUE }] }
             });
           }
         } catch {

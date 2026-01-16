@@ -3,7 +3,7 @@
  */
 
 import type { PluginInput } from "@opencode-ai/plugin";
-import { TASK_STATUS } from "../../../shared/constants.js";
+import { TASK_STATUS, PART_TYPES } from "../../../shared/constants.js";
 import { TaskStore } from "../task-store.js";
 import { ConcurrencyController } from "../concurrency.js";
 import { CONFIG } from "../config.js";
@@ -63,7 +63,7 @@ export class TaskCleaner {
         try {
             await this.client.session.prompt({
                 path: { id: parentSessionID },
-                body: { noReply: true, parts: [{ type: "text", text: message }] },
+                body: { noReply: true, parts: [{ type: PART_TYPES.TEXT, text: message }] },
             });
             log(`Notified parent ${parentSessionID}`);
         } catch (error) {

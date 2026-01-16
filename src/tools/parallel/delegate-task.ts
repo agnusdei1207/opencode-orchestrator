@@ -7,7 +7,7 @@
 
 import { tool } from "@opencode-ai/plugin";
 import { ParallelAgentManager } from "../../core/agents/index.js";
-import { PARALLEL_TASK } from "../../shared/constants.js";
+import { PARALLEL_TASK, PART_TYPES } from "../../shared/constants.js";
 
 export const createDelegateTaskTool = (manager: ParallelAgentManager, client: unknown) => tool({
     description: `Delegate a task to an agent.
@@ -87,7 +87,7 @@ export const createDelegateTaskTool = (manager: ParallelAgentManager, client: un
                 const msgs = await session.messages({ path: { id: task.sessionID } });
                 const messages = (msgs.data ?? []) as Array<{ info?: { role?: string }; parts?: Array<{ type?: string; text?: string }> }>;
                 const lastMsg = messages.filter(m => m.info?.role === "assistant").reverse()[0];
-                const text = lastMsg?.parts?.filter(p => p.type === "text" || p.type === "reasoning").map(p => p.text ?? "").join("\n") || "";
+                const text = lastMsg?.parts?.filter(p => p.type === PART_TYPES.TEXT || p.type === PART_TYPES.REASONING).map(p => p.text ?? "").join("\n") || "";
 
                 return `🔄 Resumed & Completed (${Math.floor((Date.now() - startTime) / 1000)}s)\n\n${text || "(No output)"}`;
             } catch (error) {
@@ -130,7 +130,7 @@ export const createDelegateTaskTool = (manager: ParallelAgentManager, client: un
 
             await session.prompt({
                 path: { id: sessionID },
-                body: { agent, parts: [{ type: "text", text: prompt }] },
+                body: { agent, parts: [{ type: PART_TYPES.TEXT, text: prompt }] },
             });
 
             // Poll for completion
@@ -150,7 +150,7 @@ export const createDelegateTaskTool = (manager: ParallelAgentManager, client: un
             const msgs = await session.messages({ path: { id: sessionID } });
             const messages = (msgs.data ?? []) as Array<{ info?: { role?: string }; parts?: Array<{ type?: string; text?: string }> }>;
             const lastMsg = messages.filter(m => m.info?.role === "assistant").reverse()[0];
-            const text = lastMsg?.parts?.filter(p => p.type === "text" || p.type === "reasoning").map(p => p.text ?? "").join("\n") || "";
+            const text = lastMsg?.parts?.filter(p => p.type === PART_TYPES.TEXT || p.type === PART_TYPES.REASONING).map(p => p.text ?? "").join("\n") || "";
 
             return `✅ Completed (${Math.floor((Date.now() - startTime) / 1000)}s)\n` +
                 `Session: \`${sessionID}\` (save for resume)\n\n${text || "(No output)"}`;

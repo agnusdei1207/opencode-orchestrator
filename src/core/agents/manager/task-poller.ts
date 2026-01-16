@@ -9,6 +9,7 @@ import { CONFIG } from "../config.js";
 import { log } from "../logger.js";
 import { formatDuration } from "../format.js";
 import type { ParallelTask } from "../interfaces/parallel-task.interface.js";
+import { TASK_STATUS, PART_TYPES } from "../../../shared/constants.js";
 
 type OpencodeClient = PluginInput["client"];
 
@@ -88,14 +89,14 @@ export class TaskPoller {
         try {
             const response = await this.client.session.messages({ path: { id: sessionID } });
             const messages = (response.data ?? []) as Array<{ info?: { role?: string }; parts?: Array<{ type?: string; text?: string }> }>;
-            return messages.some(m => m.info?.role === "assistant" && m.parts?.some(p => (p.type === "text" && p.text?.trim()) || p.type === "tool"));
+            return messages.some(m => m.info?.role === "assistant" && m.parts?.some(p => (p.type === PART_TYPES.TEXT && p.text?.trim()) || p.type === "tool"));
         } catch {
             return true;
         }
     }
 
     async completeTask(task: ParallelTask): Promise<void> {
-        task.status = "completed";
+        task.status = TASK_STATUS.COMPLETED;
         task.completedAt = new Date();
 
         if (task.concurrencyKey) {
@@ -132,7 +133,7 @@ export class TaskPoller {
                         toolCalls++;
                         lastTool = part.tool || part.name;
                     }
-                    if (part.type === "text" && part.text) {
+                    if (part.type === PART_TYPES.TEXT && part.text) {
                         lastMessage = part.text;
                     }
                 }

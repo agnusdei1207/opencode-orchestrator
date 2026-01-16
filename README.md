@@ -27,7 +27,7 @@
 
 ---
 
-## 🏛️ Complete System Architecture
+## 🏛️ System Architecture
 
 ```
 ┌───────────────────────────────────────────────────────────────────────────────────────────────────────┐
@@ -416,6 +416,7 @@ npm uninstall -g opencode-orchestrator
 ## Documentation
 
 - **[System Architecture](docs/SYSTEM_ARCHITECTURE.md)** — Detailed technical docs
+- **[OpenCode SDK Reference](docs/OPENCODE_SDK_REFERENCE.md)** — API usage reference
 - [Release Notes](docs/releases/) — Version history
 - [Troubleshooting](docs/PLUGIN_TROUBLESHOOTING.md)
 
