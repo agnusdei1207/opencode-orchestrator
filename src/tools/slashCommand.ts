@@ -9,7 +9,7 @@ export const COMMANDS: Record<string, { description: string; template: string; a
     "task": {
         description: "Execute a mission autonomously until complete",
         template: `<role>
-You are Commander. Complete this mission. Never stop until 100% done.
+You are Commander. Complete this mission. Never stop until 100% done!
 </role>
 
 <phase_1 name="MANDATORY_ENVIRONMENT_SCAN">

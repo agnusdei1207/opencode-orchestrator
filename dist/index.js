@@ -13568,7 +13568,7 @@ var COMMANDS = {
   "task": {
     description: "Execute a mission autonomously until complete",
     template: `<role>
-You are Commander. Complete this mission. Never stop until 100% done.
+You are Commander. Complete this mission. Never stop until 100% done!
 </role>
 
 <phase_1 name="MANDATORY_ENVIRONMENT_SCAN">
@@ -16395,7 +16395,6 @@ var require2 = createRequire(import.meta.url);
 var { version: PLUGIN_VERSION } = require2("../package.json");
 var UNLIMITED_MODE = true;
 var DEFAULT_MAX_STEPS = UNLIMITED_MODE ? Infinity : 500;
-var TASK_COMMAND_MAX_STEPS = UNLIMITED_MODE ? Infinity : 1e3;
 var CONTINUE_INSTRUCTION = `<auto_continue>
 <status>Mission not complete. Keep executing.</status>
 
@@ -16525,45 +16524,8 @@ var OrchestratorPlugin = async (input) => {
           agent: AGENT_NAMES.COMMANDER,
           description: "Mission started"
         });
-        if (!parsed) {
-          const userMessage = originalText.trim();
-          if (userMessage) {
-            parts[textPartIndex].text = COMMANDS["task"].template.replace(
-              /\$ARGUMENTS/g,
-              userMessage
-            );
-          }
-        }
       }
-      if (parsed?.command === "task") {
-        const now = Date.now();
-        sessions.set(sessionID, {
-          active: true,
-          step: 0,
-          maxSteps: TASK_COMMAND_MAX_STEPS,
-          timestamp: now,
-          startTime: now,
-          lastStepTime: now
-        });
-        state.missionActive = true;
-        state.sessions.set(sessionID, {
-          enabled: true,
-          iterations: 0,
-          taskRetries: /* @__PURE__ */ new Map(),
-          currentTask: "",
-          anomalyCount: 0
-        });
-        startSession(sessionID);
-        emit(TASK_EVENTS.STARTED, {
-          taskId: sessionID,
-          agent: AGENT_NAMES.COMMANDER,
-          description: parsed.args || "task command"
-        });
-        parts[textPartIndex].text = COMMANDS["task"].template.replace(
-          /\$ARGUMENTS/g,
-          parsed.args || PROMPTS.CONTINUE_PREVIOUS
-        );
-      } else if (parsed) {
+      if (parsed) {
         const command = COMMANDS[parsed.command];
         if (command) {
           parts[textPartIndex].text = command.template.replace(
@@ -16821,5 +16783,6 @@ ${stateSession.graph.getTaskSummary()}`;
 };
 var index_default = OrchestratorPlugin;
 export {
+  OrchestratorPlugin,
   index_default as default
 };
