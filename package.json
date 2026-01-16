@@ -45,10 +45,12 @@
     "release:patch": "npm run build && npm version patch && git push --follow-tags && npm publish --access public",
     "release:minor": "npm run build && npm version minor && git push --follow-tags && npm publish --access public",
     "release:major": "npm run build && npm version major && git push --follow-tags && npm publish --access public",
-    "dev:link": "npm run build && npm unlink opencode-orchestrator || shx echo 'Not linked' && shx rm -rf $(npm root -g)/opencode-orchestrator && npm link && echo 'SUCCESS: Re-linked. Restart OpenCode.'",
-    "dev:unlink": "npm unlink opencode-orchestrator || shx echo 'Not linked' && shx rm -rf $(npm root -g)/opencode-orchestrator && echo 'SUCCESS: Unlinked and Cleaned'",
-    "dev:status": "echo '=== Global Link Status ===' && shx ls -l $(npm root -g)/opencode-orchestrator || echo 'Not linked'",
-    "dev:test": "node dist/scripts/postinstall.js && echo '---' && node dist/scripts/preuninstall.js"
+    "dev:clean": "shx rm -rf $(npm root -g)/opencode-orchestrator && npm cache clean --force && echo 'Cleaned global + cache'",
+    "dev:link": "npm run dev:clean || true && npm run build && npm link && echo 'SUCCESS: Linked. Restart OpenCode.'",
+    "dev:unlink": "npm unlink -g opencode-orchestrator || true && npm run dev:clean && echo 'SUCCESS: Unlinked'",
+    "dev:status": "echo '=== Global Link ===' && ls -la $(npm root -g)/opencode-orchestrator 2>/dev/null || echo 'Not linked'",
+    "dev:test": "node dist/scripts/postinstall.js && echo '---' && node dist/scripts/preuninstall.js",
+    "reset": "npm run dev:unlink || true && npm uninstall -g opencode-orchestrator || true && brew uninstall opencode || true && rm -rf ~/.config/opencode ~/.opencode ~/.local/share/opencode && echo '=== Clean done ===' && brew install opencode && npm run dev:link && echo '=== Reset complete ==='"
   },
   "dependencies": {
     "@opencode-ai/plugin": "^1.1.1",
