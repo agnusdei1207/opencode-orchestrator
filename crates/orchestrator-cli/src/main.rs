@@ -91,27 +91,27 @@ fn list_agents() -> Result<()> {
     println!("  {:15} {}", "─".repeat(15), "─".repeat(45));
     println!(
         "  {:15} {}",
-        "commander", "Autonomous orchestrator - executes until mission complete"
+        "Commander", "Autonomous orchestrator - executes until mission complete"
     );
     println!(
         "  {:15} {}",
-        "architect", "Task decomposition & strategy correction"
+        "Architect", "Task decomposition & strategy correction"
     );
     println!(
         "  {:15} {}",
-        "builder", "Full-stack implementation (Logic + UI)"
+        "Builder", "Full-stack implementation (Logic + UI)"
     );
     println!(
         "  {:15} {}",
-        "inspector", "Quality audit & automatic bug fixing"
+        "Inspector", "Quality audit & automatic bug fixing"
     );
     println!(
         "  {:15} {}",
-        "recorder", "Persistent context & progress tracking"
+        "Recorder", "Persistent context & progress tracking"
     );
     println!();
     println!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-    println!("To change model in config: agents.builder.model = \"custom/model\"");
+    println!("To change model in config: agents.Builder.model = \"custom/model\"");
 
     Ok(())
 }

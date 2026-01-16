@@ -8,10 +8,16 @@
  * - Visual gibberish (box drawing characters)
  * - Line repetition
  */
+export declare const SEVERITY: {
+    readonly OK: "ok";
+    readonly WARNING: "warning";
+    readonly CRITICAL: "critical";
+};
+export type Severity = (typeof SEVERITY)[keyof typeof SEVERITY];
 export interface SanityResult {
     isHealthy: boolean;
     reason?: string;
-    severity: "ok" | "warning" | "critical";
+    severity: Severity;
 }
 /**
  * Check if LLM output shows signs of degeneration

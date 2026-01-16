@@ -163,23 +163,23 @@ async fn glob_search(arguments: Value) -> Result<String> {
 async fn list_agents() -> Result<String> {
     let agents = vec![
         json!({
-            "id": "commander",
+            "id": "Commander",
             "description": "Autonomous orchestrator - executes until mission complete"
         }),
         json!({
-            "id": "architect",
+            "id": "Architect",
             "description": "Task decomposition & strategy correction"
         }),
         json!({
-            "id": "builder",
+            "id": "Builder",
             "description": "Full-stack implementation (Logic + UI)"
         }),
         json!({
-            "id": "inspector",
+            "id": "Inspector",
             "description": "Quality audit & automatic bug fixing"
         }),
         json!({
-            "id": "recorder",
+            "id": "Recorder",
             "description": "Persistent context & progress tracking"
         }),
     ];
