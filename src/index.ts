@@ -191,9 +191,12 @@ const OrchestratorPlugin: Plugin = async (input) => {
                 },
             };
 
-            // Merge with existing config, our stuff takes lower priority
-            config.command = { ...orchestratorCommands, ...existingCommands };
-            config.agent = { ...orchestratorAgents, ...existingAgents };
+            // Merge: our agents OVERRIDE existing ones (put ours LAST in spread)
+            config.command = { ...existingCommands, ...orchestratorCommands };
+            config.agent = { ...existingAgents, ...orchestratorAgents };
+
+            console.log(`[orchestrator] Registered agents: ${Object.keys(orchestratorAgents).join(", ")}`);
+            console.log(`[orchestrator] Commander prompt length: ${(AGENTS.commander.systemPrompt || "").length}`);
         },
 
         // -----------------------------------------------------------------
