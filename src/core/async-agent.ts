@@ -1,24 +1,26 @@
 /**
- * Parallel Agent Manager - Session-based async agent execution
+ * Parallel Agent Manager
  * 
- * Key safety features:
- * - Concurrency control per agent type (queue-based)
- * - Batched notifications (notify when ALL complete)
- * - Automatic memory cleanup (5 min after completion)
- * - TTL enforcement (30 min timeout)
- * - Output validation before completion
- * - Process-safe polling (unref)
+ * Session-based async agent execution with:
+ * - Concurrency control per agent type
+ * - Batched notifications
+ * - Automatic cleanup
  */
 
 import type { PluginInput } from "@opencode-ai/plugin";
 import { ID_PREFIX, PARALLEL_TASK } from "../shared/constants.js";
+import { ConcurrencyController } from "./parallel/concurrency.js";
+import type { ParallelTask } from "./parallel/interfaces/parallel-task.js";
+import type { LaunchInput } from "./parallel/interfaces/launch-input.js";
 
-// Configuration from constants
+// Re-export for external use
+export type { ParallelTask };
+
+// Configuration
 const TASK_TTL_MS = PARALLEL_TASK.TTL_MS;
 const CLEANUP_DELAY_MS = PARALLEL_TASK.CLEANUP_DELAY_MS;
 const MIN_STABILITY_MS = PARALLEL_TASK.MIN_STABILITY_MS;
 const POLL_INTERVAL_MS = PARALLEL_TASK.POLL_INTERVAL_MS;
-const DEFAULT_CONCURRENCY = PARALLEL_TASK.DEFAULT_CONCURRENCY;
 
 // Debug logger
 const DEBUG = process.env.DEBUG_PARALLEL_AGENT === "true";
@@ -27,91 +29,6 @@ const log = (...args: unknown[]) => {
 };
 
 type OpencodeClient = PluginInput["client"];
-
-// ============================================================================
-// Types
-// ============================================================================
-
-export interface ParallelTask {
-    id: string;
-    sessionID: string;
-    parentSessionID: string;
-    description: string;
-    agent: string;
-    status: "pending" | "running" | "completed" | "error" | "timeout";
-    startedAt: Date;
-    completedAt?: Date;
-    error?: string;
-    result?: string;
-    concurrencyKey?: string;
-}
-
-interface LaunchInput {
-    description: string;
-    prompt: string;
-    agent: string;
-    parentSessionID: string;
-}
-
-// ============================================================================
-// Concurrency Controller - Queue-based rate limiting per agent type
-// ============================================================================
-
-class ConcurrencyController {
-    private counts: Map<string, number> = new Map();
-    private queues: Map<string, Array<() => void>> = new Map();
-    private limits: Map<string, number> = new Map();
-
-    setLimit(key: string, limit: number): void {
-        this.limits.set(key, limit);
-    }
-
-    getLimit(key: string): number {
-        return this.limits.get(key) ?? DEFAULT_CONCURRENCY;
-    }
-
-    async acquire(key: string): Promise<void> {
-        const limit = this.getLimit(key);
-        if (limit === 0) return; // 0 = unlimited
-
-        const current = this.counts.get(key) ?? 0;
-        if (current < limit) {
-            this.counts.set(key, current + 1);
-            log(`Acquired slot for ${key}: ${current + 1}/${limit}`);
-            return;
-        }
-
-        // Queue and wait
-        log(`Queueing for ${key}: ${current}/${limit} (waiting...)`);
-        return new Promise<void>((resolve) => {
-            const queue = this.queues.get(key) ?? [];
-            queue.push(resolve);
-            this.queues.set(key, queue);
-        });
-    }
-
-    release(key: string): void {
-        const limit = this.getLimit(key);
-        if (limit === 0) return;
-
-        const queue = this.queues.get(key);
-        if (queue && queue.length > 0) {
-            const next = queue.shift()!;
-            log(`Released slot for ${key}: next in queue`);
-            next();
-        } else {
-            const current = this.counts.get(key) ?? 0;
-            if (current > 0) {
-                this.counts.set(key, current - 1);
-                log(`Released slot for ${key}: ${current - 1}`);
-            }
-        }
-    }
-
-    getQueueLength(key: string): number {
-        return this.queues.get(key)?.length ?? 0;
-    }
-}
 
 // ============================================================================
 // Parallel Agent Manager
