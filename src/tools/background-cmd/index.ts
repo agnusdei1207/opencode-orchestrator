@@ -2,9 +2,7 @@
  * Background Command Tools
  */
 
-export {
-    runBackgroundTool,
-    checkBackgroundTool,
-    listBackgroundTool,
-    killBackgroundTool,
-} from "./tools.js";
+export { runBackgroundTool } from "./run.js";
+export { checkBackgroundTool } from "./check.js";
+export { listBackgroundTool } from "./list.js";
+export { killBackgroundTool } from "./kill.js";

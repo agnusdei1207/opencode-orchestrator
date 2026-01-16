@@ -13468,32 +13468,19 @@ Process error: ${err.message}`;
 };
 var backgroundTaskManager = BackgroundTaskManager.instance;
 
-// src/tools/background-cmd/tools.ts
+// src/tools/background-cmd/run.ts
 var runBackgroundTool = tool({
   description: `Run a shell command in the background and get a task ID.
 
 <purpose>
-Execute long-running commands (builds, tests, etc.) without blocking.
-The command runs asynchronously - use check_background to get results.
-</purpose>
-
-<examples>
-- "npm run build" \u2192 Build project in background
-- "cargo test" \u2192 Run Rust tests
-- "sleep 10 && echo done" \u2192 Delayed execution
-</examples>
-
-<flow>
-1. Call run_background with command
-2. Get task ID immediately (e.g., job_a1b2c3d4)
-3. Continue other work
-4. Call check_background with task ID to get results
-</flow>`,
+Execute long-running commands (builds, tests) without blocking.
+Use check_background to get results.
+</purpose>`,
   args: {
     command: tool.schema.string().describe("Shell command to execute"),
-    cwd: tool.schema.string().optional().describe("Working directory (default: project root)"),
-    timeout: tool.schema.number().optional().describe("Timeout in milliseconds (default: 300000 = 5 min)"),
-    label: tool.schema.string().optional().describe("Human-readable label for this task")
+    cwd: tool.schema.string().optional().describe("Working directory"),
+    timeout: tool.schema.number().optional().describe("Timeout in ms (default: 300000)"),
+    label: tool.schema.string().optional().describe("Task label")
   },
   async execute(args) {
     const { command, cwd, timeout, label } = args;
@@ -13505,36 +13492,20 @@ The command runs asynchronously - use check_background to get results.
     });
     const displayLabel = label ? ` (${label})` : "";
     return `\u{1F680} **Background Task Started**${displayLabel}
-\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501
-| Property | Value |
-|----------|-------|
-| **Task ID** | \`${task.id}\` |
-| **Command** | \`${command}\` |
-| **Status** | ${backgroundTaskManager.getStatusEmoji(task.status)} ${task.status} |
-| **Working Dir** | ${task.cwd} |
-| **Timeout** | ${(task.timeout / 1e3).toFixed(0)}s |
-\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501
+| Task ID | \`${task.id}\` |
+| Command | \`${command}\` |
+| Status | ${backgroundTaskManager.getStatusEmoji(task.status)} ${task.status} |
 
-\u{1F4CC} **Next Step**: Use \`check_background\` with task ID \`${task.id}\` to get results.`;
+\u{1F4CC} Use \`check_background({ taskId: "${task.id}" })\` to get results.`;
   }
 });
+
+// src/tools/background-cmd/check.ts
 var checkBackgroundTool = tool({
-  description: `Check the status and output of a background task.
-
-<purpose>
-Retrieve the current status and output of a previously started background task.
-Use this after run_background to get results.
-</purpose>
-
-<output_includes>
-- Status: running/done/error/timeout
-- Exit code (if completed)
-- Duration
-- Full output (stdout + stderr)
-</output_includes>`,
+  description: `Check the status and output of a background task.`,
   args: {
-    taskId: tool.schema.string().describe("Task ID from run_background (e.g., job_a1b2c3d4)"),
-    tailLines: tool.schema.number().optional().describe("Limit output to last N lines (default: show all)")
+    taskId: tool.schema.string().describe("Task ID from run_background"),
+    tailLines: tool.schema.number().optional().describe("Limit output to last N lines")
   },
   async execute(args) {
     const { taskId, tailLines } = args;
@@ -13547,7 +13518,7 @@ Use this after run_background to get results.
       const taskList = allTasks.map((t) => `- \`${t.id}\`: ${t.command.substring(0, 30)}...`).join("\n");
       return `\u274C Task \`${taskId}\` not found.
 
-**Available tasks:**
+**Available:**
 ${taskList}`;
     }
     const duration3 = backgroundTaskManager.formatDuration(task);
@@ -13555,64 +13526,41 @@ ${taskList}`;
     let output = task.output;
     let stderr = task.errorOutput;
     if (tailLines && tailLines > 0) {
-      const outputLines = output.split("\n");
-      const stderrLines = stderr.split("\n");
-      output = outputLines.slice(-tailLines).join("\n");
-      stderr = stderrLines.slice(-tailLines).join("\n");
+      output = output.split("\n").slice(-tailLines).join("\n");
+      stderr = stderr.split("\n").slice(-tailLines).join("\n");
     }
     const maxLen = 1e4;
-    if (output.length > maxLen) {
-      output = `[...truncated ${output.length - maxLen} chars...]
-` + output.substring(output.length - maxLen);
-    }
-    if (stderr.length > maxLen) {
-      stderr = `[...truncated ${stderr.length - maxLen} chars...]
-` + stderr.substring(stderr.length - maxLen);
-    }
-    const labelDisplay = task.label ? ` (${task.label})` : "";
-    let result = `${statusEmoji} **Task ${task.id}**${labelDisplay}
-\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501
-| Property | Value |
-|----------|-------|
-| **Command** | \`${task.command}\` |
-| **Status** | ${statusEmoji} **${task.status.toUpperCase()}** |
-| **Duration** | ${duration3}${task.status === "running" ? " (ongoing)" : ""} |
-${task.exitCode !== null ? `| **Exit Code** | ${task.exitCode} |` : ""}
-\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501`;
-    if (output.trim()) {
-      result += `
+    if (output.length > maxLen) output = `[...truncated...]\\n` + output.slice(-maxLen);
+    if (stderr.length > maxLen) stderr = `[...truncated...]\\n` + stderr.slice(-maxLen);
+    let result = `${statusEmoji} **Task ${task.id}**${task.label ? ` (${task.label})` : ""}
+| Command | \`${task.command}\` |
+| Status | ${statusEmoji} **${task.status.toUpperCase()}** |
+| Duration | ${duration3}${task.status === "running" ? " (ongoing)" : ""} |
+${task.exitCode !== null ? `| Exit Code | ${task.exitCode} |` : ""}`;
+    if (output.trim()) result += `
 
-\u{1F4E4} **Output (stdout)**:
+\u{1F4E4} **stdout:**
 \`\`\`
 ${output.trim()}
 \`\`\``;
-    }
-    if (stderr.trim()) {
-      result += `
+    if (stderr.trim()) result += `
 
-\u26A0\uFE0F **Errors (stderr)**:
+\u26A0\uFE0F **stderr:**
 \`\`\`
 ${stderr.trim()}
 \`\`\``;
-    }
-    if (task.status === "running") {
-      result += `
+    if (task.status === "running") result += `
 
-\u23F3 Task still running... Check again later with:
-\`check_background({ taskId: "${task.id}" })\``;
-    }
+\u23F3 Still running... check again.`;
     return result;
   }
 });
-var listBackgroundTool = tool({
-  description: `List all background tasks and their current status.
 
-<purpose>
-Get an overview of all running and completed background tasks.
-Useful to check what's in progress before starting new tasks.
-</purpose>`,
+// src/tools/background-cmd/list.ts
+var listBackgroundTool = tool({
+  description: `List all background tasks and their status.`,
   args: {
-    status: tool.schema.enum(["all", "running", "done", "error"]).optional().describe("Filter by status (default: all)")
+    status: tool.schema.enum(["all", "running", "done", "error"]).optional().describe("Filter by status")
   },
   async execute(args) {
     const { status = "all" } = args;
@@ -13623,58 +13571,45 @@ Useful to check what's in progress before starting new tasks.
       tasks = backgroundTaskManager.getByStatus(status);
     }
     if (tasks.length === 0) {
-      return `\u{1F4CB} **No background tasks** ${status !== "all" ? `with status "${status}"` : ""}
-
-Use \`run_background\` to start a new background task.`;
+      return `\u{1F4CB} No background tasks${status !== "all" ? ` with status "${status}"` : ""}`;
     }
     tasks.sort((a, b) => b.startTime - a.startTime);
-    const rows = tasks.map((task) => {
-      const emoji3 = backgroundTaskManager.getStatusEmoji(task.status);
-      const duration3 = backgroundTaskManager.formatDuration(task);
-      const cmdShort = task.command.length > 25 ? task.command.substring(0, 22) + "..." : task.command;
-      const labelPart = task.label ? ` [${task.label}]` : "";
-      return `| \`${task.id}\` | ${emoji3} ${task.status.padEnd(7)} | ${cmdShort.padEnd(25)}${labelPart} | ${duration3.padStart(8)} |`;
+    const rows = tasks.map((t) => {
+      const emoji3 = backgroundTaskManager.getStatusEmoji(t.status);
+      const cmd = t.command.length > 25 ? t.command.slice(0, 22) + "..." : t.command;
+      const label = t.label ? ` [${t.label}]` : "";
+      return `| \`${t.id}\` | ${emoji3} ${t.status} | ${cmd}${label} | ${backgroundTaskManager.formatDuration(t)} |`;
     }).join("\n");
-    const runningCount = tasks.filter((t) => t.status === "running").length;
-    const doneCount = tasks.filter((t) => t.status === "done").length;
-    const errorCount = tasks.filter((t) => t.status === "error" || t.status === "timeout").length;
-    return `\u{1F4CB} **Background Tasks** (${tasks.length} total)
-\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501
-| \u23F3 Running: ${runningCount} | \u2705 Done: ${doneCount} | \u274C Error/Timeout: ${errorCount} |
-\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501
+    const running = tasks.filter((t) => t.status === "running").length;
+    const done = tasks.filter((t) => t.status === "done").length;
+    const error45 = tasks.filter((t) => t.status === "error" || t.status === "timeout").length;
+    return `\u{1F4CB} **Background Tasks** (${tasks.length})
+\u23F3 Running: ${running} | \u2705 Done: ${done} | \u274C Error: ${error45}
 
-| Task ID | Status | Command | Duration |
-|---------|--------|---------|----------|
-${rows}
-
-\u{1F4A1} Use \`check_background({ taskId: "job_xxxxx" })\` to see full output.`;
+| ID | Status | Command | Duration |
+|----|--------|---------|----------|
+${rows}`;
   }
 });
-var killBackgroundTool = tool({
-  description: `Kill a running background task.
 
-<purpose>
-Stop a background task that is taking too long or no longer needed.
-</purpose>`,
+// src/tools/background-cmd/kill.ts
+var killBackgroundTool = tool({
+  description: `Kill a running background task.`,
   args: {
-    taskId: tool.schema.string().describe("Task ID to kill (e.g., job_a1b2c3d4)")
+    taskId: tool.schema.string().describe("Task ID to kill")
   },
   async execute(args) {
     const { taskId } = args;
     const task = backgroundTaskManager.get(taskId);
-    if (!task) {
-      return `\u274C Task \`${taskId}\` not found.`;
-    }
-    if (task.status !== "running") {
-      return `\u26A0\uFE0F Task \`${taskId}\` is not running (status: ${task.status}).`;
-    }
+    if (!task) return `\u274C Task \`${taskId}\` not found.`;
+    if (task.status !== "running") return `\u26A0\uFE0F Task \`${taskId}\` is not running (${task.status}).`;
     const killed = backgroundTaskManager.kill(taskId);
     if (killed) {
-      return `\u{1F6D1} Task \`${taskId}\` has been killed.
+      return `\u{1F6D1} Task \`${taskId}\` killed.
 Command: \`${task.command}\`
-Duration before kill: ${backgroundTaskManager.formatDuration(task)}`;
+Duration: ${backgroundTaskManager.formatDuration(task)}`;
     }
-    return `\u26A0\uFE0F Could not kill task \`${taskId}\`. It may have already finished.`;
+    return `\u26A0\uFE0F Could not kill task \`${taskId}\`.`;
   }
 });
 
