@@ -485,7 +485,7 @@ var AGENTS = {
   [AGENT_NAMES.RECORDER]: recorder
 };
 
-// src/core/tasks.ts
+// src/core/session/task-graph.ts
 var TaskGraph = class _TaskGraph {
   tasks = /* @__PURE__ */ new Map();
   constructor(tasks) {
@@ -526,7 +526,7 @@ var TaskGraph = class _TaskGraph {
     const notCompleted = tasks.filter((t) => t.status !== "completed");
     let summary = "\u{1F4CB} **Mission Status**\n";
     if (completed.length > 0) {
-      summary += `\u2705 Completed: ${completed.length} tasks (Hidden to save tokens)
+      summary += `\u2705 Completed: ${completed.length} tasks
 `;
     }
     for (const task of notCompleted) {
@@ -543,18 +543,16 @@ var TaskGraph = class _TaskGraph {
     try {
       const tasks = JSON.parse(json2);
       return new _TaskGraph(tasks);
-    } catch (e) {
-      console.error("Failed to parse TaskGraph JSON:", e);
+    } catch {
       return new _TaskGraph();
     }
   }
 };
 
-// src/core/state.ts
+// src/core/session/state.ts
 var state = {
   missionActive: false,
   maxIterations: 1e3,
-  // Effectively infinite - "Relentless" mode
   maxRetries: 3,
   sessions: /* @__PURE__ */ new Map()
 };
@@ -13732,7 +13730,7 @@ var ConcurrencyController = class {
   }
 };
 
-// src/core/async-agent.ts
+// src/core/parallel/manager.ts
 var TASK_TTL_MS = PARALLEL_TASK.TTL_MS;
 var CLEANUP_DELAY_MS = PARALLEL_TASK.CLEANUP_DELAY_MS;
 var MIN_STABILITY_MS = PARALLEL_TASK.MIN_STABILITY_MS;

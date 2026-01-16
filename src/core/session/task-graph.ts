@@ -1,21 +1,7 @@
 /**
- * Task management for DAG-based orchestration
+ * TaskGraph - DAG for task orchestration
  */
-
-export type TaskStatus = "pending" | "running" | "completed" | "failed";
-
-export interface Task {
-    id: string;
-    description: string;
-    action: string;
-    file: string;
-    dependencies: string[];
-    status: TaskStatus;
-    result?: string;
-    retryCount: number;
-    complexity: number; // 1-10
-    type: "infrastructure" | "logic" | "integration";
-}
+import { Task } from "./interfaces/task.js";
 
 export class TaskGraph {
     private tasks: Map<string, Task> = new Map();
@@ -66,12 +52,10 @@ export class TaskGraph {
 
         let summary = "📋 **Mission Status**\n";
 
-        // Compact summary for completed tasks to save tokens
         if (completed.length > 0) {
-            summary += `✅ Completed: ${completed.length} tasks (Hidden to save tokens)\n`;
+            summary += `✅ Completed: ${completed.length} tasks\n`;
         }
 
-        // Detailed view for active/pending tasks
         for (const task of notCompleted) {
             const icon = task.status === "running" ? "⏳" : task.status === "failed" ? "❌" : "💤";
             summary += `${icon} [${task.id}] ${task.description}\n`;
@@ -88,8 +72,7 @@ export class TaskGraph {
         try {
             const tasks = JSON.parse(json) as Task[];
             return new TaskGraph(tasks);
-        } catch (e) {
-            console.error("Failed to parse TaskGraph JSON:", e);
+        } catch {
             return new TaskGraph();
         }
     }

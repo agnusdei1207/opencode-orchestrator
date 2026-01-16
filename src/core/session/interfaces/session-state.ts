@@ -1,4 +1,8 @@
-import { TaskGraph } from "./tasks.js";
+/**
+ * SessionState - State for a single orchestration session
+ */
+import type { TaskGraph } from "../task-graph.js";
+
 export interface SessionState {
     enabled: boolean;
     iterations: number;
@@ -8,9 +12,3 @@ export interface SessionState {
     anomalyCount: number;
     lastHealthyOutput?: string;
 }
-export declare const state: {
-    missionActive: boolean;
-    maxIterations: number;
-    maxRetries: number;
-    sessions: Map<string, SessionState>;
-};

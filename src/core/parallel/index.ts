@@ -1,15 +1,13 @@
 /**
- * Parallel Task Module
+ * Parallel Module - Agent parallel execution
  */
 
 // Types
 export * from "./types/index.js";
 
-// Interfaces
+// Interfaces  
 export * from "./interfaces/index.js";
 
 // Classes
 export { ConcurrencyController } from "./concurrency.js";
-
-// Re-export Manager from async-agent (TODO: move here)
-export { ParallelAgentManager } from "../async-agent.js";
+export { ParallelAgentManager, parallelAgentManager } from "./manager.js";
