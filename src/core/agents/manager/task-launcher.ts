@@ -3,7 +3,7 @@
  */
 
 import type { PluginInput } from "@opencode-ai/plugin";
-import { ID_PREFIX, TASK_STATUS } from "../../../shared/constants.js";
+import { ID_PREFIX, TASK_STATUS, PART_TYPES } from "../../../shared/constants.js";
 import { ConcurrencyController } from "../concurrency.js";
 import { TaskStore } from "../task-store.js";
 import { log } from "../logger.js";
@@ -58,7 +58,7 @@ export class TaskLauncher {
 
             this.client.session.prompt({
                 path: { id: sessionID },
-                body: { agent: input.agent, parts: [{ type: "text", text: input.prompt }] },
+                body: { agent: input.agent, parts: [{ type: PART_TYPES.TEXT, text: input.prompt }] },
             }).catch((error) => {
                 log(`Prompt error for ${taskId}:`, error);
                 this.onTaskError(taskId, error);

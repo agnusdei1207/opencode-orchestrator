@@ -3,7 +3,7 @@
  */
 
 import type { PluginInput } from "@opencode-ai/plugin";
-import { TASK_STATUS } from "../../../shared/constants.js";
+import { TASK_STATUS, PART_TYPES } from "../../../shared/constants.js";
 import { TaskStore } from "../task-store.js";
 import { log } from "../logger.js";
 import type { ParallelTask } from "../interfaces/parallel-task.interface.js";
@@ -47,7 +47,7 @@ export class TaskResumer {
             path: { id: existingTask.sessionID },
             body: {
                 agent: existingTask.agent,
-                parts: [{ type: "text", text: input.prompt }]
+                parts: [{ type: PART_TYPES.TEXT, text: input.prompt }]
             },
         }).catch((error) => {
             log(`Resume prompt error for ${existingTask.id}:`, error);

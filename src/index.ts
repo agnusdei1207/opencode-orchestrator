@@ -38,7 +38,7 @@ import {
 } from "./utils/sanity.js";
 import { webfetchTool, websearchTool, cacheDocsTool, codesearchTool } from "./tools/web/index.js";
 import { emit, SESSION_EVENTS, TASK_EVENTS, MISSION_EVENTS } from "./core/bus/index.js";
-import { MISSION, AGENT_EMOJI, AGENT_NAMES, TOOL_NAMES } from "./shared/constants.js";
+import { MISSION, AGENT_EMOJI, AGENT_NAMES, TOOL_NAMES, TASK_STATUS, PART_TYPES, PROMPTS } from "./shared/constants.js";
 import * as TodoEnforcer from "./core/loop/todo-enforcer.js";
 import * as Toast from "./core/notification/toast.js";
 import * as ProgressTracker from "./core/progress/tracker.js";
@@ -191,7 +191,7 @@ const OrchestratorPlugin = async (input: PluginInput) => {
         // -----------------------------------------------------------------
         "chat.message": async (msgInput: any, msgOutput: any) => {
             const parts = msgOutput.parts as Array<{ type: string; text?: string }>;
-            const textPartIndex = parts.findIndex(p => p.type === "text" && p.text);
+            const textPartIndex = parts.findIndex(p => p.type === PART_TYPES.TEXT && p.text);
             if (textPartIndex === -1) return;
 
             const originalText = parts[textPartIndex].text || "";
@@ -274,7 +274,7 @@ const OrchestratorPlugin = async (input: PluginInput) => {
 
                 parts[textPartIndex].text = COMMANDS["task"].template.replace(
                     /\$ARGUMENTS/g,
-                    parsed.args || "continue previous work"
+                    parsed.args || PROMPTS.CONTINUE_PREVIOUS
                 );
             } else if (parsed) {
                 // Handle other slash commands (/plan, /auto, etc.)
@@ -282,7 +282,7 @@ const OrchestratorPlugin = async (input: PluginInput) => {
                 if (command) {
                     parts[textPartIndex].text = command.template.replace(
                         /\$ARGUMENTS/g,
-                        parsed.args || "continue"
+                        parsed.args || PROMPTS.CONTINUE
                     );
                 }
             }
@@ -316,7 +316,7 @@ const OrchestratorPlugin = async (input: PluginInput) => {
             // spitting out random characters or repeating the same thing.
             // When we catch it, we inject a recovery prompt to get back on track.
             // =========================================================
-            if (toolInput.tool === "call_agent" && stateSession) {
+            if (toolInput.tool === TOOL_NAMES.CALL_AGENT && stateSession) {
                 const sanityResult = checkOutputSanity(toolOutput.output);
 
                 if (!sanityResult.isHealthy) {
@@ -346,12 +346,12 @@ const OrchestratorPlugin = async (input: PluginInput) => {
                 }
             }
 
-            // Track which task is running if it's from the DAG
-            if (toolInput.tool === "call_agent" && toolInput.arguments?.task && stateSession) {
+            // Track which task is running
+            if (toolInput.tool === TOOL_NAMES.CALL_AGENT && toolInput.arguments?.task && stateSession) {
                 const taskIdMatch = toolInput.arguments.task.match(/\[(TASK-\d+)\]/i);
                 if (taskIdMatch) {
                     stateSession.currentTask = taskIdMatch[1].toUpperCase();
-                    stateSession.graph?.updateTask(stateSession.currentTask, { status: "running" });
+                    stateSession.graph?.updateTask(stateSession.currentTask, { status: TASK_STATUS.RUNNING });
                 }
 
                 // Prepend a nice header so we know which agent is working
@@ -373,7 +373,7 @@ const OrchestratorPlugin = async (input: PluginInput) => {
             // and build a DAG so we can track dependencies and progress
             // =========================================================
             if (toolOutput.output.includes("[") && toolOutput.output.includes("{") &&
-                toolInput.tool === "call_agent" && stateSession) {
+                toolInput.tool === TOOL_NAMES.CALL_AGENT && stateSession) {
                 const jsonMatch = toolOutput.output.match(/```json\n([\s\S]*?)\n```/) ||
                     toolOutput.output.match(/\[\s*\{[\s\S]*?\}\s*\]/);
                 if (jsonMatch) {
@@ -397,7 +397,7 @@ const OrchestratorPlugin = async (input: PluginInput) => {
                 // Inspector said PASS - mark task complete, clear retry counter
                 if (toolOutput.output.includes("✅ PASS") || toolOutput.output.includes("AUDIT RESULT: PASS")) {
                     if (taskId) {
-                        stateSession.graph.updateTask(taskId, { status: "completed" });
+                        stateSession.graph.updateTask(taskId, { status: TASK_STATUS.COMPLETED });
                         stateSession.taskRetries.clear();
                         toolOutput.output += `\n\n━━━━━━━━━━━━\n✅ ${taskId} VERIFIED\n${stateSession.graph.getTaskSummary()}`;
                     }
@@ -408,7 +408,7 @@ const OrchestratorPlugin = async (input: PluginInput) => {
                         const retries = (stateSession.taskRetries.get(taskId) || 0) + 1;
                         stateSession.taskRetries.set(taskId, retries);
                         if (retries >= state.maxRetries) {
-                            stateSession.graph.updateTask(taskId, { status: "failed" });
+                            stateSession.graph.updateTask(taskId, { status: TASK_STATUS.FAILED });
                             toolOutput.output += `\n\n━━━━━━━━━━━━\n⚠️ ${taskId} FAILED (${retries}x)`;
                         } else {
                             toolOutput.output += `\n\n━━━━━━━━━━━━\n🔄 RETRY ${retries}/${state.maxRetries}`;
@@ -442,7 +442,7 @@ const OrchestratorPlugin = async (input: PluginInput) => {
             // Gather all the text from the response
             const parts = assistantOutput.parts as Array<{ type: string; text?: string }> | undefined;
             const textContent = parts
-                ?.filter((p: any) => p.type === "text" || p.type === "reasoning")
+                ?.filter((p: any) => p.type === PART_TYPES.TEXT || p.type === PART_TYPES.REASONING)
                 .map((p: any) => p.text || "")
                 .join("\n") || "";
 
@@ -469,7 +469,7 @@ const OrchestratorPlugin = async (input: PluginInput) => {
                             path: { id: sessionID },
                             body: {
                                 parts: [{
-                                    type: "text",
+                                    type: PART_TYPES.TEXT,
                                     text: `⚠️ ANOMALY #${stateSession.anomalyCount}: ${sanityResult.reason}\n\n` +
                                         recoveryText +
                                         `\n\n[Recovery Step ${session.step}/${session.maxSteps}]`
@@ -566,7 +566,7 @@ const OrchestratorPlugin = async (input: PluginInput) => {
                         path: { id: sessionID },
                         body: {
                             parts: [{
-                                type: "text",
+                                type: PART_TYPES.TEXT,
                                 text: CONTINUE_INSTRUCTION + `\n\n⏱️ [${currentTime}] Step ${session.step}/${session.maxSteps} | ${progressInfo} | This step: ${stepDuration} | Total: ${totalElapsed}`
                             }],
                         },
@@ -579,7 +579,7 @@ const OrchestratorPlugin = async (input: PluginInput) => {
                     if (client?.session?.prompt) {
                         await client.session.prompt({
                             path: { id: sessionID },
-                            body: { parts: [{ type: "text", text: "continue" }] },
+                            body: { parts: [{ type: PART_TYPES.TEXT, text: PROMPTS.CONTINUE }] },
                         });
                     }
                 } catch {

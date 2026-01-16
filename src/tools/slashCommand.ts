@@ -1,5 +1,5 @@
 import { tool } from "@opencode-ai/plugin";
-import { AGENT_NAMES } from "../shared/agent.js";
+import { AGENT_NAMES, PROMPTS } from "../shared/constants.js";
 
 /**
  * Slash commands for OpenCode Orchestrator
@@ -132,7 +132,7 @@ export function createSlashcommandTool() {
             const command = COMMANDS[cmdName];
             if (!command) return `Unknown command: /${cmdName}\n\n${commandList}`;
 
-            return command.template.replace(/\$ARGUMENTS/g, cmdArgs || "continue from where we left off");
+            return command.template.replace(/\$ARGUMENTS/g, cmdArgs || PROMPTS.CONTINUE_DEFAULT);
         },
     });
 }

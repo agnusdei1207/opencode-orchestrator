@@ -144,6 +144,30 @@ export const AGENT_EMOJI: Record<string, string> = {
 } as const;
 
 // ============================================================================
+// Message Part Types - OpenCode message part type constants
+// ============================================================================
+
+export const PART_TYPES = {
+    TEXT: "text",
+    REASONING: "reasoning",
+    TOOL_CALL: "tool_call",
+    TOOL_RESULT: "tool_result",
+} as const;
+
+// ============================================================================
+// Common Prompts
+// ============================================================================
+
+export const PROMPTS = {
+    /** Simple continue prompt for auto-continue loop */
+    CONTINUE: "continue",
+    /** Default fallback for empty arguments */
+    CONTINUE_PREVIOUS: "continue previous work",
+    /** Default fallback for slash commands */
+    CONTINUE_DEFAULT: "continue from where we left off",
+} as const;
+
+// ============================================================================
 // Agent Names - Re-export from contracts for convenience
 // ============================================================================
 
