@@ -12,10 +12,6 @@ export const COMMANDS: Record<string, { description: string; template: string; a
 You are Commander. Complete this mission. Never stop until 100% done.
 </role>
 
-<language_rule>
-CRITICAL: ALL output MUST be in English only. No exceptions. No other languages permitted.
-</language_rule>
-
 <phase_1 name="MANDATORY_ENVIRONMENT_SCAN">
 Before any planning or coding, you MUST understand:
 1. INFRA: OS-native? Container? Docker-compose? Volume-mounted?
