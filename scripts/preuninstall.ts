@@ -1,72 +1,126 @@
 #!/usr/bin/env node
 
 import { existsSync, readFileSync, writeFileSync } from "fs";
-import { join } from "path";
 import { homedir } from "os";
+import { join } from "path";
 
 interface NodeError extends Error {
-    code?: string;
+  code?: string;
 }
 
 function formatError(err: unknown, context: string): string {
-    if (err instanceof Error) {
-        const nodeErr = err as NodeError;
-        if (nodeErr.code === "EACCES" || nodeErr.code === "EPERM") {
-            return `Permission denied: Cannot ${context}. Try running as administrator.`;
-        }
-        if (nodeErr.code === "ENOENT") {
-            return `File not found while trying to ${context}.`;
-        }
-        if (err instanceof SyntaxError) {
-            return `JSON syntax error while trying to ${context}: ${err.message}.`;
-        }
-        if (nodeErr.code === "EIO") {
-            return `File lock error: Cannot ${context}. Please close OpenCode and try again.`;
-        }
-        if (nodeErr.code === "ENOSPC") {
-            return `Disk full: Cannot ${context}. Free up disk space and try again.`;
-        }
-        if (nodeErr.code === "EROFS") {
-            return `Read-only filesystem: Cannot ${context}.`;
-        }
-        return `Failed to ${context}: ${err.message}`;
+  if (err instanceof Error) {
+    const nodeErr = err as NodeError;
+    if (nodeErr.code === "EACCES" || nodeErr.code === "EPERM") {
+      return `Permission denied: Cannot ${context}. Try running as administrator.`;
     }
-    return `Failed to ${context}: ${String(err)}`;
+    if (nodeErr.code === "ENOENT") {
+      return `File not found while trying to ${context}.`;
+    }
+    if (err instanceof SyntaxError) {
+      return `JSON syntax error while trying to ${context}: ${err.message}.`;
+    }
+    if (nodeErr.code === "EIO") {
+      return `File lock error: Cannot ${context}. Please close OpenCode and try again.`;
+    }
+    if (nodeErr.code === "ENOSPC") {
+      return `Disk full: Cannot ${context}. Free up disk space and try again.`;
+    }
+    if (nodeErr.code === "EROFS") {
+      return `Read-only filesystem: Cannot ${context}.`;
+    }
+    return `Failed to ${context}: ${err.message}`;
+  }
+  return `Failed to ${context}: ${String(err)}`;
 }
 
-const CONFIG_DIR = process.env.XDG_CONFIG_HOME
-    ? join(process.env.XDG_CONFIG_HOME, "opencode")
-    : process.platform === "win32"
-        ? join(process.env.APPDATA || join(homedir(), "AppData", "Roaming"), "opencode")
-        : join(homedir(), ".config", "opencode");
-const CONFIG_FILE = join(CONFIG_DIR, "opencode.json");
 const PLUGIN_NAME = "opencode-orchestrator";
 
-try {
-    console.log("🧹 OpenCode Orchestrator - Uninstalling...");
+/**
+ * Get all possible config directories for OpenCode.
+ * On Windows, OpenCode may use either:
+ * - %APPDATA%/opencode (native Windows)
+ * - ~/.config/opencode (Git Bash, WSL, MSYS2)
+ */
+function getConfigPaths(): string[] {
+  const paths: string[] = [];
 
-    if (!existsSync(CONFIG_FILE)) {
-        console.log("✅ No config file found. Nothing to clean up.");
-        process.exit(0);
+  // XDG_CONFIG_HOME takes highest priority
+  if (process.env.XDG_CONFIG_HOME) {
+    paths.push(join(process.env.XDG_CONFIG_HOME, "opencode"));
+  }
+
+  // On Windows, check both possible locations
+  if (process.platform === "win32") {
+    // Native Windows path
+    const appDataPath =
+      process.env.APPDATA || join(homedir(), "AppData", "Roaming");
+    paths.push(join(appDataPath, "opencode"));
+
+    // Git Bash / WSL / MSYS2 style path
+    const dotConfigPath = join(homedir(), ".config", "opencode");
+    if (!paths.includes(dotConfigPath)) {
+      paths.push(dotConfigPath);
+    }
+  } else {
+    // Unix-like systems
+    paths.push(join(homedir(), ".config", "opencode"));
+  }
+
+  return paths;
+}
+
+/**
+ * Remove plugin from a single config file
+ */
+function removeFromConfig(configDir: string): boolean {
+  const configFile = join(configDir, "opencode.json");
+
+  try {
+    if (!existsSync(configFile)) {
+      return false;
     }
 
-    const config = JSON.parse(readFileSync(CONFIG_FILE, "utf-8"));
+    const config = JSON.parse(readFileSync(configFile, "utf-8"));
 
     if (!config.plugin || !Array.isArray(config.plugin)) {
-        console.log("✅ No plugins registered. Nothing to clean up.");
-        process.exit(0);
+      return false;
     }
 
     const originalLength = config.plugin.length;
-    config.plugin = config.plugin.filter((p: string) => !p.includes(PLUGIN_NAME));
+    config.plugin = config.plugin.filter(
+      (p: string) => !p.includes(PLUGIN_NAME)
+    );
 
     if (config.plugin.length < originalLength) {
-        writeFileSync(CONFIG_FILE, JSON.stringify(config, null, 2) + "\n");
-        console.log("✅ Plugin removed from OpenCode config.");
-    } else {
-        console.log("✅ Plugin was not registered. Nothing to clean up.");
+      writeFileSync(configFile, JSON.stringify(config, null, 2) + "\n");
+      return true;
     }
+    return false;
+  } catch {
+    return false;
+  }
+}
+
+try {
+  console.log("🧹 OpenCode Orchestrator - Uninstalling...");
+
+  const configPaths = getConfigPaths();
+  let removed = false;
+
+  for (const configDir of configPaths) {
+    const configFile = join(configDir, "opencode.json");
+
+    if (removeFromConfig(configDir)) {
+      console.log(`✅ Plugin removed: ${configFile}`);
+      removed = true;
+    }
+  }
+
+  if (!removed) {
+    console.log("✅ Plugin was not registered. Nothing to clean up.");
+  }
 } catch (error) {
-    console.error(formatError(error, "clean up config"));
-    process.exit(0);
+  console.error(formatError(error, "clean up config"));
+  process.exit(0);
 }
