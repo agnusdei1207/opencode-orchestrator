@@ -9,13 +9,14 @@ import { createRequire } from "node:module";
 
 // src/shared/agent.ts
 var AGENT_NAMES = {
-  COMMANDER: "commander",
-  ARCHITECT: "architect",
-  BUILDER: "builder",
-  INSPECTOR: "inspector",
-  RECORDER: "recorder",
-  LIBRARIAN: "librarian",
-  RESEARCHER: "researcher"
+  COMMANDER: "Commander",
+  // Capital C like Sisyphus
+  ARCHITECT: "Architect",
+  BUILDER: "Builder",
+  INSPECTOR: "Inspector",
+  RECORDER: "Recorder",
+  LIBRARIAN: "Librarian",
+  RESEARCHER: "Researcher"
 };
 
 // src/core/agents/consts/task-status.const.ts
