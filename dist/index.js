@@ -13283,33 +13283,19 @@ var globSearchTool = (directory) => tool({
   }
 });
 var mgrepTool = (directory) => tool({
-  description: `Search multiple patterns in parallel (high-performance).
-
-<purpose>
-Search for multiple regex patterns simultaneously using Rust's parallel execution.
-Much faster than running grep multiple times sequentially.
-</purpose>
-
-<examples>
-- patterns: ["useState", "useEffect", "useContext"] \u2192 Find all React hooks usage
-- patterns: ["TODO", "FIXME", "HACK"] \u2192 Find all code annotations
-- patterns: ["import.*lodash", "require.*lodash"] \u2192 Find all lodash imports
-</examples>
-
-<output>
-Returns matches grouped by pattern, with file paths and line numbers.
-</output>`,
+  description: `Search multiple patterns (runs grep for each pattern).`,
   args: {
-    patterns: tool.schema.array(tool.schema.string()).describe("Array of regex patterns to search for"),
-    dir: tool.schema.string().optional().describe("Directory to search (defaults to project root)"),
-    max_results_per_pattern: tool.schema.number().optional().describe("Max results per pattern (default: 50)")
+    patterns: tool.schema.array(tool.schema.string()).describe("Array of regex patterns"),
+    dir: tool.schema.string().optional().describe("Directory (defaults to project root)")
   },
   async execute(args) {
-    return callRustTool("mgrep", {
-      patterns: args.patterns,
-      directory: args.dir || directory,
-      max_results_per_pattern: args.max_results_per_pattern || 50
-    });
+    const results = {};
+    const dir = args.dir || directory;
+    for (const pattern of args.patterns) {
+      const result = await callRustTool("grep_search", { pattern, directory: dir });
+      results[pattern] = result;
+    }
+    return JSON.stringify(results, null, 2);
   }
 });
 
@@ -14150,46 +14136,31 @@ var parallelAgentManager = {
   getInstance: ParallelAgentManager.getInstance.bind(ParallelAgentManager)
 };
 
-// src/tools/parallel/tools.ts
+// src/tools/parallel/delegate-task.ts
 var createDelegateTaskTool = (manager, client) => tool({
   description: `Delegate a task to an agent.
 
 <mode>
-- background=true: Non-blocking. Task runs in parallel session. Use get_task_result later.
-- background=false: Blocking. Waits for result. Use when you need output immediately.
+- background=true: Non-blocking. Returns task ID immediately.
+- background=false: Blocking. Waits for result.
 </mode>
 
-<when_to_use_background_true>
-- Multiple independent tasks to run in parallel
-- Long-running tasks (build, test, analysis)
-- You have other work to do while waiting
-</when_to_use_background_true>
-
-<when_to_use_background_false>
-- You need the result for the very next step
-- Single task with nothing else to do
-- Quick questions that return fast
-</when_to_use_background_false>
-
 <safety>
-- Max 3 background tasks per agent type (extras queue automatically)
+- Max 3 tasks per agent type
 - Auto-timeout: 30 minutes
-- Auto-cleanup: 5 minutes after completion
 </safety>`,
   args: {
-    agent: tool.schema.string().describe("Agent name (e.g., 'builder', 'inspector', 'architect')"),
-    description: tool.schema.string().describe("Short task description"),
-    prompt: tool.schema.string().describe("Full prompt/instructions for the agent"),
-    background: tool.schema.boolean().describe("true=async (returns task_id), false=sync (waits for result). REQUIRED.")
+    agent: tool.schema.string().describe("Agent name"),
+    description: tool.schema.string().describe("Task description"),
+    prompt: tool.schema.string().describe("Prompt for the agent"),
+    background: tool.schema.boolean().describe("true=async, false=sync")
   },
   async execute(args, context) {
     const { agent, description, prompt, background } = args;
     const ctx = context;
     const sessionClient = client;
     if (background === void 0) {
-      return `\u274C 'background' parameter is REQUIRED.
-- background=true: Run in parallel, returns task ID
-- background=false: Wait for result (blocking)`;
+      return `\u274C 'background' parameter is REQUIRED.`;
     }
     if (background === true) {
       try {
@@ -14199,149 +14170,85 @@ var createDelegateTaskTool = (manager, client) => tool({
           prompt,
           parentSessionID: ctx.sessionID
         });
-        const runningCount = manager.getRunningTasks().length;
-        const pendingCount = manager.getPendingCount(ctx.sessionID);
-        console.log(`[parallel] \u{1F680} SPAWNED ${task.id} \u2192 ${agent}: ${description}`);
-        return `
-\u2554\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2557
-\u2551  \u{1F680} BACKGROUND TASK SPAWNED                                   \u2551
-\u2560\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2563
-\u2551  Task ID:     ${task.id.padEnd(45)}\u2551
-\u2551  Agent:       ${task.agent.padEnd(45)}\u2551
-\u2551  Description: ${task.description.slice(0, 45).padEnd(45)}\u2551
-\u2551  Status:      \u23F3 RUNNING (background)                          \u2551
-\u2560\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2563
-\u2551  Running: ${String(runningCount).padEnd(5)} \u2502 Pending: ${String(pendingCount).padEnd(5)}                      \u2551
-\u255A\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u255D
-
-\u{1F4CC} Continue your work! System notifies when ALL complete.
-\u{1F50D} Use \`get_task_result({ taskId: "${task.id}" })\` later.`;
+        console.log(`[parallel] \u{1F680} ${task.id} \u2192 ${agent}`);
+        return `\u{1F680} Task spawned: \`${task.id}\` (${agent})`;
       } catch (error45) {
-        const message = error45 instanceof Error ? error45.message : String(error45);
-        console.log(`[parallel] \u274C FAILED: ${message}`);
-        return `\u274C Failed to spawn background task: ${message}`;
+        return `\u274C Failed: ${error45 instanceof Error ? error45.message : String(error45)}`;
       }
     }
-    console.log(`[delegate] \u23F3 SYNC ${agent}: ${description}`);
     try {
       const session = sessionClient.session;
-      const directory = ".";
       const createResult = await session.create({
         body: { parentID: ctx.sessionID, title: `Task: ${description}` },
-        query: { directory }
+        query: { directory: "." }
       });
       if (createResult.error || !createResult.data?.id) {
-        return `\u274C Failed to create session: ${createResult.error || "No session ID"}`;
+        return `\u274C Failed to create session`;
       }
       const sessionID = createResult.data.id;
       const startTime = Date.now();
-      try {
-        await session.prompt({
-          path: { id: sessionID },
-          body: { agent, parts: [{ type: "text", text: prompt }] }
-        });
-      } catch (promptError) {
-        const errorMessage = promptError instanceof Error ? promptError.message : String(promptError);
-        return `\u274C Failed to send prompt: ${errorMessage}
-
-Session ID: ${sessionID}`;
-      }
-      const POLL_INTERVAL_MS2 = 500;
-      const MAX_POLL_TIME_MS = 10 * 60 * 1e3;
-      const MIN_STABILITY_MS2 = 5e3;
-      const STABILITY_POLLS_REQUIRED = 3;
-      let stablePolls = 0;
-      let lastMsgCount = 0;
-      while (Date.now() - startTime < MAX_POLL_TIME_MS) {
-        await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL_MS2));
+      await session.prompt({
+        path: { id: sessionID },
+        body: { agent, parts: [{ type: "text", text: prompt }] }
+      });
+      let stablePolls = 0, lastMsgCount = 0;
+      while (Date.now() - startTime < 10 * 60 * 1e3) {
+        await new Promise((r) => setTimeout(r, 500));
         const statusResult = await session.status();
-        const allStatuses = statusResult.data ?? {};
-        const sessionStatus = allStatuses[sessionID];
-        if (sessionStatus?.type !== "idle") {
+        if (statusResult.data?.[sessionID]?.type !== "idle") {
           stablePolls = 0;
-          lastMsgCount = 0;
           continue;
         }
-        if (Date.now() - startTime < MIN_STABILITY_MS2) continue;
-        const messagesResult2 = await session.messages({ path: { id: sessionID } });
-        const messages2 = messagesResult2.data ?? [];
-        const currentMsgCount = messages2.length;
-        if (currentMsgCount === lastMsgCount) {
+        if (Date.now() - startTime < 5e3) continue;
+        const msgs2 = await session.messages({ path: { id: sessionID } });
+        const count = (msgs2.data ?? []).length;
+        if (count === lastMsgCount) {
           stablePolls++;
-          if (stablePolls >= STABILITY_POLLS_REQUIRED) break;
+          if (stablePolls >= 3) break;
         } else {
           stablePolls = 0;
-          lastMsgCount = currentMsgCount;
+          lastMsgCount = count;
         }
       }
-      const messagesResult = await session.messages({ path: { id: sessionID } });
-      const messages = messagesResult.data ?? [];
-      const assistantMsgs = messages.filter((m) => m.info?.role === "assistant").reverse();
-      const lastMsg = assistantMsgs[0];
-      if (!lastMsg) {
-        return `\u274C No assistant response found.
+      const msgs = await session.messages({ path: { id: sessionID } });
+      const messages = msgs.data ?? [];
+      const lastMsg = messages.filter((m) => m.info?.role === "assistant").reverse()[0];
+      const text = lastMsg?.parts?.filter((p) => p.type === "text" || p.type === "reasoning").map((p) => p.text ?? "").join("\n") || "";
+      return `\u2705 Completed (${Math.floor((Date.now() - startTime) / 1e3)}s)
 
-Session ID: ${sessionID}`;
-      }
-      const textParts = lastMsg.parts?.filter((p) => p.type === "text" || p.type === "reasoning") ?? [];
-      const textContent = textParts.map((p) => p.text ?? "").filter(Boolean).join("\n");
-      const duration3 = Math.floor((Date.now() - startTime) / 1e3);
-      console.log(`[delegate] \u2705 COMPLETED ${agent}: ${description} (${duration3}s)`);
-      return `\u2705 **Task Completed** (${duration3}s)
-
-Agent: ${agent}
-Session ID: ${sessionID}
-
----
-
-${textContent || "(No text output)"}`;
+${text || "(No output)"}`;
     } catch (error45) {
-      const message = error45 instanceof Error ? error45.message : String(error45);
-      console.log(`[delegate] \u274C FAILED: ${message}`);
-      return `\u274C Task failed: ${message}`;
+      return `\u274C Failed: ${error45 instanceof Error ? error45.message : String(error45)}`;
     }
   }
 });
+
+// src/tools/parallel/get-task-result.ts
 var createGetTaskResultTool = (manager) => tool({
-  description: `Get the result from a completed background task.`,
+  description: `Get result from a completed background task.`,
   args: {
-    taskId: tool.schema.string().describe("Task ID from delegate_task")
+    taskId: tool.schema.string().describe("Task ID")
   },
   async execute(args) {
-    const { taskId } = args;
-    const task = manager.getTask(taskId);
-    if (!task) {
-      return `\u274C Task not found: \`${taskId}\`
-
-Use \`list_tasks\` to see available tasks.`;
-    }
-    if (task.status === "running") {
-      const elapsed = Math.floor((Date.now() - task.startedAt.getTime()) / 1e3);
-      return `\u23F3 **Task Still Running** (${elapsed}s)
-
-Wait for "All Complete" notification.`;
-    }
-    const result = await manager.getResult(taskId);
+    const task = manager.getTask(args.taskId);
+    if (!task) return `\u274C Task not found: \`${args.taskId}\``;
+    if (task.status === "running") return `\u23F3 Still running...`;
+    const result = await manager.getResult(args.taskId);
     const duration3 = manager.formatDuration(task.startedAt, task.completedAt);
     if (task.status === "error" || task.status === "timeout") {
-      return `\u274C **Task ${task.status === "timeout" ? "Timed Out" : "Failed"}**
-
-Error: ${task.error}
-Duration: ${duration3}`;
+      return `\u274C ${task.status}: ${task.error}`;
     }
-    return `\u2705 **Task Completed** (${duration3})
-
-Agent: ${task.agent}
-
----
+    return `\u2705 Completed (${duration3})
 
 ${result || "(No output)"}`;
   }
 });
+
+// src/tools/parallel/list-tasks.ts
 var createListTasksTool = (manager) => tool({
-  description: `List all background tasks and their status.`,
+  description: `List all background tasks.`,
   args: {
-    status: tool.schema.string().optional().describe("Filter: 'all', 'running', 'completed', 'error'")
+    status: tool.schema.string().optional().describe("Filter: all, running, completed, error")
   },
   async execute(args) {
     const { status = "all" } = args;
@@ -14359,52 +14266,35 @@ var createListTasksTool = (manager) => tool({
       default:
         tasks = manager.getAllTasks();
     }
-    if (tasks.length === 0) {
-      return `\u{1F4CB} No background tasks found.`;
-    }
-    const statusIcon = (s) => {
-      switch (s) {
-        case "running":
-          return "\u23F3";
-        case "completed":
-          return "\u2705";
-        case "error":
-          return "\u274C";
-        case "timeout":
-          return "\u23F1\uFE0F";
-        default:
-          return "\u2753";
-      }
-    };
+    if (tasks.length === 0) return `\u{1F4CB} No tasks found.`;
     const rows = tasks.map((t) => {
       const elapsed = Math.floor((Date.now() - t.startedAt.getTime()) / 1e3);
-      return `| \`${t.id}\` | ${statusIcon(t.status)} ${t.status} | ${t.agent} | ${elapsed}s |`;
+      return `| \`${t.id}\` | ${getStatusEmoji(t.status)} ${t.status} | ${t.agent} | ${elapsed}s |`;
     }).join("\n");
-    return `\u{1F4CB} **Background Tasks**
+    return `\u{1F4CB} **Tasks**
 
-| Task ID | Status | Agent | Elapsed |
-|---------|--------|-------|---------|
+| ID | Status | Agent | Time |
+|----|--------|-------|------|
 ${rows}`;
   }
 });
+
+// src/tools/parallel/cancel-task.ts
 var createCancelTaskTool = (manager) => tool({
-  description: `Cancel a running background task.`,
+  description: `Cancel a running task.`,
   args: {
     taskId: tool.schema.string().describe("Task ID to cancel")
   },
   async execute(args) {
-    const { taskId } = args;
-    const cancelled = await manager.cancelTask(taskId);
-    if (cancelled) {
-      return `\u{1F6D1} **Task Cancelled**: \`${taskId}\``;
-    }
-    const task = manager.getTask(taskId);
-    if (task) {
-      return `\u26A0\uFE0F Cannot cancel: Task is ${task.status}`;
-    }
-    return `\u274C Task not found: \`${taskId}\``;
+    const cancelled = await manager.cancelTask(args.taskId);
+    if (cancelled) return `\u{1F6D1} Cancelled: \`${args.taskId}\``;
+    const task = manager.getTask(args.taskId);
+    if (task) return `\u26A0\uFE0F Cannot cancel: Task is ${task.status}`;
+    return `\u274C Not found: \`${args.taskId}\``;
   }
 });
+
+// src/tools/parallel/index.ts
 function createAsyncAgentTools(manager, client) {
   return {
     delegate_task: createDelegateTaskTool(manager, client),

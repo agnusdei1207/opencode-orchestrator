@@ -38,42 +38,25 @@ export const globSearchTool = (directory: string) => tool({
 });
 
 /**
- * Multi-grep (mgrep) tool - search multiple patterns in parallel
- * High-performance parallel search powered by Rust
- * 
- * Use cases:
- * - Find all usages of multiple functions at once
- * - Search for related patterns (imports, exports, usages)
- * - Codebase-wide refactoring analysis
+ * Multi-grep (mgrep) tool - search multiple patterns
+ * Runs grep for each pattern and combines results
  */
 export const mgrepTool = (directory: string) => tool({
-    description: `Search multiple patterns in parallel (high-performance).
-
-<purpose>
-Search for multiple regex patterns simultaneously using Rust's parallel execution.
-Much faster than running grep multiple times sequentially.
-</purpose>
-
-<examples>
-- patterns: ["useState", "useEffect", "useContext"] → Find all React hooks usage
-- patterns: ["TODO", "FIXME", "HACK"] → Find all code annotations
-- patterns: ["import.*lodash", "require.*lodash"] → Find all lodash imports
-</examples>
-
-<output>
-Returns matches grouped by pattern, with file paths and line numbers.
-</output>`,
+    description: `Search multiple patterns (runs grep for each pattern).`,
     args: {
-        patterns: tool.schema.array(tool.schema.string()).describe("Array of regex patterns to search for"),
-        dir: tool.schema.string().optional().describe("Directory to search (defaults to project root)"),
-        max_results_per_pattern: tool.schema.number().optional().describe("Max results per pattern (default: 50)"),
+        patterns: tool.schema.array(tool.schema.string()).describe("Array of regex patterns"),
+        dir: tool.schema.string().optional().describe("Directory (defaults to project root)"),
     },
     async execute(args) {
-        return callRustTool("mgrep", {
-            patterns: args.patterns,
-            directory: args.dir || directory,
-            max_results_per_pattern: args.max_results_per_pattern || 50,
-        });
+        const results: Record<string, string> = {};
+        const dir = args.dir || directory;
+
+        for (const pattern of args.patterns) {
+            const result = await callRustTool("grep_search", { pattern, directory: dir });
+            results[pattern] = result;
+        }
+
+        return JSON.stringify(results, null, 2);
     },
 });
 
