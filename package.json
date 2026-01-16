@@ -38,7 +38,7 @@
     "LICENSE"
   ],
   "scripts": {
-    "build": "npx esbuild src/index.ts --bundle --outfile=dist/index.js --platform=node --format=esm && tsc --emitDeclarationOnly && shx mkdir -p dist/scripts && npx esbuild scripts/postinstall.ts --bundle --outfile=dist/scripts/postinstall.js --platform=node --format=esm && npx esbuild scripts/preuninstall.ts --bundle --outfile=dist/scripts/preuninstall.js --platform=node --format=esm",
+    "build": "shx rm -rf dist && npx esbuild src/index.ts --bundle --outfile=dist/index.js --platform=node --format=esm && tsc --emitDeclarationOnly && shx mkdir -p dist/scripts && npx esbuild scripts/postinstall.ts --bundle --outfile=dist/scripts/postinstall.js --platform=node --format=esm && npx esbuild scripts/preuninstall.ts --bundle --outfile=dist/scripts/preuninstall.js --platform=node --format=esm",
     "postinstall": "node dist/scripts/postinstall.js",
     "preuninstall": "node dist/scripts/preuninstall.js",
     "prepublishOnly": "npm run build",
