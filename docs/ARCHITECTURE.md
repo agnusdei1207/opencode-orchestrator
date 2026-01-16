@@ -117,6 +117,11 @@ Orchestrator supports **parallel agent execution** through session-based spawnin
 ### Safety Features
 
 - **Queue-based concurrency**: Max 3 agents per type (extras automatically queue)
+- **Model/Provider-specific limits**: Separate limits for anthropic/*, openai/*, etc.
+- **Stability detection**: Auto-complete after 3 stable polls
+- **Progress tracking**: toolCalls, lastTool, lastMessage per task
+- **Session event handling**: Proper cleanup on session.deleted/session.idle
+- **Double-release prevention**: concurrencyKey cleared after release
 - **Batched notifications**: System notifies when ALL tasks complete
 - **Auto-timeout**: 30 minute maximum runtime
 - **Auto-cleanup**: Removed from memory 5 minutes after completion
@@ -127,10 +132,25 @@ Orchestrator supports **parallel agent execution** through session-based spawnin
 ```
 ┌────────────────────────────────────────────────────────┐
 │  ParallelAgentManager (TypeScript)                     │
-│  ├── ConcurrencyController (queue-based rate limiting) │
-│  ├── Task tracking per parent session                  │
-│  ├── Batched notification system                       │
-│  └── Delayed cleanup (5 min after completion)          │
+│  ├── ConcurrencyController                             │
+│  │   ├── Model-specific limits (anthropic/claude-*)    │
+│  │   ├── Provider-specific limits (openai/*)           │
+│  │   ├── Agent-specific limits (builder: 2)            │
+│  │   └── Queue-based rate limiting                     │
+│  ├── TaskStore                                         │
+│  │   ├── Pending tracking per parent session           │
+│  │   ├── Notification queue                            │
+│  │   └── clearNotificationsForTask()                   │
+│  ├── Event Handling                                    │
+│  │   ├── handleEvent(session.deleted)                  │
+│  │   └── handleEvent(session.idle)                     │
+│  ├── Stability Detection                               │
+│  │   ├── lastMsgCount tracking                         │
+│  │   └── stablePolls counter (3 = complete)            │
+│  └── Progress Tracking                                 │
+│      ├── toolCalls count                               │
+│      ├── lastTool name                                 │
+│      └── lastMessage preview                           │
 └────────────────────────────────────────────────────────┘
 ```
 
@@ -170,6 +190,34 @@ For long-running shell commands (builds, tests, linting), use the background tas
 
 ---
 
+## Test Suite
+
+Comprehensive test coverage for all features:
+
+```
+tests/
+├── unit/                        # Unit tests (40 tests)
+│   ├── concurrency.test.ts      # Acquire/release, model limits
+│   ├── task-store.test.ts       # CRUD, pending, notifications
+│   ├── parallel-manager.test.ts # Events, stability, progress
+│   └── integration.test.ts      # Full lifecycle
+└── e2e/                         # E2E tests (47 tests)
+    ├── background-task.test.ts  # Task creation, status, output
+    ├── session.test.ts          # TaskGraph DAG, pending
+    ├── rust-integration.test.ts # Binary detection, CLI
+    └── full-system.test.ts      # Concurrent tasks, cleanup
+```
+
+### Running Tests
+
+```bash
+npm run test:all    # All 87 tests
+npm run test:unit   # Unit tests only
+npm run test:e2e    # E2E tests only
+```
+
+---
+
 ## Summary of Benefits
 
 - **Autonomous**: Once started, it requires zero user interaction.
@@ -177,3 +225,4 @@ For long-running shell commands (builds, tests, linting), use the background tas
 - **Consistent**: Mandatory pattern scanning prevents "code rotting."
 - **Parallel**: Queue-based concurrency enables safe parallel agent execution.
 - **Non-blocking**: Background tasks allow concurrent work during long operations.
+- **Tested**: 87 tests covering unit, integration, and E2E scenarios.

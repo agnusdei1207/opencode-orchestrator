@@ -158,6 +158,15 @@ npm run dev:status
 # Build the plugin
 npm run build
 
+# Run all tests (87 tests)
+npm run test:all
+
+# Run unit tests only
+npm run test:unit
+
+# Run E2E tests only
+npm run test:e2e
+
 # Link for local testing (auto-rebuilds)
 npm run dev:link
 
@@ -166,10 +175,16 @@ npm run dev:unlink
 
 # Check if plugin is linked globally
 npm run dev:status
-
-# Test install/uninstall scripts locally
-npm run dev:test
 ```
+
+### Test Suite
+
+| Command | Description | Tests |
+|---------|-------------|-------|
+| `npm run test:all` | Run all tests with verbose output | 87 |
+| `npm run test:unit` | Unit tests (concurrency, task-store, etc.) | 40 |
+| `npm run test:e2e` | E2E tests (background, session, rust, system) | 47 |
+| `npm run test:coverage` | Generate coverage report | - |
 
 ### Development Workflow
 
@@ -182,32 +197,16 @@ npm run dev:test
 | 5️⃣ Repeat | 2-4 | Iterate on changes |
 | ❌ Cleanup | `npm run dev:unlink` | Unlink when done |
 
-### Common Scenarios
-
-```bash
-# 🔄 Changed code and want to test
-npm run dev:link
-
-# 🔍 Check if linked properly
-npm run dev:status
-
-# 🧹 Cleanup before committing
-npm run dev:unlink
-
-# 🧪 Test install/uninstall scripts
-npm run dev:test
-```
-
 ### Release Scripts
 
 ```bash
-# Release patch version (0.4.1 → 0.4.2)
+# Release patch version (0.5.4 → 0.5.5)
 npm run release:patch
 
-# Release minor version (0.4.1 → 0.5.0)
+# Release minor version (0.5.5 → 0.6.0)
 npm run release:minor
 
-# Release major version (0.4.1 → 1.0.0)
+# Release major version (0.5.5 → 1.0.0)
 npm run release:major
 ```
 
@@ -233,7 +232,6 @@ npm uninstall -g opencode-orchestrator
 - [Architecture & Design](docs/ARCHITECTURE.md) — Detailed system design and agent protocols
 - [Plugin Troubleshooting](docs/PLUGIN_TROUBLESHOOTING.md) — Setup and common issues
 - [Changelog](CHANGELOG.md) — Version history and updates
-- [Changelogs](changelogs/) — Detailed implementation notes per release
 
 ---
 
