@@ -1,16 +1,34 @@
 /**
  * Task Store - Stores and manages parallel tasks
+ * 
+ * Features:
+ * - Automatic garbage collection
+ * - Memory-safe storage with limits
+ * - Completed task archiving
  */
 
+import * as fs from "node:fs/promises";
+import * as path from "node:path";
 import type { ParallelTask } from "./interfaces/parallel-task.js";
+
+// Memory limits
+const MAX_TASKS_IN_MEMORY = 1000;
+const MAX_NOTIFICATIONS_PER_PARENT = 100;
+const ARCHIVE_DIR = ".cache/task-archive";
 
 export class TaskStore {
     private tasks: Map<string, ParallelTask> = new Map();
     private pendingByParent: Map<string, Set<string>> = new Map();
     private notifications: Map<string, ParallelTask[]> = new Map();
+    private archivedCount = 0;
 
     set(id: string, task: ParallelTask): void {
         this.tasks.set(id, task);
+
+        // Auto-GC if over limit
+        if (this.tasks.size > MAX_TASKS_IN_MEMORY) {
+            this.gc();
+        }
     }
 
     get(id: string): ParallelTask | undefined {
@@ -64,10 +82,16 @@ export class TaskStore {
         return this.getPendingCount(parentSessionID) > 0;
     }
 
-    // Notifications
+    // Notifications with limit
     queueNotification(task: ParallelTask): void {
         const queue = this.notifications.get(task.parentSessionID) ?? [];
         queue.push(task);
+
+        // Limit notifications per parent
+        if (queue.length > MAX_NOTIFICATIONS_PER_PARENT) {
+            queue.shift(); // Remove oldest
+        }
+
         this.notifications.set(task.parentSessionID, queue);
     }
 
@@ -87,9 +111,6 @@ export class TaskStore {
         }
     }
 
-    /**
-     * Remove a specific task from all notification queues
-     */
     clearNotificationsForTask(taskId: string): void {
         for (const [sessionID, tasks] of this.notifications.entries()) {
             const filtered = tasks.filter(t => t.id !== taskId);
@@ -100,4 +121,116 @@ export class TaskStore {
             }
         }
     }
+
+    // =========================================================================
+    // Garbage Collection & Memory Management
+    // =========================================================================
+
+    /**
+     * Get memory statistics
+     */
+    getStats(): {
+        tasksInMemory: number;
+        runningTasks: number;
+        archivedTasks: number;
+        notificationQueues: number;
+        pendingParents: number;
+    } {
+        return {
+            tasksInMemory: this.tasks.size,
+            runningTasks: this.getRunning().length,
+            archivedTasks: this.archivedCount,
+            notificationQueues: this.notifications.size,
+            pendingParents: this.pendingByParent.size,
+        };
+    }
+
+    /**
+     * Garbage collect completed tasks
+     * Archives old completed tasks to disk
+     */
+    async gc(): Promise<number> {
+        const now = Date.now();
+        const toRemove: string[] = [];
+        const toArchive: ParallelTask[] = [];
+
+        for (const [id, task] of this.tasks) {
+            // Skip running tasks
+            if (task.status === "running") continue;
+
+            const completedAt = task.completedAt?.getTime() ?? 0;
+            const age = now - completedAt;
+
+            // Archive tasks older than 30 minutes
+            if (age > 30 * 60 * 1000 && task.status === "completed") {
+                toArchive.push(task);
+                toRemove.push(id);
+            }
+            // Remove failed/cancelled tasks older than 10 minutes
+            else if (age > 10 * 60 * 1000 && (task.status === "error" || task.status === "cancelled")) {
+                toRemove.push(id);
+            }
+        }
+
+        // Archive to disk
+        if (toArchive.length > 0) {
+            await this.archiveTasks(toArchive);
+        }
+
+        // Remove from memory
+        for (const id of toRemove) {
+            this.tasks.delete(id);
+        }
+
+        return toRemove.length;
+    }
+
+    /**
+     * Archive tasks to disk for later analysis
+     */
+    private async archiveTasks(tasks: ParallelTask[]): Promise<void> {
+        try {
+            await fs.mkdir(ARCHIVE_DIR, { recursive: true });
+
+            const date = new Date().toISOString().slice(0, 10);
+            const filename = `tasks_${date}.jsonl`;
+            const filepath = path.join(ARCHIVE_DIR, filename);
+
+            const lines = tasks.map(task => JSON.stringify({
+                id: task.id,
+                agent: task.agent,
+                prompt: task.prompt.slice(0, 200), // Truncate
+                status: task.status,
+                startedAt: task.startedAt,
+                completedAt: task.completedAt,
+                parentSessionID: task.parentSessionID,
+            }));
+
+            await fs.appendFile(filepath, lines.join("\n") + "\n");
+            this.archivedCount += tasks.length;
+        } catch (error) {
+            // Silently fail - archiving is best-effort
+            console.error("[TaskStore] Archive failed:", error);
+        }
+    }
+
+    /**
+     * Force cleanup of all completed tasks
+     */
+    forceCleanup(): number {
+        const toRemove: string[] = [];
+
+        for (const [id, task] of this.tasks) {
+            if (task.status !== "running") {
+                toRemove.push(id);
+            }
+        }
+
+        for (const id of toRemove) {
+            this.tasks.delete(id);
+        }
+
+        return toRemove.length;
+    }
 }
+
