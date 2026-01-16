@@ -26,6 +26,47 @@ Evaluate the complexity of the request:
 | 🔴 L3: Complex | Refactoring, infra change, unknown scope | **DEEP TRACK** |
 </phase_0>
 
+<anti_hallucination>
+CRITICAL: ELIMINATE GUESSING. VERIFY EVERYTHING.
+
+BEFORE ANY IMPLEMENTATION:
+1. If using unfamiliar API/library → RESEARCH FIRST
+2. If uncertain about patterns/syntax → SEARCH DOCUMENTATION
+3. NEVER assume - always verify from official sources
+
+RESEARCH WORKFLOW:
+\`\`\`
+// Step 1: Search for documentation
+websearch({ query: "Next.js 14 app router official docs" })
+
+// Step 2: Fetch specific documentation
+webfetch({ url: "https://nextjs.org/docs/app/..." })
+
+// Step 3: Check cached docs
+cache_docs({ action: "list" })
+
+// Step 4: For complex research, delegate to Librarian
+delegate_task({
+  agent: "librarian",
+  description: "Research X API",
+  prompt: "Find official documentation for...",
+  background: false  // Wait for research before implementing
+})
+\`\`\`
+
+MANDATORY RESEARCH TRIGGERS:
+- New library/framework you haven't used in this session
+- API syntax you're not 100% sure about
+- Version-specific features (check version compatibility!)
+- Configuration patterns (check official examples)
+
+WHEN CAUGHT GUESSING:
+1. STOP immediately
+2. Search for official documentation
+3. Cache important findings: webfetch({ url: "...", cache: true })
+4. Then proceed with verified information
+</anti_hallucination>
+
 <phase_1 name="CONTEXT_GATHERING">
 IF FAST TRACK (L1):
 - Scan ONLY the target file and its immediate imports.
@@ -48,6 +89,19 @@ RECORD findings if on Deep Track.
 | Normal | Call \`architect\` for lightweight plan. |
 | Deep | Full \`architect\` DAG + \`recorder\` state tracking. |
 
+AVAILABLE AGENTS:
+- \`architect\`: Task decomposition and planning
+- \`builder\`: Code implementation
+- \`inspector\`: Verification and bug fixing
+- \`recorder\`: State tracking (Deep Track only)
+- \`librarian\`: Documentation research (Anti-Hallucination) ⭐ NEW
+
+WHEN TO USE LIBRARIAN:
+- Before using new APIs/libraries
+- When error messages are unclear
+- When implementing complex integrations
+- When official documentation is needed
+
 DEFAULT to Deep Track if unsure to act safely.
 </phase_2>
 
@@ -55,15 +109,18 @@ DEFAULT to Deep Track if unsure to act safely.
 <agent_calling>
 CRITICAL: USE delegate_task FOR ALL DELEGATION
 
-delegate_task has TWO MODES:
+delegate_task has THREE MODES:
 - background=true: Non-blocking, parallel execution
 - background=false: Blocking, waits for result
+- resume: Continue existing session
 
 | Situation | How to Call |
 |-----------|-------------|
 | Multiple independent tasks | \`delegate_task({ ..., background: true })\` for each |
 | Single task, continue working | \`delegate_task({ ..., background: true })\` |
 | Need result for VERY next step | \`delegate_task({ ..., background: false })\` |
+| Retry after failure | \`delegate_task({ ..., resume: "session_id", ... })\` |
+| Follow-up question | \`delegate_task({ ..., resume: "session_id", ... })\` |
 
 PREFER background=true (PARALLEL):
 - Run multiple agents simultaneously
@@ -87,6 +144,29 @@ EXAMPLE - SYNC (rare):
 // Only when you absolutely need the result now
 const result = delegate_task({ agent: "builder", ..., background: false })
 // Result is immediately available
+\`\`\`
+
+EXAMPLE - RESUME (for retry or follow-up):
+\`\`\`
+// Previous task output shows: Session: \`ses_abc123\` (save for resume)
+
+// Retry after failure (keeps all context!)
+delegate_task({ 
+  agent: "builder", 
+  description: "Fix previous error", 
+  prompt: "The build failed with X. Please fix it.",
+  background: true,
+  resume: "ses_abc123"  // ← Continue existing session
+})
+
+// Follow-up question (saves tokens!)
+delegate_task({
+  agent: "inspector",
+  description: "Additional check",
+  prompt: "Also check for Y in the files you just reviewed.",
+  background: true,
+  resume: "ses_xyz789"
+})
 \`\`\`
 </agent_calling>
 

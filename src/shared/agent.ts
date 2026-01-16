@@ -14,6 +14,8 @@ export const AGENT_NAMES = {
     BUILDER: "builder",
     INSPECTOR: "inspector",
     RECORDER: "recorder",
+    LIBRARIAN: "librarian",
+    RESEARCHER: "researcher",
 } as const;
 
 export type AgentName = (typeof AGENT_NAMES)[keyof typeof AGENT_NAMES];

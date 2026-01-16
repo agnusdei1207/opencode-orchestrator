@@ -122,6 +122,59 @@ declare const OrchestratorPlugin: (input: PluginInput) => Promise<{
                 taskId: string;
             }, context: import("@opencode-ai/plugin").ToolContext): Promise<string>;
         };
+        webfetch: {
+            description: string;
+            args: {
+                url: import("zod").ZodString;
+                cache: import("zod").ZodOptional<import("zod").ZodBoolean>;
+                selector: import("zod").ZodOptional<import("zod").ZodString>;
+            };
+            execute(args: {
+                url: string;
+                cache?: boolean | undefined;
+                selector?: string | undefined;
+            }, context: import("@opencode-ai/plugin").ToolContext): Promise<string>;
+        };
+        websearch: {
+            description: string;
+            args: {
+                query: import("zod").ZodString;
+                maxResults: import("zod").ZodOptional<import("zod").ZodNumber>;
+            };
+            execute(args: {
+                query: string;
+                maxResults?: number | undefined;
+            }, context: import("@opencode-ai/plugin").ToolContext): Promise<string>;
+        };
+        cache_docs: {
+            description: string;
+            args: {
+                action: import("zod").ZodEnum<{
+                    list: "list";
+                    get: "get";
+                    clear: "clear";
+                    stats: "stats";
+                }>;
+                filename: import("zod").ZodOptional<import("zod").ZodString>;
+            };
+            execute(args: {
+                action: "list" | "get" | "clear" | "stats";
+                filename?: string | undefined;
+            }, context: import("@opencode-ai/plugin").ToolContext): Promise<string>;
+        };
+        codesearch: {
+            description: string;
+            args: {
+                query: import("zod").ZodString;
+                language: import("zod").ZodOptional<import("zod").ZodString>;
+                repo: import("zod").ZodOptional<import("zod").ZodString>;
+            };
+            execute(args: {
+                query: string;
+                language?: string | undefined;
+                repo?: string | undefined;
+            }, context: import("@opencode-ai/plugin").ToolContext): Promise<string>;
+        };
     };
     config: (config: Record<string, unknown>) => Promise<void>;
     "chat.message": (msgInput: any, msgOutput: any) => Promise<void>;

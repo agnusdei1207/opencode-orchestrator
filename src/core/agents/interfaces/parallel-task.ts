@@ -15,6 +15,7 @@ export interface ParallelTask {
     sessionID: string;
     parentSessionID: string;
     description: string;
+    prompt: string;  // Store original prompt for resume context
     agent: string;
     status: ParallelTaskStatus;
     startedAt: Date;
@@ -30,4 +31,5 @@ export interface ParallelTask {
     // Progress tracking
     progress?: TaskProgress;
 }
+
 
