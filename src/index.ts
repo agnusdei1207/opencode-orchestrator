@@ -169,18 +169,25 @@ const OrchestratorPlugin: Plugin = async (input) => {
                     description: "Autonomous orchestrator - executes until mission complete",
                     mode: "primary",
                     prompt: AGENTS.commander.systemPrompt,
+                    maxTokens: 64000,
                     thinking: { type: "enabled", budgetTokens: 32000 },
                     color: "#FF6B6B",
                 },
                 [AGENT_NAMES.LIBRARIAN]: {
                     name: AGENT_NAMES.LIBRARIAN,
                     description: "Documentation research specialist - reduces hallucination",
+                    mode: "subagent",
                     prompt: AGENTS.librarian?.systemPrompt || "",
+                    maxTokens: 16000,
+                    color: "#4ECDC4",
                 },
                 [AGENT_NAMES.RESEARCHER]: {
                     name: AGENT_NAMES.RESEARCHER,
                     description: "Pre-task investigation - gathers all info before implementation",
+                    mode: "subagent",
                     prompt: AGENTS.researcher?.systemPrompt || "",
+                    maxTokens: 16000,
+                    color: "#45B7D1",
                 },
             };
 
