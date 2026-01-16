@@ -11,13 +11,14 @@
  */
 
 import type { PluginInput } from "@opencode-ai/plugin";
+import { ID_PREFIX, PARALLEL_TASK } from "../shared/constants.js";
 
-// Configuration
-const TASK_TTL_MS = 30 * 60 * 1000;           // 30 minutes max runtime
-const CLEANUP_DELAY_MS = 5 * 60 * 1000;       // 5 min after completion
-const MIN_STABILITY_MS = 5 * 1000;            // Minimum 5s before completion
-const POLL_INTERVAL_MS = 2000;                // Poll every 2s
-const DEFAULT_CONCURRENCY = 3;                // Default max parallel per agent type
+// Configuration from constants
+const TASK_TTL_MS = PARALLEL_TASK.TTL_MS;
+const CLEANUP_DELAY_MS = PARALLEL_TASK.CLEANUP_DELAY_MS;
+const MIN_STABILITY_MS = PARALLEL_TASK.MIN_STABILITY_MS;
+const POLL_INTERVAL_MS = PARALLEL_TASK.POLL_INTERVAL_MS;
+const DEFAULT_CONCURRENCY = PARALLEL_TASK.DEFAULT_CONCURRENCY;
 
 // Debug logger
 const DEBUG = process.env.DEBUG_PARALLEL_AGENT === "true";
@@ -182,7 +183,7 @@ export class ParallelAgentManager {
             }
 
             const sessionID = createResult.data.id;
-            const taskId = `task_${crypto.randomUUID().slice(0, 8)}`;
+            const taskId = `${ID_PREFIX.TASK}${crypto.randomUUID().slice(0, 8)}`;
 
             const task: ParallelTask = {
                 id: taskId,

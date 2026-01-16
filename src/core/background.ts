@@ -7,6 +7,7 @@
 
 import { spawn, ChildProcess } from "child_process";
 import { randomBytes } from "crypto";
+import { ID_PREFIX } from "../shared/constants.js";
 
 // ============================================================================
 // Types
@@ -56,11 +57,11 @@ class BackgroundTaskManager {
     }
 
     /**
-     * Generate a unique task ID in the format job_xxxxxxxx
+     * Generate a unique task ID
      */
     private generateId(): string {
         const hex = randomBytes(4).toString("hex");
-        return `job_${hex}`;
+        return `${ID_PREFIX.JOB}${hex}`;
     }
 
     /**
