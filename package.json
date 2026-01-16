@@ -56,7 +56,8 @@
     "dev:unlink": "npm unlink -g opencode-orchestrator || true && npm run dev:clean && echo 'SUCCESS: Unlinked'",
     "dev:status": "echo '=== Global Link ===' && ls -la $(npm root -g)/opencode-orchestrator 2>/dev/null || echo 'Not linked'",
     "dev:test": "node dist/scripts/postinstall.js && echo '---' && node dist/scripts/preuninstall.js",
-    "reset": "npm run dev:unlink || true && npm uninstall -g opencode-orchestrator || true && brew uninstall opencode || true && rm -rf ~/.config/opencode ~/.opencode ~/.local/share/opencode && echo '=== Clean done ===' && brew install opencode && npm run dev:link && echo '=== Reset complete ==='"
+    "reset": "npm run dev:unlink || true && npm uninstall -g opencode-orchestrator || true && brew uninstall opencode || true && rm -rf ~/.config/opencode ~/.opencode ~/.local/share/opencode && echo '=== Clean done ===' && brew install opencode && npm run dev:link && echo '=== Reset complete ==='",
+    "reset:global": "npm run dev:unlink || true && npm uninstall -g opencode-orchestrator || true && brew uninstall opencode || true && rm -rf ~/.config/opencode ~/.opencode ~/.local/share/opencode && echo '=== Clean done ===' && brew install opencode && npm install -g opencode-orchestrator && echo '=== Reset Global complete ==='"
   },
   "dependencies": {
     "@opencode-ai/plugin": "^1.1.1",
