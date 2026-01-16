@@ -2,7 +2,7 @@
 
 use anyhow::Result;
 use orchestrator_core::hooks::Hook;
-use orchestrator_core::tools::{GlobTool, GrepTool, glob::GlobConfig, grep::GrepConfig};
+use orchestrator_core::tools::{GlobTool, GrepTool, MgrepTool, glob::GlobConfig, grep::GrepConfig, mgrep::MgrepConfig};
 use serde::Deserialize;
 use serde_json::{Value, json};
 use std::path::PathBuf;
@@ -70,7 +70,7 @@ struct MgrepArgs {
     patterns: Vec<String>,
     directory: Option<String>,
     timeout_ms: Option<u64>,
-    max_results: Option<usize>,
+    max_results_per_pattern: Option<usize>,
 }
 
 /// Multi-pattern grep - search multiple patterns in parallel
@@ -81,12 +81,12 @@ async fn mgrep(arguments: Value) -> Result<String> {
         return Ok(json!({"error": "No patterns provided"}).to_string());
     }
 
-    let mut config = GrepConfig::default();
+    let mut config = MgrepConfig::default();
     if let Some(ms) = args.timeout_ms {
         config.timeout = Duration::from_millis(ms);
     }
-    if let Some(max) = args.max_results {
-        config.max_results = max;
+    if let Some(max) = args.max_results_per_pattern {
+        config.max_results_per_pattern = max;
     }
 
     let search_dir = args
@@ -94,39 +94,28 @@ async fn mgrep(arguments: Value) -> Result<String> {
         .map(PathBuf::from)
         .unwrap_or_else(|| std::env::current_dir().unwrap_or_default());
 
-    let tool = GrepTool::new(config);
+    let tool = MgrepTool::new(config);
+    let result = tool.search(&args.patterns, &search_dir)?;
 
-    // Search each pattern
+    // Format results
     let mut all_results = Vec::new();
+    for (pattern, matches) in &result.results {
+        let formatted: Vec<Value> = matches
+            .iter()
+            .map(|m| {
+                json!({
+                    "file": m.file.clone(),
+                    "line": m.line,
+                    "content": m.content.trim()
+                })
+            })
+            .collect();
 
-    for pattern in &args.patterns {
-        match tool.search(pattern, &search_dir) {
-            Ok(results) => {
-                let matches: Vec<Value> = results
-                    .iter()
-                    .take(50) // Limit per pattern
-                    .map(|m| {
-                        json!({
-                            "file": m.file.clone(),
-                            "line": m.line_number,
-                            "content": m.line_content.trim()
-                        })
-                    })
-                    .collect();
-
-                all_results.push(json!({
-                    "pattern": pattern,
-                    "matches": matches,
-                    "total": results.len()
-                }));
-            }
-            Err(e) => {
-                all_results.push(json!({
-                    "pattern": pattern,
-                    "error": e.to_string()
-                }));
-            }
-        }
+        all_results.push(json!({
+            "pattern": pattern,
+            "matches": formatted,
+            "total": matches.len()
+        }));
     }
 
     Ok(serde_json::to_string_pretty(&json!({

@@ -58,7 +58,26 @@ async function testRustIntegration() {
         console.log(`   ❌ Exception: ${e}`);
     }
 
-    // 4. Summary
+    // 4. Test mgrep (multi-pattern search)
+    console.log("\n4. Testing mgrep (multi-pattern parallel search)...");
+    try {
+        const mgrepResult = await callRustTool("mgrep", {
+            patterns: ["export", "import", "const"],
+            directory: "./src",
+        });
+        const parsed = JSON.parse(mgrepResult);
+        if (parsed.error) {
+            console.log(`   ❌ Error: ${parsed.error}`);
+        } else {
+            console.log(`   ✅ mgrep works!`);
+            console.log(`   Patterns searched: ${parsed.patterns_searched}`);
+            console.log(`   Results preview: ${mgrepResult.substring(0, 300)}...`);
+        }
+    } catch (e) {
+        console.log(`   ❌ Exception: ${e}`);
+    }
+
+    // 5. Summary
     console.log("\n=== Test Complete ===");
 }
 
