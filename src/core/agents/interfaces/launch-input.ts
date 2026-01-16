@@ -1,9 +1,9 @@
 /**
- * LaunchInput - Input for launching a parallel task
+ * Launch and Resume Input Types
+ * 
+ * Re-exports from separated files for backward compatibility
  */
-export interface LaunchInput {
-    description: string;
-    prompt: string;
-    agent: string;
-    parentSessionID: string;
-}
+
+export { LaunchInput } from "./launch-input.interface.js";
+export { ResumeInput } from "./resume-input.interface.js";
+

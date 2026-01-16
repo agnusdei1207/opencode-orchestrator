@@ -10,7 +10,9 @@ var AGENT_NAMES = {
   ARCHITECT: "architect",
   BUILDER: "builder",
   INSPECTOR: "inspector",
-  RECORDER: "recorder"
+  RECORDER: "recorder",
+  LIBRARIAN: "librarian",
+  RESEARCHER: "researcher"
 };
 
 // src/agents/orchestrator.ts
@@ -39,6 +41,47 @@ Evaluate the complexity of the request:
 | \u{1F534} L3: Complex | Refactoring, infra change, unknown scope | **DEEP TRACK** |
 </phase_0>
 
+<anti_hallucination>
+CRITICAL: ELIMINATE GUESSING. VERIFY EVERYTHING.
+
+BEFORE ANY IMPLEMENTATION:
+1. If using unfamiliar API/library \u2192 RESEARCH FIRST
+2. If uncertain about patterns/syntax \u2192 SEARCH DOCUMENTATION
+3. NEVER assume - always verify from official sources
+
+RESEARCH WORKFLOW:
+\`\`\`
+// Step 1: Search for documentation
+websearch({ query: "Next.js 14 app router official docs" })
+
+// Step 2: Fetch specific documentation
+webfetch({ url: "https://nextjs.org/docs/app/..." })
+
+// Step 3: Check cached docs
+cache_docs({ action: "list" })
+
+// Step 4: For complex research, delegate to Librarian
+delegate_task({
+  agent: "librarian",
+  description: "Research X API",
+  prompt: "Find official documentation for...",
+  background: false  // Wait for research before implementing
+})
+\`\`\`
+
+MANDATORY RESEARCH TRIGGERS:
+- New library/framework you haven't used in this session
+- API syntax you're not 100% sure about
+- Version-specific features (check version compatibility!)
+- Configuration patterns (check official examples)
+
+WHEN CAUGHT GUESSING:
+1. STOP immediately
+2. Search for official documentation
+3. Cache important findings: webfetch({ url: "...", cache: true })
+4. Then proceed with verified information
+</anti_hallucination>
+
 <phase_1 name="CONTEXT_GATHERING">
 IF FAST TRACK (L1):
 - Scan ONLY the target file and its immediate imports.
@@ -61,6 +104,19 @@ RECORD findings if on Deep Track.
 | Normal | Call \`architect\` for lightweight plan. |
 | Deep | Full \`architect\` DAG + \`recorder\` state tracking. |
 
+AVAILABLE AGENTS:
+- \`architect\`: Task decomposition and planning
+- \`builder\`: Code implementation
+- \`inspector\`: Verification and bug fixing
+- \`recorder\`: State tracking (Deep Track only)
+- \`librarian\`: Documentation research (Anti-Hallucination) \u2B50 NEW
+
+WHEN TO USE LIBRARIAN:
+- Before using new APIs/libraries
+- When error messages are unclear
+- When implementing complex integrations
+- When official documentation is needed
+
 DEFAULT to Deep Track if unsure to act safely.
 </phase_2>
 
@@ -68,15 +124,18 @@ DEFAULT to Deep Track if unsure to act safely.
 <agent_calling>
 CRITICAL: USE delegate_task FOR ALL DELEGATION
 
-delegate_task has TWO MODES:
+delegate_task has THREE MODES:
 - background=true: Non-blocking, parallel execution
 - background=false: Blocking, waits for result
+- resume: Continue existing session
 
 | Situation | How to Call |
 |-----------|-------------|
 | Multiple independent tasks | \`delegate_task({ ..., background: true })\` for each |
 | Single task, continue working | \`delegate_task({ ..., background: true })\` |
 | Need result for VERY next step | \`delegate_task({ ..., background: false })\` |
+| Retry after failure | \`delegate_task({ ..., resume: "session_id", ... })\` |
+| Follow-up question | \`delegate_task({ ..., resume: "session_id", ... })\` |
 
 PREFER background=true (PARALLEL):
 - Run multiple agents simultaneously
@@ -100,6 +159,29 @@ EXAMPLE - SYNC (rare):
 // Only when you absolutely need the result now
 const result = delegate_task({ agent: "builder", ..., background: false })
 // Result is immediately available
+\`\`\`
+
+EXAMPLE - RESUME (for retry or follow-up):
+\`\`\`
+// Previous task output shows: Session: \`ses_abc123\` (save for resume)
+
+// Retry after failure (keeps all context!)
+delegate_task({ 
+  agent: "builder", 
+  description: "Fix previous error", 
+  prompt: "The build failed with X. Please fix it.",
+  background: true,
+  resume: "ses_abc123"  // \u2190 Continue existing session
+})
+
+// Follow-up question (saves tokens!)
+delegate_task({
+  agent: "inspector",
+  description: "Additional check",
+  prompt: "Also check for Y in the files you just reviewed.",
+  background: true,
+  resume: "ses_xyz789"
+})
 \`\`\`
 </agent_calling>
 
@@ -210,37 +292,68 @@ Evidence: [Specific build/test/audit results]
 // src/agents/subagents/architect.ts
 var architect = {
   id: AGENT_NAMES.ARCHITECT,
-  description: "Architect - task decomposition and strategic planning",
+  description: "Architect - hierarchical task decomposition and strategic planning",
   systemPrompt: `<role>
-You are Architect. Break complex tasks into atomic pieces.
+You are Architect. Break complex tasks into hierarchical, atomic pieces.
+Create TODO trees with parallel groups and dependencies.
 </role>
 
 <constraints>
 1. If your reasoning collapses into gibberish, stop and output "ERROR: REASONING_COLLAPSE".
+2. Every task must be ATOMIC (single action).
+3. Always include verification tasks.
 </constraints>
 
-<scalable_planning>
-- **Fast Track**: Skip JSON overhead. Just acknowledge simple task.
-- **Deep Track**: Create detailed JSON DAG with parallel groups.
-</scalable_planning>
+<hierarchical_planning>
+Create layered task structure:
+
+LEVEL 1 (L1): Main objectives (2-5 items)
+  LEVEL 2 (L2): Sub-tasks (2-3 per L1)
+    LEVEL 3 (L3): Atomic actions (1-3 per L2)
+
+PARALLEL GROUPING:
+- Tasks in same parallel_group can run simultaneously
+- Use letters: A, B, C for groups
+- Tasks with no group run sequentially
+
+DEPENDENCIES:
+- Use "depends:T1,T2" for sequential requirements
+- Parent must start before children
+</hierarchical_planning>
 
 <modes>
-- PLAN: New task \u2192 create task list
+- PLAN: New task \u2192 create hierarchical task list
 - STRATEGY: 3+ failures \u2192 analyze and fix approach
 </modes>
 
 <plan_mode>
-1. List tasks, one action each
-2. Group independent tasks (run in parallel)
-3. Sequence dependent tasks
-4. Assign: builder (code) or inspector (verify)
+1. Identify main objectives (L1)
+2. Break each into sub-tasks (L2)
+3. Break into atomic actions (L3)
+4. Group independent tasks (parallel)
+5. Add dependencies
+6. Assign agents
 
 <output_format>
 MISSION: [goal in one line]
 
-T1: [action] | builder | [file] | group:1 | success:[how to verify]
-T2: [action] | builder | [file] | group:1 | success:[how to verify]
-T3: [action] | inspector | [files] | group:2 | depends:T1,T2 | success:[verify method]
+TODO_HIERARCHY:
+- [L1] Main objective 1
+  - [L2] Sub-task 1.1 | agent:builder | parallel_group:A
+  - [L2] Sub-task 1.2 | agent:builder | parallel_group:A
+  - [L2] Sub-task 1.3 | agent:inspector | depends:1.1,1.2
+- [L1] Main objective 2
+  - [L2] Sub-task 2.1 | agent:librarian
+  - [L2] Sub-task 2.2 | agent:builder | depends:2.1
+    - [L3] Atomic action 2.2.1 | agent:builder
+    - [L3] Atomic action 2.2.2 | agent:builder | parallel_group:B
+    - [L3] Verify 2.2 | agent:inspector | depends:2.2.1,2.2.2
+
+PARALLEL_EXECUTION:
+- Group A: [1.1, 1.2] \u2192 Run simultaneously
+- Group B: [2.2.2] \u2192 After deps complete
+
+ESTIMATED_EFFORT: [low/medium/high]
 </output_format>
 </plan_mode>
 
@@ -253,16 +366,24 @@ ROOT CAUSE: [actual problem]
 
 NEW APPROACH: [different strategy]
 
-REVISED TASKS:
-T1: ...
+REVISED_HIERARCHY:
+- [L1] ...
 </output_format>
 </strategy_mode>
 
+<agents_available>
+- builder: Code implementation
+- inspector: Verification and bug fixing
+- librarian: Documentation research (use BEFORE unfamiliar APIs)
+- researcher: Pre-task investigation
+</agents_available>
+
 <rules>
 - One action per task
-- Always end with inspector task
-- Group unrelated tasks (parallel)
-- Be specific about files and verification
+- Always end branches with inspector task
+- Group unrelated tasks (parallel execution)
+- Use librarian/researcher before implementing unfamiliar features
+- Be specific about files, patterns, and verification
 </rules>`,
   canWrite: false,
   canBash: false
@@ -336,18 +457,20 @@ If build fails, FIX IT before reporting. Never leave broken code.
 // src/agents/subagents/inspector.ts
 var inspector = {
   id: AGENT_NAMES.INSPECTOR,
-  description: "Inspector - quality verification AND bug fixing",
+  description: "Inspector - quality verification, bug fixing, and documentation validation",
   systemPrompt: `<role>
 You are Inspector. Prove failure or success with evidence.
+Also verify that implementations match official documentation.
 </role>
 
 <constraints>
 1. If your reasoning collapses into gibberish, stop and output "ERROR: REASONING_COLLAPSE".
+2. Never approve code that contradicts cached documentation.
 </constraints>
 
 <scalable_audit>
 - **Fast Track**: Verify syntax + quick logic check.
-- **Deep Track**: Verify build + tests + types + security + logic.
+- **Deep Track**: Verify build + tests + types + security + logic + doc compliance.
 </scalable_audit>
 
 <audit_checklist>
@@ -356,8 +479,26 @@ You are Inspector. Prove failure or success with evidence.
 3. ENV-SPECIFIC: 
    - Docker: check Dockerfile syntax or run container logs if possible
    - Frontend: check if build artifacts are generated
-4. MANUAL: If no automated tests, read code to verify logic 100%
+4. DOCUMENTATION: Check .cache/docs/ for relevant docs
+5. MANUAL: If no automated tests, read code to verify logic 100%
 </audit_checklist>
+
+<documentation_verification>
+ALWAYS CHECK CACHED DOCS:
+1. cache_docs({ action: "list" }) - See available documentation
+2. cache_docs({ action: "get", filename: "..." }) - Review specific doc
+3. Compare implementation against official patterns
+
+VERIFICATION_OUTPUT:
+- DOC_MATCH: [yes/no]
+- DEVIATIONS: [list any differences from official docs]
+- RECOMMENDATION: [fix/accept with reason]
+
+WHEN CODE DOESN'T MATCH DOCS:
+1. Flag the deviation
+2. Explain the risk
+3. Suggest the documented approach
+</documentation_verification>
 
 <verification_by_context>
 | Project Infra | Primary Evidence |
@@ -381,19 +522,22 @@ ALWAYS prefer background for build/test commands.
 <pass>
 \u2705 PASS
 Evidence: [Specific output/log proving success]
+Doc Compliance: [Matches cached docs / No relevant docs]
 </pass>
 
 <fail>
 \u274C FAIL
 Issue: [What went wrong]
+Doc Reference: [If applicable, which doc was violated]
 Fixing...
 </fail>
 </output_format>
 
 <fix_mode>
 1. Diagnose root cause
-2. Minimal fix
-3. Re-verify with even more rigor
+2. Check .cache/docs/ for correct pattern
+3. Minimal fix using documented approach
+4. Re-verify with even more rigor
 </fix_mode>`,
   canWrite: true,
   canBash: true
@@ -465,13 +609,216 @@ Never stop the flow. No context = fresh start = OK.
   canBash: true
 };
 
+// src/agents/subagents/librarian.ts
+var librarian = {
+  id: AGENT_NAMES.LIBRARIAN || "librarian",
+  description: "Librarian - Documentation and API research specialist",
+  systemPrompt: `<role>
+You are Librarian. Find official documentation and verified information.
+Your job: Eliminate hallucination through rigorous research.
+</role>
+
+<critical_rule>
+NEVER GUESS. NEVER ASSUME. ALWAYS VERIFY.
+If you don't know something, SEARCH for it.
+</critical_rule>
+
+<workflow>
+1. IDENTIFY: What documentation/API info is needed?
+2. SEARCH: Use webfetch/websearch to find official sources
+3. VERIFY: Cross-check from multiple sources
+4. CACHE: Save important docs to .cache/docs/ for team reference
+5. RETURN: Structured findings with permalinks/citations
+</workflow>
+
+<search_strategy>
+PRIORITY ORDER for sources:
+1. Official documentation sites (docs.*, *.dev, *.io)
+2. GitHub README and source code
+3. Official blog posts/announcements
+4. Stack Overflow (verified answers only)
+5. Community tutorials (with caution)
+
+AVOID:
+- Outdated articles (check dates!)
+- AI-generated content
+- Unofficial summaries
+</search_strategy>
+
+<caching>
+Cache documents when:
+- API reference needed multiple times
+- Complex setup instructions
+- Version-specific information
+- Team members may need access
+
+Cache location: .cache/docs/
+Filename format: {domain}_{topic}.md
+Example: nextjs_app-router.md
+</caching>
+
+<output_format>
+RESEARCH REPORT
+===============
+
+QUERY: [What was asked]
+
+SOURCES CONSULTED:
+1. [Official Doc URL] - [Key insight]
+2. [Source URL] - [Key insight]
+
+VERIFIED ANSWER:
+[Detailed, accurate answer with inline citations]
+
+CACHED DOCUMENTS:
+- .cache/docs/[filename]: [description]
+(or "No caching needed" if trivial lookup)
+
+CONFIDENCE: [HIGH/MEDIUM/LOW]
+- HIGH: Found in official docs, multiple sources agree
+- MEDIUM: Found in reliable sources, some interpretation needed
+- LOW: Limited sources, may need manual verification
+
+CAVEATS:
+- [Any limitations or version-specific notes]
+</output_format>
+
+<tools_to_use>
+- webfetch: For fetching specific documentation pages
+- websearch: For finding relevant documentation
+- grep_search: For finding patterns in local codebase
+- glob_search: For finding files
+- Edit tool: ONLY for writing to .cache/docs/
+</tools_to_use>
+
+<example_queries>
+Q: "How do I use the new App Router in Next.js 14?"
+\u2192 Search official Next.js docs
+\u2192 Find App Router section
+\u2192 Cache key patterns to .cache/docs/nextjs_app-router.md
+\u2192 Return verified answer with citations
+
+Q: "What's the correct way to use useEffect cleanup?"
+\u2192 Search React docs
+\u2192 Find Effects section
+\u2192 Return verified pattern with permalink
+</example_queries>`,
+  canWrite: true,
+  // Only for .cache/docs/
+  canBash: true
+  // For curl/search commands if needed
+};
+
+// src/agents/subagents/researcher.ts
+var researcher = {
+  id: AGENT_NAMES.RESEARCHER || "researcher",
+  description: "Researcher - Pre-task investigation and documentation specialist",
+  systemPrompt: `<role>
+You are Researcher. Gather all necessary information BEFORE implementation begins.
+Your job: Ensure the team has complete, verified information before coding.
+</role>
+
+<critical_rule>
+INVESTIGATE FIRST. CODE NEVER.
+You are read-only. Your output is INFORMATION, not code.
+</critical_rule>
+
+<workflow>
+1. ANALYZE: Understand the task requirements fully
+2. IDENTIFY: List unfamiliar technologies, APIs, patterns
+3. SEARCH: Find official documentation for each
+4. SCAN: Find existing patterns in codebase
+5. CACHE: Save important docs for team reference
+6. REPORT: Deliver structured findings
+</workflow>
+
+<search_strategy>
+FOR EACH UNKNOWN TECHNOLOGY:
+1. websearch({ query: "[tech] official documentation [version]" })
+2. webfetch({ url: "[official docs url]", cache: true })
+
+FOR CODEBASE PATTERNS:
+1. grep_search({ query: "[pattern]" })
+2. glob_search({ pattern: "*.[ext]" })
+
+FOR API USAGE:
+1. Search for import statements: grep_search({ query: "import.*[library]" })
+2. Find usage examples in existing code
+</search_strategy>
+
+<output_format>
+# RESEARCH REPORT
+
+## Task Summary
+[What needs to be implemented]
+
+## Technologies Involved
+| Technology | Version | Official Docs | Key Insights |
+|------------|---------|---------------|--------------|
+| [tech1]    | [ver]   | [url]         | [insight]    |
+
+## Codebase Patterns Found
+- **Pattern 1**: [description]
+  - Location: [file:line]
+  - Usage: \`[code example]\`
+
+## Cached Documentation
+| Filename | Description |
+|----------|-------------|
+| .cache/docs/[file] | [description] |
+
+## Dependencies Identified
+- [dependency 1]: [purpose]
+- [dependency 2]: [purpose]
+
+## Recommended Approach
+1. [Step 1]
+2. [Step 2]
+3. [Step 3]
+
+## Potential Risks
+- [Risk 1]: [mitigation]
+- [Risk 2]: [mitigation]
+
+## Knowledge Gaps
+- [Gap 1]: [what's still unknown]
+
+## READY FOR IMPLEMENTATION: [YES/NO]
+[If NO, explain what additional research is needed]
+</output_format>
+
+<examples>
+Task: "Implement OAuth login with Google"
+
+1. SEARCH: Google OAuth documentation
+2. SEARCH: Existing auth patterns in codebase
+3. CACHE: Google OAuth setup guide
+4. FIND: How other providers are implemented
+5. REPORT: Complete research with recommendations
+</examples>
+
+<constraints>
+1. DO NOT write any implementation code
+2. DO NOT make assumptions - verify everything
+3. DO NOT skip caching important documentation
+4. ALWAYS provide source URLs for claims
+5. ALWAYS note version requirements
+</constraints>`,
+  canWrite: true,
+  // Only for .cache/docs/
+  canBash: false
+  // No execution needed
+};
+
 // src/agents/definitions.ts
 var AGENTS = {
   [AGENT_NAMES.COMMANDER]: orchestrator,
   [AGENT_NAMES.ARCHITECT]: architect,
   [AGENT_NAMES.BUILDER]: builder,
   [AGENT_NAMES.INSPECTOR]: inspector,
-  [AGENT_NAMES.RECORDER]: recorder
+  [AGENT_NAMES.RECORDER]: recorder,
+  [AGENT_NAMES.LIBRARIAN]: librarian,
+  [AGENT_NAMES.RESEARCHER]: researcher
 };
 
 // src/core/orchestrator/task-graph.ts
@@ -1197,10 +1544,10 @@ function jsonStringifyReplacer(_, value) {
   return value;
 }
 function cached(getter) {
-  const set2 = false;
+  const set3 = false;
   return {
     get value() {
-      if (!set2) {
+      if (!set3) {
         const value = getter();
         Object.defineProperty(this, "value", { value });
         return value;
@@ -1277,10 +1624,10 @@ function mergeDefs(...defs) {
 function cloneDef(schema) {
   return mergeDefs(schema._zod.def);
 }
-function getElementAtPath(obj, path) {
-  if (!path)
+function getElementAtPath(obj, path2) {
+  if (!path2)
     return obj;
-  return path.reduce((acc, key) => acc?.[key], obj);
+  return path2.reduce((acc, key) => acc?.[key], obj);
 }
 function promiseAllObject(promisesObj) {
   const keys = Object.keys(promisesObj);
@@ -1641,11 +1988,11 @@ function aborted(x, startIndex = 0) {
   }
   return false;
 }
-function prefixIssues(path, issues) {
+function prefixIssues(path2, issues) {
   return issues.map((iss) => {
     var _a;
     (_a = iss).path ?? (_a.path = []);
-    iss.path.unshift(path);
+    iss.path.unshift(path2);
     return iss;
   });
 }
@@ -1813,7 +2160,7 @@ function treeifyError(error45, _mapper) {
     return issue2.message;
   };
   const result = { errors: [] };
-  const processError = (error46, path = []) => {
+  const processError = (error46, path2 = []) => {
     var _a, _b;
     for (const issue2 of error46.issues) {
       if (issue2.code === "invalid_union" && issue2.errors.length) {
@@ -1823,7 +2170,7 @@ function treeifyError(error45, _mapper) {
       } else if (issue2.code === "invalid_element") {
         processError({ issues: issue2.issues }, issue2.path);
       } else {
-        const fullpath = [...path, ...issue2.path];
+        const fullpath = [...path2, ...issue2.path];
         if (fullpath.length === 0) {
           result.errors.push(mapper(issue2));
           continue;
@@ -1855,8 +2202,8 @@ function treeifyError(error45, _mapper) {
 }
 function toDotPath(_path) {
   const segs = [];
-  const path = _path.map((seg) => typeof seg === "object" ? seg.key : seg);
-  for (const seg of path) {
+  const path2 = _path.map((seg) => typeof seg === "object" ? seg.key : seg);
+  for (const seg of path2) {
     if (typeof seg === "number")
       segs.push(`[${seg}]`);
     else if (typeof seg === "symbol")
@@ -13774,14 +14121,6 @@ var TaskStore = class {
   }
 };
 
-// src/core/agents/config.ts
-var CONFIG = {
-  TASK_TTL_MS: PARALLEL_TASK.TTL_MS,
-  CLEANUP_DELAY_MS: PARALLEL_TASK.CLEANUP_DELAY_MS,
-  MIN_STABILITY_MS: PARALLEL_TASK.MIN_STABILITY_MS,
-  POLL_INTERVAL_MS: PARALLEL_TASK.POLL_INTERVAL_MS
-};
-
 // src/core/agents/logger.ts
 var DEBUG2 = process.env.DEBUG_PARALLEL_AGENT === "true";
 function log2(...args) {
@@ -13810,34 +14149,19 @@ Use \`get_task_result({ taskId: "task_xxx" })\` to retrieve results.
 </system-notification>`;
 }
 
-// src/core/agents/manager.ts
-var ParallelAgentManager = class _ParallelAgentManager {
-  static _instance;
-  store = new TaskStore();
-  client;
-  directory;
-  concurrency = new ConcurrencyController();
-  pollingInterval;
-  constructor(client, directory) {
+// src/core/agents/manager/task-launcher.ts
+var TaskLauncher = class {
+  constructor(client, directory, store, concurrency, onTaskError, startPolling) {
     this.client = client;
     this.directory = directory;
+    this.store = store;
+    this.concurrency = concurrency;
+    this.onTaskError = onTaskError;
+    this.startPolling = startPolling;
   }
-  static getInstance(client, directory) {
-    if (!_ParallelAgentManager._instance) {
-      if (!client || !directory) {
-        throw new Error("ParallelAgentManager requires client and directory on first call");
-      }
-      _ParallelAgentManager._instance = new _ParallelAgentManager(client, directory);
-    }
-    return _ParallelAgentManager._instance;
-  }
-  // ========================================================================
-  // Public API
-  // ========================================================================
   async launch(input) {
     const concurrencyKey = input.agent;
     await this.concurrency.acquire(concurrencyKey);
-    this.pruneExpiredTasks();
     try {
       const createResult = await this.client.session.create({
         body: { parentID: input.parentSessionID, title: `Parallel: ${input.description}` },
@@ -13854,6 +14178,7 @@ var ParallelAgentManager = class _ParallelAgentManager {
         sessionID,
         parentSessionID: input.parentSessionID,
         description: input.description,
+        prompt: input.prompt,
         agent: input.agent,
         status: "running",
         startedAt: /* @__PURE__ */ new Date(),
@@ -13867,7 +14192,7 @@ var ParallelAgentManager = class _ParallelAgentManager {
         body: { agent: input.agent, parts: [{ type: "text", text: input.prompt }] }
       }).catch((error45) => {
         log2(`Prompt error for ${taskId}:`, error45);
-        this.handleTaskError(taskId, error45);
+        this.onTaskError(taskId, error45);
       });
       log2(`Launched ${taskId} in session ${sessionID}`);
       return task;
@@ -13876,168 +14201,90 @@ var ParallelAgentManager = class _ParallelAgentManager {
       throw error45;
     }
   }
-  getTask(id) {
-    return this.store.get(id);
+};
+
+// src/core/agents/manager/task-resumer.ts
+var TaskResumer = class {
+  constructor(client, store, findBySession, startPolling, notifyParentIfAllComplete) {
+    this.client = client;
+    this.store = store;
+    this.findBySession = findBySession;
+    this.startPolling = startPolling;
+    this.notifyParentIfAllComplete = notifyParentIfAllComplete;
   }
-  getRunningTasks() {
-    return this.store.getRunning();
-  }
-  getAllTasks() {
-    return this.store.getAll();
-  }
-  getTasksByParent(parentSessionID) {
-    return this.store.getByParent(parentSessionID);
-  }
-  async cancelTask(taskId) {
-    const task = this.store.get(taskId);
-    if (!task || task.status !== "running") return false;
-    task.status = "error";
-    task.error = "Cancelled by user";
-    task.completedAt = /* @__PURE__ */ new Date();
-    if (task.concurrencyKey) this.concurrency.release(task.concurrencyKey);
-    this.store.untrackPending(task.parentSessionID, taskId);
-    try {
-      await this.client.session.delete({ path: { id: task.sessionID } });
-      log2(`Session ${task.sessionID.slice(0, 8)}... deleted`);
-    } catch {
-      log2(`Session ${task.sessionID.slice(0, 8)}... already gone`);
+  async resume(input) {
+    const existingTask = this.findBySession(input.sessionId);
+    if (!existingTask) {
+      throw new Error(`Task not found for session: ${input.sessionId}`);
     }
-    this.scheduleCleanup(taskId);
-    log2(`Cancelled ${taskId}`);
-    return true;
-  }
-  async getResult(taskId) {
-    const task = this.store.get(taskId);
-    if (!task) return null;
-    if (task.result) return task.result;
-    if (task.status === "error") return `Error: ${task.error}`;
-    if (task.status === "running") return null;
-    try {
-      const result = await this.client.session.messages({ path: { id: task.sessionID } });
-      if (result.error) return `Error: ${result.error}`;
-      const messages = result.data ?? [];
-      const lastMsg = messages.filter((m) => m.info?.role === "assistant").reverse()[0];
-      if (!lastMsg) return "(No response)";
-      const text = lastMsg.parts?.filter((p) => p.type === "text" || p.type === "reasoning").map((p) => p.text ?? "").filter(Boolean).join("\n") ?? "";
-      task.result = text;
-      return text;
-    } catch (error45) {
-      return `Error: ${error45 instanceof Error ? error45.message : String(error45)}`;
-    }
-  }
-  setConcurrencyLimit(agentType, limit) {
-    this.concurrency.setLimit(agentType, limit);
-  }
-  getPendingCount(parentSessionID) {
-    return this.store.getPendingCount(parentSessionID);
-  }
-  cleanup() {
-    this.stopPolling();
-    this.store.clear();
-  }
-  formatDuration = formatDuration;
-  // ========================================================================
-  // Event Handling (from OpenCode hooks)
-  // ========================================================================
-  /**
-   * Handle OpenCode session events for proper resource cleanup.
-   * Call this from your plugin's event hook.
-   */
-  handleEvent(event) {
-    const props = event.properties;
-    if (event.type === "session.idle") {
-      const sessionID = props?.sessionID;
-      if (!sessionID) return;
-      const task = this.findBySession(sessionID);
-      if (!task || task.status !== "running") return;
-      this.handleSessionIdle(task).catch((err) => {
-        log2("Error handling session.idle:", err);
+    existingTask.status = "running";
+    existingTask.completedAt = void 0;
+    existingTask.error = void 0;
+    existingTask.result = void 0;
+    existingTask.parentSessionID = input.parentSessionID;
+    existingTask.startedAt = /* @__PURE__ */ new Date();
+    existingTask.stablePolls = 0;
+    this.store.trackPending(input.parentSessionID, existingTask.id);
+    this.startPolling();
+    log2(`Resuming task ${existingTask.id} in session ${existingTask.sessionID}`);
+    this.client.session.prompt({
+      path: { id: existingTask.sessionID },
+      body: {
+        agent: existingTask.agent,
+        parts: [{ type: "text", text: input.prompt }]
+      }
+    }).catch((error45) => {
+      log2(`Resume prompt error for ${existingTask.id}:`, error45);
+      existingTask.status = "error";
+      existingTask.error = error45 instanceof Error ? error45.message : String(error45);
+      existingTask.completedAt = /* @__PURE__ */ new Date();
+      this.store.untrackPending(input.parentSessionID, existingTask.id);
+      this.store.queueNotification(existingTask);
+      this.notifyParentIfAllComplete(input.parentSessionID).catch(() => {
       });
-    }
-    if (event.type === "session.deleted") {
-      const sessionID = props?.info?.id ?? props?.sessionID;
-      if (!sessionID) return;
-      const task = this.findBySession(sessionID);
-      if (!task) return;
-      log2(`Session deleted event for task ${task.id}`);
-      if (task.status === "running") {
-        task.status = "error";
-        task.error = "Session deleted";
-        task.completedAt = /* @__PURE__ */ new Date();
-      }
-      if (task.concurrencyKey) {
-        this.concurrency.release(task.concurrencyKey);
-        task.concurrencyKey = void 0;
-      }
-      this.store.untrackPending(task.parentSessionID, task.id);
-      this.store.clearNotificationsForTask(task.id);
-      this.store.delete(task.id);
-      log2(`Cleaned up deleted session task: ${task.id}`);
-    }
+    });
+    return existingTask;
   }
-  /**
-   * Find task by session ID
-   */
-  findBySession(sessionID) {
-    return this.store.getAll().find((t) => t.sessionID === sessionID);
+};
+
+// src/core/agents/config.ts
+var CONFIG = {
+  TASK_TTL_MS: PARALLEL_TASK.TTL_MS,
+  CLEANUP_DELAY_MS: PARALLEL_TASK.CLEANUP_DELAY_MS,
+  MIN_STABILITY_MS: PARALLEL_TASK.MIN_STABILITY_MS,
+  POLL_INTERVAL_MS: PARALLEL_TASK.POLL_INTERVAL_MS
+};
+
+// src/core/agents/manager/task-poller.ts
+var TaskPoller = class {
+  constructor(client, store, concurrency, notifyParentIfAllComplete, scheduleCleanup, pruneExpiredTasks) {
+    this.client = client;
+    this.store = store;
+    this.concurrency = concurrency;
+    this.notifyParentIfAllComplete = notifyParentIfAllComplete;
+    this.scheduleCleanup = scheduleCleanup;
+    this.pruneExpiredTasks = pruneExpiredTasks;
   }
-  /**
-   * Handle session.idle event - validate and complete task
-   */
-  async handleSessionIdle(task) {
-    const elapsed = Date.now() - task.startedAt.getTime();
-    if (elapsed < CONFIG.MIN_STABILITY_MS) {
-      log2(`Session idle but too early for ${task.id}, waiting...`);
-      return;
-    }
-    const hasOutput = await this.validateSessionHasOutput(task.sessionID);
-    if (!hasOutput) {
-      log2(`Session idle but no output for ${task.id}, waiting...`);
-      return;
-    }
-    task.status = "completed";
-    task.completedAt = /* @__PURE__ */ new Date();
-    if (task.concurrencyKey) {
-      this.concurrency.release(task.concurrencyKey);
-      task.concurrencyKey = void 0;
-    }
-    this.store.untrackPending(task.parentSessionID, task.id);
-    this.store.queueNotification(task);
-    await this.notifyParentIfAllComplete(task.parentSessionID);
-    this.scheduleCleanup(task.id);
-    log2(`Task ${task.id} completed via session.idle event (${formatDuration(task.startedAt, task.completedAt)})`);
-  }
-  // ========================================================================
-  // Internal
-  // ========================================================================
-  handleTaskError(taskId, error45) {
-    const task = this.store.get(taskId);
-    if (!task) return;
-    task.status = "error";
-    task.error = error45 instanceof Error ? error45.message : String(error45);
-    task.completedAt = /* @__PURE__ */ new Date();
-    if (task.concurrencyKey) this.concurrency.release(task.concurrencyKey);
-    this.store.untrackPending(task.parentSessionID, taskId);
-    this.store.queueNotification(task);
-    this.notifyParentIfAllComplete(task.parentSessionID);
-    this.scheduleCleanup(taskId);
-  }
-  startPolling() {
+  pollingInterval;
+  start() {
     if (this.pollingInterval) return;
-    this.pollingInterval = setInterval(() => this.pollRunningTasks(), CONFIG.POLL_INTERVAL_MS);
+    this.pollingInterval = setInterval(() => this.poll(), CONFIG.POLL_INTERVAL_MS);
     this.pollingInterval.unref();
   }
-  stopPolling() {
+  stop() {
     if (this.pollingInterval) {
       clearInterval(this.pollingInterval);
       this.pollingInterval = void 0;
     }
   }
-  async pollRunningTasks() {
+  isRunning() {
+    return !!this.pollingInterval;
+  }
+  async poll() {
     this.pruneExpiredTasks();
     const running = this.store.getRunning();
     if (running.length === 0) {
-      this.stopPolling();
+      this.stop();
       return;
     }
     try {
@@ -14069,9 +14316,28 @@ var ParallelAgentManager = class _ParallelAgentManager {
       log2("Polling error:", error45);
     }
   }
-  /**
-   * Update task progress and stability tracking
-   */
+  async validateSessionHasOutput(sessionID) {
+    try {
+      const response = await this.client.session.messages({ path: { id: sessionID } });
+      const messages = response.data ?? [];
+      return messages.some((m) => m.info?.role === "assistant" && m.parts?.some((p) => p.type === "text" && p.text?.trim() || p.type === "tool"));
+    } catch {
+      return true;
+    }
+  }
+  async completeTask(task) {
+    task.status = "completed";
+    task.completedAt = /* @__PURE__ */ new Date();
+    if (task.concurrencyKey) {
+      this.concurrency.release(task.concurrencyKey);
+      task.concurrencyKey = void 0;
+    }
+    this.store.untrackPending(task.parentSessionID, task.id);
+    this.store.queueNotification(task);
+    await this.notifyParentIfAllComplete(task.parentSessionID);
+    this.scheduleCleanup(task.id);
+    log2(`Completed ${task.id} (${formatDuration(task.startedAt, task.completedAt)})`);
+  }
   async updateTaskProgress(task) {
     try {
       const result = await this.client.session.messages({ path: { id: task.sessionID } });
@@ -14108,30 +14374,14 @@ var ParallelAgentManager = class _ParallelAgentManager {
     } catch {
     }
   }
-  /**
-   * Complete a task and cleanup
-   */
-  async completeTask(task) {
-    task.status = "completed";
-    task.completedAt = /* @__PURE__ */ new Date();
-    if (task.concurrencyKey) {
-      this.concurrency.release(task.concurrencyKey);
-      task.concurrencyKey = void 0;
-    }
-    this.store.untrackPending(task.parentSessionID, task.id);
-    this.store.queueNotification(task);
-    await this.notifyParentIfAllComplete(task.parentSessionID);
-    this.scheduleCleanup(task.id);
-    log2(`Completed ${task.id} (${formatDuration(task.startedAt, task.completedAt)})`);
-  }
-  async validateSessionHasOutput(sessionID) {
-    try {
-      const response = await this.client.session.messages({ path: { id: sessionID } });
-      const messages = response.data ?? [];
-      return messages.some((m) => m.info?.role === "assistant" && m.parts?.some((p) => p.type === "text" && p.text?.trim() || p.type === "tool"));
-    } catch {
-      return true;
-    }
+};
+
+// src/core/agents/manager/task-cleaner.ts
+var TaskCleaner = class {
+  constructor(client, store, concurrency) {
+    this.client = client;
+    this.store = store;
+    this.concurrency = concurrency;
   }
   pruneExpiredTasks() {
     const now = Date.now();
@@ -14183,6 +14433,404 @@ var ParallelAgentManager = class _ParallelAgentManager {
     this.store.clearNotifications(parentSessionID);
   }
 };
+
+// src/shared/event-types.ts
+var TASK_EVENTS = {
+  STARTED: "task.started",
+  COMPLETED: "task.completed",
+  FAILED: "task.failed",
+  CANCELLED: "task.cancelled"
+};
+var TODO_EVENTS = {
+  CREATED: "todo.created",
+  UPDATED: "todo.updated",
+  COMPLETED: "todo.completed"
+};
+var SESSION_EVENTS = {
+  IDLE: "session.idle",
+  BUSY: "session.busy",
+  ERROR: "session.error",
+  DELETED: "session.deleted"
+};
+var DOCUMENT_EVENTS = {
+  CACHED: "document.cached",
+  EXPIRED: "document.expired"
+};
+var MISSION_EVENTS = {
+  COMPLETE: "mission.complete",
+  FAILED: "mission.failed",
+  ALL_TASKS_COMPLETE: "all_tasks.complete"
+};
+var SPECIAL_EVENTS = {
+  WILDCARD: "*"
+};
+var EVENT_TYPES = {
+  ...TASK_EVENTS,
+  ...TODO_EVENTS,
+  ...SESSION_EVENTS,
+  ...DOCUMENT_EVENTS,
+  ...MISSION_EVENTS,
+  ...SPECIAL_EVENTS
+};
+
+// src/core/bus/index.ts
+var EventBusImpl = class {
+  subscriptions = /* @__PURE__ */ new Map();
+  eventHistory = [];
+  maxHistorySize = 100;
+  subscriptionCounter = 0;
+  /**
+   * Subscribe to an event type
+   * Returns unsubscribe function
+   */
+  subscribe(type, handler) {
+    const id = `sub_${++this.subscriptionCounter}`;
+    const subscription = { id, type, handler, once: false };
+    const existing = this.subscriptions.get(type) || [];
+    existing.push(subscription);
+    this.subscriptions.set(type, existing);
+    return () => this.unsubscribe(id, type);
+  }
+  /**
+   * Subscribe to an event type, auto-unsubscribe after first event
+   */
+  once(type, handler) {
+    const id = `sub_${++this.subscriptionCounter}`;
+    const subscription = { id, type, handler, once: true };
+    const existing = this.subscriptions.get(type) || [];
+    existing.push(subscription);
+    this.subscriptions.set(type, existing);
+    return () => this.unsubscribe(id, type);
+  }
+  /**
+   * Unsubscribe from an event
+   */
+  unsubscribe(id, type) {
+    const subs = this.subscriptions.get(type);
+    if (subs) {
+      const filtered = subs.filter((s) => s.id !== id);
+      if (filtered.length > 0) {
+        this.subscriptions.set(type, filtered);
+      } else {
+        this.subscriptions.delete(type);
+      }
+    }
+  }
+  /**
+   * Publish an event
+   */
+  async publish(type, properties = {}, options = {}) {
+    const event = {
+      type,
+      timestamp: /* @__PURE__ */ new Date(),
+      source: options.source || "unknown",
+      sessionId: options.sessionId,
+      properties
+    };
+    this.eventHistory.push(event);
+    if (this.eventHistory.length > this.maxHistorySize) {
+      this.eventHistory.shift();
+    }
+    const toNotify = [];
+    const typeSubs = this.subscriptions.get(type) || [];
+    toNotify.push(...typeSubs);
+    const wildcardSubs = this.subscriptions.get(SPECIAL_EVENTS.WILDCARD) || [];
+    toNotify.push(...wildcardSubs);
+    const toRemove = [];
+    for (const sub of toNotify) {
+      try {
+        await sub.handler(event);
+      } catch (error45) {
+        console.error(`[EventBus] Handler error for ${type}:`, error45);
+      }
+      if (sub.once) {
+        toRemove.push({ id: sub.id, type: sub.type });
+      }
+    }
+    for (const { id, type: t } of toRemove) {
+      this.unsubscribe(id, t);
+    }
+  }
+  /**
+   * Emit (alias for publish, sync-looking API)
+   */
+  emit(type, properties = {}) {
+    this.publish(type, properties).catch(console.error);
+  }
+  /**
+   * Get recent event history
+   */
+  getHistory(type, limit = 20) {
+    let events = this.eventHistory;
+    if (type && type !== SPECIAL_EVENTS.WILDCARD) {
+      events = events.filter((e) => e.type === type);
+    }
+    return events.slice(-limit);
+  }
+  /**
+   * Clear all subscriptions
+   */
+  clear() {
+    this.subscriptions.clear();
+    this.eventHistory = [];
+  }
+  /**
+   * Get subscription count
+   */
+  getSubscriptionCount() {
+    let count = 0;
+    for (const subs of this.subscriptions.values()) {
+      count += subs.length;
+    }
+    return count;
+  }
+  /**
+   * Wait for a specific event (Promise-based)
+   */
+  waitFor(type, timeout = 3e4) {
+    return new Promise((resolve, reject) => {
+      const timer = setTimeout(() => {
+        unsubscribe();
+        reject(new Error(`Timeout waiting for event: ${type}`));
+      }, timeout);
+      const unsubscribe = this.once(type, (event) => {
+        clearTimeout(timer);
+        resolve(event);
+      });
+    });
+  }
+};
+var EventBus = new EventBusImpl();
+
+// src/core/agents/manager/event-handler.ts
+var EventHandler = class {
+  constructor(client, store, concurrency, findBySession, notifyParentIfAllComplete, scheduleCleanup, validateSessionHasOutput) {
+    this.client = client;
+    this.store = store;
+    this.concurrency = concurrency;
+    this.findBySession = findBySession;
+    this.notifyParentIfAllComplete = notifyParentIfAllComplete;
+    this.scheduleCleanup = scheduleCleanup;
+    this.validateSessionHasOutput = validateSessionHasOutput;
+  }
+  /**
+   * Handle OpenCode session events for proper resource cleanup.
+   * Call this from your plugin's event hook.
+   */
+  handle(event) {
+    const props = event.properties;
+    if (event.type === SESSION_EVENTS.IDLE) {
+      const sessionID = props?.sessionID;
+      if (!sessionID) return;
+      const task = this.findBySession(sessionID);
+      if (!task || task.status !== "running") return;
+      this.handleSessionIdle(task).catch((err) => {
+        log2("Error handling session.idle:", err);
+      });
+    }
+    if (event.type === SESSION_EVENTS.DELETED) {
+      const sessionID = props?.info?.id ?? props?.sessionID;
+      if (!sessionID) return;
+      const task = this.findBySession(sessionID);
+      if (!task) return;
+      this.handleSessionDeleted(task);
+    }
+  }
+  async handleSessionIdle(task) {
+    const elapsed = Date.now() - task.startedAt.getTime();
+    if (elapsed < CONFIG.MIN_STABILITY_MS) {
+      log2(`Session idle but too early for ${task.id}, waiting...`);
+      return;
+    }
+    const hasOutput = await this.validateSessionHasOutput(task.sessionID);
+    if (!hasOutput) {
+      log2(`Session idle but no output for ${task.id}, waiting...`);
+      return;
+    }
+    task.status = "completed";
+    task.completedAt = /* @__PURE__ */ new Date();
+    if (task.concurrencyKey) {
+      this.concurrency.release(task.concurrencyKey);
+      task.concurrencyKey = void 0;
+    }
+    this.store.untrackPending(task.parentSessionID, task.id);
+    this.store.queueNotification(task);
+    await this.notifyParentIfAllComplete(task.parentSessionID);
+    this.scheduleCleanup(task.id);
+    log2(`Task ${task.id} completed via session.idle event (${formatDuration(task.startedAt, task.completedAt)})`);
+  }
+  handleSessionDeleted(task) {
+    log2(`Session deleted event for task ${task.id}`);
+    if (task.status === "running") {
+      task.status = "error";
+      task.error = "Session deleted";
+      task.completedAt = /* @__PURE__ */ new Date();
+    }
+    if (task.concurrencyKey) {
+      this.concurrency.release(task.concurrencyKey);
+      task.concurrencyKey = void 0;
+    }
+    this.store.untrackPending(task.parentSessionID, task.id);
+    this.store.clearNotificationsForTask(task.id);
+    this.store.delete(task.id);
+    log2(`Cleaned up deleted session task: ${task.id}`);
+  }
+};
+
+// src/core/agents/manager.ts
+var ParallelAgentManager = class _ParallelAgentManager {
+  static _instance;
+  store = new TaskStore();
+  client;
+  directory;
+  concurrency = new ConcurrencyController();
+  // Composed components
+  launcher;
+  resumer;
+  poller;
+  cleaner;
+  eventHandler;
+  constructor(client, directory) {
+    this.client = client;
+    this.directory = directory;
+    this.cleaner = new TaskCleaner(client, this.store, this.concurrency);
+    this.poller = new TaskPoller(
+      client,
+      this.store,
+      this.concurrency,
+      (parentSessionID) => this.cleaner.notifyParentIfAllComplete(parentSessionID),
+      (taskId) => this.cleaner.scheduleCleanup(taskId),
+      () => this.cleaner.pruneExpiredTasks()
+    );
+    this.launcher = new TaskLauncher(
+      client,
+      directory,
+      this.store,
+      this.concurrency,
+      (taskId, error45) => this.handleTaskError(taskId, error45),
+      () => this.poller.start()
+    );
+    this.resumer = new TaskResumer(
+      client,
+      this.store,
+      (sessionID) => this.findBySession(sessionID),
+      () => this.poller.start(),
+      (parentSessionID) => this.cleaner.notifyParentIfAllComplete(parentSessionID)
+    );
+    this.eventHandler = new EventHandler(
+      client,
+      this.store,
+      this.concurrency,
+      (sessionID) => this.findBySession(sessionID),
+      (parentSessionID) => this.cleaner.notifyParentIfAllComplete(parentSessionID),
+      (taskId) => this.cleaner.scheduleCleanup(taskId),
+      (sessionID) => this.poller.validateSessionHasOutput(sessionID)
+    );
+  }
+  static getInstance(client, directory) {
+    if (!_ParallelAgentManager._instance) {
+      if (!client || !directory) {
+        throw new Error("ParallelAgentManager requires client and directory on first call");
+      }
+      _ParallelAgentManager._instance = new _ParallelAgentManager(client, directory);
+    }
+    return _ParallelAgentManager._instance;
+  }
+  // ========================================================================
+  // Public API
+  // ========================================================================
+  async launch(input) {
+    this.cleaner.pruneExpiredTasks();
+    return this.launcher.launch(input);
+  }
+  async resume(input) {
+    return this.resumer.resume(input);
+  }
+  getTask(id) {
+    return this.store.get(id);
+  }
+  getRunningTasks() {
+    return this.store.getRunning();
+  }
+  getAllTasks() {
+    return this.store.getAll();
+  }
+  getTasksByParent(parentSessionID) {
+    return this.store.getByParent(parentSessionID);
+  }
+  async cancelTask(taskId) {
+    const task = this.store.get(taskId);
+    if (!task || task.status !== "running") return false;
+    task.status = "error";
+    task.error = "Cancelled by user";
+    task.completedAt = /* @__PURE__ */ new Date();
+    if (task.concurrencyKey) this.concurrency.release(task.concurrencyKey);
+    this.store.untrackPending(task.parentSessionID, taskId);
+    try {
+      await this.client.session.delete({ path: { id: task.sessionID } });
+      log2(`Session ${task.sessionID.slice(0, 8)}... deleted`);
+    } catch {
+      log2(`Session ${task.sessionID.slice(0, 8)}... already gone`);
+    }
+    this.cleaner.scheduleCleanup(taskId);
+    log2(`Cancelled ${taskId}`);
+    return true;
+  }
+  async getResult(taskId) {
+    const task = this.store.get(taskId);
+    if (!task) return null;
+    if (task.result) return task.result;
+    if (task.status === "error") return `Error: ${task.error}`;
+    if (task.status === "running") return null;
+    try {
+      const result = await this.client.session.messages({ path: { id: task.sessionID } });
+      if (result.error) return `Error: ${result.error}`;
+      const messages = result.data ?? [];
+      const lastMsg = messages.filter((m) => m.info?.role === "assistant").reverse()[0];
+      if (!lastMsg) return "(No response)";
+      const text = lastMsg.parts?.filter((p) => p.type === "text" || p.type === "reasoning").map((p) => p.text ?? "").filter(Boolean).join("\n") ?? "";
+      task.result = text;
+      return text;
+    } catch (error45) {
+      return `Error: ${error45 instanceof Error ? error45.message : String(error45)}`;
+    }
+  }
+  setConcurrencyLimit(agentType, limit) {
+    this.concurrency.setLimit(agentType, limit);
+  }
+  getPendingCount(parentSessionID) {
+    return this.store.getPendingCount(parentSessionID);
+  }
+  cleanup() {
+    this.poller.stop();
+    this.store.clear();
+  }
+  formatDuration = formatDuration;
+  // ========================================================================
+  // Event Handling
+  // ========================================================================
+  handleEvent(event) {
+    this.eventHandler.handle(event);
+  }
+  // ========================================================================
+  // Private Helpers
+  // ========================================================================
+  findBySession(sessionID) {
+    return this.store.getAll().find((t) => t.sessionID === sessionID);
+  }
+  handleTaskError(taskId, error45) {
+    const task = this.store.get(taskId);
+    if (!task) return;
+    task.status = "error";
+    task.error = error45 instanceof Error ? error45.message : String(error45);
+    task.completedAt = /* @__PURE__ */ new Date();
+    if (task.concurrencyKey) this.concurrency.release(task.concurrencyKey);
+    this.store.untrackPending(task.parentSessionID, taskId);
+    this.store.queueNotification(task);
+    this.cleaner.notifyParentIfAllComplete(task.parentSessionID);
+    this.cleaner.scheduleCleanup(taskId);
+  }
+};
 var parallelAgentManager = {
   getInstance: ParallelAgentManager.getInstance.bind(ParallelAgentManager)
 };
@@ -14196,6 +14844,13 @@ var createDelegateTaskTool = (manager, client) => tool({
 - background=false: Blocking. Waits for result.
 </mode>
 
+<resume>
+- resume: Optional session ID to continue existing session.
+- When set, continues previous work instead of starting fresh.
+- Preserves all context from previous conversation.
+- Use for: retry after failure, follow-up questions, token efficiency.
+</resume>
+
 <safety>
 - Max 3 tasks per agent type
 - Auto-timeout: 30 minutes
@@ -14204,14 +14859,59 @@ var createDelegateTaskTool = (manager, client) => tool({
     agent: tool.schema.string().describe("Agent name"),
     description: tool.schema.string().describe("Task description"),
     prompt: tool.schema.string().describe("Prompt for the agent"),
-    background: tool.schema.boolean().describe("true=async, false=sync")
+    background: tool.schema.boolean().describe("true=async, false=sync"),
+    resume: tool.schema.string().optional().describe("Session ID to resume (from previous task.sessionID)")
   },
   async execute(args, context) {
-    const { agent, description, prompt, background } = args;
+    const { agent, description, prompt, background, resume } = args;
     const ctx = context;
     const sessionClient = client;
     if (background === void 0) {
       return `\u274C 'background' parameter is REQUIRED.`;
+    }
+    if (resume) {
+      try {
+        const task = await manager.resume({
+          sessionId: resume,
+          prompt,
+          parentSessionID: ctx.sessionID
+        });
+        if (background === true) {
+          return `\u{1F504} Resumed task: \`${task.id}\` (${task.agent}) in session \`${task.sessionID}\`
+
+Previous context preserved. Use \`get_task_result({ taskId: "${task.id}" })\` when complete.`;
+        }
+        const startTime = Date.now();
+        const session = sessionClient.session;
+        let stablePolls = 0, lastMsgCount = 0;
+        while (Date.now() - startTime < 10 * 60 * 1e3) {
+          await new Promise((r) => setTimeout(r, 500));
+          const statusResult = await session.status();
+          if (statusResult.data?.[task.sessionID]?.type !== "idle") {
+            stablePolls = 0;
+            continue;
+          }
+          if (Date.now() - startTime < 5e3) continue;
+          const msgs2 = await session.messages({ path: { id: task.sessionID } });
+          const count = (msgs2.data ?? []).length;
+          if (count === lastMsgCount) {
+            stablePolls++;
+            if (stablePolls >= 3) break;
+          } else {
+            stablePolls = 0;
+            lastMsgCount = count;
+          }
+        }
+        const msgs = await session.messages({ path: { id: task.sessionID } });
+        const messages = msgs.data ?? [];
+        const lastMsg = messages.filter((m) => m.info?.role === "assistant").reverse()[0];
+        const text = lastMsg?.parts?.filter((p) => p.type === "text" || p.type === "reasoning").map((p) => p.text ?? "").join("\n") || "";
+        return `\u{1F504} Resumed & Completed (${Math.floor((Date.now() - startTime) / 1e3)}s)
+
+${text || "(No output)"}`;
+      } catch (error45) {
+        return `\u274C Resume failed: ${error45 instanceof Error ? error45.message : String(error45)}`;
+      }
     }
     if (background === true) {
       try {
@@ -14221,7 +14921,8 @@ var createDelegateTaskTool = (manager, client) => tool({
           prompt,
           parentSessionID: ctx.sessionID
         });
-        return `\u{1F680} Task spawned: \`${task.id}\` (${agent})`;
+        return `\u{1F680} Task spawned: \`${task.id}\` (${agent})
+Session: \`${task.sessionID}\` (save for resume)`;
       } catch (error45) {
         return `\u274C Failed: ${error45 instanceof Error ? error45.message : String(error45)}`;
       }
@@ -14265,6 +14966,7 @@ var createDelegateTaskTool = (manager, client) => tool({
       const lastMsg = messages.filter((m) => m.info?.role === "assistant").reverse()[0];
       const text = lastMsg?.parts?.filter((p) => p.type === "text" || p.type === "reasoning").map((p) => p.text ?? "").join("\n") || "";
       return `\u2705 Completed (${Math.floor((Date.now() - startTime) / 1e3)}s)
+Session: \`${sessionID}\` (save for resume)
 
 ${text || "(No output)"}`;
     } catch (error45) {
@@ -14481,16 +15183,792 @@ This may indicate: context overload, model instability, or task complexity.
 Request a fresh plan from architect with reduced scope.
 </critical_anomaly>`;
 
+// src/core/cache/document-cache.ts
+import * as fs from "node:fs/promises";
+import * as path from "node:path";
+import { existsSync as existsSync3 } from "node:fs";
+var CACHE_DIR = ".cache/docs";
+var METADATA_FILE = ".cache/docs/_metadata.json";
+var DEFAULT_TTL_MS = 24 * 60 * 60 * 1e3;
+async function ensureCacheDir() {
+  if (!existsSync3(CACHE_DIR)) {
+    await fs.mkdir(CACHE_DIR, { recursive: true });
+  }
+}
+function urlToFilename(url2) {
+  try {
+    const parsed = new URL(url2);
+    const domain2 = parsed.hostname.replace(/\./g, "_");
+    const pathPart = parsed.pathname.replace(/^\//, "").replace(/\//g, "_").replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 50);
+    return `${domain2}${pathPart ? "_" + pathPart : ""}.md`;
+  } catch {
+    return url2.replace(/[^a-zA-Z0-9]/g, "_").slice(0, 60) + ".md";
+  }
+}
+async function readMetadata() {
+  try {
+    const content = await fs.readFile(METADATA_FILE, "utf-8");
+    return JSON.parse(content);
+  } catch {
+    return { documents: {}, lastUpdated: (/* @__PURE__ */ new Date()).toISOString() };
+  }
+}
+async function writeMetadata(metadata) {
+  await ensureCacheDir();
+  metadata.lastUpdated = (/* @__PURE__ */ new Date()).toISOString();
+  await fs.writeFile(METADATA_FILE, JSON.stringify(metadata, null, 2));
+}
+async function get(url2) {
+  const metadata = await readMetadata();
+  const filename = urlToFilename(url2);
+  const entry = metadata.documents[filename];
+  if (!entry) return null;
+  if (new Date(entry.expiresAt) < /* @__PURE__ */ new Date()) {
+    await remove(url2);
+    return null;
+  }
+  try {
+    const filepath = path.join(CACHE_DIR, filename);
+    const content = await fs.readFile(filepath, "utf-8");
+    return {
+      ...entry,
+      content
+    };
+  } catch {
+    return null;
+  }
+}
+async function getByFilename(filename) {
+  const metadata = await readMetadata();
+  const entry = metadata.documents[filename];
+  if (!entry) return null;
+  try {
+    const filepath = path.join(CACHE_DIR, filename);
+    const content = await fs.readFile(filepath, "utf-8");
+    return {
+      ...entry,
+      content
+    };
+  } catch {
+    return null;
+  }
+}
+async function set2(url2, content, title, ttlMs = DEFAULT_TTL_MS) {
+  await ensureCacheDir();
+  const filename = urlToFilename(url2);
+  const filepath = path.join(CACHE_DIR, filename);
+  const now = /* @__PURE__ */ new Date();
+  const header = `# ${title}
+
+> Source: ${url2}
+> Cached: ${now.toISOString()}
+
+---
+
+`;
+  const fullContent = header + content;
+  await fs.writeFile(filepath, fullContent);
+  const metadata = await readMetadata();
+  metadata.documents[filename] = {
+    url: url2,
+    title,
+    fetchedAt: now.toISOString(),
+    expiresAt: new Date(now.getTime() + ttlMs).toISOString(),
+    size: fullContent.length
+  };
+  await writeMetadata(metadata);
+  return filename;
+}
+async function remove(url2) {
+  const filename = urlToFilename(url2);
+  const filepath = path.join(CACHE_DIR, filename);
+  try {
+    await fs.unlink(filepath);
+    const metadata = await readMetadata();
+    delete metadata.documents[filename];
+    await writeMetadata(metadata);
+    return true;
+  } catch {
+    return false;
+  }
+}
+async function list() {
+  const metadata = await readMetadata();
+  const now = /* @__PURE__ */ new Date();
+  return Object.entries(metadata.documents).map(([filename, entry]) => ({
+    filename,
+    ...entry,
+    expired: new Date(entry.expiresAt) < now
+  }));
+}
+async function clear() {
+  const metadata = await readMetadata();
+  const count = Object.keys(metadata.documents).length;
+  for (const filename of Object.keys(metadata.documents)) {
+    const filepath = path.join(CACHE_DIR, filename);
+    try {
+      await fs.unlink(filepath);
+    } catch {
+    }
+  }
+  await writeMetadata({ documents: {}, lastUpdated: (/* @__PURE__ */ new Date()).toISOString() });
+  return count;
+}
+async function stats() {
+  const docs = await list();
+  if (docs.length === 0) {
+    return {
+      totalDocuments: 0,
+      totalSize: 0,
+      expiredCount: 0,
+      oldestDocument: null,
+      newestDocument: null
+    };
+  }
+  const sorted = docs.sort(
+    (a, b) => new Date(a.fetchedAt).getTime() - new Date(b.fetchedAt).getTime()
+  );
+  return {
+    totalDocuments: docs.length,
+    totalSize: docs.reduce((sum, d) => sum + d.size, 0),
+    expiredCount: docs.filter((d) => d.expired).length,
+    oldestDocument: sorted[0]?.filename ?? null,
+    newestDocument: sorted[sorted.length - 1]?.filename ?? null
+  };
+}
+
+// src/tools/web/webfetch.ts
+function htmlToMarkdown(html) {
+  return html.replace(/<script[^>]*>[\s\S]*?<\/script>/gi, "").replace(/<style[^>]*>[\s\S]*?<\/style>/gi, "").replace(/<h1[^>]*>(.*?)<\/h1>/gi, "# $1\n\n").replace(/<h2[^>]*>(.*?)<\/h2>/gi, "## $1\n\n").replace(/<h3[^>]*>(.*?)<\/h3>/gi, "### $1\n\n").replace(/<h4[^>]*>(.*?)<\/h4>/gi, "#### $1\n\n").replace(/<h5[^>]*>(.*?)<\/h5>/gi, "##### $1\n\n").replace(/<h6[^>]*>(.*?)<\/h6>/gi, "###### $1\n\n").replace(/<p[^>]*>(.*?)<\/p>/gi, "$1\n\n").replace(/<pre[^>]*><code[^>]*>([\s\S]*?)<\/code><\/pre>/gi, "```\n$1\n```\n\n").replace(/<code[^>]*>(.*?)<\/code>/gi, "`$1`").replace(/<li[^>]*>(.*?)<\/li>/gi, "- $1\n").replace(/<ul[^>]*>/gi, "\n").replace(/<\/ul>/gi, "\n").replace(/<ol[^>]*>/gi, "\n").replace(/<\/ol>/gi, "\n").replace(/<a[^>]*href="([^"]*)"[^>]*>(.*?)<\/a>/gi, "[$2]($1)").replace(/<strong[^>]*>(.*?)<\/strong>/gi, "**$1**").replace(/<b[^>]*>(.*?)<\/b>/gi, "**$1**").replace(/<em[^>]*>(.*?)<\/em>/gi, "*$1*").replace(/<i[^>]*>(.*?)<\/i>/gi, "*$1*").replace(/<blockquote[^>]*>([\s\S]*?)<\/blockquote>/gi, "> $1\n\n").replace(/<br\s*\/?>/gi, "\n").replace(/<[^>]+>/g, "").replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&nbsp;/g, " ").replace(/\n{3,}/g, "\n\n").trim();
+}
+function extractTitle(html) {
+  const match = html.match(/<title[^>]*>(.*?)<\/title>/i);
+  return match ? match[1].trim() : "Untitled";
+}
+function extractMainContent(html) {
+  const patterns = [
+    /<article[^>]*>([\s\S]*?)<\/article>/i,
+    /<main[^>]*>([\s\S]*?)<\/main>/i,
+    /<div[^>]*class="[^"]*content[^"]*"[^>]*>([\s\S]*?)<\/div>/i,
+    /<div[^>]*class="[^"]*article[^"]*"[^>]*>([\s\S]*?)<\/div>/i,
+    /<div[^>]*class="[^"]*post[^"]*"[^>]*>([\s\S]*?)<\/div>/i
+  ];
+  for (const pattern of patterns) {
+    const match = html.match(pattern);
+    if (match) {
+      return match[1];
+    }
+  }
+  const bodyMatch = html.match(/<body[^>]*>([\s\S]*?)<\/body>/i);
+  return bodyMatch ? bodyMatch[1] : html;
+}
+var webfetchTool = tool({
+  description: `Fetch content from a URL and convert to markdown.
+
+<usage>
+- Fetches web pages and converts HTML to readable markdown
+- Automatically caches content for future reference
+- Use for documentation, API references, blog posts
+</usage>
+
+<examples>
+webfetch({ url: "https://nextjs.org/docs/app/building-your-application" })
+webfetch({ url: "https://react.dev/reference/react/useEffect", cache: true })
+</examples>`,
+  args: {
+    url: tool.schema.string().describe("URL to fetch"),
+    cache: tool.schema.boolean().optional().describe("Cache the result (default: true)"),
+    selector: tool.schema.string().optional().describe("CSS selector to extract specific content (not implemented yet)")
+  },
+  async execute(args) {
+    const { url: url2, cache = true } = args;
+    if (cache) {
+      const cached2 = await get(url2);
+      if (cached2) {
+        return `\u{1F4DA} **CACHED** (fetched: ${cached2.fetchedAt})
+
+${cached2.content}`;
+      }
+    }
+    try {
+      const response = await fetch(url2, {
+        headers: {
+          "User-Agent": "Mozilla/5.0 (compatible; OpenCode-Orchestrator/1.0)",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+        },
+        signal: AbortSignal.timeout(3e4)
+        // 30 second timeout
+      });
+      if (!response.ok) {
+        return `\u274C Failed to fetch: HTTP ${response.status} ${response.statusText}`;
+      }
+      const contentType = response.headers.get("content-type") || "";
+      const html = await response.text();
+      if (contentType.includes("application/json")) {
+        const content = JSON.stringify(JSON.parse(html), null, 2);
+        if (cache) {
+          const filename = await set2(url2, content, "JSON Response");
+          return `\u{1F4C4} **JSON fetched** (cached: .cache/docs/${filename})
+
+\`\`\`json
+${content.slice(0, 5e3)}
+\`\`\``;
+        }
+        return `\u{1F4C4} **JSON fetched**
+
+\`\`\`json
+${content.slice(0, 5e3)}
+\`\`\``;
+      }
+      if (contentType.includes("text/plain")) {
+        if (cache) {
+          const filename = await set2(url2, html, "Plain Text");
+          return `\u{1F4C4} **Text fetched** (cached: .cache/docs/${filename})
+
+${html.slice(0, 1e4)}`;
+        }
+        return `\u{1F4C4} **Text fetched**
+
+${html.slice(0, 1e4)}`;
+      }
+      const title = extractTitle(html);
+      const mainContent = extractMainContent(html);
+      const markdown = htmlToMarkdown(mainContent);
+      const truncated = markdown.length > 15e3 ? markdown.slice(0, 15e3) + "\n\n... [Content truncated]" : markdown;
+      if (cache) {
+        const filename = await set2(url2, truncated, title);
+        return `\u{1F4DA} **${title}**
+Source: ${url2}
+Cached: .cache/docs/${filename}
+
+---
+
+${truncated}`;
+      }
+      return `\u{1F4DA} **${title}**
+Source: ${url2}
+
+---
+
+${truncated}`;
+    } catch (error45) {
+      if (error45 instanceof Error) {
+        if (error45.name === "TimeoutError") {
+          return `\u274C Request timed out after 30 seconds`;
+        }
+        return `\u274C Fetch error: ${error45.message}`;
+      }
+      return `\u274C Unknown error occurred`;
+    }
+  }
+});
+
+// src/tools/web/websearch.ts
+async function searchSearXNG(query) {
+  const instances = [
+    "https://searxng.site",
+    "https://search.bus-hit.me",
+    "https://paulgo.io"
+  ];
+  for (const instance of instances) {
+    try {
+      const url2 = `${instance}/search?q=${encodeURIComponent(query)}&format=json&engines=google,duckduckgo,bing`;
+      const response = await fetch(url2, {
+        headers: {
+          "User-Agent": "Mozilla/5.0 (compatible; OpenCode/1.0)",
+          "Accept": "application/json"
+        },
+        signal: AbortSignal.timeout(8e3)
+      });
+      if (!response.ok) continue;
+      const data = await response.json();
+      if (data.results && data.results.length > 0) {
+        return data.results.slice(0, 15).map((r) => ({
+          title: r.title || "",
+          url: r.url || "",
+          snippet: r.content || "",
+          source: r.engine || "searxng"
+        }));
+      }
+    } catch {
+      continue;
+    }
+  }
+  return [];
+}
+async function searchBrave(query) {
+  const url2 = `https://search.brave.com/api/suggest?q=${encodeURIComponent(query)}`;
+  try {
+    const webUrl = `https://search.brave.com/search?q=${encodeURIComponent(query)}&source=web`;
+    const response = await fetch(webUrl, {
+      headers: {
+        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36",
+        "Accept": "text/html"
+      },
+      signal: AbortSignal.timeout(1e4)
+    });
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+    const html = await response.text();
+    const results = [];
+    const snippetPattern = /<div class="snippet[^"]*"[^>]*>([\s\S]*?)<\/div>/gi;
+    const titlePattern = /<a[^>]*class="[^"]*result-header[^"]*"[^>]*href="([^"]*)"[^>]*>([\s\S]*?)<\/a>/gi;
+    let match;
+    const titles = [];
+    const urls = [];
+    const snippets = [];
+    while ((match = titlePattern.exec(html)) !== null) {
+      urls.push(match[1]);
+      titles.push(match[2].replace(/<[^>]+>/g, "").trim());
+    }
+    while ((match = snippetPattern.exec(html)) !== null) {
+      const text = match[1].replace(/<[^>]+>/g, "").trim();
+      if (text.length > 20) {
+        snippets.push(text);
+      }
+    }
+    for (let i = 0; i < Math.min(titles.length, 10); i++) {
+      if (titles[i] && urls[i]) {
+        results.push({
+          title: titles[i],
+          url: urls[i],
+          snippet: snippets[i] || "",
+          source: "brave"
+        });
+      }
+    }
+    return results;
+  } catch (error45) {
+    console.error("Brave search error:", error45);
+    return [];
+  }
+}
+async function searchDuckDuckGo(query) {
+  const encodedQuery = encodeURIComponent(query);
+  const url2 = `https://api.duckduckgo.com/?q=${encodedQuery}&format=json&no_html=1&skip_disambig=1`;
+  try {
+    const response = await fetch(url2, {
+      headers: {
+        "User-Agent": "Mozilla/5.0 (compatible; OpenCode-Orchestrator/1.0)"
+      },
+      signal: AbortSignal.timeout(1e4)
+    });
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+    const data = await response.json();
+    const results = [];
+    if (data.Abstract && data.AbstractURL) {
+      results.push({
+        title: data.Heading || data.AbstractSource || "Main Result",
+        url: data.AbstractURL,
+        snippet: data.Abstract,
+        source: "duckduckgo"
+      });
+    }
+    for (const topic of (data.RelatedTopics || []).slice(0, 8)) {
+      if (topic.Text && topic.FirstURL) {
+        results.push({
+          title: topic.Text.split(" - ")[0] || topic.Text.slice(0, 50),
+          url: topic.FirstURL,
+          snippet: topic.Text,
+          source: "duckduckgo"
+        });
+      }
+    }
+    for (const result of (data.Results || []).slice(0, 5)) {
+      if (result.Text && result.FirstURL) {
+        results.push({
+          title: result.Text.split(" - ")[0] || result.Text.slice(0, 50),
+          url: result.FirstURL,
+          snippet: result.Text,
+          source: "duckduckgo"
+        });
+      }
+    }
+    return results;
+  } catch (error45) {
+    console.error("DuckDuckGo search error:", error45);
+    return [];
+  }
+}
+async function searchDuckDuckGoHtml(query) {
+  const encodedQuery = encodeURIComponent(query);
+  const url2 = `https://html.duckduckgo.com/html/?q=${encodedQuery}`;
+  try {
+    const response = await fetch(url2, {
+      headers: {
+        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36"
+      },
+      signal: AbortSignal.timeout(1e4)
+    });
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+    const html = await response.text();
+    const results = [];
+    const resultPattern = /<a[^>]*class="result__a"[^>]*href="([^"]*)"[^>]*>(.*?)<\/a>[\s\S]*?<a[^>]*class="result__snippet"[^>]*>(.*?)<\/a>/gi;
+    let match;
+    while ((match = resultPattern.exec(html)) !== null && results.length < 10) {
+      results.push({
+        title: match[2].replace(/<[^>]+>/g, "").trim(),
+        url: decodeURIComponent(match[1].replace(/.*uddg=/, "").split("&")[0] || match[1]),
+        snippet: match[3].replace(/<[^>]+>/g, "").trim(),
+        source: "duckduckgo_html"
+      });
+    }
+    return results;
+  } catch (error45) {
+    console.error("DuckDuckGo HTML search error:", error45);
+    return [];
+  }
+}
+var websearchTool = tool({
+  description: `Search the web for information using multiple search providers.
+
+<usage>
+- Uses SearXNG (meta-search) > Brave Search > DuckDuckGo
+- Returns relevant results with URLs
+- Use for finding documentation, tutorials, solutions
+</usage>
+
+<tips>
+- Add "docs" or "documentation" for official docs
+- Add "site:github.com" for GitHub results
+- Add specific version numbers when relevant
+- Add current year for latest information
+</tips>
+
+<examples>
+websearch({ query: "Next.js 14 app router documentation" })
+websearch({ query: "React useEffect cleanup best practices 2025" })
+websearch({ query: "TypeScript generic constraints site:typescriptlang.org" })
+</examples>`,
+  args: {
+    query: tool.schema.string().describe("Search query"),
+    maxResults: tool.schema.number().optional().describe("Maximum number of results (default: 10)")
+  },
+  async execute(args) {
+    const { query, maxResults = 10 } = args;
+    let results = [];
+    let provider = "";
+    results = await searchSearXNG(query);
+    if (results.length > 0) {
+      provider = "SearXNG";
+    }
+    if (results.length === 0) {
+      results = await searchBrave(query);
+      if (results.length > 0) {
+        provider = "Brave";
+      }
+    }
+    if (results.length === 0) {
+      results = await searchDuckDuckGo(query);
+      if (results.length > 0) {
+        provider = "DuckDuckGo";
+      }
+    }
+    if (results.length === 0) {
+      results = await searchDuckDuckGoHtml(query);
+      if (results.length > 0) {
+        provider = "DuckDuckGo HTML";
+      }
+    }
+    if (results.length === 0) {
+      return `\u{1F50D} No results found for: "${query}"
+
+Try:
+- Different keywords
+- More specific terms
+- Check spelling
+- Add "docs" or "official" for documentation`;
+    }
+    const limitedResults = results.slice(0, maxResults);
+    let output = `\u{1F50D} **Web Search Results for: "${query}"**
+
+`;
+    output += `\u{1F4E1} Provider: ${provider} | Found ${results.length} results (showing ${limitedResults.length})
+
+---
+
+`;
+    for (let i = 0; i < limitedResults.length; i++) {
+      const result = limitedResults[i];
+      output += `### ${i + 1}. ${result.title}
+`;
+      output += `\u{1F517} ${result.url}
+
+`;
+      if (result.snippet) {
+        output += `${result.snippet}
+
+`;
+      }
+    }
+    output += `---
+
+`;
+    output += `\u{1F4A1} **Tip**: Use \`webfetch\` to get full content from any of these URLs.`;
+    return output;
+  }
+});
+
+// src/tools/web/cache-docs.ts
+var cacheDocsTool = tool({
+  description: `Manage cached documentation.
+
+<usage>
+- list: Show all cached documents
+- get: Retrieve a specific cached document
+- clear: Clear all cached documents
+- stats: Show cache statistics
+</usage>
+
+<examples>
+cache_docs({ action: "list" })
+cache_docs({ action: "get", filename: "nextjs_app-router.md" })
+cache_docs({ action: "stats" })
+cache_docs({ action: "clear" })
+</examples>`,
+  args: {
+    action: tool.schema.enum(["list", "get", "clear", "stats"]).describe("Action to perform"),
+    filename: tool.schema.string().optional().describe("Filename for 'get' action")
+  },
+  async execute(args) {
+    const { action, filename } = args;
+    switch (action) {
+      case "list": {
+        const docs = await list();
+        if (docs.length === 0) {
+          return "\u{1F4DA} **Document Cache**: Empty\n\nNo documents cached yet. Use `webfetch` with `cache: true` to cache documents.";
+        }
+        let output = `\u{1F4DA} **Document Cache** (${docs.length} documents)
+
+`;
+        for (const doc of docs) {
+          const status = doc.expired ? "\u26A0\uFE0F EXPIRED" : "\u2705";
+          const size = doc.size > 1024 ? `${(doc.size / 1024).toFixed(1)}KB` : `${doc.size}B`;
+          output += `${status} **${doc.filename}** (${size})
+`;
+          output += `   Source: ${doc.url}
+`;
+          output += `   Cached: ${new Date(doc.fetchedAt).toLocaleString()}
+
+`;
+        }
+        return output;
+      }
+      case "get": {
+        if (!filename) {
+          return "\u274C Please specify `filename` to retrieve";
+        }
+        const doc = await getByFilename(filename);
+        if (!doc) {
+          return `\u274C Document not found: ${filename}
+
+Use \`cache_docs({ action: "list" })\` to see available documents.`;
+        }
+        return `\u{1F4DA} **${doc.title}**
+Source: ${doc.url}
+Cached: ${doc.fetchedAt}
+
+---
+
+${doc.content}`;
+      }
+      case "clear": {
+        const count = await clear();
+        return `\u{1F5D1}\uFE0F Cleared ${count} cached documents`;
+      }
+      case "stats": {
+        const stats2 = await stats();
+        if (stats2.totalDocuments === 0) {
+          return "\u{1F4CA} **Cache Statistics**\n\nCache is empty.";
+        }
+        const sizeStr = stats2.totalSize > 1024 * 1024 ? `${(stats2.totalSize / (1024 * 1024)).toFixed(2)}MB` : stats2.totalSize > 1024 ? `${(stats2.totalSize / 1024).toFixed(1)}KB` : `${stats2.totalSize}B`;
+        return `\u{1F4CA} **Cache Statistics**
+
+- Total Documents: ${stats2.totalDocuments}
+- Total Size: ${sizeStr}
+- Expired: ${stats2.expiredCount}
+- Oldest: ${stats2.oldestDocument || "N/A"}
+- Newest: ${stats2.newestDocument || "N/A"}`;
+      }
+      default:
+        return `\u274C Unknown action: ${action}`;
+    }
+  }
+});
+
+// src/tools/web/codesearch.ts
+async function searchGrepApp(query, options) {
+  const params = new URLSearchParams({
+    q: query,
+    ...options.language && { filter: `lang:${options.language}` },
+    ...options.repo && { filter: `repo:${options.repo}` }
+  });
+  const url2 = `https://grep.app/api/search?${params}`;
+  try {
+    const response = await fetch(url2, {
+      headers: {
+        "User-Agent": "Mozilla/5.0 (compatible; OpenCode-Orchestrator/1.0)",
+        "Accept": "application/json"
+      },
+      signal: AbortSignal.timeout(15e3)
+    });
+    if (!response.ok) {
+      return [];
+    }
+    const data = await response.json();
+    const results = [];
+    for (const hit of (data.hits?.hits || []).slice(0, 10)) {
+      const repo = hit.repo?.raw || "";
+      const file2 = hit.path?.raw || "";
+      const line = hit.lineno || 0;
+      const content = hit.content?.snippet?.replace(/<[^>]+>/g, "") || "";
+      if (repo && file2) {
+        results.push({
+          repo,
+          file: file2,
+          line,
+          content: content.slice(0, 200),
+          url: `https://github.com/${repo}/blob/main/${file2}#L${line}`
+        });
+      }
+    }
+    return results;
+  } catch (error45) {
+    console.error("grep.app search error:", error45);
+    return [];
+  }
+}
+async function searchGitHub(query, options) {
+  const params = new URLSearchParams({
+    q: query + (options.language ? ` language:${options.language}` : ""),
+    type: "code"
+  });
+  const url2 = `https://github.com/search?${params}`;
+  try {
+    const response = await fetch(url2, {
+      headers: {
+        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36",
+        "Accept": "text/html"
+      },
+      signal: AbortSignal.timeout(15e3)
+    });
+    if (!response.ok) {
+      return [];
+    }
+    const html = await response.text();
+    const results = [];
+    const repoPattern = /href="\/([^"]+)\/blob\/([^"]+)"/g;
+    let match;
+    let count = 0;
+    while ((match = repoPattern.exec(html)) !== null && count < 10) {
+      const [, repoPath, filePath] = match;
+      if (repoPath && filePath) {
+        results.push({
+          repo: repoPath,
+          file: filePath,
+          line: 0,
+          content: "(Use webfetch for full content)",
+          url: `https://github.com/${repoPath}/blob/${filePath}`
+        });
+        count++;
+      }
+    }
+    return results;
+  } catch (error45) {
+    console.error("GitHub search error:", error45);
+    return [];
+  }
+}
+var codesearchTool = tool({
+  description: `Search open source code for patterns and examples.
+
+<usage>
+- Find real-world usage patterns from verified repositories
+- Discover best practices from popular projects
+- Verify API usage with actual examples
+</usage>
+
+<tips>
+- Be specific with search queries
+- Add language filter for better results
+- Use for verification, not just discovery
+</tips>
+
+<examples>
+codesearch({ query: "useEffect cleanup function", language: "typescript" })
+codesearch({ query: "prisma middleware logging" })
+codesearch({ query: "next.js middleware redirect", repo: "vercel/next.js" })
+</examples>`,
+  args: {
+    query: tool.schema.string().describe("Code pattern to search for"),
+    language: tool.schema.string().optional().describe("Programming language filter"),
+    repo: tool.schema.string().optional().describe("Specific repository (owner/repo)")
+  },
+  async execute(args) {
+    const { query, language, repo } = args;
+    let results = await searchGrepApp(query, { language, repo });
+    if (results.length === 0) {
+      results = await searchGitHub(query, { language });
+    }
+    if (results.length === 0) {
+      return `\u{1F50D} No code results found for: "${query}"
+
+Try:
+- Different search terms
+- Broader language filter
+- Check spelling`;
+    }
+    let output = `\u{1F50D} **Code Search Results for: "${query}"**
+
+`;
+    output += `Found ${results.length} results${language ? ` (${language})` : ""}
+
+---
+
+`;
+    for (let i = 0; i < results.length; i++) {
+      const r = results[i];
+      output += `### ${i + 1}. ${r.repo}
+`;
+      output += `\u{1F4C4} \`${r.file}\`${r.line ? `:${r.line}` : ""}
+`;
+      output += `\u{1F517} [View on GitHub](${r.url})
+
+`;
+      if (r.content && r.content !== "(Use webfetch for full content)") {
+        output += `\`\`\`
+${r.content}
+\`\`\`
+
+`;
+      }
+    }
+    output += `---
+
+`;
+    output += `\u{1F4A1} **Tip**: Use \`webfetch\` to get the full file content from any of these URLs.`;
+    return output;
+  }
+});
+
 // src/index.ts
 var PLUGIN_VERSION = "0.2.4";
-var DEFAULT_MAX_STEPS = 500;
-var TASK_COMMAND_MAX_STEPS = 1e3;
+var UNLIMITED_MODE = true;
+var DEFAULT_MAX_STEPS = UNLIMITED_MODE ? Infinity : 500;
+var TASK_COMMAND_MAX_STEPS = UNLIMITED_MODE ? Infinity : 1e3;
 var AGENT_EMOJI2 = {
   "architect": "\u{1F3D7}\uFE0F",
   "builder": "\u{1F528}",
   "inspector": "\u{1F50D}",
   "recorder": "\u{1F4BE}",
-  "commander": "\u{1F3AF}"
+  "commander": "\u{1F3AF}",
+  "librarian": "\u{1F4DA}",
+  "researcher": "\u{1F52C}"
 };
 var CONTINUE_INSTRUCTION = `<auto_continue>
 <status>Mission not complete. Keep executing.</status>
@@ -14500,13 +15978,24 @@ var CONTINUE_INSTRUCTION = `<auto_continue>
 2. DO NOT wait for user input
 3. If previous action failed, try different approach
 4. If agent returned nothing, proceed to next step
+5. Check your todo list - complete ALL pending items
 </rules>
 
 <next_step>
-What is the current state?
-What is the next action?
-Execute it NOW.
+1. Check todo list for incomplete items
+2. Identify the highest priority pending task
+3. Execute it NOW
+4. Mark complete when done
+5. Continue until ALL todos are complete
 </next_step>
+
+<completion_criteria>
+You are ONLY done when:
+- All todos are marked complete or cancelled
+- All features are implemented and tested
+- Final verification passes
+Then output: \u2705 MISSION COMPLETE
+</completion_criteria>
 </auto_continue>`;
 var OrchestratorPlugin = async (input) => {
   const { directory, client } = input;
@@ -14530,6 +16019,11 @@ var OrchestratorPlugin = async (input) => {
       check_background: checkBackgroundTool,
       list_background: listBackgroundTool,
       kill_background: killBackgroundTool,
+      // Web tools - documentation research and caching
+      webfetch: webfetchTool,
+      websearch: websearchTool,
+      cache_docs: cacheDocsTool,
+      codesearch: codesearchTool,
       // Async agent tools - spawn agents in parallel sessions
       ...asyncAgentTools
     },
@@ -14552,6 +16046,16 @@ var OrchestratorPlugin = async (input) => {
           name: "Commander",
           description: "Autonomous orchestrator - executes until mission complete",
           systemPrompt: AGENTS.commander.systemPrompt
+        },
+        Librarian: {
+          name: "Librarian",
+          description: "Documentation research specialist - reduces hallucination",
+          systemPrompt: AGENTS.librarian?.systemPrompt || ""
+        },
+        Researcher: {
+          name: "Researcher",
+          description: "Pre-task investigation - gathers all info before implementation",
+          systemPrompt: AGENTS.researcher?.systemPrompt || ""
         }
       };
       config2.command = { ...orchestratorCommands, ...existingCommands };
@@ -14848,7 +16352,7 @@ ${stateSession.graph.getTaskSummary()}`;
         manager.handleEvent(event);
       } catch {
       }
-      if (event.type === "session.deleted") {
+      if (event.type === SESSION_EVENTS.DELETED) {
         const props = event.properties;
         if (props?.info?.id) {
           sessions.delete(props.info.id);

@@ -34,15 +34,22 @@ import {
     RECOVERY_PROMPT,
     ESCALATION_PROMPT,
 } from "./utils/sanity.js";
+import { webfetchTool, websearchTool, cacheDocsTool, codesearchTool } from "./tools/web/index.js";
+import { EventBus, emit, SESSION_EVENTS } from "./core/bus/index.js";
+import * as TodoEnforcer from "./core/loop/todo-enforcer.js";
+import * as Toast from "./core/notification/toast.js";
 
 // ============================================================================
 // Constants
 // ============================================================================
 
-// How many steps we allow before forcing a stop.
-// Default is 500, but /task gets 1000 for longer missions.
-const DEFAULT_MAX_STEPS = 500;
-const TASK_COMMAND_MAX_STEPS = 1000;
+// UNLIMITED MODE: Set to true for infinite execution (no step limit)
+// When true, execution continues until all todos are complete or mission done
+const UNLIMITED_MODE = true;
+
+// Step limits (only used when UNLIMITED_MODE is false)
+const DEFAULT_MAX_STEPS = UNLIMITED_MODE ? Infinity : 500;
+const TASK_COMMAND_MAX_STEPS = UNLIMITED_MODE ? Infinity : 1000;
 
 // Just some fun emojis to make the logs prettier
 const AGENT_EMOJI: Record<string, string> = {
@@ -51,10 +58,12 @@ const AGENT_EMOJI: Record<string, string> = {
     "inspector": "🔍",
     "recorder": "💾",
     "commander": "🎯",
+    "librarian": "📚",
+    "researcher": "🔬",
 };
 
 // This gets injected when the assistant finishes but mission isn't complete.
-// Basically tells it "hey, you're not done yet, keep going!"
+// Now includes Todo enforcement for relentless execution
 const CONTINUE_INSTRUCTION = `<auto_continue>
 <status>Mission not complete. Keep executing.</status>
 
@@ -63,13 +72,24 @@ const CONTINUE_INSTRUCTION = `<auto_continue>
 2. DO NOT wait for user input
 3. If previous action failed, try different approach
 4. If agent returned nothing, proceed to next step
+5. Check your todo list - complete ALL pending items
 </rules>
 
 <next_step>
-What is the current state?
-What is the next action?
-Execute it NOW.
+1. Check todo list for incomplete items
+2. Identify the highest priority pending task
+3. Execute it NOW
+4. Mark complete when done
+5. Continue until ALL todos are complete
 </next_step>
+
+<completion_criteria>
+You are ONLY done when:
+- All todos are marked complete or cancelled
+- All features are implemented and tested
+- Final verification passes
+Then output: ✅ MISSION COMPLETE
+</completion_criteria>
 </auto_continue>`;
 
 // ============================================================================
@@ -112,6 +132,11 @@ const OrchestratorPlugin = async (input: PluginInput) => {
             check_background: checkBackgroundTool,
             list_background: listBackgroundTool,
             kill_background: killBackgroundTool,
+            // Web tools - documentation research and caching
+            webfetch: webfetchTool,
+            websearch: websearchTool,
+            cache_docs: cacheDocsTool,
+            codesearch: codesearchTool,
             // Async agent tools - spawn agents in parallel sessions
             ...asyncAgentTools,
         },
@@ -133,12 +158,22 @@ const OrchestratorPlugin = async (input: PluginInput) => {
                 };
             }
 
-            // Register the Commander agent so it shows up in the agent picker
+            // Register the Commander, Librarian, and Researcher agents
             const orchestratorAgents: Record<string, unknown> = {
                 Commander: {
                     name: "Commander",
                     description: "Autonomous orchestrator - executes until mission complete",
                     systemPrompt: AGENTS.commander.systemPrompt,
+                },
+                Librarian: {
+                    name: "Librarian",
+                    description: "Documentation research specialist - reduces hallucination",
+                    systemPrompt: AGENTS.librarian?.systemPrompt || "",
+                },
+                Researcher: {
+                    name: "Researcher",
+                    description: "Pre-task investigation - gathers all info before implementation",
+                    systemPrompt: AGENTS.researcher?.systemPrompt || "",
                 },
             };
 
@@ -515,7 +550,7 @@ const OrchestratorPlugin = async (input: PluginInput) => {
                 // Manager not initialized yet, ignore
             }
 
-            if (event.type === "session.deleted") {
+            if (event.type === SESSION_EVENTS.DELETED) {
                 const props = event.properties as { info?: { id?: string } } | undefined;
                 if (props?.info?.id) {
                     sessions.delete(props.info.id);
