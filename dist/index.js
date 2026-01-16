@@ -17036,7 +17036,7 @@ ${stateSession.graph.getTaskSummary()}`;
     },
     // -----------------------------------------------------------------
     // Event handler - cleans up when sessions are deleted
-    // Uses 'event' hook (not 'handler') to match oh-my-opencode pattern
+    // Uses 'event' hook (not 'handler')
     // -----------------------------------------------------------------
     event: async (input2) => {
       const { event } = input2;
