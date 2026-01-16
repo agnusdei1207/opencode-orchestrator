@@ -2,6 +2,7 @@
  * Task - A single task in the orchestration DAG
  */
 import { TaskStatus } from "../types/task-status.js";
+import { TaskType } from "../types/task-type.js";
 
 export interface Task {
     id: string;
@@ -13,5 +14,5 @@ export interface Task {
     result?: string;
     retryCount: number;
     complexity: number;
-    type: "infrastructure" | "logic" | "integration";
+    type: TaskType;
 }
