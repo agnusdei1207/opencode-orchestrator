@@ -16474,18 +16474,25 @@ var OrchestratorPlugin = async (input) => {
           description: "Autonomous orchestrator - executes until mission complete",
           mode: "primary",
           prompt: AGENTS.commander.systemPrompt,
+          maxTokens: 64e3,
           thinking: { type: "enabled", budgetTokens: 32e3 },
           color: "#FF6B6B"
         },
         [AGENT_NAMES.LIBRARIAN]: {
           name: AGENT_NAMES.LIBRARIAN,
           description: "Documentation research specialist - reduces hallucination",
-          prompt: AGENTS.librarian?.systemPrompt || ""
+          mode: "subagent",
+          prompt: AGENTS.librarian?.systemPrompt || "",
+          maxTokens: 16e3,
+          color: "#4ECDC4"
         },
         [AGENT_NAMES.RESEARCHER]: {
           name: AGENT_NAMES.RESEARCHER,
           description: "Pre-task investigation - gathers all info before implementation",
-          prompt: AGENTS.researcher?.systemPrompt || ""
+          mode: "subagent",
+          prompt: AGENTS.researcher?.systemPrompt || "",
+          maxTokens: 16e3,
+          color: "#45B7D1"
         }
       };
       config2.command = { ...orchestratorCommands, ...existingCommands };
