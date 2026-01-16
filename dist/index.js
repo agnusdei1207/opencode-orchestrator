@@ -16479,7 +16479,7 @@ var OrchestratorPlugin = async (input) => {
           name: AGENT_NAMES.COMMANDER,
           description: "Autonomous orchestrator - executes until mission complete",
           mode: "primary",
-          prompt: AGENTS.commander.systemPrompt,
+          prompt: AGENTS[AGENT_NAMES.COMMANDER].systemPrompt,
           maxTokens: 64e3,
           thinking: { type: "enabled", budgetTokens: 32e3 },
           color: "#FF6B6B"
@@ -16488,7 +16488,7 @@ var OrchestratorPlugin = async (input) => {
           name: AGENT_NAMES.LIBRARIAN,
           description: "Documentation research specialist - reduces hallucination",
           mode: "subagent",
-          prompt: AGENTS.librarian?.systemPrompt || "",
+          prompt: AGENTS[AGENT_NAMES.LIBRARIAN]?.systemPrompt || "",
           maxTokens: 16e3,
           color: "#4ECDC4"
         },
@@ -16496,7 +16496,7 @@ var OrchestratorPlugin = async (input) => {
           name: AGENT_NAMES.RESEARCHER,
           description: "Pre-task investigation - gathers all info before implementation",
           mode: "subagent",
-          prompt: AGENTS.researcher?.systemPrompt || "",
+          prompt: AGENTS[AGENT_NAMES.RESEARCHER]?.systemPrompt || "",
           maxTokens: 16e3,
           color: "#45B7D1"
         }
@@ -16504,7 +16504,7 @@ var OrchestratorPlugin = async (input) => {
       config2.command = { ...existingCommands, ...orchestratorCommands };
       config2.agent = { ...existingAgents, ...orchestratorAgents };
       console.log(`[orchestrator] Registered agents: ${Object.keys(orchestratorAgents).join(", ")}`);
-      console.log(`[orchestrator] Commander prompt length: ${(AGENTS.commander.systemPrompt || "").length}`);
+      console.log(`[orchestrator] Commander prompt length: ${(AGENTS[AGENT_NAMES.COMMANDER]?.systemPrompt || "").length}`);
     },
     // -----------------------------------------------------------------
     // chat.message hook - runs when user sends a message

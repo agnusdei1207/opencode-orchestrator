@@ -168,7 +168,7 @@ const OrchestratorPlugin: Plugin = async (input) => {
                     name: AGENT_NAMES.COMMANDER,
                     description: "Autonomous orchestrator - executes until mission complete",
                     mode: "primary",
-                    prompt: AGENTS.commander.systemPrompt,
+                    prompt: AGENTS[AGENT_NAMES.COMMANDER].systemPrompt,
                     maxTokens: 64000,
                     thinking: { type: "enabled", budgetTokens: 32000 },
                     color: "#FF6B6B",
@@ -177,7 +177,7 @@ const OrchestratorPlugin: Plugin = async (input) => {
                     name: AGENT_NAMES.LIBRARIAN,
                     description: "Documentation research specialist - reduces hallucination",
                     mode: "subagent",
-                    prompt: AGENTS.librarian?.systemPrompt || "",
+                    prompt: AGENTS[AGENT_NAMES.LIBRARIAN]?.systemPrompt || "",
                     maxTokens: 16000,
                     color: "#4ECDC4",
                 },
@@ -185,7 +185,7 @@ const OrchestratorPlugin: Plugin = async (input) => {
                     name: AGENT_NAMES.RESEARCHER,
                     description: "Pre-task investigation - gathers all info before implementation",
                     mode: "subagent",
-                    prompt: AGENTS.researcher?.systemPrompt || "",
+                    prompt: AGENTS[AGENT_NAMES.RESEARCHER]?.systemPrompt || "",
                     maxTokens: 16000,
                     color: "#45B7D1",
                 },
@@ -196,7 +196,7 @@ const OrchestratorPlugin: Plugin = async (input) => {
             config.agent = { ...existingAgents, ...orchestratorAgents };
 
             console.log(`[orchestrator] Registered agents: ${Object.keys(orchestratorAgents).join(", ")}`);
-            console.log(`[orchestrator] Commander prompt length: ${(AGENTS.commander.systemPrompt || "").length}`);
+            console.log(`[orchestrator] Commander prompt length: ${(AGENTS[AGENT_NAMES.COMMANDER]?.systemPrompt || "").length}`);
         },
 
         // -----------------------------------------------------------------
