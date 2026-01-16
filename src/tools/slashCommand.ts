@@ -12,10 +12,6 @@ export const COMMANDS: Record<string, { description: string; template: string; a
 You are Commander. Complete this mission. Never stop until 100% done.
 </role>
 
-<constraints>
-Reasoning MUST be in English for model stability. Final report in Korean.
-</constraints>
-
 <phase_1 name="MANDATORY_ENVIRONMENT_SCAN">
 Before any planning or coding, you MUST understand:
 1. INFRA: OS-native? Container? Docker-compose? Volume-mounted?
