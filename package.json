@@ -51,13 +51,14 @@
     "release:patch": "npm run build && npm version patch && git push --follow-tags && npm publish --access public",
     "release:minor": "npm run build && npm version minor && git push --follow-tags && npm publish --access public",
     "release:major": "npm run build && npm version major && git push --follow-tags && npm publish --access public",
-    "dev:clean": "shx rm -rf $(npm root -g)/opencode-orchestrator && npm cache clean --force && echo 'Cleaned global + cache'",
-    "dev:link": "npm run dev:clean || true && npm run build && npm link && echo 'SUCCESS: Linked. Restart OpenCode.'",
-    "dev:unlink": "npm unlink -g opencode-orchestrator || true && npm run dev:clean && echo 'SUCCESS: Unlinked'",
-    "dev:status": "echo '=== Global Link ===' && ls -la $(npm root -g)/opencode-orchestrator 2>/dev/null || echo 'Not linked'",
+    "dev:clean": "shx rm -rf $(npm root -g)/opencode-orchestrator /opt/homebrew/lib/node_modules/opencode-orchestrator 2>/dev/null; npm cache clean --force && echo 'Cleaned: NVM + Homebrew + cache'",
+    "dev:link": "npm run build && npm link && /opt/homebrew/bin/npm link 2>/dev/null; echo 'SUCCESS: Linked to NVM + Homebrew. Restart OpenCode.'",
+    "dev:unlink": "npm unlink -g opencode-orchestrator 2>/dev/null; /opt/homebrew/bin/npm unlink -g opencode-orchestrator 2>/dev/null; npm run dev:clean && echo 'SUCCESS: Unlinked from all'",
+    "dev:status": "echo '=== NVM ===' && ls -la $(npm root -g)/opencode-orchestrator 2>/dev/null || echo 'Not linked'; echo '=== Homebrew ===' && ls -la /opt/homebrew/lib/node_modules/opencode-orchestrator 2>/dev/null || echo 'Not linked'",
     "dev:test": "node dist/scripts/postinstall.js && echo '---' && node dist/scripts/preuninstall.js",
-    "reset": "npm run dev:unlink || true && npm uninstall -g opencode-orchestrator || true && brew uninstall opencode || true && rm -rf ~/.config/opencode ~/.opencode ~/.local/share/opencode && echo '=== Clean done ===' && brew install opencode && npm run dev:link && echo '=== Reset complete ==='",
-    "reset:global": "npm run dev:unlink || true && npm uninstall -g opencode-orchestrator || true && brew uninstall opencode || true && rm -rf ~/.config/opencode ~/.opencode ~/.local/share/opencode && echo '=== Clean done ===' && brew install opencode && npm install -g opencode-orchestrator && echo '=== Reset Global complete ==='"
+    "dev:cache": "npm run build && rm -rf ~/.cache/opencode/node_modules/opencode-orchestrator && cp -r . ~/.cache/opencode/node_modules/opencode-orchestrator && echo 'SUCCESS: Copied to OpenCode cache. Restart OpenCode.'",
+    "reset:local": "npm run dev:unlink || true && npm uninstall -g opencode-orchestrator 2>/dev/null; /opt/homebrew/bin/npm uninstall -g opencode-orchestrator 2>/dev/null; brew uninstall opencode 2>/dev/null; rm -rf ~/.config/opencode ~/.opencode ~/.local/share/opencode && echo '=== Clean done ===' && brew install opencode && npm run dev:link && echo '=== Reset (Dev) complete ==='",
+    "reset:prod": "npm run dev:unlink || true && npm uninstall -g opencode-orchestrator 2>/dev/null; /opt/homebrew/bin/npm uninstall -g opencode-orchestrator 2>/dev/null; brew uninstall opencode 2>/dev/null; rm -rf ~/.config/opencode ~/.opencode ~/.local/share/opencode && echo '=== Clean done ===' && brew install opencode && /opt/homebrew/bin/npm install -g opencode-orchestrator && echo '=== Reset (Prod) complete ==='"
   },
   "dependencies": {
     "@opencode-ai/plugin": "^1.1.1",

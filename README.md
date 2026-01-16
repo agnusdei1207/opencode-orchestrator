@@ -341,13 +341,17 @@ Press `Tab` in OpenCode → Select **Commander** → Type your mission!
 "Fix the login bug in the docker-compose environment"
 ```
 
-### 📋 Use /task Command
+> **💡 Recommended:** For complex missions, select **Commander** directly via `Tab` to use the full orchestration system with parallel processing, anti-hallucination, and auto-recovery features.
+
+### 📋 Use /task Command (Simple Tasks)
+
+For quick, simple tasks, you can use the `/task` command:
 
 ```bash
-/task "Implement user authentication with JWT"
+/task "Add a loading spinner to the button"
 ```
 
-> **💡 Tip:** Both regular messages and `/task` now run in **unlimited mode** by default!
+> **⚠️ Note:** `/task` uses a simplified prompt template. For complex multi-step missions, use **Commander** directly via `Tab` key.
 
 ---
 

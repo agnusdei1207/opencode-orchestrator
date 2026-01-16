@@ -16,3 +16,6 @@ bin/
 # OS
 .DS_Store
 package-lock.json
+
+# Korean internal docs (not for public)
+docs/OPENCODE.md

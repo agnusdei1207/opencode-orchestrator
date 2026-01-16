@@ -196,4 +196,5 @@ declare const OrchestratorPlugin: (input: PluginInput) => Promise<{
         };
     }) => Promise<void>;
 }>;
+export { OrchestratorPlugin };
 export default OrchestratorPlugin;

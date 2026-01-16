@@ -229,63 +229,22 @@ const OrchestratorPlugin = async (input: PluginInput) => {
                     agent: AGENT_NAMES.COMMANDER,
                     description: "Mission started",
                 });
-
-                // Wrap their message in our task template for better results
-                if (!parsed) {
-                    const userMessage = originalText.trim();
-                    if (userMessage) {
-                        parts[textPartIndex].text = COMMANDS["task"].template.replace(
-                            /\$ARGUMENTS/g,
-                            userMessage
-                        );
-                    }
-                }
+                // Commander selection + regular message → uses orchestrator.ts system prompt as-is
             }
 
-            // Handle /task command - this gets more steps since tasks are usually big
-            if (parsed?.command === "task") {
-                const now = Date.now();
-                sessions.set(sessionID, {
-                    active: true,
-                    step: 0,
-                    maxSteps: TASK_COMMAND_MAX_STEPS,
-                    timestamp: now,
-                    startTime: now,
-                    lastStepTime: now,
-                });
-                state.missionActive = true;
-                state.sessions.set(sessionID, {
-                    enabled: true,
-                    iterations: 0,
-                    taskRetries: new Map(),
-                    currentTask: "",
-                    anomalyCount: 0,
-                });
-
-                // Initialize progress tracking
-                ProgressTracker.startSession(sessionID);
-
-                // Emit task started event
-                emit(TASK_EVENTS.STARTED, {
-                    taskId: sessionID,
-                    agent: AGENT_NAMES.COMMANDER,
-                    description: parsed.args || "task command",
-                });
-
-                parts[textPartIndex].text = COMMANDS["task"].template.replace(
-                    /\$ARGUMENTS/g,
-                    parsed.args || PROMPTS.CONTINUE_PREVIOUS
-                );
-            } else if (parsed) {
-                // Handle other slash commands (/plan, /auto, etc.)
+            // Handle slash commands
+            if (parsed) {
                 const command = COMMANDS[parsed.command];
                 if (command) {
+                    // Explicit /task input: applies simplified template
+                    // Other commands like /plan: applies respective template
                     parts[textPartIndex].text = command.template.replace(
                         /\$ARGUMENTS/g,
                         parsed.args || PROMPTS.CONTINUE
                     );
                 }
             }
+            // Commander agent selection + regular message → uses orchestrator.ts system prompt (no transformation)
         },
 
         // -----------------------------------------------------------------
@@ -617,4 +576,8 @@ const OrchestratorPlugin = async (input: PluginInput) => {
     };
 };
 
+// Named export as per OpenCode plugin documentation
+export { OrchestratorPlugin };
+
+// Also keep default export for backwards compatibility
 export default OrchestratorPlugin;
