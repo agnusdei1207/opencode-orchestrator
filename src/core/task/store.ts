@@ -3,6 +3,8 @@
  */
 
 import type { TaskNode, TaskHierarchy, TaskInput, TaskStatus, TaskProgress } from "./interfaces.js";
+import { TASK_STATUS } from "./interfaces.js";
+import { ID_PREFIX } from "../../shared/constants.js";
 
 // Store task hierarchies by session
 const hierarchies = new Map<string, TaskHierarchy>();
@@ -11,14 +13,14 @@ const hierarchies = new Map<string, TaskHierarchy>();
  * Create a new task hierarchy
  */
 export function create(sessionId: string, rootDescription: string): TaskHierarchy {
-    const rootId = `task_root_${Date.now()}`;
+    const rootId = `${ID_PREFIX.TASK}root_${Date.now()}`;
 
     const root: TaskNode = {
         id: rootId,
         description: rootDescription,
         level: 0,
         children: [],
-        status: "pending",
+        status: TASK_STATUS.PENDING,
         dependsOn: [],
         createdAt: new Date(),
     };
@@ -49,7 +51,7 @@ export function addTask(sessionId: string, task: TaskInput): TaskNode {
         throw new Error(`No hierarchy found for session: ${sessionId}`);
     }
 
-    const id = `task_${task.level}_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+    const id = `${ID_PREFIX.TASK}${task.level}_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
 
     const node: TaskNode = {
         id,
@@ -57,7 +59,7 @@ export function addTask(sessionId: string, task: TaskInput): TaskNode {
         level: task.level,
         parent: task.parentId,
         children: [],
-        status: "pending",
+        status: TASK_STATUS.PENDING,
         agent: task.agent,
         parallelGroup: task.parallelGroup,
         dependsOn: task.dependsOn || [],
@@ -100,11 +102,11 @@ export function updateStatus(
 
     node.status = status;
 
-    if (status === "running" && !node.startedAt) {
+    if (status === TASK_STATUS.RUNNING && !node.startedAt) {
         node.startedAt = new Date();
     }
 
-    if ((status === "completed" || status === "failed" || status === "cancelled") && !node.completedAt) {
+    if ((status === TASK_STATUS.COMPLETED || status === TASK_STATUS.FAILED || status === TASK_STATUS.CANCELLED) && !node.completedAt) {
         node.completedAt = new Date();
     }
 
@@ -128,7 +130,7 @@ export function isComplete(sessionId: string): boolean {
     if (!hierarchy) return true;
 
     for (const node of hierarchy.nodes.values()) {
-        if (node.status === "pending" || node.status === "running") {
+        if (node.status === TASK_STATUS.PENDING || node.status === TASK_STATUS.RUNNING) {
             return false;
         }
     }
@@ -148,11 +150,11 @@ export function getProgress(sessionId: string): TaskProgress {
 
     for (const node of hierarchy.nodes.values()) {
         switch (node.status) {
-            case "pending": pending++; break;
-            case "running": running++; break;
-            case "completed": completed++; break;
-            case "failed":
-            case "cancelled": failed++; break;
+            case TASK_STATUS.PENDING: pending++; break;
+            case TASK_STATUS.RUNNING: running++; break;
+            case TASK_STATUS.COMPLETED: completed++; break;
+            case TASK_STATUS.FAILED:
+            case TASK_STATUS.CANCELLED: failed++; break;
         }
     }
 

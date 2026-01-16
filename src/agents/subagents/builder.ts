@@ -49,6 +49,20 @@ Depending on project type, verify with:
 
 If build command exists in package.json, use it.
 If using Docker/containers, verify syntax only.
+
+BACKGROUND COMMANDS (for long-running builds):
+\`\`\`
+// Non-blocking build
+run_background({ command: "npm run build" })
+
+// Check status later
+check_background({ taskId: "job_xxx" })
+
+// List all background jobs
+list_background({})
+\`\`\`
+
+Use background for builds taking >5 seconds.
 </verification>
 
 <output_format>
