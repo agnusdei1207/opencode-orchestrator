@@ -13322,6 +13322,35 @@ Returns matches grouped by pattern, with file paths and line numbers.
 // src/core/background.ts
 import { spawn as spawn2 } from "child_process";
 import { randomBytes } from "crypto";
+
+// src/shared/constants.ts
+var TIME = {
+  SECOND: 1e3,
+  MINUTE: 60 * 1e3,
+  HOUR: 60 * 60 * 1e3
+};
+var ID_PREFIX = {
+  /** Parallel agent task ID (e.g., task_a1b2c3d4) */
+  TASK: "task_",
+  /** Background command job ID (e.g., job_a1b2c3d4) */
+  JOB: "job_",
+  /** Session ID prefix */
+  SESSION: "session_"
+};
+var PARALLEL_TASK = {
+  TTL_MS: 30 * TIME.MINUTE,
+  CLEANUP_DELAY_MS: 5 * TIME.MINUTE,
+  MIN_STABILITY_MS: 5 * TIME.SECOND,
+  POLL_INTERVAL_MS: 2e3,
+  DEFAULT_CONCURRENCY: 3,
+  MAX_CONCURRENCY: 10
+};
+var BACKGROUND_TASK = {
+  DEFAULT_TIMEOUT_MS: 5 * TIME.MINUTE,
+  MAX_OUTPUT_LENGTH: 1e4
+};
+
+// src/core/background.ts
 var BackgroundTaskManager = class _BackgroundTaskManager {
   static _instance;
   tasks = /* @__PURE__ */ new Map();
@@ -13336,11 +13365,11 @@ var BackgroundTaskManager = class _BackgroundTaskManager {
     return _BackgroundTaskManager._instance;
   }
   /**
-   * Generate a unique task ID in the format job_xxxxxxxx
+   * Generate a unique task ID
    */
   generateId() {
     const hex3 = randomBytes(4).toString("hex");
-    return `job_${hex3}`;
+    return `${ID_PREFIX.JOB}${hex3}`;
   }
   /**
    * Debug logging helper
@@ -13718,11 +13747,11 @@ Duration before kill: ${backgroundTaskManager.formatDuration(task)}`;
 });
 
 // src/core/async-agent.ts
-var TASK_TTL_MS = 30 * 60 * 1e3;
-var CLEANUP_DELAY_MS = 5 * 60 * 1e3;
-var MIN_STABILITY_MS = 5 * 1e3;
-var POLL_INTERVAL_MS = 2e3;
-var DEFAULT_CONCURRENCY = 3;
+var TASK_TTL_MS = PARALLEL_TASK.TTL_MS;
+var CLEANUP_DELAY_MS = PARALLEL_TASK.CLEANUP_DELAY_MS;
+var MIN_STABILITY_MS = PARALLEL_TASK.MIN_STABILITY_MS;
+var POLL_INTERVAL_MS = PARALLEL_TASK.POLL_INTERVAL_MS;
+var DEFAULT_CONCURRENCY = PARALLEL_TASK.DEFAULT_CONCURRENCY;
 var DEBUG = process.env.DEBUG_PARALLEL_AGENT === "true";
 var log = (...args) => {
   if (DEBUG) console.log("[parallel-agent]", ...args);
@@ -13824,7 +13853,7 @@ var ParallelAgentManager = class _ParallelAgentManager {
         throw new Error(`Failed to create session: ${createResult.error}`);
       }
       const sessionID = createResult.data.id;
-      const taskId = `task_${crypto.randomUUID().slice(0, 8)}`;
+      const taskId = `${ID_PREFIX.TASK}${crypto.randomUUID().slice(0, 8)}`;
       const task = {
         id: taskId,
         sessionID,
