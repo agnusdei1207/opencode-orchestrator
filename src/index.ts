@@ -162,21 +162,25 @@ const OrchestratorPlugin: Plugin = async (input) => {
             }
 
             // Register the Commander, Librarian, and Researcher agents
+            // Using 'prompt' instead of 'systemPrompt' (oh-my-opencode pattern)
             const orchestratorAgents: Record<string, unknown> = {
                 [AGENT_NAMES.COMMANDER]: {
                     name: AGENT_NAMES.COMMANDER,
                     description: "Autonomous orchestrator - executes until mission complete",
-                    systemPrompt: AGENTS.commander.systemPrompt,
+                    mode: "primary",
+                    prompt: AGENTS.commander.systemPrompt,
+                    thinking: { type: "enabled", budgetTokens: 32000 },
+                    color: "#FF6B6B",
                 },
                 [AGENT_NAMES.LIBRARIAN]: {
                     name: AGENT_NAMES.LIBRARIAN,
                     description: "Documentation research specialist - reduces hallucination",
-                    systemPrompt: AGENTS.librarian?.systemPrompt || "",
+                    prompt: AGENTS.librarian?.systemPrompt || "",
                 },
                 [AGENT_NAMES.RESEARCHER]: {
                     name: AGENT_NAMES.RESEARCHER,
                     description: "Pre-task investigation - gathers all info before implementation",
-                    systemPrompt: AGENTS.researcher?.systemPrompt || "",
+                    prompt: AGENTS.researcher?.systemPrompt || "",
                 },
             };
 
