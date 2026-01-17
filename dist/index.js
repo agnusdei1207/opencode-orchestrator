@@ -16910,11 +16910,44 @@ var OrchestratorPlugin = async (input) => {
       console.log(`[orchestrator] Default agent: ${AGENT_NAMES.COMMANDER}`);
     },
     // -----------------------------------------------------------------
-    // session.start hook - runs when a new session begins
+    // Event hook - handles OpenCode events (SDK official)
+    // Replaces non-standard session.start/session.end hooks
     // -----------------------------------------------------------------
-    "session.start": async (input2) => {
-      log2("[index.ts] session.start", { sessionID: input2.sessionID, agent: input2.agent });
-      presets.missionStarted(`Session ${input2.sessionID.slice(0, 12)}...`);
+    event: async (input2) => {
+      const { event } = input2;
+      try {
+        const manager = ParallelAgentManager.getInstance();
+        manager.handleEvent(event);
+      } catch {
+      }
+      if (event.type === "session.created") {
+        const sessionID = event.properties?.id || "";
+        log2("[index.ts] event: session.created", { sessionID });
+        presets.missionStarted(`Session ${sessionID.slice(0, 12)}...`);
+      }
+      if (event.type === "session.deleted" || event.type === SESSION_EVENTS.DELETED) {
+        const sessionID = event.properties?.id || event.properties?.info?.id || "";
+        const session = sessions.get(sessionID);
+        if (session) {
+          const totalTime = Date.now() - session.startTime;
+          const duration3 = totalTime < 6e4 ? `${Math.round(totalTime / 1e3)}s` : `${Math.round(totalTime / 6e4)}m`;
+          log2("[index.ts] event: session.deleted", {
+            sessionID,
+            steps: session.step,
+            duration: duration3
+          });
+          sessions.delete(sessionID);
+          state.sessions.delete(sessionID);
+          clearSession(sessionID);
+          presets.sessionCompleted(sessionID, duration3);
+        }
+      }
+      if (event.type === "session.error") {
+        const sessionID = event.properties?.sessionId || "";
+        const error45 = event.properties?.error || "Unknown error";
+        log2("[index.ts] event: session.error", { sessionID, error: error45 });
+        presets.taskFailed("session", error45.slice(0, 50));
+      }
     },
     // -----------------------------------------------------------------
     // chat.message hook - runs when user sends a message
@@ -17067,26 +17100,6 @@ Anomaly count: ${stateSession.anomalyCount}
 \u23F1\uFE0F [${currentTime}] Step ${session.step}/${session.maxSteps} | This step: ${stepDuration} | Total: ${totalElapsed}`;
     },
     // -----------------------------------------------------------------
-    // session.end hook - runs when a session ends
-    // -----------------------------------------------------------------
-    "session.end": async (input2) => {
-      const session = sessions.get(input2.sessionID);
-      if (session) {
-        const totalTime = Date.now() - session.startTime;
-        const duration3 = totalTime < 6e4 ? `${Math.round(totalTime / 1e3)}s` : `${Math.round(totalTime / 6e4)}m`;
-        log2("[index.ts] session.end", {
-          sessionID: input2.sessionID,
-          reason: input2.reason,
-          steps: session.step,
-          duration: duration3
-        });
-        sessions.delete(input2.sessionID);
-        state.sessions.delete(input2.sessionID);
-        clearSession(input2.sessionID);
-        presets.sessionCompleted(input2.sessionID, duration3);
-      }
-    },
-    // -----------------------------------------------------------------
     // assistant.done hook - runs when the LLM finishes responding
     // This is the heart of the "relentless loop" - we keep pushing it
     // to continue until we see MISSION COMPLETE or hit the limit
@@ -17196,27 +17209,6 @@ Anomaly count: ${stateSession.anomalyCount}
         } catch {
           session.active = false;
           state.missionActive = false;
-        }
-      }
-    },
-    // -----------------------------------------------------------------
-    // Event handler - cleans up when sessions are deleted
-    // Uses 'event' hook (not 'handler')
-    // -----------------------------------------------------------------
-    event: async (input2) => {
-      const { event } = input2;
-      try {
-        const manager = ParallelAgentManager.getInstance();
-        manager.handleEvent(event);
-      } catch {
-      }
-      if (event.type === SESSION_EVENTS.DELETED) {
-        const props = event.properties;
-        if (props?.info?.id) {
-          const sessionId = props.info.id;
-          sessions.delete(sessionId);
-          state.sessions.delete(sessionId);
-          clearSession(sessionId);
         }
       }
     }
