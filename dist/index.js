@@ -16610,34 +16610,50 @@ var OrchestratorPlugin = async (input) => {
       const sessionID = msgInput.sessionID;
       const agentName = (msgInput.agent || "").toLowerCase();
       log2("[index.ts] chat.message hook", { sessionID, agent: agentName, textLength: originalText.length });
-      if (agentName === AGENT_NAMES.COMMANDER && !sessions.has(sessionID)) {
-        const now = Date.now();
-        sessions.set(sessionID, {
-          active: true,
-          step: 0,
-          maxSteps: DEFAULT_MAX_STEPS,
-          timestamp: now,
-          startTime: now,
-          lastStepTime: now
-        });
-        state.missionActive = true;
-        state.sessions.set(sessionID, {
-          enabled: true,
-          iterations: 0,
-          taskRetries: /* @__PURE__ */ new Map(),
-          currentTask: "",
-          anomalyCount: 0
-        });
-        startSession(sessionID);
-        emit(TASK_EVENTS.STARTED, {
-          taskId: sessionID,
-          agent: AGENT_NAMES.COMMANDER,
-          description: "Mission started"
-        });
+      if (agentName === AGENT_NAMES.COMMANDER) {
+        if (!sessions.has(sessionID)) {
+          const now = Date.now();
+          sessions.set(sessionID, {
+            active: true,
+            step: 0,
+            maxSteps: DEFAULT_MAX_STEPS,
+            timestamp: now,
+            startTime: now,
+            lastStepTime: now
+          });
+          state.missionActive = true;
+          state.sessions.set(sessionID, {
+            enabled: true,
+            iterations: 0,
+            taskRetries: /* @__PURE__ */ new Map(),
+            currentTask: "",
+            anomalyCount: 0
+          });
+          startSession(sessionID);
+          emit(TASK_EVENTS.STARTED, {
+            taskId: sessionID,
+            agent: AGENT_NAMES.COMMANDER,
+            description: "Mission started"
+          });
+        }
+        if (!parsed || parsed.command !== "task") {
+          const taskTemplate = COMMANDS["task"].template;
+          const userMessage = parsed?.args || originalText;
+          parts[textPartIndex].text = taskTemplate.replace(
+            /\$ARGUMENTS/g,
+            userMessage || PROMPTS.CONTINUE
+          );
+          log2("[index.ts] Auto-applied mission mode", { originalLength: originalText.length });
+        }
       }
       if (parsed) {
         const command = COMMANDS[parsed.command];
-        if (command) {
+        if (command && agentName !== AGENT_NAMES.COMMANDER) {
+          parts[textPartIndex].text = command.template.replace(
+            /\$ARGUMENTS/g,
+            parsed.args || PROMPTS.CONTINUE
+          );
+        } else if (command && parsed.command === "task") {
           parts[textPartIndex].text = command.template.replace(
             /\$ARGUMENTS/g,
             parsed.args || PROMPTS.CONTINUE

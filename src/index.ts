@@ -277,52 +277,75 @@ const OrchestratorPlugin: Plugin = async (input) => {
 
             log("[index.ts] chat.message hook", { sessionID, agent: agentName, textLength: originalText.length });
 
-            // If someone picks the Commander agent, auto-start a mission
-            // This makes it so users don't need to type /task every time
-            if (agentName === AGENT_NAMES.COMMANDER && !sessions.has(sessionID)) {
-                const now = Date.now();
-                sessions.set(sessionID, {
-                    active: true,
-                    step: 0,
-                    maxSteps: DEFAULT_MAX_STEPS,
-                    timestamp: now,
-                    startTime: now,
-                    lastStepTime: now,
-                });
-                state.missionActive = true;
-                state.sessions.set(sessionID, {
-                    enabled: true,
-                    iterations: 0,
-                    taskRetries: new Map(),
-                    currentTask: "",
-                    anomalyCount: 0,
-                });
+            // =========================================================================
+            // Commander Auto-Mission Mode
+            // When using Commander agent, ALWAYS apply mission mode template
+            // This ensures orchestrator.ts behavior is always active
+            // =========================================================================
+            if (agentName === AGENT_NAMES.COMMANDER) {
+                // Initialize session if not exists
+                if (!sessions.has(sessionID)) {
+                    const now = Date.now();
+                    sessions.set(sessionID, {
+                        active: true,
+                        step: 0,
+                        maxSteps: DEFAULT_MAX_STEPS,
+                        timestamp: now,
+                        startTime: now,
+                        lastStepTime: now,
+                    });
+                    state.missionActive = true;
+                    state.sessions.set(sessionID, {
+                        enabled: true,
+                        iterations: 0,
+                        taskRetries: new Map(),
+                        currentTask: "",
+                        anomalyCount: 0,
+                    });
 
-                // Initialize progress tracking for this session
-                ProgressTracker.startSession(sessionID);
+                    // Initialize progress tracking for this session
+                    ProgressTracker.startSession(sessionID);
 
-                // Emit session started event
-                emit(TASK_EVENTS.STARTED, {
-                    taskId: sessionID,
-                    agent: AGENT_NAMES.COMMANDER,
-                    description: "Mission started",
-                });
-                // Commander selection + regular message → uses orchestrator.ts system prompt as-is
+                    // Emit session started event
+                    emit(TASK_EVENTS.STARTED, {
+                        taskId: sessionID,
+                        agent: AGENT_NAMES.COMMANDER,
+                        description: "Mission started",
+                    });
+                }
+
+                // AUTO-APPLY mission mode template if not already a /task command
+                // This ensures every Commander message triggers full autonomous execution
+                if (!parsed || parsed.command !== "task") {
+                    const taskTemplate = COMMANDS["task"].template;
+                    const userMessage = parsed?.args || originalText;
+
+                    parts[textPartIndex].text = taskTemplate.replace(
+                        /\$ARGUMENTS/g,
+                        userMessage || PROMPTS.CONTINUE
+                    );
+
+                    log("[index.ts] Auto-applied mission mode", { originalLength: originalText.length });
+                }
             }
 
-            // Handle slash commands
+            // Handle explicit slash commands (for all agents)
             if (parsed) {
                 const command = COMMANDS[parsed.command];
-                if (command) {
-                    // Explicit /task input: applies simplified template
-                    // Other commands like /plan: applies respective template
+                if (command && agentName !== AGENT_NAMES.COMMANDER) {
+                    // Apply template for non-Commander agents
+                    parts[textPartIndex].text = command.template.replace(
+                        /\$ARGUMENTS/g,
+                        parsed.args || PROMPTS.CONTINUE
+                    );
+                } else if (command && parsed.command === "task") {
+                    // Explicit /task on Commander: apply template
                     parts[textPartIndex].text = command.template.replace(
                         /\$ARGUMENTS/g,
                         parsed.args || PROMPTS.CONTINUE
                     );
                 }
             }
-            // Commander agent selection + regular message → uses orchestrator.ts system prompt (no transformation)
         },
 
         // -----------------------------------------------------------------
