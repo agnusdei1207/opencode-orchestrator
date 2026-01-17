@@ -60,7 +60,7 @@
     "reset:local": "brew uninstall opencode 2>/dev/null; rm -rf ~/.config/opencode ~/.opencode ~/.local/share/opencode ~/.cache/opencode/node_modules/opencode-orchestrator && echo '=== Clean done ===' && brew install opencode && echo '{\"plugin\": [\"opencode-orchestrator\"], \"$schema\": \"https://opencode.ai/config.json\"}' > ~/.config/opencode/opencode.json && echo '=== Reset (Dev) complete. Run: opencode ==='",
     "reset:prod": "brew uninstall opencode 2>/dev/null; rm -rf ~/.config/opencode ~/.opencode ~/.local/share/opencode ~/.cache/opencode/node_modules/opencode-orchestrator && echo '=== Clean done ===' && brew install opencode && echo '{\"plugin\": [\"opencode-orchestrator\"], \"$schema\": \"https://opencode.ai/config.json\"}' > ~/.config/opencode/opencode.json && npm install -g opencode-orchestrator && echo '=== Reset (Prod) complete. Run: opencode ==='",
     "ginstall": "npm install -g opencode-orchestrator",
-    "log": "tail -f /tmp/opencode-orchestrator.log"
+    "log": "tail -f \"$(node -e 'console.log(require(\"os\").tmpdir())')/opencode-orchestrator.log\""
   },
   "dependencies": {
     "@opencode-ai/plugin": "^1.1.1",

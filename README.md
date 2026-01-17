@@ -233,8 +233,10 @@ npm uninstall -g opencode-orchestrator
 
 **Log file location:**
 ```bash
-# macOS/Linux
-tail -f /tmp/opencode-orchestrator.log
+# Find log path (macOS uses /var/folders/...)
+npm run log
+# or:
+tail -f "$(node -e 'console.log(require("os").tmpdir())')/opencode-orchestrator.log"
 
 # Windows
 # C:\Users\<username>\AppData\Local\Temp\opencode-orchestrator.log
