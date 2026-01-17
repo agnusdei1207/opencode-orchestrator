@@ -279,27 +279,37 @@ export function getRemainingIterations(directory: string): number {
  */
 export function generateMissionContinuationPrompt(state: MissionLoopState): string {
     return `<mission_loop iteration="${state.iteration}" max="${state.maxIterations}">
-📋 **Mission Loop Active** - Iteration ${state.iteration}/${state.maxIterations}
+⚠️ **MISSION NOT COMPLETE** - Iteration ${state.iteration}/${state.maxIterations}
 
-Your previous iteration did not seal the mission. Continue working.
+The mission is INCOMPLETE. You MUST continue working NOW.
 
-**RULES**:
-1. Review your progress from the previous iteration
-2. Continue from where you left off
-3. Check TODO list for incomplete items
-4. When ALL work is TRULY complete, output:
+**FORBIDDEN**:
+❌ Do NOT stop or ask for permission
+❌ Do NOT say "I've completed..." without SEAL
+❌ Do NOT output partial results
+❌ Do NOT wait for user input
+
+**REQUIRED SEQUENCE**:
+1️⃣ Check .opencode/todo.md for [ ] incomplete items
+2️⃣ Execute the NEXT pending task
+3️⃣ Use delegate_task with background=true for parallel work
+4️⃣ Mark completed items as [x]
+5️⃣ Repeat until ALL items are [x]
+
+**ONLY WHEN TRULY DONE**:
+- All todos marked [x]
+- All tests pass
+- All builds succeed
+Then and ONLY then output:
 
 \`\`\`
 ${SEAL_PATTERN}
 \`\`\`
 
-**IMPORTANT**: 
-- Do NOT seal until the mission is genuinely complete
-- Verify all todos are marked [x] before sealing
-- Run tests/builds if applicable before sealing
-
-**Original Task**:
+**Your Original Task**:
 ${state.prompt}
+
+**NOW**: Continue executing until ${SEAL_PATTERN} is output!
 </mission_loop>`;
 }
 

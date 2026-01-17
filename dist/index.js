@@ -16652,6 +16652,8 @@ var sessionStates = /* @__PURE__ */ new Map();
 var COUNTDOWN_SECONDS = 2;
 var TOAST_DURATION_MS = 1500;
 var MIN_TIME_BETWEEN_CONTINUATIONS_MS = 3e3;
+var COUNTDOWN_GRACE_PERIOD_MS = 500;
+var ABORT_WINDOW_MS = 3e3;
 function getState2(sessionID) {
   let state2 = sessionStates.get(sessionID);
   if (!state2) {
@@ -16757,6 +16759,15 @@ async function handleSessionIdle(client, sessionID, mainSessionID) {
     log2("[todo-continuation] Skipped: in recovery mode", { sessionID });
     return;
   }
+  if (state2.abortDetectedAt) {
+    const timeSinceAbort = Date.now() - state2.abortDetectedAt;
+    if (timeSinceAbort < ABORT_WINDOW_MS) {
+      log2("[todo-continuation] Skipped: abort detected recently", { sessionID, timeSinceAbort });
+      state2.abortDetectedAt = void 0;
+      return;
+    }
+    state2.abortDetectedAt = void 0;
+  }
   if (hasRunningBackgroundTasks(sessionID)) {
     log2("[todo-continuation] Skipped: background tasks running", { sessionID });
     return;
@@ -16799,11 +16810,28 @@ async function handleSessionIdle(client, sessionID, mainSessionID) {
 }
 function handleUserMessage(sessionID) {
   const state2 = getState2(sessionID);
+  if (state2.countdownStartedAt) {
+    const elapsed = Date.now() - state2.countdownStartedAt;
+    if (elapsed < COUNTDOWN_GRACE_PERIOD_MS) {
+      log2("[todo-continuation] Ignoring message in grace period", { sessionID, elapsed });
+      return;
+    }
+  }
   if (state2.countdownTimer) {
     log2("[todo-continuation] Cancelled: user interaction", { sessionID });
     cancelCountdown(sessionID);
   }
   state2.isAborting = false;
+  state2.abortDetectedAt = void 0;
+}
+function handleSessionError2(sessionID, error45) {
+  const state2 = getState2(sessionID);
+  const errorObj = error45;
+  if (errorObj?.name === "MessageAbortedError" || errorObj?.name === "AbortError") {
+    state2.abortDetectedAt = Date.now();
+    log2("[todo-continuation] Abort detected", { sessionID, errorName: errorObj.name });
+  }
+  cancelCountdown(sessionID);
 }
 function cleanupSession(sessionID) {
   cancelCountdown(sessionID);
@@ -16898,33 +16926,61 @@ async function detectSealInSession(client, sessionID) {
     return false;
   }
 }
+function startMissionLoop(directory, sessionID, prompt, options = {}) {
+  const state2 = {
+    active: true,
+    iteration: 1,
+    maxIterations: options.maxIterations ?? DEFAULT_MAX_ITERATIONS,
+    prompt,
+    sessionID,
+    startedAt: (/* @__PURE__ */ new Date()).toISOString()
+  };
+  const success2 = writeLoopState(directory, state2);
+  if (success2) {
+    log2(`[mission-seal] Loop started`, {
+      sessionID,
+      maxIterations: state2.maxIterations
+    });
+  }
+  return success2;
+}
 function isLoopActive(directory, sessionID) {
   const state2 = readLoopState(directory);
   return state2?.active === true && state2?.sessionID === sessionID;
 }
 function generateMissionContinuationPrompt(state2) {
   return `<mission_loop iteration="${state2.iteration}" max="${state2.maxIterations}">
-\u{1F4CB} **Mission Loop Active** - Iteration ${state2.iteration}/${state2.maxIterations}
+\u26A0\uFE0F **MISSION NOT COMPLETE** - Iteration ${state2.iteration}/${state2.maxIterations}
 
-Your previous iteration did not seal the mission. Continue working.
+The mission is INCOMPLETE. You MUST continue working NOW.
 
-**RULES**:
-1. Review your progress from the previous iteration
-2. Continue from where you left off
-3. Check TODO list for incomplete items
-4. When ALL work is TRULY complete, output:
+**FORBIDDEN**:
+\u274C Do NOT stop or ask for permission
+\u274C Do NOT say "I've completed..." without SEAL
+\u274C Do NOT output partial results
+\u274C Do NOT wait for user input
+
+**REQUIRED SEQUENCE**:
+1\uFE0F\u20E3 Check .opencode/todo.md for [ ] incomplete items
+2\uFE0F\u20E3 Execute the NEXT pending task
+3\uFE0F\u20E3 Use delegate_task with background=true for parallel work
+4\uFE0F\u20E3 Mark completed items as [x]
+5\uFE0F\u20E3 Repeat until ALL items are [x]
+
+**ONLY WHEN TRULY DONE**:
+- All todos marked [x]
+- All tests pass
+- All builds succeed
+Then and ONLY then output:
 
 \`\`\`
 ${SEAL_PATTERN}
 \`\`\`
 
-**IMPORTANT**: 
-- Do NOT seal until the mission is genuinely complete
-- Verify all todos are marked [x] before sealing
-- Run tests/builds if applicable before sealing
-
-**Original Task**:
+**Your Original Task**:
 ${state2.prompt}
+
+**NOW**: Continue executing until ${SEAL_PATTERN} is output!
 </mission_loop>`;
 }
 
@@ -17113,6 +17169,12 @@ async function handleMissionSealIdle(client, directory, sessionID, mainSessionID
     seconds: COUNTDOWN_SECONDS2
   });
 }
+function handleAbort(sessionID) {
+  const state2 = getState3(sessionID);
+  state2.isAborting = true;
+  cancelCountdown2(sessionID);
+  log2("[mission-seal-handler] Marked as aborting");
+}
 
 // src/core/progress/store.ts
 var progressHistory = /* @__PURE__ */ new Map();
@@ -17200,8 +17262,6 @@ function formatCompact2(sessionId) {
 // src/index.ts
 var require2 = createRequire(import.meta.url);
 var { version: PLUGIN_VERSION } = require2("../package.json");
-var UNLIMITED_MODE = true;
-var DEFAULT_MAX_STEPS = UNLIMITED_MODE ? Infinity : 500;
 var CONTINUE_INSTRUCTION = `<auto_continue>
 <status>Mission not complete. Keep executing.</status>
 
@@ -17377,6 +17437,10 @@ var OrchestratorPlugin = async (input) => {
         const sessionID = event.properties?.sessionId || event.properties?.sessionID || "";
         const error45 = event.properties?.error;
         log2("[index.ts] event: session.error", { sessionID, error: error45 });
+        if (sessionID) {
+          handleSessionError2(sessionID, error45);
+          handleAbort(sessionID);
+        }
         if (sessionID && error45) {
           const recovered = await handleSessionError(
             client,
@@ -17453,7 +17517,6 @@ var OrchestratorPlugin = async (input) => {
           sessions.set(sessionID, {
             active: true,
             step: 0,
-            maxSteps: DEFAULT_MAX_STEPS,
             timestamp: now,
             startTime: now,
             lastStepTime: now
@@ -17476,7 +17539,8 @@ var OrchestratorPlugin = async (input) => {
             /\$ARGUMENTS/g,
             userMessage || PROMPTS.CONTINUE
           );
-          log2("[index.ts] Auto-applied mission mode", { originalLength: originalText.length });
+          startMissionLoop(directory, sessionID, userMessage || originalText);
+          log2("[index.ts] Auto-applied mission mode + started loop", { originalLength: originalText.length });
         }
       }
       if (parsed) {
@@ -17491,6 +17555,8 @@ var OrchestratorPlugin = async (input) => {
             /\$ARGUMENTS/g,
             parsed.args || PROMPTS.CONTINUE
           );
+          startMissionLoop(directory, sessionID, parsed.args || "continue from where we left off");
+          log2("[index.ts] /task command: started mission loop", { sessionID, args: parsed.args?.slice(0, 50) });
         }
       }
     },
@@ -17542,11 +17608,6 @@ Anomaly count: ${stateSession.anomalyCount}
 
 ` + toolOutput.output;
       }
-      if (session.step >= session.maxSteps) {
-        session.active = false;
-        state.missionActive = false;
-        return;
-      }
       if (stateSession) {
         const taskId = stateSession.currentTask;
         if (toolOutput.output.includes("\u2705 PASS") || toolOutput.output.includes("AUDIT RESULT: PASS")) {
@@ -17578,7 +17639,7 @@ Anomaly count: ${stateSession.anomalyCount}
       const currentTime = formatTimestamp();
       toolOutput.output += `
 
-\u23F1\uFE0F [${currentTime}] Step ${session.step}/${session.maxSteps} | This step: ${stepDuration} | Total: ${totalElapsed}`;
+\u23F1\uFE0F [${currentTime}] Step ${session.step} | This step: ${stepDuration} | Total: ${totalElapsed}`;
     },
     // -----------------------------------------------------------------
     // assistant.done hook - runs when the LLM finishes responding
@@ -17609,7 +17670,7 @@ Anomaly count: ${stateSession.anomalyCount}
 
 ` + recoveryText + `
 
-[Recovery Step ${session.step}/${session.maxSteps}]`
+[Recovery Step ${session.step}]`
                 }]
               }
             });
@@ -17623,7 +17684,7 @@ Anomaly count: ${stateSession.anomalyCount}
       if (stateSession && stateSession.anomalyCount > 0) {
         stateSession.anomalyCount = 0;
       }
-      if (detectSealInText(textContent)) {
+      if (isLoopActive(directory, sessionID) && detectSealInText(textContent)) {
         session.active = false;
         state.missionActive = false;
         clearLoopState(directory);
@@ -17650,14 +17711,8 @@ Anomaly count: ${stateSession.anomalyCount}
       session.timestamp = now;
       session.lastStepTime = now;
       const currentTime = formatTimestamp();
-      if (session.step >= session.maxSteps) {
-        session.active = false;
-        state.missionActive = false;
-        return;
-      }
       recordSnapshot(sessionID, {
-        currentStep: session.step,
-        maxSteps: session.maxSteps
+        currentStep: session.step
       });
       const progressInfo = formatCompact2(sessionID);
       try {
@@ -17669,12 +17724,13 @@ Anomaly count: ${stateSession.anomalyCount}
                 type: PART_TYPES.TEXT,
                 text: CONTINUE_INSTRUCTION + `
 
-\u23F1\uFE0F [${currentTime}] Step ${session.step}/${session.maxSteps} | ${progressInfo} | This step: ${stepDuration} | Total: ${totalElapsed}`
+\u23F1\uFE0F [${currentTime}] Step ${session.step} | ${progressInfo} | This step: ${stepDuration} | Total: ${totalElapsed}`
               }]
             }
           });
         }
-      } catch {
+      } catch (error45) {
+        log2("[index.ts] Continuation injection failed, retrying...", { sessionID, error: error45 });
         try {
           await new Promise((r) => setTimeout(r, 500));
           if (client?.session?.prompt) {
@@ -17683,9 +17739,17 @@ Anomaly count: ${stateSession.anomalyCount}
               body: { parts: [{ type: PART_TYPES.TEXT, text: PROMPTS.CONTINUE }] }
             });
           }
-        } catch {
-          session.active = false;
-          state.missionActive = false;
+        } catch (retryError) {
+          log2("[index.ts] Both continuation attempts failed, waiting for idle handler", {
+            sessionID,
+            error: retryError,
+            loopActive: isLoopActive(directory, sessionID)
+          });
+          if (!isLoopActive(directory, sessionID)) {
+            log2("[index.ts] No active loop, stopping session", { sessionID });
+            session.active = false;
+            state.missionActive = false;
+          }
         }
       }
     }
