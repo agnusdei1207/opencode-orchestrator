@@ -66,7 +66,7 @@ Multi-agent system that autonomously executes complex tasks. Commander delegates
     ║ + JWT docs        ║   ║ Setup package.json║   ║ + user.model.ts   ║
     ║                   ║   ║                   ║   ║                   ║
     ║ 📥 websearch()    ║   ║ 📥 write files    ║   ║ 📥 write files    ║
-    ║ � cache_docs()   ║   ║ � run_background ║   ║                   ║
+    ║ ⏳ cache_docs()   ║   ║ ⏳ run_background ║   ║                   ║
     ╚═══════════════════╝   ║    → npm install  ║   ╚═══════════════════╝
               │             ╚═══════════════════╝             │
               │                        │                      │
