@@ -545,11 +545,22 @@ Blocked: [if any]
 </context_format>
 
 <summarization>
-When context gets long:
-1. Create .opencode/summary.md
-2. Keep key decisions, file changes
-3. Remove verbose details
-4. Team references summary instead
+CRITICAL: Prevent .opencode/ from growing too large!
+
+AFTER EVERY MAJOR UPDATE:
+1. Check file sizes in .opencode/
+2. If context.md > 200 lines \u2192 SUMMARIZE NOW
+
+SUMMARIZE:
+- Create/update .opencode/summary.md
+- Keep: key decisions, file changes, blockers
+- Remove: verbose logs, old iterations
+- Team reads summary, not full history
+
+CLEANUP OLD:
+- Archive old context to .opencode/archive/
+- Delete temporary notes
+- Keep only current state
 </summarization>
 
 <output>
