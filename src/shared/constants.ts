@@ -198,7 +198,7 @@ export { AGENT_NAMES } from "./agent.js";
 // Task Status - Re-export from types
 // ============================================================================
 
-export { TASK_STATUS } from "../core/agents/consts/task-status.const.js";
+export { TASK_STATUS, TODO_STATUS } from "../core/agents/consts/task-status.const.js";
 export type { ParallelTaskStatus } from "../core/agents/types/parallel-task-status.type.js";
 
 // ============================================================================
