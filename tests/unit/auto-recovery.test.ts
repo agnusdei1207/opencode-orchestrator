@@ -92,7 +92,7 @@ describe("AutoRecovery", () => {
 
             expect(action.type).toBe("escalate");
             if (action.type === "escalate") {
-                expect(action.to).toBe("Inspector");
+                expect(action.to).toBe("Reviewer");
             }
         });
 

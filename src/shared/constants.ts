@@ -147,13 +147,10 @@ export const SLASH_COMMANDS = {
 // ============================================================================
 
 export const AGENT_EMOJI: Record<string, string> = {
-    Architect: "🏗️",
-    Builder: "🔨",
-    Inspector: "🔍",
-    Recorder: "💾",
     Commander: "🎯",
-    Librarian: "📚",
-    Researcher: "🔬",
+    Planner: "📋",
+    Worker: "🔨",
+    Reviewer: "✅",
 } as const;
 
 // ============================================================================

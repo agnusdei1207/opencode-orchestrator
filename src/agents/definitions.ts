@@ -1,20 +1,22 @@
-import { AgentDefinition } from "../shared/agent.js";
-import { AGENT_NAMES } from "../shared/agent.js";
+/**
+ * Agent Definitions Registry
+ * 
+ * Consolidated agent architecture (v2):
+ * - Commander: Master orchestrator
+ * - Planner: Planning + Research
+ * - Worker: Implementation + Documentation
+ * - Reviewer: Verification + Context Management
+ */
+
+import { AgentDefinition, AGENT_NAMES } from "../shared/agent.js";
 import { orchestrator } from "./orchestrator.js";
-import { architect } from "./subagents/architect.js";
-import { builder } from "./subagents/builder.js";
-import { inspector } from "./subagents/inspector.js";
-import { recorder } from "./subagents/recorder.js";
-import { librarian } from "./subagents/librarian.js";
-import { researcher } from "./subagents/researcher.js";
+import { planner } from "./consolidated/planner.js";
+import { worker } from "./consolidated/worker.js";
+import { reviewer } from "./consolidated/reviewer.js";
 
 export const AGENTS: Record<string, AgentDefinition> = {
   [AGENT_NAMES.COMMANDER]: orchestrator,
-  [AGENT_NAMES.ARCHITECT]: architect,
-  [AGENT_NAMES.BUILDER]: builder,
-  [AGENT_NAMES.INSPECTOR]: inspector,
-  [AGENT_NAMES.RECORDER]: recorder,
-  [AGENT_NAMES.LIBRARIAN]: librarian,
-  [AGENT_NAMES.RESEARCHER]: researcher,
+  [AGENT_NAMES.PLANNER]: planner,
+  [AGENT_NAMES.WORKER]: worker,
+  [AGENT_NAMES.REVIEWER]: reviewer,
 };
-

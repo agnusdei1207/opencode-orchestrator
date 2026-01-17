@@ -188,6 +188,10 @@ export class ParallelAgentManager {
         return this.store.getPendingCount(parentSessionID);
     }
 
+    getConcurrency(): ConcurrencyController {
+        return this.concurrency;
+    }
+
     cleanup(): void {
         this.poller.stop();
         this.store.clear();
