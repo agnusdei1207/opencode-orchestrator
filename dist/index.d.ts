@@ -2,11 +2,7 @@
  * OpenCode Orchestrator Plugin
  *
  * This is the main entry point for the 4-Agent consolidated architecture.
- * We've optimized it for better efficiency by using:
- * - XML-structured prompts with clear boundaries
- * - Explicit reasoning patterns (THINK -> ACT -> OBSERVE -> ADJUST)
- * - Evidence-based completion requirements
- * - Autonomous execution loop that keeps going until done
+ * Handlers are modularized in src/plugin-handlers/ for maintainability.
  *
  * The agents are: Commander, Planner, Worker, Reviewer
  */
