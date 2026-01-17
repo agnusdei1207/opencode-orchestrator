@@ -13850,13 +13850,13 @@ var COMMANDS = {
 
 | Agent | Role | Capabilities |
 |-------|------|--------------|
-| **Commander** \u{1F3AF} | Orchestrator | Autonomous mission control, parallel task coordination, never stops until \u2705 MISSION COMPLETE |
-| **Architect** \u{1F3D7}\uFE0F | Strategic Planner | Task decomposition, dependency analysis, parallel group optimization |
-| **Builder** \u{1F528} | Full-Stack Developer | Code implementation, file operations, terminal commands, UI + logic |
-| **Inspector** \u{1F50D} | Quality Assurance | 5-point audit, LSP diagnostics, auto-fix bugs, test verification |
-| **Recorder** \u{1F4BE} | Context Manager | Progress tracking, state persistence, session memory across restarts |
-| **Librarian** \u{1F4DA} | Research Specialist | API documentation lookup, anti-hallucination, cache official docs |
-| **Researcher** \u{1F52C} | Pre-task Analyst | Deep investigation before implementation, gathers all needed info |
+| **${AGENT_NAMES.COMMANDER}** \u{1F3AF} | Orchestrator | Autonomous mission control, parallel task coordination, never stops until \u2705 MISSION COMPLETE |
+| **${AGENT_NAMES.ARCHITECT}** \u{1F3D7}\uFE0F | Strategic Planner | Task decomposition, dependency analysis, parallel group optimization |
+| **${AGENT_NAMES.BUILDER}** \u{1F528} | Full-Stack Developer | Code implementation, file operations, terminal commands, UI + logic |
+| **${AGENT_NAMES.INSPECTOR}** \u{1F50D} | Quality Assurance | 5-point audit, LSP diagnostics, auto-fix bugs, test verification |
+| **${AGENT_NAMES.RECORDER}** \u{1F4BE} | Context Manager | Progress tracking, state persistence, session memory across restarts |
+| **${AGENT_NAMES.LIBRARIAN}** \u{1F4DA} | Research Specialist | API documentation lookup, anti-hallucination, cache official docs |
+| **${AGENT_NAMES.RESEARCHER}** \u{1F52C} | Pre-task Analyst | Deep investigation before implementation, gathers all needed info |
 
 ## \u26A1 Parallel Execution System
 \`\`\`
@@ -13874,14 +13874,14 @@ TRIAGE \u2192 RESEARCH \u2192 DELEGATE \u2192 EXECUTE \u2192 VERIFY \u2192 COMPL
 \`\`\`
 
 ## \u{1F6E1}\uFE0F Anti-Hallucination
-- Librarian researches BEFORE implementation
+- ${AGENT_NAMES.LIBRARIAN} researches BEFORE implementation
 - webfetch caches official documentation
 - Never assumes - always verifies from sources
 
 ## \u{1F4A1} Usage
-- Select **Commander** and type your request
+- Select **${AGENT_NAMES.COMMANDER}** and type your request
 - Or use \`/task "your mission"\` explicitly
-- Commander automatically coordinates all agents`
+- ${AGENT_NAMES.COMMANDER} automatically coordinates all agents`
   }
 };
 function createSlashcommandTool() {
