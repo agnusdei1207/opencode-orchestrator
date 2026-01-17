@@ -160,6 +160,123 @@ PATHS.DOC_METADATA  // ".opencode/docs/_metadata.json"
 - Cancels on user interaction (chat.message)
 - Skips if background tasks running or in recovery
 
+### 🎖️ Mission Seal System (Explicit Completion Detection)
+
+| Component | File | Purpose |
+|-----------|------|---------|
+| `MissionSeal` | `src/core/loop/mission-seal.ts` | Seal detection & loop state |
+| `MissionSealHandler` | `src/core/loop/mission-seal-handler.ts` | Event handling & continuation |
+
+**Completion Tag:**
+```xml
+<mission_seal>SEALED</mission_seal>
+```
+
+**Usage:** Simply use `/task "your mission"` - Mission Seal is automatically active.
+
+**Architecture Diagram:**
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                        🎖️ MISSION SEAL LOOP                                 │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+        /task "Build REST API"
+                │
+                ▼
+┌─────────────────────────────────────────┐
+│  1️⃣ MISSION STARTS                      │
+│  • Loop state created                   │
+│  • iteration = 1, max = 20              │
+│  • State saved: .opencode/loop-state.json│
+└─────────────────────────────────────────┘
+                │
+                ▼
+┌─────────────────────────────────────────┐
+│  2️⃣ AGENT WORKS                         │◄──────────────────┐
+│  • Plans, delegatesexecutes            │                   │
+│  • Updates .opencode/todo.md            │                   │
+│  • Runs tests, builds                   │                   │
+└─────────────────────────────────────────┘                   │
+                │                                              │
+                ▼                                              │
+┌─────────────────────────────────────────┐                   │
+│  3️⃣ SESSION GOES IDLE                   │                   │
+│  • session.idle event fired             │                   │
+│  • MissionSealHandler triggered         │                   │
+└─────────────────────────────────────────┘                   │
+                │                                              │
+                ▼                                              │
+┌─────────────────────────────────────────┐                   │
+│  4️⃣ CHECK FOR SEAL                      │                   │
+│  • Scan last 3 assistant messages       │                   │
+│  • Look for <mission_seal>SEALED</...>  │                   │
+└─────────────────────────────────────────┘                   │
+                │                                              │
+       ┌────────┴────────┐                                     │
+       ▼                 ▼                                     │
+┌─────────────┐   ┌─────────────────────────────┐              │
+│ SEAL FOUND  │   │ NO SEAL                     │              │
+│             │   │                             │              │
+│ ✅ Complete │   │ iteration < max?            │              │
+│ Clear state │   │    ┌─────┴─────┐            │              │
+│ Show toast  │   │    YES         NO           │              │
+└─────────────┘   │    │           │            │              │
+                  │    ▼           ▼            │              │
+                  │ ┌────────┐ ┌───────────┐    │              │
+                  │ │++iter  │ │ MAX LIMIT │    │              │
+                  │ │3s toast│ │ Stop loop │    │              │
+                  │ │Inject  │ │ Notify    │    │              │
+                  │ │continue│ └───────────┘    │              │
+                  │ └───┬────┘                  │              │
+                  └─────┼───────────────────────┘              │
+                        │                                      │
+                        └──────────────────────────────────────┘
+                                    LOOP
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                          STATE FILE (.opencode/loop-state.json)             │
+├─────────────────────────────────────────────────────────────────────────────┤
+│  {                                                                          │
+│    "active": true,                                                          │
+│    "iteration": 3,                                                          │
+│    "maxIterations": 20,                                                     │
+│    "sessionID": "abc123...",                                                │
+│    "prompt": "Build REST API",                                              │
+│    "startedAt": "2026-01-17T15:00:00Z"                                      │
+│  }                                                                          │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+**Continuation Prompt (injected on each iteration):**
+```xml
+<mission_loop iteration="3" max="20">
+📋 **Mission Loop Active** - Iteration 3/20
+
+Your previous iteration did not seal the mission. Continue working.
+
+**RULES**:
+1. Review your progress from the previous iteration
+2. Continue from where you left off
+3. Check TODO list for incomplete items
+4. When ALL work is TRULY complete, output:
+   <mission_seal>SEALED</mission_seal>
+
+**Original Task**: Build REST API
+</mission_loop>
+```
+
+**Constants (`MISSION_SEAL`):**
+```typescript
+TAG: "mission_seal"
+CONFIRMATION: "SEALED"
+PATTERN: "<mission_seal>SEALED</mission_seal>"
+DEFAULT_MAX_ITERATIONS: 20
+DEFAULT_COUNTDOWN_SECONDS: 3
+STOP_COMMAND: "/stop"
+CANCEL_COMMAND: "/cancel"
+```
+
 ### 📣 TaskToastManager (P1 Complete)
 
 | Component | File | Purpose |
@@ -203,9 +320,11 @@ src/
 │   │   └── patterns.ts         # Error pattern definitions
 │   ├── session/                # Shared Context (4 files)
 │   ├── task/                   # Task Decomposer (6 files)
-│   ├── loop/                   # Todo Enforcer + Continuation (6 files)
+│   ├── loop/                   # Todo Enforcer + Continuation + Mission Seal (8 files)
 │   │   ├── todo-enforcer.ts    # Module re-exports
 │   │   ├── todo-continuation.ts # Auto-continue on idle (P2)
+│   │   ├── mission-seal.ts     # Explicit completion detection
+│   │   ├── mission-seal-handler.ts # Seal event handling
 │   │   ├── stats.ts            # Todo statistics
 │   │   └── formatters.ts       # Continuation prompt generation
 │   └── queue/                  # Async Utilities (4 files)
@@ -263,14 +382,17 @@ hooks["event"]:
      - Inject recovery prompt if applicable
      - Return early if recovery initiated
   4. message.updated (assistant) → SessionRecovery.markRecoveryComplete()
-  5. session.idle → TodoContinuation.handleSessionIdle()
-     - Check for incomplete todos
-     - Start 2s countdown if remaining
-     - Inject continuation prompt after countdown
+  5. session.idle → MissionSealHandler or TodoContinuation
+     - If Mission Seal loop active → MissionSealHandler.handleMissionSealIdle()
+       - Check for <mission_seal>SEALED</mission_seal>
+       - If sealed → complete, else → increment iteration, inject continuation
+     - Else → TodoContinuation.handleSessionIdle()
+       - Check for incomplete todos
+       - Start countdown, inject continuation
   6. ParallelAgentManager.handleEvent()
 
 hooks["tool.execute.after"]:
-  1. Check "MISSION COMPLETE" → Toast.presets.missionComplete()
+  1. Check for `<mission_seal>SEALED</mission_seal>` → Toast.presets.missionComplete()
   2. ProgressTracker.recordSnapshot()
   3. Inject CONTINUE_INSTRUCTION
 ```
@@ -390,7 +512,8 @@ This **Master Session Architecture** provides:
 3. **Memory-safe** - Auto GC, disk archiving
 4. **Self-healing** - SessionRecovery for automatic error handling
 5. **Auto-resuming** - TodoContinuation continues incomplete work
-6. **Smart Context** - Shared .opencode/ with adaptive summarization
-7. **Observable** - TaskToastManager for consolidated notifications
+6. **Explicit Completion** - Mission Seal for confirmed task completion
+7. **Smart Context** - Shared .opencode/ with adaptive summarization
+8. **Observable** - TaskToastManager for consolidated notifications
 
 **Enterprise-grade, memory-safe, self-healing distributed agent orchestration with Master Session coordination.**

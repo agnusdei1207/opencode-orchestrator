@@ -36,9 +36,11 @@ import {
     ESCALATION_PROMPT,
 } from "./utils/sanity.js";
 import { webfetchTool, websearchTool, cacheDocsTool, codesearchTool } from "./tools/web/index.js";
-import { MISSION, AGENT_EMOJI, AGENT_NAMES, TOOL_NAMES, TASK_STATUS, PART_TYPES, PROMPTS } from "./shared/constants.js";
+import { MISSION, MISSION_SEAL, AGENT_EMOJI, AGENT_NAMES, TOOL_NAMES, TASK_STATUS, PART_TYPES, PROMPTS } from "./shared/constants.js";
 import * as TodoEnforcer from "./core/loop/todo-enforcer.js";
 import * as TodoContinuation from "./core/loop/todo-continuation.js";
+import * as MissionSealHandler from "./core/loop/mission-seal-handler.js";
+import { detectSealInText, isLoopActive, readLoopState, clearLoopState } from "./core/loop/mission-seal.js";
 import * as Toast from "./core/notification/toast.js";
 import * as ProgressTracker from "./core/progress/tracker.js";
 import * as SessionRecovery from "./core/recovery/session-recovery.js";
@@ -84,7 +86,7 @@ You are ONLY done when:
 - All todos are marked complete or cancelled
 - All features are implemented and tested
 - Final verification passes
-Then output: ✅ MISSION COMPLETE
+Then output: ${MISSION_SEAL.PATTERN}
 </completion_criteria>
 </auto_continue>`;
 
@@ -327,7 +329,7 @@ const OrchestratorPlugin: Plugin = async (input) => {
                 }
             }
 
-            // Session idle - check for todo continuation
+            // Session idle - check for mission seal first, then todo continuation
             if (event.type === "session.idle") {
                 const sessionID = event.properties?.sessionID as string || "";
                 if (sessionID) {
@@ -335,13 +337,25 @@ const OrchestratorPlugin: Plugin = async (input) => {
                     const isMainSession = sessions.has(sessionID);
                     if (isMainSession) {
                         // Give assistant.done a chance to process first
-                        setTimeout(() => {
+                        setTimeout(async () => {
                             const session = sessions.get(sessionID);
                             // Only if session is still active
                             if (session?.active) {
-                                TodoContinuation.handleSessionIdle(client, sessionID, sessionID).catch(err => {
-                                    log("[index.ts] todo-continuation error", err);
-                                });
+                                // Check for mission seal loop first
+                                if (isLoopActive(directory, sessionID)) {
+                                    await MissionSealHandler.handleMissionSealIdle(
+                                        client, directory, sessionID, sessionID
+                                    ).catch(err => {
+                                        log("[index.ts] mission-seal-handler error", err);
+                                    });
+                                } else {
+                                    // Fall back to todo continuation
+                                    await TodoContinuation.handleSessionIdle(
+                                        client, sessionID, sessionID
+                                    ).catch(err => {
+                                        log("[index.ts] todo-continuation error", err);
+                                    });
+                                }
                             }
                         }, 500);
                     }
@@ -551,7 +565,7 @@ const OrchestratorPlugin: Plugin = async (input) => {
         // -----------------------------------------------------------------
         // assistant.done hook - runs when the LLM finishes responding
         // This is the heart of the "relentless loop" - we keep pushing it
-        // to continue until we see MISSION COMPLETE or hit the limit
+        // to continue until we see <mission_seal>SEALED</mission_seal> or hit the limit
         // -----------------------------------------------------------------
         "assistant.done": async (assistantInput: any, assistantOutput: any) => {
             const sessionID = assistantInput.sessionID;
@@ -612,14 +626,21 @@ const OrchestratorPlugin: Plugin = async (input) => {
 
             // =========================================================
             // COMPLETION CHECK
-            // If we see the magic words, we're done!
+            // Check for Mission Seal first (explicit completion), then legacy markers
             // =========================================================
-            if (textContent.includes(MISSION.COMPLETE) || textContent.includes(MISSION.COMPLETE_TEXT)) {
+
+            // Check for Mission Seal: <mission_seal>SEALED</mission_seal>
+            if (detectSealInText(textContent)) {
                 session.active = false;
                 state.missionActive = false;
 
-                // Show mission complete notification
-                Toast.presets.missionComplete("Mission completed successfully");
+                // Clear any active loop state
+                clearLoopState(directory);
+
+                // Show mission sealed notification
+                Toast.presets.missionComplete("🎖️ Mission Sealed - Explicit completion confirmed");
+
+                log("[index.ts] Mission sealed detected", { sessionID });
 
                 // Clear progress tracker
                 ProgressTracker.clearSession(sessionID);

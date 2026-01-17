@@ -4,6 +4,7 @@
 
 import type { Todo } from "./interfaces.js";
 import { getStats, getNextPending } from "./stats.js";
+import { MISSION_SEAL } from "../../shared/constants.js";
 
 /**
  * Format progress string
@@ -67,13 +68,15 @@ export function generateContinuationPrompt(todos: Todo[]): string {
 export function generateCompletionMessage(todos: Todo[]): string {
     const stats = getStats(todos);
 
-    return `✅ **MISSION COMPLETE**
+    return `🎖️ **MISSION SEALED**
 
 📊 **Final Status**:
 - Total Tasks: ${stats.total}
 - Completed: ${stats.completed}
 - Cancelled: ${stats.cancelled}
 - Success Rate: ${stats.percentComplete}%
+
+${MISSION_SEAL.PATTERN}
 
 All tasks have been processed. Mission accomplished!`;
 }

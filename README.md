@@ -109,7 +109,7 @@ Restart OpenCode after installation.
 
 | Mode | Trigger | Behavior |
 |------|---------|----------|
-| **Commander Mode** 🎯 | `/task "mission"` | Full autonomous execution until **MISSION COMPLETE** |
+| **Commander Mode** 🎯 | `/task "mission"` | Full autonomous execution until sealed |
 | **Chat Mode** 💬 | Regular conversation | Simple Q&A, no autonomous behavior |
 
 ---
@@ -125,15 +125,32 @@ Use `/task` when you need the AI to **complete a mission autonomously**:
 ```
 
 **What Commander Mode Does:**
-- ♾️ **Runs until done** — Never stops until "MISSION COMPLETE"
+- ♾️ **Runs until sealed** — Loops until agent outputs `<mission_seal>SEALED</mission_seal>`
 - 🧠 **Anti-Hallucination** — Researches docs before coding
 - ⚡ **Parallel Execution** — Up to 50 concurrent agents
 - 🔄 **Auto-Recovery** — Handles errors automatically
-- 📊 **Trriage System** — Adapts strategy to complexity (L1/L2/L3)
+- 📊 **Triage System** — Adapts strategy to complexity (L1/L2/L3)
+
+**🎖️ Mission Seal Loop:**
+```
+/task "mission" → Agent works → Idle? → Seal found? 
+                       ↑              │
+                       │      No      │ Yes
+                       └──────────────┴──→ ✅ Complete
+```
+
+When the agent finishes ALL work, it outputs:
+```xml
+<mission_seal>SEALED</mission_seal>
+```
+
+**Control Commands:**
+- `/stop` or `/cancel` — Stop the loop manually
+- Max 20 iterations (configurable)
 
 <div align="center">
   <img src="assets/tui_image.png" alt="Commander TUI" width="600" />
-  <p><sub><b>/task "mission"</b> triggers full Commander mode</sub></p>
+  <p><sub><b>/task "mission"</b> triggers full Commander mode with Mission Seal loop</sub></p>
 </div>
 
 ---

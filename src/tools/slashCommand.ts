@@ -1,5 +1,5 @@
 import { tool } from "@opencode-ai/plugin";
-import { AGENT_NAMES, PROMPTS, MISSION } from "../shared/constants.js";
+import { AGENT_NAMES, PROMPTS, MISSION_SEAL } from "../shared/constants.js";;
 import { commander } from "../agents/commander.js";
 
 /**
@@ -27,7 +27,7 @@ $ARGUMENTS
 <execution_rules>
 1. Complete this mission without user intervention
 2. Use your full capabilities: research, implement, verify
-3. Output "${MISSION.COMPLETE}" when done
+3. Output "${MISSION_SEAL.PATTERN}" when done
 </execution_rules>
 </mission>`;
 
@@ -69,7 +69,7 @@ export const COMMANDS: Record<string, { description: string; template: string; a
 
 | Agent | Role | Capabilities |
 |-------|------|--------------|
-| **${AGENT_NAMES.COMMANDER}** 🎯 | Master Orchestrator | Autonomous mission control, parallel task coordination, never stops until ✅ MISSION COMPLETE |
+| **${AGENT_NAMES.COMMANDER}** 🎯 | Master Orchestrator | Autonomous mission control, parallel task coordination, never stops until ${MISSION_SEAL.PATTERN} |
 | **${AGENT_NAMES.PLANNER}** 📋 | Strategic Planner | Task decomposition, research, caching docs, dependency analysis |
 | **${AGENT_NAMES.WORKER}** 🔨 | Implementation | Code, files, terminal, documentation lookup when needed |
 | **${AGENT_NAMES.REVIEWER}** ✅ | Quality & Context | Verification, TODO updates, context management, auto-fix |
