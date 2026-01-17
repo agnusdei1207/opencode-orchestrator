@@ -12,7 +12,3 @@ export { show, dismiss, getActive, getHistory, clear, onToast, initToastClient }
 
 // Re-export presets
 export { presets } from "./presets.js";
-
-// Re-export event integration
-export { enableAutoToasts } from "./event-integration.js";
-

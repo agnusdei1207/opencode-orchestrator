@@ -4,11 +4,10 @@
 
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import * as AutoRecovery from "../../src/core/recovery/auto-recovery";
-import { EventBus } from "../../src/core/bus/index";
 
 describe("AutoRecovery", () => {
     beforeEach(() => {
-        EventBus.clear();
+        // Reset state
     });
 
     describe("handleError", () => {

@@ -2,7 +2,6 @@
  * Recovery Handler - Core error handling logic
  */
 
-import { EventBus, SESSION_EVENTS } from "../bus/index.js";
 import { MAX_RETRIES, BASE_DELAY, MAX_HISTORY } from "./constants.js";
 import { errorPatterns } from "./patterns.js";
 import type { ErrorContext, RecoveryAction, RecoveryRecord, RecoveryStats } from "./interfaces.js";
@@ -38,12 +37,8 @@ export function handleError(context: ErrorContext): RecoveryAction {
                 recoveryHistory.shift();
             }
 
-            // Emit event
-            EventBus.emit(SESSION_EVENTS.ERROR, {
-                sessionId: context.sessionId,
-                category: pattern.category,
-                action: action.type,
-            });
+            // Note: Previously emitted SESSION_EVENTS.ERROR but no subscribers
+            // Error info is already in recoveryHistory
 
             return action;
         }
