@@ -8,6 +8,7 @@ import { ConcurrencyController } from "../concurrency.js";
 import { TaskStore } from "../task-store.js";
 import { log } from "../logger.js";
 import { presets } from "../../notification/presets.js";
+import * as ContextStore from "../../session/store.js";
 import type { ParallelTask } from "../interfaces/parallel-task.interface.js";
 import type { LaunchInput } from "../interfaces/launch-input.interface.js";
 
@@ -62,6 +63,11 @@ export class TaskLauncher {
 
             this.store.set(taskId, task);
             this.store.trackPending(input.parentSessionID, taskId);
+
+            // Create shared context for this session (enables context sharing between agents)
+            ContextStore.create(sessionID, input.parentSessionID);
+            log(`[task-launcher.ts] Created shared context for session ${sessionID}`);
+
             this.startPolling();
 
             this.client.session.prompt({
