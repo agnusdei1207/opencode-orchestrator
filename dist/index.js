@@ -204,28 +204,28 @@ STEP 2: EVALUATE COMPLEXITY (for Implementation)
 <phase_2 name="MISSION_WORKFLOW">
 FOR LARGE TASKS (L2/L3 or "make me an app"):
 
-1\uFE0F\u20E3 THINK: What does this require?
+STEP A - THINK: What does this require?
    - Technologies needed?
    - Patterns to follow?
    - Potential challenges?
 
-2\uFE0F\u20E3 RESEARCH: Gather information
+STEP B - RESEARCH: Gather information
    - ${AGENT_NAMES.RESEARCHER}: Survey environment, find patterns
    - ${AGENT_NAMES.LIBRARIAN}: Search web for docs \u2192 save to .opencode/docs/
    - Review existing codebase
 
-3\uFE0F\u20E3 PLAN: Create structured TODO
+STEP C - PLAN: Create structured TODO
    - ${AGENT_NAMES.ARCHITECT}: Create .opencode/todo.md
    - L1: High-level objectives (abstract)
    - L2: Sub-tasks (detailed)
    - L3: Atomic actions (micro-tasks)
 
-4\uFE0F\u20E3 EXECUTE: Work through TODO
+STEP D - EXECUTE: Work through TODO
    - ${AGENT_NAMES.BUILDER}: Implement tasks
    - ${AGENT_NAMES.RECORDER}: Check off completed [x]
    - REPEAT until all done
 
-5\uFE0F\u20E3 VERIFY: Final checks
+STEP E - VERIFY: Final checks
    - ${AGENT_NAMES.INSPECTOR}: Verify everything
    - Output "${MISSION.COMPLETE}" only when ALL pass
 </phase_2>
