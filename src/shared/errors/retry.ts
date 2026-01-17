@@ -2,17 +2,18 @@
  * Error Retry Logic
  */
 
-import type { ErrorPatternType } from "./patterns.js";
+import { ERROR_TYPE, type ErrorPatternType } from "./patterns.js";
+import { RECOVERY } from "../recovery/constants/recovery.js";
 
 export function isRetryableError(errorType: ErrorPatternType | null): boolean {
     if (!errorType) return false;
 
     const RETRYABLE: ErrorPatternType[] = [
-        "TOOL_RESULT_MISSING",
-        "THINKING_BLOCK_ORDER",
-        "THINKING_DISABLED",
-        "RATE_LIMIT",
-        "NETWORK_ERROR",
+        ERROR_TYPE.TOOL_RESULT_MISSING,
+        ERROR_TYPE.THINKING_BLOCK_ORDER,
+        ERROR_TYPE.THINKING_DISABLED,
+        ERROR_TYPE.RATE_LIMIT,
+        ERROR_TYPE.NETWORK_ERROR,
     ];
 
     return RETRYABLE.includes(errorType);
@@ -22,23 +23,24 @@ export function shouldAbortOnError(errorType: ErrorPatternType | null): boolean 
     if (!errorType) return false;
 
     const ABORT_ERRORS: ErrorPatternType[] = [
-        "MESSAGE_ABORTED",
-        "AUTH_ERROR",
+        ERROR_TYPE.MESSAGE_ABORTED,
+        ERROR_TYPE.AUTH_ERROR,
     ];
 
     return ABORT_ERRORS.includes(errorType);
 }
 
 export function getRetryDelay(errorType: ErrorPatternType | null, attempt: number): number {
-    const baseDelay = 1000;
-    const multiplier = Math.min(attempt, 5);
+    const baseDelay = RECOVERY.BASE_DELAY_MS;
+    const multiplier = Math.min(attempt, RECOVERY.MAX_RETRY_MULTIPLIER);
 
     switch (errorType) {
-        case "RATE_LIMIT":
+        case ERROR_TYPE.RATE_LIMIT:
             return baseDelay * multiplier * 5;
-        case "NETWORK_ERROR":
+        case ERROR_TYPE.NETWORK_ERROR:
             return baseDelay * multiplier * 2;
         default:
             return baseDelay * multiplier;
     }
 }
+

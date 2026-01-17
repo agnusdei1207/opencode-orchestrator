@@ -2,7 +2,7 @@
  * Commander Tools Overview
  */
 
-import { TOOL_NAMES } from "../../../shared/constants.js";
+import { TOOL_NAMES } from "../../../shared/index.js";
 
 export const COMMANDER_TOOLS = `<tools>
 | Tool | Purpose | When |

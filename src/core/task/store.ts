@@ -4,7 +4,7 @@
 
 import type { TaskNode, TaskHierarchy, TaskInput, TaskStatus, TaskProgress } from "./interfaces.js";
 import { TASK_STATUS } from "./interfaces.js";
-import { ID_PREFIX } from "../../shared/constants.js";
+import { ID_PREFIX } from "../../shared/index.js";
 
 // Store task hierarchies by session
 const hierarchies = new Map<string, TaskHierarchy>();

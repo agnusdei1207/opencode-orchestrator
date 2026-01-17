@@ -1,5 +1,5 @@
 import { tool } from "@opencode-ai/plugin";
-import { AGENT_NAMES, PROMPTS, MISSION_SEAL } from "../shared/constants.js";;
+import { AGENT_NAMES, PROMPTS, MISSION_SEAL } from "../shared/index.js";;
 import { commander } from "../agents/commander.js";
 
 /**

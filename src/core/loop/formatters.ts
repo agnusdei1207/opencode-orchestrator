@@ -4,7 +4,7 @@
 
 import type { Todo } from "./interfaces.js";
 import { getStats, getNextPending } from "./stats.js";
-import { MISSION_SEAL, TODO_STATUS } from "../../shared/constants.js";
+import { MISSION_SEAL, TODO_STATUS } from "../../shared/index.js";
 
 /**
  * Format progress string

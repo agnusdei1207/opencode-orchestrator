@@ -8,7 +8,8 @@
  * - Reviewer: Verification + Context Management
  */
 
-import { AgentDefinition, AGENT_NAMES } from "../shared/agent.js";
+import { AGENT_NAMES } from "../shared/agent/constants/index.js";
+import type { AgentDefinition } from "../shared/agent/interfaces/index.js";
 import { commander } from "./commander.js";
 import { planner } from "./subagents/planner.js";
 import { worker } from "./subagents/worker.js";

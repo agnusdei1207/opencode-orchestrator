@@ -2,7 +2,7 @@
  * Worker Quality Checklist
  */
 
-import { AGENT_NAMES } from "../../../shared/constants.js";
+import { AGENT_NAMES } from "../../../shared/index.js";
 
 export const WORKER_QUALITY = `<quality_checklist>
 BEFORE REPORTING COMPLETE:

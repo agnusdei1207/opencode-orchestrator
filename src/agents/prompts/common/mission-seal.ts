@@ -4,7 +4,7 @@
  * Requirements for completing and sealing a mission.
  */
 
-import { AGENT_NAMES, MISSION_SEAL } from "../../../shared/constants.js";
+import { AGENT_NAMES, MISSION_SEAL } from "../../../shared/index.js";
 
 export const MISSION_SEAL_RULES = `<mission_seal>
  MISSION COMPLETION SEAL

@@ -4,7 +4,7 @@
 
 import { tool } from "@opencode-ai/plugin";
 import { backgroundTaskManager, type BackgroundTask } from "../../core/commands/index.js";
-import { BACKGROUND_STATUS, FILTER_STATUS } from "../../shared/constants.js";
+import { BACKGROUND_STATUS, FILTER_STATUS } from "../../shared/index.js";
 
 export const listBackgroundTool = tool({
     description: `List all background tasks and their status.`,

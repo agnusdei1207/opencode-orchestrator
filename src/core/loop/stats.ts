@@ -3,7 +3,7 @@
  */
 
 import type { Todo, TodoStats } from "./interfaces.js";
-import { TODO_STATUS } from "../../shared/constants.js";
+import { TODO_STATUS } from "../../shared/index.js";
 
 /**
  * Get count of incomplete todos

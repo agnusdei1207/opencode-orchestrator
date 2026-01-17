@@ -12,7 +12,7 @@ import { log } from "../core/agents/logger.js";
 import { state } from "../core/orchestrator/index.js";
 import { checkOutputSanity, RECOVERY_PROMPT, ESCALATION_PROMPT } from "../utils/sanity.js";
 import { formatTimestamp, formatElapsedTime } from "../utils/common.js";
-import { MISSION, MISSION_SEAL, PART_TYPES, PROMPTS } from "../shared/constants.js";
+import { MISSION, MISSION_SEAL, PART_TYPES, PROMPTS } from "../shared/index.js";
 import { detectSealInText, isLoopActive, clearLoopState } from "../core/loop/mission-seal.js";
 import * as Toast from "../core/notification/toast.js";
 import * as ProgressTracker from "../core/progress/tracker.js";

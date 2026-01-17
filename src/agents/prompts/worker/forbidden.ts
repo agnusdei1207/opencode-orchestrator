@@ -2,7 +2,7 @@
  * Worker Forbidden Actions
  */
 
-import { AGENT_NAMES } from "../../../shared/constants.js";
+import { AGENT_NAMES } from "../../../shared/index.js";
 
 export const WORKER_FORBIDDEN = `<forbidden_actions>
 NEVER guess API syntax - check .opencode/docs/ first

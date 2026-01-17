@@ -4,7 +4,7 @@
 
 import { tool } from "@opencode-ai/plugin";
 import { ParallelAgentManager, type ParallelTask } from "../../core/agents/index.js";
-import { getStatusEmoji, TASK_STATUS } from "../../shared/constants.js";
+import { getStatusEmoji, TASK_STATUS } from "../../shared/index.js";
 
 export const createListTasksTool = (manager: ParallelAgentManager) => tool({
     description: `List all background tasks.`,

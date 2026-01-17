@@ -7,7 +7,7 @@
 
 import { tool } from "@opencode-ai/plugin";
 import * as DocumentCache from "../../core/cache/document-cache.js";
-import { PATHS } from "../../shared/constants.js";
+import { PATHS } from "../../shared/index.js";
 
 // Simple HTML to Markdown converter
 function htmlToMarkdown(html: string): string {

@@ -8,4 +8,4 @@ export type { TaskProgress } from "./task-progress.js";
 export type { TaskInput } from "./task-input.js";
 
 // Re-export TASK_STATUS from constants
-export { TASK_STATUS } from "../../../shared/constants.js";
+export { TASK_STATUS } from "../../../shared/index.js";

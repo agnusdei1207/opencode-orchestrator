@@ -2,7 +2,7 @@
  * Reviewer Forbidden Actions
  */
 
-import { AGENT_NAMES } from "../../../shared/constants.js";
+import { AGENT_NAMES } from "../../../shared/index.js";
 
 export const REVIEWER_FORBIDDEN = `<forbidden_actions>
 NEVER approve without running tests

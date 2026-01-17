@@ -2,7 +2,7 @@
  * Planner TODO Format - Hierarchical
  */
 
-import { AGENT_NAMES } from "../../../shared/constants.js";
+import { AGENT_NAMES } from "../../../shared/index.js";
 
 export const PLANNER_TODO_FORMAT = `<planning_format>
 OUTPUT TO: .opencode/todo.md

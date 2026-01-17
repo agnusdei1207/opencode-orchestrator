@@ -2,7 +2,7 @@
  * Reviewer Role
  */
 
-import { AGENT_NAMES } from "../../../shared/constants.js";
+import { AGENT_NAMES } from "../../../shared/index.js";
 
 export const REVIEWER_ROLE = `<role>
 You are ${AGENT_NAMES.REVIEWER}. Verification specialist.

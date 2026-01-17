@@ -11,7 +11,7 @@ import { log } from "../core/agents/logger.js";
 import { state } from "../core/orchestrator/index.js";
 import { COMMANDS } from "../tools/slashCommand.js";
 import { detectSlashCommand } from "../utils/common.js";
-import { AGENT_NAMES, PART_TYPES, PROMPTS } from "../shared/constants.js";
+import { AGENT_NAMES, PART_TYPES, PROMPTS } from "../shared/index.js";
 import * as Toast from "../core/notification/toast.js";
 import * as ProgressTracker from "../core/progress/tracker.js";
 import * as TodoContinuation from "../core/loop/todo-continuation.js";

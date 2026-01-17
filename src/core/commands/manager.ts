@@ -6,7 +6,7 @@
 
 import { spawn } from "child_process";
 import { randomBytes } from "crypto";
-import { ID_PREFIX, getStatusEmoji } from "../../shared/constants.js";
+import { ID_PREFIX, getStatusEmoji } from "../../shared/index.js";
 import type { BackgroundTask } from "./interfaces/background-task.js";
 import type { BackgroundTaskStatus } from "./types/background-task-status.js";
 import type { RunBackgroundOptions } from "./interfaces/run-background-options.js";

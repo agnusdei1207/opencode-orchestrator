@@ -3,7 +3,7 @@
  */
 
 import { getMerged } from "./store.js";
-import { PATHS } from "../../shared/constants.js";
+import { PATHS } from "../../shared/index.js";
 
 /**
  * Get context summary for injection into prompts

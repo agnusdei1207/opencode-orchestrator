@@ -2,7 +2,7 @@
  * Reviewer Output Format
  */
 
-import { AGENT_NAMES } from "../../../shared/constants.js";
+import { AGENT_NAMES } from "../../../shared/index.js";
 
 export const REVIEWER_OUTPUT = `<output_format>
 VERIFICATION: T[N]

@@ -2,7 +2,7 @@
  * Commander Execution Strategy
  */
 
-import { AGENT_NAMES, MISSION_SEAL, TOOL_NAMES } from "../../../shared/constants.js";
+import { AGENT_NAMES, MISSION_SEAL, TOOL_NAMES } from "../../../shared/index.js";
 
 export const COMMANDER_EXECUTION = `<execution_strategy>
 ## Phase 0: ENVIRONMENT DISCOVERY (Never skip!)

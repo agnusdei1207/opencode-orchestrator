@@ -2,7 +2,7 @@
  * Commander Agent Delegation
  */
 
-import { AGENT_NAMES } from "../../../shared/constants.js";
+import { AGENT_NAMES } from "../../../shared/index.js";
 
 export const COMMANDER_AGENTS = `<agents>
 | Agent | Role | Delegate For |

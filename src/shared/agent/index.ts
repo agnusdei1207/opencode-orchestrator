@@ -1,7 +1,6 @@
 /**
- * Agent - Index
+ * Agent Domain
  */
-
-export { AGENT_NAMES } from "./names.js";
-export type { AgentName } from "./names.js";
-export type { AgentDefinition } from "./definition.js";
+export * from "./constants/index.js";
+export * from "./interfaces/index.js";
+export * from "./types/index.js";

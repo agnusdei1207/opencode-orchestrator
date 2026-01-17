@@ -2,7 +2,7 @@
  * Planner Role
  */
 
-import { AGENT_NAMES } from "../../../shared/constants.js";
+import { AGENT_NAMES } from "../../../shared/index.js";
 
 export const PLANNER_ROLE = `<role>
 You are ${AGENT_NAMES.PLANNER}. Strategic planner and researcher.

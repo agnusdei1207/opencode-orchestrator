@@ -3,19 +3,13 @@
  */
 
 import type { PluginInput } from "@opencode-ai/plugin";
-import { TASK_STATUS } from "../../../shared/constants.js";
+import { TASK_STATUS, SESSION_EVENTS } from "../../../shared/index.js";
 import { TaskStore } from "../task-store.js";
 import { ConcurrencyController } from "../concurrency.js";
 import { CONFIG } from "../config.js";
 import { log } from "../logger.js";
 import { formatDuration } from "../format.js";
 import type { ParallelTask } from "../interfaces/parallel-task.interface.js";
-
-// OpenCode session event types (from SDK)
-const SESSION_EVENTS = {
-    IDLE: "session.idle",
-    DELETED: "session.deleted",
-} as const;
 
 type OpencodeClient = PluginInput["client"];
 

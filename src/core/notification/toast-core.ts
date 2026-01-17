@@ -5,6 +5,7 @@
 
 import type { ToastMessage, ToastOptions, ToastVariant } from "./types.js";
 import type { PluginInput } from "@opencode-ai/plugin";
+import { HISTORY, TOAST_DURATION } from "../../shared/index.js";
 
 type OpencodeClient = PluginInput["client"];
 
@@ -20,7 +21,6 @@ export function initToastClient(client: OpencodeClient): void {
 
 // Toast history
 const toasts: ToastMessage[] = [];
-const MAX_HISTORY = 50;
 
 // Notification handlers
 const handlers: Array<(toast: ToastMessage) => void> = [];
@@ -51,7 +51,7 @@ export function show(options: ToastOptions): ToastMessage {
     };
 
     toasts.push(toast);
-    if (toasts.length > MAX_HISTORY) {
+    if (toasts.length > HISTORY.MAX_TOAST) {
         toasts.shift();
     }
 

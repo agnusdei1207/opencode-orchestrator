@@ -11,7 +11,7 @@ import { log } from "../core/agents/logger.js";
 import { state } from "../core/orchestrator/index.js";
 import { checkOutputSanity, RECOVERY_PROMPT, ESCALATION_PROMPT } from "../utils/sanity.js";
 import { formatTimestamp, formatElapsedTime } from "../utils/common.js";
-import { TOOL_NAMES, AGENT_EMOJI } from "../shared/constants.js";
+import { TOOL_NAMES, AGENT_EMOJI, TOOL_OUTPUT } from "../shared/index.js";
 import type { ToolExecuteHandlerContext } from "./interfaces/index.js";
 
 export type { ToolExecuteHandlerContext } from "./interfaces/index.js";
@@ -56,8 +56,8 @@ export function createToolExecuteAfterHandler(ctx: ToolExecuteHandlerContext) {
                 if (stateSession.anomalyCount > 0) {
                     stateSession.anomalyCount = 0;
                 }
-                if (toolOutput.output.length < 5000) {
-                    stateSession.lastHealthyOutput = toolOutput.output.substring(0, 1000);
+                if (toolOutput.output.length < TOOL_OUTPUT.SMALL_OUTPUT_THRESHOLD) {
+                    stateSession.lastHealthyOutput = toolOutput.output.substring(0, TOOL_OUTPUT.MAX_HEALTHY_OUTPUT_LENGTH);
                 }
             }
         }

@@ -10,7 +10,7 @@ import { log } from "../logger.js";
 import { formatDuration } from "../format.js";
 import { presets } from "../../notification/presets.js";
 import type { ParallelTask } from "../interfaces/parallel-task.interface.js";
-import { TASK_STATUS, PART_TYPES } from "../../../shared/constants.js";
+import { TASK_STATUS, PART_TYPES } from "../../../shared/index.js";
 
 type OpencodeClient = PluginInput["client"];
 

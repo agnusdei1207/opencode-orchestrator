@@ -4,7 +4,7 @@
 
 import type { TaskNode } from "./interfaces.js";
 import { getHierarchy } from "./store.js";
-import { TASK_STATUS } from "../../shared/constants.js";
+import { TASK_STATUS } from "../../shared/index.js";
 
 /**
  * Get next executable tasks (respecting dependencies)

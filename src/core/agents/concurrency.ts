@@ -7,7 +7,7 @@
  * - Model-specific limits (e.g., anthropic/claude-3-5-sonnet)
  */
 
-import { PARALLEL_TASK } from "../../shared/constants.js";
+import { PARALLEL_TASK } from "../../shared/index.js";
 import type { ConcurrencyConfig } from "./interfaces/concurrency-config.interface.js";
 
 // Re-export interface
