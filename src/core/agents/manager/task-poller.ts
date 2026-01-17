@@ -8,6 +8,7 @@ import { ConcurrencyController } from "../concurrency.js";
 import { CONFIG } from "../config.js";
 import { log } from "../logger.js";
 import { formatDuration } from "../format.js";
+import { presets } from "../../notification/presets.js";
 import type { ParallelTask } from "../interfaces/parallel-task.interface.js";
 import { TASK_STATUS, PART_TYPES } from "../../../shared/constants.js";
 
@@ -112,7 +113,12 @@ export class TaskPoller {
         await this.notifyParentIfAllComplete(task.parentSessionID);
         this.scheduleCleanup(task.id);
 
-        log(`Completed ${task.id} (${formatDuration(task.startedAt, task.completedAt)})`);
+        const duration = formatDuration(task.startedAt, task.completedAt);
+
+        // Show UI notification
+        presets.sessionCompleted(task.sessionID, duration);
+
+        log(`Completed ${task.id} (${duration})`);
     }
 
     private async updateTaskProgress(task: ParallelTask): Promise<void> {

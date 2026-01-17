@@ -14290,6 +14290,182 @@ Use \`get_task_result({ taskId: "task_xxx" })\` to retrieve results.
 </system-notification>`;
 }
 
+// src/core/notification/toast-core.ts
+var tuiClient = null;
+function initToastClient(client) {
+  tuiClient = client;
+}
+var toasts = [];
+var MAX_HISTORY = 50;
+var handlers = [];
+function show(options) {
+  const toast = {
+    id: `toast_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+    title: options.title,
+    message: options.message,
+    variant: options.variant || "info",
+    timestamp: /* @__PURE__ */ new Date(),
+    duration: options.duration ?? 5e3,
+    dismissed: false
+  };
+  toasts.push(toast);
+  if (toasts.length > MAX_HISTORY) {
+    toasts.shift();
+  }
+  for (const handler of handlers) {
+    try {
+      handler(toast);
+    } catch (error45) {
+    }
+  }
+  if (tuiClient) {
+    const client = tuiClient;
+    if (client.tui?.showToast) {
+      client.tui.showToast({
+        body: {
+          title: toast.title,
+          message: toast.message,
+          variant: toast.variant,
+          duration: toast.duration
+        }
+      }).catch(() => {
+      });
+    }
+  }
+  return toast;
+}
+
+// src/core/notification/presets.ts
+var presets = {
+  // =========================================
+  // Task Lifecycle
+  // =========================================
+  taskStarted: (taskId, agent) => show({
+    title: "\u26A1 Task Started",
+    message: `${agent}: ${taskId}`,
+    variant: "info",
+    duration: 3e3
+  }),
+  taskCompleted: (taskId, agent) => show({
+    title: "\u2705 Task Completed",
+    message: `${agent}: ${taskId}`,
+    variant: "success",
+    duration: 3e3
+  }),
+  taskFailed: (taskId, error45) => show({
+    title: "\u274C Task Failed",
+    message: `${taskId}: ${error45}`,
+    variant: "error",
+    duration: 0
+    // Persistent
+  }),
+  allTasksComplete: (count) => show({
+    title: "\u{1F389} All Tasks Complete",
+    message: `${count} tasks finished successfully`,
+    variant: "success",
+    duration: 5e3
+  }),
+  // =========================================
+  // Session Management
+  // =========================================
+  sessionCreated: (sessionId, agent) => show({
+    title: "\u{1F4CC} Session Created",
+    message: `${agent} \u2192 ${sessionId.slice(0, 12)}...`,
+    variant: "info",
+    duration: 2e3
+  }),
+  sessionResumed: (sessionId, agent) => show({
+    title: "\u{1F504} Session Resumed",
+    message: `${agent} \u2192 ${sessionId.slice(0, 12)}...`,
+    variant: "info",
+    duration: 2e3
+  }),
+  sessionCompleted: (sessionId, duration3) => show({
+    title: "\u2705 Session Completed",
+    message: `${sessionId.slice(0, 12)}... (${duration3})`,
+    variant: "success",
+    duration: 3e3
+  }),
+  // =========================================
+  // Parallel Processing
+  // =========================================
+  parallelTasksLaunched: (count, agents) => show({
+    title: "\u{1F680} Parallel Tasks Launched",
+    message: `${count} tasks: ${agents.join(", ")}`,
+    variant: "info",
+    duration: 4e3
+  }),
+  concurrencyAcquired: (agent, slot) => show({
+    title: "\u{1F512} Concurrency Slot",
+    message: `${agent} acquired ${slot}`,
+    variant: "info",
+    duration: 2e3
+  }),
+  concurrencyReleased: (agent) => show({
+    title: "\u{1F513} Slot Released",
+    message: agent,
+    variant: "info",
+    duration: 1500
+  }),
+  // =========================================
+  // Mission & Progress
+  // =========================================
+  missionComplete: (summary) => show({
+    title: "\u{1F389} Mission Complete",
+    message: summary,
+    variant: "success",
+    duration: 0
+  }),
+  missionStarted: (description) => show({
+    title: "\u{1F3AF} Mission Started",
+    message: description.slice(0, 100),
+    variant: "info",
+    duration: 4e3
+  }),
+  // =========================================
+  // Tools & Research
+  // =========================================
+  toolExecuted: (toolName, target) => show({
+    title: `\u{1F527} ${toolName}`,
+    message: target.slice(0, 80),
+    variant: "info",
+    duration: 2e3
+  }),
+  documentCached: (filename) => show({
+    title: "\u{1F4C4} Document Cached",
+    message: `.cache/docs/${filename}`,
+    variant: "info",
+    duration: 2e3
+  }),
+  researchStarted: (topic) => show({
+    title: "\u{1F52C} Research Started",
+    message: topic,
+    variant: "info",
+    duration: 3e3
+  }),
+  // =========================================
+  // Warnings & Errors
+  // =========================================
+  warningRateLimited: () => show({
+    title: "\u26A0\uFE0F Rate Limited",
+    message: "Waiting before retry...",
+    variant: "warning",
+    duration: 5e3
+  }),
+  errorRecovery: (action) => show({
+    title: "\u26A0\uFE0F Error Recovery",
+    message: `Attempting: ${action}`,
+    variant: "warning",
+    duration: 3e3
+  }),
+  warningMaxDepth: (depth) => show({
+    title: "\u26A0\uFE0F Max Depth Reached",
+    message: `Recursion blocked at depth ${depth}`,
+    variant: "warning",
+    duration: 5e3
+  })
+};
+
 // src/core/agents/manager/task-launcher.ts
 var TaskLauncher = class {
   constructor(client, directory, store, concurrency, onTaskError, startPolling) {
@@ -14350,6 +14526,7 @@ var TaskLauncher = class {
         log2(`Prompt error for ${taskId}:`, error45);
         this.onTaskError(taskId, error45);
       });
+      presets.sessionCreated(sessionID, input.agent);
       log2(`Launched ${taskId} in session ${sessionID}`);
       return task;
     } catch (error45) {
@@ -14495,7 +14672,9 @@ var TaskPoller = class {
     this.store.queueNotification(task);
     await this.notifyParentIfAllComplete(task.parentSessionID);
     this.scheduleCleanup(task.id);
-    log2(`Completed ${task.id} (${formatDuration(task.startedAt, task.completedAt)})`);
+    const duration3 = formatDuration(task.startedAt, task.completedAt);
+    presets.sessionCompleted(task.sessionID, duration3);
+    log2(`Completed ${task.id} (${duration3})`);
   }
   async updateTaskProgress(task) {
     try {
@@ -16135,110 +16314,6 @@ ${r.content}
     return output;
   }
 });
-
-// src/core/notification/toast-core.ts
-var tuiClient = null;
-function initToastClient(client) {
-  tuiClient = client;
-}
-var toasts = [];
-var MAX_HISTORY = 50;
-var handlers = [];
-function show(options) {
-  const toast = {
-    id: `toast_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
-    title: options.title,
-    message: options.message,
-    variant: options.variant || "info",
-    timestamp: /* @__PURE__ */ new Date(),
-    duration: options.duration ?? 5e3,
-    dismissed: false
-  };
-  toasts.push(toast);
-  if (toasts.length > MAX_HISTORY) {
-    toasts.shift();
-  }
-  for (const handler of handlers) {
-    try {
-      handler(toast);
-    } catch (error45) {
-    }
-  }
-  if (tuiClient) {
-    const client = tuiClient;
-    if (client.tui?.showToast) {
-      client.tui.showToast({
-        body: {
-          title: toast.title,
-          message: toast.message,
-          variant: toast.variant,
-          duration: toast.duration
-        }
-      }).catch(() => {
-      });
-    }
-  }
-  return toast;
-}
-
-// src/core/notification/presets.ts
-var presets = {
-  taskStarted: (taskId, agent) => show({
-    title: "Task Started",
-    message: `${agent}: ${taskId}`,
-    variant: "info",
-    duration: 3e3
-  }),
-  taskCompleted: (taskId, agent) => show({
-    title: "Task Completed",
-    message: `${agent}: ${taskId}`,
-    variant: "success",
-    duration: 3e3
-  }),
-  taskFailed: (taskId, error45) => show({
-    title: "Task Failed",
-    message: `${taskId}: ${error45}`,
-    variant: "error",
-    duration: 0
-    // Persistent
-  }),
-  allTasksComplete: (count) => show({
-    title: "All Tasks Complete",
-    message: `${count} tasks finished successfully`,
-    variant: "success",
-    duration: 5e3
-  }),
-  missionComplete: (summary) => show({
-    title: "\u{1F389} Mission Complete",
-    message: summary,
-    variant: "success",
-    duration: 0
-  }),
-  documentCached: (filename) => show({
-    title: "Document Cached",
-    message: `.cache/docs/${filename}`,
-    variant: "info",
-    duration: 2e3
-  }),
-  researchStarted: (topic) => show({
-    title: "Research Started",
-    message: topic,
-    variant: "info",
-    duration: 3e3
-  }),
-  warningRateLimited: () => show({
-    title: "Rate Limited",
-    message: "Waiting before retry...",
-    variant: "warning",
-    duration: 5e3
-  }),
-  errorRecovery: (action) => show({
-    title: "Error Recovery",
-    message: `Attempting: ${action}`,
-    variant: "warning",
-    duration: 3e3
-  })
-};
 
 // src/core/notification/event-integration.ts
 function enableAutoToasts() {

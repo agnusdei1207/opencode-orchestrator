@@ -9,6 +9,7 @@ import { tool } from "@opencode-ai/plugin";
 import { ParallelAgentManager } from "../../core/agents/index.js";
 import { PARALLEL_TASK, PART_TYPES } from "../../shared/constants.js";
 import { log } from "../../core/agents/logger.js";
+import { presets } from "../../core/notification/presets.js";
 
 export const createDelegateTaskTool = (manager: ParallelAgentManager, client: unknown) => tool({
     description: `Delegate a task to an agent.

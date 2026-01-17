@@ -7,6 +7,7 @@ import { ID_PREFIX, TASK_STATUS, PART_TYPES } from "../../../shared/constants.js
 import { ConcurrencyController } from "../concurrency.js";
 import { TaskStore } from "../task-store.js";
 import { log } from "../logger.js";
+import { presets } from "../../notification/presets.js";
 import type { ParallelTask } from "../interfaces/parallel-task.interface.js";
 import type { LaunchInput } from "../interfaces/launch-input.interface.js";
 
@@ -80,6 +81,9 @@ export class TaskLauncher {
                 log(`Prompt error for ${taskId}:`, error);
                 this.onTaskError(taskId, error);
             });
+
+            // Show UI notification
+            presets.sessionCreated(sessionID, input.agent);
 
             log(`Launched ${taskId} in session ${sessionID}`);
             return task;
