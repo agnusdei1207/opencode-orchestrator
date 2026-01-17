@@ -28,70 +28,202 @@ Multi-agent system that autonomously executes complex tasks. Commander delegates
 
 ---
 
-## 🏛️ Master Session Architecture
+## 🏛️ Architecture Overview
+
+### 🚀 User Flow Architecture
 
 ```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                           👤 USER REQUEST                                   │
-│                        "/task Build a REST API"                             │
-└─────────────────────────────────────────────────────────────────────────────┘
-                                     │
-                                     ▼
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                    🎯 MASTER SESSION (Commander Agent)                      │
-│                                                                             │
-│  ┌───────────────────────────────────────────────────────────────────────┐  │
-│  │ 1️⃣ THINK     → Analyze request, assess complexity (L1/L2/L3)         │  │
-│  │ 2️⃣ PLAN      → Create .opencode/todo.md via Planner                  │  │
-│  │ 3️⃣ DELEGATE  → Spawn Worker Sessions via delegate_task              │  │
-│  │ 4️⃣ MONITOR   → Watch .opencode/ for progress, handle completions     │  │
-│  └───────────────────────────────────────────────────────────────────────┘  │
-│                                                                             │
-│  ┌─────────────────┐  ┌─────────────────────────────────────────────────┐  │
-│  │  Session State  │  │               4 CONSOLIDATED AGENTS             │  │
-│  │  Map<id,state>  │  │  🎯 Commander  📋 Planner                       │  │
-│  └─────────────────┘  │  🔨 Worker     ✅ Reviewer                       │  │
-│                       └─────────────────────────────────────────────────┘  │
-│  ┌─────────────────┐
-│  │  Plugin Hooks   │                                                       │
-│  │  event          │  ┌─────────────────────────────────────────────────┐  │
-│  │  chat.message   │  │ 🔄 SessionRecovery (auto error handling)        │  │
-│  │  tool.execute   │  │ 📋 TodoContinuation (auto-resume on idle)       │  │
-│  └─────────────────┘  │ 📣 TaskToastManager (consolidated notifications)│  │
-│                       └─────────────────────────────────────────────────┘  │
-└─────────────────────────────────────────────────────────────────────────────┘
-                                     │
-                        delegate_task (async)
-                                     │
-           ┌─────────────────────────┼─────────────────────────┐
-           ▼                         ▼                         ▼
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                              👤 USER REQUEST                                    │
+│                           /task "Build a REST API"                              │
+└─────────────────────────────────────────────────────────────────────────────────┘
+                                       │
+                                       ▼
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                    chat.message-handler.ts                                      │
+│  ┌────────────────────────────────────────────────────────────────────────────┐ │
+│  │ 1. Detect /task command                                                    │ │
+│  │ 2. Create SessionState in sessions Map                                     │ │
+│  │ 3. Call startMissionLoop() → Write .opencode/loop-state.json               │ │
+│  │ 4. Apply mission template + Inject prompt to Commander                     │ │
+│  └────────────────────────────────────────────────────────────────────────────┘ │
+└─────────────────────────────────────────────────────────────────────────────────┘
+                                       │
+                                       ▼
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                       🎯 MASTER SESSION (Commander)                             │
+│                                                                                 │
+│    ┌─────────────┐    ┌─────────────┐    ┌─────────────┐    ┌─────────────┐    │
+│    │  1️⃣ THINK   │───▶│  2️⃣ PLAN   │───▶│ 3️⃣ DELEGATE │───▶│ 4️⃣ MONITOR  │    │
+│    │  Analyze    │    │  Create     │    │  Spawn      │    │  Watch      │    │
+│    │  request    │    │  TODO.md    │    │  Workers    │    │  progress   │    │
+│    └─────────────┘    └─────────────┘    └─────────────┘    └─────────────┘    │
+│                                                                                 │
+│    Core Systems Active:                                                         │
+│    • 🔄 SessionRecovery (auto error handling)                                   │
+│    • 📋 TodoContinuation (auto-resume on idle)                                  │
+│    • 🎖️ MissionSealHandler (completion detection)                               │
+│    • 📣 TaskToastManager (consolidated notifications)                           │
+└─────────────────────────────────────────────────────────────────────────────────┘
+                                       │
+                          delegate_task (background: true)
+                                       │
+            ┌──────────────────────────┼──────────────────────────┐
+            ▼                          ▼                          ▼
+┌────────────────────┐   ┌────────────────────┐   ┌────────────────────┐
+│ ⚡ Worker Session 1 │   │ ⚡ Worker Session 2 │   │ ⚡ Worker Session N │
+│    Agent: Planner  │   │    Agent: Worker   │   │   Agent: Reviewer  │
+├────────────────────┤   ├────────────────────┤   ├────────────────────┤
+│ • Independent exec │   │ • Independent exec │   │ • Read/Write       │
+│ • Read/Write       │   │ • Read/Write       │   │   .opencode/       │
+│   .opencode/       │   │   .opencode/       │   │ • Notify parent    │
+│ • Notify parent    │   │ • Notify parent    │   │   on complete      │
+│   on complete      │   │   on complete      │   └────────────────────┘
+└────────────────────┘   └────────────────────┘
+            │                          │                          │
+            └──────────────────────────┼──────────────────────────┘
+                                       ▼
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                        📁 SHARED CONTEXT (.opencode/)                           │
+│                                                                                 │
+│   todo.md ◄── Planner creates │ Worker implements │ Reviewer checks ──▶ [x]    │
+│                                                                                 │
+│   ⚡ All sessions read/write this shared workspace                              │
+│   📊 Progress is tracked via todo.md checkboxes                                 │
+└─────────────────────────────────────────────────────────────────────────────────┘
+                                       │
+                                       ▼
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                        🎖️ MISSION SEAL LOOP                                     │
+│                                                                                 │
+│   ┌───────────────────────────────────────────────────────────────────────────┐ │
+│   │                                                                           │ │
+│   │    session.idle event ──▶ Check for <mission_seal>SEALED</mission_seal>   │ │
+│   │           │                         │                                     │ │
+│   │           │                ┌────────┴────────┐                            │ │
+│   │           │                ▼                 ▼                            │ │
+│   │           │         [Seal Found]      [Not Found]                         │ │
+│   │           │               │                  │                            │ │
+│   │           │               ▼                  ▼                            │ │
+│   │           │      ✅ Mission Complete   iteration < max?                   │ │
+│   │           │         Clear state             │                             │ │
+│   │           │                          ┌──────┴──────┐                      │ │
+│   │           │                          ▼             ▼                      │ │
+│   │           │                        [YES]         [NO]                     │ │
+│   │           │                          │             │                      │ │
+│   │           │                          ▼             ▼                      │ │
+│   │           │               3s countdown toast  ⚠️ Max iterations           │ │
+│   │           │               Inject continuation     Force stop              │ │
+│   │           │                          │                                    │ │
+│   │           └──────────────────────────┘                                    │ │
+│   │                     LOOP                                                  │ │
+│   └───────────────────────────────────────────────────────────────────────────┘ │
+└─────────────────────────────────────────────────────────────────────────────────┘
+```
+
+### 📊 Project Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                         OpenCode Orchestrator Plugin                            │
+│                              src/index.ts                                       │
+└─────────────────────────────────────────────────────────────────────────────────┘
+                                      │
+          ┌───────────────────────────┼───────────────────────────┐
+          ▼                           ▼                           ▼
+┌─────────────────────┐  ┌─────────────────────┐  ┌─────────────────────────────┐
+│   Plugin Hooks      │  │   Core Systems      │  │         Tools               │
+│   plugin-handlers/  │  │   src/core/         │  │       src/tools/            │
+├─────────────────────┤  ├─────────────────────┤  ├─────────────────────────────┤
+│ • chat.message      │  │ • agents/           │  │ • parallel/                 │
+│ • event             │  │   ParallelManager   │  │   delegate_task             │
+│ • tool.execute      │  │   TaskStore         │  │   get_task_result           │
+│ • assistant.done    │  │   Concurrency       │  │ • web/                      │
+└─────────────────────┘  │ • loop/             │  │   webfetch, websearch       │
+                         │   MissionSeal       │  │ • background-cmd/           │
+                         │   TodoContinuation  │  │   run_background            │
+                         │ • recovery/         │  │ • search                    │
+                         │   SessionRecovery   │  │   grep, glob, mgrep         │
+                         │ • notification/     │  └─────────────────────────────┘
+                         │   Toast, Manager    │
+                         │ • session/          │
+                         │   SharedContext     │
+                         │ • cache/            │
+                         │   DocumentCache     │
+                         └─────────────────────┘
+                                      │
+          ┌───────────────────────────┼───────────────────────────┐
+          ▼                           ▼                           ▼
 ┌─────────────────────┐  ┌─────────────────────┐  ┌─────────────────────┐
-│  ⚡ Worker Session 1 │  │  ⚡ Worker Session 2 │  │  ⚡ Worker Session N │
-│  Agent: Planner     │  │  Agent: Worker      │  │  Agent: Reviewer    │
-│                     │  │                     │  │                     │
-│  • Independent exec │  │  • Independent exec │  │  • Independent exec │
-│  • Read/Write       │  │  • Read/Write       │  │  • Read/Write       │
-│    .opencode/       │  │    .opencode/       │  │    .opencode/       │
-│  • Notify parent    │  │  • Notify parent    │  │  • Notify parent    │
-│    on complete      │  │    on complete      │  │    on complete      │
+│   🎯 Commander       │  │   📋 Planner        │  │   🔨 Worker          │
+│   Orchestrator      │  │   Research+Plan     │  │   Implementation    │
+├─────────────────────┤  ├─────────────────────┤  ├─────────────────────┤
+│ • Mission control   │  │ • Task decompose    │  │ • Code writing      │
+│ • Parallel delegate │  │ • Doc research      │  │ • File operations   │
+│ • TODO monitoring   │  │ • TODO creation     │  │ • Command execution │
 └─────────────────────┘  └─────────────────────┘  └─────────────────────┘
-           │                         │                         │
-           └─────────────────────────┼─────────────────────────┘
-                                     ▼
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                    📁 SHARED CONTEXT (.opencode/)                           │
-│                                                                             │
-│  .opencode/todo.md     ← Master TODO (Planner creates, Reviewer updates)  │
-│  .opencode/context.md  ← Adaptive context (shrinks as progress increases)  │
-│  .opencode/docs/       ← Cached docs (Planner/Worker save, auto-expire)    │
-│  .opencode/archive/    ← Old context for reference                         │
-│                                                                             │
-│  ⚡ All sessions read/write this shared workspace                           │
-│  📊 Progress is tracked via todo.md checkboxes                              │
-└─────────────────────────────────────────────────────────────────────────────┘
+          │                           │                           │
+          │                           │                           │
+          │                  ┌────────┴────────┐                  │
+          │                  ▼                 │                  │
+          │       ┌─────────────────────┐      │                  │
+          │       │   ✅ Reviewer        │      │                  │
+          │       │   Quality+Context   │      │                  │
+          │       ├─────────────────────┤      │                  │
+          │       │ • Verification      │      │                  │
+          │       │ • TODO updates      │      │                  │
+          │       │ • Context manage    │      │                  │
+          │       └─────────────────────┘      │                  │
+          │                  │                 │                  │
+          └──────────────────┼─────────────────┴──────────────────┘
+                             ▼
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                        📁 Shared Workspace (.opencode/)                         │
+├─────────────────────────────────────────────────────────────────────────────────┤
+│  todo.md          │ Hierarchical task list (Epic → Task → Subtask)             │
+│  context.md       │ Adaptive context (shrinks with progress)                   │
+│  loop-state.json  │ Mission loop iteration state                               │
+│  docs/            │ Cached documentation (auto-expire)                         │
+│  archive/         │ Old context snapshots                                      │
+└─────────────────────────────────────────────────────────────────────────────────┘
 ```
 
----
+
+### 📂 Directory Structure
+
+```
+src/
+├── index.ts                      # Plugin main entry point
+├── agents/
+│   ├── commander.ts              # Commander agent definition
+│   ├── definitions.ts            # Agent exports
+│   ├── prompts/                  # Prompt fragments (commander/, planner/, worker/, reviewer/)
+│   └── subagents/                # Subagent definitions (planner.ts, worker.ts, reviewer.ts)
+├── core/
+│   ├── agents/                   # ParallelAgentManager, TaskStore, ConcurrencyController
+│   ├── cache/                    # DocumentCache
+│   ├── loop/                     # MissionSeal, TodoContinuation, TodoEnforcer
+│   ├── notification/             # Toast, TaskToastManager
+│   ├── recovery/                 # SessionRecovery, ErrorPatterns
+│   ├── session/                  # SharedContext
+│   └── task/                     # TaskScheduler, TaskParser
+├── plugin-handlers/
+│   ├── chat-message-handler.ts   # /task detection, mission start
+│   ├── event-handler.ts          # session.idle, session.error handling
+│   ├── tool-execute-handler.ts   # Tool completion tracking
+│   └── assistant-done-handler.ts # Response completion
+├── shared/
+│   ├── constants/                # PATHS, TOOL_NAMES, MISSION_SEAL, etc.
+│   ├── agent/                    # Agent definitions, names
+│   └── errors/                   # Error types
+├── tools/
+│   ├── parallel/                 # delegate_task, get_task_result, list_tasks, cancel_task
+│   ├── web/                      # webfetch, websearch, codesearch, cache_docs
+│   ├── background-cmd/           # run_background, check_background, list_background
+│   └── search.ts                 # grep_search, glob_search, mgrep
+└── utils/                        # Utility functions
+```
+
 
 ## Installation
 
@@ -127,9 +259,17 @@ Use `/task` when you need the AI to **complete a mission autonomously**:
 **What Commander Mode Does:**
 - ♾️ **Runs until sealed** — Loops until agent outputs `<mission_seal>SEALED</mission_seal>`
 - 🧠 **Anti-Hallucination** — Researches docs before coding
-- ⚡ **Parallel Execution** — Up to 50 concurrent agents
-- 🔄 **Auto-Recovery** — Handles errors automatically
-- 📊 **Triage System** — Adapts strategy to complexity (L1/L2/L3)
+- ⚡ **Parallel Execution** — Up to 50 concurrent Worker Sessions
+- 🔄 **Auto-Recovery** — Handles errors automatically with pattern matching
+- 📊 **Progress Tracking** — Monitors TODO completion and shows progress
+
+**Concurrency Limits (per agent type):**
+| Agent | Max Concurrent | Purpose |
+|--------|---------------|-----------|
+| Commander | 1 | Single orchestrator per mission |
+| Planner | 3 | Research and TODO planning |
+| Worker | 10 | Implementation tasks |
+| Reviewer | 5 | Verification and testing |
 
 **🎖️ Mission Seal Loop:**
 ```
@@ -172,7 +312,65 @@ What's the difference between useState and useReducer?
 
 ---
 
-## The 7 Agents
+## 🔄 Mission Loop Mechanism
+
+The Commander uses an event-driven mission loop to autonomously complete missions:
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                  MISSION LOOP LIFECYCLE                       │
+└─────────────────────────────────────────────────────────────────┘
+
+1️⃣ User sends "/task 'mission'"
+    ↓
+2️⃣ chat.message handler detects /task
+    ↓
+3️⃣ Create session + startMissionLoop()
+    ↓
+    Write .opencode/loop-state.json:
+    {
+      "active": true,
+      "sessionID": "ses_abc",
+      "iteration": 1,
+      "maxIterations": 20
+    }
+    ↓
+4️⃣ Commander receives prompt → delegates work
+    ↓
+5️⃣ Worker sessions execute → results collected
+    ↓
+6️⃣ session.idle event triggers
+    ↓
+    Check for <mission_seal>SEALED</mission_seal>
+    ├─ Seal found? → Clear loop state → Complete ✅
+    └─ Not found? → Increment iteration → Continue loop
+         ↓
+         Show countdown toast (3 seconds)
+         ↓
+         Inject continuation prompt
+         ↓
+         [Loop back to step 4]
+```
+
+**Key Loop Components:**
+
+| Component | File | Purpose |
+|-----------|-------|---------|
+| Loop State | `src/core/loop/mission-seal.ts` | State management (.opencode/loop-state.json) |
+| Seal Detection | `src/core/loop/mission-seal-handler.ts` | Detect `<mission_seal>` in responses |
+| Continuation | `src/core/loop/mission-seal-handler.ts` | Inject prompts to continue work |
+| Countdown | `src/core/loop/mission-seal-handler.ts` | 3-second countdown toast |
+| Idle Handler | `src/plugin-handlers/assistant-done-handler.ts` | Monitor session.idle events |
+
+**Why Event-Driven?**
+- No fixed iteration limits - loop continues until sealed
+- Resilient to network delays
+- Can be interrupted by user at any time
+- Efficient polling (500ms interval with backoff)
+
+---
+
+## The 4 Agents
 
 | Agent            | Role         | Responsibility                     |
 | :--------------- | :----------- | :--------------------------------- |
@@ -210,7 +408,7 @@ What's the difference between useState and useReducer?
 | Notifications | 100/parent | FIFO eviction |
 | Event History | 100 | Ring buffer |
 | Session TTL | 60 min | Auto cleanup |
-| Poll Interval | 1 second | Fast completion detection |
+| Poll Interval | 500ms | Fast completion detection |
 | Max Poll Count | 600 | Hard limit prevents infinite loops |
 | Sync Timeout | 5 min | Safe delegate_task timeout |
 | Recovery Attempts | 3 | Auto session error recovery |
@@ -238,9 +436,9 @@ Automatic recovery from common errors:
 
 ### Todo Continuation
 - Monitors `session.idle` events
-- 2-second countdown before auto-continuation
+- 3-second countdown toast before auto-continuation
 - Cancels on user interaction
-- Skips if background tasks running
+- Skips if background tasks running or session is recovering
 
 ### noReply Optimization
 - Individual task completion: `noReply: true` (saves tokens)
@@ -274,9 +472,9 @@ tail -f "$(node -e 'console.log(require("os").tmpdir())')/opencode-orchestrator.
 ## Documentation
 
 - **[System Architecture](docs/SYSTEM_ARCHITECTURE.md)** — Detailed technical docs
-- **[OpenCode SDK Reference](docs/OPENCODE_SDK_REFERENCE.md)** — API usage reference
+- **[Architecture and Flow](docs/ARCHITECTURE_AND_FLOW.md)** — Complete architecture guide with scenarios
+- **[Improvement Suggestions](docs/IMPROVEMENT_SUGGESTIONS.md)** — Project improvement recommendations
 - [Release Notes](docs/releases/) — Version history
-- [Troubleshooting](docs/PLUGIN_TROUBLESHOOTING.md)
 
 ---
 
