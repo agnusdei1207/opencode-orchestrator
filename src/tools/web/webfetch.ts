@@ -2,7 +2,7 @@
  * webfetch Tool
  * 
  * Fetches content from a URL and converts HTML to Markdown
- * Used by Librarian agent for documentation research
+ * Used by Planner and Worker agents for documentation research
  */
 
 import { tool } from "@opencode-ai/plugin";

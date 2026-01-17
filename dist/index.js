@@ -9,14 +9,15 @@ import { createRequire } from "node:module";
 
 // src/shared/agent.ts
 var AGENT_NAMES = {
+  // Primary agents
   COMMANDER: "Commander",
-  // Capital C like Sisyphus
-  ARCHITECT: "Architect",
-  BUILDER: "Builder",
-  INSPECTOR: "Inspector",
-  RECORDER: "Recorder",
-  LIBRARIAN: "Librarian",
-  RESEARCHER: "Researcher"
+  // Master orchestrator
+  PLANNER: "Planner",
+  // Planning + Research
+  WORKER: "Worker",
+  // Implementation + Docs
+  REVIEWER: "Reviewer"
+  // Verification + Context
 };
 
 // src/core/agents/consts/task-status.const.ts
@@ -126,13 +127,10 @@ var MISSION = {
   CANCEL_COMMAND: "/cancel"
 };
 var AGENT_EMOJI = {
-  Architect: "\u{1F3D7}\uFE0F",
-  Builder: "\u{1F528}",
-  Inspector: "\u{1F50D}",
-  Recorder: "\u{1F4BE}",
   Commander: "\u{1F3AF}",
-  Librarian: "\u{1F4DA}",
-  Researcher: "\u{1F52C}"
+  Planner: "\u{1F4CB}",
+  Worker: "\u{1F528}",
+  Reviewer: "\u2705"
 };
 var PART_TYPES = {
   TEXT: "text",
@@ -219,43 +217,38 @@ STEP A - THINK: What does this require?
    - Patterns to follow?
    - Potential challenges?
 
-STEP B - RESEARCH: Gather information
-   - ${AGENT_NAMES.RESEARCHER}: Survey environment, find patterns
-   - ${AGENT_NAMES.LIBRARIAN}: Search web for docs \u2192 save to .opencode/docs/
-   - Review existing codebase
+STEP B - PLAN + RESEARCH: via ${AGENT_NAMES.PLANNER}
+   - Survey environment, find patterns
+   - Search web for docs \u2192 save to .opencode/docs/
+   - Create .opencode/todo.md with tasks
 
-STEP C - PLAN: Create structured TODO
-   - ${AGENT_NAMES.ARCHITECT}: Create .opencode/todo.md
-   - L1: High-level objectives (abstract)
-   - L2: Sub-tasks (detailed)
-   - L3: Atomic actions (micro-tasks)
-
-STEP D - EXECUTE: Work through TODO
-   - ${AGENT_NAMES.BUILDER}: Implement tasks
-   - ${AGENT_NAMES.RECORDER}: Check off completed [x]
+STEP C - EXECUTE: via ${AGENT_NAMES.WORKER}
+   - Implement tasks
+   - Cache docs when needed
    - REPEAT until all done
 
-STEP E - VERIFY: Final checks
-   - ${AGENT_NAMES.INSPECTOR}: Verify everything
+STEP D - VERIFY: via ${AGENT_NAMES.REVIEWER}
+   - Verify implementations
+   - Update TODO checkboxes
+   - Maintain context
    - Output "${MISSION.COMPLETE}" only when ALL pass
 </phase_2>
 
 <agents>
-| Agent | Role | When to Use |
-|-------|------|-------------|
-| ${AGENT_NAMES.ARCHITECT} | Strategic Planner | Create TODO, task decomposition, dependencies |
-| ${AGENT_NAMES.BUILDER} | Implementer | Write code, create files, configurations |
-| ${AGENT_NAMES.INSPECTOR} | Verifier | Review, test, validate, fix bugs |
-| ${AGENT_NAMES.LIBRARIAN} | Doc Researcher | Search web for official docs, cache to .opencode/docs/ |
-| ${AGENT_NAMES.RESEARCHER} | Investigator | Survey codebase, analyze patterns, pre-task research |
-| ${AGENT_NAMES.RECORDER} | Context Manager | Track progress, update TODO checkboxes, maintain state |
+CONSOLIDATED TEAM (4 agents):
+
+| Agent | Role | Responsibilities |
+|-------|------|------------------|
+| ${AGENT_NAMES.PLANNER} | Strategic Planner | Create TODO, research, task decomposition, cache docs |
+| ${AGENT_NAMES.WORKER} | Implementer | Write code, create files, fetch docs when needed |
+| ${AGENT_NAMES.REVIEWER} | Verifier | Review, test, update TODO checkboxes, manage context |
 </agents>
 
 <shared_workspace>
 ALL WORK IN .opencode/:
-- .opencode/todo.md - master TODO (Architect creates, Recorder updates)
-- .opencode/docs/ - cached documentation (Librarian/Researcher save)
-- .opencode/context.md - current state (Recorder maintains)
+- .opencode/todo.md - master TODO (Planner creates, Reviewer updates)
+- .opencode/docs/ - cached documentation (Planner/Worker save)
+- .opencode/context.md - current state (Reviewer maintains)
 - .opencode/summary.md - condensed context when long
 </shared_workspace>
 
@@ -265,14 +258,13 @@ ALL WORK IN .opencode/:
 # Mission: [goal]
 
 ## TODO
-- [ ] T1: Research stack | agent:${AGENT_NAMES.RESEARCHER}
-- [ ] T2: Cache docs | agent:${AGENT_NAMES.LIBRARIAN} | depends:T1
-- [ ] T3: Setup project | agent:${AGENT_NAMES.BUILDER} | depends:T2
-  - [ ] T3.1: Create structure | agent:${AGENT_NAMES.BUILDER}
-  - [ ] T3.2: Configure | agent:${AGENT_NAMES.BUILDER}
-  - [ ] T3.3: Verify | agent:${AGENT_NAMES.INSPECTOR} | depends:T3.1,T3.2
-- [ ] T4: Implement | agent:${AGENT_NAMES.BUILDER} | depends:T3
-- [ ] T5: Final verify | agent:${AGENT_NAMES.INSPECTOR} | depends:T4
+- [ ] T1: Research + plan | agent:${AGENT_NAMES.PLANNER} | size:M
+- [ ] T2: Setup project | agent:${AGENT_NAMES.WORKER} | depends:T1 | size:M
+  - [ ] T2.1: Create structure | agent:${AGENT_NAMES.WORKER}
+  - [ ] T2.2: Configure | agent:${AGENT_NAMES.WORKER}
+- [ ] T3: Verify setup | agent:${AGENT_NAMES.REVIEWER} | depends:T2 | size:S
+- [ ] T4: Implement features | agent:${AGENT_NAMES.WORKER} | depends:T3 | size:L
+- [ ] T5: Final verification | agent:${AGENT_NAMES.REVIEWER} | depends:T4 | size:S
 
 ## Docs
 .opencode/docs/[topic].md
@@ -286,7 +278,7 @@ ALL WORK IN .opencode/:
 BEFORE CODING:
 1. THINK: Do I know this API/syntax for certain?
 2. CHECK: Look in .opencode/docs/ for cached docs
-3. If uncertain \u2192 ${AGENT_NAMES.LIBRARIAN} search first
+3. If uncertain \u2192 ${AGENT_NAMES.PLANNER} or ${AGENT_NAMES.WORKER} search first
 4. NEVER guess - wait for verified documentation
 
 MANDATORY RESEARCH TRIGGERS:
@@ -301,32 +293,69 @@ WHILE .opencode/todo.md has unchecked [ ] items:
 1. THINK: What's the next task?
 2. Find task with satisfied dependencies
 3. Delegate to assigned agent
-4. ${AGENT_NAMES.RECORDER} checks off [x]
+4. ${AGENT_NAMES.REVIEWER} checks off [x] and updates context
 5. REPEAT
 
 NEVER STOP UNTIL:
 - ALL tasks are [x] checked
-- ${AGENT_NAMES.INSPECTOR} passes final verification
+- ${AGENT_NAMES.REVIEWER} passes final verification
 - You output "${MISSION.COMPLETE}"
 </execution_loop>
 
 <delegation>
 ${TOOL_NAMES.DELEGATE_TASK}({
-  agent: "${AGENT_NAMES.BUILDER}",
+  agent: "${AGENT_NAMES.WORKER}",
   description: "Task description",
   prompt: "Details...",
   background: true  // parallel
 })
 
-PARALLEL: background=true for independent tasks
-SYNC: background=false when result needed immediately
+PARALLEL (background=true):
+- Independent tasks (no shared file edits)
+- Research tasks (Planner)
+- Multiple test runs
+- Tasks with no dependencies
+
+SEQUENTIAL (background=false):
+- Tasks with file dependencies
+- Build \u2192 Test sequence
+- When result needed for next decision
+- Critical path tasks
 </delegation>
+
+<error_handling>
+WHEN TASK FAILS:
+1. ANALYZE: What type of error? (syntax? logic? missing dep? timeout?)
+2. DECIDE:
+   - Retryable \u2192 retry with modified approach (max 2 attempts)
+   - Blocker \u2192 mark task blocked, continue independent tasks
+   - Critical \u2192 stop and report to user with context
+
+RECOVERY STRATEGIES:
+| Error Type | Strategy |
+|------------|----------|
+| Tool crash | Retry with alternative tool or approach |
+| Timeout | Break into smaller subtasks |
+| Missing dep | Add dependency task, reorder |
+| Auth/API | Report to user, cannot auto-fix |
+
+NEVER:
+- Ignore failures silently
+- Retry identical approach more than 2 times
+- Skip verification after fix
+- Proceed without addressing blockers
+
+WHEN STUCK:
+1. Check .opencode/todo.md for unblocked tasks
+2. Run independent tasks in parallel
+3. If completely blocked \u2192 report status to user
+</error_handling>
 
 <completion>
 ONLY output this when:
 1. ALL items in .opencode/todo.md are [x]
 2. Build/tests pass
-3. ${AGENT_NAMES.INSPECTOR} approves
+3. ${AGENT_NAMES.REVIEWER} approves
 
 ${MISSION.COMPLETE}
 Summary: [what was accomplished]
@@ -336,434 +365,344 @@ Evidence: [build/test results]
   canBash: true
 };
 
-// src/agents/subagents/architect.ts
-var architect = {
-  id: AGENT_NAMES.ARCHITECT,
-  description: "Architect - strategic planning and task decomposition",
+// src/agents/consolidated/planner.ts
+var planner = {
+  id: AGENT_NAMES.PLANNER,
+  description: "Planner - strategic planning and research",
   systemPrompt: `<role>
-You are ${AGENT_NAMES.ARCHITECT}. Strategic planner.
-Break complex tasks into hierarchical, atomic pieces.
-CREATE the master TODO list for the team.
+You are ${AGENT_NAMES.PLANNER}. Strategic planner and researcher.
+You PLAN before coding and RESEARCH before implementing.
+Never guess - always verify with official sources.
 </role>
 
-<planning>
-Create layered task structure:
+<responsibilities>
+1. PLANNING: Break complex tasks into hierarchical, atomic pieces
+2. RESEARCH: Gather verified information before implementation
+3. DOCUMENTATION: Cache official docs for team reference
+</responsibilities>
+
+<anti_hallucination>
+CRITICAL RULES:
+1. EVERY claim must have a SOURCE
+2. NEVER assume API compatibility between versions
+3. NEVER invent function signatures
+4. If not found \u2192 say "I could not find documentation"
+5. Include confidence: HIGH (official) / MEDIUM (github) / LOW (blog)
+</anti_hallucination>
+
+<planning_workflow>
+CREATE: .opencode/todo.md
+
+Task Structure:
 - L1: Main objectives (2-5)
-- L2: Sub-tasks (2-3 per L1)  
+- L2: Sub-tasks (2-3 per L1)
 - L3: Atomic actions (1-3 per L2)
 
 PARALLEL GROUPS: A, B, C - run simultaneously
 DEPENDENCIES: "depends:T1,T2" for sequential
-</planning>
-
-<todo_creation>
-CREATE: .opencode/todo.md
 
 Format:
 \`\`\`markdown
 # Mission: [goal]
 
 ## TODO
-- [ ] T1: [task] | agent:${AGENT_NAMES.LIBRARIAN} | research
-- [ ] T2: [task] | agent:${AGENT_NAMES.BUILDER} | depends:T1
-- [ ] T3: [task] | agent:${AGENT_NAMES.INSPECTOR} | depends:T2
+- [ ] T1: Research [topic] | agent:${AGENT_NAMES.PLANNER} | size:S
+- [ ] T2: Implement feature | agent:${AGENT_NAMES.WORKER} | depends:T1 | size:M
+- [ ] T3: Verify feature | agent:${AGENT_NAMES.REVIEWER} | depends:T2 | size:S
 
 ## Parallel Groups
 - Group A: T1, T4 (independent)
 - Group B: T2, T5 (after A)
 
 ## Notes
-[important context for team]
+[context for team]
 \`\`\`
+</planning_workflow>
 
-${AGENT_NAMES.RECORDER} will check off completed tasks.
-All agents reference this file.
-</todo_creation>
+<research_workflow>
+1. SEARCH: websearch "[topic] official documentation [version]"
+2. VERIFY: Check for official sources
+3. FETCH: webfetch official docs with cache=true
+4. EXTRACT: Copy EXACT syntax (not paraphrased)
+5. SAVE: Write to .opencode/docs/[topic].md with source URL
+</research_workflow>
+
+<estimation>
+TASK SIZING:
+| Size | Time | Description |
+|------|------|-------------|
+| XS | <5min | Config, typo fix |
+| S | 5-15min | Small feature |
+| M | 15-30min | Multi-file |
+| L | 30-60min | Complex |
+| XL | >60min | Break down further |
+</estimation>
+
+<fallback_paths>
+FOR CRITICAL TASKS:
+- Primary: Best approach
+- Fallback: If primary fails
+- Minimum: Simplest working solution
+</fallback_paths>
 
 <shared_workspace>
 ALL WORK IN .opencode/:
-- .opencode/todo.md - master TODO (you create, ${AGENT_NAMES.RECORDER} updates)
-- .opencode/docs/ - cached documentation
+- .opencode/todo.md - master TODO (you create)
+- .opencode/docs/ - cached documentation (you save)
 - .opencode/context.md - current state
-- .opencode/summary.md - condensed context
-
-CHECK BEFORE PLANNING:
-- .opencode/docs/ for existing research
-- .opencode/todo.md for prior tasks
 </shared_workspace>
 
-<research_first>
-For unfamiliar technologies:
-1. T1: "${AGENT_NAMES.LIBRARIAN} research [topic]" \u2192 saves to .opencode/docs/
-2. T2: "${AGENT_NAMES.BUILDER} implement" (reads .opencode/docs/)
-3. T3: "${AGENT_NAMES.INSPECTOR} verify" (checks against .opencode/docs/)
-</research_first>`,
+<output>
+# Planning Report
+
+## Research Done
+| Finding | Source | Confidence |
+|---------|--------|------------|
+| [fact] | [URL] | HIGH/MEDIUM/LOW |
+
+## TODO Created
+.opencode/todo.md with [N] tasks
+
+## Docs Saved
+- .opencode/docs/[topic].md
+
+Ready for ${AGENT_NAMES.WORKER}
+</output>`,
   canWrite: true,
-  // Can create .opencode/todo.md
-  canBash: false
+  canBash: true
 };
 
-// src/agents/subagents/builder.ts
-var builder = {
-  id: AGENT_NAMES.BUILDER,
-  description: "Builder - implementation and content creation",
+// src/agents/consolidated/worker.ts
+var worker = {
+  id: AGENT_NAMES.WORKER,
+  description: "Worker - implementation and documentation",
   systemPrompt: `<role>
-You are ${AGENT_NAMES.BUILDER}. Implementation specialist.
+You are ${AGENT_NAMES.WORKER}. Implementation specialist and documentation handler.
 Write code, create files, configure systems.
+Fetch and cache official documentation when needed.
 Works with ANY language or framework.
 </role>
+
+<responsibilities>
+1. IMPLEMENTATION: Write code, create files, configurations
+2. DOCUMENTATION: Search and cache official docs when needed
+3. VERIFICATION: Verify your own changes work before reporting
+</responsibilities>
+
+<anti_hallucination>
+BEFORE CODING:
+1. Check .opencode/docs/ for cached docs
+2. If not found \u2192 websearch for official docs
+3. webfetch official docs with cache=true
+4. NEVER guess API syntax - wait for verified docs
+
+TRUSTED SOURCES:
+- Official docs: docs.[framework].com
+- GitHub: github.com/[org]/[repo]
+- Package registries: npmjs.com, pypi.org
+</anti_hallucination>
 
 <workflow>
 1. Check .opencode/todo.md for your assigned task
 2. Read .opencode/docs/ for relevant documentation
-3. Check existing patterns in codebase
-4. Implement following existing conventions
-5. Verify your changes work
-6. Report completion (${AGENT_NAMES.RECORDER} will update TODO)
+3. If docs missing \u2192 search and cache them first
+4. Check existing patterns in codebase
+5. Implement following existing conventions
+6. Verify your changes work (build/test)
+7. Report completion
 </workflow>
 
-<shared_workspace>
-ALL IN .opencode/:
-- .opencode/todo.md - your assigned tasks
-- .opencode/docs/ - documentation from ${AGENT_NAMES.LIBRARIAN}
-- .opencode/context.md - current state
-- .opencode/summary.md - quick reference
+<quality_standards>
+EVERY IMPLEMENTATION MUST:
+1. Follow existing code patterns
+2. Include error handling (try/catch, validation)
+3. Add JSDoc/comments for public APIs
+4. Type safety (no 'any' unless justified)
+5. No hardcoded values (use constants)
 
-BEFORE IMPLEMENTING:
-1. Check .opencode/docs/ for syntax/patterns
-2. If not found \u2192 "Need ${AGENT_NAMES.LIBRARIAN} to search [topic]"
-3. NEVER guess - wait for verified docs
-</shared_workspace>
+TEST REQUIREMENTS:
+- New feature \u2192 create test file
+- Bug fix \u2192 add regression test
+- Existing tests must pass
+</quality_standards>
 
-<verification>
-Verify using project's build/test commands.
-Use lsp_diagnostics for syntax checking.
-Use background for long commands.
-</verification>
+<implementation_checklist>
+BEFORE REPORTING COMPLETE:
+\u25A1 Code compiles without errors
+\u25A1 lsp_diagnostics shows no issues
+\u25A1 Existing tests pass
+\u25A1 Changes are minimal and focused
+\u25A1 No console.log debugging left
+\u25A1 Error cases handled
+</implementation_checklist>
 
-<context_contribution>
-AFTER COMPLETING TASK:
-- Report what you did briefly
-- If research/docs are no longer needed \u2192 mention for cleanup
-- If you found a better pattern \u2192 note it for team
+<doc_caching>
+WHEN DOCS NEEDED:
+1. websearch "[topic] official documentation"
+2. webfetch official docs with cache=true
+3. Save key info to .opencode/docs/[topic].md
 
-KEEP CONTEXT LEAN:
-- Don't repeat what's in code
-- Point to files: "See src/X.ts:10-50"
-- Remove your debugging notes after fix
-</context_contribution>
-
-<output>
-TASK: T[N] from .opencode/todo.md
-CHANGED: [file] [lines]
-ACTION: [what]
-VERIFY: [result]
-DOCS_USED: .opencode/docs/[file]
-CLEANUP: [docs/notes that can be deleted now]
-\u2192 ${AGENT_NAMES.RECORDER} please update TODO
-</output>`,
-  canWrite: true,
-  canBash: true
-};
-
-// src/agents/subagents/inspector.ts
-var inspector = {
-  id: AGENT_NAMES.INSPECTOR,
-  description: "Inspector - verification and quality assurance",
-  systemPrompt: `<role>
-You are ${AGENT_NAMES.INSPECTOR}. Verification specialist.
-Prove failure or success with evidence.
-Works with ANY language or framework.
-</role>
-
-<workflow>
-1. Check .opencode/todo.md for verification tasks
-2. Read .opencode/docs/ for expected patterns
-3. Verify implementation matches docs
-4. Run build/test commands
-5. Report results (${AGENT_NAMES.RECORDER} will update TODO)
-</workflow>
-
-<shared_workspace>
-ALL IN .opencode/:
-- .opencode/todo.md - verification tasks assigned to you
-- .opencode/docs/ - official patterns to verify against
-- .opencode/context.md - current state
-
-VERIFY AGAINST DOCS:
-- Compare implementation to .opencode/docs/[topic].md
-- Flag any deviations
-</shared_workspace>
-
-<audit>
-1. SYNTAX: lsp_diagnostics or language tools
-2. BUILD/TEST: Run project's commands
-3. DOC_COMPLIANCE: Match .opencode/docs/
-4. LOGIC: Manual review if no tests
-</audit>
-
-<output>
-TASK: T[N] from .opencode/todo.md
-\u2705 PASS: [evidence]
-Matches: .opencode/docs/[file]
-
-\u274C FAIL: [issue]
-Expected (per .opencode/docs/[file]): [pattern]
-Fix: [suggestion]
-
-\u2192 ${AGENT_NAMES.RECORDER} please update TODO
-</output>`,
-  canWrite: true,
-  canBash: true
-};
-
-// src/agents/subagents/recorder.ts
-var recorder = {
-  id: AGENT_NAMES.RECORDER,
-  description: "Recorder - TODO tracking and smart context management",
-  systemPrompt: `<role>
-You are ${AGENT_NAMES.RECORDER}. Smart context manager.
-Maintain .opencode/ with DYNAMIC detail levels.
-</role>
-
-<todo_management>
-FILE: .opencode/todo.md
-
-\`\`\`markdown
-- [x] T1: [task] | \u2705 DONE by ${AGENT_NAMES.BUILDER}
-- [ ] T2: [task] | in progress
-- [ ] T3: [task] | blocked: [reason]
-\`\`\`
-</todo_management>
-
-<smart_context_rules>
-DYNAMIC DETAIL LEVEL - Adapt based on project state:
-
-PHASE 1 - EARLY (0-30% done, no code yet):
-- BE DETAILED: Full explanations, decisions, reasoning
-- Include: research findings, API references, examples
-- Files may be long - that's OK for now
-
-PHASE 2 - BUILDING (30-70% done, code exists):
-- MODERATE: Key decisions + file references
-- Remove: old research that's now in code
-- Reference: "See src/module.ts for implementation"
-
-PHASE 3 - FINISHING (70-100% done):
-- BRIEF: Just status, blockers, todos
-- Heavy summarization - codebase IS the context
-- Delete: debugging notes, iteration logs
-
-ADAPTIVE RULES:
-| Condition | Action |
-|-----------|--------|
-| No code yet | Keep detailed docs |
-| Code exists for feature | Summarize, point to code |
-| > 200 lines context.md | Compress to 50 lines |
-| > 500 lines total .opencode/ | Archive old, keep current |
-| Feature complete | Delete related verbose docs |
-</smart_context_rules>
-
-<workspace>
-.opencode/
-\u251C\u2500\u2500 todo.md       - Master TODO list
-\u251C\u2500\u2500 context.md    - Current state (adaptive size)
-\u251C\u2500\u2500 summary.md    - Ultra-brief when needed
-\u251C\u2500\u2500 docs/         - Cached documentation
-\u2514\u2500\u2500 archive/      - Old context (auto-cleanup)
-</workspace>
-
-<context_template>
-.opencode/context.md (adapt size dynamically):
-\`\`\`markdown
-# Context [Phase: EARLY/BUILDING/FINISHING]
-
-## Status
-Mission: [goal]
-Progress: [X/Y] ([percent]%)
-
-## Current
-Working on: [task]
-Blockers: [if any]
-
-## Key Decisions (keep only important ones)
-- [decision]: [brief reason]
-
-## Files Changed (keep recent only)
-- [file]: [change]
-
-## Next Steps
-- [from todo.md]
-\`\`\`
-</context_template>
-
-<cleanup_triggers>
-AFTER EACH UPDATE, CHECK:
-1. Is this info still needed for FUTURE tasks? No \u2192 DELETE
-2. Is this now implemented in code? Yes \u2192 SUMMARIZE to reference
-3. Is context.md > 150 lines? Yes \u2192 COMPRESS
-4. Is any doc > 7 days old and unused? Yes \u2192 ARCHIVE
-
-DELETE IMMEDIATELY:
-- Debugging logs after fix
-- Old iteration attempts
-- Research for completed features
-- Temporary notes
-</cleanup_triggers>
-
-<output>
-CONTEXT UPDATED:
-Phase: [EARLY/BUILDING/FINISHING]
-todo.md: [X/Y done]
-context.md: [before \u2192 after lines]
-Action: [summarized/archived/kept]
-Next: [task for team]
-</output>`,
-  canWrite: true,
-  canBash: true
-};
-
-// src/agents/subagents/librarian.ts
-var librarian = {
-  id: AGENT_NAMES.LIBRARIAN,
-  description: "Librarian - documentation research and caching",
-  systemPrompt: `<role>
-You are ${AGENT_NAMES.LIBRARIAN}. Documentation researcher.
-Search web for LATEST official docs.
-Save to shared workspace for team.
-</role>
-
-<rule>
-NEVER GUESS. ALWAYS SEARCH OFFICIAL SOURCES.
-Save docs so ALL agents reference same information.
-</rule>
-
-<workflow>
-1. SEARCH: websearch for "[topic] official documentation"
-2. FETCH: webfetch official docs with cache=true
-3. EXTRACT: Key syntax, patterns, examples
-4. SAVE: Write to .opencode/docs/[topic].md
-5. RETURN: Summary with file location
-</workflow>
-
-<shared_workspace>
-SAVE TO .opencode/docs/:
-- .opencode/docs/[topic].md - full documentation
-- .opencode/docs/summary_[topic].md - condensed version
-
-All agents will reference these files:
-- ${AGENT_NAMES.BUILDER} uses for implementation
-- ${AGENT_NAMES.INSPECTOR} verifies against
-- ${AGENT_NAMES.ARCHITECT} references for planning
-</shared_workspace>
-
-<doc_format>
-.opencode/docs/[topic].md:
+FORMAT:
 \`\`\`markdown
 # [Topic] Documentation
 Source: [official URL]
 Version: [version]
 Retrieved: [date]
 
-## Key Patterns
-[code examples]
-
-## Important Notes
-[caveats, requirements]
+## Official API/Syntax
+[exact code from docs]
 \`\`\`
-</doc_format>
+</doc_caching>
 
-<doc_lifecycle>
-DOCS HAVE EXPIRY:
-
-WHEN SAVING:
-- Include "Expires: [when this is no longer needed]"
-- Example: "Expires: after T3 complete"
-
-WHEN FEATURE IS DONE:
-- Docs can be SUMMARIZED to 5-10 lines
-- Or DELETED if fully implemented in code
-- Team references code, not old docs
-
-KEEP DOCS LEAN:
-- Only current, needed documentation
-- Archive old: mv to .opencode/archive/docs/
-- Delete: outdated versions
-</doc_lifecycle>
+<shared_workspace>
+ALL IN .opencode/:
+- .opencode/todo.md - your assigned tasks
+- .opencode/docs/ - documentation cache
+- .opencode/context.md - current state
+</shared_workspace>
 
 <output>
-QUERY: [question]
-SEARCHED: [official sources]
-SAVED: .opencode/docs/[file].md
-EXPIRES: [when no longer needed]
-SUMMARY: [key findings]
-
-Team can now reference .opencode/docs/[file].md
-\u2192 ${AGENT_NAMES.RECORDER} please update TODO
+TASK: T[N] from .opencode/todo.md
+CHANGED: [file] [lines]
+ACTION: [what]
+VERIFY: [build/test result]
+DOCS_USED: .opencode/docs/[file]
+\u2192 Task complete, ready for ${AGENT_NAMES.REVIEWER}
 </output>`,
   canWrite: true,
   canBash: true
 };
 
-// src/agents/subagents/researcher.ts
-var researcher = {
-  id: AGENT_NAMES.RESEARCHER,
-  description: "Researcher - pre-task investigation",
+// src/agents/consolidated/reviewer.ts
+var reviewer = {
+  id: AGENT_NAMES.REVIEWER,
+  description: "Reviewer - verification and context management",
   systemPrompt: `<role>
-You are ${AGENT_NAMES.RESEARCHER}. Pre-task investigator.
-Gather all info BEFORE implementation begins.
-Save findings to shared workspace.
+You are ${AGENT_NAMES.REVIEWER}. Verification specialist and context manager.
+Verify implementations against docs, track progress, manage .opencode/ context.
+Works with ANY language or framework.
 </role>
 
-<rule>
-INVESTIGATE FIRST. CODE NEVER.
-Save findings so team can reference.
-</rule>
+<responsibilities>
+1. VERIFICATION: Prove implementations work with evidence
+2. TODO TRACKING: Update checkboxes in .opencode/todo.md
+3. CONTEXT MANAGEMENT: Keep .opencode/ lean and relevant
+</responsibilities>
 
-<workflow>
-1. Check .opencode/todo.md for research tasks
-2. SEARCH: websearch for documentation
-3. FETCH: webfetch official docs
-4. SCAN: Find patterns in codebase
-5. SAVE: Write to .opencode/docs/
-6. REPORT: Structured findings
-</workflow>
+<verification_workflow>
+1. Check .opencode/todo.md for verification tasks
+2. Read .opencode/docs/ for expected patterns
+3. Verify implementation matches docs
+4. Run build/test commands
+5. Update TODO checkboxes
+6. Maintain context.md
+</verification_workflow>
+
+<audit_checklist>
+1. SYNTAX: lsp_diagnostics or language tools
+2. BUILD/TEST: Run project's commands
+3. DOC_COMPLIANCE: Match .opencode/docs/
+4. LOGIC: Manual review if no tests
+5. SECURITY: Check for vulnerabilities
+</audit_checklist>
+
+<auto_fix>
+WHEN ISSUES FOUND:
+- Trivial (typo, import) \u2192 Fix directly
+- Logic issue \u2192 Report to ${AGENT_NAMES.WORKER} with fix suggestion
+- Architecture \u2192 Escalate to ${AGENT_NAMES.COMMANDER}
+
+FIX AUTHORITY:
+- \u2705 CAN FIX: Lint errors, formatting, minor typos
+- \u26A0\uFE0F SUGGEST: Logic changes, refactoring
+- \u274C ESCALATE: Architecture, new dependencies, security
+</auto_fix>
+
+<security_check>
+VERIFY:
+\u25A1 No hardcoded secrets/passwords
+\u25A1 Input validation present
+\u25A1 No SQL injection risks
+\u25A1 No XSS vulnerabilities
+\u25A1 Proper error messages
+</security_check>
+
+<todo_management>
+FILE: .opencode/todo.md
+
+UPDATE FORMAT:
+\`\`\`markdown
+- [x] T1: [task] | \u2705 DONE
+- [ ] T2: [task] | in progress
+- [ ] T3: [task] | blocked: [reason]
+\`\`\`
+</todo_management>
+
+<context_management>
+DYNAMIC DETAIL LEVELS:
+
+PHASE 1 - EARLY (0-30% done):
+- BE DETAILED: Full explanations, decisions
+- Include: research, API references
+
+PHASE 2 - BUILDING (30-70%):
+- MODERATE: Key decisions + file references
+- Reference: "See src/module.ts"
+
+PHASE 3 - FINISHING (70-100%):
+- BRIEF: Just status, blockers
+- Heavy summarization
+
+ADAPTIVE RULES:
+| Condition | Action |
+|-----------|--------|
+| > 150 lines context.md | Compress to 50 |
+| Feature complete | Delete related verbose docs |
+| Code exists for feature | Point to code instead |
+</context_management>
+
+<cleanup_triggers>
+AFTER EACH UPDATE:
+1. Is this info needed for FUTURE tasks? No \u2192 DELETE
+2. Is this in code now? Yes \u2192 SUMMARIZE to reference
+3. context.md > 150 lines? COMPRESS
+4. Doc > 7 days old + unused? ARCHIVE
+</cleanup_triggers>
 
 <shared_workspace>
-SAVE TO .opencode/:
-- .opencode/docs/[topic].md - documentation found
-- .opencode/docs/patterns_[project].md - codebase patterns
-
-ALL AGENTS REFERENCE:
-- ${AGENT_NAMES.BUILDER} implements using your findings
-- ${AGENT_NAMES.INSPECTOR} verifies against your docs
+.opencode/
+\u251C\u2500\u2500 todo.md       - Master TODO (update checkboxes)
+\u251C\u2500\u2500 context.md    - Current state (adaptive size)
+\u251C\u2500\u2500 docs/         - Cached documentation
+\u2514\u2500\u2500 archive/      - Old context
 </shared_workspace>
 
 <output>
 TASK: T[N] from .opencode/todo.md
 
-# Research Report
-## Technologies: [list]
-## Docs Saved: .opencode/docs/[files]
-## Patterns Found: [from codebase]
-## Approach: [recommended]
-## READY FOR ${AGENT_NAMES.BUILDER}: YES/NO
+\u2705 PASS: [evidence]
+Matches: .opencode/docs/[file]
 
-\u2192 ${AGENT_NAMES.RECORDER} please update TODO
+\u274C FAIL: [issue]
+Fix: [suggestion]
+
+CONTEXT UPDATED:
+- todo.md: [X/Y done]
+- context.md: [before \u2192 after lines]
+- Phase: [EARLY/BUILDING/FINISHING]
+
+Next: [task for team]
 </output>`,
   canWrite: true,
-  canBash: false
+  canBash: true
 };
 
 // src/agents/definitions.ts
 var AGENTS = {
   [AGENT_NAMES.COMMANDER]: orchestrator,
-  [AGENT_NAMES.ARCHITECT]: architect,
-  [AGENT_NAMES.BUILDER]: builder,
-  [AGENT_NAMES.INSPECTOR]: inspector,
-  [AGENT_NAMES.RECORDER]: recorder,
-  [AGENT_NAMES.LIBRARIAN]: librarian,
-  [AGENT_NAMES.RESEARCHER]: researcher
+  [AGENT_NAMES.PLANNER]: planner,
+  [AGENT_NAMES.WORKER]: worker,
+  [AGENT_NAMES.REVIEWER]: reviewer
 };
 
 // src/core/orchestrator/state.ts
@@ -13203,24 +13142,21 @@ var callAgentTool = tool({
 <agents>
 | Agent | Role | When to Use |
 |-------|------|-------------|
-| ${AGENT_NAMES.ARCHITECT} \u{1F3D7}\uFE0F | Planner | Complex task \u2192 plan, OR 3+ failures \u2192 strategy |
-| ${AGENT_NAMES.BUILDER} \u{1F528} | Developer | Any code implementation (logic + UI) |
-| ${AGENT_NAMES.INSPECTOR} \u{1F50D} | Quality | Before completion, OR on errors (auto-fixes) |
-| ${AGENT_NAMES.RECORDER} \u{1F4BE} | Context | After each task, OR at session start |
+| ${AGENT_NAMES.PLANNER} \u{1F4CB} | Planner + Researcher | Complex task \u2192 plan, OR need research first |
+| ${AGENT_NAMES.WORKER} \u{1F528} | Developer + Docs | Any code implementation, documentation |
+| ${AGENT_NAMES.REVIEWER} \u2705 | Verifier + Context | Before completion, verify, update TODO |
 </agents>
 
 <execution_rules>
 1. Tasks with same parallel_group run CONCURRENTLY
-2. Always call Inspector before marking complete
-3. Always call Recorder after each task
-4. Never stop until mission is 100% complete
+2. Always call Reviewer before marking complete
+3. Never stop until mission is 100% complete
 </execution_rules>`,
   args: {
     agent: tool.schema.enum([
-      AGENT_NAMES.ARCHITECT,
-      AGENT_NAMES.BUILDER,
-      AGENT_NAMES.INSPECTOR,
-      AGENT_NAMES.RECORDER
+      AGENT_NAMES.PLANNER,
+      AGENT_NAMES.WORKER,
+      AGENT_NAMES.REVIEWER
     ]).describe("Agent to call"),
     task: tool.schema.string().describe("Atomic task description"),
     context: tool.schema.string().optional().describe("Additional context")
@@ -13287,13 +13223,14 @@ var COMMANDS = {
   "plan": {
     description: "Create a task plan without executing",
     template: `<delegate>
-<agent>${AGENT_NAMES.ARCHITECT}</agent>
+<agent>${AGENT_NAMES.PLANNER}</agent>
 <objective>Create parallel task plan for: $ARGUMENTS</objective>
-<success>Valid JSON with tasks array, each having id, description, agent, parallel_group, dependencies, and success criteria</success>
+<success>Valid .opencode/todo.md with tasks, each having id, description, agent, size, dependencies</success>
 <must_do>
 - Maximize parallelism by grouping independent tasks
-- Assign correct agent to each task (${AGENT_NAMES.BUILDER} or ${AGENT_NAMES.INSPECTOR})
+- Assign correct agent to each task (${AGENT_NAMES.WORKER} or ${AGENT_NAMES.REVIEWER})
 - Include clear success criteria for each task
+- Research before planning if unfamiliar technology
 </must_do>
 <must_not>
 - Do not implement any tasks, only plan
@@ -13301,43 +13238,40 @@ var COMMANDS = {
 </must_not>
 <context>
 - This is planning only, no execution
-- Output must be valid JSON
+- Output to .opencode/todo.md
 </context>
 </delegate>`,
     argumentHint: '"complex task to plan"'
   },
   "agents": {
-    description: "Show the 7-agent architecture",
-    template: `## \u{1F3AF} OpenCode Orchestrator - 7-Agent Architecture
+    description: "Show the 4-agent architecture",
+    template: `## \u{1F3AF} OpenCode Orchestrator - 4-Agent Architecture (Consolidated)
 
 | Agent | Role | Capabilities |
 |-------|------|--------------|
-| **${AGENT_NAMES.COMMANDER}** \u{1F3AF} | Orchestrator | Autonomous mission control, parallel task coordination, never stops until \u2705 MISSION COMPLETE |
-| **${AGENT_NAMES.ARCHITECT}** \u{1F3D7}\uFE0F | Strategic Planner | Task decomposition, dependency analysis, parallel group optimization |
-| **${AGENT_NAMES.BUILDER}** \u{1F528} | Full-Stack Developer | Code implementation, file operations, terminal commands, UI + logic |
-| **${AGENT_NAMES.INSPECTOR}** \u{1F50D} | Quality Assurance | 5-point audit, LSP diagnostics, auto-fix bugs, test verification |
-| **${AGENT_NAMES.RECORDER}** \u{1F4BE} | Context Manager | Progress tracking, state persistence, session memory across restarts |
-| **${AGENT_NAMES.LIBRARIAN}** \u{1F4DA} | Research Specialist | API documentation lookup, anti-hallucination, cache official docs |
-| **${AGENT_NAMES.RESEARCHER}** \u{1F52C} | Pre-task Analyst | Deep investigation before implementation, gathers all needed info |
+| **${AGENT_NAMES.COMMANDER}** \u{1F3AF} | Master Orchestrator | Autonomous mission control, parallel task coordination, never stops until \u2705 MISSION COMPLETE |
+| **${AGENT_NAMES.PLANNER}** \u{1F4CB} | Strategic Planner | Task decomposition, research, caching docs, dependency analysis |
+| **${AGENT_NAMES.WORKER}** \u{1F528} | Implementation | Code, files, terminal, documentation lookup when needed |
+| **${AGENT_NAMES.REVIEWER}** \u2705 | Quality & Context | Verification, TODO updates, context management, auto-fix |
 
 ## \u26A1 Parallel Execution System
 \`\`\`
-Up to 50 agents running simultaneously
+Up to 50 Worker Sessions running simultaneously
 Max 10 per agent type (auto-queues excess)
 Auto-timeout: 60 min | Auto-cleanup: 30 min
 \`\`\`
 
 ## \u{1F504} Execution Flow
 \`\`\`
-TRIAGE \u2192 RESEARCH \u2192 DELEGATE \u2192 EXECUTE \u2192 VERIFY \u2192 COMPLETE
+THINK \u2192 PLAN \u2192 DELEGATE \u2192 EXECUTE \u2192 VERIFY \u2192 COMPLETE
    L1: Fast Track (simple fixes)
    L2: Normal Track (features)
    L3: Deep Track (complex refactoring)
 \`\`\`
 
 ## \u{1F6E1}\uFE0F Anti-Hallucination
-- ${AGENT_NAMES.LIBRARIAN} researches BEFORE implementation
-- webfetch caches official documentation
+- ${AGENT_NAMES.PLANNER} researches BEFORE implementation
+- ${AGENT_NAMES.WORKER} caches official documentation
 - Never assumes - always verifies from sources
 
 ## \u{1F4A1} Usage
@@ -14237,8 +14171,263 @@ var presets = {
     message: `Recursion blocked at depth ${depth}`,
     variant: "warning",
     duration: 5e3
+  }),
+  warningMaxRetries: () => show({
+    title: "\u26A0\uFE0F Max Retries Exceeded",
+    message: "Automatic recovery has stopped. Manual intervention may be needed.",
+    variant: "error",
+    duration: 0
+    // Persistent
   })
 };
+
+// src/core/notification/task-toast-manager.ts
+var TaskToastManager = class {
+  tasks = /* @__PURE__ */ new Map();
+  client = null;
+  concurrency = null;
+  /**
+   * Initialize the manager with OpenCode client
+   */
+  init(client, concurrency) {
+    this.client = client;
+    this.concurrency = concurrency ?? null;
+  }
+  /**
+   * Set concurrency controller (can be set after init)
+   */
+  setConcurrencyController(concurrency) {
+    this.concurrency = concurrency;
+  }
+  /**
+   * Add a new task and show consolidated toast
+   */
+  addTask(task) {
+    const trackedTask = {
+      id: task.id,
+      description: task.description,
+      agent: task.agent,
+      status: task.status ?? "running",
+      startedAt: /* @__PURE__ */ new Date(),
+      isBackground: task.isBackground,
+      parentSessionID: task.parentSessionID,
+      sessionID: task.sessionID
+    };
+    this.tasks.set(task.id, trackedTask);
+    this.showTaskListToast(trackedTask);
+  }
+  /**
+   * Update task status
+   */
+  updateTask(id, status) {
+    const task = this.tasks.get(id);
+    if (task) {
+      task.status = status;
+    }
+  }
+  /**
+   * Remove a task
+   */
+  removeTask(id) {
+    this.tasks.delete(id);
+  }
+  /**
+   * Get all running tasks (newest first)
+   */
+  getRunningTasks() {
+    return Array.from(this.tasks.values()).filter((t) => t.status === "running").sort((a, b) => b.startedAt.getTime() - a.startedAt.getTime());
+  }
+  /**
+   * Get all queued tasks (oldest first - FIFO)
+   */
+  getQueuedTasks() {
+    return Array.from(this.tasks.values()).filter((t) => t.status === "queued").sort((a, b) => a.startedAt.getTime() - b.startedAt.getTime());
+  }
+  /**
+   * Get tasks by parent session
+   */
+  getTasksByParent(parentSessionID) {
+    return Array.from(this.tasks.values()).filter((t) => t.parentSessionID === parentSessionID);
+  }
+  /**
+   * Format duration since task started
+   */
+  formatDuration(startedAt) {
+    const seconds = Math.floor((Date.now() - startedAt.getTime()) / 1e3);
+    if (seconds < 60) return `${seconds}s`;
+    const minutes = Math.floor(seconds / 60);
+    if (minutes < 60) return `${minutes}m ${seconds % 60}s`;
+    const hours = Math.floor(minutes / 60);
+    return `${hours}h ${minutes % 60}m`;
+  }
+  /**
+   * Get concurrency info string (e.g., " [2/5]")
+   */
+  getConcurrencyInfo() {
+    if (!this.concurrency) return "";
+    const running = this.getRunningTasks();
+    const queued = this.getQueuedTasks();
+    const total = running.length + queued.length;
+    const limit = this.concurrency.getConcurrencyLimit("default");
+    if (limit === Infinity) return "";
+    return ` [${total}/${limit}]`;
+  }
+  /**
+   * Build consolidated task list message
+   */
+  buildTaskListMessage(newTask) {
+    const running = this.getRunningTasks();
+    const queued = this.getQueuedTasks();
+    const concurrencyInfo = this.getConcurrencyInfo();
+    const lines = [];
+    if (running.length > 0) {
+      lines.push(`Running (${running.length}):${concurrencyInfo}`);
+      for (const task of running) {
+        const duration3 = this.formatDuration(task.startedAt);
+        const bgIcon = task.isBackground ? "\u26A1" : "\u{1F504}";
+        const isNew = newTask && task.id === newTask.id ? " \u2190 NEW" : "";
+        lines.push(`${bgIcon} ${task.description} (${task.agent}) - ${duration3}${isNew}`);
+      }
+    }
+    if (queued.length > 0) {
+      if (lines.length > 0) lines.push("");
+      lines.push(`Queued (${queued.length}):`);
+      for (const task of queued) {
+        const bgIcon = task.isBackground ? "\u23F3" : "\u23F8\uFE0F";
+        lines.push(`${bgIcon} ${task.description} (${task.agent})`);
+      }
+    }
+    return lines.join("\n");
+  }
+  /**
+   * Show consolidated toast with all running/queued tasks
+   */
+  showTaskListToast(newTask) {
+    if (!this.client) return;
+    const tuiClient2 = this.client;
+    if (!tuiClient2.tui?.showToast) return;
+    const message = this.buildTaskListMessage(newTask);
+    const running = this.getRunningTasks();
+    const queued = this.getQueuedTasks();
+    const title = newTask.isBackground ? `\u26A1 New Background Task` : `\u{1F504} New Task Started`;
+    tuiClient2.tui.showToast({
+      body: {
+        title,
+        message: message || `${newTask.description} (${newTask.agent})`,
+        variant: "info",
+        duration: running.length + queued.length > 2 ? 5e3 : 3e3
+      }
+    }).catch(() => {
+    });
+  }
+  /**
+   * Show task completion toast
+   */
+  showCompletionToast(info) {
+    if (!this.client) return;
+    const tuiClient2 = this.client;
+    if (!tuiClient2.tui?.showToast) return;
+    this.removeTask(info.id);
+    const remaining = this.getRunningTasks();
+    const queued = this.getQueuedTasks();
+    let message;
+    let title;
+    let variant;
+    if (info.status === "error" || info.status === "cancelled") {
+      title = info.status === "error" ? "Task Failed" : "Task Cancelled";
+      message = `\u274C "${info.description}" ${info.status}
+${info.error || ""}`;
+      variant = "error";
+    } else {
+      title = "Task Completed";
+      message = `\u2705 "${info.description}" finished in ${info.duration}`;
+      variant = "success";
+    }
+    if (remaining.length > 0 || queued.length > 0) {
+      message += `
+
+Still running: ${remaining.length} | Queued: ${queued.length}`;
+    }
+    tuiClient2.tui.showToast({
+      body: {
+        title,
+        message,
+        variant,
+        duration: 5e3
+      }
+    }).catch(() => {
+    });
+  }
+  /**
+   * Show all-tasks-complete summary toast
+   */
+  showAllCompleteToast(parentSessionID, completedTasks) {
+    if (!this.client) return;
+    const tuiClient2 = this.client;
+    if (!tuiClient2.tui?.showToast) return;
+    const successCount = completedTasks.filter((t) => t.status === "completed").length;
+    const failCount = completedTasks.filter((t) => t.status === "error" || t.status === "cancelled").length;
+    const taskList = completedTasks.map((t) => `- ${t.status === "completed" ? "\u2705" : "\u274C"} ${t.description} (${t.duration})`).join("\n");
+    tuiClient2.tui.showToast({
+      body: {
+        title: "\u{1F389} All Tasks Completed",
+        message: `${successCount} succeeded, ${failCount} failed
+
+${taskList}`,
+        variant: failCount > 0 ? "warning" : "success",
+        duration: 7e3
+      }
+    }).catch(() => {
+    });
+  }
+  /**
+   * Show progress toast (for long-running tasks)
+   */
+  showProgressToast(taskId, progress) {
+    if (!this.client) return;
+    const tuiClient2 = this.client;
+    if (!tuiClient2.tui?.showToast) return;
+    const task = this.tasks.get(taskId);
+    if (!task) return;
+    const percentage = Math.round(progress.current / progress.total * 100);
+    const progressBar = `[${"\u2588".repeat(Math.floor(percentage / 10))}${"\u2591".repeat(10 - Math.floor(percentage / 10))}]`;
+    tuiClient2.tui.showToast({
+      body: {
+        title: `\u23F3 ${task.description}`,
+        message: `${progressBar} ${percentage}%
+${progress.message || ""}`,
+        variant: "info",
+        duration: 2e3
+      }
+    }).catch(() => {
+    });
+  }
+  /**
+   * Clear all tracked tasks
+   */
+  clear() {
+    this.tasks.clear();
+  }
+  /**
+   * Get task count stats
+   */
+  getStats() {
+    const running = this.getRunningTasks().length;
+    const queued = this.getQueuedTasks().length;
+    return { running, queued, total: this.tasks.size };
+  }
+};
+var instance = null;
+function getTaskToastManager() {
+  return instance;
+}
+function initTaskToastManager(client, concurrency) {
+  if (!instance) {
+    instance = new TaskToastManager();
+  }
+  instance.init(client, concurrency);
+  return instance;
+}
 
 // src/core/agents/manager/task-launcher.ts
 var TaskLauncher = class {
@@ -14300,6 +14489,17 @@ var TaskLauncher = class {
         log2(`Prompt error for ${taskId}:`, error45);
         this.onTaskError(taskId, error45);
       });
+      const toastManager = getTaskToastManager();
+      if (toastManager) {
+        toastManager.addTask({
+          id: taskId,
+          description: input.description,
+          agent: input.agent,
+          isBackground: true,
+          parentSessionID: input.parentSessionID,
+          sessionID
+        });
+      }
       presets.sessionCreated(sessionID, input.agent);
       log2(`Launched ${taskId} in session ${sessionID}`);
       return task;
@@ -14507,6 +14707,16 @@ var TaskCleaner = class {
         task.completedAt = /* @__PURE__ */ new Date();
         if (task.concurrencyKey) this.concurrency.release(task.concurrencyKey);
         this.store.untrackPending(task.parentSessionID, taskId);
+        const toastManager = getTaskToastManager();
+        if (toastManager) {
+          toastManager.showCompletionToast({
+            id: taskId,
+            description: task.description,
+            duration: formatDuration(task.startedAt, task.completedAt),
+            status: "error",
+            error: task.error
+          });
+        }
       }
       this.client.session.delete({ path: { id: task.sessionID } }).catch(() => {
       });
@@ -14528,17 +14738,54 @@ var TaskCleaner = class {
       log2(`Cleaned up ${taskId}`);
     }, CONFIG.CLEANUP_DELAY_MS);
   }
+  /**
+   * Notify parent session when task(s) complete.
+   * Uses noReply strategy:
+   * - Individual completion: noReply=true (silent notification, save tokens)
+   * - All complete: noReply=false (AI should process and report results)
+   */
   async notifyParentIfAllComplete(parentSessionID) {
-    if (this.store.hasPending(parentSessionID)) return;
+    const pendingCount = this.store.getPendingCount(parentSessionID);
     const notifications = this.store.getNotifications(parentSessionID);
     if (notifications.length === 0) return;
-    const message = buildNotificationMessage(notifications);
+    const allComplete = pendingCount === 0;
+    const toastManager = getTaskToastManager();
+    const completionInfos = notifications.map((task) => ({
+      id: task.id,
+      description: task.description,
+      duration: formatDuration(task.startedAt, task.completedAt),
+      status: task.status,
+      error: task.error
+    }));
+    if (allComplete && completionInfos.length > 1 && toastManager) {
+      toastManager.showAllCompleteToast(parentSessionID, completionInfos);
+    } else if (toastManager) {
+      for (const info of completionInfos) {
+        toastManager.showCompletionToast(info);
+      }
+    }
+    let message;
+    if (allComplete) {
+      message = buildNotificationMessage(notifications);
+      message += `
+
+**ACTION REQUIRED:** All background tasks are complete. Use \`get_task_result(taskId)\` to retrieve outputs and continue with the mission.`;
+    } else {
+      const completedCount = notifications.length;
+      message = `[BACKGROUND UPDATE] ${completedCount} task(s) completed, ${pendingCount} still running.
+Completed: ${notifications.map((t) => `\`${t.id}\``).join(", ")}
+You will be notified when ALL tasks complete. Continue productive work.`;
+    }
     try {
       await this.client.session.prompt({
         path: { id: parentSessionID },
-        body: { noReply: true, parts: [{ type: PART_TYPES.TEXT, text: message }] }
+        body: {
+          // Key optimization: only trigger AI response when ALL complete
+          noReply: !allComplete,
+          parts: [{ type: PART_TYPES.TEXT, text: message }]
+        }
       });
-      log2(`Notified parent ${parentSessionID}`);
+      log2(`Notified parent ${parentSessionID} (allComplete=${allComplete}, noReply=${!allComplete})`);
     } catch (error45) {
       log2("Notification error:", error45);
     }
@@ -14552,14 +14799,14 @@ var SESSION_EVENTS = {
   DELETED: "session.deleted"
 };
 var EventHandler = class {
-  constructor(client, store, concurrency, findBySession, notifyParentIfAllComplete, scheduleCleanup, validateSessionHasOutput) {
+  constructor(client, store, concurrency, findBySession, notifyParentIfAllComplete, scheduleCleanup, validateSessionHasOutput2) {
     this.client = client;
     this.store = store;
     this.concurrency = concurrency;
     this.findBySession = findBySession;
     this.notifyParentIfAllComplete = notifyParentIfAllComplete;
     this.scheduleCleanup = scheduleCleanup;
-    this.validateSessionHasOutput = validateSessionHasOutput;
+    this.validateSessionHasOutput = validateSessionHasOutput2;
   }
   /**
    * Handle OpenCode session events for proper resource cleanup.
@@ -14749,6 +14996,9 @@ var ParallelAgentManager = class _ParallelAgentManager {
   getPendingCount(parentSessionID) {
     return this.store.getPendingCount(parentSessionID);
   }
+  getConcurrency() {
+    return this.concurrency;
+  }
   cleanup() {
     this.poller.stop();
     this.store.clear();
@@ -14784,6 +15034,120 @@ var parallelAgentManager = {
 };
 
 // src/tools/parallel/delegate-task.ts
+var MIN_IDLE_TIME_MS = 5e3;
+var POLL_INTERVAL_MS = 500;
+var SYNC_TIMEOUT_MS = 5 * 60 * 1e3;
+var MAX_POLL_COUNT = 600;
+var STABLE_POLLS_REQUIRED = 3;
+async function validateSessionHasOutput(session, sessionID) {
+  try {
+    const response = await session.messages({ path: { id: sessionID } });
+    const messages = response.data ?? [];
+    const hasAssistantMessage = messages.some(
+      (m) => m.info?.role === "assistant"
+    );
+    if (!hasAssistantMessage) {
+      return false;
+    }
+    const hasContent = messages.some((m) => {
+      if (m.info?.role !== "assistant") return false;
+      const parts = m.parts ?? [];
+      return parts.some(
+        (p) => (
+          // Text content
+          p.type === PART_TYPES.TEXT && p.text && p.text.trim().length > 0 || // Reasoning content
+          p.type === PART_TYPES.REASONING && p.text && p.text.trim().length > 0 || // Tool calls (indicates work was done)
+          p.type === "tool" || p.type === "tool_use" || p.tool
+        )
+      );
+    });
+    return hasContent;
+  } catch (error45) {
+    log2("[delegate-task] Error validating session output:", error45);
+    return true;
+  }
+}
+async function pollWithSafetyLimits(session, sessionID, startTime) {
+  let pollCount = 0;
+  let stablePolls = 0;
+  let lastMsgCount = 0;
+  let hasValidOutput = false;
+  let lastLogTime = 0;
+  while (pollCount < MAX_POLL_COUNT) {
+    pollCount++;
+    const elapsed = Date.now() - startTime;
+    if (elapsed >= SYNC_TIMEOUT_MS) {
+      log2("[delegate-task] Hard timeout reached", { pollCount, elapsed });
+      return { success: false, timedOut: true, pollCount, elapsedMs: elapsed };
+    }
+    if (Date.now() - lastLogTime > 1e4) {
+      log2("[delegate-task] Polling...", {
+        pollCount,
+        elapsed: Math.floor(elapsed / 1e3) + "s",
+        stablePolls,
+        hasValidOutput
+      });
+      lastLogTime = Date.now();
+    }
+    await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS));
+    try {
+      const statusResult = await session.status();
+      const sessionStatus = statusResult.data?.[sessionID];
+      if (!sessionStatus) {
+        stablePolls = 0;
+        continue;
+      }
+      if (sessionStatus.type !== "idle") {
+        stablePolls = 0;
+        continue;
+      }
+      if (elapsed < MIN_IDLE_TIME_MS) {
+        continue;
+      }
+      if (!hasValidOutput) {
+        hasValidOutput = await validateSessionHasOutput(session, sessionID);
+        if (!hasValidOutput) {
+          continue;
+        }
+        log2("[delegate-task] Valid output detected", { pollCount, elapsed });
+      }
+      const msgs = await session.messages({ path: { id: sessionID } });
+      const count = (msgs.data ?? []).length;
+      if (count === lastMsgCount) {
+        stablePolls++;
+        if (stablePolls >= STABLE_POLLS_REQUIRED) {
+          log2("[delegate-task] Stable completion", { pollCount, stablePolls, elapsed });
+          return { success: true, timedOut: false, pollCount, elapsedMs: elapsed };
+        }
+      } else {
+        stablePolls = 0;
+        lastMsgCount = count;
+      }
+    } catch (error45) {
+      log2("[delegate-task] Poll error (continuing):", error45);
+    }
+  }
+  log2("[delegate-task] Max poll count reached", { pollCount, elapsed: Date.now() - startTime });
+  return {
+    success: false,
+    timedOut: true,
+    error: "Max poll count exceeded",
+    pollCount,
+    elapsedMs: Date.now() - startTime
+  };
+}
+async function extractSessionResult(session, sessionID) {
+  try {
+    const msgs = await session.messages({ path: { id: sessionID } });
+    const messages = msgs.data ?? [];
+    const lastMsg = messages.filter((m) => m.info?.role === "assistant").reverse()[0];
+    const text = lastMsg?.parts?.filter((p) => p.type === PART_TYPES.TEXT || p.type === PART_TYPES.REASONING).map((p) => p.text ?? "").join("\n") || "";
+    return text;
+  } catch (error45) {
+    log2("[delegate-task] Error extracting result:", error45);
+    return "(Error extracting result)";
+  }
+}
 var createDelegateTaskTool = (manager, client) => tool({
   description: `Delegate a task to an agent.
 
@@ -14832,30 +15196,14 @@ Previous context preserved. Use \`get_task_result({ taskId: "${task.id}" })\` wh
         }
         const startTime = Date.now();
         const session = sessionClient.session;
-        let stablePolls = 0, lastMsgCount = 0;
-        while (Date.now() - startTime < PARALLEL_TASK.SYNC_TIMEOUT_MS) {
-          await new Promise((r) => setTimeout(r, 500));
-          const statusResult = await session.status();
-          if (statusResult.data?.[task.sessionID]?.type !== "idle") {
-            stablePolls = 0;
-            continue;
-          }
-          if (Date.now() - startTime < 5e3) continue;
-          const msgs2 = await session.messages({ path: { id: task.sessionID } });
-          const count = (msgs2.data ?? []).length;
-          if (count === lastMsgCount) {
-            stablePolls++;
-            if (stablePolls >= 3) break;
-          } else {
-            stablePolls = 0;
-            lastMsgCount = count;
-          }
+        log2("[delegate-task] Resume: starting sync wait", { taskId: task.id, sessionID: task.sessionID });
+        const pollResult = await pollWithSafetyLimits(session, task.sessionID, startTime);
+        if (pollResult.timedOut) {
+          return `\u26A0\uFE0F Resume timeout after ${Math.floor(pollResult.elapsedMs / 1e3)}s (${pollResult.pollCount} polls)
+Session: \`${task.sessionID}\` - Use get_task_result or resume later.`;
         }
-        const msgs = await session.messages({ path: { id: task.sessionID } });
-        const messages = msgs.data ?? [];
-        const lastMsg = messages.filter((m) => m.info?.role === "assistant").reverse()[0];
-        const text = lastMsg?.parts?.filter((p) => p.type === PART_TYPES.TEXT || p.type === PART_TYPES.REASONING).map((p) => p.text ?? "").join("\n") || "";
-        return `\u{1F504} Resumed & Completed (${Math.floor((Date.now() - startTime) / 1e3)}s)
+        const text = await extractSessionResult(session, task.sessionID);
+        return `\u{1F504} Resumed & Completed (${Math.floor(pollResult.elapsedMs / 1e3)}s)
 
 ${text || "(No output)"}`;
       } catch (error45) {
@@ -14870,6 +15218,7 @@ ${text || "(No output)"}`;
           prompt,
           parentSessionID: ctx.sessionID
         });
+        presets.taskStarted(task.id, agent);
         return `\u{1F680} Task spawned: \`${task.id}\` (${agent})
 Session: \`${task.sessionID}\` (save for resume)`;
       } catch (error45) {
@@ -14883,10 +15232,11 @@ Session: \`${task.sessionID}\` (save for resume)`;
         query: { directory: "." }
       });
       if (createResult.error || !createResult.data?.id) {
-        return `\u274C Failed to create session`;
+        return `\u274C Failed to create session: ${createResult.error || "No session ID returned"}`;
       }
       const sessionID = createResult.data.id;
       const startTime = Date.now();
+      log2("[delegate-task] Sync: starting", { agent, sessionID });
       await session.prompt({
         path: { id: sessionID },
         body: {
@@ -14900,34 +15250,20 @@ Session: \`${task.sessionID}\` (save for resume)`;
           parts: [{ type: PART_TYPES.TEXT, text: prompt }]
         }
       });
-      let stablePolls = 0, lastMsgCount = 0;
-      while (Date.now() - startTime < 10 * 60 * 1e3) {
-        await new Promise((r) => setTimeout(r, 500));
-        const statusResult = await session.status();
-        if (statusResult.data?.[sessionID]?.type !== "idle") {
-          stablePolls = 0;
-          continue;
-        }
-        if (Date.now() - startTime < 5e3) continue;
-        const msgs2 = await session.messages({ path: { id: sessionID } });
-        const count = (msgs2.data ?? []).length;
-        if (count === lastMsgCount) {
-          stablePolls++;
-          if (stablePolls >= 3) break;
-        } else {
-          stablePolls = 0;
-          lastMsgCount = count;
-        }
+      const pollResult = await pollWithSafetyLimits(session, sessionID, startTime);
+      if (pollResult.timedOut) {
+        log2("[delegate-task] Sync: timed out", pollResult);
+        return `\u26A0\uFE0F Timeout after ${Math.floor(pollResult.elapsedMs / 1e3)}s (${pollResult.pollCount} polls)
+Session: \`${sessionID}\` - Use get_task_result or resume later.`;
       }
-      const msgs = await session.messages({ path: { id: sessionID } });
-      const messages = msgs.data ?? [];
-      const lastMsg = messages.filter((m) => m.info?.role === "assistant").reverse()[0];
-      const text = lastMsg?.parts?.filter((p) => p.type === PART_TYPES.TEXT || p.type === PART_TYPES.REASONING).map((p) => p.text ?? "").join("\n") || "";
-      return `\u2705 Completed (${Math.floor((Date.now() - startTime) / 1e3)}s)
+      const text = await extractSessionResult(session, sessionID);
+      log2("[delegate-task] Sync: completed", { sessionID, elapsedMs: pollResult.elapsedMs });
+      return `\u2705 Completed (${Math.floor(pollResult.elapsedMs / 1e3)}s)
 Session: \`${sessionID}\` (save for resume)
 
 ${text || "(No output)"}`;
     } catch (error45) {
+      log2("[delegate-task] Sync: error", error45);
       return `\u274C Failed: ${error45 instanceof Error ? error45.message : String(error45)}`;
     }
   }
@@ -15122,7 +15458,7 @@ var RECOVERY_PROMPT = `<anomaly_recovery>
 <instructions>
 - If a sub-agent produced bad output: try a different agent or simpler task
 - If stuck in a loop: break down the task into smaller pieces
-- If context seems corrupted: call Recorder to restore context
+- If context seems corrupted: call Reviewer to restore context
 - THINK in English for maximum stability
 </instructions>
 
@@ -15134,8 +15470,8 @@ var ESCALATION_PROMPT = `<critical_anomaly>
 <emergency_protocol>
 1. STOP current execution path immediately
 2. DO NOT continue with the same approach - it is failing
-3. CALL Architect for a completely new strategy
-4. If Architect also fails: report status to user and await guidance
+3. CALL Planner for a completely new strategy
+4. If Planner also fails: report status to user and await guidance
 </emergency_protocol>
 
 <diagnosis>
@@ -15143,7 +15479,7 @@ The current approach is producing corrupted output.
 This may indicate: context overload, model instability, or task complexity.
 </diagnosis>
 
-Request a fresh plan from Architect with reduced scope.
+Request a fresh plan from Planner with reduced scope.
 </critical_anomaly>`;
 
 // src/core/cache/constants.ts
@@ -15434,9 +15770,9 @@ async function searchSearXNG(query) {
     "https://search.bus-hit.me",
     "https://paulgo.io"
   ];
-  for (const instance of instances) {
+  for (const instance2 of instances) {
     try {
-      const url2 = `${instance}/search?q=${encodeURIComponent(query)}&format=json&engines=google,duckduckgo,bing`;
+      const url2 = `${instance2}/search?q=${encodeURIComponent(query)}&format=json&engines=google,duckduckgo,bing`;
       const response = await fetch(url2, {
         headers: {
           "User-Agent": "Mozilla/5.0 (compatible; OpenCode/1.0)",
@@ -15920,10 +16256,505 @@ ${r.content}
   }
 });
 
+// src/core/loop/stats.ts
+function getIncompleteCount(todos) {
+  return todos.filter(
+    (t) => t.status !== "completed" && t.status !== "cancelled"
+  ).length;
+}
+function hasRemainingWork(todos) {
+  return getIncompleteCount(todos) > 0;
+}
+function getNextPending(todos) {
+  const pending = todos.filter(
+    (t) => t.status === "pending" || t.status === "in_progress"
+  );
+  const priorityOrder = { high: 0, medium: 1, low: 2 };
+  pending.sort((a, b) => priorityOrder[a.priority] - priorityOrder[b.priority]);
+  return pending[0];
+}
+function getStats(todos) {
+  const stats2 = {
+    total: todos.length,
+    pending: todos.filter((t) => t.status === "pending").length,
+    inProgress: todos.filter((t) => t.status === "in_progress").length,
+    completed: todos.filter((t) => t.status === "completed").length,
+    cancelled: todos.filter((t) => t.status === "cancelled").length,
+    percentComplete: 0
+  };
+  if (stats2.total > 0) {
+    stats2.percentComplete = Math.round(
+      (stats2.completed + stats2.cancelled) / stats2.total * 100
+    );
+  }
+  return stats2;
+}
+
+// src/core/loop/formatters.ts
+function formatProgress(todos) {
+  const stats2 = getStats(todos);
+  const done = stats2.completed + stats2.cancelled;
+  return `${done}/${stats2.total} (${stats2.percentComplete}%)`;
+}
+function generateContinuationPrompt(todos) {
+  const incomplete = todos.filter(
+    (t) => t.status !== "completed" && t.status !== "cancelled"
+  );
+  if (incomplete.length === 0) {
+    return "";
+  }
+  const next = getNextPending(todos);
+  let prompt = `<todo_continuation>
+\u{1F4CB} **TODO Progress**: ${formatProgress(todos)}
+
+**Incomplete Tasks** (${incomplete.length} remaining):
+`;
+  for (const todo of incomplete.slice(0, 5)) {
+    const status = todo.status === "in_progress" ? "\u{1F504}" : "\u23F3";
+    const priority = todo.priority === "high" ? "\u{1F534}" : todo.priority === "medium" ? "\u{1F7E1}" : "\u{1F7E2}";
+    prompt += `${status} ${priority} [${todo.id}] ${todo.content}
+`;
+  }
+  if (incomplete.length > 5) {
+    prompt += `... and ${incomplete.length - 5} more
+`;
+  }
+  prompt += `
+**Action Required**:
+1. Continue working on incomplete todos
+2. Mark each task complete when finished
+3. Do NOT stop until all todos are completed or cancelled
+
+`;
+  if (next) {
+    prompt += `**Next Task**: [${next.id}] ${next.content}
+`;
+  }
+  prompt += `</todo_continuation>`;
+  return prompt;
+}
+
+// src/shared/error-patterns.ts
+var ERROR_PATTERNS = {
+  TOOL_RESULT_MISSING: /tool_result_missing|tool result.*missing/i,
+  THINKING_BLOCK_ORDER: /thinking.*block.*order|thinking_block_order/i,
+  THINKING_DISABLED: /thinking.*disabled|thinking_disabled_violation/i,
+  RATE_LIMIT: /rate.?limit|too.?many.?requests|429/i,
+  CONTEXT_OVERFLOW: /context.?length|token.?limit|maximum.?context/i,
+  MESSAGE_ABORTED: /MessageAbortedError|AbortError/i,
+  NETWORK_ERROR: /network|ECONNREFUSED|ETIMEDOUT|fetch failed/i,
+  AUTH_ERROR: /unauthorized|401|403|invalid.*token/i
+};
+function detectErrorType(error45) {
+  const errorStr = typeof error45 === "string" ? error45 : error45?.message || error45?.name || String(error45);
+  for (const [type, pattern] of Object.entries(ERROR_PATTERNS)) {
+    if (pattern.test(errorStr)) {
+      return type;
+    }
+  }
+  return null;
+}
+
+// src/core/recovery/constants.ts
+var MAX_RETRIES = 3;
+var BASE_DELAY = 1e3;
+var MAX_HISTORY2 = 100;
+
+// src/core/recovery/patterns.ts
+var errorPatterns = [
+  // Rate limiting
+  {
+    pattern: /rate.?limit|too.?many.?requests|429/i,
+    category: "rate_limit",
+    handler: (ctx) => {
+      const delay = BASE_DELAY * Math.pow(2, ctx.attempt);
+      presets.warningRateLimited();
+      return { type: "retry", delay, attempt: ctx.attempt + 1 };
+    }
+  },
+  // Context overflow
+  {
+    pattern: /context.?length|token.?limit|maximum.?context/i,
+    category: "context_overflow",
+    handler: () => {
+      presets.errorRecovery("Compacting context");
+      return { type: "compact", reason: "Context limit reached" };
+    }
+  },
+  // Network errors
+  {
+    pattern: /ECONNREFUSED|ETIMEDOUT|network|fetch.?failed/i,
+    category: "network",
+    handler: (ctx) => {
+      if (ctx.attempt >= MAX_RETRIES) {
+        return { type: "abort", reason: "Network unavailable after retries" };
+      }
+      return { type: "retry", delay: BASE_DELAY * (ctx.attempt + 1), attempt: ctx.attempt + 1 };
+    }
+  },
+  // Session errors
+  {
+    pattern: /session.?not.?found|session.?expired/i,
+    category: "session",
+    handler: () => {
+      return { type: "abort", reason: "Session no longer available" };
+    }
+  },
+  // Tool errors
+  {
+    pattern: /tool.?not.?found|unknown.?tool/i,
+    category: "tool",
+    handler: (ctx) => {
+      return { type: "escalate", to: "Reviewer", reason: `Unknown tool used by ${ctx.agent}` };
+    }
+  },
+  // Parse errors
+  {
+    pattern: /parse.?error|invalid.?json|syntax.?error/i,
+    category: "parse",
+    handler: (ctx) => {
+      if (ctx.attempt >= 2) {
+        return { type: "skip", reason: "Persistent parse error" };
+      }
+      return { type: "retry", delay: 500, attempt: ctx.attempt + 1 };
+    }
+  },
+  // Gibberish / hallucination
+  {
+    pattern: /gibberish|hallucination|mixed.?language/i,
+    category: "gibberish",
+    handler: () => {
+      presets.errorRecovery("Retrying with clean context");
+      return { type: "retry", delay: 1e3, attempt: 1 };
+    }
+  }
+];
+
+// src/core/recovery/handler.ts
+var recoveryHistory = [];
+function handleError(context) {
+  const errorMessage = context.error.message || String(context.error);
+  for (const pattern of errorPatterns) {
+    const matches = typeof pattern.pattern === "string" ? errorMessage.includes(pattern.pattern) : pattern.pattern.test(errorMessage);
+    if (matches) {
+      const action = pattern.handler(context);
+      recoveryHistory.push({
+        context,
+        action,
+        timestamp: /* @__PURE__ */ new Date()
+      });
+      if (recoveryHistory.length > MAX_HISTORY2) {
+        recoveryHistory.shift();
+      }
+      return action;
+    }
+  }
+  if (context.attempt < MAX_RETRIES) {
+    return {
+      type: "retry",
+      delay: BASE_DELAY * Math.pow(2, context.attempt),
+      attempt: context.attempt + 1
+    };
+  }
+  return { type: "abort", reason: `Unknown error after ${MAX_RETRIES} retries` };
+}
+
+// src/core/recovery/session-recovery.ts
+var recoveryState = /* @__PURE__ */ new Map();
+function getState(sessionID) {
+  let state2 = recoveryState.get(sessionID);
+  if (!state2) {
+    state2 = { isRecovering: false, lastErrorTime: 0, errorCount: 0 };
+    recoveryState.set(sessionID, state2);
+  }
+  return state2;
+}
+var TOOL_CRASH_RECOVERY_PROMPT = `<recovery type="tool_crash">
+The previous tool execution failed. This is a system-level issue, not your fault.
+
+<action>
+1. Acknowledge the tool failure
+2. Try an alternative approach using different tools
+3. If the same tool is needed, retry with modified parameters
+4. Continue with the original mission
+</action>
+
+Do NOT apologize excessively. Just proceed.
+</recovery>`;
+var THINKING_RECOVERY_PROMPT = `<recovery type="thinking_block">
+There was a temporary processing issue. Please continue from where you left off.
+
+<action>
+1. Review your current progress
+2. Identify the next pending task
+3. Continue execution
+</action>
+</recovery>`;
+async function handleSessionError(client, sessionID, error45, properties) {
+  const state2 = getState(sessionID);
+  if (state2.isRecovering) {
+    log2("[session-recovery] Already recovering, skipping", { sessionID });
+    return false;
+  }
+  const now = Date.now();
+  if (now - state2.lastErrorTime < 5e3) {
+    log2("[session-recovery] Too soon since last error, skipping", { sessionID });
+    return false;
+  }
+  state2.lastErrorTime = now;
+  state2.errorCount++;
+  const errorType = detectErrorType(error45);
+  if (!errorType) {
+    log2("[session-recovery] Unknown error type, using default handler", { sessionID, error: error45 });
+    return false;
+  }
+  log2("[session-recovery] Detected error type", { sessionID, errorType, errorCount: state2.errorCount });
+  if (state2.errorCount > 3) {
+    log2("[session-recovery] Max recovery attempts exceeded", { sessionID });
+    presets.warningMaxRetries();
+    return false;
+  }
+  state2.isRecovering = true;
+  try {
+    let recoveryPrompt = null;
+    let toastMessage = null;
+    switch (errorType) {
+      case "TOOL_RESULT_MISSING":
+        recoveryPrompt = TOOL_CRASH_RECOVERY_PROMPT;
+        toastMessage = "Tool Crash Recovery";
+        break;
+      case "THINKING_BLOCK_ORDER":
+      case "THINKING_DISABLED":
+        recoveryPrompt = THINKING_RECOVERY_PROMPT;
+        toastMessage = "Thinking Block Recovery";
+        break;
+      case "RATE_LIMIT":
+        const ctx = {
+          sessionId: sessionID,
+          error: error45 instanceof Error ? error45 : new Error(String(error45)),
+          attempt: state2.errorCount,
+          timestamp: /* @__PURE__ */ new Date()
+        };
+        const action = handleError(ctx);
+        if (action.type === "retry" && action.delay) {
+          log2("[session-recovery] Rate limit, waiting", { delay: action.delay });
+          await new Promise((r) => setTimeout(r, action.delay));
+        }
+        state2.isRecovering = false;
+        return true;
+      case "CONTEXT_OVERFLOW":
+        toastMessage = "Context Overflow - Consider compaction";
+        state2.isRecovering = false;
+        return false;
+      case "MESSAGE_ABORTED":
+        log2("[session-recovery] Message aborted by user, not recovering", { sessionID });
+        state2.isRecovering = false;
+        return false;
+      default:
+        state2.isRecovering = false;
+        return false;
+    }
+    if (recoveryPrompt && toastMessage) {
+      presets.errorRecovery(toastMessage);
+      await client.session.prompt({
+        path: { id: sessionID },
+        body: {
+          parts: [{ type: PART_TYPES.TEXT, text: recoveryPrompt }]
+        }
+      });
+      log2("[session-recovery] Recovery prompt injected", { sessionID, errorType });
+      state2.isRecovering = false;
+      return true;
+    }
+    state2.isRecovering = false;
+    return false;
+  } catch (injectionError) {
+    log2("[session-recovery] Failed to inject recovery prompt", { sessionID, error: injectionError });
+    state2.isRecovering = false;
+    return false;
+  }
+}
+function markRecoveryComplete(sessionID) {
+  const state2 = recoveryState.get(sessionID);
+  if (state2) {
+    state2.isRecovering = false;
+    state2.errorCount = 0;
+  }
+}
+function cleanupSessionRecovery(sessionID) {
+  recoveryState.delete(sessionID);
+}
+function isSessionRecovering(sessionID) {
+  return recoveryState.get(sessionID)?.isRecovering ?? false;
+}
+
+// src/core/loop/todo-continuation.ts
+var sessionStates = /* @__PURE__ */ new Map();
+var COUNTDOWN_SECONDS = 2;
+var TOAST_DURATION_MS = 1500;
+var MIN_TIME_BETWEEN_CONTINUATIONS_MS = 3e3;
+function getState2(sessionID) {
+  let state2 = sessionStates.get(sessionID);
+  if (!state2) {
+    state2 = {};
+    sessionStates.set(sessionID, state2);
+  }
+  return state2;
+}
+function cancelCountdown(sessionID) {
+  const state2 = sessionStates.get(sessionID);
+  if (state2?.countdownTimer) {
+    clearTimeout(state2.countdownTimer);
+    state2.countdownTimer = void 0;
+    state2.countdownStartedAt = void 0;
+  }
+}
+function parseTodos(data) {
+  if (!Array.isArray(data)) return [];
+  return data.filter(
+    (item) => item && typeof item === "object" && "id" in item && "status" in item
+  ).map((item) => ({
+    id: item.id,
+    content: item.content || "",
+    status: item.status || "pending",
+    priority: item.priority || "medium",
+    createdAt: item.createdAt ? new Date(item.createdAt) : /* @__PURE__ */ new Date()
+  }));
+}
+function hasRunningBackgroundTasks(parentSessionID) {
+  try {
+    const manager = ParallelAgentManager.getInstance();
+    const tasks = manager.getTasksByParent(parentSessionID);
+    return tasks.some((t) => t.status === "running");
+  } catch {
+    return false;
+  }
+}
+async function showCountdownToast(client, secondsRemaining, incompleteCount) {
+  try {
+    const tuiClient2 = client;
+    if (tuiClient2.tui?.showToast) {
+      await tuiClient2.tui.showToast({
+        body: {
+          title: "\u{1F4CB} Todo Continuation",
+          message: `Resuming in ${secondsRemaining}s... (${incompleteCount} tasks remaining)`,
+          variant: "warning",
+          duration: TOAST_DURATION_MS
+        }
+      });
+    }
+  } catch {
+  }
+}
+async function injectContinuation(client, sessionID, todos) {
+  const state2 = getState2(sessionID);
+  if (state2.isAborting) {
+    log2("[todo-continuation] Skipped: user is aborting", { sessionID });
+    return;
+  }
+  if (hasRunningBackgroundTasks(sessionID)) {
+    log2("[todo-continuation] Skipped: background tasks running", { sessionID });
+    return;
+  }
+  if (isSessionRecovering(sessionID)) {
+    log2("[todo-continuation] Skipped: session is recovering from error", { sessionID });
+    return;
+  }
+  const prompt = generateContinuationPrompt(todos);
+  if (!prompt) {
+    log2("[todo-continuation] Skipped: no continuation prompt needed", { sessionID });
+    return;
+  }
+  try {
+    await client.session.prompt({
+      path: { id: sessionID },
+      body: {
+        parts: [{ type: PART_TYPES.TEXT, text: prompt }]
+      }
+    });
+    log2("[todo-continuation] Injected continuation prompt", {
+      sessionID,
+      incompleteCount: getIncompleteCount(todos),
+      progress: formatProgress(todos)
+    });
+  } catch (error45) {
+    log2("[todo-continuation] Failed to inject continuation", { sessionID, error: error45 });
+  }
+}
+async function handleSessionIdle(client, sessionID, mainSessionID) {
+  const state2 = getState2(sessionID);
+  const now = Date.now();
+  if (state2.lastIdleTime && now - state2.lastIdleTime < MIN_TIME_BETWEEN_CONTINUATIONS_MS) {
+    log2("[todo-continuation] Skipped: too soon since last check", { sessionID });
+    return;
+  }
+  state2.lastIdleTime = now;
+  cancelCountdown(sessionID);
+  if (mainSessionID && sessionID !== mainSessionID) {
+    log2("[todo-continuation] Skipped: not main session", { sessionID, mainSessionID });
+    return;
+  }
+  if (isSessionRecovering(sessionID)) {
+    log2("[todo-continuation] Skipped: in recovery mode", { sessionID });
+    return;
+  }
+  if (hasRunningBackgroundTasks(sessionID)) {
+    log2("[todo-continuation] Skipped: background tasks running", { sessionID });
+    return;
+  }
+  let todos = [];
+  try {
+    const response = await client.session.todo({ path: { id: sessionID } });
+    todos = parseTodos(response.data ?? response);
+  } catch (error45) {
+    log2("[todo-continuation] Failed to fetch todos", { sessionID, error: error45 });
+    return;
+  }
+  if (!hasRemainingWork(todos)) {
+    log2("[todo-continuation] All todos complete", { sessionID });
+    return;
+  }
+  const incompleteCount = getIncompleteCount(todos);
+  const nextPending = getNextPending(todos);
+  log2("[todo-continuation] Starting countdown", {
+    sessionID,
+    incompleteCount,
+    nextPending: nextPending?.id
+  });
+  await showCountdownToast(client, COUNTDOWN_SECONDS, incompleteCount);
+  state2.countdownStartedAt = now;
+  state2.countdownTimer = setTimeout(async () => {
+    cancelCountdown(sessionID);
+    try {
+      const freshResponse = await client.session.todo({ path: { id: sessionID } });
+      const freshTodos = parseTodos(freshResponse.data ?? freshResponse);
+      if (hasRemainingWork(freshTodos)) {
+        await injectContinuation(client, sessionID, freshTodos);
+      } else {
+        log2("[todo-continuation] Todos completed during countdown", { sessionID });
+      }
+    } catch {
+      log2("[todo-continuation] Failed to re-fetch todos for continuation", { sessionID });
+    }
+  }, COUNTDOWN_SECONDS * 1e3);
+}
+function handleUserMessage(sessionID) {
+  const state2 = getState2(sessionID);
+  if (state2.countdownTimer) {
+    log2("[todo-continuation] Cancelled: user interaction", { sessionID });
+    cancelCountdown(sessionID);
+  }
+  state2.isAborting = false;
+}
+function cleanupSession(sessionID) {
+  cancelCountdown(sessionID);
+  sessionStates.delete(sessionID);
+}
+
 // src/core/progress/store.ts
 var progressHistory = /* @__PURE__ */ new Map();
 var sessionStartTimes = /* @__PURE__ */ new Map();
-var MAX_HISTORY2 = 100;
+var MAX_HISTORY3 = 100;
 function startSession(sessionId) {
   sessionStartTimes.set(sessionId, /* @__PURE__ */ new Date());
   progressHistory.set(sessionId, []);
@@ -15956,7 +16787,7 @@ function recordSnapshot(sessionId, data) {
   };
   const history = progressHistory.get(sessionId) || [];
   history.push(snapshot);
-  if (history.length > MAX_HISTORY2) {
+  if (history.length > MAX_HISTORY3) {
     history.shift();
   }
   progressHistory.set(sessionId, history);
@@ -16041,11 +16872,13 @@ var OrchestratorPlugin = async (input) => {
   console.log(`[orchestrator] Log file: ${getLogPath()}`);
   log2("[index.ts] Plugin initialized", { version: PLUGIN_VERSION, directory });
   initToastClient(client);
-  log2("[index.ts] Toast notifications enabled with TUI");
+  const taskToastManager = initTaskToastManager(client);
+  log2("[index.ts] Toast notifications enabled with TUI and TaskToastManager");
   const sessions = /* @__PURE__ */ new Map();
   const parallelAgentManager2 = ParallelAgentManager.getInstance(client, directory);
   const asyncAgentTools = createAsyncAgentTools(parallelAgentManager2, client);
-  log2("[index.ts] ParallelAgentManager initialized");
+  taskToastManager.setConcurrencyController(parallelAgentManager2.getConcurrency());
+  log2("[index.ts] ParallelAgentManager initialized with TaskToastManager integration");
   return {
     // -----------------------------------------------------------------
     // Tools we expose to the LLM
@@ -16096,55 +16929,30 @@ var OrchestratorPlugin = async (input) => {
           thinking: { type: "enabled", budgetTokens: 32e3 },
           color: "#FF6B6B"
         },
-        // Subagents - invoked by Commander via Task tool
-        [AGENT_NAMES.ARCHITECT]: {
-          description: "Task decomposition and planning specialist",
+        // Consolidated subagents (4 agents instead of 6)
+        [AGENT_NAMES.PLANNER]: {
+          description: "Strategic planning and research specialist",
           mode: "subagent",
           hidden: true,
-          // Only invoked programmatically
-          prompt: AGENTS[AGENT_NAMES.ARCHITECT]?.systemPrompt || "",
+          prompt: AGENTS[AGENT_NAMES.PLANNER]?.systemPrompt || "",
           maxTokens: 32e3,
           color: "#9B59B6"
         },
-        [AGENT_NAMES.BUILDER]: {
-          description: "Full-stack code implementation",
+        [AGENT_NAMES.WORKER]: {
+          description: "Implementation and documentation specialist",
           mode: "subagent",
           hidden: true,
-          prompt: AGENTS[AGENT_NAMES.BUILDER]?.systemPrompt || "",
+          prompt: AGENTS[AGENT_NAMES.WORKER]?.systemPrompt || "",
           maxTokens: 32e3,
           color: "#E67E22"
         },
-        [AGENT_NAMES.INSPECTOR]: {
-          description: "Quality verification and bug fixing",
+        [AGENT_NAMES.REVIEWER]: {
+          description: "Verification and context management specialist",
           mode: "subagent",
           hidden: true,
-          prompt: AGENTS[AGENT_NAMES.INSPECTOR]?.systemPrompt || "",
+          prompt: AGENTS[AGENT_NAMES.REVIEWER]?.systemPrompt || "",
           maxTokens: 32e3,
           color: "#27AE60"
-        },
-        [AGENT_NAMES.RECORDER]: {
-          description: "Persistent progress tracking across sessions",
-          mode: "subagent",
-          hidden: true,
-          prompt: AGENTS[AGENT_NAMES.RECORDER]?.systemPrompt || "",
-          maxTokens: 16e3,
-          color: "#3498DB"
-        },
-        [AGENT_NAMES.LIBRARIAN]: {
-          description: "Documentation research specialist - reduces hallucination",
-          mode: "subagent",
-          hidden: true,
-          prompt: AGENTS[AGENT_NAMES.LIBRARIAN]?.systemPrompt || "",
-          maxTokens: 16e3,
-          color: "#4ECDC4"
-        },
-        [AGENT_NAMES.RESEARCHER]: {
-          description: "Pre-task investigation - gathers all info before implementation",
-          mode: "subagent",
-          hidden: true,
-          prompt: AGENTS[AGENT_NAMES.RESEARCHER]?.systemPrompt || "",
-          maxTokens: 16e3,
-          color: "#45B7D1"
         }
       };
       const processedExistingAgents = { ...existingAgents };
@@ -16197,14 +17005,52 @@ var OrchestratorPlugin = async (input) => {
           sessions.delete(sessionID);
           state.sessions.delete(sessionID);
           clearSession(sessionID);
+          cleanupSessionRecovery(sessionID);
+          cleanupSession(sessionID);
           presets.sessionCompleted(sessionID, duration3);
         }
       }
       if (event.type === "session.error") {
-        const sessionID = event.properties?.sessionId || "";
-        const error45 = event.properties?.error || "Unknown error";
+        const sessionID = event.properties?.sessionId || event.properties?.sessionID || "";
+        const error45 = event.properties?.error;
         log2("[index.ts] event: session.error", { sessionID, error: error45 });
-        presets.taskFailed("session", error45.slice(0, 50));
+        if (sessionID && error45) {
+          const recovered = await handleSessionError(
+            client,
+            sessionID,
+            error45,
+            event.properties
+          );
+          if (recovered) {
+            log2("[index.ts] session.error: auto-recovery initiated", { sessionID });
+            return;
+          }
+        }
+        presets.taskFailed("session", String(error45).slice(0, 50));
+      }
+      if (event.type === "message.updated") {
+        const messageInfo = event.properties?.info;
+        const sessionID = messageInfo?.sessionID;
+        const role = messageInfo?.role;
+        if (sessionID && role === "assistant") {
+          markRecoveryComplete(sessionID);
+        }
+      }
+      if (event.type === "session.idle") {
+        const sessionID = event.properties?.sessionID || "";
+        if (sessionID) {
+          const isMainSession = sessions.has(sessionID);
+          if (isMainSession) {
+            setTimeout(() => {
+              const session = sessions.get(sessionID);
+              if (session?.active) {
+                handleSessionIdle(client, sessionID, sessionID).catch((err) => {
+                  log2("[index.ts] todo-continuation error", err);
+                });
+              }
+            }, 500);
+          }
+        }
       }
     },
     // -----------------------------------------------------------------
@@ -16220,6 +17066,9 @@ var OrchestratorPlugin = async (input) => {
       const sessionID = msgInput.sessionID;
       const agentName = (msgInput.agent || "").toLowerCase();
       log2("[index.ts] chat.message hook", { sessionID, agent: agentName, textLength: originalText.length });
+      if (sessionID) {
+        handleUserMessage(sessionID);
+      }
       if (agentName === AGENT_NAMES.COMMANDER) {
         if (!sessions.has(sessionID)) {
           const now = Date.now();

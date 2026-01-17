@@ -1,14 +1,14 @@
 /**
  * OpenCode Orchestrator Plugin
  *
- * This is the main entry point for the 5-Agent structured architecture.
- * We've optimized it for weaker models by using:
+ * This is the main entry point for the 4-Agent consolidated architecture.
+ * We've optimized it for better efficiency by using:
  * - XML-structured prompts with clear boundaries
  * - Explicit reasoning patterns (THINK -> ACT -> OBSERVE -> ADJUST)
  * - Evidence-based completion requirements
  * - Autonomous execution loop that keeps going until done
  *
- * The agents are: Commander, Architect, Builder, Inspector, Recorder
+ * The agents are: Commander, Planner, Worker, Reviewer
  */
 
 import { createRequire } from "node:module";
@@ -38,8 +38,10 @@ import {
 import { webfetchTool, websearchTool, cacheDocsTool, codesearchTool } from "./tools/web/index.js";
 import { MISSION, AGENT_EMOJI, AGENT_NAMES, TOOL_NAMES, TASK_STATUS, PART_TYPES, PROMPTS } from "./shared/constants.js";
 import * as TodoEnforcer from "./core/loop/todo-enforcer.js";
+import * as TodoContinuation from "./core/loop/todo-continuation.js";
 import * as Toast from "./core/notification/toast.js";
 import * as ProgressTracker from "./core/progress/tracker.js";
+import * as SessionRecovery from "./core/recovery/session-recovery.js";
 import { log, getLogPath } from "./core/agents/logger.js";
 
 // ============================================================================
@@ -104,7 +106,10 @@ const OrchestratorPlugin: Plugin = async (input) => {
 
     // Initialize toast system with OpenCode client for TUI display
     Toast.initToastClient(client);
-    log("[index.ts] Toast notifications enabled with TUI");
+
+    // Initialize task toast manager for consolidated task notifications
+    const taskToastManager = Toast.initTaskToastManager(client);
+    log("[index.ts] Toast notifications enabled with TUI and TaskToastManager");
 
     // Track active sessions - each chat session gets its own state
     // so multiple users or conversations don't interfere with each other
@@ -120,7 +125,10 @@ const OrchestratorPlugin: Plugin = async (input) => {
     // Initialize parallel agent manager
     const parallelAgentManager = ParallelAgentManager.getInstance(client, directory);
     const asyncAgentTools = createAsyncAgentTools(parallelAgentManager, client);
-    log("[index.ts] ParallelAgentManager initialized");
+
+    // Connect task toast manager to concurrency controller for slot info
+    taskToastManager.setConcurrencyController(parallelAgentManager.getConcurrency());
+    log("[index.ts] ParallelAgentManager initialized with TaskToastManager integration");
 
     return {
         // -----------------------------------------------------------------
@@ -167,7 +175,7 @@ const OrchestratorPlugin: Plugin = async (input) => {
             const commanderPrompt = AGENTS[AGENT_NAMES.COMMANDER]?.systemPrompt || "";
             console.log(`[orchestrator] Commander prompt length: ${commanderPrompt.length} chars`);
 
-            // Register Commander (primary) and all subagents
+            // Register Commander (primary) and consolidated subagents
             // Subagents must be registered so Commander can invoke them via Task tool
             const orchestratorAgents: Record<string, unknown> = {
                 // Primary agent - the main orchestrator
@@ -179,54 +187,30 @@ const OrchestratorPlugin: Plugin = async (input) => {
                     thinking: { type: "enabled", budgetTokens: 32000 },
                     color: "#FF6B6B",
                 },
-                // Subagents - invoked by Commander via Task tool
-                [AGENT_NAMES.ARCHITECT]: {
-                    description: "Task decomposition and planning specialist",
+                // Consolidated subagents (4 agents instead of 6)
+                [AGENT_NAMES.PLANNER]: {
+                    description: "Strategic planning and research specialist",
                     mode: "subagent",
-                    hidden: true,  // Only invoked programmatically
-                    prompt: AGENTS[AGENT_NAMES.ARCHITECT]?.systemPrompt || "",
+                    hidden: true,
+                    prompt: AGENTS[AGENT_NAMES.PLANNER]?.systemPrompt || "",
                     maxTokens: 32000,
                     color: "#9B59B6",
                 },
-                [AGENT_NAMES.BUILDER]: {
-                    description: "Full-stack code implementation",
+                [AGENT_NAMES.WORKER]: {
+                    description: "Implementation and documentation specialist",
                     mode: "subagent",
                     hidden: true,
-                    prompt: AGENTS[AGENT_NAMES.BUILDER]?.systemPrompt || "",
+                    prompt: AGENTS[AGENT_NAMES.WORKER]?.systemPrompt || "",
                     maxTokens: 32000,
                     color: "#E67E22",
                 },
-                [AGENT_NAMES.INSPECTOR]: {
-                    description: "Quality verification and bug fixing",
+                [AGENT_NAMES.REVIEWER]: {
+                    description: "Verification and context management specialist",
                     mode: "subagent",
                     hidden: true,
-                    prompt: AGENTS[AGENT_NAMES.INSPECTOR]?.systemPrompt || "",
+                    prompt: AGENTS[AGENT_NAMES.REVIEWER]?.systemPrompt || "",
                     maxTokens: 32000,
                     color: "#27AE60",
-                },
-                [AGENT_NAMES.RECORDER]: {
-                    description: "Persistent progress tracking across sessions",
-                    mode: "subagent",
-                    hidden: true,
-                    prompt: AGENTS[AGENT_NAMES.RECORDER]?.systemPrompt || "",
-                    maxTokens: 16000,
-                    color: "#3498DB",
-                },
-                [AGENT_NAMES.LIBRARIAN]: {
-                    description: "Documentation research specialist - reduces hallucination",
-                    mode: "subagent",
-                    hidden: true,
-                    prompt: AGENTS[AGENT_NAMES.LIBRARIAN]?.systemPrompt || "",
-                    maxTokens: 16000,
-                    color: "#4ECDC4",
-                },
-                [AGENT_NAMES.RESEARCHER]: {
-                    description: "Pre-task investigation - gathers all info before implementation",
-                    mode: "subagent",
-                    hidden: true,
-                    prompt: AGENTS[AGENT_NAMES.RESEARCHER]?.systemPrompt || "",
-                    maxTokens: 16000,
-                    color: "#45B7D1",
                 },
             };
 
@@ -300,17 +284,68 @@ const OrchestratorPlugin: Plugin = async (input) => {
                     sessions.delete(sessionID);
                     state.sessions.delete(sessionID);
                     ProgressTracker.clearSession(sessionID);
+                    SessionRecovery.cleanupSessionRecovery(sessionID);
+                    TodoContinuation.cleanupSession(sessionID);
 
                     Toast.presets.sessionCompleted(sessionID, duration);
                 }
             }
 
-            // Session error event
+            // Session error event - attempt automatic recovery
             if (event.type === "session.error") {
-                const sessionID = event.properties?.sessionId as string || "";
-                const error = event.properties?.error as string || "Unknown error";
+                const sessionID = event.properties?.sessionId as string || event.properties?.sessionID as string || "";
+                const error = event.properties?.error;
                 log("[index.ts] event: session.error", { sessionID, error });
-                Toast.presets.taskFailed("session", error.slice(0, 50));
+
+                // Try automatic recovery
+                if (sessionID && error) {
+                    const recovered = await SessionRecovery.handleSessionError(
+                        client,
+                        sessionID,
+                        error,
+                        event.properties
+                    );
+                    if (recovered) {
+                        log("[index.ts] session.error: auto-recovery initiated", { sessionID });
+                        return; // Don't show error toast if recovering
+                    }
+                }
+
+                // Show error toast if recovery not attempted/failed
+                Toast.presets.taskFailed("session", String(error).slice(0, 50));
+            }
+
+            // Message updated - reset recovery state on successful messages
+            if (event.type === "message.updated") {
+                const messageInfo = event.properties?.info as { sessionID?: string; role?: string } | undefined;
+                const sessionID = messageInfo?.sessionID;
+                const role = messageInfo?.role;
+
+                // Assistant message = successful response, reset recovery state
+                if (sessionID && role === "assistant") {
+                    SessionRecovery.markRecoveryComplete(sessionID);
+                }
+            }
+
+            // Session idle - check for todo continuation
+            if (event.type === "session.idle") {
+                const sessionID = event.properties?.sessionID as string || "";
+                if (sessionID) {
+                    // Only run continuation for sessions tracked in our sessions map (main sessions)
+                    const isMainSession = sessions.has(sessionID);
+                    if (isMainSession) {
+                        // Give assistant.done a chance to process first
+                        setTimeout(() => {
+                            const session = sessions.get(sessionID);
+                            // Only if session is still active
+                            if (session?.active) {
+                                TodoContinuation.handleSessionIdle(client, sessionID, sessionID).catch(err => {
+                                    log("[index.ts] todo-continuation error", err);
+                                });
+                            }
+                        }, 500);
+                    }
+                }
             }
         },
 
@@ -329,6 +364,11 @@ const OrchestratorPlugin: Plugin = async (input) => {
             const agentName = (msgInput.agent || "").toLowerCase();
 
             log("[index.ts] chat.message hook", { sessionID, agent: agentName, textLength: originalText.length });
+
+            // Cancel any pending todo continuation (user is interacting)
+            if (sessionID) {
+                TodoContinuation.handleUserMessage(sessionID);
+            }
 
             // =========================================================================
             // Commander Auto-Mission Mode
@@ -477,19 +517,19 @@ const OrchestratorPlugin: Plugin = async (input) => {
 
             // =========================================================
             // TASK STATUS TRACKING (simplified - no DAG)
-            // Watch for PASS/FAIL signals from Inspector
+            // Watch for PASS/FAIL signals from Reviewer
             // =========================================================
             if (stateSession) {
                 const taskId = stateSession.currentTask;
 
-                // Inspector said PASS - clear retry counter
+                // Reviewer said PASS - clear retry counter
                 if (toolOutput.output.includes("✅ PASS") || toolOutput.output.includes("AUDIT RESULT: PASS")) {
                     if (taskId) {
                         stateSession.taskRetries.clear();
                         toolOutput.output += `\n\n━━━━━━━━━━━━\n✅ ${taskId} VERIFIED`;
                     }
                 }
-                // Inspector said FAIL - increment retry counter
+                // Reviewer said FAIL - increment retry counter
                 else if (toolOutput.output.includes("❌ FAIL") || toolOutput.output.includes("AUDIT RESULT: FAIL")) {
                     if (taskId) {
                         const retries = (stateSession.taskRetries.get(taskId) || 0) + 1;

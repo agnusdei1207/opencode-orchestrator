@@ -6,6 +6,38 @@
 
 ---
 
+## 🎯 Master Session Concept
+
+The orchestrator uses a **Master Session Architecture** with **4 consolidated agents**:
+
+1. **Master Session** (Commander) - Receives user requests, orchestrates all work
+2. **Worker Sessions** (Planner, Worker, Reviewer) - Execute delegated tasks in parallel
+3. **Shared Context** (`.opencode/`) - All sessions read/write shared state
+
+```
+Consolidated Agent Roles:
+┌─────────────────────────────────────────────────────────────────┐
+│ 🎯 Commander - Master orchestrator (THINK → PLAN → DELEGATE)   │
+│ 📋 Planner   - Strategic planning + research (was: Architect+Researcher) │
+│ 🔨 Worker    - Implementation + docs (was: Builder+Librarian)  │
+│ ✅ Reviewer  - Verification + context (was: Inspector+Recorder)│
+└─────────────────────────────────────────────────────────────────┘
+
+Master Session Flow:
+1️⃣ THINK    → Analyze request, assess complexity (L1/L2/L3)
+2️⃣ PLAN     → Create .opencode/todo.md via Planner
+3️⃣ DELEGATE → Spawn Worker Sessions via delegate_task
+4️⃣ MONITOR  → Watch .opencode/ for progress, handle complete
+
+Worker Sessions (up to 50 parallel):
+• Independent execution with own agent persona
+• Read/write shared .opencode/ workspace
+• Notify Master on completion (via session events)
+• Cannot spawn sub-workers (recursion prevention)
+```
+
+---
+
 ## 📞 Caller / Callee Relationship Table
 
 ### System Components (Automatic, No Agent Involvement)
@@ -13,19 +45,29 @@
 | Caller | Calls | When | Purpose |
 |--------|-------|------|---------|
 | `index.ts` | `Toast.initToastClient()` | Plugin init | Initialize toast |
+| `index.ts` | `Toast.initTaskToastManager()` | Plugin init | Initialize task toast manager |
 | `index.ts` | `ParallelAgentManager.getInstance()` | Plugin init | Initialize manager |
 | `index.ts` | `ProgressTracker.startSession()` | Session start | Begin tracking |
 | `index.ts` | `ProgressTracker.recordSnapshot()` | Each loop step | Record progress |
 | `index.ts` | `ProgressTracker.clearSession()` | Session end | Cleanup |
+| `index.ts` | `SessionRecovery.handleSessionError()` | session.error event | Attempt auto-recovery |
+| `index.ts` | `SessionRecovery.markRecoveryComplete()` | message.updated | Reset recovery state |
+| `index.ts` | `SessionRecovery.cleanupSessionRecovery()` | session.deleted | Cleanup state |
+| `index.ts` | `TodoContinuation.handleSessionIdle()` | session.idle event | Check for incomplete todos |
+| `index.ts` | `TodoContinuation.handleUserMessage()` | chat.message | Cancel continuation countdown |
+| `index.ts` | `TodoContinuation.cleanupSession()` | session.deleted | Cleanup state |
 | `index.ts` | `Toast.presets.taskStarted()` | Session start | Show notification |
 | `index.ts` | `Toast.presets.missionComplete()` | Mission done | Show notification |
 | `index.ts` | `Toast.presets.taskFailed()` | Cancelled | Show notification |
 | `index.ts` (handler) | `ParallelAgentManager.handleEvent()` | Any event | Resource cleanup |
 | `TaskLauncher` | `ConcurrencyController.acquire()` | Task start | Get slot |
 | `TaskLauncher` | `TaskStore.set()` | Task start | Store task |
+| `TaskLauncher` | `TaskToastManager.addTask()` | Task start | Show consolidated toast |
 | `TaskLauncher` | `TaskPoller.start()` | First task | Begin polling |
 | `TaskPoller` (1s) | `TaskStore.getRunning()` | Poll loop | Find active tasks |
 | `TaskPoller` | `TaskCleaner.scheduleCleanup()` | Task done | Schedule GC |
+| `TaskCleaner` | `TaskToastManager.showCompletionToast()` | Task done | Show completion toast |
+| `TaskCleaner` | `TaskToastManager.showAllCompleteToast()` | All done | Show batch summary |
 | `EventHandler` | `ConcurrencyController.release()` | session.idle/deleted | Free slot |
 | `EventHandler` | `TaskStore.delete()` | session.deleted | Remove task |
 | `TaskCleaner` | `TaskStore.gc()` | Prune | Archive old tasks |
@@ -35,16 +77,16 @@
 
 | Tool | Agent User | Function | Core System Used |
 |------|------------|----------|------------------|
-| `delegate_task` | Commander, Architect | Spawn parallel agent | `ParallelAgentManager.launch()` |
+| `delegate_task` | Commander, Planner | Spawn parallel agent | `ParallelAgentManager.launch()` |
 | `get_task_result` | Commander | Get completed result | `ParallelAgentManager.getResult()` |
 | `list_tasks` | Commander | View all tasks | `ParallelAgentManager.getAllTasks()` |
 | `cancel_task` | Commander | Stop task | `ParallelAgentManager.cancelTask()` |
-| `webfetch` | Librarian, Researcher | Fetch URL | `DocumentCache.set()` |
-| `websearch` | Librarian, Researcher | Search web | External API |
-| `codesearch` | Librarian, Researcher | Search code | External API |
-| `cache_docs` | Librarian, Inspector | Manage docs | `DocumentCache.get/list/clear()` |
-| `run_background` | Inspector, Builder | Run command | `BackgroundManager.run()` |
-| `check_background` | Inspector | Check command | `BackgroundManager.check()` |
+| `webfetch` | Planner, Worker | Fetch URL | `DocumentCache.set()` |
+| `websearch` | Planner, Worker | Search web | External API |
+| `codesearch` | Planner, Worker | Search code | External API |
+| `cache_docs` | Planner, Reviewer | Manage docs | `DocumentCache.get/list/clear()` |
+| `run_background` | Worker, Reviewer | Run command | `BackgroundManager.run()` |
+| `check_background` | Reviewer | Check command | `BackgroundManager.check()` |
 | `grep_search` | All agents | Search files | Node fs |
 | `glob_search` | All agents | Find files | Node fs |
 | `call_agent` | Commander | Sync agent call | Direct session |
@@ -53,11 +95,11 @@
 
 | File | Managed By | Purpose |
 |------|------------|----------|
-| `.opencode/todo.md` | Recorder | Master TODO list |
-| `.opencode/context.md` | Recorder | Adaptive-size context |
-| `.opencode/summary.md` | Recorder | Ultra-brief when needed |
-| `.opencode/docs/` | Librarian | Cached documentation (with expiry) |
-| `.opencode/archive/` | Recorder | Old context for reference |
+| `.opencode/todo.md` | Planner creates, Reviewer updates | Master TODO list |
+| `.opencode/context.md` | Reviewer | Adaptive-size context |
+| `.opencode/summary.md` | Reviewer | Ultra-brief when needed |
+| `.opencode/docs/` | Planner, Worker | Cached documentation (with expiry) |
+| `.opencode/archive/` | Reviewer | Old context for reference |
 
 **Dynamic Detail Levels:**
 - **EARLY** (0-30%): Detailed explanations, research
@@ -79,10 +121,57 @@ PATHS.DOC_METADATA  // ".opencode/docs/_metadata.json"
 | Module | Status | Integration Path |
 |--------|--------|------------------|
 | `SharedContext` | ✅ Tested | Use in `delegate_task` for context passing |
-| `TaskDecomposer` | ✅ Tested | Use in Architect agent prompt output parsing |
+| `TaskDecomposer` | ✅ Tested | Use in Planner agent prompt output parsing |
 | `AutoRecovery` | ✅ Tested | Wrap API calls in `withRecovery()` |
 | `AsyncQueue` | ✅ Tested | Use for batch processing |
-| `TodoEnforcer` | ✅ Imported | Integrate with CONTINUE_INSTRUCTION |
+| `TodoEnforcer` | ✅ Integrated | Used by `TodoContinuation` |
+
+### 🔄 Session Recovery System (P2 Complete)
+
+| Component | File | Purpose |
+|-----------|------|---------|
+| `SessionRecovery` | `src/core/recovery/session-recovery.ts` | Event-based error recovery |
+| Error Patterns | `src/core/recovery/patterns.ts` | Pattern matching for errors |
+| Recovery Handler | `src/core/recovery/handler.ts` | Action determination |
+
+**Supported Error Types:**
+- `tool_result_missing` - Tool crash, inject recovery prompt
+- `thinking_block_order` - Thinking block issues
+- `rate_limit` - API rate limiting with backoff
+- `context_overflow` - Token limit exceeded warning
+
+**Safety Measures:**
+- Max 3 recovery attempts per session
+- 5-second cooldown between attempts
+- Recovery loop prevention via `isRecovering` flag
+- Auto-reset on successful assistant message
+
+### 📋 Todo Continuation System (P2 Complete)
+
+| Component | File | Purpose |
+|-----------|------|---------|
+| `TodoContinuation` | `src/core/loop/todo-continuation.ts` | Auto-continue on idle |
+| `TodoEnforcer` | `src/core/loop/todo-enforcer.ts` | Todo parsing/stats |
+| `formatters` | `src/core/loop/formatters.ts` | Continuation prompt generation |
+
+**Features:**
+- Monitors `session.idle` events for incomplete todos
+- 2-second countdown toast before auto-continuation
+- Cancels on user interaction (chat.message)
+- Skips if background tasks running or in recovery
+
+### 📣 TaskToastManager (P1 Complete)
+
+| Component | File | Purpose |
+|-----------|------|---------|
+| `TaskToastManager` | `src/core/notification/task-toast-manager.ts` | Consolidated task notifications |
+| `presets` | `src/core/notification/presets.ts` | Common notification templates |
+
+**Features:**
+- Consolidated task list display: `Running (3): [2/5]`
+- NEW marker for recently added tasks
+- Completion summary with remaining count
+- Concurrency slot information display
 
 ---
 
@@ -96,22 +185,38 @@ src/
 │   └── subagents/              # Individual agent prompts
 ├── core/
 │   ├── agents/                 # Parallel Agent Manager (12 files)
-│   ├── notification/           # Toast System (5 files)
+│   │   ├── manager.ts          # Main facade
+│   │   ├── manager/            # TaskLauncher, TaskPoller, TaskCleaner, EventHandler
+│   │   ├── concurrency.ts      # ConcurrencyController
+│   │   └── task-store.ts       # TaskStore with GC
+│   ├── notification/           # Toast System (6 files)
+│   │   ├── toast.ts            # Module re-exports
+│   │   ├── toast-core.ts       # Core toast functions
+│   │   ├── task-toast-manager.ts # Consolidated task notifications (P1)
+│   │   └── presets.ts          # Common notification templates
 │   ├── cache/                  # Document Cache (6 files)
 │   ├── progress/               # Progress Tracker (5 files)
-│   ├── recovery/               # Auto Recovery (5 files)
+│   ├── recovery/               # Auto Recovery (6 files)
+│   │   ├── auto-recovery.ts    # Module re-exports
+│   │   ├── session-recovery.ts # Event-based session recovery (P2)
+│   │   ├── handler.ts          # Recovery action handler
+│   │   └── patterns.ts         # Error pattern definitions
 │   ├── session/                # Shared Context (4 files)
 │   ├── task/                   # Task Decomposer (6 files)
-│   ├── loop/                   # Todo Enforcer (5 files)
+│   ├── loop/                   # Todo Enforcer + Continuation (6 files)
+│   │   ├── todo-enforcer.ts    # Module re-exports
+│   │   ├── todo-continuation.ts # Auto-continue on idle (P2)
+│   │   ├── stats.ts            # Todo statistics
+│   │   └── formatters.ts       # Continuation prompt generation
 │   └── queue/                  # Async Utilities (4 files)
 ├── tools/
 │   ├── callAgent.ts            # Synchronous agent call
-│   ├── parallel/               # Parallel agent tools
+│   ├── parallel/               # Parallel agent tools (delegate_task, etc.)
 │   ├── background-cmd/         # Background command tools
 │   ├── search.ts               # grep/glob/mgrep
 │   └── web/                    # Web tools (fetch/search)
 └── shared/
-    ├── constants.ts            # System constants
+    ├── constants.ts            # System constants + PATHS
     └── event-types.ts          # Event type enums
 ```
 
@@ -119,14 +224,21 @@ src/
 
 ## 🔄 Execution Flow
 
-### Phase 1: Plugin Initialization
+### Phase 1: Plugin Initialization & Master Session Setup
 
 ```typescript
 OrchestratorPlugin(input):
-  1. Toast.initToastClient(client)  // Initialize toast system
-  2. sessions Map initialization
-  3. ParallelAgentManager.getInstance(client, directory)
-  4. Return { provider, tools, hooks }
+  1. Toast.initToastClient(client)         // Toast notifications
+  2. Toast.initTaskToastManager(client)    // Consolidated task toasts
+  3. sessions Map initialization           // Track Master + Worker sessions
+  4. ParallelAgentManager.getInstance()    // Worker session manager
+  5. Return { provider, tools, hooks }
+
+// When user sends first message:
+hooks["chat.message"] → Master Session starts:
+  - SessionID tracked in sessions Map
+  - Commander agent receives request
+  - Master Session begins THINK → PLAN → DELEGATE → MONITOR cycle
 ```
 
 ### Phase 2: Session Lifecycle
@@ -134,36 +246,60 @@ OrchestratorPlugin(input):
 ```typescript
 hooks["chat.message"]:
   1. Parse slash commands (/task, /plan)
-  2. Auto-start on Commander agent selection
-  3. ProgressTracker.startSession(sessionId)
-  4. Toast.presets.taskStarted()
+  2. TodoContinuation.handleUserMessage()  // Cancel pending countdown
+  3. Auto-start on Commander agent selection
+  4. ProgressTracker.startSession(sessionId)
+  5. Toast.presets.taskStarted()
+
+hooks["event"]:
+  1. session.created → Toast.presets.missionStarted()
+  2. session.deleted → cleanup all resources
+     - sessions.delete(), state.sessions.delete()
+     - ProgressTracker.clearSession()
+     - SessionRecovery.cleanupSessionRecovery()
+     - TodoContinuation.cleanupSession()
+  3. session.error → SessionRecovery.handleSessionError()
+     - Detect error type (tool_crash, thinking_block, rate_limit)
+     - Inject recovery prompt if applicable
+     - Return early if recovery initiated
+  4. message.updated (assistant) → SessionRecovery.markRecoveryComplete()
+  5. session.idle → TodoContinuation.handleSessionIdle()
+     - Check for incomplete todos
+     - Start 2s countdown if remaining
+     - Inject continuation prompt after countdown
+  6. ParallelAgentManager.handleEvent()
 
 hooks["tool.execute.after"]:
   1. Check "MISSION COMPLETE" → Toast.presets.missionComplete()
   2. ProgressTracker.recordSnapshot()
   3. Inject CONTINUE_INSTRUCTION
-
-hooks["handler"]:
-  1. session.deleted → cleanup all resources
-  2. ParallelAgentManager.handleEvent()
 ```
 
-### Phase 3: Parallel Task Execution
+### Phase 3: Worker Session Execution (Parallel Tasks)
 
 ```typescript
+// Master Session calls delegate_task → Worker Sessions created
 TaskLauncher.launch():
   1. concurrency.acquire(key)
   2. client.session.create()
   3. store.set(task)
-  4. Toast.presets.sessionCreated()
-  5. client.session.message()
+  4. TaskToastManager.addTask()        // Consolidated task list toast
+  5. client.session.prompt()
   6. poller.start()
 
 TaskPoller.poll() every 1s:
   1. Get running tasks
   2. Check session events
-  3. If idle + stable → completed
+  3. If idle + stable + hasOutput → completed
   4. Notify parent, schedule cleanup
+
+delegate_task (sync mode):
+  1. session.create()
+  2. session.prompt()
+  3. pollWithSafetyLimits()            // MAX_POLL_COUNT=600, SYNC_TIMEOUT_MS=5min
+     - validateSessionHasOutput()     // Ensure actual AI output exists
+     - Check idle + stability
+  4. extractSessionResult()           // Get final text output
 ```
 
 ### Phase 4: Resource Cleanup
@@ -172,6 +308,11 @@ TaskPoller.poll() every 1s:
 EventHandler.handle(session.deleted):
   1. concurrency.release(key)
   2. store.delete(taskId)
+
+TaskCleaner.notifyParentIfAllComplete():
+  1. If pendingCount > 0: noReply=true (brief update)
+  2. If allComplete: noReply=false (AI processes results)
+  3. TaskToastManager.showCompletionToast() or showAllCompleteToast()
 
 TaskCleaner.scheduleCleanup():
   1. setTimeout(10min)
@@ -233,8 +374,8 @@ ConcurrencyController:
 ## 🧪 Test Coverage
 
 ```
-Test Suites: 15 passed
-Tests: 167 passed
+Test Suites: 19 passed
+Tests: 216 passed
 Duration: ~4.3s
 ```
 
@@ -242,12 +383,14 @@ Duration: ~4.3s
 
 ## 📝 Summary
 
-This architecture is:
+This **Master Session Architecture** provides:
 
-1. **Scalable** - 50 parallel sessions
-2. **Memory-safe** - Auto GC, disk archiving
-3. **Self-healing** - Pattern-based error handling
-4. **Smart Context** - Adaptive .opencode/ summarization
-5. **Observable** - Progress tracking, toast notifications
+1. **Master-Worker Pattern** - Commander orchestrates, subagents execute
+2. **Scalable** - 50 parallel Worker Sessions
+3. **Memory-safe** - Auto GC, disk archiving
+4. **Self-healing** - SessionRecovery for automatic error handling
+5. **Auto-resuming** - TodoContinuation continues incomplete work
+6. **Smart Context** - Shared .opencode/ with adaptive summarization
+7. **Observable** - TaskToastManager for consolidated notifications
 
-**Enterprise-grade, memory-safe, self-healing distributed agent orchestration.**
+**Enterprise-grade, memory-safe, self-healing distributed agent orchestration with Master Session coordination.**

@@ -43,13 +43,14 @@ export const COMMANDS: Record<string, { description: string; template: string; a
   "plan": {
     description: "Create a task plan without executing",
     template: `<delegate>
-<agent>${AGENT_NAMES.ARCHITECT}</agent>
+<agent>${AGENT_NAMES.PLANNER}</agent>
 <objective>Create parallel task plan for: $ARGUMENTS</objective>
-<success>Valid JSON with tasks array, each having id, description, agent, parallel_group, dependencies, and success criteria</success>
+<success>Valid .opencode/todo.md with tasks, each having id, description, agent, size, dependencies</success>
 <must_do>
 - Maximize parallelism by grouping independent tasks
-- Assign correct agent to each task (${AGENT_NAMES.BUILDER} or ${AGENT_NAMES.INSPECTOR})
+- Assign correct agent to each task (${AGENT_NAMES.WORKER} or ${AGENT_NAMES.REVIEWER})
 - Include clear success criteria for each task
+- Research before planning if unfamiliar technology
 </must_do>
 <must_not>
 - Do not implement any tasks, only plan
@@ -57,43 +58,40 @@ export const COMMANDS: Record<string, { description: string; template: string; a
 </must_not>
 <context>
 - This is planning only, no execution
-- Output must be valid JSON
+- Output to .opencode/todo.md
 </context>
 </delegate>`,
     argumentHint: '"complex task to plan"',
   },
   "agents": {
-    description: "Show the 7-agent architecture",
-    template: `## 🎯 OpenCode Orchestrator - 7-Agent Architecture
+    description: "Show the 4-agent architecture",
+    template: `## 🎯 OpenCode Orchestrator - 4-Agent Architecture (Consolidated)
 
 | Agent | Role | Capabilities |
 |-------|------|--------------|
-| **${AGENT_NAMES.COMMANDER}** 🎯 | Orchestrator | Autonomous mission control, parallel task coordination, never stops until ✅ MISSION COMPLETE |
-| **${AGENT_NAMES.ARCHITECT}** 🏗️ | Strategic Planner | Task decomposition, dependency analysis, parallel group optimization |
-| **${AGENT_NAMES.BUILDER}** 🔨 | Full-Stack Developer | Code implementation, file operations, terminal commands, UI + logic |
-| **${AGENT_NAMES.INSPECTOR}** 🔍 | Quality Assurance | 5-point audit, LSP diagnostics, auto-fix bugs, test verification |
-| **${AGENT_NAMES.RECORDER}** 💾 | Context Manager | Progress tracking, state persistence, session memory across restarts |
-| **${AGENT_NAMES.LIBRARIAN}** 📚 | Research Specialist | API documentation lookup, anti-hallucination, cache official docs |
-| **${AGENT_NAMES.RESEARCHER}** 🔬 | Pre-task Analyst | Deep investigation before implementation, gathers all needed info |
+| **${AGENT_NAMES.COMMANDER}** 🎯 | Master Orchestrator | Autonomous mission control, parallel task coordination, never stops until ✅ MISSION COMPLETE |
+| **${AGENT_NAMES.PLANNER}** 📋 | Strategic Planner | Task decomposition, research, caching docs, dependency analysis |
+| **${AGENT_NAMES.WORKER}** 🔨 | Implementation | Code, files, terminal, documentation lookup when needed |
+| **${AGENT_NAMES.REVIEWER}** ✅ | Quality & Context | Verification, TODO updates, context management, auto-fix |
 
 ## ⚡ Parallel Execution System
 \`\`\`
-Up to 50 agents running simultaneously
+Up to 50 Worker Sessions running simultaneously
 Max 10 per agent type (auto-queues excess)
 Auto-timeout: 60 min | Auto-cleanup: 30 min
 \`\`\`
 
 ## 🔄 Execution Flow
 \`\`\`
-TRIAGE → RESEARCH → DELEGATE → EXECUTE → VERIFY → COMPLETE
+THINK → PLAN → DELEGATE → EXECUTE → VERIFY → COMPLETE
    L1: Fast Track (simple fixes)
    L2: Normal Track (features)
    L3: Deep Track (complex refactoring)
 \`\`\`
 
 ## 🛡️ Anti-Hallucination
-- ${AGENT_NAMES.LIBRARIAN} researches BEFORE implementation
-- webfetch caches official documentation
+- ${AGENT_NAMES.PLANNER} researches BEFORE implementation
+- ${AGENT_NAMES.WORKER} caches official documentation
 - Never assumes - always verifies from sources
 
 ## 💡 Usage

@@ -1,6 +1,6 @@
 /**
  * Grep search tool - finds patterns in code
- * Used by Builder and Inspector for codebase analysis
+ * Used by Worker and Reviewer for codebase analysis
  */
 export declare const grepSearchTool: (directory: string) => {
     description: string;
@@ -15,7 +15,7 @@ export declare const grepSearchTool: (directory: string) => {
 };
 /**
  * Glob search tool - finds files by pattern
- * Used by Builder and Recorder for file discovery
+ * Used by Worker and Reviewer for file discovery
  */
 export declare const globSearchTool: (directory: string) => {
     description: string;

@@ -149,5 +149,12 @@ export const presets = {
         variant: "warning",
         duration: 5000,
     }),
+
+    warningMaxRetries: () => show({
+        title: "⚠️ Max Retries Exceeded",
+        message: "Automatic recovery has stopped. Manual intervention may be needed.",
+        variant: "error",
+        duration: 0,  // Persistent
+    }),
 };
 
