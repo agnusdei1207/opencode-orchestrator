@@ -28,6 +28,7 @@ interface ContinuationState {
     countdownStartedAt?: number;
     isAborting?: boolean;
     lastIdleTime?: number;
+    abortDetectedAt?: number;  // Track when abort was detected
 }
 
 const sessionStates = new Map<string, ContinuationState>();
@@ -36,6 +37,8 @@ const sessionStates = new Map<string, ContinuationState>();
 const COUNTDOWN_SECONDS = 2;
 const TOAST_DURATION_MS = 1500;
 const MIN_TIME_BETWEEN_CONTINUATIONS_MS = 3000;
+const COUNTDOWN_GRACE_PERIOD_MS = 500;  // Ignore messages right after countdown starts
+const ABORT_WINDOW_MS = 3000;  // Window to consider abort as recent
 
 /**
  * Get or create continuation state for a session
@@ -198,6 +201,17 @@ export async function handleSessionIdle(
         return;
     }
 
+    // Skip if abort was detected recently
+    if (state.abortDetectedAt) {
+        const timeSinceAbort = Date.now() - state.abortDetectedAt;
+        if (timeSinceAbort < ABORT_WINDOW_MS) {
+            log("[todo-continuation] Skipped: abort detected recently", { sessionID, timeSinceAbort });
+            state.abortDetectedAt = undefined;  // Clear after checking
+            return;
+        }
+        state.abortDetectedAt = undefined;  // Clear stale abort
+    }
+
     // Skip if background tasks are running
     if (hasRunningBackgroundTasks(sessionID)) {
         log("[todo-continuation] Skipped: background tasks running", { sessionID });
@@ -254,9 +268,20 @@ export async function handleSessionIdle(
 
 /**
  * Handle user message - cancel countdown (user is interacting)
+ * Uses grace period to avoid cancelling countdown from our own injected messages
  */
 export function handleUserMessage(sessionID: string): void {
     const state = getState(sessionID);
+
+    // Grace period: ignore messages right after countdown starts
+    // (our own continuation prompt injection)
+    if (state.countdownStartedAt) {
+        const elapsed = Date.now() - state.countdownStartedAt;
+        if (elapsed < COUNTDOWN_GRACE_PERIOD_MS) {
+            log("[todo-continuation] Ignoring message in grace period", { sessionID, elapsed });
+            return;
+        }
+    }
 
     // Cancel countdown if user sends a message
     if (state.countdownTimer) {
@@ -264,8 +289,24 @@ export function handleUserMessage(sessionID: string): void {
         cancelCountdown(sessionID);
     }
 
-    // Reset abort flag
+    // Reset flags
     state.isAborting = false;
+    state.abortDetectedAt = undefined;
+}
+
+/**
+ * Handle session error - detect abort/cancel
+ */
+export function handleSessionError(sessionID: string, error: unknown): void {
+    const state = getState(sessionID);
+    const errorObj = error as { name?: string } | undefined;
+
+    if (errorObj?.name === "MessageAbortedError" || errorObj?.name === "AbortError") {
+        state.abortDetectedAt = Date.now();
+        log("[todo-continuation] Abort detected", { sessionID, errorName: errorObj.name });
+    }
+
+    cancelCountdown(sessionID);
 }
 
 /**
@@ -274,6 +315,7 @@ export function handleUserMessage(sessionID: string): void {
 export function handleAbort(sessionID: string): void {
     const state = getState(sessionID);
     state.isAborting = true;
+    state.abortDetectedAt = Date.now();
     cancelCountdown(sessionID);
     log("[todo-continuation] Marked as aborting", { sessionID });
 }

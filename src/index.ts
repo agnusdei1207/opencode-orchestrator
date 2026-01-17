@@ -40,7 +40,7 @@ import { MISSION, MISSION_SEAL, AGENT_EMOJI, AGENT_NAMES, TOOL_NAMES, TASK_STATU
 import * as TodoEnforcer from "./core/loop/todo-enforcer.js";
 import * as TodoContinuation from "./core/loop/todo-continuation.js";
 import * as MissionSealHandler from "./core/loop/mission-seal-handler.js";
-import { detectSealInText, isLoopActive, readLoopState, clearLoopState } from "./core/loop/mission-seal.js";
+import { detectSealInText, isLoopActive, readLoopState, clearLoopState, startMissionLoop } from "./core/loop/mission-seal.js";
 import * as Toast from "./core/notification/toast.js";
 import * as ProgressTracker from "./core/progress/tracker.js";
 import * as SessionRecovery from "./core/recovery/session-recovery.js";
@@ -50,15 +50,9 @@ import { log, getLogPath } from "./core/agents/logger.js";
 // Constants
 // ============================================================================
 
-// UNLIMITED MODE: Set to true for infinite execution (no step limit)
-// When true, execution continues until all todos are complete or mission done
-const UNLIMITED_MODE = true;
-
-// Step limits (only used when UNLIMITED_MODE is false)
-const DEFAULT_MAX_STEPS = UNLIMITED_MODE ? Infinity : 500;
-const TASK_COMMAND_MAX_STEPS = UNLIMITED_MODE ? Infinity : 1000;
-
-// AGENT_EMOJI is imported from shared/constants.js
+// NOTE: No step limits! We use event-based continuation via session.idle.
+// Mission continues until <mission_seal>SEALED</mission_seal> is detected.
+// This is more reliable than step counting.
 
 // This gets injected when the assistant finishes but mission isn't complete.
 // Now includes Todo enforcement for relentless execution
@@ -115,10 +109,10 @@ const OrchestratorPlugin: Plugin = async (input) => {
 
     // Track active sessions - each chat session gets its own state
     // so multiple users or conversations don't interfere with each other
+    // NOTE: No maxSteps limit - we use event-based continuation via session.idle
     const sessions = new Map<string, {
         active: boolean;
-        step: number;
-        maxSteps: number;
+        step: number;           // Step counter (for progress display only)
         timestamp: number;      // Last activity timestamp
         startTime: number;      // Session start time for total elapsed
         lastStepTime: number;   // Time of last step for step duration
@@ -299,6 +293,12 @@ const OrchestratorPlugin: Plugin = async (input) => {
                 const error = event.properties?.error;
                 log("[index.ts] event: session.error", { sessionID, error });
 
+                // Notify continuation handlers about potential abort
+                if (sessionID) {
+                    TodoContinuation.handleSessionError(sessionID, error);
+                    MissionSealHandler.handleAbort(sessionID);
+                }
+
                 // Try automatic recovery
                 if (sessionID && error) {
                     const recovered = await SessionRecovery.handleSessionError(
@@ -396,7 +396,6 @@ const OrchestratorPlugin: Plugin = async (input) => {
                     sessions.set(sessionID, {
                         active: true,
                         step: 0,
-                        maxSteps: DEFAULT_MAX_STEPS,
                         timestamp: now,
                         startTime: now,
                         lastStepTime: now,
@@ -428,7 +427,9 @@ const OrchestratorPlugin: Plugin = async (input) => {
                         userMessage || PROMPTS.CONTINUE
                     );
 
-                    log("[index.ts] Auto-applied mission mode", { originalLength: originalText.length });
+                    // Start mission loop for non-/task Commander messages
+                    startMissionLoop(directory, sessionID, userMessage || originalText);
+                    log("[index.ts] Auto-applied mission mode + started loop", { originalLength: originalText.length });
                 }
             }
 
@@ -442,11 +443,15 @@ const OrchestratorPlugin: Plugin = async (input) => {
                         parsed.args || PROMPTS.CONTINUE
                     );
                 } else if (command && parsed.command === "task") {
-                    // Explicit /task on Commander: apply template
+                    // Explicit /task on Commander: apply template and start mission loop
                     parts[textPartIndex].text = command.template.replace(
                         /\$ARGUMENTS/g,
                         parsed.args || PROMPTS.CONTINUE
                     );
+
+                    // Start mission loop for /task command - this is the key!
+                    startMissionLoop(directory, sessionID, parsed.args || "continue from where we left off");
+                    log("[index.ts] /task command: started mission loop", { sessionID, args: parsed.args?.slice(0, 50) });
                 }
             }
         },
@@ -522,12 +527,8 @@ const OrchestratorPlugin: Plugin = async (input) => {
                 toolOutput.output = `${emoji} [${agentName.toUpperCase()}] Working...\n\n` + toolOutput.output;
             }
 
-            // Safety valve - stop if we've hit the step limit
-            if (session.step >= session.maxSteps) {
-                session.active = false;
-                state.missionActive = false;
-                return;
-            }
+            // NOTE: No step limit check here - we use event-based continuation
+            // Mission continues via session.idle events until seal detected
 
             // =========================================================
             // TASK STATUS TRACKING (simplified - no DAG)
@@ -559,7 +560,7 @@ const OrchestratorPlugin: Plugin = async (input) => {
 
             // Always show the step counter with timestamp at the bottom
             const currentTime = formatTimestamp();
-            toolOutput.output += `\n\n⏱️ [${currentTime}] Step ${session.step}/${session.maxSteps} | This step: ${stepDuration} | Total: ${totalElapsed}`;
+            toolOutput.output += `\n\n⏱️ [${currentTime}] Step ${session.step} | This step: ${stepDuration} | Total: ${totalElapsed}`;
         },
 
         // -----------------------------------------------------------------
@@ -606,7 +607,7 @@ const OrchestratorPlugin: Plugin = async (input) => {
                                     type: PART_TYPES.TEXT,
                                     text: `⚠️ ANOMALY #${stateSession.anomalyCount}: ${sanityResult.reason}\n\n` +
                                         recoveryText +
-                                        `\n\n[Recovery Step ${session.step}/${session.maxSteps}]`
+                                        `\n\n[Recovery Step ${session.step}]`
                                 }],
                             },
                         });
@@ -626,11 +627,13 @@ const OrchestratorPlugin: Plugin = async (input) => {
 
             // =========================================================
             // COMPLETION CHECK
-            // Check for Mission Seal first (explicit completion), then legacy markers
+            // Only check for Mission Seal if this session has an active loop
+            // This prevents subagent responses from triggering false completion
             // =========================================================
 
             // Check for Mission Seal: <mission_seal>SEALED</mission_seal>
-            if (detectSealInText(textContent)) {
+            // ONLY if loop is active for this specific session
+            if (isLoopActive(directory, sessionID) && detectSealInText(textContent)) {
                 session.active = false;
                 state.missionActive = false;
 
@@ -673,23 +676,17 @@ const OrchestratorPlugin: Plugin = async (input) => {
             session.lastStepTime = now;
             const currentTime = formatTimestamp();
 
-            // Hit the limit? Time to stop.
-            if (session.step >= session.maxSteps) {
-                session.active = false;
-                state.missionActive = false;
-                return;
-            }
+            // NOTE: No step limit check - using event-based continuation
 
             // =========================================================
             // THE RELENTLESS LOOP
             // Mission not complete? Inject a "keep going" prompt.
-            // This is what makes Commander never give up.
+            // Event-based continuation in session.idle will also handle this.
             // =========================================================
 
             // Record progress snapshot
             ProgressTracker.recordSnapshot(sessionID, {
                 currentStep: session.step,
-                maxSteps: session.maxSteps,
             });
 
             // Get progress info
@@ -702,13 +699,14 @@ const OrchestratorPlugin: Plugin = async (input) => {
                         body: {
                             parts: [{
                                 type: PART_TYPES.TEXT,
-                                text: CONTINUE_INSTRUCTION + `\n\n⏱️ [${currentTime}] Step ${session.step}/${session.maxSteps} | ${progressInfo} | This step: ${stepDuration} | Total: ${totalElapsed}`
+                                text: CONTINUE_INSTRUCTION + `\n\n⏱️ [${currentTime}] Step ${session.step} | ${progressInfo} | This step: ${stepDuration} | Total: ${totalElapsed}`
                             }],
                         },
                     });
                 }
-            } catch {
+            } catch (error) {
                 // First attempt failed, wait a bit and try simpler prompt
+                log("[index.ts] Continuation injection failed, retrying...", { sessionID, error });
                 try {
                     await new Promise(r => setTimeout(r, 500));
                     if (client?.session?.prompt) {
@@ -717,10 +715,20 @@ const OrchestratorPlugin: Plugin = async (input) => {
                             body: { parts: [{ type: PART_TYPES.TEXT, text: PROMPTS.CONTINUE }] },
                         });
                     }
-                } catch {
-                    // Both failed, probably a real problem. Stop the session.
-                    session.active = false;
-                    state.missionActive = false;
+                } catch (retryError) {
+                    // Both failed - but DON'T stop the session immediately!
+                    // Let MissionSealHandler or TodoContinuation handle via session.idle
+                    log("[index.ts] Both continuation attempts failed, waiting for idle handler", {
+                        sessionID,
+                        error: retryError,
+                        loopActive: isLoopActive(directory, sessionID)
+                    });
+                    // Only stop if loop is not active (no mission seal handler to rescue us)
+                    if (!isLoopActive(directory, sessionID)) {
+                        log("[index.ts] No active loop, stopping session", { sessionID });
+                        session.active = false;
+                        state.missionActive = false;
+                    }
                 }
             }
         },
