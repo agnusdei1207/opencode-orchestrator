@@ -1,3 +1,11 @@
+/**
+ * Slash commands for OpenCode Orchestrator
+ * - /task: Mission mode trigger with full Commander prompt
+ * - /plan: Planning only
+ * - /agents: Show architecture
+ */
+export declare const COMMANDER_SYSTEM_PROMPT: string;
+export declare const MISSION_MODE_TEMPLATE: string;
 export declare const COMMANDS: Record<string, {
     description: string;
     template: string;
