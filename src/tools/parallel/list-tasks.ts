@@ -4,7 +4,7 @@
 
 import { tool } from "@opencode-ai/plugin";
 import { ParallelAgentManager, type ParallelTask } from "../../core/agents/index.js";
-import { getStatusEmoji } from "../../shared/constants.js";
+import { getStatusEmoji, TASK_STATUS } from "../../shared/constants.js";
 
 export const createListTasksTool = (manager: ParallelAgentManager) => tool({
     description: `List all background tasks.`,
@@ -17,8 +17,8 @@ export const createListTasksTool = (manager: ParallelAgentManager) => tool({
 
         switch (status) {
             case "running": tasks = manager.getRunningTasks(); break;
-            case "completed": tasks = manager.getAllTasks().filter(t => t.status === "completed"); break;
-            case "error": tasks = manager.getAllTasks().filter(t => t.status === "error" || t.status === "timeout"); break;
+            case "completed": tasks = manager.getAllTasks().filter(t => t.status === TASK_STATUS.COMPLETED); break;
+            case "error": tasks = manager.getAllTasks().filter(t => t.status === TASK_STATUS.ERROR || t.status === TASK_STATUS.TIMEOUT); break;
             default: tasks = manager.getAllTasks();
         }
 

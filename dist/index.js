@@ -14023,7 +14023,7 @@ function formatDuration(start, end) {
 }
 function buildNotificationMessage(tasks) {
   const summary = tasks.map((t) => {
-    const status = t.status === "completed" ? "\u2705" : "\u274C";
+    const status = t.status === TASK_STATUS.COMPLETED ? "\u2705" : "\u274C";
     return `${status} \`${t.id}\`: ${t.description}`;
   }).join("\n");
   return `<system-notification>
@@ -14402,9 +14402,9 @@ Still running: ${remaining.length} | Queued: ${queued.length}`;
     if (!this.client) return;
     const tuiClient2 = this.client;
     if (!tuiClient2.tui?.showToast) return;
-    const successCount = completedTasks.filter((t) => t.status === "completed").length;
-    const failCount = completedTasks.filter((t) => t.status === "error" || t.status === "cancelled").length;
-    const taskList = completedTasks.map((t) => `- ${t.status === "completed" ? "\u2705" : "\u274C"} ${t.description} (${t.duration})`).join("\n");
+    const successCount = completedTasks.filter((t) => t.status === TASK_STATUS.COMPLETED).length;
+    const failCount = completedTasks.filter((t) => t.status === TASK_STATUS.ERROR || t.status === TASK_STATUS.CANCELLED).length;
+    const taskList = completedTasks.map((t) => `- ${t.status === TASK_STATUS.COMPLETED ? "\u2705" : "\u274C"} ${t.description} (${t.duration})`).join("\n");
     tuiClient2.tui.showToast({
       body: {
         title: "\u{1F389} All Tasks Completed",
@@ -15341,10 +15341,10 @@ var createListTasksTool = (manager) => tool({
         tasks = manager.getRunningTasks();
         break;
       case "completed":
-        tasks = manager.getAllTasks().filter((t) => t.status === "completed");
+        tasks = manager.getAllTasks().filter((t) => t.status === TASK_STATUS.COMPLETED);
         break;
       case "error":
-        tasks = manager.getAllTasks().filter((t) => t.status === "error" || t.status === "timeout");
+        tasks = manager.getAllTasks().filter((t) => t.status === TASK_STATUS.ERROR || t.status === TASK_STATUS.TIMEOUT);
         break;
       default:
         tasks = manager.getAllTasks();
@@ -16296,7 +16296,7 @@ ${r.content}
 // src/core/loop/stats.ts
 function getIncompleteCount(todos) {
   return todos.filter(
-    (t) => t.status !== "completed" && t.status !== "cancelled"
+    (t) => t.status !== TODO_STATUS.COMPLETED && t.status !== TODO_STATUS.CANCELLED
   ).length;
 }
 function hasRemainingWork(todos) {
@@ -16304,7 +16304,7 @@ function hasRemainingWork(todos) {
 }
 function getNextPending(todos) {
   const pending = todos.filter(
-    (t) => t.status === "pending" || t.status === "in_progress"
+    (t) => t.status === TODO_STATUS.PENDING || t.status === TODO_STATUS.IN_PROGRESS
   );
   const priorityOrder = { high: 0, medium: 1, low: 2 };
   pending.sort((a, b) => priorityOrder[a.priority] - priorityOrder[b.priority]);
@@ -16313,10 +16313,10 @@ function getNextPending(todos) {
 function getStats(todos) {
   const stats2 = {
     total: todos.length,
-    pending: todos.filter((t) => t.status === "pending").length,
-    inProgress: todos.filter((t) => t.status === "in_progress").length,
-    completed: todos.filter((t) => t.status === "completed").length,
-    cancelled: todos.filter((t) => t.status === "cancelled").length,
+    pending: todos.filter((t) => t.status === TODO_STATUS.PENDING).length,
+    inProgress: todos.filter((t) => t.status === TODO_STATUS.IN_PROGRESS).length,
+    completed: todos.filter((t) => t.status === TODO_STATUS.COMPLETED).length,
+    cancelled: todos.filter((t) => t.status === TODO_STATUS.CANCELLED).length,
     percentComplete: 0
   };
   if (stats2.total > 0) {

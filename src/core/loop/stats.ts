@@ -3,14 +3,15 @@
  */
 
 import type { Todo, TodoStats } from "./interfaces.js";
+import { TODO_STATUS } from "../../shared/constants.js";
 
 /**
  * Get count of incomplete todos
  */
 export function getIncompleteCount(todos: Todo[]): number {
     return todos.filter(t =>
-        t.status !== "completed" &&
-        t.status !== "cancelled"
+        t.status !== TODO_STATUS.COMPLETED &&
+        t.status !== TODO_STATUS.CANCELLED
     ).length;
 }
 
@@ -26,7 +27,7 @@ export function hasRemainingWork(todos: Todo[]): boolean {
  */
 export function getNextPending(todos: Todo[]): Todo | undefined {
     const pending = todos.filter(t =>
-        t.status === "pending" || t.status === "in_progress"
+        t.status === TODO_STATUS.PENDING || t.status === TODO_STATUS.IN_PROGRESS
     );
 
     // Sort by priority: high > medium > low
@@ -42,10 +43,10 @@ export function getNextPending(todos: Todo[]): Todo | undefined {
 export function getStats(todos: Todo[]): TodoStats {
     const stats = {
         total: todos.length,
-        pending: todos.filter(t => t.status === "pending").length,
-        inProgress: todos.filter(t => t.status === "in_progress").length,
-        completed: todos.filter(t => t.status === "completed").length,
-        cancelled: todos.filter(t => t.status === "cancelled").length,
+        pending: todos.filter(t => t.status === TODO_STATUS.PENDING).length,
+        inProgress: todos.filter(t => t.status === TODO_STATUS.IN_PROGRESS).length,
+        completed: todos.filter(t => t.status === TODO_STATUS.COMPLETED).length,
+        cancelled: todos.filter(t => t.status === TODO_STATUS.CANCELLED).length,
         percentComplete: 0,
     };
 
