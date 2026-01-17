@@ -272,6 +272,8 @@ const OrchestratorPlugin: Plugin = async (input) => {
             const sessionID = msgInput.sessionID;
             const agentName = (msgInput.agent || "").toLowerCase();
 
+            log("[index.ts] chat.message hook", { sessionID, agent: agentName, textLength: originalText.length });
+
             // If someone picks the Commander agent, auto-start a mission
             // This makes it so users don't need to type /task every time
             if (agentName === AGENT_NAMES.COMMANDER && !sessions.has(sessionID)) {
