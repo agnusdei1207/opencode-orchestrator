@@ -262,6 +262,16 @@ const OrchestratorPlugin: Plugin = async (input) => {
         },
 
         // -----------------------------------------------------------------
+        // session.start hook - runs when a new session begins
+        // -----------------------------------------------------------------
+        "session.start": async (input: { sessionID: string; agent?: string }) => {
+            log("[index.ts] session.start", { sessionID: input.sessionID, agent: input.agent });
+
+            // Show toast notification for session start
+            Toast.presets.missionStarted(`Session ${input.sessionID.slice(0, 12)}...`);
+        },
+
+        // -----------------------------------------------------------------
         // chat.message hook - runs when user sends a message
         // This is where we intercept commands and set up sessions
         // -----------------------------------------------------------------
@@ -457,6 +467,34 @@ const OrchestratorPlugin: Plugin = async (input) => {
             // Always show the step counter with timestamp at the bottom
             const currentTime = formatTimestamp();
             toolOutput.output += `\n\n⏱️ [${currentTime}] Step ${session.step}/${session.maxSteps} | This step: ${stepDuration} | Total: ${totalElapsed}`;
+        },
+
+        // -----------------------------------------------------------------
+        // session.end hook - runs when a session ends
+        // -----------------------------------------------------------------
+        "session.end": async (input: { sessionID: string; reason?: string }) => {
+            const session = sessions.get(input.sessionID);
+            if (session) {
+                const totalTime = Date.now() - session.startTime;
+                const duration = totalTime < 60000
+                    ? `${Math.round(totalTime / 1000)}s`
+                    : `${Math.round(totalTime / 60000)}m`;
+
+                log("[index.ts] session.end", {
+                    sessionID: input.sessionID,
+                    reason: input.reason,
+                    steps: session.step,
+                    duration
+                });
+
+                // Cleanup session state
+                sessions.delete(input.sessionID);
+                state.sessions.delete(input.sessionID);
+                ProgressTracker.clearSession(input.sessionID);
+
+                // Toast notification
+                Toast.presets.sessionCompleted(input.sessionID, duration);
+            }
         },
 
         // -----------------------------------------------------------------
