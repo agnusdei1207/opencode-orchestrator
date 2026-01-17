@@ -367,13 +367,13 @@ export const COMMANDS: Record<string, { description: string; template: string; a
 
 | Agent | Role | Capabilities |
 |-------|------|--------------|
-| **Commander** 🎯 | Orchestrator | Autonomous mission control, parallel task coordination, never stops until ✅ MISSION COMPLETE |
-| **Architect** 🏗️ | Strategic Planner | Task decomposition, dependency analysis, parallel group optimization |
-| **Builder** 🔨 | Full-Stack Developer | Code implementation, file operations, terminal commands, UI + logic |
-| **Inspector** 🔍 | Quality Assurance | 5-point audit, LSP diagnostics, auto-fix bugs, test verification |
-| **Recorder** 💾 | Context Manager | Progress tracking, state persistence, session memory across restarts |
-| **Librarian** 📚 | Research Specialist | API documentation lookup, anti-hallucination, cache official docs |
-| **Researcher** 🔬 | Pre-task Analyst | Deep investigation before implementation, gathers all needed info |
+| **${AGENT_NAMES.COMMANDER}** 🎯 | Orchestrator | Autonomous mission control, parallel task coordination, never stops until ✅ MISSION COMPLETE |
+| **${AGENT_NAMES.ARCHITECT}** 🏗️ | Strategic Planner | Task decomposition, dependency analysis, parallel group optimization |
+| **${AGENT_NAMES.BUILDER}** 🔨 | Full-Stack Developer | Code implementation, file operations, terminal commands, UI + logic |
+| **${AGENT_NAMES.INSPECTOR}** 🔍 | Quality Assurance | 5-point audit, LSP diagnostics, auto-fix bugs, test verification |
+| **${AGENT_NAMES.RECORDER}** 💾 | Context Manager | Progress tracking, state persistence, session memory across restarts |
+| **${AGENT_NAMES.LIBRARIAN}** 📚 | Research Specialist | API documentation lookup, anti-hallucination, cache official docs |
+| **${AGENT_NAMES.RESEARCHER}** 🔬 | Pre-task Analyst | Deep investigation before implementation, gathers all needed info |
 
 ## ⚡ Parallel Execution System
 \`\`\`
@@ -391,14 +391,14 @@ TRIAGE → RESEARCH → DELEGATE → EXECUTE → VERIFY → COMPLETE
 \`\`\`
 
 ## 🛡️ Anti-Hallucination
-- Librarian researches BEFORE implementation
+- ${AGENT_NAMES.LIBRARIAN} researches BEFORE implementation
 - webfetch caches official documentation
 - Never assumes - always verifies from sources
 
 ## 💡 Usage
-- Select **Commander** and type your request
+- Select **${AGENT_NAMES.COMMANDER}** and type your request
 - Or use \`/task "your mission"\` explicitly
-- Commander automatically coordinates all agents`,
+- ${AGENT_NAMES.COMMANDER} automatically coordinates all agents`,
   },
 };
 
