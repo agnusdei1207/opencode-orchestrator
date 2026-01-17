@@ -14160,36 +14160,6 @@ var presets = {
   })
 };
 
-// src/core/session/store.ts
-var contexts = /* @__PURE__ */ new Map();
-var parentChildMap = /* @__PURE__ */ new Map();
-function create(sessionId, parentId) {
-  const context = {
-    sessionId,
-    parentId,
-    documents: /* @__PURE__ */ new Map(),
-    findings: [],
-    decisions: /* @__PURE__ */ new Map(),
-    createdAt: /* @__PURE__ */ new Date(),
-    updatedAt: /* @__PURE__ */ new Date()
-  };
-  contexts.set(sessionId, context);
-  if (parentId) {
-    if (!parentChildMap.has(parentId)) {
-      parentChildMap.set(parentId, /* @__PURE__ */ new Set());
-    }
-    parentChildMap.get(parentId).add(sessionId);
-  }
-  return context;
-}
-function clear(sessionId) {
-  const context = contexts.get(sessionId);
-  if (context?.parentId) {
-    parentChildMap.get(context.parentId)?.delete(sessionId);
-  }
-  contexts.delete(sessionId);
-}
-
 // src/core/agents/manager/task-launcher.ts
 var TaskLauncher = class {
   constructor(client, directory, store, concurrency, onTaskError, startPolling) {
@@ -14232,8 +14202,6 @@ var TaskLauncher = class {
       };
       this.store.set(taskId, task);
       this.store.trackPending(input.parentSessionID, taskId);
-      create(sessionID, input.parentSessionID);
-      log2(`[task-launcher.ts] Created shared context for session ${sessionID}`);
       this.startPolling();
       this.client.session.prompt({
         path: { id: sessionID },
@@ -14462,7 +14430,6 @@ var TaskCleaner = class {
       }
       this.client.session.delete({ path: { id: task.sessionID } }).catch(() => {
       });
-      clear(task.sessionID);
       this.store.delete(taskId);
     }
     this.store.cleanEmptyNotifications();
@@ -14476,7 +14443,6 @@ var TaskCleaner = class {
           await this.client.session.delete({ path: { id: sessionID } });
         } catch {
         }
-        clear(sessionID);
       }
       this.store.delete(taskId);
       log2(`Cleaned up ${taskId}`);
@@ -15388,7 +15354,7 @@ async function list() {
     expired: new Date(entry.expiresAt) < now
   }));
 }
-async function clear2() {
+async function clear() {
   const metadata = await readMetadata();
   const count = Object.keys(metadata.documents).length;
   for (const filename of Object.keys(metadata.documents)) {
@@ -15865,7 +15831,7 @@ Cached: ${doc.fetchedAt}
 ${doc.content}`;
       }
       case "clear": {
-        const count = await clear2();
+        const count = await clear();
         return `\u{1F5D1}\uFE0F Cleared ${count} cached documents`;
       }
       case "stats": {

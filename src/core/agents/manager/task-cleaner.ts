@@ -9,7 +9,6 @@ import { ConcurrencyController } from "../concurrency.js";
 import { CONFIG } from "../config.js";
 import { log } from "../logger.js";
 import { buildNotificationMessage } from "../format.js";
-import * as ContextStore from "../../session/store.js";
 
 type OpencodeClient = PluginInput["client"];
 
@@ -36,7 +35,7 @@ export class TaskCleaner {
             }
 
             this.client.session.delete({ path: { id: task.sessionID } }).catch(() => { });
-            ContextStore.clear(task.sessionID);  // Clean up shared context
+            // Context cleanup: .opencode/ files persist for later reference
             this.store.delete(taskId);
         }
         this.store.cleanEmptyNotifications();
@@ -49,7 +48,7 @@ export class TaskCleaner {
         setTimeout(async () => {
             if (sessionID) {
                 try { await this.client.session.delete({ path: { id: sessionID } }); } catch { }
-                ContextStore.clear(sessionID);  // Clean up shared context
+                // Context cleanup: .opencode/ files persist for later reference
             }
             this.store.delete(taskId);
             log(`Cleaned up ${taskId}`);
