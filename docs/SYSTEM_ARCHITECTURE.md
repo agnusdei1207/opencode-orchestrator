@@ -64,6 +64,16 @@
 - **BUILDING** (30-70%): Key decisions + file references
 - **FINISHING** (70-100%): Brief status, blockers only
 
+**Centralized Path Constants** (`shared/constants.ts`):
+```typescript
+PATHS.OPENCODE      // ".opencode"
+PATHS.DOCS          // ".opencode/docs"
+PATHS.ARCHIVE       // ".opencode/archive"
+PATHS.TODO          // ".opencode/todo.md"
+PATHS.CONTEXT       // ".opencode/context.md"
+PATHS.DOC_METADATA  // ".opencode/docs/_metadata.json"
+```
+
 ### Unused Infrastructure (Available for Future Integration)
 
 | Module | Status | Integration Path |
@@ -113,7 +123,7 @@ src/
 
 ```typescript
 OrchestratorPlugin(input):
-  1. Toast.enableAutoToasts() → Subscribe to all events
+  1. Toast.initToastClient(client)  // Initialize toast system
   2. sessions Map initialization
   3. ParallelAgentManager.getInstance(client, directory)
   4. Return { provider, tools, hooks }
@@ -126,10 +136,10 @@ hooks["chat.message"]:
   1. Parse slash commands (/task, /plan)
   2. Auto-start on Commander agent selection
   3. ProgressTracker.startSession(sessionId)
-  4. emit(TASK_EVENTS.STARTED)
+  4. Toast.presets.taskStarted()
 
 hooks["tool.execute.after"]:
-  1. Check "MISSION COMPLETE" → emit(MISSION_EVENTS.COMPLETE)
+  1. Check "MISSION COMPLETE" → Toast.presets.missionComplete()
   2. ProgressTracker.recordSnapshot()
   3. Inject CONTINUE_INSTRUCTION
 
@@ -145,7 +155,7 @@ TaskLauncher.launch():
   1. concurrency.acquire(key)
   2. client.session.create()
   3. store.set(task)
-  4. emit(TASK_EVENTS.STARTED) // Via notify
+  4. Toast.presets.sessionCreated()
   5. client.session.message()
   6. poller.start()
 
@@ -153,8 +163,7 @@ TaskPoller.poll() every 1s:
   1. Get running tasks
   2. Check session events
   3. If idle + stable → completed
-  4. emit(TASK_EVENTS.COMPLETED)
-  5. scheduleCleanup()
+  4. Notify parent, schedule cleanup
 ```
 
 ### Phase 4: Resource Cleanup
