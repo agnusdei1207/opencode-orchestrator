@@ -262,13 +262,60 @@ const OrchestratorPlugin: Plugin = async (input) => {
         },
 
         // -----------------------------------------------------------------
-        // session.start hook - runs when a new session begins
+        // Event hook - handles OpenCode events (SDK official)
+        // Replaces non-standard session.start/session.end hooks
         // -----------------------------------------------------------------
-        "session.start": async (input: { sessionID: string; agent?: string }) => {
-            log("[index.ts] session.start", { sessionID: input.sessionID, agent: input.agent });
+        event: async (input: { event: { type: string; properties?: Record<string, unknown> } }) => {
+            const { event } = input;
 
-            // Show toast notification for session start
-            Toast.presets.missionStarted(`Session ${input.sessionID.slice(0, 12)}...`);
+            // Pass events to ParallelAgentManager for resource cleanup
+            try {
+                const manager = ParallelAgentManager.getInstance();
+                manager.handleEvent(event as { type: string; properties?: { sessionID?: string; info?: { id?: string } } });
+            } catch {
+                // Manager not initialized yet, ignore
+            }
+
+            // Session created event
+            if (event.type === "session.created") {
+                const sessionID = event.properties?.id as string || "";
+                log("[index.ts] event: session.created", { sessionID });
+                Toast.presets.missionStarted(`Session ${sessionID.slice(0, 12)}...`);
+            }
+
+            // Session deleted/ended event
+            if (event.type === "session.deleted" || event.type === SESSION_EVENTS.DELETED) {
+                const sessionID = (event.properties?.id as string) ||
+                    (event.properties as { info?: { id?: string } })?.info?.id || "";
+                const session = sessions.get(sessionID);
+                if (session) {
+                    const totalTime = Date.now() - session.startTime;
+                    const duration = totalTime < 60000
+                        ? `${Math.round(totalTime / 1000)}s`
+                        : `${Math.round(totalTime / 60000)}m`;
+
+                    log("[index.ts] event: session.deleted", {
+                        sessionID,
+                        steps: session.step,
+                        duration
+                    });
+
+                    // Cleanup session state
+                    sessions.delete(sessionID);
+                    state.sessions.delete(sessionID);
+                    ProgressTracker.clearSession(sessionID);
+
+                    Toast.presets.sessionCompleted(sessionID, duration);
+                }
+            }
+
+            // Session error event
+            if (event.type === "session.error") {
+                const sessionID = event.properties?.sessionId as string || "";
+                const error = event.properties?.error as string || "Unknown error";
+                log("[index.ts] event: session.error", { sessionID, error });
+                Toast.presets.taskFailed("session", error.slice(0, 50));
+            }
         },
 
         // -----------------------------------------------------------------
@@ -470,34 +517,6 @@ const OrchestratorPlugin: Plugin = async (input) => {
         },
 
         // -----------------------------------------------------------------
-        // session.end hook - runs when a session ends
-        // -----------------------------------------------------------------
-        "session.end": async (input: { sessionID: string; reason?: string }) => {
-            const session = sessions.get(input.sessionID);
-            if (session) {
-                const totalTime = Date.now() - session.startTime;
-                const duration = totalTime < 60000
-                    ? `${Math.round(totalTime / 1000)}s`
-                    : `${Math.round(totalTime / 60000)}m`;
-
-                log("[index.ts] session.end", {
-                    sessionID: input.sessionID,
-                    reason: input.reason,
-                    steps: session.step,
-                    duration
-                });
-
-                // Cleanup session state
-                sessions.delete(input.sessionID);
-                state.sessions.delete(input.sessionID);
-                ProgressTracker.clearSession(input.sessionID);
-
-                // Toast notification
-                Toast.presets.sessionCompleted(input.sessionID, duration);
-            }
-        },
-
-        // -----------------------------------------------------------------
         // assistant.done hook - runs when the LLM finishes responding
         // This is the heart of the "relentless loop" - we keep pushing it
         // to continue until we see MISSION COMPLETE or hit the limit
@@ -655,34 +674,6 @@ const OrchestratorPlugin: Plugin = async (input) => {
                     // Both failed, probably a real problem. Stop the session.
                     session.active = false;
                     state.missionActive = false;
-                }
-            }
-        },
-
-        // -----------------------------------------------------------------
-        // Event handler - cleans up when sessions are deleted
-        // Uses 'event' hook (not 'handler')
-        // -----------------------------------------------------------------
-        event: async (input: { event: { type: string; properties?: unknown } }) => {
-            const { event } = input;
-
-            // Pass events to ParallelAgentManager for resource cleanup
-            try {
-                const manager = ParallelAgentManager.getInstance();
-                manager.handleEvent(event as { type: string; properties?: { sessionID?: string; info?: { id?: string } } });
-            } catch {
-                // Manager not initialized yet, ignore
-            }
-
-            if (event.type === SESSION_EVENTS.DELETED) {
-                const props = event.properties as { info?: { id?: string } } | undefined;
-                if (props?.info?.id) {
-                    const sessionId = props.info.id;
-
-                    // Clean up all session resources
-                    sessions.delete(sessionId);
-                    state.sessions.delete(sessionId);
-                    ProgressTracker.clearSession(sessionId);
                 }
             }
         },
