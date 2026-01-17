@@ -30,6 +30,12 @@ var TASK_STATUS = {
   TIMEOUT: "timeout",
   CANCELLED: "cancelled"
 };
+var TODO_STATUS = {
+  PENDING: "pending",
+  IN_PROGRESS: "in_progress",
+  COMPLETED: "completed",
+  CANCELLED: "cancelled"
+};
 
 // src/shared/constants.ts
 var TIME = {
@@ -16329,19 +16335,21 @@ function formatProgress(todos) {
 }
 function generateContinuationPrompt(todos) {
   const incomplete = todos.filter(
-    (t) => t.status !== "completed" && t.status !== "cancelled"
+    (t) => t.status !== TODO_STATUS.COMPLETED && t.status !== TODO_STATUS.CANCELLED
   );
   if (incomplete.length === 0) {
     return "";
   }
   const next = getNextPending(todos);
+  const pendingTasks = incomplete.filter((t) => t.status === TODO_STATUS.PENDING);
+  const pendingCount = pendingTasks.length;
   let prompt = `<todo_continuation>
 \u{1F4CB} **TODO Progress**: ${formatProgress(todos)}
 
 **Incomplete Tasks** (${incomplete.length} remaining):
 `;
   for (const todo of incomplete.slice(0, 5)) {
-    const status = todo.status === "in_progress" ? "\u{1F504}" : "\u23F3";
+    const status = todo.status === TODO_STATUS.IN_PROGRESS ? "\u{1F504}" : "\u23F3";
     const priority = todo.priority === "high" ? "\u{1F534}" : todo.priority === "medium" ? "\u{1F7E1}" : "\u{1F7E2}";
     prompt += `${status} ${priority} [${todo.id}] ${todo.content}
 `;
@@ -16350,13 +16358,33 @@ function generateContinuationPrompt(todos) {
     prompt += `... and ${incomplete.length - 5} more
 `;
   }
-  prompt += `
+  if (pendingCount >= 2) {
+    prompt += `
+\u26A1 **PARALLEL DISPATCH REQUIRED** \u26A1
+You have ${pendingCount} pending tasks. Launch them ALL IN PARALLEL for maximum efficiency:
+
+\`\`\`
+// EXECUTE NOW - Launch all ${pendingCount} tasks simultaneously:
+`;
+    for (const todo of pendingTasks.slice(0, 6)) {
+      prompt += `delegate_task({ agent: "Worker", prompt: "${todo.content}", background: true })
+`;
+    }
+    prompt += `\`\`\`
+
+\u26A0\uFE0F Do NOT run these sequentially. Use background=true for ALL.
+After launching, use list_tasks to monitor progress.
+
+`;
+  } else {
+    prompt += `
 **Action Required**:
 1. Continue working on incomplete todos
 2. Mark each task complete when finished
 3. Do NOT stop until all todos are completed or cancelled
 
 `;
+  }
   if (next) {
     prompt += `**Next Task**: [${next.id}] ${next.content}
 `;
