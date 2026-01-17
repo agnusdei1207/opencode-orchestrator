@@ -60,8 +60,8 @@ var PARALLEL_TASK = {
   // 3 seconds
   POLL_INTERVAL_MS: 1e3,
   // 1 second
-  DEFAULT_CONCURRENCY: 10,
-  // 10 per agent type
+  DEFAULT_CONCURRENCY: 3,
+  // 3 per agent type (conservative for APIs with strict rate limits)
   MAX_CONCURRENCY: 50,
   // 50 total
   SYNC_TIMEOUT_MS: 10 * TIME.MINUTE,
