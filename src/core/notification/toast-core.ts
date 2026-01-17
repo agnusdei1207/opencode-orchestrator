@@ -1,8 +1,22 @@
 /**
  * Toast Core - Core notification functions
+ * Uses OpenCode TUI's showToast API for actual UI display
  */
 
 import type { ToastMessage, ToastOptions, ToastVariant } from "./types.js";
+import type { PluginInput } from "@opencode-ai/plugin";
+
+type OpencodeClient = PluginInput["client"];
+
+// Store the OpenCode client for TUI access
+let tuiClient: OpencodeClient | null = null;
+
+/**
+ * Initialize the toast system with the OpenCode client
+ */
+export function initToastClient(client: OpencodeClient): void {
+    tuiClient = client;
+}
 
 // Toast history
 const toasts: ToastMessage[] = [];
@@ -23,7 +37,7 @@ export function onToast(handler: (toast: ToastMessage) => void): () => void {
 }
 
 /**
- * Show a toast notification
+ * Show a toast notification (both in TUI and internal storage)
  */
 export function show(options: ToastOptions): ToastMessage {
     const toast: ToastMessage = {
@@ -46,13 +60,24 @@ export function show(options: ToastOptions): ToastMessage {
         try {
             handler(toast);
         } catch (error) {
-            console.error("[Toast] Handler error:", error);
+            // Ignore handler errors
         }
     }
 
-    // Log to console with emoji
-    const icons = { info: "ℹ️", success: "✅", warning: "⚠️", error: "❌" };
-    console.log(`${icons[toast.variant]} [${toast.title}] ${toast.message}`);
+    // Show in OpenCode TUI if available
+    if (tuiClient) {
+        const client = tuiClient as unknown as { tui?: { showToast?: (opts: unknown) => Promise<void> } };
+        if (client.tui?.showToast) {
+            client.tui.showToast({
+                body: {
+                    title: toast.title,
+                    message: toast.message,
+                    variant: toast.variant,
+                    duration: toast.duration,
+                },
+            }).catch(() => { });
+        }
+    }
 
     return toast;
 }
@@ -87,3 +112,4 @@ export function getHistory(limit = 20): ToastMessage[] {
 export function clear(): void {
     toasts.length = 0;
 }
+

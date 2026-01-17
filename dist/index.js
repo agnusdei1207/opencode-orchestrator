@@ -16137,6 +16137,10 @@ ${r.content}
 });
 
 // src/core/notification/toast-core.ts
+var tuiClient = null;
+function initToastClient(client) {
+  tuiClient = client;
+}
 var toasts = [];
 var MAX_HISTORY = 50;
 var handlers = [];
@@ -16158,11 +16162,22 @@ function show(options) {
     try {
       handler(toast);
     } catch (error45) {
-      console.error("[Toast] Handler error:", error45);
     }
   }
-  const icons = { info: "\u2139\uFE0F", success: "\u2705", warning: "\u26A0\uFE0F", error: "\u274C" };
-  console.log(`${icons[toast.variant]} [${toast.title}] ${toast.message}`);
+  if (tuiClient) {
+    const client = tuiClient;
+    if (client.tui?.showToast) {
+      client.tui.showToast({
+        body: {
+          title: toast.title,
+          message: toast.message,
+          variant: toast.variant,
+          duration: toast.duration
+        }
+      }).catch(() => {
+      });
+    }
+  }
   return toast;
 }
 
@@ -16379,8 +16394,9 @@ var OrchestratorPlugin = async (input) => {
   console.log(`[orchestrator] v${PLUGIN_VERSION} loaded`);
   console.log(`[orchestrator] Log file: ${getLogPath()}`);
   log2("[index.ts] Plugin initialized", { version: PLUGIN_VERSION, directory });
+  initToastClient(client);
   const disableAutoToasts = enableAutoToasts();
-  log2("[index.ts] Toast notifications enabled");
+  log2("[index.ts] Toast notifications enabled with TUI");
   const sessions = /* @__PURE__ */ new Map();
   const parallelAgentManager2 = ParallelAgentManager.getInstance(client, directory);
   const asyncAgentTools = createAsyncAgentTools(parallelAgentManager2, client);
@@ -16518,6 +16534,7 @@ var OrchestratorPlugin = async (input) => {
       const parsed = detectSlashCommand(originalText);
       const sessionID = msgInput.sessionID;
       const agentName = (msgInput.agent || "").toLowerCase();
+      log2("[index.ts] chat.message hook", { sessionID, agent: agentName, textLength: originalText.length });
       if (agentName === AGENT_NAMES.COMMANDER && !sessions.has(sessionID)) {
         const now = Date.now();
         sessions.set(sessionID, {
