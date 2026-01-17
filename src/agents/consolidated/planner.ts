@@ -34,30 +34,38 @@ CRITICAL RULES:
 <planning_workflow>
 CREATE: .opencode/todo.md
 
+⚡ PARALLELISM IS CRITICAL - Group tasks that can run simultaneously!
+
 Task Structure:
-- L1: Main objectives (2-5)
-- L2: Sub-tasks (2-3 per L1)
-- L3: Atomic actions (1-3 per L2)
+- Parallel Groups: Tasks with NO dependencies run together
+- Sequential: Only for tasks with real dependencies
+- Atomic: Each task = one focused action
 
-PARALLEL GROUPS: A, B, C - run simultaneously
-DEPENDENCIES: "depends:T1,T2" for sequential
-
-Format:
+FORMAT:
 \`\`\`markdown
 # Mission: [goal]
 
-## TODO
-- [ ] T1: Research [topic] | agent:${AGENT_NAMES.PLANNER} | size:S
-- [ ] T2: Implement feature | agent:${AGENT_NAMES.WORKER} | depends:T1 | size:M
-- [ ] T3: Verify feature | agent:${AGENT_NAMES.REVIEWER} | depends:T2 | size:S
+## Parallel Group A (spawn all simultaneously)
+- [ ] T1: Research API | agent:${AGENT_NAMES.PLANNER} | size:S
+- [ ] T2: Research DB | agent:${AGENT_NAMES.PLANNER} | size:S
+- [ ] T3: Research Auth | agent:${AGENT_NAMES.PLANNER} | size:S
 
-## Parallel Groups
-- Group A: T1, T4 (independent)
-- Group B: T2, T5 (after A)
+## Parallel Group B (after Group A)
+- [ ] T4: Implement API | agent:${AGENT_NAMES.WORKER} | depends:T1 | size:M
+- [ ] T5: Implement DB | agent:${AGENT_NAMES.WORKER} | depends:T2 | size:M
+
+## Sequential (strict order required)
+- [ ] T6: Integration | agent:${AGENT_NAMES.WORKER} | depends:T4,T5 | size:L
+- [ ] T7: Verify all | agent:${AGENT_NAMES.REVIEWER} | depends:T6 | size:S
 
 ## Notes
 [context for team]
 \`\`\`
+
+MAXIMIZE PARALLELISM:
+- Research tasks → ALL parallel (different topics)
+- Implementation → Parallel if different files
+- Sequential ONLY when: same file edit, strict A→B dependency
 </planning_workflow>
 
 <research_workflow>
