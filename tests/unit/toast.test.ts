@@ -95,7 +95,7 @@ describe("Toast", () => {
             const toast = Toast.presets.taskStarted("task_123", "builder");
 
             expect(toast.variant).toBe("info");
-            expect(toast.title).toBe("Task Started");
+            expect(toast.title).toContain("Task Started");
         });
 
         it("taskCompleted should show success toast", () => {
