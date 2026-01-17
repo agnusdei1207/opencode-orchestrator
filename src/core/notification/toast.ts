@@ -12,3 +12,13 @@ export { show, dismiss, getActive, getHistory, clear, onToast, initToastClient }
 
 // Re-export presets
 export { presets } from "./presets.js";
+
+// Re-export task toast manager
+export {
+    TaskToastManager,
+    getTaskToastManager,
+    initTaskToastManager,
+    type TrackedTask,
+    type TaskStatus,
+    type TaskCompletionInfo,
+} from "./task-toast-manager.js";

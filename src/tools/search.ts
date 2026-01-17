@@ -3,7 +3,7 @@ import { callRustTool } from "./rust.js";
 
 /**
  * Grep search tool - finds patterns in code
- * Used by Builder and Inspector for codebase analysis
+ * Used by Worker and Reviewer for codebase analysis
  */
 export const grepSearchTool = (directory: string) => tool({
     description: "Search code patterns using regex. Returns matching lines with file paths and line numbers.",
@@ -21,7 +21,7 @@ export const grepSearchTool = (directory: string) => tool({
 
 /**
  * Glob search tool - finds files by pattern
- * Used by Builder and Recorder for file discovery
+ * Used by Worker and Reviewer for file discovery
  */
 export const globSearchTool = (directory: string) => tool({
     description: "Find files matching a glob pattern. Returns list of file paths.",

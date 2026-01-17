@@ -57,7 +57,7 @@ export const errorPatterns: ErrorPattern[] = [
         pattern: /tool.?not.?found|unknown.?tool/i,
         category: "tool",
         handler: (ctx: ErrorContext): RecoveryAction => {
-            return { type: "escalate", to: "Inspector", reason: `Unknown tool used by ${ctx.agent}` };
+            return { type: "escalate", to: "Reviewer", reason: `Unknown tool used by ${ctx.agent}` };
         },
     },
 
