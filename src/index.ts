@@ -103,9 +103,12 @@ const OrchestratorPlugin: Plugin = async (input) => {
     // Initialize Core Systems
     // =========================================================================
 
+    // Initialize toast system with OpenCode client for TUI display
+    Toast.initToastClient(client);
+
     // Enable auto toast notifications for events
     const disableAutoToasts = Toast.enableAutoToasts();
-    log("[index.ts] Toast notifications enabled");
+    log("[index.ts] Toast notifications enabled with TUI");
 
     // Track active sessions - each chat session gets its own state
     // so multiple users or conversations don't interfere with each other
