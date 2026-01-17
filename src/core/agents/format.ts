@@ -2,6 +2,8 @@
  * Format utilities for parallel tasks
  */
 
+import { TASK_STATUS } from "../../shared/constants.js";
+
 export function formatDuration(start: Date, end?: Date): string {
     const duration = (end ?? new Date()).getTime() - start.getTime();
     const seconds = Math.floor(duration / 1000);
@@ -13,7 +15,7 @@ export function formatDuration(start: Date, end?: Date): string {
 
 export function buildNotificationMessage(tasks: Array<{ id: string; description: string; status: string }>): string {
     const summary = tasks.map(t => {
-        const status = t.status === "completed" ? "✅" : "❌";
+        const status = t.status === TASK_STATUS.COMPLETED ? "✅" : "❌";
         return `${status} \`${t.id}\`: ${t.description}`;
     }).join("\n");
 

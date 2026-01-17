@@ -13,6 +13,7 @@
 
 import type { PluginInput } from "@opencode-ai/plugin";
 import type { ConcurrencyController } from "../agents/concurrency.js";
+import { TASK_STATUS } from "../../shared/constants.js";
 
 // ============================================================
 // Types
@@ -274,11 +275,11 @@ export class TaskToastManager {
         const tuiClient = this.client as unknown as { tui?: { showToast?: (opts: unknown) => Promise<void> } };
         if (!tuiClient.tui?.showToast) return;
 
-        const successCount = completedTasks.filter(t => t.status === "completed").length;
-        const failCount = completedTasks.filter(t => t.status === "error" || t.status === "cancelled").length;
+        const successCount = completedTasks.filter(t => t.status === TASK_STATUS.COMPLETED).length;
+        const failCount = completedTasks.filter(t => t.status === TASK_STATUS.ERROR || t.status === TASK_STATUS.CANCELLED).length;
 
         const taskList = completedTasks
-            .map(t => `- ${t.status === "completed" ? "✅" : "❌"} ${t.description} (${t.duration})`)
+            .map(t => `- ${t.status === TASK_STATUS.COMPLETED ? "✅" : "❌"} ${t.description} (${t.duration})`)
             .join("\n");
 
         tuiClient.tui.showToast({
