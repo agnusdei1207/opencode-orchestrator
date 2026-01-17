@@ -2,7 +2,7 @@
  * Worker Workflow
  */
 
-import { AGENT_NAMES } from "../../../shared/constants.js";
+import { AGENT_NAMES } from "../../../shared/index.js";
 
 export const WORKER_WORKFLOW = `<workflow>
 1. Read .opencode/context.md for project environment

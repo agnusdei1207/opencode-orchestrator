@@ -2,7 +2,7 @@
  * Commander Forbidden Actions
  */
 
-import { AGENT_NAMES, MISSION_SEAL } from "../../../shared/constants.js";
+import { AGENT_NAMES, MISSION_SEAL } from "../../../shared/index.js";
 
 export const COMMANDER_FORBIDDEN = `<forbidden_actions>
 NEVER say "I've completed..." without outputting ${MISSION_SEAL.PATTERN}

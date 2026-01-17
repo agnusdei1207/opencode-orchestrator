@@ -6,7 +6,7 @@
 
 import { AGENTS } from "../agents/definitions.js";
 import { COMMANDS } from "../tools/slashCommand.js";
-import { AGENT_NAMES } from "../shared/constants.js";
+import { AGENT_NAMES, AGENT_TOKENS } from "../shared/index.js";
 
 /**
  * Create config handler for OpenCode
@@ -35,8 +35,8 @@ export function createConfigHandler() {
                 description: "Autonomous orchestrator - executes until mission complete",
                 mode: "primary",
                 prompt: commanderPrompt,
-                maxTokens: 64000,
-                thinking: { type: "enabled", budgetTokens: 32000 },
+                maxTokens: AGENT_TOKENS.PRIMARY_MAX_TOKENS,
+                thinking: { type: "enabled", budgetTokens: AGENT_TOKENS.PRIMARY_THINKING_BUDGET },
                 color: "#FF6B6B",
             },
             // Consolidated subagents (4 agents instead of 6)
@@ -45,7 +45,7 @@ export function createConfigHandler() {
                 mode: "subagent",
                 hidden: true,
                 prompt: AGENTS[AGENT_NAMES.PLANNER]?.systemPrompt || "",
-                maxTokens: 32000,
+                maxTokens: AGENT_TOKENS.SUBAGENT_MAX_TOKENS,
                 color: "#9B59B6",
             },
             [AGENT_NAMES.WORKER]: {
@@ -53,7 +53,7 @@ export function createConfigHandler() {
                 mode: "subagent",
                 hidden: true,
                 prompt: AGENTS[AGENT_NAMES.WORKER]?.systemPrompt || "",
-                maxTokens: 32000,
+                maxTokens: AGENT_TOKENS.SUBAGENT_MAX_TOKENS,
                 color: "#E67E22",
             },
             [AGENT_NAMES.REVIEWER]: {
@@ -61,7 +61,7 @@ export function createConfigHandler() {
                 mode: "subagent",
                 hidden: true,
                 prompt: AGENTS[AGENT_NAMES.REVIEWER]?.systemPrompt || "",
-                maxTokens: 32000,
+                maxTokens: AGENT_TOKENS.SUBAGENT_MAX_TOKENS,
                 color: "#27AE60",
             },
         };

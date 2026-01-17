@@ -2,7 +2,7 @@
  * Format utilities for parallel tasks
  */
 
-import { TASK_STATUS } from "../../shared/constants.js";
+import { TASK_STATUS } from "../../shared/index.js";
 
 export function formatDuration(start: Date, end?: Date): string {
     const duration = (end ?? new Date()).getTime() - start.getTime();

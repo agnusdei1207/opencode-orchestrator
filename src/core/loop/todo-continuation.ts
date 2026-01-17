@@ -11,7 +11,7 @@
  */
 
 import type { PluginInput } from "@opencode-ai/plugin";
-import { PART_TYPES } from "../../shared/constants.js";
+import { PART_TYPES, LOOP, TOAST_DURATION, TIME } from "../../shared/index.js";
 import { log } from "../agents/logger.js";
 import { presets } from "../notification/presets.js";
 import { getIncompleteCount, hasRemainingWork, getNextPending } from "./stats.js";
@@ -33,12 +33,12 @@ interface ContinuationState {
 
 const sessionStates = new Map<string, ContinuationState>();
 
-// Configuration
-const COUNTDOWN_SECONDS = 2;
-const TOAST_DURATION_MS = 1500;
-const MIN_TIME_BETWEEN_CONTINUATIONS_MS = 3000;
-const COUNTDOWN_GRACE_PERIOD_MS = 500;  // Ignore messages right after countdown starts
-const ABORT_WINDOW_MS = 3000;  // Window to consider abort as recent
+// Configuration (from shared constants)
+const COUNTDOWN_SECONDS = 2;  // Slightly shorter than mission-seal for responsiveness
+const TOAST_DURATION_MS = TOAST_DURATION.EXTRA_SHORT;
+const MIN_TIME_BETWEEN_CONTINUATIONS_MS = LOOP.MIN_TIME_BETWEEN_CHECKS_MS;
+const COUNTDOWN_GRACE_PERIOD_MS = LOOP.COUNTDOWN_GRACE_PERIOD_MS;
+const ABORT_WINDOW_MS = LOOP.ABORT_WINDOW_MS;
 
 /**
  * Get or create continuation state for a session
@@ -263,7 +263,7 @@ export async function handleSessionIdle(
         } catch {
             log("[todo-continuation] Failed to re-fetch todos for continuation", { sessionID });
         }
-    }, COUNTDOWN_SECONDS * 1000);
+    }, COUNTDOWN_SECONDS * TIME.SECOND);
 }
 
 /**

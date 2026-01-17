@@ -2,7 +2,7 @@
  * Commander TODO Format - Hierarchical
  */
 
-import { AGENT_NAMES } from "../../../shared/constants.js";
+import { AGENT_NAMES } from "../../../shared/index.js";
 
 export const COMMANDER_TODO_FORMAT = `<todo_format>
 ## Hierarchical TODO Structure

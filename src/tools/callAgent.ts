@@ -1,6 +1,6 @@
 import { tool } from "@opencode-ai/plugin";
 import { AGENTS } from "../agents/definitions.js";
-import { AGENT_NAMES, AGENT_EMOJI } from "../shared/constants.js";
+import { AGENT_NAMES, AGENT_EMOJI } from "../shared/index.js";
 
 export const callAgentTool = tool({
     description: `Call a specialized agent for parallel execution.

@@ -2,7 +2,7 @@
  * Parallel Manager Configuration
  */
 
-import { PARALLEL_TASK } from "../../shared/constants.js";
+import { PARALLEL_TASK } from "../../shared/index.js";
 
 export const CONFIG = {
     TASK_TTL_MS: PARALLEL_TASK.TTL_MS,

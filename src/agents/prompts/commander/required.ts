@@ -2,7 +2,7 @@
  * Commander Required Actions
  */
 
-import { AGENT_NAMES } from "../../../shared/constants.js";
+import { AGENT_NAMES } from "../../../shared/index.js";
 
 export const COMMANDER_REQUIRED = `<required_actions>
 ALWAYS discover environment first (project structure, build system)

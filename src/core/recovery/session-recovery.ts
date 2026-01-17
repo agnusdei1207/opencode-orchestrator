@@ -11,8 +11,7 @@
  */
 
 import type { PluginInput } from "@opencode-ai/plugin";
-import { PART_TYPES } from "../../shared/constants.js";
-import { detectErrorType, getRetryDelay, type ErrorPatternType } from "../../shared/error-patterns.js";
+import { PART_TYPES, BACKGROUND_TASK, RECOVERY, detectErrorType, getRetryDelay, ERROR_TYPE, type ErrorPatternType } from "../../shared/index.js";
 import { log } from "../agents/logger.js";
 import { presets } from "../notification/presets.js";
 import { handleError } from "./handler.js";
@@ -85,9 +84,9 @@ export async function handleSessionError(
         return false;
     }
 
-    // Rate limit recovery attempts (max 1 per 5 seconds)
+    // Rate limit recovery attempts (use constant for consistency)
     const now = Date.now();
-    if (now - state.lastErrorTime < 5000) {
+    if (now - state.lastErrorTime < BACKGROUND_TASK.RETRY_COOLDOWN_MS) {
         log("[session-recovery] Too soon since last error, skipping", { sessionID });
         return false;
     }
@@ -104,8 +103,8 @@ export async function handleSessionError(
 
     log("[session-recovery] Detected error type", { sessionID, errorType, errorCount: state.errorCount });
 
-    // Max 3 recovery attempts per session
-    if (state.errorCount > 3) {
+    // Max recovery attempts per session
+    if (state.errorCount > RECOVERY.MAX_ATTEMPTS) {
         log("[session-recovery] Max recovery attempts exceeded", { sessionID });
         presets.warningMaxRetries();
         return false;
@@ -118,18 +117,18 @@ export async function handleSessionError(
         let toastMessage: string | null = null;
 
         switch (errorType) {
-            case "TOOL_RESULT_MISSING":
+            case ERROR_TYPE.TOOL_RESULT_MISSING:
                 recoveryPrompt = TOOL_CRASH_RECOVERY_PROMPT;
                 toastMessage = "Tool Crash Recovery";
                 break;
 
-            case "THINKING_BLOCK_ORDER":
-            case "THINKING_DISABLED":
+            case ERROR_TYPE.THINKING_BLOCK_ORDER:
+            case ERROR_TYPE.THINKING_DISABLED:
                 recoveryPrompt = THINKING_RECOVERY_PROMPT;
                 toastMessage = "Thinking Block Recovery";
                 break;
 
-            case "RATE_LIMIT":
+            case ERROR_TYPE.RATE_LIMIT:
                 // Use existing recovery handler for rate limits (has backoff)
                 const ctx: ErrorContext = {
                     sessionId: sessionID,
@@ -146,13 +145,13 @@ export async function handleSessionError(
                 state.isRecovering = false;
                 return true;
 
-            case "CONTEXT_OVERFLOW":
+            case ERROR_TYPE.CONTEXT_OVERFLOW:
                 // Suggest compaction (handled elsewhere)
                 toastMessage = "Context Overflow - Consider compaction";
                 state.isRecovering = false;
                 return false;
 
-            case "MESSAGE_ABORTED":
+            case ERROR_TYPE.MESSAGE_ABORTED:
                 // User cancelled, don't auto-recover
                 log("[session-recovery] Message aborted by user, not recovering", { sessionID });
                 state.isRecovering = false;

@@ -2,7 +2,7 @@
  * Reviewer TODO Update - Hierarchical
  */
 
-import { AGENT_NAMES } from "../../../shared/constants.js";
+import { AGENT_NAMES } from "../../../shared/index.js";
 
 export const REVIEWER_TODO_UPDATE = `<todo_management>
 YOU are the ONLY agent who can mark [x]!

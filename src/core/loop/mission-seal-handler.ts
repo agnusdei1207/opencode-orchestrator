@@ -10,7 +10,7 @@
 import type { PluginInput } from "@opencode-ai/plugin";
 import { log } from "../agents/logger.js";
 import { presets } from "../notification/presets.js";
-import { PART_TYPES } from "../../shared/constants.js";
+import { PART_TYPES, LOOP, TOAST_DURATION } from "../../shared/index.js";
 import {
     readLoopState,
     clearLoopState,
@@ -28,12 +28,12 @@ import { ParallelAgentManager } from "../agents/manager.js";
 type OpencodeClient = PluginInput["client"];
 
 // ============================================================================
-// Configuration
+// Configuration (from shared constants)
 // ============================================================================
 
-const COUNTDOWN_SECONDS = 3;
-const TOAST_DURATION_MS = 1500;
-const MIN_TIME_BETWEEN_CHECKS_MS = 3000;
+const COUNTDOWN_SECONDS = LOOP.COUNTDOWN_SECONDS;
+const TOAST_DURATION_MS = TOAST_DURATION.EXTRA_SHORT;
+const MIN_TIME_BETWEEN_CHECKS_MS = LOOP.MIN_TIME_BETWEEN_CHECKS_MS;
 
 // ============================================================================
 // State
@@ -121,7 +121,7 @@ async function showSealedToast(
                     title: "🎖️ Mission Sealed!",
                     message: `Completed after ${state.iteration} iteration(s)`,
                     variant: "success",
-                    duration: 5000,
+                    duration: TOAST_DURATION.LONG,
                 },
             });
         }
@@ -144,7 +144,7 @@ async function showMaxIterationsToast(
                     title: "⚠️ Mission Loop Stopped",
                     message: `Max iterations (${state.maxIterations}) reached`,
                     variant: "warning",
-                    duration: 5000,
+                    duration: TOAST_DURATION.LONG,
                 },
             });
         }

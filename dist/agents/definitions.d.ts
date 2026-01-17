@@ -7,5 +7,5 @@
  * - Worker: Implementation + Documentation
  * - Reviewer: Verification + Context Management
  */
-import { AgentDefinition } from "../shared/agent.js";
+import type { AgentDefinition } from "../shared/agent/interfaces/index.js";
 export declare const AGENTS: Record<string, AgentDefinition>;

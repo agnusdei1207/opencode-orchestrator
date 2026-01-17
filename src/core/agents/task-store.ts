@@ -10,7 +10,7 @@
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import type { ParallelTask } from "./interfaces/parallel-task.interface.js";
-import { MEMORY_LIMITS, PATHS, TASK_STATUS } from "../../shared/constants.js";
+import { MEMORY_LIMITS, PATHS, TASK_STATUS } from "../../shared/index.js";
 
 export class TaskStore {
     private tasks: Map<string, ParallelTask> = new Map();

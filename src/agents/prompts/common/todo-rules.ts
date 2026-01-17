@@ -4,7 +4,7 @@
  * Three-level TODO system with completion rollup.
  */
 
-import { AGENT_NAMES } from "../../../shared/constants.js";
+import { AGENT_NAMES } from "../../../shared/index.js";
 
 export const TODO_RULES = `<todo_rules>
 TODO MANAGEMENT - HIERARCHICAL STRUCTURE

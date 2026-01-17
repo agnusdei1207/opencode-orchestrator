@@ -25,7 +25,7 @@ import {
 import { ParallelAgentManager } from "./core/agents/index.js";
 import { createAsyncAgentTools } from "./tools/parallel/index.js";
 import { webfetchTool, websearchTool, cacheDocsTool, codesearchTool } from "./tools/web/index.js";
-import { TOOL_NAMES } from "./shared/constants.js";
+import { TOOL_NAMES } from "./shared/index.js";
 import * as Toast from "./core/notification/toast.js";
 import { log, getLogPath } from "./core/agents/logger.js";
 

@@ -7,44 +7,59 @@ var __export = (target, all) => {
 // src/index.ts
 import { createRequire } from "node:module";
 
-// src/shared/constants/time.ts
+// src/shared/agent/constants/names.ts
+var AGENT_NAMES = {
+  COMMANDER: "Commander",
+  PLANNER: "Planner",
+  WORKER: "Worker",
+  REVIEWER: "Reviewer"
+};
+
+// src/shared/agent/constants/agent-tokens.ts
+var AGENT_TOKENS = {
+  /** Primary agent (Commander) max tokens */
+  PRIMARY_MAX_TOKENS: 64e3,
+  /** Primary agent thinking budget */
+  PRIMARY_THINKING_BUDGET: 32e3,
+  /** Subagent max tokens */
+  SUBAGENT_MAX_TOKENS: 32e3
+};
+
+// src/shared/agent/constants/status.ts
+var AGENT_EMOJI = {
+  Commander: "C",
+  Planner: "P",
+  Worker: "W",
+  Reviewer: "R"
+};
+var STATUS_EMOJI = {
+  pending: "...",
+  running: "RUN",
+  completed: "OK",
+  done: "OK",
+  error: "ERR",
+  timeout: "TIM",
+  cancelled: "CAN"
+};
+function getStatusEmoji(status) {
+  return STATUS_EMOJI[status] ?? "?";
+}
+
+// src/shared/core/constants/time.ts
 var TIME = {
   SECOND: 1e3,
   MINUTE: 60 * 1e3,
   HOUR: 60 * 60 * 1e3
 };
 
-// src/shared/constants/id-prefix.ts
+// src/shared/core/constants/id-prefix.ts
 var ID_PREFIX = {
   TASK: "task_",
   JOB: "job_",
   SESSION: "session_"
 };
 
-// src/shared/constants/parallel-task.ts
-var PARALLEL_TASK = {
-  TTL_MS: 60 * TIME.MINUTE,
-  CLEANUP_DELAY_MS: 10 * TIME.MINUTE,
-  MIN_STABILITY_MS: 3 * TIME.SECOND,
-  POLL_INTERVAL_MS: 1e3,
-  DEFAULT_CONCURRENCY: 3,
-  MAX_CONCURRENCY: 50,
-  SYNC_TIMEOUT_MS: 10 * TIME.MINUTE,
-  MAX_DEPTH: 3
-};
-
-// src/shared/constants/memory-limits.ts
-var MEMORY_LIMITS = {
-  MAX_TASKS_IN_MEMORY: 1e3,
-  MAX_NOTIFICATIONS_PER_PARENT: 100,
-  MAX_EVENT_HISTORY: 100,
-  MAX_TOAST_HISTORY: 50,
-  MAX_PROGRESS_HISTORY_PER_SESSION: 100,
-  ARCHIVE_AGE_MS: 30 * TIME.MINUTE,
-  ERROR_CLEANUP_AGE_MS: 10 * TIME.MINUTE
-};
-
-// src/shared/constants/paths.ts
+// src/shared/core/constants/paths.ts
 var PATHS = {
   OPENCODE: ".opencode",
   DOCS: ".opencode/docs",
@@ -57,13 +72,197 @@ var PATHS = {
   DOC_METADATA: ".opencode/docs/_metadata.json"
 };
 
-// src/shared/constants/background-task.ts
-var BACKGROUND_TASK = {
-  DEFAULT_TIMEOUT_MS: 5 * TIME.MINUTE,
-  MAX_OUTPUT_LENGTH: 1e4
+// src/shared/core/constants/memory-limits.ts
+var MEMORY_LIMITS = {
+  MAX_TASKS_IN_MEMORY: 1e3,
+  MAX_NOTIFICATIONS_PER_PARENT: 100,
+  MAX_EVENT_HISTORY: 100,
+  MAX_TOAST_HISTORY: 50,
+  MAX_PROGRESS_HISTORY_PER_SESSION: 100,
+  ARCHIVE_AGE_MS: 30 * TIME.MINUTE,
+  ERROR_CLEANUP_AGE_MS: 10 * TIME.MINUTE
 };
 
-// src/shared/constants/tool-names.ts
+// src/shared/task/constants/parallel-task.ts
+var PARALLEL_TASK = {
+  // Task lifecycle (24 hours for long tasks)
+  TTL_MS: 24 * TIME.HOUR,
+  CLEANUP_DELAY_MS: 10 * TIME.MINUTE,
+  MAX_DEPTH: 3,
+  // Concurrency limits (safe for most APIs)
+  DEFAULT_CONCURRENCY: 3,
+  MAX_CONCURRENCY: 10,
+  // Sync polling (for delegate_task sync mode)
+  SYNC_TIMEOUT_MS: 5 * TIME.MINUTE,
+  POLL_INTERVAL_MS: 500,
+  MIN_IDLE_TIME_MS: 5 * TIME.SECOND,
+  MIN_STABILITY_MS: 3 * TIME.SECOND,
+  STABLE_POLLS_REQUIRED: 3,
+  MAX_POLL_COUNT: 600
+};
+
+// src/shared/task/constants/background-task.ts
+var BACKGROUND_TASK = {
+  DEFAULT_TIMEOUT_MS: 5 * TIME.MINUTE,
+  MAX_OUTPUT_LENGTH: 1e4,
+  MAX_CONCURRENT: 5,
+  POLL_INTERVAL_MS: 500,
+  RETRY_COOLDOWN_MS: 30 * TIME.SECOND
+};
+
+// src/shared/task/constants/background-status.ts
+var BACKGROUND_STATUS = {
+  RUNNING: "running",
+  DONE: "done",
+  ERROR: "error",
+  TIMEOUT: "timeout"
+};
+
+// src/shared/loop/constants/loop.ts
+var LOOP = {
+  /** Countdown seconds before auto-continuation */
+  COUNTDOWN_SECONDS: 3,
+  /** Minimum time between continuation checks */
+  MIN_TIME_BETWEEN_CHECKS_MS: 3 * TIME.SECOND,
+  /** Grace period after countdown starts (ignore messages) */
+  COUNTDOWN_GRACE_PERIOD_MS: 500,
+  /** Window to consider abort as recent */
+  ABORT_WINDOW_MS: 3 * TIME.SECOND,
+  /** Maximum iterations for mission loop */
+  DEFAULT_MAX_ITERATIONS: 1e3,
+  /** Rust tool timeout */
+  RUST_TOOL_TIMEOUT_MS: 60 * TIME.SECOND
+};
+
+// src/shared/loop/constants/mission-seal.ts
+var MISSION_SEAL = {
+  TAG: "mission_seal",
+  CONFIRMATION: "SEALED",
+  PATTERN: "<mission_seal>SEALED</mission_seal>",
+  DEFAULT_MAX_ITERATIONS: 20,
+  DEFAULT_COUNTDOWN_SECONDS: 3,
+  STATE_FILE: "loop-state.json",
+  STOP_COMMAND: "/stop",
+  CANCEL_COMMAND: "/cancel"
+};
+var MISSION = MISSION_SEAL;
+
+// src/shared/notification/constants/toast-duration.ts
+var TOAST_DURATION = {
+  /** Extra short: 1.5 seconds */
+  EXTRA_SHORT: 1500,
+  /** Short: 2 seconds */
+  SHORT: 2 * TIME.SECOND,
+  /** Medium: 3 seconds */
+  MEDIUM: 3 * TIME.SECOND,
+  /** Default: 4 seconds */
+  DEFAULT: 4 * TIME.SECOND,
+  /** Long: 5 seconds */
+  LONG: 5 * TIME.SECOND,
+  /** Extended: 7 seconds */
+  EXTENDED: 7 * TIME.SECOND,
+  /** Persistent: 0 (stays until dismissed) */
+  PERSISTENT: 0
+};
+
+// src/shared/recovery/constants/recovery.ts
+var RECOVERY = {
+  /** Maximum recovery attempts per session */
+  MAX_ATTEMPTS: 3,
+  /** Minimum time between recovery attempts */
+  MIN_INTERVAL_MS: 30 * TIME.SECOND,
+  /** Base delay for retry backoff calculation */
+  BASE_DELAY_MS: 1 * TIME.SECOND,
+  /** Maximum retry multiplier */
+  MAX_RETRY_MULTIPLIER: 5
+};
+
+// src/shared/recovery/constants/history.ts
+var HISTORY = {
+  /** Recovery history max entries */
+  MAX_RECOVERY: 100,
+  /** Toast history max entries */
+  MAX_TOAST: 50,
+  /** Progress store max entries */
+  MAX_PROGRESS: 100
+};
+
+// src/shared/cache/constants/cache.ts
+var CACHE = {
+  /** Default cache TTL (24 hours) */
+  DEFAULT_TTL_MS: 24 * TIME.HOUR,
+  /** Maximum cache entries */
+  MAX_ENTRIES: 100,
+  /** Session TTL (24 hours for long tasks) */
+  SESSION_TTL_MS: 24 * TIME.HOUR
+};
+
+// src/shared/cache/constants/cache-actions.ts
+var CACHE_ACTIONS = {
+  LIST: "list",
+  GET: "get",
+  CLEAR: "clear",
+  STATS: "stats"
+};
+
+// src/shared/cache/constants/filter-status.ts
+var FILTER_STATUS = {
+  ALL: "all",
+  RUNNING: "running",
+  DONE: "done",
+  COMPLETED: "completed",
+  ERROR: "error",
+  PENDING: "pending"
+};
+
+// src/shared/session/constants/session-events.ts
+var SESSION_EVENTS = {
+  IDLE: "session.idle",
+  DELETED: "session.deleted",
+  CREATED: "session.created",
+  ERROR: "session.error"
+};
+
+// src/shared/session/constants/event-types.ts
+var TASK_EVENTS = {
+  STARTED: "task.started",
+  COMPLETED: "task.completed",
+  FAILED: "task.failed",
+  CANCELLED: "task.cancelled"
+};
+var TODO_EVENTS = {
+  CREATED: "todo.created",
+  UPDATED: "todo.updated",
+  COMPLETED: "todo.completed"
+};
+var SESSION_EVENTS2 = {
+  IDLE: "session.idle",
+  BUSY: "session.busy",
+  ERROR: "session.error",
+  DELETED: "session.deleted"
+};
+var DOCUMENT_EVENTS = {
+  CACHED: "document.cached",
+  EXPIRED: "document.expired"
+};
+var MISSION_EVENTS = {
+  COMPLETE: "mission.complete",
+  FAILED: "mission.failed",
+  ALL_TASKS_COMPLETE: "all_tasks.complete"
+};
+var SPECIAL_EVENTS = {
+  WILDCARD: "*"
+};
+var EVENT_TYPES = {
+  ...TASK_EVENTS,
+  ...TODO_EVENTS,
+  ...SESSION_EVENTS2,
+  ...DOCUMENT_EVENTS,
+  ...MISSION_EVENTS,
+  ...SPECIAL_EVENTS
+};
+
+// src/shared/tool/constants/tool-names.ts
 var TOOL_NAMES = {
   // Parallel task tools
   DELEGATE_TASK: "delegate_task",
@@ -89,40 +288,15 @@ var TOOL_NAMES = {
   SLASHCOMMAND: "slashcommand"
 };
 
-// src/shared/constants/mission-seal.ts
-var MISSION_SEAL = {
-  TAG: "mission_seal",
-  CONFIRMATION: "SEALED",
-  PATTERN: "<mission_seal>SEALED</mission_seal>",
-  DEFAULT_MAX_ITERATIONS: 20,
-  DEFAULT_COUNTDOWN_SECONDS: 3,
-  STATE_FILE: "loop-state.json",
-  STOP_COMMAND: "/stop",
-  CANCEL_COMMAND: "/cancel"
+// src/shared/tool/constants/tool-output.ts
+var TOOL_OUTPUT = {
+  /** Maximum length for healthy output capture */
+  MAX_HEALTHY_OUTPUT_LENGTH: 1e3,
+  /** Threshold for considering output small enough to capture */
+  SMALL_OUTPUT_THRESHOLD: 5e3
 };
-var MISSION = MISSION_SEAL;
 
-// src/shared/constants/status.ts
-var AGENT_EMOJI = {
-  Commander: "C",
-  Planner: "P",
-  Worker: "W",
-  Reviewer: "R"
-};
-var STATUS_EMOJI = {
-  pending: "...",
-  running: "RUN",
-  completed: "OK",
-  done: "OK",
-  error: "ERR",
-  timeout: "TIM",
-  cancelled: "CAN"
-};
-function getStatusEmoji(status) {
-  return STATUS_EMOJI[status] ?? "?";
-}
-
-// src/shared/constants/part-types.ts
+// src/shared/message/constants/part-types.ts
 var PART_TYPES = {
   TEXT: "text",
   REASONING: "reasoning",
@@ -130,46 +304,45 @@ var PART_TYPES = {
   TOOL_RESULT: "tool_result"
 };
 
-// src/shared/constants/prompts.ts
+// src/shared/message/constants/prompts.ts
 var PROMPTS = {
   CONTINUE: "continue",
   CONTINUE_PREVIOUS: "continue previous work",
   CONTINUE_DEFAULT: "continue from where we left off"
 };
 
-// src/shared/constants/cache-actions.ts
-var CACHE_ACTIONS = {
-  LIST: "list",
-  GET: "get",
-  CLEAR: "clear",
-  STATS: "stats"
+// src/shared/errors/patterns.ts
+var ERROR_PATTERNS = {
+  TOOL_RESULT_MISSING: /tool_result_missing|tool result.*missing/i,
+  THINKING_BLOCK_ORDER: /thinking.*block.*order|thinking_block_order/i,
+  THINKING_DISABLED: /thinking.*disabled|thinking_disabled_violation/i,
+  RATE_LIMIT: /rate.?limit|too.?many.?requests|429/i,
+  CONTEXT_OVERFLOW: /context.?length|token.?limit|maximum.?context/i,
+  MESSAGE_ABORTED: /MessageAbortedError|AbortError/i,
+  NETWORK_ERROR: /network|ECONNREFUSED|ETIMEDOUT|fetch failed/i,
+  AUTH_ERROR: /unauthorized|401|403|invalid.*token/i
+};
+var ERROR_TYPE = {
+  TOOL_RESULT_MISSING: "TOOL_RESULT_MISSING",
+  THINKING_BLOCK_ORDER: "THINKING_BLOCK_ORDER",
+  THINKING_DISABLED: "THINKING_DISABLED",
+  RATE_LIMIT: "RATE_LIMIT",
+  CONTEXT_OVERFLOW: "CONTEXT_OVERFLOW",
+  MESSAGE_ABORTED: "MESSAGE_ABORTED",
+  NETWORK_ERROR: "NETWORK_ERROR",
+  AUTH_ERROR: "AUTH_ERROR"
 };
 
-// src/shared/constants/background-status.ts
-var BACKGROUND_STATUS = {
-  RUNNING: "running",
-  DONE: "done",
-  ERROR: "error",
-  TIMEOUT: "timeout"
-};
-
-// src/shared/constants/filter-status.ts
-var FILTER_STATUS = {
-  ALL: "all",
-  RUNNING: "running",
-  DONE: "done",
-  COMPLETED: "completed",
-  ERROR: "error",
-  PENDING: "pending"
-};
-
-// src/shared/agent/names.ts
-var AGENT_NAMES = {
-  COMMANDER: "Commander",
-  PLANNER: "Planner",
-  WORKER: "Worker",
-  REVIEWER: "Reviewer"
-};
+// src/shared/errors/detection.ts
+function detectErrorType(error45) {
+  const errorStr = typeof error45 === "string" ? error45 : error45?.message || error45?.name || String(error45);
+  for (const [type, pattern] of Object.entries(ERROR_PATTERNS)) {
+    if (pattern.test(errorStr)) {
+      return type;
+    }
+  }
+  return null;
+}
 
 // src/core/agents/consts/task-status.const.ts
 var TASK_STATUS = {
@@ -191,8 +364,8 @@ var TODO_STATUS = {
 // src/core/orchestrator/state.ts
 var state = {
   missionActive: false,
-  maxIterations: 1e3,
-  maxRetries: 3,
+  maxIterations: LOOP.DEFAULT_MAX_ITERATIONS,
+  maxRetries: RECOVERY.MAX_ATTEMPTS,
   sessions: /* @__PURE__ */ new Map()
 };
 
@@ -13787,7 +13960,7 @@ Use check_background to get results.
   args: {
     command: tool.schema.string().describe("Shell command to execute"),
     cwd: tool.schema.string().optional().describe("Working directory"),
-    timeout: tool.schema.number().optional().describe("Timeout in ms (default: 300000)"),
+    timeout: tool.schema.number().optional().describe(`Timeout in ms (default: ${BACKGROUND_TASK.DEFAULT_TIMEOUT_MS})`),
     label: tool.schema.string().optional().describe("Task label")
   },
   async execute(args) {
@@ -13795,7 +13968,7 @@ Use check_background to get results.
     const task = backgroundTaskManager.run({
       command,
       cwd: cwd || process.cwd(),
-      timeout: timeout || 3e5,
+      timeout: timeout || BACKGROUND_TASK.DEFAULT_TIMEOUT_MS,
       label
     });
     const displayLabel = label ? ` (${label})` : "";
@@ -14263,7 +14436,6 @@ function initToastClient(client) {
   tuiClient = client;
 }
 var toasts = [];
-var MAX_HISTORY = 50;
 var handlers = [];
 function show(options) {
   const toast = {
@@ -14276,7 +14448,7 @@ function show(options) {
     dismissed: false
   };
   toasts.push(toast);
-  if (toasts.length > MAX_HISTORY) {
+  if (toasts.length > HISTORY.MAX_TOAST) {
     toasts.shift();
   }
   for (const handler of handlers) {
@@ -14333,19 +14505,19 @@ var sessionCreated = (sessionId, agent) => show({
   title: "Session Created",
   message: `${agent} - ${sessionId.slice(0, 12)}...`,
   variant: "info",
-  duration: 2e3
+  duration: TOAST_DURATION.SHORT
 });
 var sessionResumed = (sessionId, agent) => show({
   title: "Session Resumed",
   message: `${agent} - ${sessionId.slice(0, 12)}...`,
   variant: "info",
-  duration: 2e3
+  duration: TOAST_DURATION.SHORT
 });
 var sessionCompleted = (sessionId, duration3) => show({
   title: "Session Completed",
   message: `${sessionId.slice(0, 12)}... (${duration3})`,
   variant: "success",
-  duration: 3e3
+  duration: TOAST_DURATION.MEDIUM
 });
 
 // src/core/notification/presets/parallel.ts
@@ -14353,19 +14525,19 @@ var parallelTasksLaunched = (count, agents) => show({
   title: "Parallel Tasks Launched",
   message: `${count} tasks: ${agents.join(", ")}`,
   variant: "info",
-  duration: 4e3
+  duration: TOAST_DURATION.DEFAULT
 });
 var concurrencyAcquired = (agent, slot) => show({
   title: "Concurrency Slot",
   message: `${agent} acquired ${slot}`,
   variant: "info",
-  duration: 2e3
+  duration: TOAST_DURATION.SHORT
 });
 var concurrencyReleased = (agent) => show({
   title: "Slot Released",
   message: agent,
   variant: "info",
-  duration: 1500
+  duration: TOAST_DURATION.EXTRA_SHORT
 });
 
 // src/core/notification/presets/mission.ts
@@ -14387,19 +14559,19 @@ var toolExecuted = (toolName, target) => show({
   title: toolName,
   message: target.slice(0, 80),
   variant: "info",
-  duration: 2e3
+  duration: TOAST_DURATION.SHORT
 });
 var documentCached = (filename) => show({
   title: "Document Cached",
   message: `${PATHS.DOCS}/${filename}`,
   variant: "info",
-  duration: 2e3
+  duration: TOAST_DURATION.SHORT
 });
 var researchStarted = (topic) => show({
   title: "Research Started",
   message: topic,
   variant: "info",
-  duration: 3e3
+  duration: TOAST_DURATION.MEDIUM
 });
 
 // src/core/notification/presets/warnings.ts
@@ -14407,25 +14579,25 @@ var warningRateLimited = () => show({
   title: "Rate Limited",
   message: "Waiting before retry...",
   variant: "warning",
-  duration: 5e3
+  duration: TOAST_DURATION.LONG
 });
 var errorRecovery = (action) => show({
   title: "Error Recovery",
   message: `Attempting: ${action}`,
   variant: "warning",
-  duration: 3e3
+  duration: TOAST_DURATION.MEDIUM
 });
 var warningMaxDepth = (depth) => show({
   title: "Max Depth Reached",
   message: `Recursion blocked at depth ${depth}`,
   variant: "warning",
-  duration: 5e3
+  duration: TOAST_DURATION.LONG
 });
 var warningMaxRetries = () => show({
   title: "Max Retries Exceeded",
   message: "Automatic recovery has stopped. Manual intervention may be needed.",
   variant: "error",
-  duration: 0
+  duration: TOAST_DURATION.PERSISTENT
 });
 
 // src/core/notification/presets.ts
@@ -15044,10 +15216,6 @@ You will be notified when ALL tasks complete. Continue productive work.`;
 };
 
 // src/core/agents/manager/event-handler.ts
-var SESSION_EVENTS = {
-  IDLE: "session.idle",
-  DELETED: "session.deleted"
-};
 var EventHandler = class {
   constructor(client, store, concurrency, findBySession, notifyParentIfAllComplete, scheduleCleanup, validateSessionHasOutput2) {
     this.client = client;
@@ -15284,11 +15452,11 @@ var parallelAgentManager = {
 };
 
 // src/tools/parallel/delegate-task.ts
-var MIN_IDLE_TIME_MS = 5e3;
-var POLL_INTERVAL_MS = 500;
-var SYNC_TIMEOUT_MS = 5 * 60 * 1e3;
-var MAX_POLL_COUNT = 600;
-var STABLE_POLLS_REQUIRED = 3;
+var MIN_IDLE_TIME_MS = PARALLEL_TASK.MIN_IDLE_TIME_MS;
+var POLL_INTERVAL_MS = PARALLEL_TASK.POLL_INTERVAL_MS;
+var SYNC_TIMEOUT_MS = PARALLEL_TASK.SYNC_TIMEOUT_MS;
+var MAX_POLL_COUNT = PARALLEL_TASK.MAX_POLL_COUNT;
+var STABLE_POLLS_REQUIRED = PARALLEL_TASK.STABLE_POLLS_REQUIRED;
 async function validateSessionHasOutput(session, sessionID) {
   try {
     const response = await session.messages({ path: { id: sessionID } });
@@ -15603,7 +15771,7 @@ function createAsyncAgentTools(manager, client) {
 // src/core/cache/constants.ts
 var CACHE_DIR = PATHS.DOCS;
 var METADATA_FILE = PATHS.DOC_METADATA;
-var DEFAULT_TTL_MS = 24 * 60 * 60 * 1e3;
+var DEFAULT_TTL_MS = CACHE.DEFAULT_TTL_MS;
 
 // src/core/cache/operations.ts
 import * as fs4 from "node:fs/promises";
@@ -16386,7 +16554,6 @@ ${r.content}
 // src/core/progress/store.ts
 var progressHistory = /* @__PURE__ */ new Map();
 var sessionStartTimes = /* @__PURE__ */ new Map();
-var MAX_HISTORY2 = 100;
 function startSession(sessionId) {
   sessionStartTimes.set(sessionId, /* @__PURE__ */ new Date());
   progressHistory.set(sessionId, []);
@@ -16419,7 +16586,7 @@ function recordSnapshot(sessionId, data) {
   };
   const history = progressHistory.get(sessionId) || [];
   history.push(snapshot);
-  if (history.length > MAX_HISTORY2) {
+  if (history.length > HISTORY.MAX_PROGRESS) {
     history.shift();
   }
   progressHistory.set(sessionId, history);
@@ -16466,33 +16633,10 @@ function formatCompact2(sessionId) {
   return formatCompact(snapshot);
 }
 
-// src/shared/errors/patterns.ts
-var ERROR_PATTERNS = {
-  TOOL_RESULT_MISSING: /tool_result_missing|tool result.*missing/i,
-  THINKING_BLOCK_ORDER: /thinking.*block.*order|thinking_block_order/i,
-  THINKING_DISABLED: /thinking.*disabled|thinking_disabled_violation/i,
-  RATE_LIMIT: /rate.?limit|too.?many.?requests|429/i,
-  CONTEXT_OVERFLOW: /context.?length|token.?limit|maximum.?context/i,
-  MESSAGE_ABORTED: /MessageAbortedError|AbortError/i,
-  NETWORK_ERROR: /network|ECONNREFUSED|ETIMEDOUT|fetch failed/i,
-  AUTH_ERROR: /unauthorized|401|403|invalid.*token/i
-};
-
-// src/shared/errors/detection.ts
-function detectErrorType(error45) {
-  const errorStr = typeof error45 === "string" ? error45 : error45?.message || error45?.name || String(error45);
-  for (const [type, pattern] of Object.entries(ERROR_PATTERNS)) {
-    if (pattern.test(errorStr)) {
-      return type;
-    }
-  }
-  return null;
-}
-
 // src/core/recovery/constants.ts
-var MAX_RETRIES = 3;
-var BASE_DELAY = 1e3;
-var MAX_HISTORY3 = 100;
+var MAX_RETRIES = RECOVERY.MAX_ATTEMPTS;
+var BASE_DELAY = RECOVERY.BASE_DELAY_MS;
+var MAX_HISTORY = HISTORY.MAX_RECOVERY;
 
 // src/core/recovery/patterns.ts
 var errorPatterns = [
@@ -16577,7 +16721,7 @@ function handleError(context) {
         action,
         timestamp: /* @__PURE__ */ new Date()
       });
-      if (recoveryHistory.length > MAX_HISTORY3) {
+      if (recoveryHistory.length > MAX_HISTORY) {
         recoveryHistory.shift();
       }
       return action;
@@ -16631,7 +16775,7 @@ async function handleSessionError(client, sessionID, error45, properties) {
     return false;
   }
   const now = Date.now();
-  if (now - state2.lastErrorTime < 5e3) {
+  if (now - state2.lastErrorTime < BACKGROUND_TASK.RETRY_COOLDOWN_MS) {
     log2("[session-recovery] Too soon since last error, skipping", { sessionID });
     return false;
   }
@@ -16643,7 +16787,7 @@ async function handleSessionError(client, sessionID, error45, properties) {
     return false;
   }
   log2("[session-recovery] Detected error type", { sessionID, errorType, errorCount: state2.errorCount });
-  if (state2.errorCount > 3) {
+  if (state2.errorCount > RECOVERY.MAX_ATTEMPTS) {
     log2("[session-recovery] Max recovery attempts exceeded", { sessionID });
     presets.warningMaxRetries();
     return false;
@@ -16653,16 +16797,16 @@ async function handleSessionError(client, sessionID, error45, properties) {
     let recoveryPrompt = null;
     let toastMessage = null;
     switch (errorType) {
-      case "TOOL_RESULT_MISSING":
+      case ERROR_TYPE.TOOL_RESULT_MISSING:
         recoveryPrompt = TOOL_CRASH_RECOVERY_PROMPT;
         toastMessage = "Tool Crash Recovery";
         break;
-      case "THINKING_BLOCK_ORDER":
-      case "THINKING_DISABLED":
+      case ERROR_TYPE.THINKING_BLOCK_ORDER:
+      case ERROR_TYPE.THINKING_DISABLED:
         recoveryPrompt = THINKING_RECOVERY_PROMPT;
         toastMessage = "Thinking Block Recovery";
         break;
-      case "RATE_LIMIT":
+      case ERROR_TYPE.RATE_LIMIT:
         const ctx = {
           sessionId: sessionID,
           error: error45 instanceof Error ? error45 : new Error(String(error45)),
@@ -16676,11 +16820,11 @@ async function handleSessionError(client, sessionID, error45, properties) {
         }
         state2.isRecovering = false;
         return true;
-      case "CONTEXT_OVERFLOW":
+      case ERROR_TYPE.CONTEXT_OVERFLOW:
         toastMessage = "Context Overflow - Consider compaction";
         state2.isRecovering = false;
         return false;
-      case "MESSAGE_ABORTED":
+      case ERROR_TYPE.MESSAGE_ABORTED:
         log2("[session-recovery] Message aborted by user, not recovering", { sessionID });
         state2.isRecovering = false;
         return false;
@@ -16825,10 +16969,10 @@ After launching, use list_tasks to monitor progress.
 // src/core/loop/todo-continuation.ts
 var sessionStates = /* @__PURE__ */ new Map();
 var COUNTDOWN_SECONDS = 2;
-var TOAST_DURATION_MS = 1500;
-var MIN_TIME_BETWEEN_CONTINUATIONS_MS = 3e3;
-var COUNTDOWN_GRACE_PERIOD_MS = 500;
-var ABORT_WINDOW_MS = 3e3;
+var TOAST_DURATION_MS = TOAST_DURATION.EXTRA_SHORT;
+var MIN_TIME_BETWEEN_CONTINUATIONS_MS = LOOP.MIN_TIME_BETWEEN_CHECKS_MS;
+var COUNTDOWN_GRACE_PERIOD_MS = LOOP.COUNTDOWN_GRACE_PERIOD_MS;
+var ABORT_WINDOW_MS = LOOP.ABORT_WINDOW_MS;
 function getState2(sessionID) {
   let state2 = sessionStates.get(sessionID);
   if (!state2) {
@@ -16981,7 +17125,7 @@ async function handleSessionIdle(client, sessionID, mainSessionID) {
     } catch {
       log2("[todo-continuation] Failed to re-fetch todos for continuation", { sessionID });
     }
-  }, COUNTDOWN_SECONDS * 1e3);
+  }, COUNTDOWN_SECONDS * TIME.SECOND);
 }
 function handleUserMessage(sessionID) {
   const state2 = getState2(sessionID);
@@ -17160,9 +17304,9 @@ ${state2.prompt}
 }
 
 // src/core/loop/mission-seal-handler.ts
-var COUNTDOWN_SECONDS2 = 3;
-var TOAST_DURATION_MS2 = 1500;
-var MIN_TIME_BETWEEN_CHECKS_MS = 3e3;
+var COUNTDOWN_SECONDS2 = LOOP.COUNTDOWN_SECONDS;
+var TOAST_DURATION_MS2 = TOAST_DURATION.EXTRA_SHORT;
+var MIN_TIME_BETWEEN_CHECKS_MS = LOOP.MIN_TIME_BETWEEN_CHECKS_MS;
 var sessionStates2 = /* @__PURE__ */ new Map();
 function getState3(sessionID) {
   let state2 = sessionStates2.get(sessionID);
@@ -17213,7 +17357,7 @@ async function showSealedToast(client, state2) {
           title: "\u{1F396}\uFE0F Mission Sealed!",
           message: `Completed after ${state2.iteration} iteration(s)`,
           variant: "success",
-          duration: 5e3
+          duration: TOAST_DURATION.LONG
         }
       });
     }
@@ -17229,7 +17373,7 @@ async function showMaxIterationsToast(client, state2) {
           title: "\u26A0\uFE0F Mission Loop Stopped",
           message: `Max iterations (${state2.maxIterations}) reached`,
           variant: "warning",
-          duration: 5e3
+          duration: TOAST_DURATION.LONG
         }
       });
     }
@@ -17478,8 +17622,8 @@ function createConfigHandler() {
         description: "Autonomous orchestrator - executes until mission complete",
         mode: "primary",
         prompt: commanderPrompt,
-        maxTokens: 64e3,
-        thinking: { type: "enabled", budgetTokens: 32e3 },
+        maxTokens: AGENT_TOKENS.PRIMARY_MAX_TOKENS,
+        thinking: { type: "enabled", budgetTokens: AGENT_TOKENS.PRIMARY_THINKING_BUDGET },
         color: "#FF6B6B"
       },
       // Consolidated subagents (4 agents instead of 6)
@@ -17488,7 +17632,7 @@ function createConfigHandler() {
         mode: "subagent",
         hidden: true,
         prompt: AGENTS[AGENT_NAMES.PLANNER]?.systemPrompt || "",
-        maxTokens: 32e3,
+        maxTokens: AGENT_TOKENS.SUBAGENT_MAX_TOKENS,
         color: "#9B59B6"
       },
       [AGENT_NAMES.WORKER]: {
@@ -17496,7 +17640,7 @@ function createConfigHandler() {
         mode: "subagent",
         hidden: true,
         prompt: AGENTS[AGENT_NAMES.WORKER]?.systemPrompt || "",
-        maxTokens: 32e3,
+        maxTokens: AGENT_TOKENS.SUBAGENT_MAX_TOKENS,
         color: "#E67E22"
       },
       [AGENT_NAMES.REVIEWER]: {
@@ -17504,7 +17648,7 @@ function createConfigHandler() {
         mode: "subagent",
         hidden: true,
         prompt: AGENTS[AGENT_NAMES.REVIEWER]?.systemPrompt || "",
-        maxTokens: 32e3,
+        maxTokens: AGENT_TOKENS.SUBAGENT_MAX_TOKENS,
         color: "#27AE60"
       }
     };
@@ -17761,8 +17905,8 @@ Anomaly count: ${stateSession.anomalyCount}
         if (stateSession.anomalyCount > 0) {
           stateSession.anomalyCount = 0;
         }
-        if (toolOutput.output.length < 5e3) {
-          stateSession.lastHealthyOutput = toolOutput.output.substring(0, 1e3);
+        if (toolOutput.output.length < TOOL_OUTPUT.SMALL_OUTPUT_THRESHOLD) {
+          stateSession.lastHealthyOutput = toolOutput.output.substring(0, TOOL_OUTPUT.MAX_HEALTHY_OUTPUT_LENGTH);
         }
       }
     }

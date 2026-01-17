@@ -12,7 +12,7 @@ import { existsSync, readFileSync, writeFileSync, unlinkSync } from "node:fs";
 import { join } from "node:path";
 import type { PluginInput } from "@opencode-ai/plugin";
 import { log } from "../agents/logger.js";
-import { PATHS, PART_TYPES, MISSION_SEAL } from "../../shared/constants.js";
+import { PATHS, PART_TYPES, MISSION_SEAL } from "../../shared/index.js";
 
 // ============================================================================
 // Constants (derived from centralized MISSION_SEAL)

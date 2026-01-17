@@ -2,7 +2,7 @@
  * Commander Parallel Execution
  */
 
-import { AGENT_NAMES, TOOL_NAMES } from "../../../shared/constants.js";
+import { AGENT_NAMES, TOOL_NAMES } from "../../../shared/index.js";
 
 export const COMMANDER_PARALLEL = `<parallel_execution>
 YOUR 3 SUPERPOWERS - USE AGGRESSIVELY:

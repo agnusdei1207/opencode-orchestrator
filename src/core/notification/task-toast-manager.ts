@@ -13,7 +13,7 @@
 
 import type { PluginInput } from "@opencode-ai/plugin";
 import type { ConcurrencyController } from "../agents/concurrency.js";
-import { TASK_STATUS } from "../../shared/constants.js";
+import { TASK_STATUS } from "../../shared/index.js";
 
 // ============================================================
 // Types

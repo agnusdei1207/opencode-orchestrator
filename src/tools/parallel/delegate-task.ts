@@ -12,23 +12,18 @@
 
 import { tool } from "@opencode-ai/plugin";
 import { ParallelAgentManager } from "../../core/agents/index.js";
-import { PARALLEL_TASK, PART_TYPES } from "../../shared/constants.js";
+import { PARALLEL_TASK, PART_TYPES } from "../../shared/index.js";
 import { log } from "../../core/agents/logger.js";
 import { presets } from "../../core/notification/presets.js";
 
 // ============================================================
-// Safety Constants
+// Safety Constants (from shared constants for consistency)
 // ============================================================
-// Minimum time before accepting idle status (prevents premature completion)
-const MIN_IDLE_TIME_MS = 5000;
-// Poll interval in milliseconds
-const POLL_INTERVAL_MS = 500;
-// Sync mode timeout (5 minutes)
-const SYNC_TIMEOUT_MS = 5 * 60 * 1000;
-// Maximum number of polls (hard limit: 5 minutes / 500ms = 600)
-const MAX_POLL_COUNT = 600;
-// Required consecutive stable polls before completion
-const STABLE_POLLS_REQUIRED = 3;
+const MIN_IDLE_TIME_MS = PARALLEL_TASK.MIN_IDLE_TIME_MS;
+const POLL_INTERVAL_MS = PARALLEL_TASK.POLL_INTERVAL_MS;
+const SYNC_TIMEOUT_MS = PARALLEL_TASK.SYNC_TIMEOUT_MS;
+const MAX_POLL_COUNT = PARALLEL_TASK.MAX_POLL_COUNT;
+const STABLE_POLLS_REQUIRED = PARALLEL_TASK.STABLE_POLLS_REQUIRED;
 
 // Session client type definition
 type SessionClient = {

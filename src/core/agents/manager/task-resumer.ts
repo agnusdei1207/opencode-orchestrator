@@ -3,7 +3,7 @@
  */
 
 import type { PluginInput } from "@opencode-ai/plugin";
-import { TASK_STATUS, PART_TYPES } from "../../../shared/constants.js";
+import { TASK_STATUS, PART_TYPES } from "../../../shared/index.js";
 import { TaskStore } from "../task-store.js";
 import { log } from "../logger.js";
 import type { ParallelTask } from "../interfaces/parallel-task.interface.js";

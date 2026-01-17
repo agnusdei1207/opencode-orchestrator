@@ -3,12 +3,11 @@
  */
 
 import type { ProgressSnapshot, SnapshotInput } from "./interfaces.js";
+import { HISTORY } from "../../shared/index.js";
 
 // Progress history by session
 const progressHistory = new Map<string, ProgressSnapshot[]>();
 const sessionStartTimes = new Map<string, Date>();
-
-const MAX_HISTORY = 100;
 
 /**
  * Start tracking a session
@@ -63,7 +62,7 @@ export function recordSnapshot(sessionId: string, data: SnapshotInput): Progress
     const history = progressHistory.get(sessionId) || [];
     history.push(snapshot);
 
-    if (history.length > MAX_HISTORY) {
+    if (history.length > HISTORY.MAX_PROGRESS) {
         history.shift();
     }
 

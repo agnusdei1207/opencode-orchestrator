@@ -10,7 +10,7 @@
  */
 
 import type { PluginInput } from "@opencode-ai/plugin";
-import { TASK_STATUS, PART_TYPES } from "../../shared/constants.js";
+import { TASK_STATUS, PART_TYPES } from "../../shared/index.js";
 import { ConcurrencyController } from "./concurrency.js";
 import { TaskStore } from "./task-store.js";
 import { log } from "./logger.js";

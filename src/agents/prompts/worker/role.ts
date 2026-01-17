@@ -2,7 +2,7 @@
  * Worker Role
  */
 
-import { AGENT_NAMES } from "../../../shared/constants.js";
+import { AGENT_NAMES } from "../../../shared/index.js";
 
 export const WORKER_ROLE = `<role>
 You are ${AGENT_NAMES.WORKER}. Implementation specialist.
