@@ -116,16 +116,25 @@ var TOOL_NAMES = {
   CALL_AGENT: "call_agent",
   SLASHCOMMAND: "slashcommand"
 };
-var MISSION = {
-  /** Mission completion marker (with emoji) */
-  COMPLETE: "\u2705 MISSION COMPLETE",
-  /** Mission completion marker (text only) */
-  COMPLETE_TEXT: "MISSION COMPLETE",
+var MISSION_SEAL = {
+  /** XML tag name for mission seal */
+  TAG: "mission_seal",
+  /** Confirmation value inside tag */
+  CONFIRMATION: "SEALED",
+  /** Full seal pattern: <mission_seal>SEALED</mission_seal> */
+  PATTERN: "<mission_seal>SEALED</mission_seal>",
+  /** Default max loop iterations */
+  DEFAULT_MAX_ITERATIONS: 20,
+  /** Default countdown seconds before continue */
+  DEFAULT_COUNTDOWN_SECONDS: 3,
+  /** Loop state file name */
+  STATE_FILE: "loop-state.json",
   /** Stop command */
   STOP_COMMAND: "/stop",
   /** Cancel command */
   CANCEL_COMMAND: "/cancel"
 };
+var MISSION = MISSION_SEAL;
 var AGENT_EMOJI = {
   Commander: "\u{1F3AF}",
   Planner: "\u{1F4CB}",
@@ -171,7 +180,7 @@ Complete missions efficiently using multiple agents simultaneously. Never stop u
 <core_principles>
 1. PARALLELISM FIRST: Always run independent tasks simultaneously
 2. NEVER BLOCK: Use background execution for slow operations
-3. NEVER STOP: Loop until "${MISSION.COMPLETE}"
+3. NEVER STOP: Loop until "${MISSION_SEAL.PATTERN}"
 4. THINK FIRST: Reason before every action
 5. SESSION REUSE: Resume sessions to preserve context
 </core_principles>
@@ -354,9 +363,22 @@ OUTPUT ONLY WHEN:
 2. Build/tests pass
 3. ${AGENT_NAMES.REVIEWER} approves
 
-${MISSION.COMPLETE}
+**MISSION SEAL** (Explicit Completion Confirmation):
+When ALL work is truly complete, output the seal tag:
+\`\`\`
+${MISSION_SEAL.PATTERN}
+\`\`\`
+
+Then output:
+${MISSION_SEAL.PATTERN}
 Summary: [accomplishments]
 Evidence: [test/build results]
+
+\u26A0\uFE0F IMPORTANT: Only output ${MISSION_SEAL.PATTERN} when:
+- All todos are marked [x] complete
+- All tests pass
+- All builds succeed
+- You have verified the final result
 </completion>`,
   canWrite: true,
   canBash: true
@@ -13216,7 +13238,7 @@ $ARGUMENTS
 <execution_rules>
 1. Complete this mission without user intervention
 2. Use your full capabilities: research, implement, verify
-3. Output "${MISSION.COMPLETE}" when done
+3. Output "${MISSION_SEAL.PATTERN}" when done
 </execution_rules>
 </mission>`;
 var COMMANDS = {
@@ -13254,7 +13276,7 @@ var COMMANDS = {
 
 | Agent | Role | Capabilities |
 |-------|------|--------------|
-| **${AGENT_NAMES.COMMANDER}** \u{1F3AF} | Master Orchestrator | Autonomous mission control, parallel task coordination, never stops until \u2705 MISSION COMPLETE |
+| **${AGENT_NAMES.COMMANDER}** \u{1F3AF} | Master Orchestrator | Autonomous mission control, parallel task coordination, never stops until ${MISSION_SEAL.PATTERN} |
 | **${AGENT_NAMES.PLANNER}** \u{1F4CB} | Strategic Planner | Task decomposition, research, caching docs, dependency analysis |
 | **${AGENT_NAMES.WORKER}** \u{1F528} | Implementation | Code, files, terminal, documentation lookup when needed |
 | **${AGENT_NAMES.REVIEWER}** \u2705 | Quality & Context | Verification, TODO updates, context management, auto-fix |
@@ -16756,6 +16778,310 @@ function cleanupSession(sessionID) {
   sessionStates.delete(sessionID);
 }
 
+// src/core/loop/mission-seal.ts
+import { existsSync as existsSync4, readFileSync, writeFileSync, unlinkSync } from "node:fs";
+import { join as join5 } from "node:path";
+var MISSION_SEAL_TAG = MISSION_SEAL.TAG;
+var SEAL_CONFIRMATION = MISSION_SEAL.CONFIRMATION;
+var SEAL_PATTERN = MISSION_SEAL.PATTERN;
+var SEAL_REGEX = new RegExp(
+  `<${MISSION_SEAL.TAG}>\\s*${MISSION_SEAL.CONFIRMATION}\\s*</${MISSION_SEAL.TAG}>`,
+  "i"
+);
+var STATE_FILE = MISSION_SEAL.STATE_FILE;
+var DEFAULT_MAX_ITERATIONS = MISSION_SEAL.DEFAULT_MAX_ITERATIONS;
+var DEFAULT_COUNTDOWN_SECONDS = MISSION_SEAL.DEFAULT_COUNTDOWN_SECONDS;
+function getStateFilePath(directory) {
+  return join5(directory, PATHS.OPENCODE, STATE_FILE);
+}
+function readLoopState(directory) {
+  const filePath = getStateFilePath(directory);
+  if (!existsSync4(filePath)) {
+    return null;
+  }
+  try {
+    const content = readFileSync(filePath, "utf-8");
+    return JSON.parse(content);
+  } catch (error45) {
+    log2(`[mission-seal] Failed to read state: ${error45}`);
+    return null;
+  }
+}
+function writeLoopState(directory, state2) {
+  const filePath = getStateFilePath(directory);
+  try {
+    writeFileSync(filePath, JSON.stringify(state2, null, 2), "utf-8");
+    return true;
+  } catch (error45) {
+    log2(`[mission-seal] Failed to write state: ${error45}`);
+    return false;
+  }
+}
+function clearLoopState(directory) {
+  const filePath = getStateFilePath(directory);
+  if (!existsSync4(filePath)) {
+    return true;
+  }
+  try {
+    unlinkSync(filePath);
+    return true;
+  } catch (error45) {
+    log2(`[mission-seal] Failed to clear state: ${error45}`);
+    return false;
+  }
+}
+function incrementIteration(directory) {
+  const state2 = readLoopState(directory);
+  if (!state2) return null;
+  state2.iteration += 1;
+  state2.lastActivity = (/* @__PURE__ */ new Date()).toISOString();
+  if (writeLoopState(directory, state2)) {
+    return state2;
+  }
+  return null;
+}
+function detectSealInText(text) {
+  return SEAL_REGEX.test(text);
+}
+async function detectSealInSession(client, sessionID) {
+  try {
+    const response = await client.session.messages({ path: { id: sessionID } });
+    const messages = response.data ?? [];
+    const assistantMessages = messages.filter((m) => m.info?.role === "assistant");
+    const recentMessages = assistantMessages.slice(-3);
+    for (const msg of recentMessages) {
+      if (!msg.parts) continue;
+      const textParts = msg.parts.filter(
+        (p) => p.type === PART_TYPES.TEXT || p.type === PART_TYPES.REASONING
+      );
+      for (const part of textParts) {
+        if (part.text && detectSealInText(part.text)) {
+          return true;
+        }
+      }
+    }
+    return false;
+  } catch (error45) {
+    log2(`[mission-seal] Failed to check session messages: ${error45}`);
+    return false;
+  }
+}
+function isLoopActive(directory, sessionID) {
+  const state2 = readLoopState(directory);
+  return state2?.active === true && state2?.sessionID === sessionID;
+}
+function generateMissionContinuationPrompt(state2) {
+  return `<mission_loop iteration="${state2.iteration}" max="${state2.maxIterations}">
+\u{1F4CB} **Mission Loop Active** - Iteration ${state2.iteration}/${state2.maxIterations}
+
+Your previous iteration did not seal the mission. Continue working.
+
+**RULES**:
+1. Review your progress from the previous iteration
+2. Continue from where you left off
+3. Check TODO list for incomplete items
+4. When ALL work is TRULY complete, output:
+
+\`\`\`
+${SEAL_PATTERN}
+\`\`\`
+
+**IMPORTANT**: 
+- Do NOT seal until the mission is genuinely complete
+- Verify all todos are marked [x] before sealing
+- Run tests/builds if applicable before sealing
+
+**Original Task**:
+${state2.prompt}
+</mission_loop>`;
+}
+
+// src/core/loop/mission-seal-handler.ts
+var COUNTDOWN_SECONDS2 = 3;
+var TOAST_DURATION_MS2 = 1500;
+var MIN_TIME_BETWEEN_CHECKS_MS = 3e3;
+var sessionStates2 = /* @__PURE__ */ new Map();
+function getState3(sessionID) {
+  let state2 = sessionStates2.get(sessionID);
+  if (!state2) {
+    state2 = {};
+    sessionStates2.set(sessionID, state2);
+  }
+  return state2;
+}
+function cancelCountdown2(sessionID) {
+  const state2 = sessionStates2.get(sessionID);
+  if (state2?.countdownTimer) {
+    clearTimeout(state2.countdownTimer);
+    state2.countdownTimer = void 0;
+  }
+}
+function hasRunningBackgroundTasks2(parentSessionID) {
+  try {
+    const manager = ParallelAgentManager.getInstance();
+    const tasks = manager.getTasksByParent(parentSessionID);
+    return tasks.some((t) => t.status === "running");
+  } catch {
+    return false;
+  }
+}
+async function showCountdownToast2(client, seconds, iteration, maxIterations) {
+  try {
+    const tuiClient2 = client;
+    if (tuiClient2.tui?.showToast) {
+      await tuiClient2.tui.showToast({
+        body: {
+          title: "\u{1F504} Mission Loop",
+          message: `Continuing in ${seconds}s... (iteration ${iteration}/${maxIterations})`,
+          variant: "warning",
+          duration: TOAST_DURATION_MS2
+        }
+      });
+    }
+  } catch {
+  }
+}
+async function showSealedToast(client, state2) {
+  try {
+    const tuiClient2 = client;
+    if (tuiClient2.tui?.showToast) {
+      await tuiClient2.tui.showToast({
+        body: {
+          title: "\u{1F396}\uFE0F Mission Sealed!",
+          message: `Completed after ${state2.iteration} iteration(s)`,
+          variant: "success",
+          duration: 5e3
+        }
+      });
+    }
+  } catch {
+  }
+}
+async function showMaxIterationsToast(client, state2) {
+  try {
+    const tuiClient2 = client;
+    if (tuiClient2.tui?.showToast) {
+      await tuiClient2.tui.showToast({
+        body: {
+          title: "\u26A0\uFE0F Mission Loop Stopped",
+          message: `Max iterations (${state2.maxIterations}) reached`,
+          variant: "warning",
+          duration: 5e3
+        }
+      });
+    }
+  } catch {
+  }
+}
+async function injectContinuation2(client, directory, sessionID, loopState) {
+  const handlerState = getState3(sessionID);
+  if (handlerState.isAborting) {
+    log2("[mission-seal-handler] Skipped: user is aborting");
+    return;
+  }
+  if (hasRunningBackgroundTasks2(sessionID)) {
+    log2("[mission-seal-handler] Skipped: background tasks running");
+    return;
+  }
+  if (isSessionRecovering(sessionID)) {
+    log2("[mission-seal-handler] Skipped: session recovering");
+    return;
+  }
+  const sealDetected = await detectSealInSession(client, sessionID);
+  if (sealDetected) {
+    log2("[mission-seal-handler] Seal detected before injection, completing");
+    await handleSealDetected(client, directory, loopState);
+    return;
+  }
+  const prompt = generateMissionContinuationPrompt(loopState);
+  try {
+    await client.session.prompt({
+      path: { id: sessionID },
+      body: {
+        parts: [{ type: PART_TYPES.TEXT, text: prompt }]
+      }
+    });
+    log2("[mission-seal-handler] Continuation injected", {
+      sessionID,
+      iteration: loopState.iteration
+    });
+  } catch (error45) {
+    log2(`[mission-seal-handler] Failed to inject: ${error45}`);
+  }
+}
+async function handleSealDetected(client, directory, loopState) {
+  clearLoopState(directory);
+  await showSealedToast(client, loopState);
+  log2("[mission-seal-handler] Mission sealed!", {
+    sessionID: loopState.sessionID,
+    iterations: loopState.iteration
+  });
+}
+async function handleMaxIterations(client, directory, loopState) {
+  clearLoopState(directory);
+  await showMaxIterationsToast(client, loopState);
+  log2("[mission-seal-handler] Max iterations reached", {
+    sessionID: loopState.sessionID,
+    iterations: loopState.iteration,
+    max: loopState.maxIterations
+  });
+}
+async function handleMissionSealIdle(client, directory, sessionID, mainSessionID) {
+  const handlerState = getState3(sessionID);
+  const now = Date.now();
+  if (handlerState.lastCheckTime && now - handlerState.lastCheckTime < MIN_TIME_BETWEEN_CHECKS_MS) {
+    return;
+  }
+  handlerState.lastCheckTime = now;
+  cancelCountdown2(sessionID);
+  if (mainSessionID && sessionID !== mainSessionID) {
+    return;
+  }
+  if (isSessionRecovering(sessionID)) {
+    log2("[mission-seal-handler] Skipped: recovering");
+    return;
+  }
+  if (hasRunningBackgroundTasks2(sessionID)) {
+    log2("[mission-seal-handler] Skipped: background tasks");
+    return;
+  }
+  const loopState = readLoopState(directory);
+  if (!loopState || !loopState.active) {
+    return;
+  }
+  if (loopState.sessionID !== sessionID) {
+    return;
+  }
+  log2("[mission-seal-handler] Checking for seal", {
+    sessionID,
+    iteration: loopState.iteration
+  });
+  const sealDetected = await detectSealInSession(client, sessionID);
+  if (sealDetected) {
+    await handleSealDetected(client, directory, loopState);
+    return;
+  }
+  if (loopState.iteration >= loopState.maxIterations) {
+    await handleMaxIterations(client, directory, loopState);
+    return;
+  }
+  const newState = incrementIteration(directory);
+  if (!newState) {
+    log2("[mission-seal-handler] Failed to increment iteration");
+    return;
+  }
+  await showCountdownToast2(client, COUNTDOWN_SECONDS2, newState.iteration, newState.maxIterations);
+  handlerState.countdownTimer = setTimeout(async () => {
+    cancelCountdown2(sessionID);
+    await injectContinuation2(client, directory, sessionID, newState);
+  }, COUNTDOWN_SECONDS2 * 1e3);
+  log2("[mission-seal-handler] Countdown started", {
+    sessionID,
+    iteration: newState.iteration,
+    seconds: COUNTDOWN_SECONDS2
+  });
+}
+
 // src/core/progress/store.ts
 var progressHistory = /* @__PURE__ */ new Map();
 var sessionStartTimes = /* @__PURE__ */ new Map();
@@ -16868,7 +17194,7 @@ You are ONLY done when:
 - All todos are marked complete or cancelled
 - All features are implemented and tested
 - Final verification passes
-Then output: \u2705 MISSION COMPLETE
+Then output: ${MISSION_SEAL.PATTERN}
 </completion_criteria>
 </auto_continue>`;
 var OrchestratorPlugin = async (input) => {
@@ -17046,12 +17372,27 @@ var OrchestratorPlugin = async (input) => {
         if (sessionID) {
           const isMainSession = sessions.has(sessionID);
           if (isMainSession) {
-            setTimeout(() => {
+            setTimeout(async () => {
               const session = sessions.get(sessionID);
               if (session?.active) {
-                handleSessionIdle(client, sessionID, sessionID).catch((err) => {
-                  log2("[index.ts] todo-continuation error", err);
-                });
+                if (isLoopActive(directory, sessionID)) {
+                  await handleMissionSealIdle(
+                    client,
+                    directory,
+                    sessionID,
+                    sessionID
+                  ).catch((err) => {
+                    log2("[index.ts] mission-seal-handler error", err);
+                  });
+                } else {
+                  await handleSessionIdle(
+                    client,
+                    sessionID,
+                    sessionID
+                  ).catch((err) => {
+                    log2("[index.ts] todo-continuation error", err);
+                  });
+                }
               }
             }, 500);
           }
@@ -17210,7 +17551,7 @@ Anomaly count: ${stateSession.anomalyCount}
     // -----------------------------------------------------------------
     // assistant.done hook - runs when the LLM finishes responding
     // This is the heart of the "relentless loop" - we keep pushing it
-    // to continue until we see MISSION COMPLETE or hit the limit
+    // to continue until we see <mission_seal>SEALED</mission_seal> or hit the limit
     // -----------------------------------------------------------------
     "assistant.done": async (assistantInput, assistantOutput) => {
       const sessionID = assistantInput.sessionID;
@@ -17250,10 +17591,12 @@ Anomaly count: ${stateSession.anomalyCount}
       if (stateSession && stateSession.anomalyCount > 0) {
         stateSession.anomalyCount = 0;
       }
-      if (textContent.includes(MISSION.COMPLETE) || textContent.includes(MISSION.COMPLETE_TEXT)) {
+      if (detectSealInText(textContent)) {
         session.active = false;
         state.missionActive = false;
-        presets.missionComplete("Mission completed successfully");
+        clearLoopState(directory);
+        presets.missionComplete("\u{1F396}\uFE0F Mission Sealed - Explicit completion confirmed");
+        log2("[index.ts] Mission sealed detected", { sessionID });
         clearSession(sessionID);
         sessions.delete(sessionID);
         state.sessions.delete(sessionID);

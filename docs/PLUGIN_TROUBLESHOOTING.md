@@ -316,13 +316,13 @@ cat ~/.config/opencode/opencode.json | jq '.agent'
 1. **Auto-Activation**: Selecting Orchestrator agent or using `/task` activates mission mode
 2. **Auto-Continue**: After each response, system injects "continue" if mission not complete
 3. **Completion Signals**:
-   - `✅ MISSION COMPLETE`
+   - `<mission_seal>SEALED</mission_seal>`
    - `All tasks completed`
 
 ### Stopping the Loop
 
 - Type `/stop` or `/cancel`
-- Wait for `✅ MISSION COMPLETE`
+- Wait for `<mission_seal>SEALED</mission_seal>`
 - Maximum 1000 iterations (safety limit)
 
 ---

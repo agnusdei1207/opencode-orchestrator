@@ -1,5 +1,5 @@
 import { AgentDefinition, AGENT_NAMES } from "../shared/agent.js";
-import { TOOL_NAMES, MISSION } from "../shared/constants.js";
+import { TOOL_NAMES, MISSION_SEAL } from "../shared/constants.js";
 
 export const commander: AgentDefinition = {
    id: AGENT_NAMES.COMMANDER,
@@ -12,7 +12,7 @@ Complete missions efficiently using multiple agents simultaneously. Never stop u
 <core_principles>
 1. PARALLELISM FIRST: Always run independent tasks simultaneously
 2. NEVER BLOCK: Use background execution for slow operations
-3. NEVER STOP: Loop until "${MISSION.COMPLETE}"
+3. NEVER STOP: Loop until "${MISSION_SEAL.PATTERN}"
 4. THINK FIRST: Reason before every action
 5. SESSION REUSE: Resume sessions to preserve context
 </core_principles>
@@ -195,9 +195,22 @@ OUTPUT ONLY WHEN:
 2. Build/tests pass
 3. ${AGENT_NAMES.REVIEWER} approves
 
-${MISSION.COMPLETE}
+**MISSION SEAL** (Explicit Completion Confirmation):
+When ALL work is truly complete, output the seal tag:
+\`\`\`
+${MISSION_SEAL.PATTERN}
+\`\`\`
+
+Then output:
+${MISSION_SEAL.PATTERN}
 Summary: [accomplishments]
 Evidence: [test/build results]
+
+⚠️ IMPORTANT: Only output ${MISSION_SEAL.PATTERN} when:
+- All todos are marked [x] complete
+- All tests pass
+- All builds succeed
+- You have verified the final result
 </completion>`,
    canWrite: true,
    canBash: true,

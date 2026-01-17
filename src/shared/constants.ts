@@ -116,19 +116,30 @@ export const TOOL_NAMES = {
 } as const;
 
 // ============================================================================
-// Mission Markers - Critical completion detection strings
+// Mission Seal - Explicit Completion Detection (unified)
 // ============================================================================
 
-export const MISSION = {
-    /** Mission completion marker (with emoji) */
-    COMPLETE: "✅ MISSION COMPLETE",
-    /** Mission completion marker (text only) */
-    COMPLETE_TEXT: "MISSION COMPLETE",
+export const MISSION_SEAL = {
+    /** XML tag name for mission seal */
+    TAG: "mission_seal",
+    /** Confirmation value inside tag */
+    CONFIRMATION: "SEALED",
+    /** Full seal pattern: <mission_seal>SEALED</mission_seal> */
+    PATTERN: "<mission_seal>SEALED</mission_seal>",
+    /** Default max loop iterations */
+    DEFAULT_MAX_ITERATIONS: 20,
+    /** Default countdown seconds before continue */
+    DEFAULT_COUNTDOWN_SECONDS: 3,
+    /** Loop state file name */
+    STATE_FILE: "loop-state.json",
     /** Stop command */
     STOP_COMMAND: "/stop",
     /** Cancel command */
     CANCEL_COMMAND: "/cancel",
 } as const;
+
+/** @deprecated Use MISSION_SEAL instead */
+export const MISSION = MISSION_SEAL;
 
 // ============================================================================
 // Slash Commands

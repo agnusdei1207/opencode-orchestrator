@@ -217,7 +217,7 @@ describe("TodoEnforcer", () => {
 
             const message = generateCompletionMessage(todos);
 
-            expect(message).toContain("MISSION COMPLETE");
+            expect(message).toContain("MISSION SEALED");
             expect(message).toContain("Total Tasks: 3");
             expect(message).toContain("Completed: 2");
             expect(message).toContain("Cancelled: 1");
