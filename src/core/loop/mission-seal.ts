@@ -236,6 +236,9 @@ export function startMissionLoop(
 
 /**
  * Cancel an active mission loop
+ * 
+ * TODO: Will be used when /cancel slash command is implemented
+ * to allow users to cancel an active mission loop.
  */
 export function cancelMissionLoop(directory: string, sessionID: string): boolean {
     const state = readLoopState(directory);

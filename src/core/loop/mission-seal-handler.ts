@@ -378,6 +378,9 @@ export function cleanupSession(sessionID: string): void {
 
 /**
  * Check if there's a pending countdown
+ * 
+ * Utility function for debugging and testing continuation state.
+ * Can be used to verify countdown status before injecting prompts.
  */
 export function hasPendingContinuation(sessionID: string): boolean {
     return !!sessionStates.get(sessionID)?.countdownTimer;

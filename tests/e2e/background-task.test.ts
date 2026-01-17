@@ -229,10 +229,10 @@ describe("BackgroundTaskManager E2E", () => {
     describe("status emoji", () => {
         it("should return correct emoji for each status", () => {
             // These match the actual implementation in constants.ts
-            expect(backgroundTaskManager.getStatusEmoji("running")).toBe("🔄");
-            expect(backgroundTaskManager.getStatusEmoji("done")).toBe("✅");
-            expect(backgroundTaskManager.getStatusEmoji("error")).toBe("❌");
-            expect(backgroundTaskManager.getStatusEmoji("timeout")).toBe("⏰");
+            expect(backgroundTaskManager.getStatusEmoji("running")).toBe("RUN");
+            expect(backgroundTaskManager.getStatusEmoji("done")).toBe("OK");
+            expect(backgroundTaskManager.getStatusEmoji("error")).toBe("ERR");
+            expect(backgroundTaskManager.getStatusEmoji("timeout")).toBe("TIM");
         });
     });
 });

@@ -121,15 +121,6 @@ export function checkOutputSanity(text: string): SanityResult {
 }
 
 /**
- * Check if text is completely empty or meaningless
- */
-export function isEmptyOrMeaningless(text: string): boolean {
-    if (!text) return true;
-    const cleaned = text.replace(/[\s\n\r\t]/g, "").trim();
-    return cleaned.length < 10;
-}
-
-/**
  * Recovery prompt for single anomaly
  */
 export const RECOVERY_PROMPT = `<anomaly_recovery>
