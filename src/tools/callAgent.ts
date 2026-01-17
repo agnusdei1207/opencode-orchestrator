@@ -8,7 +8,7 @@ export const callAgentTool = tool({
 <agents>
 | Agent | Role | When to Use |
 |-------|------|-------------|
-| ${AGENT_NAMES.ARCHITECT} 🏗️ | Planner | Complex task → DAG, OR 3+ failures → strategy |
+| ${AGENT_NAMES.ARCHITECT} 🏗️ | Planner | Complex task → plan, OR 3+ failures → strategy |
 | ${AGENT_NAMES.BUILDER} 🔨 | Developer | Any code implementation (logic + UI) |
 | ${AGENT_NAMES.INSPECTOR} 🔍 | Quality | Before completion, OR on errors (auto-fixes) |
 | ${AGENT_NAMES.RECORDER} 💾 | Context | After each task, OR at session start |

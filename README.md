@@ -29,85 +29,67 @@
 
 ## 🏛️ System Architecture
 
-```mermaid
-flowchart TB
-    subgraph USER["👤 User Request"]
-        Input["OpenCode Terminal / UI"]
-    end
-
-    subgraph PLUGIN["🔌 Orchestrator Plugin"]
-        direction TB
-        
-        subgraph State["Session State"]
-            Sessions["Map&lt;sessionId, state&gt;"]
-        end
-        
-        subgraph Agents["7 Agents"]
-            Commander["🎯 Commander"]
-            Architect["🏗️ Architect"]
-            Builder["🔨 Builder"]
-            Inspector["🔍 Inspector"]
-            Recorder["💾 Recorder"]
-            Librarian["📚 Librarian"]
-            Researcher["🔬 Researcher"]
-        end
-        
-        subgraph Tools["15+ Tools"]
-            CallAgent["call_agent"]
-            Parallel["launch_parallel"]
-            Web["webfetch/websearch"]
-        end
-
-        subgraph Hooks["Plugin Hooks"]
-            ChatMsg["chat.message"]
-            ToolAfter["tool.execute.after"]
-            Event["event handler"]
-        end
-    end
-
-    subgraph MANAGER["⚙️ Parallel Agent Manager"]
-        direction TB
-        Launcher["TaskLauncher"]
-        Resumer["TaskResumer"]
-        Poller["TaskPoller"]
-        Cleaner["TaskCleaner"]
-        Concurrency["ConcurrencyController<br/>MAX=50, PER_AGENT=10"]
-        Store["TaskStore<br/>MAX: 1000 tasks"]
-    end
-
-    subgraph SESSIONS["🔄 Child Sessions Pool"]
-        S1["Session 1<br/>Builder 🔨"]
-        S2["Session 2<br/>Librarian 📚"]
-        S3["Session 3<br/>Inspector 🔍"]
-        S50["... up to 50"]
-    end
-
-    subgraph EVENTBUS["📡 Event Bus"]
-        Events["task.started | task.completed | task.failed<br/>session.idle | mission.complete"]
-    end
-
-    subgraph CORE["🛠️ Core Systems"]
-        Progress["Progress Tracker"]
-        Recovery["Auto Recovery"]
-        Cache["Document Cache"]
-        Toast["Toast Notifier"]
-        Queue["Async Queue"]
-        Background["Background Commands"]
-    end
-
-    Input --> PLUGIN
-    PLUGIN --> MANAGER
-    MANAGER --> SESSIONS
-    SESSIONS --> EVENTBUS
-    EVENTBUS --> CORE
-    
-    Commander -->|"delegate"| Architect
-    Architect -->|"plan"| Builder
-    Builder -->|"verify"| Inspector
-    Inspector -->|"record"| Recorder
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                           👤 USER REQUEST                                   │
+│                        OpenCode Terminal / UI                               │
+└─────────────────────────────────────────────────────────────────────────────┘
+                                     │
+                                     ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                        🔌 ORCHESTRATOR PLUGIN                               │
+│                                                                             │
+│  ┌─────────────────┐  ┌─────────────────────────────────────────────────┐  │
+│  │  Session State  │  │                   7 AGENTS                      │  │
+│  │  Map<id,state>  │  │  🎯 Commander (primary)                         │  │
+│  └─────────────────┘  │     ↓ delegate_task / OpenCode Task tool        │  │
+│                       │  🏗️ Architect  🔨 Builder  🔍 Inspector         │  │
+│  ┌─────────────────┐  │  💾 Recorder   📚 Librarian 🔬 Researcher       │  │
+│  │  Plugin Hooks   │  │     (subagents, hidden)                         │  │
+│  │  config         │  └─────────────────────────────────────────────────┘  │
+│  │  chat.message   │                                                       │
+│  │  tool.execute   │  ┌─────────────────────────────────────────────────┐  │
+│  └─────────────────┘  │                  12 TOOLS                       │  │
+│                       │  delegate_task    get_task_result   list_tasks  │  │
+│                       │  webfetch         websearch         codesearch  │  │
+│                       │  run_background   grep_search       mgrep       │  │
+│                       └─────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────────────────────────┘
+                                     │
+                                     ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                      ⚙️ PARALLEL AGENT MANAGER                              │
+│                                                                             │
+│  ┌──────────────┐  ┌──────────────┐  ┌─────────────────────────────────┐   │
+│  │ TaskLauncher │  │  TaskPoller  │  │    ConcurrencyController        │   │
+│  │   launch()   │  │   poll()     │  │    MAX=50, PER_AGENT=10         │   │
+│  └──────────────┘  └──────────────┘  └─────────────────────────────────┘   │
+│                                                                             │
+│  ┌─────────────────────────────────────────────────────────────────────┐   │
+│  │                    TaskStore (MAX: 1000 tasks)                      │   │
+│  │    pending → running → completed/error → archived (disk)            │   │
+│  └─────────────────────────────────────────────────────────────────────┘   │
+└─────────────────────────────────────────────────────────────────────────────┘
+                                     │
+                                     ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                       🔄 CHILD SESSIONS POOL (up to 50)                     │
+│                                                                             │
+│    Session 1        Session 2        Session 3            Session N         │
+│    Builder 🔨       Librarian 📚     Inspector 🔍         ...               │
+└─────────────────────────────────────────────────────────────────────────────┘
+                                     │
+                                     ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                           📡 EVENT BUS                                      │
+│                                                                             │
+│    task.started | task.completed | task.failed | session.idle               │
+└─────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
+
+
 
 ## 🎯 Key Differentiators
 
@@ -202,16 +184,17 @@ What's the difference between useState and useReducer?
 
 | Tool | Description |
 |------|-------------|
-| `call_agent` | Call another agent synchronously |
-| `launch_parallel_agent` | Start parallel async session |
-| `check_parallel_task` | Check task status |
-| `collect_parallel_results` | Gather completed results |
+| `delegate_task` | Delegate work to subagent (async/sync) |
+| `get_task_result` | Get result from delegated task |
+| `list_tasks` | List all running/completed tasks |
+| `cancel_task` | Cancel a running task |
 | `webfetch` | Fetch URL content as Markdown |
 | `websearch` | Search web (SearXNG → Brave → DuckDuckGo) |
 | `codesearch` | Search open source code patterns |
 | `cache_docs` | Manage cached documentation |
 | `run_background` | Run command in background |
-| `grep_search` / `glob_search` | Fast file search |
+| `check_background` / `list_background` | Monitor background jobs |
+| `grep_search` / `glob_search` / `mgrep` | Fast file search |
 
 ---
 
@@ -232,7 +215,7 @@ What's the difference between useState and useReducer?
 
 ```
 Test Files:  18 passed
-Tests:       211 passed
+Tests:       198 passed
 Duration:    ~4.3s
 ```
 
@@ -242,6 +225,19 @@ Duration:    ~4.3s
 
 ```bash
 npm uninstall -g opencode-orchestrator
+```
+
+---
+
+## 🔧 Debugging
+
+**Log file location:**
+```bash
+# macOS/Linux
+tail -f /tmp/opencode-orchestrator.log
+
+# Windows
+# C:\Users\<username>\AppData\Local\Temp\opencode-orchestrator.log
 ```
 
 ---

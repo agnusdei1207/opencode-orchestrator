@@ -6,4 +6,5 @@ export interface LaunchInput {
     prompt: string;
     agent: string;
     parentSessionID: string;
+    depth?: number;  // Current nesting depth (default: 1)
 }

@@ -17,7 +17,6 @@ const { version: PLUGIN_VERSION } = require("../package.json");
 
 import type { Plugin } from "@opencode-ai/plugin";
 import { AGENTS } from "./agents/definitions.js";
-import { TaskGraph, type Task } from "./core/orchestrator/index.js";
 import { state } from "./core/orchestrator/index.js";
 import { callAgentTool } from "./tools/callAgent.js";
 import { createSlashcommandTool, COMMANDS } from "./tools/slashCommand.js";
@@ -42,6 +41,7 @@ import { MISSION, AGENT_EMOJI, AGENT_NAMES, TOOL_NAMES, TASK_STATUS, PART_TYPES,
 import * as TodoEnforcer from "./core/loop/todo-enforcer.js";
 import * as Toast from "./core/notification/toast.js";
 import * as ProgressTracker from "./core/progress/tracker.js";
+import { log, getLogPath } from "./core/agents/logger.js";
 
 // ============================================================================
 // Constants
@@ -96,6 +96,8 @@ const OrchestratorPlugin: Plugin = async (input) => {
 
     // Log version on startup
     console.log(`[orchestrator] v${PLUGIN_VERSION} loaded`);
+    console.log(`[orchestrator] Log file: ${getLogPath()}`);
+    log("[index.ts] Plugin initialized", { version: PLUGIN_VERSION, directory });
 
     // =========================================================================
     // Initialize Core Systems
@@ -103,7 +105,7 @@ const OrchestratorPlugin: Plugin = async (input) => {
 
     // Enable auto toast notifications for events
     const disableAutoToasts = Toast.enableAutoToasts();
-    console.log(`[orchestrator] Toast notifications enabled`);
+    log("[index.ts] Toast notifications enabled");
 
     // Track active sessions - each chat session gets its own state
     // so multiple users or conversations don't interfere with each other
@@ -119,6 +121,7 @@ const OrchestratorPlugin: Plugin = async (input) => {
     // Initialize parallel agent manager
     const parallelAgentManager = ParallelAgentManager.getInstance(client, directory);
     const asyncAgentTools = createAsyncAgentTools(parallelAgentManager, client);
+    log("[index.ts] ParallelAgentManager initialized");
 
     return {
         // -----------------------------------------------------------------
@@ -149,7 +152,7 @@ const OrchestratorPlugin: Plugin = async (input) => {
         // -----------------------------------------------------------------
         config: async (config: Record<string, unknown>) => {
             const existingCommands = (config.command as Record<string, unknown>) ?? {};
-            const existingAgents = (config.agent as Record<string, unknown>) ?? {};
+            const existingAgents = (config.agent as Record<string, { mode?: string; hidden?: boolean }>) ?? {};
 
             // Register all our slash commands (like /task, /plan, etc.)
             const orchestratorCommands: Record<string, unknown> = {};
@@ -161,39 +164,92 @@ const OrchestratorPlugin: Plugin = async (input) => {
                 };
             }
 
-            // Register the Commander, Librarian, and Researcher agents
-            // Using 'prompt' instead of 'systemPrompt'
+            // Get Commander's system prompt
+            const commanderPrompt = AGENTS[AGENT_NAMES.COMMANDER]?.systemPrompt || "";
+            console.log(`[orchestrator] Commander prompt length: ${commanderPrompt.length} chars`);
+
+            // Register Commander (primary) and all subagents
+            // Subagents must be registered so Commander can invoke them via Task tool
             const orchestratorAgents: Record<string, unknown> = {
+                // Primary agent - the main orchestrator
                 [AGENT_NAMES.COMMANDER]: {
-                    name: AGENT_NAMES.COMMANDER,
                     description: "Autonomous orchestrator - executes until mission complete",
                     mode: "primary",
-                    prompt: AGENTS[AGENT_NAMES.COMMANDER].systemPrompt,
+                    prompt: commanderPrompt,
                     maxTokens: 64000,
                     thinking: { type: "enabled", budgetTokens: 32000 },
                     color: "#FF6B6B",
                 },
+                // Subagents - invoked by Commander via Task tool
+                [AGENT_NAMES.ARCHITECT]: {
+                    description: "Task decomposition and planning specialist",
+                    mode: "subagent",
+                    hidden: true,  // Only invoked programmatically
+                    prompt: AGENTS[AGENT_NAMES.ARCHITECT]?.systemPrompt || "",
+                    maxTokens: 32000,
+                    color: "#9B59B6",
+                },
+                [AGENT_NAMES.BUILDER]: {
+                    description: "Full-stack code implementation",
+                    mode: "subagent",
+                    hidden: true,
+                    prompt: AGENTS[AGENT_NAMES.BUILDER]?.systemPrompt || "",
+                    maxTokens: 32000,
+                    color: "#E67E22",
+                },
+                [AGENT_NAMES.INSPECTOR]: {
+                    description: "Quality verification and bug fixing",
+                    mode: "subagent",
+                    hidden: true,
+                    prompt: AGENTS[AGENT_NAMES.INSPECTOR]?.systemPrompt || "",
+                    maxTokens: 32000,
+                    color: "#27AE60",
+                },
+                [AGENT_NAMES.RECORDER]: {
+                    description: "Persistent progress tracking across sessions",
+                    mode: "subagent",
+                    hidden: true,
+                    prompt: AGENTS[AGENT_NAMES.RECORDER]?.systemPrompt || "",
+                    maxTokens: 16000,
+                    color: "#3498DB",
+                },
                 [AGENT_NAMES.LIBRARIAN]: {
-                    name: AGENT_NAMES.LIBRARIAN,
                     description: "Documentation research specialist - reduces hallucination",
                     mode: "subagent",
+                    hidden: true,
                     prompt: AGENTS[AGENT_NAMES.LIBRARIAN]?.systemPrompt || "",
                     maxTokens: 16000,
                     color: "#4ECDC4",
                 },
                 [AGENT_NAMES.RESEARCHER]: {
-                    name: AGENT_NAMES.RESEARCHER,
                     description: "Pre-task investigation - gathers all info before implementation",
                     mode: "subagent",
+                    hidden: true,
                     prompt: AGENTS[AGENT_NAMES.RESEARCHER]?.systemPrompt || "",
                     maxTokens: 16000,
                     color: "#45B7D1",
                 },
             };
 
+            // Demote existing build/plan agents to subagents to avoid conflicts
+            const processedExistingAgents = { ...existingAgents };
+            if (processedExistingAgents.build) {
+                processedExistingAgents.build = {
+                    ...processedExistingAgents.build,
+                    mode: "subagent",
+                    hidden: true,
+                };
+            }
+            if (processedExistingAgents.plan) {
+                processedExistingAgents.plan = {
+                    ...processedExistingAgents.plan,
+                    mode: "subagent",
+                };
+            }
+
             // Merge: our agents OVERRIDE existing ones (put ours LAST in spread)
             config.command = { ...existingCommands, ...orchestratorCommands };
-            config.agent = { ...existingAgents, ...orchestratorAgents };
+            config.agent = { ...processedExistingAgents, ...orchestratorAgents };
 
             // Set Commander as the default agent
             (config as { default_agent?: string }).default_agent = AGENT_NAMES.COMMANDER;
@@ -322,12 +378,11 @@ const OrchestratorPlugin: Plugin = async (input) => {
                 }
             }
 
-            // Track which task is running
+            // Track which task is running and add agent header
             if (toolInput.tool === TOOL_NAMES.CALL_AGENT && toolInput.arguments?.task && stateSession) {
                 const taskIdMatch = toolInput.arguments.task.match(/\[(TASK-\d+)\]/i);
                 if (taskIdMatch) {
                     stateSession.currentTask = taskIdMatch[1].toUpperCase();
-                    stateSession.graph?.updateTask(stateSession.currentTask, { status: TASK_STATUS.RUNNING });
                 }
 
                 // Prepend a nice header so we know which agent is working
@@ -344,58 +399,30 @@ const OrchestratorPlugin: Plugin = async (input) => {
             }
 
             // =========================================================
-            // TASK GRAPH PARSING
-            // If the Architect outputs a JSON array of tasks, we parse it
-            // and build a DAG so we can track dependencies and progress
+            // TASK STATUS TRACKING (simplified - no DAG)
+            // Watch for PASS/FAIL signals from Inspector
             // =========================================================
-            if (toolOutput.output.includes("[") && toolOutput.output.includes("{") &&
-                toolInput.tool === TOOL_NAMES.CALL_AGENT && stateSession) {
-                const jsonMatch = toolOutput.output.match(/```json\n([\s\S]*?)\n```/) ||
-                    toolOutput.output.match(/\[\s*\{[\s\S]*?\}\s*\]/);
-                if (jsonMatch) {
-                    try {
-                        const tasks = JSON.parse(jsonMatch[1] || jsonMatch[0]) as Task[];
-                        if (Array.isArray(tasks) && tasks.length > 0) {
-                            stateSession.graph = new TaskGraph(tasks);
-                            toolOutput.output += `\n\n━━━━━━━━━━━━\n✅ INITIALIZED\n${stateSession.graph.getTaskSummary()}`;
-                        }
-                    } catch { /* malformed JSON, just ignore */ }
-                }
-            }
-
-            // =========================================================
-            // TASK STATUS UPDATES
-            // Watch for PASS/FAIL signals from Inspector and update the graph
-            // =========================================================
-            if (stateSession?.graph) {
+            if (stateSession) {
                 const taskId = stateSession.currentTask;
 
-                // Inspector said PASS - mark task complete, clear retry counter
+                // Inspector said PASS - clear retry counter
                 if (toolOutput.output.includes("✅ PASS") || toolOutput.output.includes("AUDIT RESULT: PASS")) {
                     if (taskId) {
-                        stateSession.graph.updateTask(taskId, { status: TASK_STATUS.COMPLETED });
                         stateSession.taskRetries.clear();
-                        toolOutput.output += `\n\n━━━━━━━━━━━━\n✅ ${taskId} VERIFIED\n${stateSession.graph.getTaskSummary()}`;
+                        toolOutput.output += `\n\n━━━━━━━━━━━━\n✅ ${taskId} VERIFIED`;
                     }
                 }
-                // Inspector said FAIL - increment retry counter, maybe give up
+                // Inspector said FAIL - increment retry counter
                 else if (toolOutput.output.includes("❌ FAIL") || toolOutput.output.includes("AUDIT RESULT: FAIL")) {
                     if (taskId) {
                         const retries = (stateSession.taskRetries.get(taskId) || 0) + 1;
                         stateSession.taskRetries.set(taskId, retries);
                         if (retries >= state.maxRetries) {
-                            stateSession.graph.updateTask(taskId, { status: TASK_STATUS.FAILED });
                             toolOutput.output += `\n\n━━━━━━━━━━━━\n⚠️ ${taskId} FAILED (${retries}x)`;
                         } else {
                             toolOutput.output += `\n\n━━━━━━━━━━━━\n🔄 RETRY ${retries}/${state.maxRetries}`;
                         }
                     }
-                }
-
-                // Show what tasks are ready to run next
-                const readyTasks = stateSession.graph.getReadyTasks();
-                if (readyTasks.length > 0) {
-                    toolOutput.output += `\n👉 NEXT: ${readyTasks.map(t => `[${t.id}]`).join(", ")}`;
                 }
             }
 

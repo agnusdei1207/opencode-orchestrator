@@ -27,6 +27,7 @@ export class TaskPoller {
 
     start(): void {
         if (this.pollingInterval) return;
+        log("[task-poller.ts] start() - polling started");
         this.pollingInterval = setInterval(() => this.poll(), CONFIG.POLL_INTERVAL_MS);
         this.pollingInterval.unref();
     }
@@ -46,6 +47,7 @@ export class TaskPoller {
         this.pruneExpiredTasks();
         const running = this.store.getRunning();
         if (running.length === 0) { this.stop(); return; }
+        log("[task-poller.ts] poll() checking", running.length, "running tasks");
 
         try {
             const statusResult = await this.client.session.status();
@@ -96,6 +98,7 @@ export class TaskPoller {
     }
 
     async completeTask(task: ParallelTask): Promise<void> {
+        log("[task-poller.ts] completeTask() called for", task.id, task.agent);
         task.status = TASK_STATUS.COMPLETED;
         task.completedAt = new Date();
 

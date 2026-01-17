@@ -39,6 +39,7 @@ export const PARALLEL_TASK = {
     DEFAULT_CONCURRENCY: 10,             // 10 per agent type
     MAX_CONCURRENCY: 50,                 // 50 total
     SYNC_TIMEOUT_MS: 10 * TIME.MINUTE,   // 10 minutes for sync mode
+    MAX_DEPTH: 3,                        // Max nesting depth (Commander -> Agent -> Sub-task)
 } as const;
 
 // ============================================================================

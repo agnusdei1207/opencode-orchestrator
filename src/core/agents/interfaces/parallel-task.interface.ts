@@ -19,6 +19,9 @@ export interface ParallelTask {
     result?: string;
     concurrencyKey?: string;
 
+    // Depth tracking - prevents infinite recursion
+    depth: number;
+
     // Stability detection
     lastMsgCount?: number;
     stablePolls?: number;

@@ -87,7 +87,7 @@ RECORD findings if on Deep Track.
 |-------|----------|
 | Fast | Use \`${AGENT_NAMES.BUILDER}\` directly. Skip \`${AGENT_NAMES.ARCHITECT}\`. |
 | Normal | Call \`${AGENT_NAMES.ARCHITECT}\` for lightweight plan. |
-| Deep | Full \`${AGENT_NAMES.ARCHITECT}\` DAG + \`${AGENT_NAMES.RECORDER}\` state tracking. |
+| Deep | Full planning + \`${AGENT_NAMES.RECORDER}\` state tracking. |
 
 AVAILABLE AGENTS:
 - \`${AGENT_NAMES.ARCHITECT}\`: Task decomposition and planning

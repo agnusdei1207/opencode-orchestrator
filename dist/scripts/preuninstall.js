@@ -1,9 +1,19 @@
 #!/usr/bin/env node
 
 // scripts/preuninstall.ts
-import { existsSync, readFileSync, writeFileSync } from "fs";
-import { homedir } from "os";
+import { existsSync, readFileSync, writeFileSync, appendFileSync } from "fs";
+import { homedir, tmpdir } from "os";
 import { join } from "path";
+var LOG_FILE = join(tmpdir(), "opencode-orchestrator.log");
+function log(message, data) {
+  try {
+    const timestamp = (/* @__PURE__ */ new Date()).toISOString();
+    const entry = `[${timestamp}] [preuninstall] ${message} ${data ? JSON.stringify(data) : ""}
+`;
+    appendFileSync(LOG_FILE, entry);
+  } catch {
+  }
+}
 function formatError(err, context) {
   if (err instanceof Error) {
     const nodeErr = err;
@@ -72,19 +82,25 @@ function removeFromConfig(configDir) {
 }
 try {
   console.log("\u{1F9F9} OpenCode Orchestrator - Uninstalling...");
+  log("Uninstallation started", { platform: process.platform });
   const configPaths = getConfigPaths();
+  log("Config paths to check", configPaths);
   let removed = false;
   for (const configDir of configPaths) {
     const configFile = join(configDir, "opencode.json");
     if (removeFromConfig(configDir)) {
       console.log(`\u2705 Plugin removed: ${configFile}`);
+      log("Plugin removed successfully", { configFile });
       removed = true;
     }
   }
   if (!removed) {
     console.log("\u2705 Plugin was not registered. Nothing to clean up.");
+    log("Plugin was not registered");
   }
+  log("Uninstallation completed", { removed });
 } catch (error) {
+  log("Uninstallation error", { error: String(error) });
   console.error(formatError(error, "clean up config"));
   process.exit(0);
 }

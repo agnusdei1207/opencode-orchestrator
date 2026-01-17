@@ -57,8 +57,10 @@ var PARALLEL_TASK = {
   // 10 per agent type
   MAX_CONCURRENCY: 50,
   // 50 total
-  SYNC_TIMEOUT_MS: 10 * TIME.MINUTE
+  SYNC_TIMEOUT_MS: 10 * TIME.MINUTE,
   // 10 minutes for sync mode
+  MAX_DEPTH: 3
+  // Max nesting depth (Commander -> Agent -> Sub-task)
 };
 var MEMORY_LIMITS = {
   MAX_TASKS_IN_MEMORY: 1e3,
@@ -236,7 +238,7 @@ RECORD findings if on Deep Track.
 |-------|----------|
 | Fast | Use \`${AGENT_NAMES.BUILDER}\` directly. Skip \`${AGENT_NAMES.ARCHITECT}\`. |
 | Normal | Call \`${AGENT_NAMES.ARCHITECT}\` for lightweight plan. |
-| Deep | Full \`${AGENT_NAMES.ARCHITECT}\` DAG + \`${AGENT_NAMES.RECORDER}\` state tracking. |
+| Deep | Full planning + \`${AGENT_NAMES.RECORDER}\` state tracking. |
 
 AVAILABLE AGENTS:
 - \`${AGENT_NAMES.ARCHITECT}\`: Task decomposition and planning
@@ -1003,70 +1005,6 @@ var AGENTS = {
   [AGENT_NAMES.RESEARCHER]: researcher
 };
 
-// src/core/orchestrator/task-graph.ts
-var TaskGraph = class _TaskGraph {
-  tasks = /* @__PURE__ */ new Map();
-  constructor(tasks) {
-    if (tasks) {
-      tasks.forEach((t) => this.addTask(t));
-    }
-  }
-  addTask(task) {
-    this.tasks.set(task.id, { ...task, status: "pending", retryCount: 0 });
-  }
-  getTask(id) {
-    return this.tasks.get(id);
-  }
-  updateTask(id, updates) {
-    const task = this.tasks.get(id);
-    if (task) {
-      this.tasks.set(id, { ...task, ...updates });
-    }
-  }
-  getReadyTasks() {
-    return Array.from(this.tasks.values()).filter((task) => {
-      if (task.status !== "pending") return false;
-      return task.dependencies.every((depId) => {
-        const dep = this.tasks.get(depId);
-        return dep && dep.status === "completed";
-      });
-    });
-  }
-  isCompleted() {
-    return Array.from(this.tasks.values()).every((t) => t.status === "completed");
-  }
-  hasFailed() {
-    return Array.from(this.tasks.values()).some((t) => t.status === "failed" && t.retryCount >= 3);
-  }
-  getTaskSummary() {
-    const tasks = Array.from(this.tasks.values());
-    const completed = tasks.filter((t) => t.status === "completed");
-    const notCompleted = tasks.filter((t) => t.status !== "completed");
-    let summary = "\u{1F4CB} **Mission Status**\n";
-    if (completed.length > 0) {
-      summary += `\u2705 Completed: ${completed.length} tasks
-`;
-    }
-    for (const task of notCompleted) {
-      const icon = task.status === "running" ? "\u23F3" : task.status === "failed" ? "\u274C" : "\u{1F4A4}";
-      summary += `${icon} [${task.id}] ${task.description}
-`;
-    }
-    return summary;
-  }
-  toJSON() {
-    return JSON.stringify(Array.from(this.tasks.values()), null, 2);
-  }
-  static fromJSON(json2) {
-    try {
-      const tasks = JSON.parse(json2);
-      return new _TaskGraph(tasks);
-    } catch {
-      return new _TaskGraph();
-    }
-  }
-};
-
 // src/core/orchestrator/state.ts
 var state = {
   missionActive: false,
@@ -1806,10 +1744,10 @@ function mergeDefs(...defs) {
 function cloneDef(schema) {
   return mergeDefs(schema._zod.def);
 }
-function getElementAtPath(obj, path3) {
-  if (!path3)
+function getElementAtPath(obj, path4) {
+  if (!path4)
     return obj;
-  return path3.reduce((acc, key) => acc?.[key], obj);
+  return path4.reduce((acc, key) => acc?.[key], obj);
 }
 function promiseAllObject(promisesObj) {
   const keys = Object.keys(promisesObj);
@@ -2170,11 +2108,11 @@ function aborted(x, startIndex = 0) {
   }
   return false;
 }
-function prefixIssues(path3, issues) {
+function prefixIssues(path4, issues) {
   return issues.map((iss) => {
     var _a;
     (_a = iss).path ?? (_a.path = []);
-    iss.path.unshift(path3);
+    iss.path.unshift(path4);
     return iss;
   });
 }
@@ -2342,7 +2280,7 @@ function treeifyError(error45, _mapper) {
     return issue2.message;
   };
   const result = { errors: [] };
-  const processError = (error46, path3 = []) => {
+  const processError = (error46, path4 = []) => {
     var _a, _b;
     for (const issue2 of error46.issues) {
       if (issue2.code === "invalid_union" && issue2.errors.length) {
@@ -2352,7 +2290,7 @@ function treeifyError(error45, _mapper) {
       } else if (issue2.code === "invalid_element") {
         processError({ issues: issue2.issues }, issue2.path);
       } else {
-        const fullpath = [...path3, ...issue2.path];
+        const fullpath = [...path4, ...issue2.path];
         if (fullpath.length === 0) {
           result.errors.push(mapper(issue2));
           continue;
@@ -2384,8 +2322,8 @@ function treeifyError(error45, _mapper) {
 }
 function toDotPath(_path) {
   const segs = [];
-  const path3 = _path.map((seg) => typeof seg === "object" ? seg.key : seg);
-  for (const seg of path3) {
+  const path4 = _path.map((seg) => typeof seg === "object" ? seg.key : seg);
+  for (const seg of path4) {
     if (typeof seg === "number")
       segs.push(`[${seg}]`);
     else if (typeof seg === "symbol")
@@ -13504,7 +13442,7 @@ var callAgentTool = tool({
 <agents>
 | Agent | Role | When to Use |
 |-------|------|-------------|
-| ${AGENT_NAMES.ARCHITECT} \u{1F3D7}\uFE0F | Planner | Complex task \u2192 DAG, OR 3+ failures \u2192 strategy |
+| ${AGENT_NAMES.ARCHITECT} \u{1F3D7}\uFE0F | Planner | Complex task \u2192 plan, OR 3+ failures \u2192 strategy |
 | ${AGENT_NAMES.BUILDER} \u{1F528} | Developer | Any code implementation (logic + UI) |
 | ${AGENT_NAMES.INSPECTOR} \u{1F50D} | Quality | Before completion, OR on errors (auto-fixes) |
 | ${AGENT_NAMES.RECORDER} \u{1F4BE} | Context | After each task, OR at session start |
@@ -13565,321 +13503,30 @@ Never claim completion without proof.
 });
 
 // src/tools/slashCommand.ts
-var COMMANDER_MISSION_PROMPT = `<role>
-You are Commander. Complete missions autonomously. Never stop until done.
-</role>
+var TASK_TRIGGER_TEMPLATE = `<mission_mode>
+You are now in MISSION MODE. Execute the following task autonomously until complete.
 
-<core_rules>
-1. Never stop until "${MISSION.COMPLETE}"
-2. Never wait for user during execution
-3. Never stop because agent returned nothing
-4. Always survey environment & codebase BEFORE coding
-5. Always verify with evidence based on runtime context
-</core_rules>
-
-<phase_0 name="TRIAGE">
-Evaluate the complexity of the request:
-
-| Level | Signal | Track |
-|-------|--------|-------|
-| \u{1F7E2} L1: Simple | One file, clear fix, no dependencies | **FAST TRACK** |
-| \u{1F7E1} L2: Feature | New functionality, clear patterns | **NORMAL TRACK** |
-| \u{1F534} L3: Complex | Refactoring, infra change, unknown scope | **DEEP TRACK** |
-</phase_0>
-
-<anti_hallucination>
-CRITICAL: ELIMINATE GUESSING. VERIFY EVERYTHING.
-
-BEFORE ANY IMPLEMENTATION:
-1. If using unfamiliar API/library \u2192 RESEARCH FIRST
-2. If uncertain about patterns/syntax \u2192 SEARCH DOCUMENTATION
-3. NEVER assume - always verify from official sources
-
-RESEARCH WORKFLOW:
-\`\`\`
-// Step 1: Search for documentation
-websearch({ query: "Next.js 14 app router official docs" })
-
-// Step 2: Fetch specific documentation
-webfetch({ url: "https://nextjs.org/docs/app/..." })
-
-// Step 3: Check cached docs
-cache_docs({ action: "list" })
-
-// Step 4: For complex research, delegate to Librarian
-${TOOL_NAMES.DELEGATE_TASK}({
-  agent: "${AGENT_NAMES.LIBRARIAN}",
-  description: "Research X API",
-  prompt: "Find official documentation for...",
-  background: false  // Wait for research before implementing
-})
-\`\`\`
-
-MANDATORY RESEARCH TRIGGERS:
-- New library/framework you haven't used in this session
-- API syntax you're not 100% sure about
-- Version-specific features (check version compatibility!)
-- Configuration patterns (check official examples)
-
-WHEN CAUGHT GUESSING:
-1. STOP immediately
-2. Search for official documentation
-3. Cache important findings: webfetch({ url: "...", cache: true })
-4. Then proceed with verified information
-</anti_hallucination>
-
-<phase_1 name="CONTEXT_GATHERING">
-IF FAST TRACK (L1):
-- Scan ONLY the target file and its immediate imports.
-- Skip broad infra/domain/doc scans unless an error occurs.
-- Proceed directly to execution.
-
-IF NORMAL/DEEP TRACK (L2/L3):
-- **Deep Scan Required**: Execute the full "MANDATORY ENVIRONMENT SCAN".
-- 1. Infra check (Docker/OS)
-- 2. Domain & Stack check
-- 3. Pattern check
-
-RECORD findings if on Deep Track.
-</phase_1>
-
-<phase_2 name="TOOL_AGENT_SELECTION">
-| Track | Strategy |
-|-------|----------|
-| Fast | Use \`${AGENT_NAMES.BUILDER}\` directly. Skip \`${AGENT_NAMES.ARCHITECT}\`. |
-| Normal | Call \`${AGENT_NAMES.ARCHITECT}\` for lightweight plan. |
-| Deep | Full \`${AGENT_NAMES.ARCHITECT}\` DAG + \`${AGENT_NAMES.RECORDER}\` state tracking. |
-
-AVAILABLE AGENTS:
-- \`${AGENT_NAMES.ARCHITECT}\`: Task decomposition and planning
-- \`${AGENT_NAMES.BUILDER}\`: Code implementation
-- \`${AGENT_NAMES.INSPECTOR}\`: Verification and bug fixing
-- \`${AGENT_NAMES.RECORDER}\`: State tracking (Deep Track only)
-- \`${AGENT_NAMES.LIBRARIAN}\`: Documentation research (Anti-Hallucination) \u2B50 NEW
-
-WHEN TO USE LIBRARIAN:
-- Before using new APIs/libraries
-- When error messages are unclear
-- When implementing complex integrations
-- When official documentation is needed
-
-DEFAULT to Deep Track if unsure to act safely.
-</phase_2>
-
-<phase_3 name="DELEGATION">
-<agent_calling>
-CRITICAL: USE ${TOOL_NAMES.DELEGATE_TASK} FOR ALL DELEGATION
-
-${TOOL_NAMES.DELEGATE_TASK} has THREE MODES:
-- background=true: Non-blocking, parallel execution
-- background=false: Blocking, waits for result
-- resume: Continue existing session
-
-| Situation | How to Call |
-|-----------|-------------|
-| Multiple independent tasks | \`${TOOL_NAMES.DELEGATE_TASK}({ ..., background: true })\` for each |
-| Single task, continue working | \`${TOOL_NAMES.DELEGATE_TASK}({ ..., background: true })\` |
-| Need result for VERY next step | \`${TOOL_NAMES.DELEGATE_TASK}({ ..., background: false })\` |
-| Retry after failure | \`${TOOL_NAMES.DELEGATE_TASK}({ ..., resume: "session_id", ... })\` |
-| Follow-up question | \`${TOOL_NAMES.DELEGATE_TASK}({ ..., resume: "session_id", ... })\` |
-
-PREFER background=true (PARALLEL):
-- Run multiple agents simultaneously
-- Continue analysis while they work
-- System notifies when ALL complete
-
-EXAMPLE - PARALLEL:
-\`\`\`
-// Multiple tasks in parallel
-${TOOL_NAMES.DELEGATE_TASK}({ agent: "${AGENT_NAMES.BUILDER}", description: "Implement X", prompt: "...", background: true })
-${TOOL_NAMES.DELEGATE_TASK}({ agent: "${AGENT_NAMES.INSPECTOR}", description: "Review Y", prompt: "...", background: true })
-
-// Continue other work (don't wait!)
-
-// When notified "All Complete":
-${TOOL_NAMES.GET_TASK_RESULT}({ taskId: "${ID_PREFIX.TASK}xxx" })
-\`\`\`
-
-EXAMPLE - SYNC (rare):
-\`\`\`
-// Only when you absolutely need the result now
-const result = ${TOOL_NAMES.DELEGATE_TASK}({ agent: "${AGENT_NAMES.BUILDER}", ..., background: false })
-// Result is immediately available
-\`\`\`
-
-EXAMPLE - RESUME (for retry or follow-up):
-\`\`\`
-// Previous task output shows: Session: \`${ID_PREFIX.SESSION}abc123\` (save for resume)
-
-// Retry after failure (keeps all context!)
-${TOOL_NAMES.DELEGATE_TASK}({ 
-  agent: "${AGENT_NAMES.BUILDER}", 
-  description: "Fix previous error", 
-  prompt: "The build failed with X. Please fix it.",
-  background: true,
-  resume: "${ID_PREFIX.SESSION}abc123"  // \u2190 Continue existing session
-})
-
-// Follow-up question (saves tokens!)
-${TOOL_NAMES.DELEGATE_TASK}({
-  agent: "${AGENT_NAMES.INSPECTOR}",
-  description: "Additional check",
-  prompt: "Also check for Y in the files you just reviewed.",
-  background: true,
-  resume: "${ID_PREFIX.SESSION}xyz789"
-})
-\`\`\`
-</agent_calling>
-
-<delegation_template>
-AGENT: [name]
-TASK: [one atomic action]
-ENVIRONMENT:
-- Infra: [e.g. Docker + Volume mount]
-- Stack: [e.g. Next.js + PostgreSQL]
-- Patterns: [existing code conventions to follow]
-MUST: [Specific requirements]
-AVOID: [Restrictions]
-VERIFY: [Success criteria with evidence]
-</delegation_template>
-</phase_3>
-
-<phase_4 name="EXECUTION_VERIFICATION">
-During implementation:
-- Match existing codebase style exactly
-- Run lsp_diagnostics after each change
-
-<background_parallel_execution>
-PARALLEL EXECUTION SYSTEM:
-
-You have access to a powerful parallel agent execution system.
-Up to 50 agents can run simultaneously with automatic resource management.
-
-1. **${TOOL_NAMES.DELEGATE_TASK}** - Launch agents in parallel or sync mode
-   \`\`\`
-   // PARALLEL (recommended - non-blocking)
-   ${TOOL_NAMES.DELEGATE_TASK}({ 
-     agent: "${AGENT_NAMES.BUILDER}", 
-     description: "Implement X", 
-     prompt: "...", 
-     background: true 
-   })
-   
-   // SYNC (blocking - wait for result)
-   ${TOOL_NAMES.DELEGATE_TASK}({ 
-     agent: "${AGENT_NAMES.LIBRARIAN}", 
-     description: "Research Y", 
-     prompt: "...", 
-     background: false 
-   })
-   
-   // RESUME (continue previous session)
-   ${TOOL_NAMES.DELEGATE_TASK}({ 
-     agent: "${AGENT_NAMES.BUILDER}", 
-     description: "Fix error", 
-     prompt: "...", 
-     background: true,
-     resume: "${ID_PREFIX.SESSION}abc123"  // From previous task output
-   })
-   \`\`\`
-
-2. **${TOOL_NAMES.GET_TASK_RESULT}** - Retrieve completed task output
-   \`\`\`
-   ${TOOL_NAMES.GET_TASK_RESULT}({ taskId: "${ID_PREFIX.TASK}xxx" })
-   \`\`\`
-
-3. **${TOOL_NAMES.LIST_TASKS}** - View all parallel tasks
-   \`\`\`
-   ${TOOL_NAMES.LIST_TASKS}({})
-   \`\`\`
-
-4. **${TOOL_NAMES.CANCEL_TASK}** - Stop a running task
-   \`\`\`
-   ${TOOL_NAMES.CANCEL_TASK}({ taskId: "${ID_PREFIX.TASK}xxx" })
-   \`\`\`
-
-CONCURRENCY LIMITS:
-- Max 10 tasks per agent type (queue automatically)
-- Max 50 total parallel sessions
-- Auto-timeout: 60 minutes
-- Auto-cleanup: 30 min after completion \u2192 archived to disk
-
-SAFE PATTERNS:
-\u2705 Builder on file A + Inspector on file B (different files)
-\u2705 Multiple research agents (read-only)
-\u2705 Build command + Test command (independent)
-\u2705 Librarian research + Builder implementation (sequential deps)
-
-UNSAFE PATTERNS:
-\u274C Multiple builders editing SAME FILE (conflict!)
-\u274C Waiting synchronously for many tasks (use background=true)
-
-WORKFLOW:
-1. ${TOOL_NAMES.LIST_TASKS}: Check current status first
-2. ${TOOL_NAMES.DELEGATE_TASK} (background=true): Launch for INDEPENDENT tasks
-3. Continue working (NO WAITING)
-4. Wait for system notification "All Parallel Tasks Complete"
-5. ${TOOL_NAMES.GET_TASK_RESULT}: Retrieve each result
-</background_parallel_execution>
-
-<verification_methods>
-| Infra | Proof Method |
-|-------|--------------|
-| OS-Native | npm run build, cargo build, specific test runs |
-| Container | Docker syntax check + config validation |
-| Live API | curl /health if reachable, check logs |
-| Generic | Manual audit by Inspector with logic summary |
-</verification_methods>
-</phase_4>
-
-<failure_recovery>
-| Failures | Action |
-|----------|--------|
-| 1-2 | Adjust approach, retry |
-| 3+ | STOP. Call ${AGENT_NAMES.ARCHITECT} for new strategy |
-
-<empty_responses>
-| Agent Empty (or Gibberish) | Action |
-|----------------------------|--------|
-| ${AGENT_NAMES.RECORDER} | Fresh start. Proceed to survey. |
-| ${AGENT_NAMES.ARCHITECT} | Try simpler plan yourself. |
-| ${AGENT_NAMES.BUILDER} | Call ${AGENT_NAMES.INSPECTOR} to diagnose. |
-| ${AGENT_NAMES.INSPECTOR} | Retry with more context. |
-</empty_responses>
-
-STRICT RULE: If any agent output contains gibberish, mixed-language hallucinations, or fails the language rule, REJECT it immediately and trigger a "STRICT_CLEAN_START" retry.
-</failure_recovery>
-
-<anti_patterns>
-\u274C Delegate without environment/codebase context
-\u274C Leave code broken or with LSP errors
-\u274C Make random changes without understanding root cause
-</anti_patterns>
-
-<completion>
-Done when: Request fulfilled + lsp clean + build/test/audit pass.
-
-<output_format>
-${MISSION.COMPLETE}
-Summary: [what was done]
-Evidence: [Specific build/test/audit results]
-</output_format>
-</completion>
-
-<mission>
+<task>
 $ARGUMENTS
-</mission>`;
+</task>
+
+<execution_rules>
+1. Complete this mission without user intervention
+2. Use your full capabilities: research, implement, verify
+3. Output "${MISSION.COMPLETE}" when done
+</execution_rules>
+</mission_mode>`;
 var COMMANDS = {
   "task": {
-    description: "\u{1F680} FULL COMMANDER MODE - Execute mission autonomously until complete",
-    template: COMMANDER_MISSION_PROMPT,
+    description: "\u{1F680} MISSION MODE - Execute task autonomously until complete",
+    template: TASK_TRIGGER_TEMPLATE,
     argumentHint: '"mission goal"'
   },
   "plan": {
-    description: "Create a parallel task DAG without executing",
+    description: "Create a task plan without executing",
     template: `<delegate>
 <agent>${AGENT_NAMES.ARCHITECT}</agent>
-<objective>Create parallel task DAG for: $ARGUMENTS</objective>
+<objective>Create parallel task plan for: $ARGUMENTS</objective>
 <success>Valid JSON with tasks array, each having id, description, agent, parallel_group, dependencies, and success criteria</success>
 <must_do>
 - Maximize parallelism by grouping independent tasks
@@ -13904,7 +13551,7 @@ var COMMANDS = {
 | Agent | Role | Responsibility |
 |-------|------|----------------|
 | Commander | Orchestrator | Relentless parallel execution until mission complete |
-| ${AGENT_NAMES.ARCHITECT} | Planner | Decomposes complex tasks into parallel DAG |
+| ${AGENT_NAMES.ARCHITECT} | Planner | Decomposes complex tasks into parallel subtasks |
 | ${AGENT_NAMES.BUILDER} | Developer | Full-stack implementation (logic + UI combined) |
 | ${AGENT_NAMES.INSPECTOR} | Quality | 5-point audit + automatic bug fixing |
 | ${AGENT_NAMES.RECORDER} | Context | Persistent progress tracking across sessions |
@@ -13921,7 +13568,8 @@ THINK \u2192 ACT \u2192 OBSERVE \u2192 ADJUST \u2192 REPEAT
 - Auto-fix: Inspector repairs problems automatically
 
 ## Usage
-Use \`/task "goal"\` for full Commander mode mission execution.`
+- Just select Commander agent and type your request
+- Or use \`/task "goal"\` for explicit mission mode`
   }
 };
 function createSlashcommandTool() {
@@ -13961,19 +13609,19 @@ import { existsSync } from "fs";
 var __dirname = dirname(fileURLToPath(import.meta.url));
 function getBinaryPath() {
   const binDir = join(__dirname, "..", "..", "bin");
-  const os = platform();
+  const os2 = platform();
   const cpu = arch();
   let binaryName;
-  if (os === "win32") {
+  if (os2 === "win32") {
     binaryName = "orchestrator-windows-x64.exe";
-  } else if (os === "darwin") {
+  } else if (os2 === "darwin") {
     binaryName = cpu === "arm64" ? "orchestrator-macos-arm64" : "orchestrator-macos-x64";
   } else {
     binaryName = cpu === "arm64" ? "orchestrator-linux-arm64" : "orchestrator-linux-x64";
   }
   let binaryPath = join(binDir, binaryName);
   if (!existsSync(binaryPath)) {
-    binaryPath = join(binDir, os === "win32" ? "orchestrator.exe" : "orchestrator");
+    binaryPath = join(binDir, os2 === "win32" ? "orchestrator.exe" : "orchestrator");
   }
   return binaryPath;
 }
@@ -14600,9 +14248,24 @@ var TaskStore = class {
 };
 
 // src/core/agents/logger.ts
+import * as fs2 from "fs";
+import * as os from "os";
+import * as path2 from "path";
 var DEBUG2 = process.env.DEBUG_PARALLEL_AGENT === "true";
+var LOG_FILE = path2.join(os.tmpdir(), "opencode-orchestrator.log");
 function log2(...args) {
+  const timestamp = (/* @__PURE__ */ new Date()).toISOString();
+  const message = `[${timestamp}] [parallel-agent] ${args.map(
+    (a) => typeof a === "object" ? JSON.stringify(a) : String(a)
+  ).join(" ")}`;
+  try {
+    fs2.appendFileSync(LOG_FILE, message + "\n");
+  } catch {
+  }
   if (DEBUG2) console.log("[parallel-agent]", ...args);
+}
+function getLogPath() {
+  return LOG_FILE;
 }
 
 // src/core/agents/format.ts
@@ -14638,8 +14301,10 @@ var TaskLauncher = class {
     this.startPolling = startPolling;
   }
   async launch(input) {
+    log2("[task-launcher.ts] launch() called", { agent: input.agent, description: input.description, parent: input.parentSessionID });
     const concurrencyKey = input.agent;
     await this.concurrency.acquire(concurrencyKey);
+    log2("[task-launcher.ts] concurrency acquired for", concurrencyKey);
     try {
       const createResult = await this.client.session.create({
         body: { parentID: input.parentSessionID, title: `Parallel: ${input.description}` },
@@ -14651,6 +14316,8 @@ var TaskLauncher = class {
       }
       const sessionID = createResult.data.id;
       const taskId = `${ID_PREFIX.TASK}${crypto.randomUUID().slice(0, 8)}`;
+      const depth = (input.depth ?? 0) + 1;
+      log2("[task-launcher.ts] Creating task with depth", depth);
       const task = {
         id: taskId,
         sessionID,
@@ -14660,14 +14327,25 @@ var TaskLauncher = class {
         agent: input.agent,
         status: TASK_STATUS.RUNNING,
         startedAt: /* @__PURE__ */ new Date(),
-        concurrencyKey
+        concurrencyKey,
+        depth
       };
       this.store.set(taskId, task);
       this.store.trackPending(input.parentSessionID, taskId);
       this.startPolling();
       this.client.session.prompt({
         path: { id: sessionID },
-        body: { agent: input.agent, parts: [{ type: PART_TYPES.TEXT, text: input.prompt }] }
+        body: {
+          agent: input.agent,
+          tools: {
+            // Prevent recursive task spawning from subagents
+            delegate_task: false,
+            get_task_result: false,
+            list_tasks: false,
+            cancel_task: false
+          },
+          parts: [{ type: PART_TYPES.TEXT, text: input.prompt }]
+        }
       }).catch((error45) => {
         log2(`Prompt error for ${taskId}:`, error45);
         this.onTaskError(taskId, error45);
@@ -14746,6 +14424,7 @@ var TaskPoller = class {
   pollingInterval;
   start() {
     if (this.pollingInterval) return;
+    log2("[task-poller.ts] start() - polling started");
     this.pollingInterval = setInterval(() => this.poll(), CONFIG.POLL_INTERVAL_MS);
     this.pollingInterval.unref();
   }
@@ -14765,6 +14444,7 @@ var TaskPoller = class {
       this.stop();
       return;
     }
+    log2("[task-poller.ts] poll() checking", running.length, "running tasks");
     try {
       const statusResult = await this.client.session.status();
       const allStatuses = statusResult.data ?? {};
@@ -14804,6 +14484,7 @@ var TaskPoller = class {
     }
   }
   async completeTask(task) {
+    log2("[task-poller.ts] completeTask() called for", task.id, task.agent);
     task.status = TASK_STATUS.COMPLETED;
     task.completedAt = /* @__PURE__ */ new Date();
     if (task.concurrencyKey) {
@@ -15348,6 +15029,7 @@ var createDelegateTaskTool = (manager, client) => tool({
   async execute(args, context) {
     const { agent, description, prompt, background, resume } = args;
     const ctx = context;
+    log2("[delegate-task.ts] execute() called", { agent, description, background, resume, parentSession: ctx.sessionID });
     const sessionClient = client;
     if (background === void 0) {
       return `\u274C 'background' parameter is REQUIRED.`;
@@ -15423,7 +15105,16 @@ Session: \`${task.sessionID}\` (save for resume)`;
       const startTime = Date.now();
       await session.prompt({
         path: { id: sessionID },
-        body: { agent, parts: [{ type: PART_TYPES.TEXT, text: prompt }] }
+        body: {
+          agent,
+          tools: {
+            delegate_task: false,
+            get_task_result: false,
+            list_tasks: false,
+            cancel_task: false
+          },
+          parts: [{ type: PART_TYPES.TEXT, text: prompt }]
+        }
       });
       let stablePolls = 0, lastMsgCount = 0;
       while (Date.now() - startTime < 10 * 60 * 1e3) {
@@ -15677,15 +15368,15 @@ var METADATA_FILE = ".cache/docs/_metadata.json";
 var DEFAULT_TTL_MS = 24 * 60 * 60 * 1e3;
 
 // src/core/cache/operations.ts
-import * as fs3 from "node:fs/promises";
-import * as path2 from "node:path";
+import * as fs4 from "node:fs/promises";
+import * as path3 from "node:path";
 
 // src/core/cache/utils.ts
-import * as fs2 from "node:fs/promises";
+import * as fs3 from "node:fs/promises";
 import { existsSync as existsSync3 } from "node:fs";
 async function ensureCacheDir() {
   if (!existsSync3(CACHE_DIR)) {
-    await fs2.mkdir(CACHE_DIR, { recursive: true });
+    await fs3.mkdir(CACHE_DIR, { recursive: true });
   }
 }
 function urlToFilename(url2) {
@@ -15700,7 +15391,7 @@ function urlToFilename(url2) {
 }
 async function readMetadata() {
   try {
-    const content = await fs2.readFile(METADATA_FILE, "utf-8");
+    const content = await fs3.readFile(METADATA_FILE, "utf-8");
     return JSON.parse(content);
   } catch {
     return { documents: {}, lastUpdated: (/* @__PURE__ */ new Date()).toISOString() };
@@ -15709,7 +15400,7 @@ async function readMetadata() {
 async function writeMetadata(metadata) {
   await ensureCacheDir();
   metadata.lastUpdated = (/* @__PURE__ */ new Date()).toISOString();
-  await fs2.writeFile(METADATA_FILE, JSON.stringify(metadata, null, 2));
+  await fs3.writeFile(METADATA_FILE, JSON.stringify(metadata, null, 2));
 }
 
 // src/core/cache/operations.ts
@@ -15723,8 +15414,8 @@ async function get(url2) {
     return null;
   }
   try {
-    const filepath = path2.join(CACHE_DIR, filename);
-    const content = await fs3.readFile(filepath, "utf-8");
+    const filepath = path3.join(CACHE_DIR, filename);
+    const content = await fs4.readFile(filepath, "utf-8");
     return { ...entry, content };
   } catch {
     return null;
@@ -15735,8 +15426,8 @@ async function getByFilename(filename) {
   const entry = metadata.documents[filename];
   if (!entry) return null;
   try {
-    const filepath = path2.join(CACHE_DIR, filename);
-    const content = await fs3.readFile(filepath, "utf-8");
+    const filepath = path3.join(CACHE_DIR, filename);
+    const content = await fs4.readFile(filepath, "utf-8");
     return { ...entry, content };
   } catch {
     return null;
@@ -15745,7 +15436,7 @@ async function getByFilename(filename) {
 async function set2(url2, content, title, ttlMs = DEFAULT_TTL_MS) {
   await ensureCacheDir();
   const filename = urlToFilename(url2);
-  const filepath = path2.join(CACHE_DIR, filename);
+  const filepath = path3.join(CACHE_DIR, filename);
   const now = /* @__PURE__ */ new Date();
   const header = `# ${title}
 
@@ -15756,7 +15447,7 @@ async function set2(url2, content, title, ttlMs = DEFAULT_TTL_MS) {
 
 `;
   const fullContent = header + content;
-  await fs3.writeFile(filepath, fullContent);
+  await fs4.writeFile(filepath, fullContent);
   const metadata = await readMetadata();
   metadata.documents[filename] = {
     url: url2,
@@ -15770,9 +15461,9 @@ async function set2(url2, content, title, ttlMs = DEFAULT_TTL_MS) {
 }
 async function remove(url2) {
   const filename = urlToFilename(url2);
-  const filepath = path2.join(CACHE_DIR, filename);
+  const filepath = path3.join(CACHE_DIR, filename);
   try {
-    await fs3.unlink(filepath);
+    await fs4.unlink(filepath);
     const metadata = await readMetadata();
     delete metadata.documents[filename];
     await writeMetadata(metadata);
@@ -15794,9 +15485,9 @@ async function clear() {
   const metadata = await readMetadata();
   const count = Object.keys(metadata.documents).length;
   for (const filename of Object.keys(metadata.documents)) {
-    const filepath = path2.join(CACHE_DIR, filename);
+    const filepath = path3.join(CACHE_DIR, filename);
     try {
-      await fs3.unlink(filepath);
+      await fs4.unlink(filepath);
     } catch {
     }
   }
@@ -16686,11 +16377,14 @@ Then output: \u2705 MISSION COMPLETE
 var OrchestratorPlugin = async (input) => {
   const { directory, client } = input;
   console.log(`[orchestrator] v${PLUGIN_VERSION} loaded`);
+  console.log(`[orchestrator] Log file: ${getLogPath()}`);
+  log2("[index.ts] Plugin initialized", { version: PLUGIN_VERSION, directory });
   const disableAutoToasts = enableAutoToasts();
-  console.log(`[orchestrator] Toast notifications enabled`);
+  log2("[index.ts] Toast notifications enabled");
   const sessions = /* @__PURE__ */ new Map();
   const parallelAgentManager2 = ParallelAgentManager.getInstance(client, directory);
   const asyncAgentTools = createAsyncAgentTools(parallelAgentManager2, client);
+  log2("[index.ts] ParallelAgentManager initialized");
   return {
     // -----------------------------------------------------------------
     // Tools we expose to the LLM
@@ -16729,35 +16423,85 @@ var OrchestratorPlugin = async (input) => {
           argumentHint: cmd.argumentHint
         };
       }
+      const commanderPrompt = AGENTS[AGENT_NAMES.COMMANDER]?.systemPrompt || "";
+      console.log(`[orchestrator] Commander prompt length: ${commanderPrompt.length} chars`);
       const orchestratorAgents = {
+        // Primary agent - the main orchestrator
         [AGENT_NAMES.COMMANDER]: {
-          name: AGENT_NAMES.COMMANDER,
           description: "Autonomous orchestrator - executes until mission complete",
           mode: "primary",
-          prompt: AGENTS[AGENT_NAMES.COMMANDER].systemPrompt,
+          prompt: commanderPrompt,
           maxTokens: 64e3,
           thinking: { type: "enabled", budgetTokens: 32e3 },
           color: "#FF6B6B"
         },
+        // Subagents - invoked by Commander via Task tool
+        [AGENT_NAMES.ARCHITECT]: {
+          description: "Task decomposition and planning specialist",
+          mode: "subagent",
+          hidden: true,
+          // Only invoked programmatically
+          prompt: AGENTS[AGENT_NAMES.ARCHITECT]?.systemPrompt || "",
+          maxTokens: 32e3,
+          color: "#9B59B6"
+        },
+        [AGENT_NAMES.BUILDER]: {
+          description: "Full-stack code implementation",
+          mode: "subagent",
+          hidden: true,
+          prompt: AGENTS[AGENT_NAMES.BUILDER]?.systemPrompt || "",
+          maxTokens: 32e3,
+          color: "#E67E22"
+        },
+        [AGENT_NAMES.INSPECTOR]: {
+          description: "Quality verification and bug fixing",
+          mode: "subagent",
+          hidden: true,
+          prompt: AGENTS[AGENT_NAMES.INSPECTOR]?.systemPrompt || "",
+          maxTokens: 32e3,
+          color: "#27AE60"
+        },
+        [AGENT_NAMES.RECORDER]: {
+          description: "Persistent progress tracking across sessions",
+          mode: "subagent",
+          hidden: true,
+          prompt: AGENTS[AGENT_NAMES.RECORDER]?.systemPrompt || "",
+          maxTokens: 16e3,
+          color: "#3498DB"
+        },
         [AGENT_NAMES.LIBRARIAN]: {
-          name: AGENT_NAMES.LIBRARIAN,
           description: "Documentation research specialist - reduces hallucination",
           mode: "subagent",
+          hidden: true,
           prompt: AGENTS[AGENT_NAMES.LIBRARIAN]?.systemPrompt || "",
           maxTokens: 16e3,
           color: "#4ECDC4"
         },
         [AGENT_NAMES.RESEARCHER]: {
-          name: AGENT_NAMES.RESEARCHER,
           description: "Pre-task investigation - gathers all info before implementation",
           mode: "subagent",
+          hidden: true,
           prompt: AGENTS[AGENT_NAMES.RESEARCHER]?.systemPrompt || "",
           maxTokens: 16e3,
           color: "#45B7D1"
         }
       };
+      const processedExistingAgents = { ...existingAgents };
+      if (processedExistingAgents.build) {
+        processedExistingAgents.build = {
+          ...processedExistingAgents.build,
+          mode: "subagent",
+          hidden: true
+        };
+      }
+      if (processedExistingAgents.plan) {
+        processedExistingAgents.plan = {
+          ...processedExistingAgents.plan,
+          mode: "subagent"
+        };
+      }
       config2.command = { ...existingCommands, ...orchestratorCommands };
-      config2.agent = { ...existingAgents, ...orchestratorAgents };
+      config2.agent = { ...processedExistingAgents, ...orchestratorAgents };
       config2.default_agent = AGENT_NAMES.COMMANDER;
       console.log(`[orchestrator] Registered agents: ${Object.keys(orchestratorAgents).join(", ")}`);
       console.log(`[orchestrator] Default agent: ${AGENT_NAMES.COMMANDER}`);
@@ -16850,7 +16594,6 @@ Anomaly count: ${stateSession.anomalyCount}
         const taskIdMatch = toolInput.arguments.task.match(/\[(TASK-\d+)\]/i);
         if (taskIdMatch) {
           stateSession.currentTask = taskIdMatch[1].toUpperCase();
-          stateSession.graph?.updateTask(stateSession.currentTask, { status: TASK_STATUS.RUNNING });
         }
         const agentName = toolInput.arguments.agent;
         const emoji3 = AGENT_EMOJI[agentName] || "\u{1F916}";
@@ -16863,41 +16606,21 @@ Anomaly count: ${stateSession.anomalyCount}
         state.missionActive = false;
         return;
       }
-      if (toolOutput.output.includes("[") && toolOutput.output.includes("{") && toolInput.tool === TOOL_NAMES.CALL_AGENT && stateSession) {
-        const jsonMatch = toolOutput.output.match(/```json\n([\s\S]*?)\n```/) || toolOutput.output.match(/\[\s*\{[\s\S]*?\}\s*\]/);
-        if (jsonMatch) {
-          try {
-            const tasks = JSON.parse(jsonMatch[1] || jsonMatch[0]);
-            if (Array.isArray(tasks) && tasks.length > 0) {
-              stateSession.graph = new TaskGraph(tasks);
-              toolOutput.output += `
-
-\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501
-\u2705 INITIALIZED
-${stateSession.graph.getTaskSummary()}`;
-            }
-          } catch {
-          }
-        }
-      }
-      if (stateSession?.graph) {
+      if (stateSession) {
         const taskId = stateSession.currentTask;
         if (toolOutput.output.includes("\u2705 PASS") || toolOutput.output.includes("AUDIT RESULT: PASS")) {
           if (taskId) {
-            stateSession.graph.updateTask(taskId, { status: TASK_STATUS.COMPLETED });
             stateSession.taskRetries.clear();
             toolOutput.output += `
 
 \u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501
-\u2705 ${taskId} VERIFIED
-${stateSession.graph.getTaskSummary()}`;
+\u2705 ${taskId} VERIFIED`;
           }
         } else if (toolOutput.output.includes("\u274C FAIL") || toolOutput.output.includes("AUDIT RESULT: FAIL")) {
           if (taskId) {
             const retries = (stateSession.taskRetries.get(taskId) || 0) + 1;
             stateSession.taskRetries.set(taskId, retries);
             if (retries >= state.maxRetries) {
-              stateSession.graph.updateTask(taskId, { status: TASK_STATUS.FAILED });
               toolOutput.output += `
 
 \u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501
@@ -16909,11 +16632,6 @@ ${stateSession.graph.getTaskSummary()}`;
 \u{1F504} RETRY ${retries}/${state.maxRetries}`;
             }
           }
-        }
-        const readyTasks = stateSession.graph.getReadyTasks();
-        if (readyTasks.length > 0) {
-          toolOutput.output += `
-\u{1F449} NEXT: ${readyTasks.map((t) => `[${t.id}]`).join(", ")}`;
         }
       }
       const currentTime = formatTimestamp();
