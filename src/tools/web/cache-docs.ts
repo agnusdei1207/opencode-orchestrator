@@ -6,46 +6,52 @@
 
 import { tool } from "@opencode-ai/plugin";
 import * as DocumentCache from "../../core/cache/document-cache.js";
+import { CACHE_ACTIONS } from "../../shared/constants.js";
 
 export const cacheDocsTool = tool({
     description: `Manage cached documentation.
 
 <usage>
-- list: Show all cached documents
-- get: Retrieve a specific cached document
-- clear: Clear all cached documents
-- stats: Show cache statistics
+- ${CACHE_ACTIONS.LIST}: Show all cached documents
+- ${CACHE_ACTIONS.GET}: Retrieve a specific cached document
+- ${CACHE_ACTIONS.CLEAR}: Clear all cached documents
+- ${CACHE_ACTIONS.STATS}: Show cache statistics
 </usage>
 
 <examples>
-cache_docs({ action: "list" })
-cache_docs({ action: "get", filename: "nextjs_app-router.md" })
-cache_docs({ action: "stats" })
-cache_docs({ action: "clear" })
+cache_docs({ action: "${CACHE_ACTIONS.LIST}" })
+cache_docs({ action: "${CACHE_ACTIONS.GET}", filename: "nextjs_app-router.md" })
+cache_docs({ action: "${CACHE_ACTIONS.STATS}" })
+cache_docs({ action: "${CACHE_ACTIONS.CLEAR}" })
 </examples>`,
     args: {
-        action: tool.schema.enum(["list", "get", "clear", "stats"]).describe("Action to perform"),
+        action: tool.schema.enum([
+            CACHE_ACTIONS.LIST,
+            CACHE_ACTIONS.GET,
+            CACHE_ACTIONS.CLEAR,
+            CACHE_ACTIONS.STATS
+        ]).describe("Action to perform"),
         filename: tool.schema.string().optional().describe("Filename for 'get' action"),
     },
     async execute(args) {
         const { action, filename } = args;
 
         switch (action) {
-            case "list": {
+            case CACHE_ACTIONS.LIST: {
                 const docs = await DocumentCache.list();
 
                 if (docs.length === 0) {
-                    return "📚 **Document Cache**: Empty\n\nNo documents cached yet. Use `webfetch` with `cache: true` to cache documents.";
+                    return `Document Cache: Empty\n\nNo documents cached yet. Use webfetch with cache: true to cache documents.`;
                 }
 
-                let output = `📚 **Document Cache** (${docs.length} documents)\n\n`;
+                let output = `Document Cache (${docs.length} documents)\n\n`;
 
                 for (const doc of docs) {
-                    const status = doc.expired ? "⚠️ EXPIRED" : "✅";
+                    const status = doc.expired ? "EXPIRED" : "OK";
                     const size = doc.size > 1024
                         ? `${(doc.size / 1024).toFixed(1)}KB`
                         : `${doc.size}B`;
-                    output += `${status} **${doc.filename}** (${size})\n`;
+                    output += `[${status}] ${doc.filename} (${size})\n`;
                     output += `   Source: ${doc.url}\n`;
                     output += `   Cached: ${new Date(doc.fetchedAt).toLocaleString()}\n\n`;
                 }
@@ -53,30 +59,30 @@ cache_docs({ action: "clear" })
                 return output;
             }
 
-            case "get": {
+            case CACHE_ACTIONS.GET: {
                 if (!filename) {
-                    return "❌ Please specify `filename` to retrieve";
+                    return `Error: Please specify filename to retrieve`;
                 }
 
                 const doc = await DocumentCache.getByFilename(filename);
 
                 if (!doc) {
-                    return `❌ Document not found: ${filename}\n\nUse \`cache_docs({ action: "list" })\` to see available documents.`;
+                    return `Document not found: ${filename}\n\nUse cache_docs({ action: "${CACHE_ACTIONS.LIST}" }) to see available documents.`;
                 }
 
-                return `📚 **${doc.title}**\nSource: ${doc.url}\nCached: ${doc.fetchedAt}\n\n---\n\n${doc.content}`;
+                return `${doc.title}\nSource: ${doc.url}\nCached: ${doc.fetchedAt}\n\n---\n\n${doc.content}`;
             }
 
-            case "clear": {
+            case CACHE_ACTIONS.CLEAR: {
                 const count = await DocumentCache.clear();
-                return `🗑️ Cleared ${count} cached documents`;
+                return `Cleared ${count} cached documents`;
             }
 
-            case "stats": {
+            case CACHE_ACTIONS.STATS: {
                 const stats = await DocumentCache.stats();
 
                 if (stats.totalDocuments === 0) {
-                    return "📊 **Cache Statistics**\n\nCache is empty.";
+                    return `Cache Statistics\n\nCache is empty.`;
                 }
 
                 const sizeStr = stats.totalSize > 1024 * 1024
@@ -85,7 +91,7 @@ cache_docs({ action: "clear" })
                         ? `${(stats.totalSize / 1024).toFixed(1)}KB`
                         : `${stats.totalSize}B`;
 
-                return `📊 **Cache Statistics**
+                return `Cache Statistics
 
 - Total Documents: ${stats.totalDocuments}
 - Total Size: ${sizeStr}
@@ -95,7 +101,7 @@ cache_docs({ action: "clear" })
             }
 
             default:
-                return `❌ Unknown action: ${action}`;
+                return `Unknown action: ${action}`;
         }
     },
 });

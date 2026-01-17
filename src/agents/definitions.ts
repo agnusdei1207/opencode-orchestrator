@@ -10,9 +10,9 @@
 
 import { AgentDefinition, AGENT_NAMES } from "../shared/agent.js";
 import { commander } from "./commander.js";
-import { planner } from "./consolidated/planner.js";
-import { worker } from "./consolidated/worker.js";
-import { reviewer } from "./consolidated/reviewer.js";
+import { planner } from "./subagents/planner.js";
+import { worker } from "./subagents/worker.js";
+import { reviewer } from "./subagents/reviewer.js";
 
 export const AGENTS: Record<string, AgentDefinition> = {
   [AGENT_NAMES.COMMANDER]: commander,

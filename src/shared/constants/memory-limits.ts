@@ -1,0 +1,15 @@
+/**
+ * Memory Limits
+ */
+
+import { TIME } from "./time.js";
+
+export const MEMORY_LIMITS = {
+    MAX_TASKS_IN_MEMORY: 1000,
+    MAX_NOTIFICATIONS_PER_PARENT: 100,
+    MAX_EVENT_HISTORY: 100,
+    MAX_TOAST_HISTORY: 50,
+    MAX_PROGRESS_HISTORY_PER_SESSION: 100,
+    ARCHIVE_AGE_MS: 30 * TIME.MINUTE,
+    ERROR_CLEANUP_AGE_MS: 10 * TIME.MINUTE,
+} as const;
