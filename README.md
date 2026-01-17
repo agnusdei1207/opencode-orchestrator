@@ -105,9 +105,16 @@ A multi-agent system that **autonomously executes complex tasks** from start to 
 **Stop anytime:** `/stop` or `/cancel`
 
 <div align="center">
+  <p><strong>TUI</strong></p>
   <img src="assets/tui_image.png" alt="Commander TUI" width="600" />
 </div>
 
+<br />
+
+<div align="center">
+  <p><strong>Window</strong></p>
+  <img src="assets/window_image.png" alt="Commander Window" width="600" />
+</div>
 ---
 
 ## 🤖 The 4 Agents
