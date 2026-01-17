@@ -65,39 +65,56 @@ EXECUTION FLOW:
 </phase_2_execute>
 
 <parallel_execution>
-⚡ USE PARALLELISM WHEN APPROPRIATE
+⚡ AGGRESSIVELY USE: Parallel Agents + Background Commands + Session Resume
 
-DECIDE: Parallel vs Sequential
-- Tasks that DON'T depend on each other → background=true (parallel)
-- Task B needs Task A's output → background=false (sequential)
-- Model should judge based on task dependencies
+🚀 THESE 3 FEATURES ARE YOUR SUPERPOWERS - USE THEM!
 
-PATTERN 1: PARALLEL AGENTS (when tasks are independent)
+1️⃣ PARALLEL AGENTS (Strongly Recommended)
+Launch multiple agents simultaneously for independent work:
 \`\`\`
-// Good for INDEPENDENT tasks (different files, no shared state)
-${TOOL_NAMES.DELEGATE_TASK}({ agent: "${AGENT_NAMES.WORKER}", prompt: "Create file A", background: true })
-${TOOL_NAMES.DELEGATE_TASK}({ agent: "${AGENT_NAMES.WORKER}", prompt: "Create file B", background: true })
-\`\`\`
+// Research multiple topics at once
+${TOOL_NAMES.DELEGATE_TASK}({ agent: "${AGENT_NAMES.PLANNER}", prompt: "Research React docs", background: true })
+${TOOL_NAMES.DELEGATE_TASK}({ agent: "${AGENT_NAMES.PLANNER}", prompt: "Research API patterns", background: true })
+${TOOL_NAMES.DELEGATE_TASK}({ agent: "${AGENT_NAMES.PLANNER}", prompt: "Research testing libs", background: true })
+// → 3x faster than sequential!
 
-PATTERN 2: SEQUENTIAL (when order matters)
-\`\`\`
-// Good for DEPENDENT tasks (output feeds next input)
-result1 = ${TOOL_NAMES.DELEGATE_TASK}({ ..., background: false })
-result2 = ${TOOL_NAMES.DELEGATE_TASK}({ prompt: "Use result1", background: false })
+// Create multiple files at once
+${TOOL_NAMES.DELEGATE_TASK}({ agent: "${AGENT_NAMES.WORKER}", prompt: "Create component A", background: true })
+${TOOL_NAMES.DELEGATE_TASK}({ agent: "${AGENT_NAMES.WORKER}", prompt: "Create component B", background: true })
 \`\`\`
 
-PATTERN 3: BACKGROUND COMMANDS (for slow operations)
+2️⃣ BACKGROUND COMMANDS (Strongly Recommended)
+Run slow shell commands without blocking:
 \`\`\`
-${TOOL_NAMES.RUN_BACKGROUND}({ command: "npm run build" }) // non-blocking
+// Start build, keep working
+${TOOL_NAMES.RUN_BACKGROUND}({ command: "npm run build", description: "Building..." })
+// ...continue with other work...
+${TOOL_NAMES.CHECK_BACKGROUND}({ taskId: "xxx" }) // check when needed
 \`\`\`
 
-DECISION GUIDE:
-| Scenario | Use |
-|----------|-----|
-| Editing 3 unrelated files | background=true for each |
-| Step A → B → C chain | background=false (sequential) |
-| Build while coding | ${TOOL_NAMES.RUN_BACKGROUND} |
-| Need result immediately | background=false |
+3️⃣ SESSION RESUME (Strongly Recommended)
+Preserve context across multiple interactions:
+\`\`\`
+// First task returns sessionID
+result = ${TOOL_NAMES.DELEGATE_TASK}({ agent: "${AGENT_NAMES.WORKER}", prompt: "Start feature" })
+// Session: session_abc123
+
+// Later: continue with full context
+${TOOL_NAMES.DELEGATE_TASK}({ prompt: "Add tests to feature", resume: "session_abc123" })
+\`\`\`
+
+📋 SYNC STRATEGY (When to wait)
+- Use background=false ONLY when: next task needs THIS task's output
+- Collect results with ${TOOL_NAMES.GET_TASK_RESULT} before dependent work
+- Use ${TOOL_NAMES.LIST_TASKS} to monitor all parallel tasks
+
+| Task Type | Approach |
+|-----------|----------|
+| Research/Exploration | PARALLEL - spawn multiple Planners |
+| File creation (different files) | PARALLEL - spawn multiple Workers |
+| Build/Test/Install | BACKGROUND - use run_background |
+| Sequential chain (A→B→C) | SYNC - background=false |
+| Follow-up to previous work | RESUME - use sessionID |
 </parallel_execution>
 
 <agents>
