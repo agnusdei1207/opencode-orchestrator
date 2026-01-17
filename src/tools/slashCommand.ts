@@ -362,31 +362,43 @@ export const COMMANDS: Record<string, { description: string; template: string; a
     argumentHint: '"complex task to plan"',
   },
   "agents": {
-    description: "Show the 5-agent architecture",
-    template: `## 5-Agent Structured Architecture
+    description: "Show the 7-agent architecture",
+    template: `## 🎯 OpenCode Orchestrator - 7-Agent Architecture
 
-| Agent | Role | Responsibility |
-|-------|------|----------------|
-| Commander | Orchestrator | Relentless parallel execution until mission complete |
-| ${AGENT_NAMES.ARCHITECT} | Planner | Decomposes complex tasks into parallel subtasks |
-| ${AGENT_NAMES.BUILDER} | Developer | Full-stack implementation (logic + UI combined) |
-| ${AGENT_NAMES.INSPECTOR} | Quality | 5-point audit + automatic bug fixing |
-| ${AGENT_NAMES.RECORDER} | Context | Persistent progress tracking across sessions |
+| Agent | Role | Capabilities |
+|-------|------|--------------|
+| **Commander** 🎯 | Orchestrator | Autonomous mission control, parallel task coordination, never stops until ✅ MISSION COMPLETE |
+| **Architect** 🏗️ | Strategic Planner | Task decomposition, dependency analysis, parallel group optimization |
+| **Builder** 🔨 | Full-Stack Developer | Code implementation, file operations, terminal commands, UI + logic |
+| **Inspector** 🔍 | Quality Assurance | 5-point audit, LSP diagnostics, auto-fix bugs, test verification |
+| **Recorder** 💾 | Context Manager | Progress tracking, state persistence, session memory across restarts |
+| **Librarian** 📚 | Research Specialist | API documentation lookup, anti-hallucination, cache official docs |
+| **Researcher** 🔬 | Pre-task Analyst | Deep investigation before implementation, gathers all needed info |
 
-## Reasoning Pattern
+## ⚡ Parallel Execution System
 \`\`\`
-THINK → ACT → OBSERVE → ADJUST → REPEAT
+Up to 50 agents running simultaneously
+Max 10 per agent type (auto-queues excess)
+Auto-timeout: 60 min | Auto-cleanup: 30 min
 \`\`\`
 
-## Key Behaviors
-- Parallel execution: Tasks with same parallel_group run concurrently
-- Evidence-based: No task is complete without proof
-- Relentless: Never stops until MISSION COMPLETE
-- Auto-fix: Inspector repairs problems automatically
+## 🔄 Execution Flow
+\`\`\`
+TRIAGE → RESEARCH → DELEGATE → EXECUTE → VERIFY → COMPLETE
+   L1: Fast Track (simple fixes)
+   L2: Normal Track (features)
+   L3: Deep Track (complex refactoring)
+\`\`\`
 
-## Usage
-- Just select Commander agent and type your request
-- Or use \`/task "goal"\` for explicit mission mode`,
+## 🛡️ Anti-Hallucination
+- Librarian researches BEFORE implementation
+- webfetch caches official documentation
+- Never assumes - always verifies from sources
+
+## 💡 Usage
+- Select **Commander** and type your request
+- Or use \`/task "your mission"\` explicitly
+- Commander automatically coordinates all agents`,
   },
 };
 
