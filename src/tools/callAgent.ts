@@ -8,25 +8,22 @@ export const callAgentTool = tool({
 <agents>
 | Agent | Role | When to Use |
 |-------|------|-------------|
-| ${AGENT_NAMES.ARCHITECT} 🏗️ | Planner | Complex task → plan, OR 3+ failures → strategy |
-| ${AGENT_NAMES.BUILDER} 🔨 | Developer | Any code implementation (logic + UI) |
-| ${AGENT_NAMES.INSPECTOR} 🔍 | Quality | Before completion, OR on errors (auto-fixes) |
-| ${AGENT_NAMES.RECORDER} 💾 | Context | After each task, OR at session start |
+| ${AGENT_NAMES.PLANNER} 📋 | Planner + Researcher | Complex task → plan, OR need research first |
+| ${AGENT_NAMES.WORKER} 🔨 | Developer + Docs | Any code implementation, documentation |
+| ${AGENT_NAMES.REVIEWER} ✅ | Verifier + Context | Before completion, verify, update TODO |
 </agents>
 
 <execution_rules>
 1. Tasks with same parallel_group run CONCURRENTLY
-2. Always call Inspector before marking complete
-3. Always call Recorder after each task
-4. Never stop until mission is 100% complete
+2. Always call Reviewer before marking complete
+3. Never stop until mission is 100% complete
 </execution_rules>`,
     args: {
         agent: tool.schema
             .enum([
-                AGENT_NAMES.ARCHITECT,
-                AGENT_NAMES.BUILDER,
-                AGENT_NAMES.INSPECTOR,
-                AGENT_NAMES.RECORDER,
+                AGENT_NAMES.PLANNER,
+                AGENT_NAMES.WORKER,
+                AGENT_NAMES.REVIEWER,
             ])
             .describe("Agent to call"),
         task: tool.schema.string().describe("Atomic task description"),

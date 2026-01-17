@@ -8,6 +8,7 @@ import { ConcurrencyController } from "../concurrency.js";
 import { TaskStore } from "../task-store.js";
 import { log } from "../logger.js";
 import { presets } from "../../notification/presets.js";
+import { getTaskToastManager } from "../../notification/task-toast-manager.js";
 import type { ParallelTask } from "../interfaces/parallel-task.interface.js";
 import type { LaunchInput } from "../interfaces/launch-input.interface.js";
 
@@ -84,7 +85,20 @@ export class TaskLauncher {
                 this.onTaskError(taskId, error);
             });
 
-            // Show UI notification
+            // Show consolidated task list toast (TaskToastManager)
+            const toastManager = getTaskToastManager();
+            if (toastManager) {
+                toastManager.addTask({
+                    id: taskId,
+                    description: input.description,
+                    agent: input.agent,
+                    isBackground: true,
+                    parentSessionID: input.parentSessionID,
+                    sessionID,
+                });
+            }
+
+            // Also show simple notification (legacy)
             presets.sessionCreated(sessionID, input.agent);
 
             log(`Launched ${taskId} in session ${sessionID}`);

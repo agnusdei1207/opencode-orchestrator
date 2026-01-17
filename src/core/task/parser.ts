@@ -1,12 +1,12 @@
 /**
- * Task Parser - Parse hierarchy from Architect output
+ * Task Parser - Parse hierarchy from Planner output
  */
 
 import type { TaskHierarchy } from "./interfaces.js";
 import { create, addTask, getHierarchy } from "./store.js";
 
 /**
- * Parse task hierarchy from text (Architect output)
+ * Parse task hierarchy from text (Planner output)
  */
 export function parseFromText(sessionId: string, text: string): TaskHierarchy {
     const hierarchy = create(sessionId, "Parsed Task Hierarchy");
