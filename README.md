@@ -2,28 +2,27 @@
   <img src="assets/logo.png" alt="Logo" width="200" />
 </div>
 
-# OpenCode Orchestrator 🎯
+# OpenCode Orchestrator
 
-> **Enterprise-Grade Autonomous Multi-Agent Plugin for [OpenCode](https://opencode.ai)**
+> Autonomous multi-agent plugin for [OpenCode](https://opencode.ai)
 
 [![MIT License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![npm](https://img.shields.io/npm/v/opencode-orchestrator.svg)](https://www.npmjs.com/package/opencode-orchestrator)
-[![Tests](https://img.shields.io/badge/tests-211%20passed-brightgreen.svg)]()
+[![Tests](https://img.shields.io/badge/tests-167%20passed-brightgreen.svg)]()
 
 ---
 
-## 🚀 What's New in v0.6.0
+## Overview
 
-**Ultimate Agent Architecture** - Production-ready distributed agent orchestration!
+Multi-agent system that autonomously executes complex tasks. Commander delegates work to specialized agents, manages parallel execution, and maintains shared context.
 
-| Feature | Description |
-|---------|-------------|
-| **♾️ Unlimited Mode** | No step limits - runs until mission complete |
-| **🧠 Anti-Hallucination** | Research before coding, verify with docs |
-| **⚡ 50x Parallel Sessions** | Massive concurrent task execution |
-| **📊 Auto Memory Management** | GC, archiving, zero memory leaks |
-| **🔄 Auto Recovery** | Handles rate limits, errors automatically |
-| **📁 Smart Context (.opencode/)** | Dynamic summarization, adaptive detail |
+| Capability | Detail |
+|------------|--------|
+| **Agents** | 7 specialized (Architect, Builder, Inspector, Recorder, Librarian, Researcher) |
+| **Parallel Sessions** | Up to 50 concurrent |
+| **Context Management** | `.opencode/` with adaptive summarization |
+| **Memory Safety** | Auto GC, disk archiving |
+| **Error Handling** | Pattern-based auto recovery |
 
 ---
 
@@ -89,21 +88,6 @@
 │    .opencode/archive/   - Old context for reference                         │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
-
----
-
-
-
-## 🎯 Key Differentiators
-
-| Capability | OpenCode Orchestrator | Basic Plugins |
-|------------|----------------------|---------------|
-| **Parallel Sessions** | Up to 50 concurrent | Single session |
-| **Memory Management** | Auto GC + disk archiving | Memory leaks |
-| **Error Recovery** | Pattern-based auto retry | Crash |
-| **Context Sharing** | .opencode/ with smart summarization | Isolated |
-| **Smart Context** | Adaptive detail (Early/Building/Finishing) | Static |
-| **Task Decomposition** | 3-level hierarchy | Flat |
 
 ---
 
