@@ -23,7 +23,7 @@
 | **⚡ 50x Parallel Sessions** | Massive concurrent task execution |
 | **📊 Auto Memory Management** | GC, archiving, zero memory leaks |
 | **🔄 Auto Recovery** | Handles rate limits, errors automatically |
-| **📡 Event-Driven** | Real-time pub/sub across all components |
+| **📁 Smart Context (.opencode/)** | Dynamic summarization, adaptive detail |
 
 ---
 
@@ -81,9 +81,12 @@
                                      │
                                      ▼
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│                           📡 EVENT BUS                                      │
+│                       📁 SMART CONTEXT (.opencode/)                         │
 │                                                                             │
-│    task.started | task.completed | task.failed | session.idle               │
+│    .opencode/todo.md    - Master TODO list (Recorder manages)               │
+│    .opencode/context.md - Adaptive size based on project phase              │
+│    .opencode/docs/      - Cached documentation (auto-cleanup)               │
+│    .opencode/archive/   - Old context for reference                         │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -98,8 +101,8 @@
 | **Parallel Sessions** | Up to 50 concurrent | Single session |
 | **Memory Management** | Auto GC + disk archiving | Memory leaks |
 | **Error Recovery** | Pattern-based auto retry | Crash |
-| **Context Sharing** | Parent-child merge | Isolated |
-| **Event System** | Real-time pub/sub | None |
+| **Context Sharing** | .opencode/ with smart summarization | Isolated |
+| **Smart Context** | Adaptive detail (Early/Building/Finishing) | Static |
 | **Task Decomposition** | 3-level hierarchy | Flat |
 
 ---

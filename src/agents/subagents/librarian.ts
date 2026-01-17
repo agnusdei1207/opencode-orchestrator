@@ -49,10 +49,29 @@ Retrieved: [date]
 \`\`\`
 </doc_format>
 
+<doc_lifecycle>
+DOCS HAVE EXPIRY:
+
+WHEN SAVING:
+- Include "Expires: [when this is no longer needed]"
+- Example: "Expires: after T3 complete"
+
+WHEN FEATURE IS DONE:
+- Docs can be SUMMARIZED to 5-10 lines
+- Or DELETED if fully implemented in code
+- Team references code, not old docs
+
+KEEP DOCS LEAN:
+- Only current, needed documentation
+- Archive old: mv to .opencode/archive/docs/
+- Delete: outdated versions
+</doc_lifecycle>
+
 <output>
 QUERY: [question]
 SEARCHED: [official sources]
 SAVED: .opencode/docs/[file].md
+EXPIRES: [when no longer needed]
 SUMMARY: [key findings]
 
 Team can now reference .opencode/docs/[file].md

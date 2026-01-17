@@ -12,14 +12,14 @@
 
 | Caller | Calls | When | Purpose |
 |--------|-------|------|---------|
-| `index.ts` | `Toast.enableAutoToasts()` | Plugin init | Subscribe to all events |
+| `index.ts` | `Toast.initToastClient()` | Plugin init | Initialize toast |
 | `index.ts` | `ParallelAgentManager.getInstance()` | Plugin init | Initialize manager |
 | `index.ts` | `ProgressTracker.startSession()` | Session start | Begin tracking |
 | `index.ts` | `ProgressTracker.recordSnapshot()` | Each loop step | Record progress |
 | `index.ts` | `ProgressTracker.clearSession()` | Session end | Cleanup |
-| `index.ts` | `emit(TASK_EVENTS.STARTED)` | Session start | Notify subscribers |
-| `index.ts` | `emit(MISSION_EVENTS.COMPLETE)` | Mission done | Notify subscribers |
-| `index.ts` | `emit(TASK_EVENTS.FAILED)` | Cancelled | Notify subscribers |
+| `index.ts` | `Toast.presets.taskStarted()` | Session start | Show notification |
+| `index.ts` | `Toast.presets.missionComplete()` | Mission done | Show notification |
+| `index.ts` | `Toast.presets.taskFailed()` | Cancelled | Show notification |
 | `index.ts` (handler) | `ParallelAgentManager.handleEvent()` | Any event | Resource cleanup |
 | `TaskLauncher` | `ConcurrencyController.acquire()` | Task start | Get slot |
 | `TaskLauncher` | `TaskStore.set()` | Task start | Store task |
@@ -30,7 +30,6 @@
 | `EventHandler` | `TaskStore.delete()` | session.deleted | Remove task |
 | `TaskCleaner` | `TaskStore.gc()` | Prune | Archive old tasks |
 | `TaskStore` | `archiveTasks()` | gc() | Write to disk |
-| `Toast.enableAutoToasts()` | `EventBus.subscribe()` | Init | Listen for events |
 
 ### Agent-Callable Tools (Used in Prompts)
 
@@ -50,15 +49,20 @@
 | `glob_search` | All agents | Find files | Node fs |
 | `call_agent` | Commander | Sync agent call | Direct session |
 
-### EventBus Subscribers (Auto-Triggered)
+### Smart Context (.opencode/) Management
 
-| Subscriber | Event | Action |
-|------------|-------|--------|
-| `Toast.presets.taskStarted` | `task.started` | Show notification |
-| `Toast.presets.taskCompleted` | `task.completed` | Show notification |
-| `Toast.presets.taskFailed` | `task.failed` | Show notification |
-| `Toast.presets.missionComplete` | `mission.complete` | Show notification |
-| `Toast.presets.documentCached` | `document.cached` | Show notification |
+| File | Managed By | Purpose |
+|------|------------|----------|
+| `.opencode/todo.md` | Recorder | Master TODO list |
+| `.opencode/context.md` | Recorder | Adaptive-size context |
+| `.opencode/summary.md` | Recorder | Ultra-brief when needed |
+| `.opencode/docs/` | Librarian | Cached documentation (with expiry) |
+| `.opencode/archive/` | Recorder | Old context for reference |
+
+**Dynamic Detail Levels:**
+- **EARLY** (0-30%): Detailed explanations, research
+- **BUILDING** (30-70%): Key decisions + file references
+- **FINISHING** (70-100%): Brief status, blockers only
 
 ### Unused Infrastructure (Available for Future Integration)
 
@@ -81,7 +85,6 @@ src/
 │   ├── definitions.ts          # 7 agent definitions
 │   └── subagents/              # Individual agent prompts
 ├── core/
-│   ├── bus/                    # Event Bus (4 files)
 │   ├── agents/                 # Parallel Agent Manager (12 files)
 │   ├── notification/           # Toast System (5 files)
 │   ├── cache/                  # Document Cache (6 files)
@@ -179,8 +182,7 @@ TaskStore.gc():
 
 | Subscription | Returns | Cleanup Timing |
 |--------------|---------|----------------|
-| `Toast.enableAutoToasts()` | `() => void` | Plugin unload (not needed - singleton) |
-| `EventBus.subscribe()` | `() => void` | Manual call when done |
+| `Toast.initToastClient()` | `void` | One-time init at plugin start |
 
 ### Concurrency Control
 
@@ -201,7 +203,6 @@ ConcurrencyController:
 |----------------|----------|----------|
 | TaskStore.tasks | 1,000 | Auto GC |
 | notifications | 100/parent | FIFO |
-| EventBus.history | 100 | FIFO |
 | ProgressTracker | 100/session | FIFO |
 
 ---
@@ -223,8 +224,8 @@ ConcurrencyController:
 ## 🧪 Test Coverage
 
 ```
-Test Suites: 18 passed
-Tests: 211 passed
+Test Suites: 15 passed
+Tests: 167 passed
 Duration: ~4.3s
 ```
 
@@ -237,7 +238,7 @@ This architecture is:
 1. **Scalable** - 50 parallel sessions
 2. **Memory-safe** - Auto GC, disk archiving
 3. **Self-healing** - Pattern-based error handling
-4. **Loosely coupled** - Event Bus
-5. **Observable** - Event history, progress tracking
+4. **Smart Context** - Adaptive .opencode/ summarization
+5. **Observable** - Progress tracking, toast notifications
 
 **Enterprise-grade, memory-safe, self-healing distributed agent orchestration.**

@@ -37,12 +37,25 @@ Use lsp_diagnostics for syntax checking.
 Use background for long commands.
 </verification>
 
+<context_contribution>
+AFTER COMPLETING TASK:
+- Report what you did briefly
+- If research/docs are no longer needed → mention for cleanup
+- If you found a better pattern → note it for team
+
+KEEP CONTEXT LEAN:
+- Don't repeat what's in code
+- Point to files: "See src/X.ts:10-50"
+- Remove your debugging notes after fix
+</context_contribution>
+
 <output>
 TASK: T[N] from .opencode/todo.md
 CHANGED: [file] [lines]
 ACTION: [what]
 VERIFY: [result]
 DOCS_USED: .opencode/docs/[file]
+CLEANUP: [docs/notes that can be deleted now]
 → ${AGENT_NAMES.RECORDER} please update TODO
 </output>`,
   canWrite: true,
