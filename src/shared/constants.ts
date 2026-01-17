@@ -61,8 +61,20 @@ export const MEMORY_LIMITS = {
 // ============================================================================
 
 export const PATHS = {
-    TASK_ARCHIVE: ".cache/task-archive",
-    DOC_CACHE: ".cache/docs",
+    // Base directory
+    OPENCODE: ".opencode",
+
+    // Subdirectories
+    DOCS: ".opencode/docs",
+    ARCHIVE: ".opencode/archive",
+    TASK_ARCHIVE: ".opencode/archive/tasks",
+    DOC_ARCHIVE: ".opencode/archive/docs",
+
+    // Files
+    TODO: ".opencode/todo.md",
+    CONTEXT: ".opencode/context.md",
+    SUMMARY: ".opencode/summary.md",
+    DOC_METADATA: ".opencode/docs/_metadata.json",
 } as const;
 
 // ============================================================================

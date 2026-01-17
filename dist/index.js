@@ -74,8 +74,18 @@ var MEMORY_LIMITS = {
   // Remove errors after 10 min
 };
 var PATHS = {
-  TASK_ARCHIVE: ".cache/task-archive",
-  DOC_CACHE: ".cache/docs"
+  // Base directory
+  OPENCODE: ".opencode",
+  // Subdirectories
+  DOCS: ".opencode/docs",
+  ARCHIVE: ".opencode/archive",
+  TASK_ARCHIVE: ".opencode/archive/tasks",
+  DOC_ARCHIVE: ".opencode/archive/docs",
+  // Files
+  TODO: ".opencode/todo.md",
+  CONTEXT: ".opencode/context.md",
+  SUMMARY: ".opencode/summary.md",
+  DOC_METADATA: ".opencode/docs/_metadata.json"
 };
 var BACKGROUND_TASK = {
   DEFAULT_TIMEOUT_MS: 5 * TIME.MINUTE,
@@ -14197,7 +14207,7 @@ var presets = {
   }),
   documentCached: (filename) => show({
     title: "\u{1F4C4} Document Cached",
-    message: `.cache/docs/${filename}`,
+    message: `${PATHS.DOCS}/${filename}`,
     variant: "info",
     duration: 2e3
   }),
@@ -15137,8 +15147,8 @@ Request a fresh plan from Architect with reduced scope.
 </critical_anomaly>`;
 
 // src/core/cache/constants.ts
-var CACHE_DIR = ".cache/docs";
-var METADATA_FILE = ".cache/docs/_metadata.json";
+var CACHE_DIR = PATHS.DOCS;
+var METADATA_FILE = PATHS.DOC_METADATA;
 var DEFAULT_TTL_MS = 24 * 60 * 60 * 1e3;
 
 // src/core/cache/operations.ts
@@ -15362,7 +15372,7 @@ ${cached2.content}`;
         const content = JSON.stringify(JSON.parse(html), null, 2);
         if (cache) {
           const filename = await set2(url2, content, "JSON Response");
-          return `\u{1F4C4} **JSON fetched** (cached: .cache/docs/${filename})
+          return `\u{1F4C4} **JSON fetched** (cached: ${PATHS.DOCS}/${filename})
 
 \`\`\`json
 ${content.slice(0, 5e3)}
@@ -15377,7 +15387,7 @@ ${content.slice(0, 5e3)}
       if (contentType.includes("text/plain")) {
         if (cache) {
           const filename = await set2(url2, html, "Plain Text");
-          return `\u{1F4C4} **Text fetched** (cached: .cache/docs/${filename})
+          return `\u{1F4C4} **Text fetched** (cached: ${PATHS.DOCS}/${filename})
 
 ${html.slice(0, 1e4)}`;
         }
@@ -15393,7 +15403,7 @@ ${html.slice(0, 1e4)}`;
         const filename = await set2(url2, truncated, title);
         return `\u{1F4DA} **${title}**
 Source: ${url2}
-Cached: .cache/docs/${filename}
+Cached: ${PATHS.DOCS}/${filename}
 
 ---
 

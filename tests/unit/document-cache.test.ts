@@ -8,7 +8,7 @@ import * as path from "node:path";
 import * as DocumentCache from "../../src/core/cache/document-cache";
 
 describe("DocumentCache", () => {
-    const TEST_CACHE_DIR = ".cache/docs";
+    const TEST_CACHE_DIR = ".opencode/docs";
     const TEST_URL = "https://example.com/docs/test-page";
     const TEST_CONTENT = "# Test Content\n\nThis is test documentation.";
     const TEST_TITLE = "Test Page";
