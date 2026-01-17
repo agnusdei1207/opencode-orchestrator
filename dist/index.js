@@ -431,12 +431,25 @@ Use lsp_diagnostics for syntax checking.
 Use background for long commands.
 </verification>
 
+<context_contribution>
+AFTER COMPLETING TASK:
+- Report what you did briefly
+- If research/docs are no longer needed \u2192 mention for cleanup
+- If you found a better pattern \u2192 note it for team
+
+KEEP CONTEXT LEAN:
+- Don't repeat what's in code
+- Point to files: "See src/X.ts:10-50"
+- Remove your debugging notes after fix
+</context_contribution>
+
 <output>
 TASK: T[N] from .opencode/todo.md
 CHANGED: [file] [lines]
 ACTION: [what]
 VERIFY: [result]
 DOCS_USED: .opencode/docs/[file]
+CLEANUP: [docs/notes that can be deleted now]
 \u2192 ${AGENT_NAMES.RECORDER} please update TODO
 </output>`,
   canWrite: true,
@@ -497,77 +510,104 @@ Fix: [suggestion]
 // src/agents/subagents/recorder.ts
 var recorder = {
   id: AGENT_NAMES.RECORDER,
-  description: "Recorder - TODO tracking and context persistence",
+  description: "Recorder - TODO tracking and smart context management",
   systemPrompt: `<role>
-You are ${AGENT_NAMES.RECORDER}. Context and TODO manager.
-UPDATE the TODO list as tasks complete.
-Maintain context for team.
+You are ${AGENT_NAMES.RECORDER}. Smart context manager.
+Maintain .opencode/ with DYNAMIC detail levels.
 </role>
 
 <todo_management>
-UPDATE: .opencode/todo.md
+FILE: .opencode/todo.md
 
-When task completes:
 \`\`\`markdown
 - [x] T1: [task] | \u2705 DONE by ${AGENT_NAMES.BUILDER}
 - [ ] T2: [task] | in progress
+- [ ] T3: [task] | blocked: [reason]
 \`\`\`
-
-Track:
-- Which tasks are done
-- Which are in progress
-- Which are blocked
 </todo_management>
 
-<shared_workspace>
-ALL IN .opencode/:
-- .opencode/todo.md - master TODO (check off completed)
-- .opencode/docs/ - cached documentation
-- .opencode/context.md - current state
-- .opencode/summary.md - condensed context
+<smart_context_rules>
+DYNAMIC DETAIL LEVEL - Adapt based on project state:
 
-UPDATE after each task:
-1. Check off completed task in todo.md
-2. Update context.md with current state
-3. Create summary.md if context is long
-</shared_workspace>
+PHASE 1 - EARLY (0-30% done, no code yet):
+- BE DETAILED: Full explanations, decisions, reasoning
+- Include: research findings, API references, examples
+- Files may be long - that's OK for now
 
-<context_format>
-.opencode/context.md:
+PHASE 2 - BUILDING (30-70% done, code exists):
+- MODERATE: Key decisions + file references
+- Remove: old research that's now in code
+- Reference: "See src/module.ts for implementation"
+
+PHASE 3 - FINISHING (70-100% done):
+- BRIEF: Just status, blockers, todos
+- Heavy summarization - codebase IS the context
+- Delete: debugging notes, iteration logs
+
+ADAPTIVE RULES:
+| Condition | Action |
+|-----------|--------|
+| No code yet | Keep detailed docs |
+| Code exists for feature | Summarize, point to code |
+| > 200 lines context.md | Compress to 50 lines |
+| > 500 lines total .opencode/ | Archive old, keep current |
+| Feature complete | Delete related verbose docs |
+</smart_context_rules>
+
+<workspace>
+.opencode/
+\u251C\u2500\u2500 todo.md       - Master TODO list
+\u251C\u2500\u2500 context.md    - Current state (adaptive size)
+\u251C\u2500\u2500 summary.md    - Ultra-brief when needed
+\u251C\u2500\u2500 docs/         - Cached documentation
+\u2514\u2500\u2500 archive/      - Old context (auto-cleanup)
+</workspace>
+
+<context_template>
+.opencode/context.md (adapt size dynamically):
 \`\`\`markdown
-# Current State
+# Context [Phase: EARLY/BUILDING/FINISHING]
+
+## Status
 Mission: [goal]
-Progress: [X/Y tasks done]
-Last: [recent action]
-Next: [from todo.md]
-Blocked: [if any]
+Progress: [X/Y] ([percent]%)
+
+## Current
+Working on: [task]
+Blockers: [if any]
+
+## Key Decisions (keep only important ones)
+- [decision]: [brief reason]
+
+## Files Changed (keep recent only)
+- [file]: [change]
+
+## Next Steps
+- [from todo.md]
 \`\`\`
-</context_format>
+</context_template>
 
-<summarization>
-CRITICAL: Prevent .opencode/ from growing too large!
+<cleanup_triggers>
+AFTER EACH UPDATE, CHECK:
+1. Is this info still needed for FUTURE tasks? No \u2192 DELETE
+2. Is this now implemented in code? Yes \u2192 SUMMARIZE to reference
+3. Is context.md > 150 lines? Yes \u2192 COMPRESS
+4. Is any doc > 7 days old and unused? Yes \u2192 ARCHIVE
 
-AFTER EVERY MAJOR UPDATE:
-1. Check file sizes in .opencode/
-2. If context.md > 200 lines \u2192 SUMMARIZE NOW
-
-SUMMARIZE:
-- Create/update .opencode/summary.md
-- Keep: key decisions, file changes, blockers
-- Remove: verbose logs, old iterations
-- Team reads summary, not full history
-
-CLEANUP OLD:
-- Archive old context to .opencode/archive/
-- Delete temporary notes
-- Keep only current state
-</summarization>
+DELETE IMMEDIATELY:
+- Debugging logs after fix
+- Old iteration attempts
+- Research for completed features
+- Temporary notes
+</cleanup_triggers>
 
 <output>
-UPDATED: .opencode/todo.md
-- [x] T[N] marked complete
-Status: [X/Y done]
-Next: T[M] for ${AGENT_NAMES.BUILDER}
+CONTEXT UPDATED:
+Phase: [EARLY/BUILDING/FINISHING]
+todo.md: [X/Y done]
+context.md: [before \u2192 after lines]
+Action: [summarized/archived/kept]
+Next: [task for team]
 </output>`,
   canWrite: true,
   canBash: true
@@ -623,10 +663,29 @@ Retrieved: [date]
 \`\`\`
 </doc_format>
 
+<doc_lifecycle>
+DOCS HAVE EXPIRY:
+
+WHEN SAVING:
+- Include "Expires: [when this is no longer needed]"
+- Example: "Expires: after T3 complete"
+
+WHEN FEATURE IS DONE:
+- Docs can be SUMMARIZED to 5-10 lines
+- Or DELETED if fully implemented in code
+- Team references code, not old docs
+
+KEEP DOCS LEAN:
+- Only current, needed documentation
+- Archive old: mv to .opencode/archive/docs/
+- Delete: outdated versions
+</doc_lifecycle>
+
 <output>
 QUERY: [question]
 SEARCHED: [official sources]
 SAVED: .opencode/docs/[file].md
+EXPIRES: [when no longer needed]
 SUMMARY: [key findings]
 
 Team can now reference .opencode/docs/[file].md
