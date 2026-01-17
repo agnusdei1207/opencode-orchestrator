@@ -1,6 +1,6 @@
 import { tool } from "@opencode-ai/plugin";
 import { AGENT_NAMES, PROMPTS, MISSION } from "../shared/constants.js";
-import { orchestrator } from "../agents/orchestrator.js";
+import { commander } from "../agents/commander.js";
 
 /**
  * Slash commands for OpenCode Orchestrator
@@ -10,9 +10,9 @@ import { orchestrator } from "../agents/orchestrator.js";
  */
 
 // ============================================================================
-// COMMANDER SYSTEM PROMPT - Imported from orchestrator.ts (single source of truth)
+// COMMANDER SYSTEM PROMPT - Imported from commander.ts (single source of truth)
 // ============================================================================
-export const COMMANDER_SYSTEM_PROMPT = orchestrator.systemPrompt;
+export const COMMANDER_SYSTEM_PROMPT = commander.systemPrompt;
 
 // ============================================================================
 // MISSION MODE TEMPLATE - Wraps user request with Commander instructions
