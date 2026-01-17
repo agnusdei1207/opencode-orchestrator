@@ -1,9 +1,19 @@
 #!/usr/bin/env node
 
 // scripts/postinstall.ts
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "fs";
-import { homedir } from "os";
+import { existsSync, mkdirSync, readFileSync, writeFileSync, appendFileSync } from "fs";
+import { homedir, tmpdir } from "os";
 import { join } from "path";
+var LOG_FILE = join(tmpdir(), "opencode-orchestrator.log");
+function log(message, data) {
+  try {
+    const timestamp = (/* @__PURE__ */ new Date()).toISOString();
+    const entry = `[${timestamp}] [postinstall] ${message} ${data ? JSON.stringify(data) : ""}
+`;
+    appendFileSync(LOG_FILE, entry);
+  } catch {
+  }
+}
 function formatError(err, context) {
   if (err instanceof Error) {
     const nodeErr = err;
@@ -79,7 +89,9 @@ function registerInConfig(configDir) {
 }
 try {
   console.log("\u{1F3AF} OpenCode Orchestrator - Installing...");
+  log("Installation started", { platform: process.platform });
   const configPaths = getConfigPaths();
+  log("Config paths to check", configPaths);
   let registered = false;
   let alreadyRegistered = false;
   for (const configDir of configPaths) {
@@ -96,18 +108,23 @@ try {
     }
     if (registerInConfig(configDir)) {
       console.log(`\u2705 Plugin registered: ${configFile}`);
+      log("Plugin registered successfully", { configFile });
       registered = true;
     }
   }
   if (!registered && alreadyRegistered) {
     console.log("\u2705 Plugin already registered.");
+    log("Plugin was already registered");
   } else if (!registered) {
     console.log("\u26A0\uFE0F Could not register plugin in any config location.");
+    log("Failed to register plugin in any location");
   }
   console.log("");
   console.log("\u{1F680} Ready! Restart OpenCode to use.");
   console.log("");
+  log("Installation completed", { registered, alreadyRegistered });
 } catch (error) {
+  log("Installation error", { error: String(error) });
   console.error(formatError(error, "register plugin"));
   process.exit(0);
 }

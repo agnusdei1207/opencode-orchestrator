@@ -8,6 +8,7 @@
 import { tool } from "@opencode-ai/plugin";
 import { ParallelAgentManager } from "../../core/agents/index.js";
 import { PARALLEL_TASK, PART_TYPES } from "../../shared/constants.js";
+import { log } from "../../core/agents/logger.js";
 
 export const createDelegateTaskTool = (manager: ParallelAgentManager, client: unknown) => tool({
     description: `Delegate a task to an agent.
@@ -38,10 +39,13 @@ export const createDelegateTaskTool = (manager: ParallelAgentManager, client: un
     async execute(args, context) {
         const { agent, description, prompt, background, resume } = args;
         const ctx = context as { sessionID: string };
+
+        log("[delegate-task.ts] execute() called", { agent, description, background, resume, parentSession: ctx.sessionID });
+
         const sessionClient = client as {
             session: {
                 create: (opts: { body: { parentID: string; title: string }; query: { directory: string } }) => Promise<{ data?: { id: string }; error?: string }>;
-                prompt: (opts: { path: { id: string }; body: { agent: string; parts: { type: string; text: string }[] } }) => Promise<{ error?: string }>;
+                prompt: (opts: { path: { id: string }; body: { agent: string; tools?: Record<string, boolean>; parts: { type: string; text: string }[] } }) => Promise<{ error?: string }>;
                 messages: (opts: { path: { id: string } }) => Promise<{ data?: unknown[]; error?: string }>;
                 status: () => Promise<{ data?: Record<string, { type: string }> }>;
             }
@@ -130,7 +134,16 @@ export const createDelegateTaskTool = (manager: ParallelAgentManager, client: un
 
             await session.prompt({
                 path: { id: sessionID },
-                body: { agent, parts: [{ type: PART_TYPES.TEXT, text: prompt }] },
+                body: {
+                    agent,
+                    tools: {
+                        delegate_task: false,
+                        get_task_result: false,
+                        list_tasks: false,
+                        cancel_task: false,
+                    },
+                    parts: [{ type: PART_TYPES.TEXT, text: prompt }]
+                },
             });
 
             // Poll for completion
