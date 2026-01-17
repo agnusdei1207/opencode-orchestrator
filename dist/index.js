@@ -14466,180 +14466,11 @@ var TaskCleaner = class {
   }
 };
 
-// src/shared/event-types.ts
-var TASK_EVENTS = {
-  STARTED: "task.started",
-  COMPLETED: "task.completed",
-  FAILED: "task.failed",
-  CANCELLED: "task.cancelled"
-};
-var TODO_EVENTS = {
-  CREATED: "todo.created",
-  UPDATED: "todo.updated",
-  COMPLETED: "todo.completed"
-};
+// src/core/agents/manager/event-handler.ts
 var SESSION_EVENTS = {
   IDLE: "session.idle",
-  BUSY: "session.busy",
-  ERROR: "session.error",
   DELETED: "session.deleted"
 };
-var DOCUMENT_EVENTS = {
-  CACHED: "document.cached",
-  EXPIRED: "document.expired"
-};
-var MISSION_EVENTS = {
-  COMPLETE: "mission.complete",
-  FAILED: "mission.failed",
-  ALL_TASKS_COMPLETE: "all_tasks.complete"
-};
-var SPECIAL_EVENTS = {
-  WILDCARD: "*"
-};
-var EVENT_TYPES = {
-  ...TASK_EVENTS,
-  ...TODO_EVENTS,
-  ...SESSION_EVENTS,
-  ...DOCUMENT_EVENTS,
-  ...MISSION_EVENTS,
-  ...SPECIAL_EVENTS
-};
-
-// src/core/bus/event-bus.ts
-var EventBusImpl = class {
-  subscriptions = /* @__PURE__ */ new Map();
-  eventHistory = [];
-  maxHistorySize = 100;
-  subscriptionCounter = 0;
-  /**
-   * Subscribe to an event type
-   * Returns unsubscribe function
-   */
-  subscribe(type, handler) {
-    const id = `sub_${++this.subscriptionCounter}`;
-    const subscription = { id, type, handler, once: false };
-    const existing = this.subscriptions.get(type) || [];
-    existing.push(subscription);
-    this.subscriptions.set(type, existing);
-    return () => this.unsubscribe(id, type);
-  }
-  /**
-   * Subscribe to an event type, auto-unsubscribe after first event
-   */
-  once(type, handler) {
-    const id = `sub_${++this.subscriptionCounter}`;
-    const subscription = { id, type, handler, once: true };
-    const existing = this.subscriptions.get(type) || [];
-    existing.push(subscription);
-    this.subscriptions.set(type, existing);
-    return () => this.unsubscribe(id, type);
-  }
-  /**
-   * Unsubscribe from an event
-   */
-  unsubscribe(id, type) {
-    const subs = this.subscriptions.get(type);
-    if (subs) {
-      const filtered = subs.filter((s) => s.id !== id);
-      if (filtered.length > 0) {
-        this.subscriptions.set(type, filtered);
-      } else {
-        this.subscriptions.delete(type);
-      }
-    }
-  }
-  /**
-   * Publish an event
-   */
-  async publish(type, properties = {}, options = {}) {
-    const event = {
-      type,
-      timestamp: /* @__PURE__ */ new Date(),
-      source: options.source || "unknown",
-      sessionId: options.sessionId,
-      properties
-    };
-    this.eventHistory.push(event);
-    if (this.eventHistory.length > this.maxHistorySize) {
-      this.eventHistory.shift();
-    }
-    const toNotify = [];
-    const typeSubs = this.subscriptions.get(type) || [];
-    toNotify.push(...typeSubs);
-    const wildcardSubs = this.subscriptions.get(SPECIAL_EVENTS.WILDCARD) || [];
-    toNotify.push(...wildcardSubs);
-    const toRemove = [];
-    for (const sub of toNotify) {
-      try {
-        await sub.handler(event);
-      } catch (error45) {
-        console.error(`[EventBus] Handler error for ${type}:`, error45);
-      }
-      if (sub.once) {
-        toRemove.push({ id: sub.id, type: sub.type });
-      }
-    }
-    for (const { id, type: t } of toRemove) {
-      this.unsubscribe(id, t);
-    }
-  }
-  /**
-   * Emit (alias for publish, sync-looking API)
-   */
-  emit(type, properties = {}) {
-    this.publish(type, properties).catch(console.error);
-  }
-  /**
-   * Get recent event history
-   */
-  getHistory(type, limit = 20) {
-    let events = this.eventHistory;
-    if (type && type !== SPECIAL_EVENTS.WILDCARD) {
-      events = events.filter((e) => e.type === type);
-    }
-    return events.slice(-limit);
-  }
-  /**
-   * Clear all subscriptions
-   */
-  clear() {
-    this.subscriptions.clear();
-    this.eventHistory = [];
-  }
-  /**
-   * Get subscription count
-   */
-  getSubscriptionCount() {
-    let count = 0;
-    for (const subs of this.subscriptions.values()) {
-      count += subs.length;
-    }
-    return count;
-  }
-  /**
-   * Wait for a specific event (Promise-based)
-   */
-  waitFor(type, timeout = 3e4) {
-    return new Promise((resolve, reject) => {
-      const timer = setTimeout(() => {
-        unsubscribe();
-        reject(new Error(`Timeout waiting for event: ${type}`));
-      }, timeout);
-      const unsubscribe = this.once(type, (event) => {
-        clearTimeout(timer);
-        resolve(event);
-      });
-    });
-  }
-};
-
-// src/core/bus/index.ts
-var EventBus = new EventBusImpl();
-function emit(type, properties) {
-  EventBus.emit(type, properties);
-}
-
-// src/core/agents/manager/event-handler.ts
 var EventHandler = class {
   constructor(client, store, concurrency, findBySession, notifyParentIfAllComplete, scheduleCleanup, validateSessionHasOutput) {
     this.client = client;
@@ -16009,40 +15840,6 @@ ${r.content}
   }
 });
 
-// src/core/notification/event-integration.ts
-function enableAutoToasts() {
-  const unsubscribers = [];
-  unsubscribers.push(EventBus.subscribe(TASK_EVENTS.STARTED, (event) => {
-    const { taskId, agent } = event.properties;
-    presets.taskStarted(taskId, agent);
-  }));
-  unsubscribers.push(EventBus.subscribe(TASK_EVENTS.COMPLETED, (event) => {
-    const { taskId, agent } = event.properties;
-    presets.taskCompleted(taskId, agent);
-  }));
-  unsubscribers.push(EventBus.subscribe(TASK_EVENTS.FAILED, (event) => {
-    const { taskId, error: error45 } = event.properties;
-    presets.taskFailed(taskId, error45);
-  }));
-  unsubscribers.push(EventBus.subscribe(MISSION_EVENTS.ALL_TASKS_COMPLETE, (event) => {
-    const { count } = event.properties;
-    presets.allTasksComplete(count);
-  }));
-  unsubscribers.push(EventBus.subscribe(MISSION_EVENTS.COMPLETE, (event) => {
-    const { summary } = event.properties;
-    presets.missionComplete(summary);
-  }));
-  unsubscribers.push(EventBus.subscribe(DOCUMENT_EVENTS.CACHED, (event) => {
-    const { filename } = event.properties;
-    presets.documentCached(filename);
-  }));
-  return () => {
-    for (const unsub of unsubscribers) {
-      unsub();
-    }
-  };
-}
-
 // src/core/progress/store.ts
 var progressHistory = /* @__PURE__ */ new Map();
 var sessionStartTimes = /* @__PURE__ */ new Map();
@@ -16164,7 +15961,6 @@ var OrchestratorPlugin = async (input) => {
   console.log(`[orchestrator] Log file: ${getLogPath()}`);
   log2("[index.ts] Plugin initialized", { version: PLUGIN_VERSION, directory });
   initToastClient(client);
-  const disableAutoToasts = enableAutoToasts();
   log2("[index.ts] Toast notifications enabled with TUI");
   const sessions = /* @__PURE__ */ new Map();
   const parallelAgentManager2 = ParallelAgentManager.getInstance(client, directory);
@@ -16307,7 +16103,7 @@ var OrchestratorPlugin = async (input) => {
         log2("[index.ts] event: session.created", { sessionID });
         presets.missionStarted(`Session ${sessionID.slice(0, 12)}...`);
       }
-      if (event.type === "session.deleted" || event.type === SESSION_EVENTS.DELETED) {
+      if (event.type === "session.deleted") {
         const sessionID = event.properties?.id || event.properties?.info?.id || "";
         const session = sessions.get(sessionID);
         if (session) {
@@ -16364,11 +16160,7 @@ var OrchestratorPlugin = async (input) => {
             anomalyCount: 0
           });
           startSession(sessionID);
-          emit(TASK_EVENTS.STARTED, {
-            taskId: sessionID,
-            agent: AGENT_NAMES.COMMANDER,
-            description: "Mission started"
-          });
+          presets.taskStarted(sessionID, AGENT_NAMES.COMMANDER);
         }
         if (!parsed || parsed.command !== "task") {
           const taskTemplate = COMMANDS["task"].template;
@@ -16527,10 +16319,7 @@ Anomaly count: ${stateSession.anomalyCount}
       if (textContent.includes(MISSION.COMPLETE) || textContent.includes(MISSION.COMPLETE_TEXT)) {
         session.active = false;
         state.missionActive = false;
-        emit(MISSION_EVENTS.COMPLETE, {
-          sessionId: sessionID,
-          summary: "Mission completed successfully"
-        });
+        presets.missionComplete("Mission completed successfully");
         clearSession(sessionID);
         sessions.delete(sessionID);
         state.sessions.delete(sessionID);
@@ -16539,10 +16328,7 @@ Anomaly count: ${stateSession.anomalyCount}
       if (textContent.includes(MISSION.STOP_COMMAND) || textContent.includes(MISSION.CANCEL_COMMAND)) {
         session.active = false;
         state.missionActive = false;
-        emit(TASK_EVENTS.FAILED, {
-          taskId: sessionID,
-          error: "Cancelled by user"
-        });
+        presets.taskFailed(sessionID, "Cancelled by user");
         clearSession(sessionID);
         sessions.delete(sessionID);
         state.sessions.delete(sessionID);

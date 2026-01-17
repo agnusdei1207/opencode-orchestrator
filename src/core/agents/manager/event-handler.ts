@@ -10,7 +10,12 @@ import { CONFIG } from "../config.js";
 import { log } from "../logger.js";
 import { formatDuration } from "../format.js";
 import type { ParallelTask } from "../interfaces/parallel-task.interface.js";
-import { SESSION_EVENTS } from "../../bus/index.js";
+
+// OpenCode session event types (from SDK)
+const SESSION_EVENTS = {
+    IDLE: "session.idle",
+    DELETED: "session.deleted",
+} as const;
 
 type OpencodeClient = PluginInput["client"];
 

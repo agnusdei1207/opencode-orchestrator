@@ -36,7 +36,6 @@ import {
     ESCALATION_PROMPT,
 } from "./utils/sanity.js";
 import { webfetchTool, websearchTool, cacheDocsTool, codesearchTool } from "./tools/web/index.js";
-import { emit, SESSION_EVENTS, TASK_EVENTS, MISSION_EVENTS } from "./core/bus/index.js";
 import { MISSION, AGENT_EMOJI, AGENT_NAMES, TOOL_NAMES, TASK_STATUS, PART_TYPES, PROMPTS } from "./shared/constants.js";
 import * as TodoEnforcer from "./core/loop/todo-enforcer.js";
 import * as Toast from "./core/notification/toast.js";
@@ -105,9 +104,6 @@ const OrchestratorPlugin: Plugin = async (input) => {
 
     // Initialize toast system with OpenCode client for TUI display
     Toast.initToastClient(client);
-
-    // Enable auto toast notifications for events
-    const disableAutoToasts = Toast.enableAutoToasts();
     log("[index.ts] Toast notifications enabled with TUI");
 
     // Track active sessions - each chat session gets its own state
@@ -284,7 +280,7 @@ const OrchestratorPlugin: Plugin = async (input) => {
             }
 
             // Session deleted/ended event
-            if (event.type === "session.deleted" || event.type === SESSION_EVENTS.DELETED) {
+            if (event.type === "session.deleted") {
                 const sessionID = (event.properties?.id as string) ||
                     (event.properties as { info?: { id?: string } })?.info?.id || "";
                 const session = sessions.get(sessionID);
@@ -363,12 +359,8 @@ const OrchestratorPlugin: Plugin = async (input) => {
                     // Initialize progress tracking for this session
                     ProgressTracker.startSession(sessionID);
 
-                    // Emit session started event
-                    emit(TASK_EVENTS.STARTED, {
-                        taskId: sessionID,
-                        agent: AGENT_NAMES.COMMANDER,
-                        description: "Mission started",
-                    });
+                    // Show task started notification
+                    Toast.presets.taskStarted(sessionID, AGENT_NAMES.COMMANDER);
                 }
 
                 // AUTO-APPLY mission mode template if not already a /task command
@@ -586,11 +578,8 @@ const OrchestratorPlugin: Plugin = async (input) => {
                 session.active = false;
                 state.missionActive = false;
 
-                // Emit mission complete event
-                emit(MISSION_EVENTS.COMPLETE, {
-                    sessionId: sessionID,
-                    summary: "Mission completed successfully",
-                });
+                // Show mission complete notification
+                Toast.presets.missionComplete("Mission completed successfully");
 
                 // Clear progress tracker
                 ProgressTracker.clearSession(sessionID);
@@ -605,11 +594,8 @@ const OrchestratorPlugin: Plugin = async (input) => {
                 session.active = false;
                 state.missionActive = false;
 
-                // Emit task failed/cancelled event
-                emit(TASK_EVENTS.FAILED, {
-                    taskId: sessionID,
-                    error: "Cancelled by user",
-                });
+                // Show task cancelled notification
+                Toast.presets.taskFailed(sessionID, "Cancelled by user");
 
                 ProgressTracker.clearSession(sessionID);
 
