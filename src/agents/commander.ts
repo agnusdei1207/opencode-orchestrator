@@ -65,52 +65,39 @@ EXECUTION FLOW:
 </phase_2_execute>
 
 <parallel_execution>
-⚡ MAXIMIZE PARALLELISM - This is CRITICAL!
+⚡ USE PARALLELISM WHEN APPROPRIATE
 
-PATTERN 1: AGENT PARALLELISM
+DECIDE: Parallel vs Sequential
+- Tasks that DON'T depend on each other → background=true (parallel)
+- Task B needs Task A's output → background=false (sequential)
+- Model should judge based on task dependencies
+
+PATTERN 1: PARALLEL AGENTS (when tasks are independent)
 \`\`\`
-// GOOD ✅ - Launch 3 agents at once
-${TOOL_NAMES.DELEGATE_TASK}({ agent: "${AGENT_NAMES.PLANNER}", prompt: "Research API", background: true })
-${TOOL_NAMES.DELEGATE_TASK}({ agent: "${AGENT_NAMES.PLANNER}", prompt: "Research DB", background: true })
-${TOOL_NAMES.DELEGATE_TASK}({ agent: "${AGENT_NAMES.PLANNER}", prompt: "Research Auth", background: true })
-// Then later: collect all results
-
-// BAD ❌ - Sequential when not needed
-${TOOL_NAMES.DELEGATE_TASK}({ ..., background: false }) // waits
-${TOOL_NAMES.DELEGATE_TASK}({ ..., background: false }) // waits
-${TOOL_NAMES.DELEGATE_TASK}({ ..., background: false }) // waits
+// Good for INDEPENDENT tasks (different files, no shared state)
+${TOOL_NAMES.DELEGATE_TASK}({ agent: "${AGENT_NAMES.WORKER}", prompt: "Create file A", background: true })
+${TOOL_NAMES.DELEGATE_TASK}({ agent: "${AGENT_NAMES.WORKER}", prompt: "Create file B", background: true })
 \`\`\`
 
-PATTERN 2: BACKGROUND COMMANDS
+PATTERN 2: SEQUENTIAL (when order matters)
 \`\`\`
-// GOOD ✅ - Start build, continue working
-${TOOL_NAMES.RUN_BACKGROUND}({ command: "npm run build" }) → job_xxx
-// Continue with other work...
-${TOOL_NAMES.CHECK_BACKGROUND}({ taskId: "job_xxx" }) // Check later
-
-// BAD ❌ - Blocking on slow command
-bash("npm run build") // Blocks everything for 30+ seconds
+// Good for DEPENDENT tasks (output feeds next input)
+result1 = ${TOOL_NAMES.DELEGATE_TASK}({ ..., background: false })
+result2 = ${TOOL_NAMES.DELEGATE_TASK}({ prompt: "Use result1", background: false })
 \`\`\`
 
-PATTERN 3: SESSION CONTINUITY
+PATTERN 3: BACKGROUND COMMANDS (for slow operations)
 \`\`\`
-// First call returns sessionID
-result = ${TOOL_NAMES.DELEGATE_TASK}({ agent: "${AGENT_NAMES.WORKER}", prompt: "Start feature", background: false })
-// Session: \`session_abc123\`
-
-// Later: resume same session for follow-up
-${TOOL_NAMES.DELEGATE_TASK}({ agent: "${AGENT_NAMES.WORKER}", prompt: "Add tests", resume: "session_abc123" })
-// Preserves all context!
+${TOOL_NAMES.RUN_BACKGROUND}({ command: "npm run build" }) // non-blocking
 \`\`\`
 
-WHEN TO USE EACH:
-| Situation | Use |
-|-----------|-----|
-| Independent tasks (different files) | background=true, spawn ALL |
-| Sequential dependency (A→B→C) | background=false for chain |
-| Long shell command (>5sec) | ${TOOL_NAMES.RUN_BACKGROUND} |
-| Follow-up to previous work | resume: sessionID |
-| Final verification | background=false |
+DECISION GUIDE:
+| Scenario | Use |
+|----------|-----|
+| Editing 3 unrelated files | background=true for each |
+| Step A → B → C chain | background=false (sequential) |
+| Build while coding | ${TOOL_NAMES.RUN_BACKGROUND} |
+| Need result immediately | background=false |
 </parallel_execution>
 
 <agents>
