@@ -28,6 +28,18 @@ That's it! The Commander takes over and works until the mission is complete.
 
 ---
 
+## 💡 Why I Built This
+
+After subscribing to GLM-4.7, I was disappointed by its standalone performance.
+
+But I realized: **the model isn't the bottleneck — the workflow is.**
+
+With proper orchestration — structured prompts, parallel execution, TODO-driven loops, and auto-recovery — even budget-tier models can rival premium ones.
+
+This plugin exists to prove that **orchestration > raw model power**.
+
+---
+
 ## 🎯 What is This?
 
 A multi-agent system that **autonomously executes complex tasks** from start to finish. Just describe your mission — the Commander handles everything else.
