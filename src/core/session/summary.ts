@@ -3,6 +3,7 @@
  */
 
 import { getMerged } from "./store.js";
+import { PATHS } from "../../shared/constants.js";
 
 /**
  * Get context summary for injection into prompts
@@ -16,7 +17,7 @@ export function getSummary(sessionId: string): string {
     if (context.documents.size > 0) {
         parts.push("## Cached Documents");
         for (const doc of context.documents.values()) {
-            parts.push(`- ${doc.title}: .cache/docs/${doc.filename}`);
+            parts.push(`- ${doc.title}: ${PATHS.DOCS}/${doc.filename}`);
         }
     }
 

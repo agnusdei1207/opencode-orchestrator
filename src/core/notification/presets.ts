@@ -3,6 +3,7 @@
  */
 
 import { show } from "./toast-core.js";
+import { PATHS } from "../../shared/constants.js";
 
 export const presets = {
     // =========================================
@@ -113,7 +114,7 @@ export const presets = {
 
     documentCached: (filename: string) => show({
         title: "📄 Document Cached",
-        message: `.cache/docs/${filename}`,
+        message: `${PATHS.DOCS}/${filename}`,
         variant: "info",
         duration: 2000,
     }),

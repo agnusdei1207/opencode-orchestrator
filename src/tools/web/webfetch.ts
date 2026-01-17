@@ -7,6 +7,7 @@
 
 import { tool } from "@opencode-ai/plugin";
 import * as DocumentCache from "../../core/cache/document-cache.js";
+import { PATHS } from "../../shared/constants.js";
 
 // Simple HTML to Markdown converter
 function htmlToMarkdown(html: string): string {
@@ -137,7 +138,7 @@ webfetch({ url: "https://react.dev/reference/react/useEffect", cache: true })
                 const content = JSON.stringify(JSON.parse(html), null, 2);
                 if (cache) {
                     const filename = await DocumentCache.set(url, content, "JSON Response");
-                    return `📄 **JSON fetched** (cached: .cache/docs/${filename})\n\n\`\`\`json\n${content.slice(0, 5000)}\n\`\`\``;
+                    return `📄 **JSON fetched** (cached: ${PATHS.DOCS}/${filename})\n\n\`\`\`json\n${content.slice(0, 5000)}\n\`\`\``;
                 }
                 return `📄 **JSON fetched**\n\n\`\`\`json\n${content.slice(0, 5000)}\n\`\`\``;
             }
@@ -145,7 +146,7 @@ webfetch({ url: "https://react.dev/reference/react/useEffect", cache: true })
             if (contentType.includes("text/plain")) {
                 if (cache) {
                     const filename = await DocumentCache.set(url, html, "Plain Text");
-                    return `📄 **Text fetched** (cached: .cache/docs/${filename})\n\n${html.slice(0, 10000)}`;
+                    return `📄 **Text fetched** (cached: ${PATHS.DOCS}/${filename})\n\n${html.slice(0, 10000)}`;
                 }
                 return `📄 **Text fetched**\n\n${html.slice(0, 10000)}`;
             }
@@ -163,7 +164,7 @@ webfetch({ url: "https://react.dev/reference/react/useEffect", cache: true })
             // Cache if requested
             if (cache) {
                 const filename = await DocumentCache.set(url, truncated, title);
-                return `📚 **${title}**\nSource: ${url}\nCached: .cache/docs/${filename}\n\n---\n\n${truncated}`;
+                return `📚 **${title}**\nSource: ${url}\nCached: ${PATHS.DOCS}/${filename}\n\n---\n\n${truncated}`;
             }
 
             return `📚 **${title}**\nSource: ${url}\n\n---\n\n${truncated}`;
