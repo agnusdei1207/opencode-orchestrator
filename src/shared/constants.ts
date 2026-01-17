@@ -36,7 +36,7 @@ export const PARALLEL_TASK = {
     CLEANUP_DELAY_MS: 10 * TIME.MINUTE,  // 10 minutes
     MIN_STABILITY_MS: 3 * TIME.SECOND,   // 3 seconds
     POLL_INTERVAL_MS: 1000,              // 1 second
-    DEFAULT_CONCURRENCY: 10,             // 10 per agent type
+    DEFAULT_CONCURRENCY: 3,              // 3 per agent type (conservative for APIs with strict rate limits)
     MAX_CONCURRENCY: 50,                 // 50 total
     SYNC_TIMEOUT_MS: 10 * TIME.MINUTE,   // 10 minutes for sync mode
     MAX_DEPTH: 3,                        // Max nesting depth (Commander -> Agent -> Sub-task)
