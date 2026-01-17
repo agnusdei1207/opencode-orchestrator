@@ -16910,6 +16910,13 @@ var OrchestratorPlugin = async (input) => {
       console.log(`[orchestrator] Default agent: ${AGENT_NAMES.COMMANDER}`);
     },
     // -----------------------------------------------------------------
+    // session.start hook - runs when a new session begins
+    // -----------------------------------------------------------------
+    "session.start": async (input2) => {
+      log2("[index.ts] session.start", { sessionID: input2.sessionID, agent: input2.agent });
+      presets.missionStarted(`Session ${input2.sessionID.slice(0, 12)}...`);
+    },
+    // -----------------------------------------------------------------
     // chat.message hook - runs when user sends a message
     // This is where we intercept commands and set up sessions
     // -----------------------------------------------------------------
@@ -17058,6 +17065,26 @@ Anomaly count: ${stateSession.anomalyCount}
       toolOutput.output += `
 
 \u23F1\uFE0F [${currentTime}] Step ${session.step}/${session.maxSteps} | This step: ${stepDuration} | Total: ${totalElapsed}`;
+    },
+    // -----------------------------------------------------------------
+    // session.end hook - runs when a session ends
+    // -----------------------------------------------------------------
+    "session.end": async (input2) => {
+      const session = sessions.get(input2.sessionID);
+      if (session) {
+        const totalTime = Date.now() - session.startTime;
+        const duration3 = totalTime < 6e4 ? `${Math.round(totalTime / 1e3)}s` : `${Math.round(totalTime / 6e4)}m`;
+        log2("[index.ts] session.end", {
+          sessionID: input2.sessionID,
+          reason: input2.reason,
+          steps: session.step,
+          duration: duration3
+        });
+        sessions.delete(input2.sessionID);
+        state.sessions.delete(input2.sessionID);
+        clearSession(input2.sessionID);
+        presets.sessionCompleted(input2.sessionID, duration3);
+      }
     },
     // -----------------------------------------------------------------
     // assistant.done hook - runs when the LLM finishes responding
