@@ -10,6 +10,7 @@ import { AGENT_NAMES } from "../../shared/agent/constants/index.js";
 import type { AgentDefinition } from "../../shared/agent/interfaces/index.js";
 import {
     // Common
+    CORE_PHILOSOPHY,
     ANTI_HALLUCINATION_CORE,
     SHARED_WORKSPACE,
     VERIFICATION_REQUIREMENTS,
@@ -30,6 +31,7 @@ import {
  * Compose Worker system prompt from modular fragments
  */
 const systemPrompt = [
+    CORE_PHILOSOPHY,
     WORKER_ROLE,
     WORKER_FORBIDDEN,
     WORKER_REQUIRED,

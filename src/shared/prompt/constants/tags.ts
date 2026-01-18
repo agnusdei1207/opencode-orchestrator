@@ -17,6 +17,7 @@ export const PROMPT_TAGS = {
     TODO_RULES: { open: "<todo_rules>", close: "</todo_rules>" },
     MISSION_SEAL: { open: "<mission_seal>", close: "</mission_seal>" },
     SHARED_WORKSPACE: { open: "<shared_workspace>", close: "</shared_workspace>" },
+    CORE_PHILOSOPHY: { open: "<core_philosophy>", close: "</core_philosophy>" },
 
     // === Commander ===
     TOOLS: { open: "<tools>", close: "</tools>" },

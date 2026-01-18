@@ -10,6 +10,7 @@ import { AGENT_NAMES } from "../../shared/agent/constants/index.js";
 import type { AgentDefinition } from "../../shared/agent/interfaces/index.js";
 import {
     // Common
+    CORE_PHILOSOPHY,
     ENVIRONMENT_DISCOVERY,
     ANTI_HALLUCINATION_CORE,
     TODO_RULES,
@@ -29,6 +30,7 @@ import {
  * Compose Planner system prompt from modular fragments
  */
 const systemPrompt = [
+    CORE_PHILOSOPHY,
     PLANNER_ROLE,
     PLANNER_FORBIDDEN,
     PLANNER_REQUIRED,
