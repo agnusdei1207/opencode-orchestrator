@@ -1,7 +1,7 @@
 # 🎹 Developer's Words
 
 <div align="center">
-  <img src="../assets/image.png" alt="Piano and Code" width="600" />
+  <img src="../assets/image.png" alt="Chopin Ballade No.4" width="600" />
 </div>
 
 <br />
