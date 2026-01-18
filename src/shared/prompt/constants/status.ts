@@ -1,7 +1,7 @@
 /**
  * Work Status Constants
  * 
- * All status values used in work-log.md, todo.md, sync-issues.md.
+ * All status values used in work-log.md, todo.md, sync-issues.md, status.md.
  */
 
 export const WORK_STATUS = {
@@ -28,6 +28,23 @@ export const WORK_STATUS = {
         SKIP: "SKIP",
     },
 
+    // E2E integration test status
+    E2E_STATUS: {
+        NOT_STARTED: "NOT_STARTED",
+        RUNNING: "RUNNING",
+        PASS: "PASS",
+        FAIL: "FAIL",
+    },
+
+    // Mission phase
+    PHASE: {
+        PLANNING: "PLANNING",
+        IMPLEMENTATION: "IMPLEMENTATION",
+        E2E: "E2E",
+        FIXING: "FIXING",
+        SEALING: "SEALING",
+    },
+
     // Issue severity  
     SEVERITY: {
         HIGH: "HIGH",
@@ -42,3 +59,4 @@ export const WORK_STATUS = {
         CANCELLED: "CANCELLED",
     },
 } as const;
+
