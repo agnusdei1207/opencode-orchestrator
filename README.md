@@ -25,16 +25,11 @@ Then in OpenCode:
 
 ---
 
-## 🧠 Core Philosophy
+## ⭐ Core Philosophy
 
-> **Imagine humanity landing on an unknown planet.**  
-> No maps. No guides. Just raw terrain and a mission to complete.
+> **Humanity lands on an unknown planet. No maps. No guides. Just a mission.**
 
-This is how our agents approach every project.
-
-### 🌍 The New World Protocol
-
-When you arrive on an uncharted world, you don't assume oxygen. You don't guess gravity. You **explore**, **learn**, **adapt**, and then **act**.
+You don't assume oxygen. You don't guess gravity. You **explore**, **learn**, **adapt**, and **act**.
 
 ```
 ┌──────────────────────────────────────────────────────────────────────────────────────┐
@@ -47,7 +42,7 @@ When you arrive on an uncharted world, you don't assume oxygen. You don't guess 
 └──────────────────────────────────────────────────────────────────────────────────────┘
 ```
 
-### 🚀 The Crew
+### 👨‍🚀 The Crew
 
 | Agent | Role | Mission |
 |:------|:-----|:--------|
