@@ -12979,76 +12979,162 @@ tool.schema = external_exports;
 
 // src/agents/prompts/common/environment-discovery.ts
 var ENVIRONMENT_DISCOVERY = `${PROMPT_TAGS.ENVIRONMENT_DISCOVERY.open}
- MANDATORY FIRST STEP - Before any planning or coding:
+\u26A0\uFE0F MANDATORY FIRST STEP - Before any planning or coding:
 
-## 1. Project Structure Analysis
-- Read file tree: ls -la, find . -type f -name "*.ts" | head -50
-- Identify: src/, tests/, docs/, config files
-- Check for: package.json, Dockerfile, docker-compose.yml, Makefile
-
-## 2. Build Environment Detection
-| Check | Command | Look For |
-|-------|---------|----------|
-| Node.js | cat package.json | scripts.build, scripts.test |
-| Docker | ls Dockerfile* | Multi-stage build, base image |
-| Make | cat Makefile | build, test, deploy targets |
-| Rust | cat Cargo.toml | [package], [dependencies] |
-
-## 3. Documentation Review
-- README.md \u2192 Project overview, setup instructions
-- CONTRIBUTING.md \u2192 Code standards, PR process
-- docs/ \u2192 Architecture, API docs
-- .opencode/ \u2192 Existing context, todos
-
-## 4. Context Summary (SAVE TO .opencode/context.md)
-\`\`\`markdown
-# Project Context
-## Environment
-- Runtime: [Node.js 20 / Python 3.11 / Rust 1.75]
-- Build: [npm / Docker / Make]
-- Test: [npm test / pytest / cargo test]
-
-## Structure
-- Source: src/
-- Tests: tests/
-- Docs: docs/
-
-## Key Files
-- Entry: [src/index.ts]
-- Config: [tsconfig.json, package.json]
-
-## Conventions
-- [observed patterns from existing code]
+## 1. Project Structure Discovery
+Explore the project root to understand its organization:
+\`\`\`bash
+ls -la                    # Root contents
+find . -maxdepth 2 -type d | head -30   # Directory structure
+find . -maxdepth 1 -type f              # Root files
 \`\`\`
 
-NEVER skip this step. NEVER assume without checking.
+**Look for patterns, NOT specific files:**
+- Source directories (src/, lib/, app/, pkg/, internal/, cmd/)
+- Test directories (tests/, test/, spec/, __tests__/, *_test/)
+- Build artifacts (dist/, build/, target/, out/, bin/)
+- Documentation (docs/, doc/, README*, CONTRIBUTING*, CHANGELOG*)
+- Configuration (hidden files, *.config.*, *.json, *.yaml, *.toml)
+
+## 2. Environment Detection (Adaptive)
+**DO NOT assume technology stack. DETECT it:**
+
+| Indicator Files | Likely Environment |
+|----------------|-------------------|
+| package.json, tsconfig.json | Node.js / TypeScript |
+| Cargo.toml, Cargo.lock | Rust |
+| go.mod, go.sum | Go |
+| requirements.txt, pyproject.toml, setup.py | Python |
+| pom.xml, build.gradle | Java / JVM |
+| Gemfile, *.rb | Ruby |
+| composer.json | PHP |
+| CMakeLists.txt, Makefile | C/C++ |
+| *.csproj, *.sln | .NET / C# |
+| pubspec.yaml | Dart / Flutter |
+
+**For each detected config file, read it to find:**
+- Build commands
+- Test commands  
+- Entry points
+- Dependencies
+
+## 3. Infrastructure Detection
+\`\`\`bash
+# Container/orchestration
+ls Dockerfile* docker-compose* 2>/dev/null
+ls kubernetes/ k8s/ helm/ 2>/dev/null
+
+# CI/CD
+ls .github/workflows/ .gitlab-ci.yml .circleci/ Jenkinsfile 2>/dev/null
+
+# Cloud/IaC
+ls terraform/ cloudformation/ pulumi/ 2>/dev/null
+ls serverless.yml sam.yaml 2>/dev/null
+\`\`\`
+
+## 4. Existing Context Check
+\`\`\`bash
+ls -la ${PATHS.OPENCODE}/ 2>/dev/null || echo "No existing context"
+\`\`\`
+- If ${PATHS.OPENCODE}/ exists \u2192 ASK user to continue or start fresh
+- If not \u2192 Create fresh context
+
+## 5. Context Summary (SAVE TO ${PATHS.CONTEXT})
+\`\`\`markdown
+# Project Context
+
+## Environment
+- Language: [DETECTED from files]
+- Runtime: [DETECTED version if available]
+- Build: [DETECTED build command]
+- Test: [DETECTED test command]
+- Package Manager: [DETECTED from lockfiles]
+
+## Project Type
+- [ ] Library/Package
+- [ ] Application (CLI/Web/Mobile/Desktop)
+- [ ] Microservice
+- [ ] Monorepo
+- [ ] Other: [describe]
+
+## Infrastructure
+- Container: [None / Docker / Podman]
+- Orchestration: [None / K8s / Docker Compose]
+- CI/CD: [DETECTED from config files]
+- Cloud: [DETECTED or None]
+
+## Structure
+- Source: [DETECTED path]
+- Tests: [DETECTED path]  
+- Docs: [DETECTED path]
+- Entry: [DETECTED main file]
+
+## Conventions (OBSERVE from existing code)
+- Naming: [camelCase / snake_case / PascalCase]
+- Imports: [relative / absolute / aliases]
+- Error handling: [exceptions / Result type / error codes]
+- Testing: [unit / integration / e2e patterns]
+
+## Notes
+- [Any unique patterns or requirements observed]
+\`\`\`
+
+## \u26A0\uFE0F CRITICAL RULES:
+1. NEVER assume - always VERIFY by reading files
+2. ADAPT to what you find, don't force expectations
+3. If uncertain, ASK the user for clarification
+4. Document EVERYTHING you discover
 ${PROMPT_TAGS.ENVIRONMENT_DISCOVERY.close}`;
 
 // src/agents/prompts/common/anti-hallucination.ts
 var ANTI_HALLUCINATION_CORE = `${PROMPT_TAGS.ANTI_HALLUCINATION.open}
- ZERO TOLERANCE FOR GUESSING
+\u{1F6AB} ZERO TOLERANCE FOR GUESSING
 
-BEFORE ANY IMPLEMENTATION:
-1. Check ${PATHS.DOCS}/ for cached documentation
-2. If not found \u2192 websearch for OFFICIAL docs
-3. webfetch with cache=true
-4. Use EXACT syntax from docs
+## The Golden Rule
+> If you're not 100% sure, **SEARCH** before you claim.
+> If you can't find it, **SAY** you can't find it.
 
-TRUSTED SOURCES ONLY:
-- Official docs: docs.[framework].com
-- GitHub: github.com/[org]/[repo]
-- Package registries: npmjs.com, pypi.org
+## Before ANY Implementation:
 
- FORBIDDEN:
-- Inventing function signatures
-- Assuming API compatibility
+### Step 1: Check Local Cache
+\`\`\`bash
+ls ${PATHS.DOCS}/  # What do we already have?
+\`\`\`
+
+### Step 2: If Not Found \u2192 Research
+- Search for OFFICIAL documentation
+- Prefer version-specific docs matching project
+- Cache findings to ${PATHS.DOCS}/
+
+### Step 3: Verify Before Using
+- Is this the RIGHT version for THIS project?
+- Does the syntax match current APIs?
+- Are there breaking changes to consider?
+
+## Source Hierarchy (Most to Least Trusted):
+1. \u{1F7E2} **Official docs** - docs.*, *.dev, readthedocs
+2. \u{1F7E2} **GitHub source** - actual source code, README
+3. \u{1F7E1} **Package registries** - npm, PyPI, crates.io, Maven
+4. \u{1F7E1} **GitHub issues** - real-world usage patterns
+5. \u{1F534} **Blogs/tutorials** - may be outdated, verify independently
+
+## \u26D4 ABSOLUTELY FORBIDDEN:
+- Inventing function signatures from memory
+- Assuming API compatibility between versions
 - Guessing version-specific syntax
-- Using outdated knowledge
+- Using knowledge without verification
+- Mixing syntax from different versions
 
- REQUIRED:
-- Source URL for every claim
+## \u2705 ALWAYS REQUIRED:
+- Source URL for every technical claim
 - Confidence level: ${WORK_STATUS.CONFIDENCE.HIGH} (official) / ${WORK_STATUS.CONFIDENCE.MEDIUM} (github) / ${WORK_STATUS.CONFIDENCE.LOW} (blog)
-- Say "NOT FOUND" if documentation unavailable
+- Say "I need to research this" if unsure
+- Say "NOT FOUND in official docs" if documentation unavailable
+
+## Self-Check Questions:
+1. Did I VERIFY this, or am I REMEMBERING it?
+2. Is my source CURRENT for this project's version?
+3. Am I CERTAIN, or am I HOPING?
 ${PROMPT_TAGS.ANTI_HALLUCINATION.close}`;
 
 // src/agents/prompts/common/todo-rules.ts
@@ -13104,10 +13190,10 @@ ${PROMPT_TAGS.TODO_RULES.close}`;
 
 // src/agents/prompts/common/shared-workspace.ts
 var SHARED_WORKSPACE = `${PROMPT_TAGS.SHARED_WORKSPACE.open}
- .opencode/ - Shared Context Directory (Real-time State)
+\u{1F4C2} ${PATHS.OPENCODE}/ - Shared Context Directory (Real-time State)
 
 \`\`\`
-.opencode/
+${PATHS.OPENCODE}/
 \u251C\u2500\u2500 todo.md              - Master task list (single source of truth)
 \u251C\u2500\u2500 context.md           - Project context summary (<150 lines)
 \u251C\u2500\u2500 work-log.md          - \u{1F504} REAL-TIME work status (ALL agents read/write)
@@ -13132,7 +13218,7 @@ var SHARED_WORKSPACE = `${PROMPT_TAGS.SHARED_WORKSPACE.open}
 - Status: ${WORK_STATUS.STATUS.PENDING} | ${WORK_STATUS.STATUS.IN_PROGRESS} | ${WORK_STATUS.STATUS.DONE}
 - Test: ${WORK_STATUS.TEST_RESULT.PASS} | ${WORK_STATUS.TEST_RESULT.FAIL}
 
-## work-log.md FORMAT:
+## ${PATHS.WORK_LOG} FORMAT:
 \`\`\`markdown
 # Work Log
 
@@ -13155,11 +13241,11 @@ var SHARED_WORKSPACE = `${PROMPT_TAGS.SHARED_WORKSPACE.open}
 - Use path.normalize() or similar when comparing paths programmatically
 
 RULES:
-- ALL agents MUST read work-log.md before starting
-- Worker updates work-log.md when starting/completing file work
-- Reviewer monitors work-log.md for completed units
-- Commander reads work-log.md in each loop iteration
-- sync-issues.md = Reviewer writes issues for next iteration
+- ALL agents MUST read ${PATHS.WORK_LOG} before starting
+- Worker updates ${PATHS.WORK_LOG} when starting/completing file work
+- Reviewer monitors ${PATHS.WORK_LOG} for completed units
+- Commander reads ${PATHS.WORK_LOG} in each loop iteration
+- ${PATHS.SYNC_ISSUES} = Reviewer writes issues for next iteration
 ${PROMPT_TAGS.SHARED_WORKSPACE.close}`;
 
 // src/agents/prompts/common/mission-seal.ts
@@ -13190,11 +13276,11 @@ var VERIFICATION_REQUIREMENTS = `${PROMPT_TAGS.VERIFICATION.open}
  VERIFICATION CHECKLIST
 
 ## Code Verification
-\u25A1 lsp_diagnostics clean (no errors)
-\u25A1 Build passes (npm run build)
-\u25A1 Tests pass (npm test)
-\u25A1 No TypeScript 'any' types
-\u25A1 No console.log debugging left
+\u25A1 lsp_diagnostics clean (no errors/warnings)
+\u25A1 Build passes (use project's build command from ${PATHS.CONTEXT})
+\u25A1 Tests pass (use project's test command from ${PATHS.CONTEXT})
+\u25A1 No untyped variables (language-appropriate)
+\u25A1 No debug logging left (console.log, print, etc.)
 
 ## Documentation Verification
 \u25A1 Implementation matches ${PATHS.DOCS}/
@@ -13202,9 +13288,9 @@ var VERIFICATION_REQUIREMENTS = `${PROMPT_TAGS.VERIFICATION.open}
 \u25A1 Version compatibility confirmed
 
 ## Security Verification
-\u25A1 No hardcoded secrets/passwords
+\u25A1 No hardcoded secrets/passwords/API keys
 \u25A1 Input validation present
-\u25A1 Error messages don't leak info
+\u25A1 Error messages don't leak sensitive info
 
 ONLY mark complete after ALL checks pass!
 ${PROMPT_TAGS.VERIFICATION.close}`;
@@ -13691,22 +13777,51 @@ ${PROMPT_TAGS.PLANNING_FORMAT.close}`;
 
 // src/agents/prompts/planner/research.ts
 var PLANNER_RESEARCH = `${PROMPT_TAGS.RESEARCH_WORKFLOW.open}
-1. websearch "[topic] official documentation [version]"
-2. webfetch official URL with cache=true
-3. Extract EXACT syntax (not paraphrased)
-4. Save to ${PATHS.DOCS}/[topic].md
+\u{1F52C} ADAPTIVE RESEARCH WORKFLOW
 
-OUTPUT:
+## Step 1: Identify What to Research
+- What technology/library/API is needed?
+- What version is the project using? (check ${PATHS.CONTEXT})
+- What specific syntax/pattern is unclear?
+
+## Step 2: Prioritize Sources (in order)
+1. **Project's own docs** - Check ${PATHS.DOCS}/ first
+2. **Official documentation** - [framework].dev, docs.[library].com
+3. **GitHub repo** - README, examples, source code
+4. **Package registry** - npm, PyPI, crates.io
+5. **Community** - Stack Overflow, Discord (lowest priority)
+
+## Step 3: Search Strategy
+\`\`\`
+websearch "[topic] official documentation [detected version]"
+websearch "[topic] [language] example"
+\`\`\`
+
+## Step 4: Validate & Extract
+- Is this the CORRECT version for this project?
+- Extract EXACT syntax (never paraphrase)
+- Note any version-specific differences
+
+## Step 5: Cache Research
+Save to ${PATHS.DOCS}/[topic].md:
+
 \`\`\`markdown
 # Research: [topic]
+Date: [timestamp]
 Source: [official URL]
 Confidence: ${WORK_STATUS.CONFIDENCE.HIGH}/${WORK_STATUS.CONFIDENCE.MEDIUM}/${WORK_STATUS.CONFIDENCE.LOW}
-Version: [version]
+Version: [detected version from project]
+
+## Context
+Why this is needed: [brief explanation]
 
 ## Exact Syntax
-\`\`\`[lang]
-[code from official docs]
+\`\`\`[detected language]
+[code from official docs - VERBATIM]
 \`\`\`
+
+## Usage Notes
+- [any gotchas or important details]
 \`\`\`
 ${PROMPT_TAGS.RESEARCH_WORKFLOW.close}`;
 
@@ -13879,36 +13994,83 @@ ${PROMPT_TAGS.REQUIRED_ACTIONS.close}`;
 
 // src/agents/prompts/worker/workflow.ts
 var WORKER_WORKFLOW = `${PROMPT_TAGS.WORKFLOW.open}
-1. Read ${PATHS.CONTEXT} for project environment
-2. Read ${PATHS.TODO} for assigned task
-3. Check ${PATHS.DOCS}/ for relevant info
-4. If docs missing - search and cache first
-5. Check existing patterns in codebase
-6. Implement following conventions
-7. Run: lsp_diagnostics - build - test
-8. Report completion WITH evidence
+\u{1F504} ADAPTIVE IMPLEMENTATION WORKFLOW
 
-Do NOT mark [x] in ${PATHS.TODO} - that's ${AGENT_NAMES.REVIEWER}'s job!
+## Phase 1: UNDERSTAND (Before writing ANY code)
+1. Read ${PATHS.CONTEXT} \u2192 Get project environment, build/test commands
+2. Read ${PATHS.TODO} \u2192 Understand assigned task and acceptance criteria
+3. Read ${PATHS.DOCS}/ \u2192 Check for cached API docs, syntax references
+
+## Phase 2: OBSERVE (Learn from existing codebase)
+4. Find SIMILAR code in the project
+   \`\`\`bash
+   # Find related files
+   find . -name "*.ts" -o -name "*.py" -o -name "*.go" | head -20
+   \`\`\`
+5. Study existing PATTERNS:
+   - How are errors handled?
+   - How are tests structured?
+   - What naming conventions are used?
+   - How is logging done?
+
+## Phase 3: RESEARCH (If needed)
+6. If docs missing in ${PATHS.DOCS}/:
+   - Search for official documentation
+   - Cache findings to ${PATHS.DOCS}/
+
+## Phase 4: IMPLEMENT (Following discoveries)
+7. Write code following OBSERVED patterns
+8. Handle edge cases like existing code does
+9. Add tests matching project's test style
+
+## Phase 5: VERIFY (Before reporting)
+10. Run lsp_diagnostics \u2192 Must be clean
+11. Run BUILD command from ${PATHS.CONTEXT}
+12. Run TEST command from ${PATHS.CONTEXT}
+13. Report completion WITH evidence
+
+\u26A0\uFE0F Do NOT mark [x] in ${PATHS.TODO} - that's ${AGENT_NAMES.REVIEWER}'s job!
 ${PROMPT_TAGS.WORKFLOW.close}`;
 
 // src/agents/prompts/worker/quality.ts
 var WORKER_QUALITY = `${PROMPT_TAGS.QUALITY_CHECKLIST.open}
-BEFORE REPORTING COMPLETE:
-- lsp_diagnostics shows no errors
-- Build passes (npm run build)
-- Tests written for new code
-- Tests pass (npm test)
-- No console.log debugging left
-- Error cases handled
-- Types correct (no 'any')
-- Matches ${PATHS.DOCS}/ patterns
+\u{1F4CB} QUALITY CHECKLIST (Adaptive)
 
-OUTPUT FORMAT:
+Before reporting complete, verify against PROJECT-SPECIFIC standards:
+
+## 1. Static Analysis
+- lsp_diagnostics shows NO errors
+- Follow linting rules discovered in project (if any)
+
+## 2. Build Verification
+- Run the BUILD command from ${PATHS.CONTEXT}
+- Must complete without errors
+
+## 3. Test Verification
+- Tests written for new/changed code
+- Run the TEST command from ${PATHS.CONTEXT}
+- All tests must pass
+
+## 4. Code Quality (OBSERVE existing patterns)
+- Match naming conventions found in codebase
+- Match error handling patterns found in codebase
+- No debug logging left (console.log, print, logger.debug, etc.)
+- No hardcoded values that should be config
+
+## 5. Documentation Compliance
+- Implementation matches ${PATHS.DOCS}/ patterns
+- API usage matches official documentation
+
+## OUTPUT FORMAT:
+\`\`\`
 TASK: T[N]
 CHANGED: [files] ([lines])
-VERIFY: lsp_diagnostics clean, build pass, tests pass
+BUILD: [command used] \u2192 [result]
+TEST: [command used] \u2192 [result]  
+PATTERNS_FOLLOWED: [list observed conventions]
 DOCS_USED: ${PATHS.DOCS}/[file]
 Ready for ${AGENT_NAMES.REVIEWER} verification
+\`\`\`
 ${PROMPT_TAGS.QUALITY_CHECKLIST.close}`;
 
 // src/agents/prompts/worker/tdd-workflow.ts
@@ -14175,8 +14337,8 @@ var REVIEWER_REQUIRED = `${PROMPT_TAGS.REQUIRED_ACTIONS.open}
 - Am I verifying THOROUGHLY or just going through motions?
 
 ALWAYS run lsp_diagnostics
-ALWAYS run build command (npm run build)
-ALWAYS run test command (npm test)
+ALWAYS run project's BUILD command (from ${PATHS.CONTEXT})
+ALWAYS run project's TEST command (from ${PATHS.CONTEXT})
 ALWAYS check implementation matches ${PATHS.DOCS}/
 ALWAYS update ${PATHS.TODO} checkboxes ONLY after verification
 ALWAYS provide ${WORK_STATUS.TEST_RESULT.PASS}/${WORK_STATUS.TEST_RESULT.FAIL} with evidence
@@ -14186,25 +14348,44 @@ ${PROMPT_TAGS.REQUIRED_ACTIONS.close}`;
 
 // src/agents/prompts/reviewer/verification.ts
 var REVIEWER_VERIFICATION = `${PROMPT_TAGS.VERIFICATION_PROCESS.open}
-## Step 1: Code Check
-lsp_diagnostics - Must show no errors
+\u{1F50D} ADAPTIVE VERIFICATION PROCESS
 
-## Step 2: Build Check
-npm run build - Must pass
+## Step 1: Read Project Context
+\`\`\`bash
+cat ${PATHS.CONTEXT}  # Get build/test commands
+\`\`\`
+- Identify the BUILD command for this project
+- Identify the TEST command for this project
+- Note any project-specific verification requirements
 
-## Step 3: Test Check
-npm test - Must pass
-Tests must exist for new code
+## Step 2: Static Analysis
+lsp_diagnostics - Must show NO errors or warnings
 
-## Step 4: Doc Compliance
-Compare implementation with ${PATHS.DOCS}/
-API usage must match official documentation
+## Step 3: Build Verification
+- Run the project's BUILD command (from ${PATHS.CONTEXT})
+- Must pass without errors
+- Watch for deprecation warnings
 
-## Step 5: Mark Complete (ONLY after all pass)
+## Step 4: Test Verification  
+- Run the project's TEST command (from ${PATHS.CONTEXT})
+- ALL tests must pass
+- New code MUST have corresponding tests
+
+## Step 5: Documentation Compliance
+- Compare implementation with ${PATHS.DOCS}/
+- API usage must match official documentation
+- Check for breaking changes
+
+## Step 6: Pattern Verification
+- Does the code follow EXISTING patterns in codebase?
+- Naming conventions consistent?
+- Error handling consistent?
+
+## Step 7: Mark Complete (ONLY after ALL pass)
 In ${PATHS.TODO}:
-- [x] T1: [task] | verified | evidence: tests pass
+- [x] T1: [task] | verified | evidence: [build/test results]
 
-ONLY mark [x] after you personally verified all checks pass!
+\u26A0\uFE0F NEVER mark [x] without running ACTUAL verification commands!
 ${PROMPT_TAGS.VERIFICATION_PROCESS.close}`;
 
 // src/agents/prompts/reviewer/todo-update.ts

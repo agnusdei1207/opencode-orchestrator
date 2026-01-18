@@ -4,13 +4,13 @@
  * Defines the .opencode/ directory structure.
  */
 
-import { ID_PREFIX, PROMPT_TAGS, WORK_STATUS } from "../../../shared/index.js";
+import { ID_PREFIX, PATHS, PROMPT_TAGS, WORK_STATUS } from "../../../shared/index.js";
 
 export const SHARED_WORKSPACE = `${PROMPT_TAGS.SHARED_WORKSPACE.open}
- .opencode/ - Shared Context Directory (Real-time State)
+📂 ${PATHS.OPENCODE}/ - Shared Context Directory (Real-time State)
 
 \`\`\`
-.opencode/
+${PATHS.OPENCODE}/
 ├── todo.md              - Master task list (single source of truth)
 ├── context.md           - Project context summary (<150 lines)
 ├── work-log.md          - 🔄 REAL-TIME work status (ALL agents read/write)
@@ -35,7 +35,7 @@ export const SHARED_WORKSPACE = `${PROMPT_TAGS.SHARED_WORKSPACE.open}
 - Status: ${WORK_STATUS.STATUS.PENDING} | ${WORK_STATUS.STATUS.IN_PROGRESS} | ${WORK_STATUS.STATUS.DONE}
 - Test: ${WORK_STATUS.TEST_RESULT.PASS} | ${WORK_STATUS.TEST_RESULT.FAIL}
 
-## work-log.md FORMAT:
+## ${PATHS.WORK_LOG} FORMAT:
 \`\`\`markdown
 # Work Log
 
@@ -58,9 +58,9 @@ export const SHARED_WORKSPACE = `${PROMPT_TAGS.SHARED_WORKSPACE.open}
 - Use path.normalize() or similar when comparing paths programmatically
 
 RULES:
-- ALL agents MUST read work-log.md before starting
-- Worker updates work-log.md when starting/completing file work
-- Reviewer monitors work-log.md for completed units
-- Commander reads work-log.md in each loop iteration
-- sync-issues.md = Reviewer writes issues for next iteration
+- ALL agents MUST read ${PATHS.WORK_LOG} before starting
+- Worker updates ${PATHS.WORK_LOG} when starting/completing file work
+- Reviewer monitors ${PATHS.WORK_LOG} for completed units
+- Commander reads ${PATHS.WORK_LOG} in each loop iteration
+- ${PATHS.SYNC_ISSUES} = Reviewer writes issues for next iteration
 ${PROMPT_TAGS.SHARED_WORKSPACE.close}`;
