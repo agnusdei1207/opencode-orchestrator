@@ -24,11 +24,9 @@ Then in OpenCode:
 /task "Build a REST API with authentication"
 ```
 
-The STARSHIP deploys. The crew lands. The mission begins.
-
 ---
 
-## 🛸 The STARSHIP Protocol
+## 🛸 Protocol
 
 ```
 ┌───────────────────────────────────────────────────┐
@@ -100,9 +98,7 @@ The STARSHIP deploys. The crew lands. The mission begins.
 
 ---
 
-## 🚀 STARSHIP Capabilities
-
-*The STARSHIP isn't just any vessel. It's built for the impossible:*
+## 🚀 Capabilities
 
 | Capability | What It Means |
 |:-----------|:--------------|
