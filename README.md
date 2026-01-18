@@ -18,6 +18,69 @@
 
 ---
 
+## 🧠 Core Philosophy
+
+> **Explore → Adapt → Act**  
+> *Never assume. Always verify. Then execute.*
+
+### The Problem with AI Agents
+
+Most AI agents fail because they:
+- **Assume** instead of checking
+- **Guess** instead of researching  
+- Follow **rigid rules** instead of adapting
+- Trust **memory** instead of verifying
+
+### Our Solution: Adaptive Intelligence
+
+Every agent in this system follows a simple principle:
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                                                             │
+│   🔍 EXPLORE    →    🔄 ADAPT    →    ⚡ ACT               │
+│                                                             │
+│   Discover         Adjust to         Execute with           │
+│   the reality      what you find     confidence             │
+│                                                             │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### Agent Philosophies
+
+| Agent | Philosophy | What It Means |
+|:-----:|:-----------|:--------------|
+| 🎯 **Commander** | Explore → Adapt → Act | Discover project structure first, then delegate intelligently |
+| 📋 **Planner** | Research → Plan → Document | Never guess syntax. Find official docs, verify, then plan |
+| 🔨 **Worker** | Observe → Learn → Implement | Study existing code patterns, then write code that fits |
+| ✅ **Reviewer** | Understand → Verify → Approve | Know the project's standards, run actual tests, approve with evidence |
+
+### Guiding Principles
+
+1. **🔍 Never Assume, Always Discover**
+   - Read `context.md` before every action
+   - Detect the tech stack, don't assume it
+   - Find the build/test commands, don't guess them
+
+2. **📚 Evidence Over Memory**
+   - Cite official documentation for every claim
+   - Run actual commands for verification
+   - Mark complete only with proof
+
+3. **🔄 Adapt to the Project**
+   - Match existing code patterns
+   - Follow discovered conventions
+   - Respect the project's way of doing things
+
+4. **🤝 Separation of Concerns**
+   - Commander orchestrates, never implements
+   - Worker builds, never verifies
+   - Reviewer approves, never codes
+   - Each agent does one thing excellently
+
+---
+
+
 ## ⚡ Quick Start
 
 ```bash
