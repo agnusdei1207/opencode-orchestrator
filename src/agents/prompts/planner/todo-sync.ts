@@ -2,50 +2,64 @@
  * Planner TODO Sync
  * 
  * Syncs TODO list based on Commander instructions after sync issues.
+ * Also maintains .opencode/ documents minimal.
  */
 
 import { PATHS, AGENT_NAMES, ID_PREFIX, PROMPT_TAGS, WORK_STATUS } from "../../../shared/index.js";
 
 export const PLANNER_TODO_SYNC = `${PROMPT_TAGS.TODO_SYNC.open}
-## TODO SYNC (After Sync Issues)
+## TODO SYNC & DOCUMENT MAINTENANCE
 
-When ${AGENT_NAMES.COMMANDER} detects sync issues, you update the TODO.
+When ${AGENT_NAMES.COMMANDER} detects sync issues, you update TODO and maintain docs.
 
 ### Step 1: Read Current State
 \`\`\`bash
-cat ${PATHS.SYNC_ISSUES}
-cat ${PATHS.WORK_LOG}
-cat ${PATHS.TODO}
+cat ${PATHS.STATUS}         # Current progress %
+cat ${PATHS.SYNC_ISSUES}    # Unresolved issues
+cat ${PATHS.TODO}           # Task list
 \`\`\`
 
-### Step 2: Understand Commander's Instructions
-Commander will tell you:
-- Which files need rework
-- What sync issues to fix
-- New dependencies discovered
-
-### Step 3: Update TODO
+### Step 2: Add Fix Tasks
 Add NEW subtasks for sync fixes:
-
 \`\`\`markdown
-### T3: Sync Fixes | parallel-group:3 | depends:T2
-- [ ] S3.1: ${WORK_STATUS.ACTION.FIX} \`src/auth/login.ts\` | agent:${AGENT_NAMES.WORKER} | file:src/auth/login.ts | issue:${ID_PREFIX.SYNC_ISSUE}1
-- [ ] S3.2: ${WORK_STATUS.ACTION.FIX} \`src/api/users.ts\` | agent:${AGENT_NAMES.WORKER} | file:src/api/users.ts | issue:${ID_PREFIX.SYNC_ISSUE}1
+### T3: Sync Fixes | parallel-group:3
+- [ ] S3.1: ${WORK_STATUS.ACTION.FIX} \`src/auth/login.ts\` | issue:${ID_PREFIX.SYNC_ISSUE}1
+- [ ] S3.2: ${WORK_STATUS.ACTION.FIX} \`src/api/users.ts\` | issue:${ID_PREFIX.SYNC_ISSUE}1
 \`\`\`
 
-### Step 4: Update Work Log File Status
-\`\`\`markdown
-| src/auth/login.ts | ${WORK_STATUS.ACTION.FIX} | ${WORK_STATUS.STATUS.PENDING} | - | - | - | ${ID_PREFIX.SYNC_ISSUE}1 |
-\`\`\`
+---
 
-### Sync Issue Reference Format
-Always reference the sync issue ID:
-- \`issue:${ID_PREFIX.SYNC_ISSUE}N\` in TODO subtask (e.g., ${ID_PREFIX.SYNC_ISSUE}1, ${ID_PREFIX.SYNC_ISSUE}42)
-- Links back to ${PATHS.SYNC_ISSUES} for context
+## 📋 DOCUMENT MAINTENANCE RULES
+
+### Keep .opencode/ Minimal:
+| File | Rule |
+|------|------|
+| ${PATHS.STATUS} | Overwrite each loop (no history) |
+| ${PATHS.TODO} | Keep only uncompleted tasks |
+| ${PATHS.SYNC_ISSUES} | Delete resolved issues immediately |
+| ${PATHS.WORK_LOG} | Archive completed, keep active only |
+
+### Summarize & Clean:
+- **Completed tasks**: Move to archive or delete
+- **Resolved issues**: DELETE from sync-issues.md
+- **Old status**: Overwrite with current (no append)
+- **Long descriptions**: Summarize to 1-2 lines
+
+### What to DELETE:
+- Resolved sync issues
+- Completed TODO items (mark [x] first, then remove in next cycle)
+- Old status updates
+- Verbose explanations
+
+### What to KEEP:
+- Active/pending tasks
+- Unresolved issues
+- Current phase info
+- Blockers
 
 ### CRITICAL:
-- DO NOT remove completed tasks (keep for history)
-- ADD new fix tasks, don't overwrite
-- Keep file manifest updated
-- Commander reads your updates in next loop
+- Commander should NOT see old/resolved content
+- Only current state matters
+- Less context = faster decisions
 ${PROMPT_TAGS.TODO_SYNC.close}`;
+
