@@ -4,7 +4,7 @@
  * Logic for reading shared state and continuing work loop.
  */
 
-import { PATHS, AGENT_NAMES, PROMPT_TAGS } from "../../../shared/index.js";
+import { PATHS, AGENT_NAMES, PROMPT_TAGS, WORK_STATUS } from "../../../shared/index.js";
 
 export const COMMANDER_LOOP_CONTINUATION = `${PROMPT_TAGS.LOOP_CONTINUATION.open}
 ## LOOP CONTINUATION PROTOCOL
@@ -30,16 +30,16 @@ Commander updates ${PATHS.STATUS} each loop:
 - TODO: 8/10 (80%)
 - Issues: 2 unresolved
 - Workers: 3 active
-- E2E: Not started / Running / PASS / FAIL
+- E2E: ${WORK_STATUS.E2E_STATUS.NOT_STARTED} | ${WORK_STATUS.E2E_STATUS.RUNNING} | ${WORK_STATUS.E2E_STATUS.PASS} | ${WORK_STATUS.E2E_STATUS.FAIL}
 
 ## Current Phase
-[PLANNING / IMPLEMENTATION / E2E / FIXING / SEALING]
+${WORK_STATUS.PHASE.PLANNING} | ${WORK_STATUS.PHASE.IMPLEMENTATION} | ${WORK_STATUS.PHASE.E2E} | ${WORK_STATUS.PHASE.FIXING} | ${WORK_STATUS.PHASE.SEALING}
 
 ## Next Action
-[Brief description of next step]
+[Brief description]
 
 ## Blockers
-- [List any blockers, or "None"]
+- [List or "None"]
 \`\`\`
 
 ### Status Rules:
@@ -65,22 +65,23 @@ ONLY THEN → output <mission_seal>SEALED</mission_seal>
 ❌ TODO < 100% → LOOP
 ❌ Issues > 0 → LOOP
 ❌ Build fails → LOOP
-❌ E2E fails → LOOP
+❌ E2E = ${WORK_STATUS.E2E_STATUS.FAIL} → LOOP
 \`\`\`
 
 ### ⛔ NEVER SEAL IF:
 - TODO is 100% BUT issues > 0
 - Workers are still active
-- Build or E2E failed
+- E2E = ${WORK_STATUS.E2E_STATUS.FAIL}
 
 ---
 
 ## 🔄 E2E Test Timing
 
 E2E starts when **TODO ≥ 80%** (not at 100%):
+- Phase changes to ${WORK_STATUS.PHASE.E2E}
 - E2E runs **parallel** with remaining work
-- If E2E finds errors → issues++ → continue TODO
-- Both TODO 100% AND issues 0 → SEALED
+- If E2E ${WORK_STATUS.E2E_STATUS.FAIL} → issues++ → continue TODO
+- Both TODO 100% AND issues 0 → ${WORK_STATUS.PHASE.SEALING}
 
 \`\`\`
 [---TODO progress---][E2E starts ~80%]
@@ -94,15 +95,17 @@ E2E starts when **TODO ≥ 80%** (not at 100%):
 
 ### Decision Matrix
 
-| TODO % | Issues | Action |
-|--------|--------|--------|
-| < 100% | Any | Continue work |
-| 100% | > 0 | ♻️ LOOP - fix issues |
-| 100% | 0 | ✅ SEALED |
+| TODO % | Issues | Phase |
+|--------|--------|-------|
+| < 100% | Any | ${WORK_STATUS.PHASE.IMPLEMENTATION} |
+| ≥ 80% | Any | ${WORK_STATUS.PHASE.E2E} (parallel) |
+| 100% | > 0 | ${WORK_STATUS.PHASE.FIXING} |
+| 100% | 0 | ${WORK_STATUS.PHASE.SEALING} ✅ |
 
 ### CRITICAL RULES:
 - Update ${PATHS.STATUS} every loop
-- Planner keeps docs minimal (summarize, delete old)
-- NEVER seal with issues > 0 (even at TODO 100%!)
+- Planner keeps docs minimal
+- NEVER seal with issues > 0
 - E2E starts at ~80%, runs parallel
 ${PROMPT_TAGS.LOOP_CONTINUATION.close}`;
+
