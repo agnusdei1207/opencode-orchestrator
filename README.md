@@ -49,30 +49,21 @@ When you arrive on an uncharted world, you don't assume oxygen. You don't guess 
 
 ### 🚀 The Crew
 
-**🎯 Commander** — *The captain who landed the ship*
-
-> Arrived on foreign soil with one mission: complete the objective. Doesn't know the atmosphere yet, doesn't know what grows here. But knows how to lead. Scans the horizon, delegates specialists, and keeps the mission moving until it's sealed.
-
-**📋 Planner** — *The scientist who maps the terrain*
-
-> First out of the ship with instruments in hand. Tests the soil, analyzes the air, documents every discovery. Creates the maps that everyone will follow. Without the Planner's records, the crew would be lost.
-
-**🔨 Worker** — *The engineer who builds the base*
-
-> Takes the Planner's maps and builds. Adapts construction to local materials. If the terrain is rocky, builds on rock. If it's sandy, adjusts foundations. Doesn't fight the environment — works with it.
-
-**✅ Reviewer** — *The inspector who clears for launch*
-
-> Before the mission can be called complete, everything must pass inspection. Walks the perimeter, tests the structures, verifies against the original blueprints. Only when every check passes does the mission get sealed.
+| Agent | Role | Mission |
+|:------|:-----|:--------|
+| 🎯 **Commander** | The captain | Leads the mission. Delegates specialists. Seals when complete. |
+| 📋 **Planner** | The scientist | Maps the terrain. Documents everything. Creates paths to follow. |
+| 🔨 **Worker** | The engineer | Builds with local materials. Adapts to the terrain. |
+| ✅ **Reviewer** | The inspector | Verifies all structures. Clears the mission for launch. |
 
 ### 🛸 The Protocol
 
 | Phase | The Crew's Action |
 |:------|:------------------|
-| 🔍 **EXPLORE** | *"What kind of world is this?"* — Scan environment, detect patterns, never assume |
-| � **LEARN** | *"Let me write this down."* — Document findings for the team and future missions |
-| � **ADAPT** | *"We'll do it this way here."* — Adjust approach to fit what we've learned |
-| ⚡ **ACT** | *"Execute."* — Build, test, verify, seal the mission |
+| 🔍 **EXPLORE** | *"What world is this?"* — Scan, detect, never assume |
+| 📝 **LEARN** | *"Write it down."* — Document for future missions |
+| 🔄 **ADAPT** | *"Do it this way here."* — Fit the terrain |
+| ⚡ **ACT** | *"Execute."* — Build, test, seal |
 
 ### 🌟 Crew Principles
 
