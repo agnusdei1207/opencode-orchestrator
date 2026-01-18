@@ -54,38 +54,34 @@ Then in OpenCode:
 
 ## 🏛️ How It Works
 
+> **⚡ DELEGATE. PARALLELIZE. SEAL.** — One command unleashes full autonomous execution.
+
 ```
-                              /task "Build REST API"
-                                       │
-                    ╔══════════════════╧══════════════════╗
-                    ║           🎯 COMMANDER              ║
-                    ║          Delegate → Loop            ║
-                    ╚══════════════════╤══════════════════╝
-                                       │
-       ┌───────────────────────────────┼───────────────────────────────┐
-       │                               │                               │
-       ▼                               ▼                               ▼
-  ┌─────────┐                    ┌─────────┐                    ┌─────────┐
-  │📋PLANNER│                    │🔨WORKER │                    │🔨WORKER │
-  │ plan.md │                    │ auth.ts │                    │ api.ts  │
-  └─────────┘                    └─────────┘                    └─────────┘
-       │                               │                               │
-       │         ┌─────────────────────┴─────────────────────┐         │
-       │         │           🔀 50 PARALLEL SESSIONS         │         │
-       │         └─────────────────────┬─────────────────────┘         │
-       │                               │                               │
-       └───────────────────────────────┼───────────────────────────────┘
-                                       ▼
-                    ╔══════════════════╧══════════════════╗
-                    ║           ✅ REVIEWER               ║
-                    ╚══════════════════╤══════════════════╝
-                                       │
-                            ┌──────────┴──────────┐
-                            │    TODO 100%?       │
-                            │    Issues = 0?      │
-                            └──────────┬──────────┘
-                                No ↙       ↘ Yes
-                              ♻️ LOOP       🎖️ SEALED
+            /task "Build REST API"
+                     │
+     ╔═══════════════╧═══════════════╗
+     ║  🎯 COMMANDER — Delegate+Loop ║
+     ╚═══════════════╤═══════════════╝
+                     │
+     ┌───────────────┼───────────────┐
+     ▼               ▼               ▼
+ ┌───────┐      ┌───────┐      ┌───────┐
+ │PLANNER│      │WORKER │      │WORKER │   ← 🔥 50 PARALLEL
+ │plan.md│      │auth.ts│      │api.ts │      SESSIONS
+ └───────┘      └───────┘      └───────┘
+     │               │               │
+     └───────────────┼───────────────┘
+                     ▼
+     ╔═══════════════╧═══════════════╗
+     ║      ✅ REVIEWER — Verify     ║
+     ╚═══════════════╤═══════════════╝
+                     │
+            ┌────────┴────────┐
+            │ TODO 100%?      │
+            │ Issues = 0?     │
+            └────────┬────────┘
+              No ↙       ↘ Yes
+            ♻️ LOOP      🎖️ SEALED
 ```
 
 ### 🔑 Key Systems
@@ -151,7 +147,3 @@ MIT License. [LICENSE](LICENSE)
 
 ---
 
-<div align="center">
-  <h3>🚀 v0.9.7 — "Relentless execution until absolute success."</h3>
-  <p><i>Multi-agent. Parallel. Non-blocking. Self-healing. Enterprise-grade.</i></p>
-</div>
