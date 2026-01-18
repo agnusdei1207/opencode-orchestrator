@@ -13,8 +13,8 @@ export const REVIEWER_REQUIRED = `${PROMPT_TAGS.REQUIRED_ACTIONS.open}
 - Am I verifying THOROUGHLY or just going through motions?
 
 ALWAYS run lsp_diagnostics
-ALWAYS run build command (npm run build)
-ALWAYS run test command (npm test)
+ALWAYS run project's BUILD command (from ${PATHS.CONTEXT})
+ALWAYS run project's TEST command (from ${PATHS.CONTEXT})
 ALWAYS check implementation matches ${PATHS.DOCS}/
 ALWAYS update ${PATHS.TODO} checkboxes ONLY after verification
 ALWAYS provide ${WORK_STATUS.TEST_RESULT.PASS}/${WORK_STATUS.TEST_RESULT.FAIL} with evidence
