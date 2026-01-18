@@ -163,11 +163,30 @@ PATHS.OPENCODE           // ".opencode"
 PATHS.TODO               // ".opencode/todo.md"
 PATHS.CONTEXT            // ".opencode/context.md"
 PATHS.WORK_LOG           // ".opencode/work-log.md"
+PATHS.STATUS             // ".opencode/status.md"  ← Progress tracking
 PATHS.UNIT_TESTS         // ".opencode/unit-tests"
 PATHS.SYNC_ISSUES        // ".opencode/sync-issues.md"
 PATHS.INTEGRATION_STATUS // ".opencode/integration-status.md"
 PATHS.DOCS               // ".opencode/docs"
 PATHS.ARCHIVE            // ".opencode/archive"
+```
+
+### Work Status Constants (`WORK_STATUS`)
+```typescript
+// Actions
+WORK_STATUS.ACTION.CREATE | MODIFY | DELETE | FIX
+
+// Status
+WORK_STATUS.STATUS.PENDING | IN_PROGRESS | DONE | FAILED
+
+// E2E Status
+WORK_STATUS.E2E_STATUS.NOT_STARTED | RUNNING | PASS | FAIL
+
+// Mission Phase
+WORK_STATUS.PHASE.PLANNING | IMPLEMENTATION | E2E | FIXING | SEALING
+
+// Test Result
+WORK_STATUS.TEST_RESULT.PASS | FAIL | SKIP
 ```
 
 ---
