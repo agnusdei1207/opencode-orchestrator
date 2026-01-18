@@ -89,7 +89,6 @@ export function createConfigHandler() {
         // Set Commander as the default agent
         (config as { default_agent?: string }).default_agent = AGENT_NAMES.COMMANDER;
 
-        console.log(`[orchestrator] Registered agents: ${Object.keys(orchestratorAgents).join(", ")}`);
-        console.log(`[orchestrator] Default agent: ${AGENT_NAMES.COMMANDER}`);
+        // Note: console.log removed to prevent TUI corruption
     };
 }

@@ -18642,8 +18642,6 @@ function createConfigHandler() {
     config2.command = { ...existingCommands, ...orchestratorCommands };
     config2.agent = { ...processedExistingAgents, ...orchestratorAgents };
     config2.default_agent = AGENT_NAMES.COMMANDER;
-    console.log(`[orchestrator] Registered agents: ${Object.keys(orchestratorAgents).join(", ")}`);
-    console.log(`[orchestrator] Default agent: ${AGENT_NAMES.COMMANDER}`);
   };
 }
 
@@ -19091,8 +19089,7 @@ var require2 = createRequire(import.meta.url);
 var { version: PLUGIN_VERSION } = require2("../package.json");
 var OrchestratorPlugin = async (input) => {
   const { directory, client } = input;
-  console.log(`[orchestrator] v${PLUGIN_VERSION} loaded`);
-  console.log(`[orchestrator] Log file: ${getLogPath()}`);
+  log2(`[orchestrator] v${PLUGIN_VERSION} loaded, log: ${getLogPath()}`);
   log2("[index.ts] Plugin initialized", { version: PLUGIN_VERSION, directory });
   initToastClient(client);
   const taskToastManager = initTaskToastManager(client);
