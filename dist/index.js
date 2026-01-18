@@ -13290,65 +13290,81 @@ At the START of each loop iteration, Commander MUST read shared state:
 
 ### Step 1: Read Work Status
 \`\`\`bash
-# Check current work status
 cat ${PATHS.WORK_LOG}
+cat ${PATHS.TODO}
 \`\`\`
 
 ### Step 2: Check for Sync Issues
 \`\`\`bash
-# Check if Reviewer reported sync issues
 cat ${PATHS.SYNC_ISSUES} 2>/dev/null || echo "No sync issues"
 \`\`\`
 
-### Step 3: Check Integration Status
-\`\`\`bash
-# Check integration test results
-cat ${PATHS.INTEGRATION_STATUS} 2>/dev/null || echo "No integration yet"
+---
+
+## \u26A0\uFE0F SEALED CONDITIONS (CRITICAL!)
+
+### SEALED = BOTH must be true:
+\`\`\`
+\u2705 TODO:        ALL items [x] checked
+\u2705 sync-issues: EMPTY (no unresolved issues)
+\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+ONLY THEN \u2192 output <mission_seal>SEALED</mission_seal>
 \`\`\`
 
-### Step 4: Decision Matrix
-
-| work-log.md | sync-issues.md | Action |
-|-------------|----------------|--------|
-| Active workers | Any | Wait, monitor progress |
-| All [x] | Empty | Proceed to SEAL check |
-| All [x] | Has issues | Dispatch ${AGENT_NAMES.WORKER} to fix |
-| Has unchecked | Any | Continue execution |
-
-### Step 5: File-Level Task Assignment
-When dispatching work, assign at FILE LEVEL:
-\`\`\`markdown
-## TODO Format for Parallel Workers:
-- [ ] S1.1: Implement \`src/auth/login.ts\` | agent:${AGENT_NAMES.WORKER} | file:src/auth/login.ts
-- [ ] S1.2: Implement \`src/auth/logout.ts\` | agent:${AGENT_NAMES.WORKER} | file:src/auth/logout.ts
+### LOOP BACK = ANY of these:
+\`\`\`
+\u274C TODO has unchecked items \u2192 LOOP
+\u274C sync-issues.md is NOT empty \u2192 LOOP
+\u274C Build fails \u2192 LOOP
+\u274C E2E test fails \u2192 LOOP
 \`\`\`
 
-Each ${AGENT_NAMES.WORKER} gets ONE file:
-- Isolation guaranteed
-- TDD happens per file
-- Unit test created & deleted per file
+### \u26D4 NEVER SEAL IF:
+- TODO is complete BUT sync-issues has content
+- Workers are still active
+- Build or E2E tests failed
 
-### Step 6: Parallel Dispatch
+---
+
+## \u{1F504} E2E Test Timing
+
+E2E tests start when **TODO is nearly complete** (not at the very end):
+- Reviewer begins E2E when most tasks are done
+- E2E runs **parallel** with remaining TODO items
+- If E2E finds errors \u2192 record in sync-issues.md \u2192 continue with TODO
+- This allows catching integration issues early
+
 \`\`\`
-delegate_task(S1.1, ${AGENT_NAMES.WORKER}, background: true)
-delegate_task(S1.2, ${AGENT_NAMES.WORKER}, background: true)
-delegate_task(S1.3, ${AGENT_NAMES.WORKER}, background: true)
-// All run in PARALLEL
+Timeline:
+[---TODO progress---] [E2E starts here---]
+                      \u2193
+            TODO + E2E run in parallel
+                      \u2193
+        Both must complete cleanly \u2192 SEALED
 \`\`\`
 
-### Step 7: After Workers Complete
+---
+
+### Decision Matrix
+
+| TODO | sync-issues.md | Action |
+|------|----------------|--------|
+| Has unchecked | Any | Continue work |
+| All [x] | NOT empty | \u267B\uFE0F LOOP - fix issues first |
+| All [x] | Empty | \u2705 SEALED |
+
+### File-Level Task Assignment
+Each ${AGENT_NAMES.WORKER} gets ONE file for isolation:
 \`\`\`
-delegate_task(VERIFY_ALL, ${AGENT_NAMES.REVIEWER}, background: false)
-// Reviewer checks all completed units
-// Reviewer runs integration test
-// Reviewer updates TODO or reports sync issues
+delegate_task(file:src/auth/login.ts, ${AGENT_NAMES.WORKER}, background: true)
+delegate_task(file:src/auth/logout.ts, ${AGENT_NAMES.WORKER}, background: true)
 \`\`\`
 
-### CRITICAL LOOP RULES:
-- ALWAYS read ${PATHS.WORK_LOG} at loop start
+### CRITICAL RULES:
+- ALWAYS read ${PATHS.TODO} AND ${PATHS.SYNC_ISSUES} at loop start
+- NEVER seal with sync-issues content (even if TODO is done!)
 - NEVER seal with active workers
-- NEVER seal with unresolved sync issues
-- File-level assignment = proper isolation
+- E2E starts near TODO completion, runs parallel
 ${PROMPT_TAGS.LOOP_CONTINUATION.close}`;
 
 // src/agents/prompts/commander/sync-handling.ts
