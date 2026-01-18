@@ -40,17 +40,18 @@ A multi-agent system that **autonomously executes complex tasks** from start to 
 
 ---
 
-## ✨ Key Features
+## ✨ v0.9.4 Highlights
 
-| Feature | Description |
-|---------|-------------|
-| 🤖 **4 Specialized Agents** | Commander → Planner → Worker → Reviewer, each with distinct roles |
-| ⚡ **Parallel Execution** | Up to 50 concurrent sessions — no waiting, maximum throughput |
-| 🔄 **Background Tasks** | Long-running commands (npm install, tests) run non-blocking |
-| 📋 **TODO-Driven Completion** | Auto-continues until every TODO is checked — never stops halfway |
-| 🛡️ **Auto-Recovery** | Handles errors, rate limits, and session crashes automatically |
-| 💾 **Memory Safety** | Auto GC, disk archiving, 60-min TTL — no memory leaks |
-| 🔔 **Smart Notifications** | Consolidated task toasts with progress tracking |
+> 🚀 **"Relentless execution until absolute success."**
+
+| Category | Feature |
+|----------|----------|
+| 🛡️ **Resilience** | Never stops. Auto-pivots Plan↔Search on any error |
+| ⚡ **Parallelism** | 50 isolated sessions run simultaneously |
+| 🔧 **TDD Workers** | Each agent works in complete isolation (1 file = 1 worker) |
+| 🔄 **Sync Integration** | Shared `.opencode/` state synchronizes all agents |
+| ✅ **Stability Checks** | TODO + Issue verification before mission seal |
+| 🧠 **Smart Fixers** | Anti-overengineering: simple errors get simple fixes |
 
 ---
 
@@ -87,14 +88,17 @@ A multi-agent system that **autonomously executes complex tasks** from start to 
                     ♻️ LOOP    🎖️ SEALED
 ```
 
-### 🔑 Key Concepts
+### 🔑 Core Principles
 
-| Concept | Description |
-|---------|-------------|
-| **♾️ Infinite Loop** | Keeps running until ALL TODOs [x] AND no sync issues |
-| **🔧 TDD Isolation** | Each Worker = 1 file. Test → Build → Delete test |
-| **📂 Shared State** | `.opencode/` = single source of truth for all agents |
-| **🔄 E2E at End** | Integration tests run when TODO nearly complete |
+```
+┌─────────────────────────────────────────────────────────────┐
+│  🔒 ISOLATION    │  🔄 SYNC       │  ✅ STABILITY          │
+├─────────────────────────────────────────────────────────────┤
+│  Each worker     │  Shared state  │  TODO 100% complete    │
+│  owns 1 file     │  via .opencode │  + Zero sync issues    │
+│  No conflicts    │  Real-time     │  = Mission SEALED      │
+└─────────────────────────────────────────────────────────────┘
+```
 
 
 ---
@@ -175,5 +179,5 @@ MIT License. [LICENSE](LICENSE)
 ---
 
 <div align="center">
-  <b>Enterprise-scale. Memory-safe. Self-healing. Unlimited.</b>
+  <b>🚀 v0.9.4 — "Relentless execution until absolute success."</b>
 </div>
