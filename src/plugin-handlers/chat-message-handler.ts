@@ -80,7 +80,7 @@ export function createChatMessageHandler(ctx: ChatMessageHandlerContext) {
             }
         }
 
-        // Handle explicit slash commands
+        // Handle explicit slash commands (including /task for any agent)
         if (parsed) {
             const command = COMMANDS[parsed.command];
             if (command && agentName !== AGENT_NAMES.COMMANDER) {
@@ -88,7 +88,33 @@ export function createChatMessageHandler(ctx: ChatMessageHandlerContext) {
                     /\$ARGUMENTS/g,
                     parsed.args || PROMPTS.CONTINUE
                 );
-            } else if (command && parsed.command === "task") {
+            }
+
+            // /task command - register session and start loop regardless of agent
+            if (command && parsed.command === "task") {
+                // Register session if not already registered (allows /task with any agent)
+                if (!sessions.has(sessionID)) {
+                    const now = Date.now();
+                    sessions.set(sessionID, {
+                        active: true,
+                        step: 0,
+                        timestamp: now,
+                        startTime: now,
+                        lastStepTime: now,
+                    });
+                    state.missionActive = true;
+                    state.sessions.set(sessionID, {
+                        enabled: true,
+                        iterations: 0,
+                        taskRetries: new Map(),
+                        currentTask: "",
+                        anomalyCount: 0,
+                    });
+
+                    ProgressTracker.startSession(sessionID);
+                    log("[chat-message-handler] Session registered for /task command", { sessionID, agent: agentName });
+                }
+
                 parts[textPartIndex].text = command.template.replace(
                     /\$ARGUMENTS/g,
                     parsed.args || PROMPTS.CONTINUE

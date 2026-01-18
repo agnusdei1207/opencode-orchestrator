@@ -18709,7 +18709,28 @@ function createChatMessageHandler(ctx) {
           /\$ARGUMENTS/g,
           parsed.args || PROMPTS.CONTINUE
         );
-      } else if (command && parsed.command === "task") {
+      }
+      if (command && parsed.command === "task") {
+        if (!sessions.has(sessionID)) {
+          const now = Date.now();
+          sessions.set(sessionID, {
+            active: true,
+            step: 0,
+            timestamp: now,
+            startTime: now,
+            lastStepTime: now
+          });
+          state.missionActive = true;
+          state.sessions.set(sessionID, {
+            enabled: true,
+            iterations: 0,
+            taskRetries: /* @__PURE__ */ new Map(),
+            currentTask: "",
+            anomalyCount: 0
+          });
+          startSession(sessionID);
+          log2("[chat-message-handler] Session registered for /task command", { sessionID, agent: agentName });
+        }
         parts[textPartIndex].text = command.template.replace(
           /\$ARGUMENTS/g,
           parsed.args || PROMPTS.CONTINUE
