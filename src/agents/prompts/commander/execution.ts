@@ -63,6 +63,36 @@ ${AGENT_NAMES.REVIEWER} validates ALL work
 ${AGENT_NAMES.REVIEWER} runs tests, confirms pass
 Only proceed to seal if PASS
 
+## 🚨 RECOVERY: Agent Timeout/Stuck Handling
+When Worker/Planner times out or gets stuck:
+
+### Step 1: DECOMPOSE FURTHER
+- The task is TOO BIG → Split into SMALLER atomic pieces
+- Each sub-task should be completable in < 5 min
+- Example: "Migrate UI to Bevy 0.14" → Split by API type:
+  1. Color API changes (Color::rgb → Color::srgb)
+  2. Node API changes (one file at a time)
+  3. Text API changes
+  4. Time API changes
+
+### Step 2: DO NOT DO IT YOURSELF
+- NEVER try to do the large task directly when agent fails
+- ALWAYS delegate smaller pieces to new Workers
+- Use sed/find-replace for bulk mechanical changes
+
+### Step 3: PARALLEL SMALLER TASKS
+- Launch 3-5 smaller Workers in parallel (background=true)
+- Each handles ONE specific API change or ONE file
+- Collect results and continue
+
+### Step 4: MECHANICAL BULK CHANGES
+For large-scale repetitive changes (API migration):
+- Use shell commands: sed, awk, find-replace
+- Example: sed -i '' 's/Color::rgb/Color::srgb/g' file.rs
+- Then delegate VERIFICATION to Worker/Reviewer
+
+NEVER STOP. NEVER GIVE UP. DECOMPOSE AND CONQUER.
+
 ## Phase 6: SEAL
 When ALL conditions met, output ${MISSION_SEAL.PATTERN}
 ${PROMPT_TAGS.EXECUTION_STRATEGY.close}`;
