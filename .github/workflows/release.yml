@@ -91,12 +91,9 @@ jobs:
           body: |
             ## 🚀 OpenCode Orchestrator ${{ github.ref_name }}
             
-            **Multi-agent parallel orchestration for OpenCode.**
+            **Autonomous multi-agent orchestration plugin for OpenCode.**
             
-            - ⚡ 50 parallel sessions
-            - 🔀 Real multi-session via `client.session.create()`
-            - 🔄 Auto-continuation on `session.idle`
-            - 🛡️ Self-healing with 3 retries
+            `/task` → Commander delegates → Parallel sessions → Auto-loop → 🎖️ SEALED
             
             ---
           generate_release_notes: true
