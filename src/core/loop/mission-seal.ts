@@ -8,7 +8,7 @@
  * agents explicitly confirm task completion.
  */
 
-import { existsSync, readFileSync, writeFileSync, unlinkSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync, unlinkSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
 import type { PluginInput } from "@opencode-ai/plugin";
 import { log } from "../agents/logger.js";
@@ -105,8 +105,13 @@ export function readLoopState(directory: string): MissionLoopState | null {
  */
 export function writeLoopState(directory: string, state: MissionLoopState): boolean {
     const filePath = getStateFilePath(directory);
+    const dirPath = join(directory, PATHS.OPENCODE);
 
     try {
+        // Ensure .opencode directory exists
+        if (!existsSync(dirPath)) {
+            mkdirSync(dirPath, { recursive: true });
+        }
         writeFileSync(filePath, JSON.stringify(state, null, 2), "utf-8");
         return true;
     } catch (error) {
