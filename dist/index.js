@@ -94,6 +94,7 @@ var MEMORY_LIMITS = {
 };
 
 // src/shared/task/constants/parallel-task.ts
+var PARALLEL_LABEL = "parallel";
 var PARALLEL_TASK = {
   // Task lifecycle (24 hours for long tasks)
   TTL_MS: 24 * TIME.HOUR,
@@ -108,7 +109,12 @@ var PARALLEL_TASK = {
   MIN_IDLE_TIME_MS: 5 * TIME.SECOND,
   MIN_STABILITY_MS: 3 * TIME.SECOND,
   STABLE_POLLS_REQUIRED: 3,
-  MAX_POLL_COUNT: 600
+  MAX_POLL_COUNT: 600,
+  // Session naming
+  SESSION_TITLE_PREFIX: "Parallel",
+  // Labels for output
+  LABEL: PARALLEL_LABEL,
+  GROUP_PREFIX: `${PARALLEL_LABEL}:`
 };
 
 // src/shared/task/constants/background-task.ts
@@ -15831,7 +15837,7 @@ var TaskLauncher = class {
     log2("[task-launcher.ts] concurrency acquired for", concurrencyKey);
     try {
       const createResult = await this.client.session.create({
-        body: { parentID: input.parentSessionID, title: `Parallel: ${input.description}` },
+        body: { parentID: input.parentSessionID, title: `${PARALLEL_TASK.SESSION_TITLE_PREFIX}: ${input.description}` },
         query: { directory: this.directory }
       });
       if (createResult.error) {

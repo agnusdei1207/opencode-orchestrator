@@ -4,6 +4,7 @@
 
 import { getHierarchy, getProgress } from "./store.js";
 import { getNextTasks } from "./scheduler.js";
+import { PARALLEL_TASK } from "../../shared/index.js";
 
 /**
  * Get hierarchy summary for prompts
@@ -23,7 +24,7 @@ export function getSummary(sessionId: string): string {
         for (const task of nextTasks.slice(0, 5)) {
             summary += `- [L${task.level}] ${task.description}`;
             if (task.agent) summary += ` → ${task.agent}`;
-            if (task.parallelGroup) summary += ` (parallel: ${task.parallelGroup})`;
+            if (task.parallelGroup) summary += ` (${PARALLEL_TASK.GROUP_PREFIX} ${task.parallelGroup})`;
             summary += `\n`;
         }
     }
