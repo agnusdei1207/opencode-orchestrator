@@ -30,8 +30,8 @@ Then in OpenCode:
 > **Explore → Adapt → Act**  
 > *Like a human exploring unknown space — never assume, always discover.*
 
-우주를 탐사하는 인간처럼 행동합니다.  
-낯선 환경에서 **가정하지 않고 탐지**하고, **발견한 것에 적응**하며, **확신을 갖고 행동**합니다.
+Behaves like an astronaut exploring the unknown.  
+In unfamiliar environments: **detect without assuming**, **adapt to discoveries**, **act with confidence**.
 
 ```
 ┌───────────────────────────────────────────────────────────┐
