@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="assets/starship_space.png" alt="STARSHIP" width="280" />
+  <img src="assets/starship.png" alt="STARSHIP" width="280" />
   <h1>OpenCode Orchestrator</h1>
 
   [![MIT License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
