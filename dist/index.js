@@ -538,6 +538,16 @@ var PHILOSOPHY_PHASES = {
   ADAPT: "ADAPT",
   ACT: "ACT"
 };
+var EXECUTION_CYCLE = {
+  THINK: "THINK",
+  ACT: "ACT",
+  OBSERVE: "OBSERVE",
+  ADJUST: "ADJUST"
+};
+var EXECUTION_CYCLE_STEPS = `1. ${EXECUTION_CYCLE.THINK} - Reason about the task
+2. ${EXECUTION_CYCLE.ACT} - Execute the work
+3. ${EXECUTION_CYCLE.OBSERVE} - Check the result
+4. ${EXECUTION_CYCLE.ADJUST} - Fix if needed`;
 var PHILOSOPHY_TAGLINE = "Explore \u2192 Learn \u2192 Adapt \u2192 Act";
 var PHILOSOPHY_QUOTE = "Like an astronaut landing on unknown planets \u2014 never assume, always discover.";
 var PHILOSOPHY_LEARN_PRINCIPLE = "LEARN = DOCUMENT: What you discover, you record. Your learnings become the team's knowledge.";
@@ -14976,10 +14986,7 @@ ${args.context}
 
 <execution>
 Follow this pattern:
-1. THINK - Reason about the task
-2. ACT - Execute the work
-3. OBSERVE - Check the result
-4. ADJUST - Fix if needed
+${EXECUTION_CYCLE_STEPS}
 
 Report with evidence of success.
 Never claim completion without proof.

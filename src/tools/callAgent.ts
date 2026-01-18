@@ -1,6 +1,6 @@
 import { tool } from "@opencode-ai/plugin";
 import { AGENTS } from "../agents/definitions.js";
-import { AGENT_NAMES, AGENT_EMOJI } from "../shared/index.js";
+import { AGENT_NAMES, AGENT_EMOJI, EXECUTION_CYCLE_STEPS } from "../shared/index.js";
 
 export const callAgentTool = tool({
     description: `Call a specialized agent for parallel execution.
@@ -54,10 +54,7 @@ ${args.context ? `<context>\n${args.context}\n</context>` : ""}
 
 <execution>
 Follow this pattern:
-1. THINK - Reason about the task
-2. ACT - Execute the work
-3. OBSERVE - Check the result
-4. ADJUST - Fix if needed
+${EXECUTION_CYCLE_STEPS}
 
 Report with evidence of success.
 Never claim completion without proof.

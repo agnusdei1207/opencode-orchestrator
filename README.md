@@ -1,14 +1,16 @@
 <div align="center">
-  <img src="assets/logo.png" alt="Logo" width="200" />
+  <img src="assets/starship_space.png" alt="STARSHIP" width="280" />
+  <h1>OpenCode Orchestrator</h1>
+  <p><em>🚀 The mothership that deploys AI crews to unknown planet</em></p>
+
+  [![MIT License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+  [![npm](https://img.shields.io/npm/v/opencode-orchestrator.svg)](https://www.npmjs.com/package/opencode-orchestrator)
+  [![Tests](https://img.shields.io/badge/tests-216%20passed-brightgreen.svg)]()
 </div>
 
-# OpenCode Orchestrator
+---
 
-> **🚀 Multi-Agent Orchestration Plugin for [OpenCode](https://opencode.ai)**
-
-[![MIT License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-[![npm](https://img.shields.io/npm/v/opencode-orchestrator.svg)](https://www.npmjs.com/package/opencode-orchestrator)
-[![Tests](https://img.shields.io/badge/tests-216%20passed-brightgreen.svg)]()
+> *The **STARSHIP** hovers above an uncharted planet. No docs. No tests. Just a mission. The Commander speaks: "We don't assume. We explore. We adapt. We conquer."* — **OpenCode Orchestrator** is that STARSHIP, deploying AI crews to complete missions in any planet.
 
 ---
 
@@ -23,44 +25,33 @@ Then in OpenCode:
 /task "Build a REST API with authentication"
 ```
 
+The STARSHIP deploys. The crew lands. The mission begins.
+
 ---
 
-## ⭐ Core Philosophy
-
-> **Humanity lands on an unknown planet. No maps. No guides. Just a mission.**
-
-You don't assume oxygen. You don't guess gravity. You **explore**, **learn**, **adapt**, and **act**.
+## 🛸 The STARSHIP Protocol
 
 ```
-┌──────────────────────────────────────────────────────────────────────────────────────┐
-│                                                                                      │
-│  🔍 EXPLORE    →    📝 LEARN    →    🔄 ADAPT    →    ⚡ ACT                           │
-│                                                                                      │
-│  Scan the          Document           Adjust to          Execute the                 │
-│  unknown           discoveries        the terrain        mission                     │
-│                                                                                      │
-└──────────────────────────────────────────────────────────────────────────────────────┘
+┌───────────────────────────────────────────────────┐
+│  🔍 EXPLORE → 📝 LEARN → 🔄 ADAPT → ⚡ ACT          │
+│  Scan        Document    Adjust      Execute      │
+└───────────────────────────────────────────────────┘
 ```
 
 ### 👨‍🚀 The Crew
 
+*When the STARSHIP arrives, four specialists deploy:*
+
 | Agent | Role | Mission |
 |:------|:-----|:--------|
-| 🎯 **Commander** | The captain | Leads the mission. Delegates specialists. Seals when complete. |
-| 📋 **Planner** | The scientist | Maps the terrain. Documents everything. Creates paths to follow. |
-| 🔨 **Worker** | The engineer | Builds with local materials. Adapts to the terrain. |
-| ✅ **Reviewer** | The inspector | Verifies all structures. Clears the mission for launch. |
+| 🎯 **Commander** | The Captain | *"I lead the mission. I delegate. I don't leave until it's done."* |
+| 📋 **Planner** | The Scientist | *"I map the terrain. I document everything. I create paths to follow."* |
+| 🔨 **Worker** | The Engineer | *"I build with local materials. I adapt to what I find."* |
+| ✅ **Reviewer** | The Inspector | *"Nothing launches until I verify it. Zero defects."* |
 
-### 🛸 The Protocol
+### 📖 The Codex
 
-| Phase | The Crew's Action |
-|:------|:------------------|
-| 🔍 **EXPLORE** | *"What world is this?"* — Scan, detect, never assume |
-| 📝 **LEARN** | *"Write it down."* — Document for future missions |
-| 🔄 **ADAPT** | *"Do it this way here."* — Fit the terrain |
-| ⚡ **ACT** | *"Execute."* — Build, test, seal |
-
-### 🌟 Crew Principles
+*These are the rules every crew member lives by:*
 
 | Principle | In Practice |
 |:----------|:------------|
@@ -72,59 +63,69 @@ You don't assume oxygen. You don't guess gravity. You **explore**, **learn**, **
 
 ---
 
-## 🏛️ Architecture
+## 🏛️ Mission Control
+
+*Inside the STARSHIP, Mission Control coordinates everything:*
 
 ```
-            /task "Build REST API"
-                     │
-     ╔═══════════════╧═══════════════╗
-     ║  🎯 COMMANDER — Delegate+Loop ║
-     ╚═══════════════╤═══════════════╝
-                     │
-     ┌───────────────┼───────────────┐
-     ▼               ▼               ▼
- ┌───────┐      ┌───────┐      ┌───────┐
- │PLANNER│      │WORKER │      │WORKER │   ← 🔥 50 PARALLEL
- │plan.md│      │auth.ts│      │api.ts │      SESSIONS
- └───────┘      └───────┘      └───────┘
-     │               │               │
-     └───────────────┼───────────────┘
-                     ▼
-     ╔═══════════════╧═══════════════╗
-     ║      ✅ REVIEWER — Verify     ║
-     ╚═══════════════╤═══════════════╝
-                     │
-            ┌────────┴────────┐
-            │ TODO 100%?      │
-            │ Issues = 0?     │
-            └────────┬────────┘
-              No ↙       ↘ Yes
-            ♻️ LOOP      🎖️ SEALED
+        🌍 UNKNOWN CODEBASE
+                │
+        /task "Build REST API"
+                │
+    ╔═══════════════════════════════════╗
+    ║   🛸 STARSHIP MISSION CONTROL     ║
+    ╠═══════════════════════════════════╣
+    ║  🎯 COMMANDER — "Deploy the crew" ║
+    ╚═══════════════╤═══════════════════╝
+                    │
+    ┌───────────────┼───────────────┐
+    ▼               ▼               ▼
+┌───────┐      ┌───────┐      ┌───────┐
+│PLANNER│      │WORKER │      │WORKER │   ← 🔥 50 PARALLEL
+│plan.md│      │auth.ts│      │api.ts │      DEPLOYMENTS
+└───────┘      └───────┘      └───────┘
+    │               │               │
+    └───────────────┼───────────────┘
+                    ▼
+    ╔═══════════════════════════════════╗
+    ║  ✅ REVIEWER — "Final inspection" ║
+    ╚═══════════════╤═══════════════════╝
+                    │
+           ┌────────┴────────┐
+           │ TODO 100%?      │
+           │ Issues = 0?     │
+           └────────┬────────┘
+             No ↙       ↘ Yes
+          ♻️ LOOP      🎖️ MISSION SEALED
 ```
 
 ---
 
-## ✨ Key Features
+## 🚀 STARSHIP Capabilities
 
-| Feature | Description |
-|:--------|:------------|
-| ⚡ **50 Parallel Sessions** | True multi-threading with isolated contexts |
-| 🔥 **Parallel File Builds** | Workers build different files simultaneously |
-| 🧩 **Smart Distribution** | One file = one worker. No conflicts |
-| 🔗 **Real-Time Sync** | Shared `.opencode/` state across all agents |
-| 🛡️ **Auto Verification** | E2E tests, import checks, integration validation |
-| 🩹 **Self-Healing** | Auto-recovery with 3 retries per session |
-| 🧬 **Adaptive Intelligence** | Agents evolve behavior based on discoveries |
+*The STARSHIP isn't just any vessel. It's built for the impossible:*
 
-### Self-Healing Details
+| Capability | What It Means |
+|:-----------|:--------------|
+| ⚡ **50 Parallel Deployments** | Deploy up to 50 crew members simultaneously |
+| 🔥 **Multi-Zone Operations** | Workers build different sectors at the same time |
+| 🧩 **Smart Crew Assignment** | One file = one specialist. Zero conflicts |
+| 🔗 **Real-Time Comms** | Shared `.opencode/` state syncs all agents |
+| 🛡️ **Pre-Launch Verification** | E2E tests, import checks, integration validation |
+| 🩹 **Self-Repair Systems** | Auto-recovery with 3 retries per session |
+| 🧬 **Adaptive AI Cores** | Agents evolve based on what they discover |
 
-| Error Type | Recovery Action |
-|:-----------|:----------------|
-| Tool crash | Inject recovery prompt |
-| Rate limit | Exponential backoff + retry |
-| Context overflow | Smart compaction |
-| Session timeout | Resume from checkpoint |
-| Build failure | Loop back, fix, retry |
+### 🚨 Emergency Protocols
+
+*When things go wrong in space, the STARSHIP knows what to do:*
+
+| Emergency | Recovery Action |
+|:----------|:----------------|
+| 💥 Tool crash | Inject recovery prompt |
+| 🚦 Rate limit hit | Exponential backoff + retry |
+| 📦 Context overflow | Smart compaction |
+| ⏱️ Session timeout | Resume from checkpoint |
+| 🔨 Build failure | Loop back, fix, retry |
 
 ---
 
