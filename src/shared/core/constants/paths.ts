@@ -17,4 +17,7 @@ export const PATHS = {
     UNIT_TESTS: ".opencode/unit-tests",
     SYNC_ISSUES: ".opencode/sync-issues.md",
     INTEGRATION_STATUS: ".opencode/integration-status.md",
+    // Progress tracking
+    STATUS: ".opencode/status.md",
 } as const;
+

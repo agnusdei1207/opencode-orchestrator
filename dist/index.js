@@ -77,7 +77,9 @@ var PATHS = {
   WORK_LOG: ".opencode/work-log.md",
   UNIT_TESTS: ".opencode/unit-tests",
   SYNC_ISSUES: ".opencode/sync-issues.md",
-  INTEGRATION_STATUS: ".opencode/integration-status.md"
+  INTEGRATION_STATUS: ".opencode/integration-status.md",
+  // Progress tracking
+  STATUS: ".opencode/status.md"
 };
 
 // src/shared/core/constants/memory-limits.ts
@@ -13288,16 +13290,42 @@ var COMMANDER_LOOP_CONTINUATION = `${PROMPT_TAGS.LOOP_CONTINUATION.open}
 
 At the START of each loop iteration, Commander MUST read shared state:
 
-### Step 1: Read Work Status
+### Step 1: Read Status Summary
 \`\`\`bash
-cat ${PATHS.WORK_LOG}
+cat ${PATHS.STATUS} 2>/dev/null || echo "No status yet"
 cat ${PATHS.TODO}
-\`\`\`
-
-### Step 2: Check for Sync Issues
-\`\`\`bash
 cat ${PATHS.SYNC_ISSUES} 2>/dev/null || echo "No sync issues"
 \`\`\`
+
+---
+
+## \u{1F4CA} STATUS TRACKING
+
+Commander updates ${PATHS.STATUS} each loop:
+\`\`\`markdown
+# Mission Status
+
+## Progress
+- TODO: 8/10 (80%)
+- Issues: 2 unresolved
+- Workers: 3 active
+- E2E: Not started / Running / PASS / FAIL
+
+## Current Phase
+[PLANNING / IMPLEMENTATION / E2E / FIXING / SEALING]
+
+## Next Action
+[Brief description of next step]
+
+## Blockers
+- [List any blockers, or "None"]
+\`\`\`
+
+### Status Rules:
+- Update EVERY loop iteration
+- Keep it minimal (just the numbers)
+- Planner reads this to stay synced
+- Delete old content, keep only current state
 
 ---
 
@@ -13305,66 +13333,57 @@ cat ${PATHS.SYNC_ISSUES} 2>/dev/null || echo "No sync issues"
 
 ### SEALED = BOTH must be true:
 \`\`\`
-\u2705 TODO:        ALL items [x] checked
-\u2705 sync-issues: EMPTY (no unresolved issues)
+\u2705 TODO:        ALL items [x] (100%)
+\u2705 sync-issues: EMPTY (0 issues)
 \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
 ONLY THEN \u2192 output <mission_seal>SEALED</mission_seal>
 \`\`\`
 
 ### LOOP BACK = ANY of these:
 \`\`\`
-\u274C TODO has unchecked items \u2192 LOOP
-\u274C sync-issues.md is NOT empty \u2192 LOOP
+\u274C TODO < 100% \u2192 LOOP
+\u274C Issues > 0 \u2192 LOOP
 \u274C Build fails \u2192 LOOP
-\u274C E2E test fails \u2192 LOOP
+\u274C E2E fails \u2192 LOOP
 \`\`\`
 
 ### \u26D4 NEVER SEAL IF:
-- TODO is complete BUT sync-issues has content
+- TODO is 100% BUT issues > 0
 - Workers are still active
-- Build or E2E tests failed
+- Build or E2E failed
 
 ---
 
 ## \u{1F504} E2E Test Timing
 
-E2E tests start when **TODO is nearly complete** (not at the very end):
-- Reviewer begins E2E when most tasks are done
-- E2E runs **parallel** with remaining TODO items
-- If E2E finds errors \u2192 record in sync-issues.md \u2192 continue with TODO
-- This allows catching integration issues early
+E2E starts when **TODO \u2265 80%** (not at 100%):
+- E2E runs **parallel** with remaining work
+- If E2E finds errors \u2192 issues++ \u2192 continue TODO
+- Both TODO 100% AND issues 0 \u2192 SEALED
 
 \`\`\`
-Timeline:
-[---TODO progress---] [E2E starts here---]
-                      \u2193
-            TODO + E2E run in parallel
-                      \u2193
-        Both must complete cleanly \u2192 SEALED
+[---TODO progress---][E2E starts ~80%]
+                           \u2193
+               TODO + E2E run parallel
+                           \u2193
+         TODO 100% + Issues 0 \u2192 SEALED
 \`\`\`
 
 ---
 
 ### Decision Matrix
 
-| TODO | sync-issues.md | Action |
-|------|----------------|--------|
-| Has unchecked | Any | Continue work |
-| All [x] | NOT empty | \u267B\uFE0F LOOP - fix issues first |
-| All [x] | Empty | \u2705 SEALED |
-
-### File-Level Task Assignment
-Each ${AGENT_NAMES.WORKER} gets ONE file for isolation:
-\`\`\`
-delegate_task(file:src/auth/login.ts, ${AGENT_NAMES.WORKER}, background: true)
-delegate_task(file:src/auth/logout.ts, ${AGENT_NAMES.WORKER}, background: true)
-\`\`\`
+| TODO % | Issues | Action |
+|--------|--------|--------|
+| < 100% | Any | Continue work |
+| 100% | > 0 | \u267B\uFE0F LOOP - fix issues |
+| 100% | 0 | \u2705 SEALED |
 
 ### CRITICAL RULES:
-- ALWAYS read ${PATHS.TODO} AND ${PATHS.SYNC_ISSUES} at loop start
-- NEVER seal with sync-issues content (even if TODO is done!)
-- NEVER seal with active workers
-- E2E starts near TODO completion, runs parallel
+- Update ${PATHS.STATUS} every loop
+- Planner keeps docs minimal (summarize, delete old)
+- NEVER seal with issues > 0 (even at TODO 100%!)
+- E2E starts at ~80%, runs parallel
 ${PROMPT_TAGS.LOOP_CONTINUATION.close}`;
 
 // src/agents/prompts/commander/sync-handling.ts
@@ -13629,47 +13648,59 @@ ${PROMPT_TAGS.FILE_LEVEL_PLANNING.close}`;
 
 // src/agents/prompts/planner/todo-sync.ts
 var PLANNER_TODO_SYNC = `${PROMPT_TAGS.TODO_SYNC.open}
-## TODO SYNC (After Sync Issues)
+## TODO SYNC & DOCUMENT MAINTENANCE
 
-When ${AGENT_NAMES.COMMANDER} detects sync issues, you update the TODO.
+When ${AGENT_NAMES.COMMANDER} detects sync issues, you update TODO and maintain docs.
 
 ### Step 1: Read Current State
 \`\`\`bash
-cat ${PATHS.SYNC_ISSUES}
-cat ${PATHS.WORK_LOG}
-cat ${PATHS.TODO}
+cat ${PATHS.STATUS}         # Current progress %
+cat ${PATHS.SYNC_ISSUES}    # Unresolved issues
+cat ${PATHS.TODO}           # Task list
 \`\`\`
 
-### Step 2: Understand Commander's Instructions
-Commander will tell you:
-- Which files need rework
-- What sync issues to fix
-- New dependencies discovered
-
-### Step 3: Update TODO
+### Step 2: Add Fix Tasks
 Add NEW subtasks for sync fixes:
-
 \`\`\`markdown
-### T3: Sync Fixes | parallel-group:3 | depends:T2
-- [ ] S3.1: ${WORK_STATUS.ACTION.FIX} \`src/auth/login.ts\` | agent:${AGENT_NAMES.WORKER} | file:src/auth/login.ts | issue:${ID_PREFIX.SYNC_ISSUE}1
-- [ ] S3.2: ${WORK_STATUS.ACTION.FIX} \`src/api/users.ts\` | agent:${AGENT_NAMES.WORKER} | file:src/api/users.ts | issue:${ID_PREFIX.SYNC_ISSUE}1
+### T3: Sync Fixes | parallel-group:3
+- [ ] S3.1: ${WORK_STATUS.ACTION.FIX} \`src/auth/login.ts\` | issue:${ID_PREFIX.SYNC_ISSUE}1
+- [ ] S3.2: ${WORK_STATUS.ACTION.FIX} \`src/api/users.ts\` | issue:${ID_PREFIX.SYNC_ISSUE}1
 \`\`\`
 
-### Step 4: Update Work Log File Status
-\`\`\`markdown
-| src/auth/login.ts | ${WORK_STATUS.ACTION.FIX} | ${WORK_STATUS.STATUS.PENDING} | - | - | - | ${ID_PREFIX.SYNC_ISSUE}1 |
-\`\`\`
+---
 
-### Sync Issue Reference Format
-Always reference the sync issue ID:
-- \`issue:${ID_PREFIX.SYNC_ISSUE}N\` in TODO subtask (e.g., ${ID_PREFIX.SYNC_ISSUE}1, ${ID_PREFIX.SYNC_ISSUE}42)
-- Links back to ${PATHS.SYNC_ISSUES} for context
+## \u{1F4CB} DOCUMENT MAINTENANCE RULES
+
+### Keep .opencode/ Minimal:
+| File | Rule |
+|------|------|
+| ${PATHS.STATUS} | Overwrite each loop (no history) |
+| ${PATHS.TODO} | Keep only uncompleted tasks |
+| ${PATHS.SYNC_ISSUES} | Delete resolved issues immediately |
+| ${PATHS.WORK_LOG} | Archive completed, keep active only |
+
+### Summarize & Clean:
+- **Completed tasks**: Move to archive or delete
+- **Resolved issues**: DELETE from sync-issues.md
+- **Old status**: Overwrite with current (no append)
+- **Long descriptions**: Summarize to 1-2 lines
+
+### What to DELETE:
+- Resolved sync issues
+- Completed TODO items (mark [x] first, then remove in next cycle)
+- Old status updates
+- Verbose explanations
+
+### What to KEEP:
+- Active/pending tasks
+- Unresolved issues
+- Current phase info
+- Blockers
 
 ### CRITICAL:
-- DO NOT remove completed tasks (keep for history)
-- ADD new fix tasks, don't overwrite
-- Keep file manifest updated
-- Commander reads your updates in next loop
+- Commander should NOT see old/resolved content
+- Only current state matters
+- Less context = faster decisions
 ${PROMPT_TAGS.TODO_SYNC.close}`;
 
 // src/agents/prompts/worker/role.ts
