@@ -12,4 +12,9 @@ export const PATHS = {
     CONTEXT: ".opencode/context.md",
     SUMMARY: ".opencode/summary.md",
     DOC_METADATA: ".opencode/docs/_metadata.json",
+    // TDD & Parallel Work State
+    WORK_LOG: ".opencode/work-log.md",
+    UNIT_TESTS: ".opencode/unit-tests",
+    SYNC_ISSUES: ".opencode/sync-issues.md",
+    INTEGRATION_STATUS: ".opencode/integration-status.md",
 } as const;

@@ -9,7 +9,7 @@ import {
     isRetryableError,
     shouldAbortOnError,
     getRetryDelay,
-} from "../../src/shared/error-patterns.js";
+} from "../../src/shared/errors/index.js";
 
 describe("Error Patterns", () => {
     describe("ERROR_PATTERNS", () => {

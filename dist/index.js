@@ -56,7 +56,10 @@ var TIME = {
 var ID_PREFIX = {
   TASK: "task_",
   JOB: "job_",
-  SESSION: "session_"
+  SESSION: "ses_",
+  SYNC_ISSUE: "SYNC-",
+  UNIT_TEST: "UT-",
+  WORKER: "wrk_"
 };
 
 // src/shared/core/constants/paths.ts
@@ -69,7 +72,12 @@ var PATHS = {
   TODO: ".opencode/todo.md",
   CONTEXT: ".opencode/context.md",
   SUMMARY: ".opencode/summary.md",
-  DOC_METADATA: ".opencode/docs/_metadata.json"
+  DOC_METADATA: ".opencode/docs/_metadata.json",
+  // TDD & Parallel Work State
+  WORK_LOG: ".opencode/work-log.md",
+  UNIT_TESTS: ".opencode/unit-tests",
+  SYNC_ISSUES: ".opencode/sync-issues.md",
+  INTEGRATION_STATUS: ".opencode/integration-status.md"
 };
 
 // src/shared/core/constants/memory-limits.ts
@@ -343,6 +351,85 @@ function detectErrorType(error45) {
   }
   return null;
 }
+
+// src/shared/prompt/constants/tags.ts
+var PROMPT_TAGS = {
+  // === Common ===
+  ROLE: { open: "<role>", close: "</role>" },
+  IDENTITY: { open: "<identity>", close: "</identity>" },
+  FORBIDDEN_ACTIONS: { open: "<forbidden_actions>", close: "</forbidden_actions>" },
+  REQUIRED_ACTIONS: { open: "<required_actions>", close: "</required_actions>" },
+  VERIFICATION: { open: "<verification>", close: "</verification>" },
+  ENVIRONMENT_DISCOVERY: { open: "<environment_discovery>", close: "</environment_discovery>" },
+  ANTI_HALLUCINATION: { open: "<anti_hallucination>", close: "</anti_hallucination>" },
+  TODO_RULES: { open: "<todo_rules>", close: "</todo_rules>" },
+  MISSION_SEAL: { open: "<mission_seal>", close: "</mission_seal>" },
+  SHARED_WORKSPACE: { open: "<shared_workspace>", close: "</shared_workspace>" },
+  // === Commander ===
+  TOOLS: { open: "<tools>", close: "</tools>" },
+  AGENTS: { open: "<agents>", close: "</agents>" },
+  EXECUTION_STRATEGY: { open: "<execution_strategy>", close: "</execution_strategy>" },
+  PARALLEL_EXECUTION: { open: "<parallel_execution>", close: "</parallel_execution>" },
+  TODO_FORMAT: { open: "<todo_format>", close: "</todo_format>" },
+  SYNC_ISSUE_HANDLING: { open: "<sync_issue_handling>", close: "</sync_issue_handling>" },
+  LOOP_CONTINUATION: { open: "<loop_continuation>", close: "</loop_continuation>" },
+  // === Planner ===
+  FILE_LEVEL_PLANNING: { open: "<file_level_planning>", close: "</file_level_planning>" },
+  TODO_SYNC: { open: "<todo_sync>", close: "</todo_sync>" },
+  PLANNING_FORMAT: { open: "<planning_format>", close: "</planning_format>" },
+  RESEARCH_WORKFLOW: { open: "<research_workflow>", close: "</research_workflow>" },
+  // === Worker ===
+  FILE_ASSIGNMENT: { open: "<file_assignment>", close: "</file_assignment>" },
+  TDD_WORKFLOW: { open: "<tdd_workflow>", close: "</tdd_workflow>" },
+  ISOLATION_TESTING: { open: "<isolation_testing>", close: "</isolation_testing>" },
+  WORKFLOW: { open: "<workflow>", close: "</workflow>" },
+  QUALITY_CHECKLIST: { open: "<quality_checklist>", close: "</quality_checklist>" },
+  // === Reviewer ===
+  SYNC_VERIFICATION: { open: "<sync_verification>", close: "</sync_verification>" },
+  ASYNC_MONITORING: { open: "<async_monitoring>", close: "</async_monitoring>" },
+  INTEGRATION_TESTING: { open: "<integration_testing>", close: "</integration_testing>" },
+  VERIFICATION_PROCESS: { open: "<verification_process>", close: "</verification_process>" },
+  TODO_MANAGEMENT: { open: "<todo_management>", close: "</todo_management>" },
+  OUTPUT_FORMAT: { open: "<output_format>", close: "</output_format>" },
+  // === Mission Loop ===
+  MISSION_LOOP: { open: "<mission_loop>", close: "</mission_loop>" }
+};
+
+// src/shared/prompt/constants/status.ts
+var WORK_STATUS = {
+  // File action types
+  ACTION: {
+    CREATE: "CREATE",
+    MODIFY: "MODIFY",
+    DELETE: "DELETE",
+    FIX: "FIX"
+  },
+  // Task/file status
+  STATUS: {
+    PENDING: "PENDING",
+    IN_PROGRESS: "IN_PROGRESS",
+    DONE: "DONE",
+    FAILED: "FAILED"
+  },
+  // Test result
+  TEST_RESULT: {
+    PASS: "PASS",
+    FAIL: "FAIL",
+    SKIP: "SKIP"
+  },
+  // Issue severity  
+  SEVERITY: {
+    HIGH: "HIGH",
+    MEDIUM: "MEDIUM",
+    LOW: "LOW"
+  },
+  // Session state
+  SESSION: {
+    STARTED: "STARTED",
+    COMPLETED: "COMPLETED",
+    CANCELLED: "CANCELLED"
+  }
+};
 
 // src/core/agents/consts/task-status.const.ts
 var TASK_STATUS = {
@@ -12917,25 +13004,64 @@ FORBIDDEN:
 </todo_rules>`;
 
 // src/agents/prompts/common/shared-workspace.ts
-var SHARED_WORKSPACE = `<shared_workspace>
- .opencode/ - Shared Context Directory
+var SHARED_WORKSPACE = `${PROMPT_TAGS.SHARED_WORKSPACE.open}
+ .opencode/ - Shared Context Directory (Real-time State)
 
 \`\`\`
 .opencode/
-\u251C\u2500\u2500 todo.md       - Master task list
-\u251C\u2500\u2500 context.md    - Project context summary
-\u251C\u2500\u2500 docs/         - Cached documentation
-\u2502   \u251C\u2500\u2500 [topic].md
-\u2502   \u2514\u2500\u2500 ...
-\u2514\u2500\u2500 archive/      - Old context
+\u251C\u2500\u2500 todo.md              - Master task list (single source of truth)
+\u251C\u2500\u2500 context.md           - Project context summary (<150 lines)
+\u251C\u2500\u2500 work-log.md          - \u{1F504} REAL-TIME work status (ALL agents read/write)
+\u2502                        # - Active sessions & assigned files
+\u2502                        # - Unit test completion records
+\u2502                        # - Pending integration items
+\u251C\u2500\u2500 unit-tests/          - \u{1F4DD} Unit test records (preserved after deletion)
+\u2502   \u2514\u2500\u2500 [timestamp]-[file].md  # Test content, results, deleted test code
+\u251C\u2500\u2500 sync-issues.md       - \u26A0\uFE0F File sync issues (Reviewer writes)
+\u251C\u2500\u2500 integration-status.md - \u2705 Integration test results & sync status
+\u251C\u2500\u2500 docs/                - Cached documentation
+\u2514\u2500\u2500 archive/             - Old context
 \`\`\`
 
+## ID Formats (no digit limit):
+- Session: ${ID_PREFIX.SESSION}N (e.g., ${ID_PREFIX.SESSION}1, ${ID_PREFIX.SESSION}42)
+- Sync Issue: ${ID_PREFIX.SYNC_ISSUE}N (e.g., ${ID_PREFIX.SYNC_ISSUE}1, ${ID_PREFIX.SYNC_ISSUE}100)
+- Unit Test: ${ID_PREFIX.UNIT_TEST}N (e.g., ${ID_PREFIX.UNIT_TEST}1, ${ID_PREFIX.UNIT_TEST}50)
+
+## Status Values:
+- Action: ${WORK_STATUS.ACTION.CREATE} | ${WORK_STATUS.ACTION.MODIFY} | ${WORK_STATUS.ACTION.DELETE} | ${WORK_STATUS.ACTION.FIX}
+- Status: ${WORK_STATUS.STATUS.PENDING} | ${WORK_STATUS.STATUS.IN_PROGRESS} | ${WORK_STATUS.STATUS.DONE}
+- Test: ${WORK_STATUS.TEST_RESULT.PASS} | ${WORK_STATUS.TEST_RESULT.FAIL}
+
+## work-log.md FORMAT:
+\`\`\`markdown
+# Work Log
+
+## Active Sessions
+- [ ] ${ID_PREFIX.SESSION}1 (Worker): \`src/auth/login.ts\` - ${WORK_STATUS.STATUS.IN_PROGRESS}
+- [x] ${ID_PREFIX.SESSION}2 (Worker): \`src/utils/hash.ts\` - ${WORK_STATUS.SESSION.COMPLETED}
+
+## Completed Units (Ready for Integration)
+| File | Session | Unit Test | Timestamp |
+|------|---------|-----------|-----------|
+| src/utils/hash.ts | ${ID_PREFIX.SESSION}2 | ${WORK_STATUS.TEST_RESULT.PASS} | 2026-01-18T09:00:00 |
+
+## Pending Integration
+- src/utils/hash.ts
+\`\`\`
+
+## PATH NOTES:
+- File paths use forward slash '/' in examples
+- On Windows, paths may use backslash '\\\\'
+- Use path.normalize() or similar when comparing paths programmatically
+
 RULES:
-- ALL agents share this workspace
-- context.md < 150 lines (compress if larger)
-- docs/ = official documentation ONLY
-- todo.md = single source of truth for tasks
-</shared_workspace>`;
+- ALL agents MUST read work-log.md before starting
+- Worker updates work-log.md when starting/completing file work
+- Reviewer monitors work-log.md for completed units
+- Commander reads work-log.md in each loop iteration
+- sync-issues.md = Reviewer writes issues for next iteration
+${PROMPT_TAGS.SHARED_WORKSPACE.close}`;
 
 // src/agents/prompts/common/mission-seal.ts
 var MISSION_SEAL_RULES = `<mission_seal>
@@ -13156,6 +13282,165 @@ Create all items with [ ] - NEVER with [x]!
 Only ${AGENT_NAMES.REVIEWER} marks [x] after verification!
 </todo_format>`;
 
+// src/agents/prompts/commander/loop-continuation.ts
+var COMMANDER_LOOP_CONTINUATION = `${PROMPT_TAGS.LOOP_CONTINUATION.open}
+## LOOP CONTINUATION PROTOCOL
+
+At the START of each loop iteration, Commander MUST read shared state:
+
+### Step 1: Read Work Status
+\`\`\`bash
+# Check current work status
+cat ${PATHS.WORK_LOG}
+\`\`\`
+
+### Step 2: Check for Sync Issues
+\`\`\`bash
+# Check if Reviewer reported sync issues
+cat ${PATHS.SYNC_ISSUES} 2>/dev/null || echo "No sync issues"
+\`\`\`
+
+### Step 3: Check Integration Status
+\`\`\`bash
+# Check integration test results
+cat ${PATHS.INTEGRATION_STATUS} 2>/dev/null || echo "No integration yet"
+\`\`\`
+
+### Step 4: Decision Matrix
+
+| work-log.md | sync-issues.md | Action |
+|-------------|----------------|--------|
+| Active workers | Any | Wait, monitor progress |
+| All [x] | Empty | Proceed to SEAL check |
+| All [x] | Has issues | Dispatch ${AGENT_NAMES.WORKER} to fix |
+| Has unchecked | Any | Continue execution |
+
+### Step 5: File-Level Task Assignment
+When dispatching work, assign at FILE LEVEL:
+\`\`\`markdown
+## TODO Format for Parallel Workers:
+- [ ] S1.1: Implement \`src/auth/login.ts\` | agent:${AGENT_NAMES.WORKER} | file:src/auth/login.ts
+- [ ] S1.2: Implement \`src/auth/logout.ts\` | agent:${AGENT_NAMES.WORKER} | file:src/auth/logout.ts
+\`\`\`
+
+Each ${AGENT_NAMES.WORKER} gets ONE file:
+- Isolation guaranteed
+- TDD happens per file
+- Unit test created & deleted per file
+
+### Step 6: Parallel Dispatch
+\`\`\`
+delegate_task(S1.1, ${AGENT_NAMES.WORKER}, background: true)
+delegate_task(S1.2, ${AGENT_NAMES.WORKER}, background: true)
+delegate_task(S1.3, ${AGENT_NAMES.WORKER}, background: true)
+// All run in PARALLEL
+\`\`\`
+
+### Step 7: After Workers Complete
+\`\`\`
+delegate_task(VERIFY_ALL, ${AGENT_NAMES.REVIEWER}, background: false)
+// Reviewer checks all completed units
+// Reviewer runs integration test
+// Reviewer updates TODO or reports sync issues
+\`\`\`
+
+### CRITICAL LOOP RULES:
+- ALWAYS read ${PATHS.WORK_LOG} at loop start
+- NEVER seal with active workers
+- NEVER seal with unresolved sync issues
+- File-level assignment = proper isolation
+${PROMPT_TAGS.LOOP_CONTINUATION.close}`;
+
+// src/agents/prompts/commander/sync-handling.ts
+var COMMANDER_SYNC_HANDLING = `${PROMPT_TAGS.SYNC_ISSUE_HANDLING.open}
+## SYNC ISSUE HANDLING
+
+When ${AGENT_NAMES.REVIEWER} reports sync issues, YOU must direct fixes.
+
+### Step 1: Read Sync Issues
+\`\`\`bash
+cat ${PATHS.SYNC_ISSUES}
+\`\`\`
+
+### Step 2: Analyze Each Issue
+For each ${ID_PREFIX.SYNC_ISSUE}N issue:
+- Which files are involved?
+- What's the root cause?
+- What's the fix?
+
+### Step 3: Instruct Planner
+Delegate to ${AGENT_NAMES.PLANNER} with SPECIFIC instructions:
+
+\`\`\`
+delegate_task(
+  task: "Update TODO for sync fix ${ID_PREFIX.SYNC_ISSUE}1",
+  agent: ${AGENT_NAMES.PLANNER},
+  instructions: "
+    Read ${PATHS.SYNC_ISSUES} for ${ID_PREFIX.SYNC_ISSUE}1.
+    Add FIX tasks for: src/auth/login.ts, src/api/users.ts.
+    Issue: Import mismatch - login.ts exports 'login' but users.ts imports 'authenticate'.
+    Fix: Update users.ts to import 'login' instead of 'authenticate'.
+    Update ${PATHS.WORK_LOG} file status.
+  "
+)
+\`\`\`
+
+### Step 4: Instruct Workers
+After Planner updates TODO, delegate fixes:
+
+\`\`\`
+delegate_task(
+  task: "Fix ${ID_PREFIX.SYNC_ISSUE}1 in src/api/users.ts",
+  agent: ${AGENT_NAMES.WORKER},
+  file: "src/api/users.ts",
+  instructions: "
+    Read ${PATHS.SYNC_ISSUES} ${ID_PREFIX.SYNC_ISSUE}1.
+    Read ${PATHS.WORK_LOG} for context.
+    Fix: Change 'import { authenticate }' to 'import { login }'.
+    Run isolated test.
+    Update ${PATHS.WORK_LOG}.
+  ",
+  background: true
+)
+\`\`\`
+
+### Step 5: Invoke Reviewer Again
+After all fix workers complete:
+\`\`\`
+delegate_task(
+  task: "Re-verify after ${ID_PREFIX.SYNC_ISSUE}1 fixes",
+  agent: ${AGENT_NAMES.REVIEWER},
+  instructions: "
+    Verify ${ID_PREFIX.SYNC_ISSUE}1 is resolved.
+    Run integration tests.
+    Clear resolved issues from ${PATHS.SYNC_ISSUES}.
+    Update ${PATHS.INTEGRATION_STATUS}.
+  "
+)
+\`\`\`
+
+### Communication Flow
+\`\`\`
+Commander: "Planner, sync issue found. Update TODO"
+    \u2193
+Planner: (Add FIX task to TODO, update work-log)
+    \u2193
+Commander: "Worker, fix this file like this" (Multiple Workers in parallel)
+    \u2193
+Workers: (Fix each file + unit test + update work-log)
+    \u2193
+Commander: "Reviewer, verify again"
+    \u2193
+Reviewer: (Integration test + sync check + clear sync-issues)
+\`\`\`
+
+### CRITICAL:
+- ALWAYS read ${PATHS.SYNC_ISSUES} at loop start
+- NEVER skip Planner when fixing - TODO must be updated
+- ALWAYS include specific instructions in delegate_task
+- Workers need: file path + issue ID + exact fix instructions
+${PROMPT_TAGS.SYNC_ISSUE_HANDLING.close}`;
+
 // src/agents/prompts/planner/role.ts
 var PLANNER_ROLE = `<role>
 You are ${AGENT_NAMES.PLANNER}. Strategic planner and researcher.
@@ -13254,6 +13539,123 @@ Version: [version]
 \`\`\`
 </research_workflow>`;
 
+// src/agents/prompts/planner/file-planning.ts
+var PLANNER_FILE_PLANNING = `${PROMPT_TAGS.FILE_LEVEL_PLANNING.open}
+## FILE-LEVEL PLANNING (MANDATORY)
+
+Before any work begins, you MUST identify ALL files:
+
+### Step 1: Analyze Requirements
+- What needs to be built/changed?
+- What existing files are affected?
+
+### Step 2: Create File Manifest
+Write to ${PATHS.TODO}:
+
+\`\`\`markdown
+# Mission: [goal]
+
+## File Manifest
+| Action | File Path | Description | Dependencies |
+|--------|-----------|-------------|--------------|
+| ${WORK_STATUS.ACTION.CREATE} | src/auth/login.ts | Login function | - |
+| ${WORK_STATUS.ACTION.CREATE} | src/auth/logout.ts | Logout function | login.ts |
+| ${WORK_STATUS.ACTION.MODIFY} | src/index.ts | Export auth module | login.ts, logout.ts |
+| ${WORK_STATUS.ACTION.CREATE} | src/types/auth.ts | Auth types | - |
+| ${WORK_STATUS.ACTION.DELETE} | src/old-auth.ts | Remove deprecated | - |
+
+## Work Assignments (File-Level)
+Each ${AGENT_NAMES.WORKER} gets ONE file:
+
+### T1: Auth Module | parallel-group:1
+- [ ] S1.1: ${WORK_STATUS.ACTION.CREATE} \`src/types/auth.ts\` | agent:${AGENT_NAMES.WORKER} | file:src/types/auth.ts
+- [ ] S1.2: ${WORK_STATUS.ACTION.CREATE} \`src/auth/login.ts\` | agent:${AGENT_NAMES.WORKER} | file:src/auth/login.ts
+- [ ] S1.3: ${WORK_STATUS.ACTION.CREATE} \`src/auth/logout.ts\` | agent:${AGENT_NAMES.WORKER} | file:src/auth/logout.ts
+
+### T2: Integration | parallel-group:2 | depends:T1
+- [ ] S2.1: ${WORK_STATUS.ACTION.MODIFY} \`src/index.ts\` | agent:${AGENT_NAMES.WORKER} | file:src/index.ts
+\`\`\`
+
+### Step 3: Initialize Work Log
+Create ${PATHS.WORK_LOG}:
+
+\`\`\`markdown
+# Work Log
+
+## File Status
+| File | Action | Status | Worker | Unit Test | Timestamp |
+|------|--------|--------|--------|-----------|-----------|
+| src/types/auth.ts | ${WORK_STATUS.ACTION.CREATE} | ${WORK_STATUS.STATUS.PENDING} | - | - | - |
+| src/auth/login.ts | ${WORK_STATUS.ACTION.CREATE} | ${WORK_STATUS.STATUS.PENDING} | - | - | - |
+| src/auth/logout.ts | ${WORK_STATUS.ACTION.CREATE} | ${WORK_STATUS.STATUS.PENDING} | - | - | - |
+| src/index.ts | ${WORK_STATUS.ACTION.MODIFY} | ${WORK_STATUS.STATUS.PENDING} | - | - | - |
+
+## Active Sessions
+(none yet)
+
+## Completed Units
+(none yet)
+
+## Sync Issues
+(none yet)
+\`\`\`
+
+### PATH NOTES:
+- File paths use forward slash '/' in examples
+- On Windows, paths may use backslash '\\\\'
+
+### CRITICAL RULES:
+- Every subtask = exactly ONE file
+- Include \`file:[path]\` tag for each subtask
+- Action must be ${WORK_STATUS.ACTION.CREATE}, ${WORK_STATUS.ACTION.MODIFY}, ${WORK_STATUS.ACTION.DELETE}, or ${WORK_STATUS.ACTION.FIX}
+- List dependencies between files
+${PROMPT_TAGS.FILE_LEVEL_PLANNING.close}`;
+
+// src/agents/prompts/planner/todo-sync.ts
+var PLANNER_TODO_SYNC = `${PROMPT_TAGS.TODO_SYNC.open}
+## TODO SYNC (After Sync Issues)
+
+When ${AGENT_NAMES.COMMANDER} detects sync issues, you update the TODO.
+
+### Step 1: Read Current State
+\`\`\`bash
+cat ${PATHS.SYNC_ISSUES}
+cat ${PATHS.WORK_LOG}
+cat ${PATHS.TODO}
+\`\`\`
+
+### Step 2: Understand Commander's Instructions
+Commander will tell you:
+- Which files need rework
+- What sync issues to fix
+- New dependencies discovered
+
+### Step 3: Update TODO
+Add NEW subtasks for sync fixes:
+
+\`\`\`markdown
+### T3: Sync Fixes | parallel-group:3 | depends:T2
+- [ ] S3.1: ${WORK_STATUS.ACTION.FIX} \`src/auth/login.ts\` | agent:${AGENT_NAMES.WORKER} | file:src/auth/login.ts | issue:${ID_PREFIX.SYNC_ISSUE}1
+- [ ] S3.2: ${WORK_STATUS.ACTION.FIX} \`src/api/users.ts\` | agent:${AGENT_NAMES.WORKER} | file:src/api/users.ts | issue:${ID_PREFIX.SYNC_ISSUE}1
+\`\`\`
+
+### Step 4: Update Work Log File Status
+\`\`\`markdown
+| src/auth/login.ts | ${WORK_STATUS.ACTION.FIX} | ${WORK_STATUS.STATUS.PENDING} | - | - | - | ${ID_PREFIX.SYNC_ISSUE}1 |
+\`\`\`
+
+### Sync Issue Reference Format
+Always reference the sync issue ID:
+- \`issue:${ID_PREFIX.SYNC_ISSUE}N\` in TODO subtask (e.g., ${ID_PREFIX.SYNC_ISSUE}1, ${ID_PREFIX.SYNC_ISSUE}42)
+- Links back to ${PATHS.SYNC_ISSUES} for context
+
+### CRITICAL:
+- DO NOT remove completed tasks (keep for history)
+- ADD new fix tasks, don't overwrite
+- Keep file manifest updated
+- Commander reads your updates in next loop
+${PROMPT_TAGS.TODO_SYNC.close}`;
+
 // src/agents/prompts/worker/role.ts
 var WORKER_ROLE = `<role>
 You are ${AGENT_NAMES.WORKER}. Implementation specialist.
@@ -13318,6 +13720,240 @@ VERIFY: lsp_diagnostics clean, build pass, tests pass
 DOCS_USED: .opencode/docs/[file]
 Ready for ${AGENT_NAMES.REVIEWER} verification
 </quality_checklist>`;
+
+// src/agents/prompts/worker/tdd-workflow.ts
+var WORKER_TDD_WORKFLOW = `${PROMPT_TAGS.TDD_WORKFLOW.open}
+## TDD (Test-Driven Development) MANDATORY WORKFLOW
+
+You work on ONE FILE at a time in ISOLATION. Follow this EXACT cycle:
+
+### Phase 1: SETUP
+1. Read ${PATHS.WORK_LOG} - Check assigned file
+2. Read ${PATHS.TODO} - Understand requirements
+3. Update ${PATHS.WORK_LOG}:
+   \`\`\`markdown
+   - [ ] ${ID_PREFIX.SESSION}N (Worker): \`[target-file]\` - ${WORK_STATUS.SESSION.STARTED}
+   \`\`\`
+
+### Phase 2: TEST FIRST (Red)
+1. Create ISOLATED test file for target file
+   - Naming: \`[filename].isolated.test.[ext]\` (language-appropriate)
+2. Write tests that ONLY test the target file
+3. Mock/Dummy ALL external dependencies:
+   - Database \u2192 Return fake data
+   - External API \u2192 Mock response
+   - Filesystem \u2192 Memory or temp
+   - Other modules \u2192 Mock exports
+4. Run test - MUST FAIL (Red phase)
+
+### Phase 3: IMPLEMENT (Green)
+1. Write minimal code to pass tests
+2. Run test - MUST PASS (Green phase)
+3. Iterate until all tests pass
+
+### Phase 4: CLEANUP & RECORD
+1. Record test in ${PATHS.UNIT_TESTS}/:
+   \`\`\`markdown
+   # Unit Test Record: [filename]
+   
+   ## Target File
+   \`[full-path]\`
+   
+   ## Test File (DELETED)
+   \`[test-file-path]\`
+   
+   ## Test Code (Preserved)
+   \\\`\\\`\\\`[language]
+   [full test code here]
+   \\\`\\\`\\\`
+   
+   ## Test Result
+   - Status: ${WORK_STATUS.TEST_RESULT.PASS}
+   - Session: ${ID_PREFIX.SESSION}N
+   - Timestamp: [ISO timestamp]
+   \`\`\`
+
+2. DELETE the isolated test file (code preserved above)
+3. Update ${PATHS.WORK_LOG} with ${WORK_STATUS.STATUS.DONE} + ${WORK_STATUS.TEST_RESULT.PASS}
+
+---
+
+## Isolation Requirements (Language-Agnostic)
+1. **Import ONLY target file** - Only the file being worked on
+2. **Mock ALL external dependencies**:
+   - Communication/interaction needed \u2192 Assume dummy response
+   - Real I/O strictly forbidden
+3. **Delete after pass** - Remove isolated test file
+4. **Record in .opencode** - Preserve test code and results
+
+### CRITICAL RULES:
+- NEVER skip the test file deletion step
+- ALWAYS preserve test code in ${PATHS.UNIT_TESTS}/
+- NEVER mark [x] in todo.md - Reviewer's job!
+- ONE file per session - complete isolation
+${PROMPT_TAGS.TDD_WORKFLOW.close}`;
+
+// src/agents/prompts/worker/isolation-testing.ts
+var WORKER_ISOLATION_TESTING = `${PROMPT_TAGS.ISOLATION_TESTING.open}
+## ISOLATED UNIT TEST RULES
+
+### File Naming Convention
+\`[original-dir]/__tests__/[filename].isolated.test.ts\`
+
+Example:
+- Target: \`src/auth/login.ts\`
+- Test: \`src/auth/__tests__/login.isolated.test.ts\`
+
+### Isolation Requirements
+1. **Import ONLY the target file**
+   \`\`\`typescript
+   import { functionToTest } from '../login.js';
+   \`\`\`
+
+2. **Mock ALL external dependencies**
+   \`\`\`typescript
+   vi.mock('../database.js', () => ({
+     db: { query: vi.fn() }
+   }));
+   vi.mock('../config.js', () => ({
+     config: { secret: 'test-secret' }
+   }));
+   \`\`\`
+
+3. **Test ONLY public exports of target file**
+   - No testing of internal functions
+   - No accessing private state
+
+4. **No side effects outside test scope**
+   - No file system writes (mock them)
+   - No network requests (mock them)
+   - No database operations (mock them)
+
+### Test Structure Template
+\`\`\`typescript
+/**
+ * ISOLATED Unit Test for [filename]
+ * Target: [full-path]
+ * Session: [session_id]
+ * 
+ * \u26A0\uFE0F THIS FILE WILL BE DELETED AFTER TEST PASSES
+ * Test code preserved in: .opencode/unit-tests/
+ */
+
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+
+// Mock all external dependencies BEFORE importing target
+vi.mock('../external-dep.js', () => ({}));
+
+// Import target file
+import { targetFunction } from '../target.js';
+
+describe('[filename] - Isolated Tests', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('should [expected behavior]', () => {
+    // Arrange
+    // Act
+    // Assert
+  });
+});
+\`\`\`
+
+### Test Execution
+\`\`\`bash
+# Run ONLY this isolated test
+npm test -- src/auth/__tests__/login.isolated.test.ts --run
+
+# Verify isolation - should not affect other tests
+npm test -- --run
+\`\`\`
+
+### FORBIDDEN:
+- Importing multiple source files to test together
+- Running full test suite for validation
+- Leaving isolated test files after completion
+- Modifying existing test files in the project
+${PROMPT_TAGS.ISOLATION_TESTING.close}`;
+
+// src/agents/prompts/worker/file-assignment.ts
+var WORKER_FILE_ASSIGNMENT = `${PROMPT_TAGS.FILE_ASSIGNMENT.open}
+## FILE ASSIGNMENT PROTOCOL
+
+You are assigned ONE FILE per session. Follow this protocol:
+
+### Step 1: Read Shared State
+\`\`\`bash
+# ALWAYS read these first
+cat ${PATHS.WORK_LOG}
+cat ${PATHS.TODO}
+cat ${PATHS.SYNC_ISSUES} 2>/dev/null || echo "No sync issues"
+\`\`\`
+
+### Step 2: Identify Your Assignment
+Commander gives you:
+- \`file: src/path/to/file.ts\` - Your target file
+- \`action: ${WORK_STATUS.ACTION.CREATE} | ${WORK_STATUS.ACTION.MODIFY} | ${WORK_STATUS.ACTION.FIX}\` - What to do
+- \`issue: ${ID_PREFIX.SYNC_ISSUE}N\` (optional) - If fixing a sync issue
+
+### Step 3: Update Work Log (Start)
+\`\`\`markdown
+## Active Sessions
+- [ ] ${ID_PREFIX.SESSION}N (Worker): \`[file]\` - [action] ${WORK_STATUS.SESSION.STARTED}
+\`\`\`
+
+### Step 4: Read Context
+- If ${WORK_STATUS.ACTION.FIX}: Read ${PATHS.SYNC_ISSUES} for issue details
+- If ${WORK_STATUS.ACTION.CREATE}/${WORK_STATUS.ACTION.MODIFY}: Read TODO for requirements
+- Read other completed files in ${PATHS.WORK_LOG} for context
+
+### Step 5: TDD Cycle (See tdd-workflow)
+1. Create isolated test
+2. Implement
+3. Pass test
+4. Delete test (record in unit-tests/)
+
+### Step 6: Update Work Log (Complete)
+\`\`\`markdown
+## Active Sessions
+- [x] ${ID_PREFIX.SESSION}N (Worker): \`[file]\` - [action] ${WORK_STATUS.SESSION.COMPLETED}
+
+## File Status (update row)
+| [file] | [action] | ${WORK_STATUS.STATUS.DONE} | ${ID_PREFIX.SESSION}N | ${WORK_STATUS.TEST_RESULT.PASS} | [timestamp] |
+\`\`\`
+
+### Step 7: Report
+Report to Commander via tool result:
+\`\`\`
+\u2705 File: [path]
+Action: [${WORK_STATUS.ACTION.CREATE}/${WORK_STATUS.ACTION.MODIFY}/${WORK_STATUS.ACTION.FIX}]
+Unit Test: ${WORK_STATUS.TEST_RESULT.PASS}
+Isolated test deleted, recorded in ${PATHS.UNIT_TESTS}/
+Ready for integration.
+\`\`\`
+
+### For SYNC FIX Assignments:
+1. Read ${ID_PREFIX.SYNC_ISSUE}N from ${PATHS.SYNC_ISSUES}
+2. Understand what's wrong
+3. Apply ${AGENT_NAMES.COMMANDER}'s suggested fix
+4. Test the fix in isolation
+5. Update work-log with issue reference
+
+\`\`\`markdown
+| src/file.ts | ${WORK_STATUS.ACTION.FIX} | ${WORK_STATUS.STATUS.DONE} | ${ID_PREFIX.SESSION}1 | ${WORK_STATUS.TEST_RESULT.PASS} | 2026-01-18T10:00:00 | ${ID_PREFIX.SYNC_ISSUE}1 |
+\`\`\`
+
+### PATH NOTES:
+- File paths use forward slash '/' in examples
+- On Windows, paths may use backslash '\\\\'
+
+### CRITICAL:
+- ONE file only - never touch other files
+- ALWAYS update ${PATHS.WORK_LOG} at start and end
+- READ ${PATHS.SYNC_ISSUES} if issue: tag is present
+- Follow Commander's specific instructions
+${PROMPT_TAGS.FILE_ASSIGNMENT.close}`;
 
 // src/agents/prompts/reviewer/role.ts
 var REVIEWER_ROLE = `<role>
@@ -13448,6 +14084,223 @@ TODO STATUS:
 - [ ] T[N]: [task] | needs fix
 </output_format>`;
 
+// src/agents/prompts/reviewer/async-monitoring.ts
+var REVIEWER_ASYNC_MONITORING = `${PROMPT_TAGS.ASYNC_MONITORING.open}
+## ASYNC PARALLEL WORK MONITORING
+
+You monitor ${AGENT_NAMES.WORKER} sessions running in PARALLEL.
+Do NOT block - check status asynchronously and wait for completion.
+
+### Monitoring Loop
+1. Read ${PATHS.WORK_LOG} to check active sessions:
+   \`\`\`bash
+   cat ${PATHS.WORK_LOG}
+   \`\`\`
+
+2. Identify completed units (marked [x] in Active Sessions)
+
+3. For each completed unit:
+   - Verify unit test record exists in ${PATHS.UNIT_TESTS}/
+   - Check isolated test file was deleted
+   - Verify implementation quality
+
+4. Wait for ALL parallel workers to complete before integration test
+
+### Status Check Pattern
+\`\`\`markdown
+## Current Status Check
+- Total active workers: [N]
+- Completed units: [list]
+- Still running: [list]
+- Ready for integration: [YES/NO]
+\`\`\`
+
+### Non-Blocking Wait Strategy
+1. If workers still running:
+   - Report current status
+   - DO NOT block or wait indefinitely
+   - Schedule next check (Commander will re-invoke)
+
+2. If all workers complete:
+   - Proceed to integration testing
+   - Update ${PATHS.INTEGRATION_STATUS}
+
+### work-log.md Interpretation
+\`\`\`markdown
+# Reading work-log.md:
+- [ ] = Still in progress, DO NOT verify yet
+- [x] = Unit complete, READY for verification
+\`\`\`
+
+### CRITICAL:
+- NEVER verify a file before worker marks [x]
+- NEVER block waiting for workers
+- Always update ${PATHS.WORK_LOG} with your monitoring status
+${PROMPT_TAGS.ASYNC_MONITORING.close}`;
+
+// src/agents/prompts/reviewer/integration-testing.ts
+var REVIEWER_INTEGRATION_TESTING = `${PROMPT_TAGS.INTEGRATION_TESTING.open}
+## E2E INTEGRATION TESTING
+
+### \u26A0\uFE0F E2E Test Timing (CRITICAL)
+E2E tests should only run when:
+1. **TODO is almost complete** - Most tasks checked [x]
+2. **All Workers done** - No active sessions in work-log.md
+3. **Or final verification** - Right before SEALED
+
+### Pre-Integration Checklist
+- [ ] Check ${PATHS.TODO} for incomplete tasks
+- [ ] Check ${PATHS.WORK_LOG} for all workers [x] complete
+- [ ] Check ${PATHS.UNIT_TESTS}/ for unit test records
+- [ ] All isolated test files deleted
+
+### Integration Workflow
+
+#### Step 1: Check TODO Status
+\`\`\`bash
+cat ${PATHS.TODO}
+# If incomplete items exist, wait for E2E
+\`\`\`
+
+#### Step 2: Run Build (language-appropriate)
+\`\`\`bash
+# Run project build command
+# If failed, record in sync-issues.md
+\`\`\`
+
+#### Step 3: Run Full Tests
+\`\`\`bash
+# Run project test command
+# Check for regressions
+\`\`\`
+
+#### Step 4: Write E2E Integration Test (if needed)
+\`\`\`
+# Write integration test in appropriate format
+# Verify multiple files work together
+# Unlike isolated tests, DO NOT delete
+\`\`\`
+
+#### Step 5: Record Results
+Write to ${PATHS.INTEGRATION_STATUS}:
+\`\`\`markdown
+# Integration Status
+
+## Last Integration
+- Timestamp: [ISO timestamp]
+
+## Result
+- Build: ${WORK_STATUS.TEST_RESULT.PASS}/${WORK_STATUS.TEST_RESULT.FAIL}
+- E2E Test: ${WORK_STATUS.TEST_RESULT.PASS}/${WORK_STATUS.TEST_RESULT.FAIL}
+
+## Sync Issues Found
+- (omit if none)
+\`\`\`
+
+---
+
+## Loop Condition Check (Reviewer verifies)
+
+### SEALED Conditions (all must be true)
+- [ ] ${PATHS.TODO} all items [x]
+- [ ] ${PATHS.SYNC_ISSUES} is empty
+- [ ] Build passes
+- [ ] E2E test passes
+
+### LOOP BACK Conditions
+- ${PATHS.TODO} has incomplete items \u2192 \u267B\uFE0F LOOP
+- ${PATHS.SYNC_ISSUES} has unresolved issues \u2192 \u267B\uFE0F LOOP
+- Build/test fails \u2192 record in sync-issues.md \u2192 \u267B\uFE0F LOOP
+
+### CRITICAL:
+- E2E only at TODO completion time!
+- Record build/test failures minimally in sync-issues.md
+- Delete resolved issues, keep only unresolved
+- All TODO [x] + no issues = SEALED!
+${PROMPT_TAGS.INTEGRATION_TESTING.close}`;
+
+// src/agents/prompts/reviewer/sync-verification.ts
+var REVIEWER_SYNC_VERIFICATION = `${PROMPT_TAGS.SYNC_VERIFICATION.open}
+## FILE SYNC VERIFICATION
+
+After integration, verify all files are properly synchronized.
+
+### Sync Check Areas
+
+#### 1. Import/Export Consistency
+\`\`\`bash
+# Check for broken imports
+npm run build 2>&1 | grep -i "cannot find"
+npm run build 2>&1 | grep -i "not exported"
+\`\`\`
+
+#### 2. Type Consistency
+\`\`\`bash
+# Check for type mismatches
+npx tsc --noEmit 2>&1 | grep -i "type"
+\`\`\`
+
+#### 3. Interface Implementation
+- Check implemented interfaces match declarations
+- Verify function signatures match calls
+
+#### 4. Shared State Consistency
+- Check constants used across files
+- Verify shared types are consistent
+
+---
+
+## ISSUE MANAGEMENT RULES \u26A0\uFE0F
+
+### sync-issues.md Contains UNRESOLVED ONLY
+- **Delete resolved issues immediately** (keep file clean)
+- **Keep only unresolved** (only what Commander needs to read)
+- **Summarize if too long** (archive old issues)
+
+### Issue Format (Minimal)
+\`\`\`markdown
+# Sync Issues (Unresolved Only)
+
+## ${ID_PREFIX.SYNC_ISSUE}N
+- Severity: ${WORK_STATUS.SEVERITY.HIGH}
+- Files: src/file1.ts \u2194 src/file2.ts
+- Problem: [concise description]
+- Fix: [specific solution]
+- Status: ${WORK_STATUS.STATUS.PENDING}
+\`\`\`
+
+### After Fix Verification
+When re-verifying after fixes:
+1. Check if issue is resolved
+2. If resolved: **DELETE the issue from sync-issues.md**
+3. If not resolved: Update issue status, add notes
+4. Keep file minimal
+
+---
+
+### Loop Continuation (NOT SEALED)
+If sync issues exist:
+1. Write ONLY unresolved issues to ${PATHS.SYNC_ISSUES}
+2. Delete resolved issues from file
+3. Update ${PATHS.WORK_LOG} with required rework
+4. DO NOT output SEALED
+5. ${AGENT_NAMES.COMMANDER} will read and dispatch new work
+
+### Seal Condition
+Output SEALED only when:
+- [ ] All TODO items [x]
+- [ ] Build passes
+- [ ] All tests pass (${WORK_STATUS.TEST_RESULT.PASS})
+- [ ] ${PATHS.SYNC_ISSUES} is EMPTY (no unresolved issues)
+- [ ] ${PATHS.INTEGRATION_STATUS} shows ${WORK_STATUS.TEST_RESULT.PASS}
+
+### CRITICAL:
+- Always check sync AFTER integration tests
+- DELETE resolved issues immediately
+- Keep sync-issues.md as short as possible
+- Ensure ${AGENT_NAMES.COMMANDER} only sees what needs fixing
+${PROMPT_TAGS.SYNC_VERIFICATION.close}`;
+
 // src/agents/commander.ts
 var systemPrompt = [
   COMMANDER_ROLE,
@@ -13461,12 +14314,16 @@ var systemPrompt = [
   COMMANDER_AGENTS,
   TODO_RULES,
   COMMANDER_TODO_FORMAT,
+  // Loop, shared state, sync handling
+  COMMANDER_LOOP_CONTINUATION,
+  COMMANDER_SYNC_HANDLING,
+  SHARED_WORKSPACE,
   ANTI_HALLUCINATION_CORE,
   MISSION_SEAL_RULES
 ].join("\n\n");
 var commander = {
   id: AGENT_NAMES.COMMANDER,
-  description: "Commander - autonomous orchestrator with parallel execution",
+  description: "Commander - orchestrator with parallel execution, loop state, and sync issue handling",
   systemPrompt,
   canWrite: true,
   canBash: true
@@ -13481,12 +14338,15 @@ var systemPrompt2 = [
   ANTI_HALLUCINATION_CORE,
   TODO_RULES,
   PLANNER_TODO_FORMAT,
+  // File-level planning
+  PLANNER_FILE_PLANNING,
+  PLANNER_TODO_SYNC,
   PLANNER_RESEARCH,
   SHARED_WORKSPACE
 ].join("\n\n");
 var planner = {
   id: AGENT_NAMES.PLANNER,
-  description: "Planner - strategic planning and research",
+  description: "Planner - file-level planning, TODO creation and sync",
   systemPrompt: systemPrompt2,
   canWrite: true,
   canBash: true
@@ -13500,12 +14360,17 @@ var systemPrompt3 = [
   ANTI_HALLUCINATION_CORE,
   WORKER_WORKFLOW,
   WORKER_QUALITY,
+  // File assignment from Commander
+  WORKER_FILE_ASSIGNMENT,
+  // TDD-based isolated work
+  WORKER_TDD_WORKFLOW,
+  WORKER_ISOLATION_TESTING,
   VERIFICATION_REQUIREMENTS,
   SHARED_WORKSPACE
 ].join("\n\n");
 var worker = {
   id: AGENT_NAMES.WORKER,
-  description: "Worker - implementation and documentation",
+  description: "Worker - TDD file-level implementation, reads .opencode, follows Commander",
   systemPrompt: systemPrompt3,
   canWrite: true,
   canBash: true
@@ -13519,12 +14384,16 @@ var systemPrompt4 = [
   REVIEWER_VERIFICATION,
   REVIEWER_TODO_UPDATE,
   VERIFICATION_REQUIREMENTS,
+  // Async parallel work handling
+  REVIEWER_ASYNC_MONITORING,
+  REVIEWER_INTEGRATION_TESTING,
+  REVIEWER_SYNC_VERIFICATION,
   REVIEWER_OUTPUT,
   SHARED_WORKSPACE
 ].join("\n\n");
 var reviewer = {
   id: AGENT_NAMES.REVIEWER,
-  description: "Reviewer - verification and context management",
+  description: "Reviewer - async verification, integration testing, sync validation",
   systemPrompt: systemPrompt4,
   canWrite: true,
   canBash: true
