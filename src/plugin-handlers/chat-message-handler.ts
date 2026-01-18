@@ -11,7 +11,7 @@ import { log } from "../core/agents/logger.js";
 import { state } from "../core/orchestrator/index.js";
 import { COMMANDS } from "../tools/slashCommand.js";
 import { detectSlashCommand } from "../utils/common.js";
-import { AGENT_NAMES, PART_TYPES, PROMPTS } from "../shared/index.js";
+import { AGENT_NAMES, PART_TYPES, PROMPTS, COMMAND_NAMES } from "../shared/index.js";
 import * as Toast from "../core/notification/toast.js";
 import * as ProgressTracker from "../core/progress/tracker.js";
 import * as TodoContinuation from "../core/loop/todo-continuation.js";
@@ -66,8 +66,8 @@ export function createChatMessageHandler(ctx: ChatMessageHandlerContext) {
                 Toast.presets.taskStarted(sessionID, AGENT_NAMES.COMMANDER);
             }
 
-            if (!parsed || parsed.command !== "task") {
-                const taskTemplate = COMMANDS["task"].template;
+            if (!parsed || parsed.command !== COMMAND_NAMES.TASK) {
+                const taskTemplate = COMMANDS[COMMAND_NAMES.TASK].template;
                 const userMessage = parsed?.args || originalText;
 
                 parts[textPartIndex].text = taskTemplate.replace(
@@ -91,7 +91,7 @@ export function createChatMessageHandler(ctx: ChatMessageHandlerContext) {
             }
 
             // /task command - register session and start loop regardless of agent
-            if (command && parsed.command === "task") {
+            if (command && parsed.command === COMMAND_NAMES.TASK) {
                 // Register session if not already registered (allows /task with any agent)
                 if (!sessions.has(sessionID)) {
                     const now = Date.now();

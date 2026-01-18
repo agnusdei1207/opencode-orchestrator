@@ -328,6 +328,15 @@ var PROMPTS = {
   CONTINUE_DEFAULT: "continue from where we left off"
 };
 
+// src/shared/message/constants/slash-commands.ts
+var COMMAND_NAMES = {
+  TASK: "task",
+  PLAN: "plan",
+  STATUS: "status",
+  STOP: "stop",
+  CANCEL: "cancel"
+};
+
 // src/shared/message/constants/message-roles.ts
 var MESSAGE_ROLES = {
   /** AI assistant message */
@@ -18112,7 +18121,7 @@ function cleanupSession(sessionID) {
 }
 
 // src/core/loop/mission-seal.ts
-import { existsSync as existsSync4, readFileSync, writeFileSync, unlinkSync } from "node:fs";
+import { existsSync as existsSync4, readFileSync, writeFileSync, unlinkSync, mkdirSync } from "node:fs";
 import { join as join5 } from "node:path";
 var MISSION_SEAL_TAG = MISSION_SEAL.TAG;
 var SEAL_CONFIRMATION = MISSION_SEAL.CONFIRMATION;
@@ -18142,7 +18151,11 @@ function readLoopState(directory) {
 }
 function writeLoopState(directory, state2) {
   const filePath = getStateFilePath(directory);
+  const dirPath = join5(directory, PATHS.OPENCODE);
   try {
+    if (!existsSync4(dirPath)) {
+      mkdirSync(dirPath, { recursive: true });
+    }
     writeFileSync(filePath, JSON.stringify(state2, null, 2), "utf-8");
     return true;
   } catch (error45) {
@@ -18691,8 +18704,8 @@ function createChatMessageHandler(ctx) {
         startSession(sessionID);
         presets.taskStarted(sessionID, AGENT_NAMES.COMMANDER);
       }
-      if (!parsed || parsed.command !== "task") {
-        const taskTemplate = COMMANDS["task"].template;
+      if (!parsed || parsed.command !== COMMAND_NAMES.TASK) {
+        const taskTemplate = COMMANDS[COMMAND_NAMES.TASK].template;
         const userMessage = parsed?.args || originalText;
         parts[textPartIndex].text = taskTemplate.replace(
           /\$ARGUMENTS/g,
@@ -18710,7 +18723,7 @@ function createChatMessageHandler(ctx) {
           parsed.args || PROMPTS.CONTINUE
         );
       }
-      if (command && parsed.command === "task") {
+      if (command && parsed.command === COMMAND_NAMES.TASK) {
         if (!sessions.has(sessionID)) {
           const now = Date.now();
           sessions.set(sessionID, {
