@@ -10,3 +10,12 @@ export const SESSION_EVENTS = {
 } as const;
 
 export type SessionEventType = (typeof SESSION_EVENTS)[keyof typeof SESSION_EVENTS];
+
+/**
+ * Message Event Types
+ */
+export const MESSAGE_EVENTS = {
+    UPDATED: "message.updated",
+} as const;
+
+export type MessageEventType = (typeof MESSAGE_EVENTS)[keyof typeof MESSAGE_EVENTS];

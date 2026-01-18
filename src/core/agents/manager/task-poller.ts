@@ -10,7 +10,7 @@ import { log } from "../logger.js";
 import { formatDuration } from "../format.js";
 import { presets } from "../../notification/presets.js";
 import type { ParallelTask } from "../interfaces/parallel-task.interface.js";
-import { TASK_STATUS, PART_TYPES } from "../../../shared/index.js";
+import { TASK_STATUS, PART_TYPES, MESSAGE_ROLES, SESSION_STATUS } from "../../../shared/index.js";
 
 type OpencodeClient = PluginInput["client"];
 
@@ -59,7 +59,7 @@ export class TaskPoller {
                     const sessionStatus = allStatuses[task.sessionID];
 
                     // If session is idle, try to complete
-                    if (sessionStatus?.type === "idle") {
+                    if (sessionStatus?.type === SESSION_STATUS.IDLE) {
                         const elapsed = Date.now() - task.startedAt.getTime();
                         if (elapsed < CONFIG.MIN_STABILITY_MS) continue;
                         if (!(await this.validateSessionHasOutput(task.sessionID))) continue;
@@ -92,7 +92,7 @@ export class TaskPoller {
         try {
             const response = await this.client.session.messages({ path: { id: sessionID } });
             const messages = (response.data ?? []) as Array<{ info?: { role?: string }; parts?: Array<{ type?: string; text?: string }> }>;
-            return messages.some(m => m.info?.role === "assistant" && m.parts?.some(p => (p.type === PART_TYPES.TEXT && p.text?.trim()) || p.type === "tool"));
+            return messages.some(m => m.info?.role === MESSAGE_ROLES.ASSISTANT && m.parts?.some(p => (p.type === PART_TYPES.TEXT && p.text?.trim()) || p.type === PART_TYPES.TOOL));
         } catch {
             return true;
         }
@@ -131,14 +131,14 @@ export class TaskPoller {
                 parts?: Array<{ type?: string; tool?: string; name?: string; text?: string }>;
             }>;
 
-            const assistantMsgs = messages.filter(m => m.info?.role === "assistant");
+            const assistantMsgs = messages.filter(m => m.info?.role === MESSAGE_ROLES.ASSISTANT);
             let toolCalls = 0;
             let lastTool: string | undefined;
             let lastMessage: string | undefined;
 
             for (const msg of assistantMsgs) {
                 for (const part of msg.parts ?? []) {
-                    if (part.type === "tool_use" || part.tool) {
+                    if (part.type === PART_TYPES.TOOL_USE || part.tool) {
                         toolCalls++;
                         lastTool = part.tool || part.name;
                     }

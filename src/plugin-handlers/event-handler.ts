@@ -14,6 +14,7 @@ import * as SessionRecovery from "../core/recovery/session-recovery.js";
 import * as TodoContinuation from "../core/loop/todo-continuation.js";
 import * as MissionSealHandler from "../core/loop/mission-seal-handler.js";
 import { isLoopActive } from "../core/loop/mission-seal.js";
+import { SESSION_EVENTS, MESSAGE_EVENTS, MESSAGE_ROLES } from "../shared/index.js";
 import type { EventHandlerContext } from "./interfaces/index.js";
 
 // Re-export interfaces for backward compatibility
@@ -37,14 +38,14 @@ export function createEventHandler(ctx: EventHandlerContext) {
         }
 
         // session.created
-        if (event.type === "session.created") {
+        if (event.type === SESSION_EVENTS.CREATED) {
             const sessionID = event.properties?.id as string || "";
             log("[event-handler] session.created", { sessionID });
             Toast.presets.missionStarted(`Session ${sessionID.slice(0, 12)}...`);
         }
 
         // session.deleted
-        if (event.type === "session.deleted") {
+        if (event.type === SESSION_EVENTS.DELETED) {
             const sessionID = (event.properties?.id as string) ||
                 (event.properties as { info?: { id?: string } })?.info?.id || "";
             const session = sessions.get(sessionID);
@@ -68,7 +69,7 @@ export function createEventHandler(ctx: EventHandlerContext) {
         }
 
         // session.error
-        if (event.type === "session.error") {
+        if (event.type === SESSION_EVENTS.ERROR) {
             const sessionID = event.properties?.sessionId as string || event.properties?.sessionID as string || "";
             const error = event.properties?.error;
             log("[event-handler] session.error", { sessionID, error });
@@ -92,23 +93,23 @@ export function createEventHandler(ctx: EventHandlerContext) {
         }
 
         // message.updated
-        if (event.type === "message.updated") {
+        if (event.type === MESSAGE_EVENTS.UPDATED) {
             const messageInfo = event.properties?.info as { sessionID?: string; role?: string } | undefined;
             const sessionID = messageInfo?.sessionID;
             const role = messageInfo?.role;
 
-            if (sessionID && role === "assistant") {
+            if (sessionID && role === MESSAGE_ROLES.ASSISTANT) {
                 SessionRecovery.markRecoveryComplete(sessionID);
             }
 
-            if (sessionID && role === "user") {
+            if (sessionID && role === MESSAGE_ROLES.USER) {
                 TodoContinuation.handleUserMessage(sessionID);
                 MissionSealHandler.handleUserMessage(sessionID);
             }
         }
 
         // session.idle
-        if (event.type === "session.idle") {
+        if (event.type === SESSION_EVENTS.IDLE) {
             const sessionID = event.properties?.sessionID as string || "";
             if (sessionID) {
                 const isMainSession = sessions.has(sessionID);

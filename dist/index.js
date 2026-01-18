@@ -232,6 +232,9 @@ var SESSION_EVENTS = {
   CREATED: "session.created",
   ERROR: "session.error"
 };
+var MESSAGE_EVENTS = {
+  UPDATED: "message.updated"
+};
 
 // src/shared/session/constants/event-types.ts
 var TASK_EVENTS = {
@@ -311,7 +314,11 @@ var PART_TYPES = {
   TEXT: "text",
   REASONING: "reasoning",
   TOOL_CALL: "tool_call",
-  TOOL_RESULT: "tool_result"
+  TOOL_RESULT: "tool_result",
+  /** Anthropic-style tool reference */
+  TOOL: "tool",
+  /** Anthropic-style tool invocation */
+  TOOL_USE: "tool_use"
 };
 
 // src/shared/message/constants/prompts.ts
@@ -319,6 +326,20 @@ var PROMPTS = {
   CONTINUE: "continue",
   CONTINUE_PREVIOUS: "continue previous work",
   CONTINUE_DEFAULT: "continue from where we left off"
+};
+
+// src/shared/message/constants/message-roles.ts
+var MESSAGE_ROLES = {
+  /** AI assistant message */
+  ASSISTANT: "assistant",
+  /** User message */
+  USER: "user",
+  /** System message */
+  SYSTEM: "system"
+};
+var SESSION_STATUS = {
+  IDLE: "idle",
+  BUSY: "busy"
 };
 
 // src/shared/errors/patterns.ts
@@ -15957,7 +15978,7 @@ var TaskPoller = class {
       for (const task of running) {
         try {
           const sessionStatus = allStatuses[task.sessionID];
-          if (sessionStatus?.type === "idle") {
+          if (sessionStatus?.type === SESSION_STATUS.IDLE) {
             const elapsed2 = Date.now() - task.startedAt.getTime();
             if (elapsed2 < CONFIG.MIN_STABILITY_MS) continue;
             if (!await this.validateSessionHasOutput(task.sessionID)) continue;
@@ -15984,7 +16005,7 @@ var TaskPoller = class {
     try {
       const response = await this.client.session.messages({ path: { id: sessionID } });
       const messages = response.data ?? [];
-      return messages.some((m) => m.info?.role === "assistant" && m.parts?.some((p) => p.type === PART_TYPES.TEXT && p.text?.trim() || p.type === "tool"));
+      return messages.some((m) => m.info?.role === MESSAGE_ROLES.ASSISTANT && m.parts?.some((p) => p.type === PART_TYPES.TEXT && p.text?.trim() || p.type === PART_TYPES.TOOL));
     } catch {
       return true;
     }
@@ -16010,13 +16031,13 @@ var TaskPoller = class {
       const result = await this.client.session.messages({ path: { id: task.sessionID } });
       if (result.error) return;
       const messages = result.data ?? [];
-      const assistantMsgs = messages.filter((m) => m.info?.role === "assistant");
+      const assistantMsgs = messages.filter((m) => m.info?.role === MESSAGE_ROLES.ASSISTANT);
       let toolCalls = 0;
       let lastTool;
       let lastMessage;
       for (const msg of assistantMsgs) {
         for (const part of msg.parts ?? []) {
-          if (part.type === "tool_use" || part.tool) {
+          if (part.type === PART_TYPES.TOOL_USE || part.tool) {
             toolCalls++;
             lastTool = part.tool || part.name;
           }
@@ -16332,7 +16353,7 @@ var ParallelAgentManager = class _ParallelAgentManager {
       const result = await this.client.session.messages({ path: { id: task.sessionID } });
       if (result.error) return `Error: ${result.error}`;
       const messages = result.data ?? [];
-      const lastMsg = messages.filter((m) => m.info?.role === "assistant").reverse()[0];
+      const lastMsg = messages.filter((m) => m.info?.role === MESSAGE_ROLES.ASSISTANT).reverse()[0];
       if (!lastMsg) return "(No response)";
       const text = lastMsg.parts?.filter((p) => p.type === PART_TYPES.TEXT || p.type === PART_TYPES.REASONING).map((p) => p.text ?? "").filter(Boolean).join("\n") ?? "";
       task.result = text;
@@ -16370,7 +16391,7 @@ var ParallelAgentManager = class _ParallelAgentManager {
   handleTaskError(taskId, error45) {
     const task = this.store.get(taskId);
     if (!task) return;
-    task.status = "error";
+    task.status = TASK_STATUS.ERROR;
     task.error = error45 instanceof Error ? error45.message : String(error45);
     task.completedAt = /* @__PURE__ */ new Date();
     if (task.concurrencyKey) this.concurrency.release(task.concurrencyKey);
@@ -16395,20 +16416,20 @@ async function validateSessionHasOutput(session, sessionID) {
     const response = await session.messages({ path: { id: sessionID } });
     const messages = response.data ?? [];
     const hasAssistantMessage = messages.some(
-      (m) => m.info?.role === "assistant"
+      (m) => m.info?.role === MESSAGE_ROLES.ASSISTANT
     );
     if (!hasAssistantMessage) {
       return false;
     }
     const hasContent = messages.some((m) => {
-      if (m.info?.role !== "assistant") return false;
+      if (m.info?.role !== MESSAGE_ROLES.ASSISTANT) return false;
       const parts = m.parts ?? [];
       return parts.some(
         (p) => (
           // Text content
           p.type === PART_TYPES.TEXT && p.text && p.text.trim().length > 0 || // Reasoning content
           p.type === PART_TYPES.REASONING && p.text && p.text.trim().length > 0 || // Tool calls (indicates work was done)
-          p.type === "tool" || p.type === "tool_use" || p.tool
+          p.type === PART_TYPES.TOOL || p.type === PART_TYPES.TOOL_USE || p.tool
         )
       );
     });
@@ -16448,7 +16469,7 @@ async function pollWithSafetyLimits(session, sessionID, startTime) {
         stablePolls = 0;
         continue;
       }
-      if (sessionStatus.type !== "idle") {
+      if (sessionStatus.type !== SESSION_STATUS.IDLE) {
         stablePolls = 0;
         continue;
       }
@@ -16491,7 +16512,7 @@ async function extractSessionResult(session, sessionID) {
   try {
     const msgs = await session.messages({ path: { id: sessionID } });
     const messages = msgs.data ?? [];
-    const lastMsg = messages.filter((m) => m.info?.role === "assistant").reverse()[0];
+    const lastMsg = messages.filter((m) => m.info?.role === MESSAGE_ROLES.ASSISTANT).reverse()[0];
     const text = lastMsg?.parts?.filter((p) => p.type === PART_TYPES.TEXT || p.type === PART_TYPES.REASONING).map((p) => p.text ?? "").join("\n") || "";
     return text;
   } catch (error45) {
@@ -18159,7 +18180,7 @@ async function detectSealInSession(client, sessionID) {
   try {
     const response = await client.session.messages({ path: { id: sessionID } });
     const messages = response.data ?? [];
-    const assistantMessages = messages.filter((m) => m.info?.role === "assistant");
+    const assistantMessages = messages.filter((m) => m.info?.role === MESSAGE_ROLES.ASSISTANT);
     const recentMessages = assistantMessages.slice(-3);
     for (const msg of recentMessages) {
       if (!msg.parts) continue;
@@ -18450,12 +18471,12 @@ function createEventHandler(ctx) {
       manager.handleEvent(event);
     } catch {
     }
-    if (event.type === "session.created") {
+    if (event.type === SESSION_EVENTS.CREATED) {
       const sessionID = event.properties?.id || "";
       log2("[event-handler] session.created", { sessionID });
       presets.missionStarted(`Session ${sessionID.slice(0, 12)}...`);
     }
-    if (event.type === "session.deleted") {
+    if (event.type === SESSION_EVENTS.DELETED) {
       const sessionID = event.properties?.id || event.properties?.info?.id || "";
       const session = sessions.get(sessionID);
       if (session) {
@@ -18471,7 +18492,7 @@ function createEventHandler(ctx) {
         presets.sessionCompleted(sessionID, duration3);
       }
     }
-    if (event.type === "session.error") {
+    if (event.type === SESSION_EVENTS.ERROR) {
       const sessionID = event.properties?.sessionId || event.properties?.sessionID || "";
       const error45 = event.properties?.error;
       log2("[event-handler] session.error", { sessionID, error: error45 });
@@ -18493,19 +18514,19 @@ function createEventHandler(ctx) {
       }
       presets.taskFailed("session", String(error45).slice(0, 50));
     }
-    if (event.type === "message.updated") {
+    if (event.type === MESSAGE_EVENTS.UPDATED) {
       const messageInfo = event.properties?.info;
       const sessionID = messageInfo?.sessionID;
       const role = messageInfo?.role;
-      if (sessionID && role === "assistant") {
+      if (sessionID && role === MESSAGE_ROLES.ASSISTANT) {
         markRecoveryComplete(sessionID);
       }
-      if (sessionID && role === "user") {
+      if (sessionID && role === MESSAGE_ROLES.USER) {
         handleUserMessage(sessionID);
         handleUserMessage2(sessionID);
       }
     }
-    if (event.type === "session.idle") {
+    if (event.type === SESSION_EVENTS.IDLE) {
       const sessionID = event.properties?.sessionID || "";
       if (sessionID) {
         const isMainSession = sessions.has(sessionID);
