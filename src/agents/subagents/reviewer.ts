@@ -10,6 +10,7 @@ import { AGENT_NAMES } from "../../shared/agent/constants/index.js";
 import type { AgentDefinition } from "../../shared/agent/interfaces/index.js";
 import {
     // Common
+    CORE_PHILOSOPHY,
     SHARED_WORKSPACE,
     VERIFICATION_REQUIREMENTS,
     // Reviewer-specific
@@ -29,6 +30,7 @@ import {
  * Compose Reviewer system prompt from modular fragments
  */
 const systemPrompt = [
+    CORE_PHILOSOPHY,
     REVIEWER_ROLE,
     REVIEWER_FORBIDDEN,
     REVIEWER_REQUIRED,
