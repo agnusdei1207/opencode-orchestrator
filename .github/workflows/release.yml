@@ -91,12 +91,17 @@ jobs:
           body: |
             ## 🚀 OpenCode Orchestrator ${{ github.ref_name }}
             
-            **"Relentless execution until absolute success."**
+            **"Multi-agent. Parallel. Non-blocking. Self-healing."**
             
-            ### ✨ Highlights
-            - **🛡️ Resilient Execution**: Never stops. Pivots strategy (Plan/Search) on error.
-            - **⚡ Full Autonomy**: `/auto` command completes tasks 100%.
-            - **✅ Anti-Overengineering**: Smart fixers for simple errors.
+            ### ⚡ Core Capabilities
+            | | Feature | Description |
+            |:---:|:---|:---|
+            | ⚡ | **50 Parallel Sessions** | True multi-threading, not fake concurrency |
+            | 🔥 | **10x Faster** | Workers build different files simultaneously |
+            | 💨 | **Non-Blocking** | Fire-and-forget with automatic result collection |
+            | 🧩 | **Smart Distribution** | One file = one worker. No conflicts. |
+            | 🛡️ | **Self-Healing** | Auto-recovery from crashes, rate limits |
+            | 📡 | **Live Monitoring** | Real-time toast notifications |
             
             ---
           generate_release_notes: true
