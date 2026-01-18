@@ -102,29 +102,33 @@ jobs:
             ```
             ┌──────────────────────────────────────────────────────────────────────────────────────┐
             │                                                                                      │
-            │  🔍 EXPLORE    →    📝 LEARN    →    🔄 ADAPT    →    ⚡ ACT                          │
+            │  🔍 EXPLORE    →    📝 LEARN    →    🔄 ADAPT    →    ⚡ ACT                           │
             │                                                                                      │
-            │  Scan the          Document           Adjust to          Execute the                │
-            │  unknown           discoveries        the terrain        mission                    │
+            │  Scan the          Document           Adjust to          Execute the                 │
+            │  unknown           discoveries        the terrain        mission                     │
             │                                                                                      │
             └──────────────────────────────────────────────────────────────────────────────────────┘
             ```
             
             ---
             
-            ## 🚀 The Crew
+            ## 👨‍🚀 The Crew
             
-            **🎯 Commander** — *The captain who landed the ship*
-            > Scans the horizon, delegates specialists, keeps the mission moving until sealed.
+            | Agent | Role | Mission |
+            |:------|:-----|:--------|
+            | 🎯 **Commander** | The captain | Leads the mission. Delegates specialists. Seals when complete. |
+            | 📋 **Planner** | The scientist | Maps the terrain. Documents everything. Creates paths to follow. |
+            | 🔨 **Worker** | The engineer | Builds with local materials. Adapts to the terrain. |
+            | ✅ **Reviewer** | The inspector | Verifies all structures. Clears the mission for launch. |
             
-            **📋 Planner** — *The scientist who maps the terrain*
-            > First out with instruments. Tests, analyzes, documents. Creates maps everyone follows.
+            ### 🛸 The Protocol
             
-            **🔨 Worker** — *The engineer who builds the base*
-            > Takes maps and builds. Adapts to local materials. Works with the terrain, not against it.
-            
-            **✅ Reviewer** — *The inspector who clears for launch*
-            > Walks the perimeter, tests structures, verifies blueprints. Seals when all checks pass.
+            | Phase | The Crew's Action |
+            |:------|:------------------|
+            | 🔍 **EXPLORE** | *"What world is this?"* — Scan, detect, never assume |
+            | 📝 **LEARN** | *"Write it down."* — Document for future missions |
+            | 🔄 **ADAPT** | *"Do it this way here."* — Fit the terrain |
+            | ⚡ **ACT** | *"Execute."* — Build, test, seal |
             
             ### 🌟 Crew Principles
             
