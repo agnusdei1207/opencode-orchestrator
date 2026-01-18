@@ -2,7 +2,8 @@
  * Planner Agent (Subagent)
  * 
  * Strategic planning and research specialist.
- * Uses modular prompt fragments for flexible composition.
+ * FILE-LEVEL planning - lists all files to create/modify/delete.
+ * TODO sync - updates TODO based on Commander instructions.
  */
 
 import { AGENT_NAMES } from "../../shared/agent/constants/index.js";
@@ -19,6 +20,9 @@ import {
     PLANNER_REQUIRED,
     PLANNER_TODO_FORMAT,
     PLANNER_RESEARCH,
+    // File-level planning & sync
+    PLANNER_FILE_PLANNING,
+    PLANNER_TODO_SYNC,
 } from "../prompts/index.js";
 
 /**
@@ -32,14 +36,18 @@ const systemPrompt = [
     ANTI_HALLUCINATION_CORE,
     TODO_RULES,
     PLANNER_TODO_FORMAT,
+    // File-level planning
+    PLANNER_FILE_PLANNING,
+    PLANNER_TODO_SYNC,
     PLANNER_RESEARCH,
     SHARED_WORKSPACE,
 ].join("\n\n");
 
 export const planner: AgentDefinition = {
     id: AGENT_NAMES.PLANNER,
-    description: "Planner - strategic planning and research",
+    description: "Planner - file-level planning, TODO creation and sync",
     systemPrompt,
     canWrite: true,
     canBash: true,
 };
+

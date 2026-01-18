@@ -17,106 +17,161 @@ The orchestrator uses a **Master Session Architecture** with **4 consolidated ag
 ```
 Consolidated Agent Roles:
 ┌─────────────────────────────────────────────────────────────────┐
-│ 🎯 Commander - Master orchestrator (THINK → PLAN → DELEGATE)   │
-│ 📋 Planner   - Strategic planning + research (was: Architect+Researcher) │
-│ 🔨 Worker    - Implementation + docs (was: Builder+Librarian)  │
-│ ✅ Reviewer  - Verification + context (was: Inspector+Recorder)│
+│ 🎯 Commander - Master orchestrator (Read → Delegate → Loop)    │
+│ 📋 Planner   - File-level planning + TODO sync                 │
+│ 🔨 Worker    - TDD file-level implementation (1 file = 1 session) │
+│ ✅ Reviewer  - Async verification + E2E test + sync check      │
 └─────────────────────────────────────────────────────────────────┘
 
-Master Session Flow:
-1️⃣ THINK    → Analyze request, assess complexity (L1/L2/L3)
-2️⃣ PLAN     → Create .opencode/todo.md via Planner
-3️⃣ DELEGATE → Spawn Worker Sessions via delegate_task
-4️⃣ MONITOR  → Watch .opencode/ for progress, handle complete
+Master Session Flow (with Sync Loop):
+1️⃣ READ STATE → work-log.md, sync-issues.md, todo.md
+2️⃣ DELEGATE   → Planner for file planning, Workers for implementation
+3️⃣ MONITOR    → Wait for parallel workers (async)
+4️⃣ VERIFY     → Reviewer checks integration + sync
+5️⃣ LOOP/SEAL  → If sync issues: loop back. If clean: SEAL.
 
 Worker Sessions (up to 50 parallel):
-• Independent execution with own agent persona
+• ONE FILE per Worker session (complete isolation)
+• TDD cycle: Test → Implement → Delete test (record in unit-tests/)
 • Read/write shared .opencode/ workspace
-• Notify Master on completion (via session events)
 • Cannot spawn sub-workers (recursion prevention)
 ```
 
 ---
 
-## 📞 Caller / Callee Relationship Table
+## ⚠️ Loop Conditions (CRITICAL)
 
-### System Components (Automatic, No Agent Involvement)
+### SEALED Conditions (all must be true)
+1. ✅ **TODO fully complete** - All items checked [x]
+2. ✅ **sync-issues.md is empty** - No unresolved issues
+3. ✅ **Build passes** - Full build successful
+4. ✅ **E2E tests pass** - Integration tests successful
 
-| Caller | Calls | When | Purpose |
-|--------|-------|------|---------|
-| `index.ts` | `Toast.initToastClient()` | Plugin init | Initialize toast |
-| `index.ts` | `Toast.initTaskToastManager()` | Plugin init | Initialize task toast manager |
-| `index.ts` | `ParallelAgentManager.getInstance()` | Plugin init | Initialize manager |
-| `index.ts` | `ProgressTracker.startSession()` | Session start | Begin tracking |
-| `index.ts` | `ProgressTracker.recordSnapshot()` | Each loop step | Record progress |
-| `index.ts` | `ProgressTracker.clearSession()` | Session end | Cleanup |
-| `index.ts` | `SessionRecovery.handleSessionError()` | session.error event | Attempt auto-recovery |
-| `index.ts` | `SessionRecovery.markRecoveryComplete()` | message.updated | Reset recovery state |
-| `index.ts` | `SessionRecovery.cleanupSessionRecovery()` | session.deleted | Cleanup state |
-| `index.ts` | `TodoContinuation.handleSessionIdle()` | session.idle event | Check for incomplete todos |
-| `index.ts` | `TodoContinuation.handleUserMessage()` | chat.message | Cancel continuation countdown |
-| `index.ts` | `TodoContinuation.cleanupSession()` | session.deleted | Cleanup state |
-| `index.ts` | `Toast.presets.taskStarted()` | Session start | Show notification |
-| `index.ts` | `Toast.presets.missionComplete()` | Mission done | Show notification |
-| `index.ts` | `Toast.presets.taskFailed()` | Cancelled | Show notification |
-| `index.ts` (handler) | `ParallelAgentManager.handleEvent()` | Any event | Resource cleanup |
-| `TaskLauncher` | `ConcurrencyController.acquire()` | Task start | Get slot |
-| `TaskLauncher` | `TaskStore.set()` | Task start | Store task |
-| `TaskLauncher` | `TaskToastManager.addTask()` | Task start | Show consolidated toast |
-| `TaskLauncher` | `TaskPoller.start()` | First task | Begin polling |
-| `TaskPoller` (1s) | `TaskStore.getRunning()` | Poll loop | Find active tasks |
-| `TaskPoller` | `TaskCleaner.scheduleCleanup()` | Task done | Schedule GC |
-| `TaskCleaner` | `TaskToastManager.showCompletionToast()` | Task done | Show completion toast |
-| `TaskCleaner` | `TaskToastManager.showAllCompleteToast()` | All done | Show batch summary |
-| `EventHandler` | `ConcurrencyController.release()` | session.idle/deleted | Free slot |
-| `EventHandler` | `TaskStore.delete()` | session.deleted | Remove task |
-| `TaskCleaner` | `TaskStore.gc()` | Prune | Archive old tasks |
-| `TaskStore` | `archiveTasks()` | gc() | Write to disk |
+### LOOP BACK Conditions (any of these)
+- ❌ TODO has incomplete items
+- ❌ sync-issues.md has unresolved issues
+- ❌ Build fails
+- ❌ E2E tests fail
 
-### Agent-Callable Tools (Used in Prompts)
+---
 
-| Tool | Agent User | Function | Core System Used |
-|------|------------|----------|------------------|
-| `delegate_task` | Commander, Planner | Spawn parallel agent | `ParallelAgentManager.launch()` |
-| `get_task_result` | Commander | Get completed result | `ParallelAgentManager.getResult()` |
-| `list_tasks` | Commander | View all tasks | `ParallelAgentManager.getAllTasks()` |
-| `cancel_task` | Commander | Stop task | `ParallelAgentManager.cancelTask()` |
-| `webfetch` | Planner, Worker | Fetch URL | `DocumentCache.set()` |
-| `websearch` | Planner, Worker | Search web | External API |
-| `codesearch` | Planner, Worker | Search code | External API |
-| `cache_docs` | Planner, Reviewer | Manage docs | `DocumentCache.get/list/clear()` |
-| `run_background` | Worker, Reviewer | Run command | `BackgroundManager.run()` |
-| `check_background` | Reviewer | Check command | `BackgroundManager.check()` |
-| `grep_search` | All agents | Search files | Node fs |
-| `glob_search` | All agents | Find files | Node fs |
-| `call_agent` | Commander | Sync agent call | Direct session |
+## 🔄 TDD File-Level Workflow
 
-### Smart Context (.opencode/) Management
-
-| File | Managed By | Purpose |
-|------|------------|----------|
-| `.opencode/todo.md` | Planner creates, Reviewer updates | Master TODO list |
-| `.opencode/context.md` | Reviewer | Adaptive-size context |
-| `.opencode/summary.md` | Reviewer | Ultra-brief when needed |
-| `.opencode/docs/` | Planner, Worker | Cached documentation (with expiry) |
-| `.opencode/archive/` | Reviewer | Old context for reference |
-
-**Dynamic Detail Levels:**
-- **EARLY** (0-30%): Detailed explanations, research
-- **BUILDING** (30-70%): Key decisions + file references
-- **FINISHING** (70-100%): Brief status, blockers only
-
-**Centralized Path Constants** (`shared/constants.ts`):
-```typescript
-PATHS.OPENCODE      // ".opencode"
-PATHS.DOCS          // ".opencode/docs"
-PATHS.ARCHIVE       // ".opencode/archive"
-PATHS.TODO          // ".opencode/todo.md"
-PATHS.CONTEXT       // ".opencode/context.md"
-PATHS.DOC_METADATA  // ".opencode/docs/_metadata.json"
+```
+👤 User: /task "Build REST API"
+            │
+            ▼
+┌───────────────────────────────────────────────────────────┐
+│  🎯 COMMANDER                                              │
+│  1. Read .opencode/ (work-log, sync-issues, todo)         │
+│  2. Delegate to Planner: "Create file plan"               │
+└───────────────────────────────────────────────────────────┘
+            │
+            ▼
+┌───────────────────────────────────────────────────────────┐
+│  📋 PLANNER                                                │
+│  1. Analyze requirements                                   │
+│  2. Create File Manifest (CREATE/MODIFY/DELETE)           │
+│  3. Write todo.md with file-level subtasks                │
+│  4. Initialize work-log.md                                │
+└───────────────────────────────────────────────────────────┘
+            │
+            ▼
+┌───────────────────────────────────────────────────────────┐
+│  🎯 COMMANDER                                              │
+│  1. Read todo.md                                          │
+│  2. Dispatch Workers (parallel, background: true)         │
+│     - Worker A: file:src/auth/login.ts                    │
+│     - Worker B: file:src/auth/logout.ts                   │
+│     - Worker C: file:src/types/auth.ts                    │
+└───────────────────────────────────────────────────────────┘
+            │
+            ▼ (PARALLEL)
+┌─────────────┐ ┌─────────────┐ ┌─────────────┐
+│ 🔧 WORKER A │ │ 🔧 WORKER B │ │ 🔧 WORKER C │
+│ login.ts    │ │ logout.ts   │ │ auth.ts     │
+│             │ │             │ │             │
+│ TDD Cycle:  │ │ TDD Cycle:  │ │ TDD Cycle:  │
+│ 1. Test     │ │ 1. Test     │ │ 1. Test     │
+│ 2. Impl     │ │ 2. Impl     │ │ 2. Impl     │
+│ 3. Delete   │ │ 3. Delete   │ │ 3. Delete   │
+│    test     │ │    test     │ │    test     │
+│ 4. Update   │ │ 4. Update   │ │ 4. Update   │
+│ work-log.md │ │ work-log.md │ │ work-log.md │
+└─────────────┘ └─────────────┘ └─────────────┘
+            │
+            ▼ (Wait for all Workers)
+┌───────────────────────────────────────────────────────────┐
+│  ✅ REVIEWER                                               │
+│  1. Read work-log.md (check completed files)              │
+│  2. Run E2E integration tests                             │
+│  3. Check file sync (imports, types)                      │
+│  4. If PASS: Mark TODO [x]                                │
+│  5. If FAIL: Write sync-issues.md                         │
+└───────────────────────────────────────────────────────────┘
+            │
+     ┌──────┴──────┐
+     │ sync-issues │
+     │   exist?    │
+     └──────┬──────┘
+       Yes ↓   ↓ No
+     ┌─────┐ ┌─────┐
+     │LOOP │ │SEAL │
+     │BACK │ │ED!  │
+     └──┬──┘ └─────┘
+        │
+        ▼ (Sync issue handling loop)
+┌───────────────────────────────────────────────────────────┐
+│  🎯 COMMANDER (Loop)                                       │
+│  1. Read sync-issues.md                                   │
+│  2. Delegate Planner: "Add FIX task to TODO"              │
+│  3. Delegate Workers: "Fix this file like this"           │
+│  4. Delegate Reviewer: "Verify again"                     │
+└───────────────────────────────────────────────────────────┘
 ```
 
-### Unused Infrastructure (Available for Future Integration)
+---
+
+## 📂 Shared State (.opencode/)
+
+### Directory Structure
+```
+.opencode/
+├── todo.md              - Master task list (Planner creates/syncs)
+├── context.md           - Project context
+├── work-log.md          - 🔄 Real-time work status (ALL agents)
+├── unit-tests/          - 📝 Unit test records (preserved after deletion)
+├── sync-issues.md       - ⚠️ File sync issues (Reviewer writes)
+├── integration-status.md - ✅ Integration test results
+├── docs/                - Cached documentation
+└── archive/             - Old context
+```
+
+### ID Prefix Constants (`ID_PREFIX`)
+```typescript
+// Format: PREFIX + any number (no fixed digits)
+ID_PREFIX.SESSION     // "ses_"      → ses_1, ses_42
+ID_PREFIX.SYNC_ISSUE  // "SYNC-"     → SYNC-1, SYNC-100
+ID_PREFIX.UNIT_TEST   // "UT-"       → UT-1, UT-50
+ID_PREFIX.TASK        // "task_"     → task_1, task_200
+ID_PREFIX.WORKER      // "wrk_"      → wrk_1, wrk_10
+```
+
+### Path Constants (`PATHS`)
+```typescript
+PATHS.OPENCODE           // ".opencode"
+PATHS.TODO               // ".opencode/todo.md"
+PATHS.CONTEXT            // ".opencode/context.md"
+PATHS.WORK_LOG           // ".opencode/work-log.md"
+PATHS.UNIT_TESTS         // ".opencode/unit-tests"
+PATHS.SYNC_ISSUES        // ".opencode/sync-issues.md"
+PATHS.INTEGRATION_STATUS // ".opencode/integration-status.md"
+PATHS.DOCS               // ".opencode/docs"
+PATHS.ARCHIVE            // ".opencode/archive"
+```
+
+---
+
 
 | Module | Status | Integration Path |
 |--------|--------|------------------|

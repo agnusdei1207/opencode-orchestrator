@@ -14,6 +14,7 @@
  * - shared/tool/     - TOOL_NAMES, TOOL_OUTPUT
  * - shared/message/  - PART_TYPES, PROMPTS
  * - shared/errors/   - ERROR_PATTERNS, ERROR_TYPE
+ * - shared/prompt/   - PROMPT_TAGS, WORK_STATUS
  */
 
 // Domain exports
@@ -32,5 +33,9 @@ export * from "./message/index.js";
 // Error handling
 export * from "./errors/index.js";
 
+// Prompt constants (tags, status)
+export * from "./prompt/index.js";
+
 // Re-exports from core modules (for compatibility)
 export { TASK_STATUS, TODO_STATUS } from "../core/agents/consts/task-status.const.js";
+

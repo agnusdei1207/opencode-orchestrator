@@ -2,7 +2,8 @@
  * Commander Agent
  * 
  * Master orchestrator with parallel execution capabilities.
- * Uses modular prompt fragments for flexible composition.
+ * Reads shared state (.opencode/) for loop continuation.
+ * Handles sync issues by instructing Planner and Workers.
  */
 
 import { AGENT_NAMES } from "../shared/agent/constants/index.js";
@@ -13,6 +14,7 @@ import {
    ANTI_HALLUCINATION_CORE,
    TODO_RULES,
    MISSION_SEAL_RULES,
+   SHARED_WORKSPACE,
    // Commander-specific
    COMMANDER_ROLE,
    COMMANDER_IDENTITY,
@@ -23,6 +25,9 @@ import {
    COMMANDER_PARALLEL,
    COMMANDER_AGENTS,
    COMMANDER_TODO_FORMAT,
+   // Loop & sync handling
+   COMMANDER_LOOP_CONTINUATION,
+   COMMANDER_SYNC_HANDLING,
 } from "./prompts/index.js";
 
 /**
@@ -40,13 +45,17 @@ const systemPrompt = [
    COMMANDER_AGENTS,
    TODO_RULES,
    COMMANDER_TODO_FORMAT,
+   // Loop, shared state, sync handling
+   COMMANDER_LOOP_CONTINUATION,
+   COMMANDER_SYNC_HANDLING,
+   SHARED_WORKSPACE,
    ANTI_HALLUCINATION_CORE,
    MISSION_SEAL_RULES,
 ].join("\n\n");
 
 export const commander: AgentDefinition = {
    id: AGENT_NAMES.COMMANDER,
-   description: "Commander - autonomous orchestrator with parallel execution",
+   description: "Commander - orchestrator with parallel execution, loop state, and sync issue handling",
    systemPrompt,
    canWrite: true,
    canBash: true,

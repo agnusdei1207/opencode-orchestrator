@@ -11,3 +11,6 @@ export { COMMANDER_EXECUTION } from "./execution.js";
 export { COMMANDER_PARALLEL } from "./parallel.js";
 export { COMMANDER_AGENTS } from "./agents.js";
 export { COMMANDER_TODO_FORMAT } from "./todo-format.js";
+// Loop & sync handling
+export { COMMANDER_LOOP_CONTINUATION } from "./loop-continuation.js";
+export { COMMANDER_SYNC_HANDLING } from "./sync-handling.js";
