@@ -4,11 +4,17 @@
 
 # OpenCode Orchestrator
 
-> Autonomous multi-agent plugin for [OpenCode](https://opencode.ai)
+> **🚀 Multi-Agent Orchestration Plugin for [OpenCode](https://opencode.ai)**
 
 [![MIT License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![npm](https://img.shields.io/npm/v/opencode-orchestrator.svg)](https://www.npmjs.com/package/opencode-orchestrator)
 [![Tests](https://img.shields.io/badge/tests-216%20passed-brightgreen.svg)]()
+
+---
+
+## 🔥 Why This Plugin?
+
+**Budget models have limits. Orchestration breaks them.**
 
 ---
 
@@ -18,106 +24,108 @@
 npm install -g opencode-orchestrator
 ```
 
-Restart OpenCode after installation. Then:
+Then in OpenCode:
 
 ```bash
 /task "Build a REST API with authentication"
 ```
 
-That's it! The Commander takes over and works until the mission is complete.
+**Done.** You just deployed an army of AI agents. They plan, build, test, fix — and don't stop until it's sealed. ✨
 
 ---
 
-## 💡 Why I Built This
+## 🎯 What Makes This Different?
 
-Budget models have limits. Orchestration breaks them.
+### 🚀 Core Capabilities
 
----
-
-## 🎯 What is This?
-
-A multi-agent system that **autonomously executes complex tasks** from start to finish. Just describe your mission — the Commander handles everything else.
-
----
-
-## ✨ v0.9.4 Highlights
-
-> 🚀 **"Relentless execution until absolute success."**
-
-| Category | Feature |
-|----------|----------|
-| 🛡️ **Resilience** | Never stops. Auto-pivots Plan↔Search on any error |
-| ⚡ **Parallelism** | 50 isolated sessions run simultaneously |
-| 🔧 **TDD Workers** | Each agent works in complete isolation (1 file = 1 worker) |
-| 🔄 **Sync Integration** | Shared `.opencode/` state synchronizes all agents |
-| ✅ **Stability Checks** | TODO + Issue verification before mission seal |
-| 🧠 **Smart Fixers** | Anti-overengineering: simple errors get simple fixes |
+| | Feature | What It Means |
+|:---:|:---|:---|
+| ⚡ | **Multi-Session Parallel** | 50 isolated sessions running simultaneously. True multi-threading. |
+| 🔥 | **Parallel Execution** | Workers build different files at once. 10x faster. |
+| � | **Non-Blocking Async** | Fire-and-forget. Commander never waits. Results collected automatically. |
+| 🧩 | **Smart Distribution** | One file = one worker. No conflicts. No stepping on each other. |
+| 🔗 | **Real-Time Sync** | Shared `.opencode/` state. All agents see updates instantly. |
+| 🛡️ | **Auto Verify & Test** | E2E tests, import checks, integration validation. Bugs get caught. |
+| 🩹 | **Self-Healing** | Auto-recovery from crashes, rate limits, context overflow. 3 retries. |
+| � | **Live Monitoring** | Track sessions, progress, queues. Toast notifications in real-time. |
 
 ---
 
-## 🚀 How It Works
+
+## 🏛️ How It Works
 
 ```
-                    /task "Build REST API"
-                              │
-                              ▼
-             ┌────────────────────────────────┐
-             │         🎯 COMMANDER           │
-             │  Read state → Delegate → Loop  │
-             └────────────────────────────────┘
-                              │
-      ┌───────────────────────┼───────────────────────┐
-      ▼                       ▼                       ▼
- ┌─────────┐            ┌─────────┐            ┌─────────┐
- │ PLANNER │            │ WORKER  │            │ WORKER  │    ⚡ PARALLEL
- │ Plan it │            │ Build A │            │ Build B │       EXECUTION
- └─────────┘            └─────────┘            └─────────┘
-      │                       │                       │
-      └───────────────────────┼───────────────────────┘
-                              ▼
-             ┌────────────────────────────────┐
-             │         ✅ REVIEWER            │
-             │       Verify → Sync            │
-             └────────────────────────────────┘
-                              │
-                   ┌──────────┴──────────┐
-                   │  TODO incomplete?   │
-                   │  Sync issues?       │
-                   └──────────┬──────────┘
-                        Yes ↓     ↓ No
-                    ♻️ LOOP    🎖️ SEALED
+                          YOU
+                           │
+                           │  /task "Build REST API"
+                           ▼
+    ╔══════════════════════════════════════════════════════════╗
+    ║                   🎯 COMMANDER                           ║
+    ║            "I orchestrate. I never sleep."               ║
+    ╚══════════════════════════════════════════════════════════╝
+                           │
+          ┌────────────────┼────────────────┐
+          │                │                │
+          ▼                ▼                ▼
+    ┌──────────┐    ┌──────────┐    ┌──────────┐
+    │📋 PLANNER│    │🔨 WORKER │    │🔨 WORKER │    x50 PARALLEL
+    │  Plan &  │    │ auth.ts  │    │  api.ts  │    SESSIONS
+    │ Research │    │  (TDD)   │    │  (TDD)   │
+    └──────────┘    └──────────┘    └──────────┘
+          │                │                │
+          └────────────────┼────────────────┘
+                           ▼
+    ╔══════════════════════════════════════════════════════════╗
+    ║                   ✅ REVIEWER                            ║
+    ║         E2E Tests • Sync Check • Validate                ║
+    ╚══════════════════════════════════════════════════════════╝
+                           │
+                    ┌──────┴──────┐
+                    │  Complete?  │
+                    └──────┬──────┘
+                     No ↙     ↘ Yes
+                   ♻️           🎖️
+                 LOOP         SEALED
+              (auto-fix)    (mission done)
 ```
-
-### 🔑 Core Principles
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│  🔒 ISOLATION    │  🔄 SYNC       │  ✅ STABILITY          │
-├─────────────────────────────────────────────────────────────┤
-│  Each worker     │  Shared state  │  TODO 100% complete    │
-│  owns 1 file     │  via .opencode │  + Zero sync issues    │
-│  No conflicts    │  Real-time     │  = Mission SEALED      │
-└─────────────────────────────────────────────────────────────┘
-```
-
 
 ---
 
-## 🎮 Usage
+## 🤖 The 4 Agents
 
-| Mode | Trigger | What Happens |
-|------|---------|--------------|
-| **Commander Mode** 🎯 | `/task "mission"` | Full autonomous execution |
-| **Chat Mode** 💬 | Just type normally | Simple Q&A, no automation |
+| Agent | Role | Superpower |
+|-------|------|------------|
+| **🎯 Commander** | Orchestrator | Sees everything, delegates intelligently, never stops |
+| **📋 Planner** | Strategist | Web search, doc caching, file-level task breakdown |
+| **🔨 Worker** | Builder | TDD isolation, 1 file = 1 session, parallel execution |
+| **✅ Reviewer** | Quality Gate | E2E tests, sync checks, integration validation |
 
-**Example Commands:**
-```bash
-/task "Fix the login bug in docker-compose"
-/task "Add dark mode to the entire app"
-/task "Refactor the API to TypeScript"
-```
+---
 
-**Stop anytime:** `/stop` or `/cancel`
+## 📊 System Specs
+
+| Capability | Value |
+|------------|-------|
+| **Parallel Sessions** | 50 simultaneous |
+| **Concurrency per Agent** | 10 default |
+| **Poll Interval** | 1 second |
+| **Session TTL** | 60 minutes |
+| **Auto-Recovery** | 3 attempts per session |
+| **Max Iterations** | 20 per mission |
+| **Memory Limit** | 1,000 tasks (auto GC) |
+
+---
+
+## 🎮 What Happens When You Run `/task`
+
+1. **🎯 Commander** reads state, creates TODO
+2. **📋 Planner** breaks down into file-level tasks  
+3. **🔨 Workers** build in parallel (50 simultaneous sessions!)
+4. **✅ Reviewer** validates, runs E2E tests
+5. **♻️ Loop** until all TODOs checked + zero issues
+6. **🎖️ SEALED** — mission complete
+
+> **Tip:** Stop anytime with `/stop`
 
 <div align="center">
   <p><strong>TUI</strong></p>
@@ -130,37 +138,29 @@ A multi-agent system that **autonomously executes complex tasks** from start to 
   <p><strong>Window</strong></p>
   <img src="assets/window_image.png" alt="Commander Window" width="600" />
 </div>
----
-
-## 🤖 The 4 Agents
-
-| Agent | Role | Key Actions |
-|-------|------|-------------|
-| **Commander** 🎯 | Orchestrator | Delegates tasks, monitors progress, seals mission |
-| **Planner** 📋 | Research + Plan | Web search, doc caching, TODO creation |
-| **Worker** 🔨 | Implementation | Code writing, file ops, background commands |
-| **Reviewer** ✅ | Quality Control | Verification, TODO updates, context management |
 
 ---
 
-## 📊 Resource Limits
+## 🔧 Self-Healing Features
 
-| Resource | Limit |
-|----------|-------|
-| Parallel Sessions | 50 |
-| Tasks in Memory | 1,000 (auto GC) |
-| Session TTL | 60 min |
-| Recovery Attempts | 3 per session |
-| Max Iterations | 20 per mission |
+```
+┌────────────────────────────────────────────────────────────┐
+│ ERROR TYPE              │ AUTO-RECOVERY ACTION             │
+├────────────────────────────────────────────────────────────┤
+│ Tool crash              │ Inject recovery prompt           │
+│ Rate limit              │ Exponential backoff + retry      │
+│ Context overflow        │ Smart compaction                 │
+│ Thinking block error    │ Auto-restructure                 │
+│ Session timeout         │ Resume from checkpoint           │
+│ Build failure           │ Loop back, fix, retry            │
+└────────────────────────────────────────────────────────────┘
+```
 
 ---
 
 ## 📚 Documentation
 
-For detailed architecture, directory structure, and internals:
-
-- **[System Architecture](docs/SYSTEM_ARCHITECTURE.md)** — Complete technical documentation
-- [Release Notes](docs/releases/) — Version history
+- **[System Architecture](docs/SYSTEM_ARCHITECTURE.md)** — Full technical deep-dive
 
 ---
 
@@ -179,5 +179,6 @@ MIT License. [LICENSE](LICENSE)
 ---
 
 <div align="center">
-  <b>🚀 v0.9.4 — "Relentless execution until absolute success."</b>
+  <h3>🚀 v0.9.7 — "Relentless execution until absolute success."</h3>
+  <p><i>Multi-agent. Parallel. Non-blocking. Self-healing. Enterprise-grade.</i></p>
 </div>
