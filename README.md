@@ -1,7 +1,6 @@
 <div align="center">
   <img src="assets/starship_space.png" alt="STARSHIP" width="280" />
   <h1>OpenCode Orchestrator</h1>
-  <p><em>🚀 The mothership that deploys AI crews to unknown planet</em></p>
 
   [![MIT License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
   [![npm](https://img.shields.io/npm/v/opencode-orchestrator.svg)](https://www.npmjs.com/package/opencode-orchestrator)
@@ -10,7 +9,7 @@
 
 ---
 
-> *The **STARSHIP** hovers above an uncharted planet. No docs. No tests. Just a mission. The Commander speaks: "We don't assume. We explore. We adapt. We conquer."* — **OpenCode Orchestrator** is that STARSHIP, deploying AI crews to complete missions in any planet.
+> The STARSHIP lands on a new planet: an unfamiliar codebase. No docs. No tests. Just a mission. The crew doesn't ask — they explore, adapt, and conquer.
 
 ---
 
