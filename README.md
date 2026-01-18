@@ -12,9 +12,20 @@
 
 ---
 
-## 🔥 Why This Plugin?
+## ⚡ Quick Start
 
-**Budget models have limits. Orchestration breaks them.**
+```bash
+npm install -g opencode-orchestrator
+```
+
+Then in OpenCode:
+```bash
+/task "Build a REST API with authentication"
+```
+
+**Done.** AI agents plan, build, test, fix — and don't stop until it's sealed. ✨
+
+> **Stop anytime:** `/stop`
 
 ---
 
@@ -23,101 +34,38 @@
 > **Explore → Adapt → Act**  
 > *Never assume. Always verify. Then execute.*
 
-### The Problem with AI Agents
-
-Most AI agents fail because they:
-- **Assume** instead of checking
-- **Guess** instead of researching  
-- Follow **rigid rules** instead of adapting
-- Trust **memory** instead of verifying
-
-### Our Solution: Adaptive Intelligence
-
-Every agent in this system follows a simple principle:
-
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                                                             │
-│   🔍 EXPLORE    →    🔄 ADAPT    →    ⚡ ACT               │
-│                                                             │
-│   Discover         Adjust to         Execute with           │
-│   the reality      what you find     confidence             │
-│                                                             │
-└─────────────────────────────────────────────────────────────┘
+┌───────────────────────────────────────────────────────────┐
+│                                                           │
+│   🔍 EXPLORE    →    🔄 ADAPT    →    ⚡ ACT             │
+│                                                           │
+│   Discover          Adjust to         Execute with        │
+│   the reality       what you find     confidence          │
+│                                                           │
+└───────────────────────────────────────────────────────────┘
 ```
 
-### Agent Philosophies
+### Agents & Their Philosophy
 
-| Agent | Philosophy | What It Means |
-|:-----:|:-----------|:--------------|
-| 🎯 **Commander** | Explore → Adapt → Act | Discover project structure first, then delegate intelligently |
-| 📋 **Planner** | Research → Plan → Document | Never guess syntax. Find official docs, verify, then plan |
-| 🔨 **Worker** | Observe → Learn → Implement | Study existing code patterns, then write code that fits |
-| ✅ **Reviewer** | Understand → Verify → Approve | Know the project's standards, run actual tests, approve with evidence |
+| Agent | Role | Philosophy |
+|:-----:|:-----|:-----------|
+| 🎯 **Commander** | Orchestrator | Discover project → Delegate intelligently → Loop until sealed |
+| 📋 **Planner** | Strategist | Research docs → Plan with parallelism → Document findings |
+| 🔨 **Worker** | Implementer | Observe patterns → Learn conventions → Implement with fit |
+| ✅ **Reviewer** | Gatekeeper | Read standards → Run tests → Approve with evidence |
 
 ### Guiding Principles
 
-1. **🔍 Never Assume, Always Discover**
-   - Read `context.md` before every action
-   - Detect the tech stack, don't assume it
-   - Find the build/test commands, don't guess them
-
-2. **📚 Evidence Over Memory**
-   - Cite official documentation for every claim
-   - Run actual commands for verification
-   - Mark complete only with proof
-
-3. **🔄 Adapt to the Project**
-   - Match existing code patterns
-   - Follow discovered conventions
-   - Respect the project's way of doing things
-
-4. **🤝 Separation of Concerns**
-   - Commander orchestrates, never implements
-   - Worker builds, never verifies
-   - Reviewer approves, never codes
-   - Each agent does one thing excellently
+| Principle | Practice |
+|:----------|:---------|
+| 🔍 **Discover, Don't Assume** | Read `context.md`, detect tech stack, find build/test commands |
+| 📚 **Evidence Over Memory** | Cite docs, run actual commands, complete only with proof |
+| 🔄 **Adapt to the Project** | Match existing patterns, follow discovered conventions |
+| 🤝 **Separation of Concerns** | Each agent does one thing excellently |
 
 ---
 
-
-## ⚡ Quick Start
-
-```bash
-npm install -g opencode-orchestrator
-```
-
-Then in OpenCode:
-
-```bash
-/task "Build a REST API with authentication"
-```
-
-**Done.** You just deployed an army of AI agents. They plan, build, test, fix — and don't stop until it's sealed. ✨
-
----
-
-## 🎯 What Makes This Different?
-
-### 🚀 Core Capabilities
-
-| | Feature | What It Means |
-|:---:|:---|:---|
-| ⚡ | **Multi-Session Parallel** | 50 isolated sessions running simultaneously. True multi-threading. |
-| 🔥 | **Parallel Execution** | Workers build different files at once. 10x faster. |
-| � | **Non-Blocking Async** | Fire-and-forget. Commander never waits. Results collected automatically. |
-| 🧩 | **Smart Distribution** | One file = one worker. No conflicts. No stepping on each other. |
-| 🔗 | **Real-Time Sync** | Shared `.opencode/` state. All agents see updates instantly. |
-| 🛡️ | **Auto Verify & Test** | E2E tests, import checks, integration validation. Bugs get caught. |
-| 🩹 | **Self-Healing** | Auto-recovery from crashes, rate limits, context overflow. 3 retries. |
-| � | **Live Monitoring** | Track sessions, progress, queues. Toast notifications in real-time. |
-
----
-
-
-## 🏛️ How It Works
-
-> **⚡ DELEGATE. PARALLELIZE. SEAL.** — One command unleashes full autonomous execution.
+## �️ Architecture
 
 ```
             /task "Build REST API"
@@ -147,17 +95,32 @@ Then in OpenCode:
             ♻️ LOOP      🎖️ SEALED
 ```
 
-### 🔑 Key Systems
+---
 
-| System | What It Does |
-|:------:|:-------------|
-| **🔀 Multi-Session** | `delegate_task` → `client.session.create()` → new isolated session |
-| **⚡ Parallel Agents** | 50 sessions run simultaneously, `ConcurrencyController` manages slots |
-| **🖥️ Background Tasks** | `run_background` → async shell commands, non-blocking |
-| **🔄 Auto-Continuation** | `session.idle` → check TODOs → inject prompt → keep going |
-| **🛡️ Self-Healing** | Rate limits, crashes → 3 auto-retries per session |
+## ✨ Key Features
 
-> **Stop anytime:** `/stop`
+| Feature | Description |
+|:--------|:------------|
+| ⚡ **50 Parallel Sessions** | True multi-threading with isolated contexts |
+| 🔥 **Parallel File Builds** | Workers build different files simultaneously |
+| 🧩 **Smart Distribution** | One file = one worker. No conflicts |
+| � **Real-Time Sync** | Shared `.opencode/` state across all agents |
+| �️ **Auto Verification** | E2E tests, import checks, integration validation |
+| 🩹 **Self-Healing** | Auto-recovery with 3 retries per session |
+
+### Self-Healing Details
+
+| Error Type | Recovery Action |
+|:-----------|:----------------|
+| Tool crash | Inject recovery prompt |
+| Rate limit | Exponential backoff + retry |
+| Context overflow | Smart compaction |
+| Session timeout | Resume from checkpoint |
+| Build failure | Loop back, fix, retry |
+
+---
+
+## 📸 Screenshots
 
 <div align="center">
   <p><strong>TUI</strong></p>
@@ -173,30 +136,13 @@ Then in OpenCode:
 
 ---
 
-## 🔧 Self-Healing Features
-
-```
-┌────────────────────────────────────────────────────────────┐
-│ ERROR TYPE              │ AUTO-RECOVERY ACTION             │
-├────────────────────────────────────────────────────────────┤
-│ Tool crash              │ Inject recovery prompt           │
-│ Rate limit              │ Exponential backoff + retry      │
-│ Context overflow        │ Smart compaction                 │
-│ Thinking block error    │ Auto-restructure                 │
-│ Session timeout         │ Resume from checkpoint           │
-│ Build failure           │ Loop back, fix, retry            │
-└────────────────────────────────────────────────────────────┘
-```
-
----
-
 ## 📚 Documentation
 
 - **[System Architecture](docs/SYSTEM_ARCHITECTURE.md)** — Full technical deep-dive
 
 ---
 
-## Uninstall
+## 🗑️ Uninstall
 
 ```bash
 npm uninstall -g opencode-orchestrator
@@ -204,9 +150,6 @@ npm uninstall -g opencode-orchestrator
 
 ---
 
-## License
+## 📄 License
 
 MIT License. [LICENSE](LICENSE)
-
----
-
