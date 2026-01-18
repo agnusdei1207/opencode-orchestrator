@@ -23,10 +23,6 @@ Then in OpenCode:
 /task "Build a REST API with authentication"
 ```
 
-**Done.** AI agents plan, build, test, fix — and don't stop until it's sealed. ✨
-
-> **Stop anytime:** `/stop`
-
 ---
 
 ## 🧠 Core Philosophy
