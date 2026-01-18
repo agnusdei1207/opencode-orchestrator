@@ -56,14 +56,16 @@ Agents behave like astronauts landing on unknown planets:
 
 This is **real-time adaptation**. Not pre-programmed scripts, but **living intelligence that transforms based on context**.
 
-### 🎭 Agents & Their Adaptive Behavior
+### Agents Mission
 
-| Agent | Mission | Adaptive Behavior |
-|:-----:|:--------|:------------------|
-| 🎯 **Commander** | Orchestration | Discover project reality → Delegate dynamically → Loop until sealed |
-| 📋 **Planner** | Strategy | Research actual docs → Plan parallel paths → Document findings |
-| 🔨 **Worker** | Implementation | Observe patterns → Learn conventions → Implement with fit |
-| ✅ **Reviewer** | Verification | Read real standards → Run actual tests → Approve with evidence |
+Each agent embodies phases of the philosophy:
+
+| Agent | Focus | Mission |
+|:-----:|:------|:--------|
+| 🎯 **Commander** | All phases | The captain who orchestrates the full exploration cycle |
+| 📋 **Planner** | EXPLORE → LEARN | The cartographer who maps terrain and documents paths |
+| 🔨 **Worker** | ADAPT → ACT | The craftsman who shapes work to fit the landscape |
+| ✅ **Reviewer** | EXPLORE → LEARN → ACT | The inspector who verifies with evidence, then seals |
 
 ### Guiding Principles
 
