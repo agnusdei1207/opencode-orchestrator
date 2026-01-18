@@ -38,6 +38,7 @@ export const COMMANDER_EXECUTION = `${PROMPT_TAGS.EXECUTION_STRATEGY.open}
 - What are the HIGH-RISK parts of this mission?
 - What is my FALLBACK if a task fails?
 - How will I DETECT and RECOVER from issues?
+- If agent fails → See ${PROMPT_TAGS.RECOVERY.open} section: DECOMPOSE and retry
 
 ❌ ANTI-PATTERNS: Sequential execution when parallel is possible. Doing work yourself instead of delegating. Starting without clear decomposition.
 

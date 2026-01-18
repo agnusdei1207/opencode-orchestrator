@@ -14,3 +14,4 @@ export { COMMANDER_TODO_FORMAT } from "./todo-format.js";
 // Loop & sync handling
 export { COMMANDER_LOOP_CONTINUATION } from "./loop-continuation.js";
 export { COMMANDER_SYNC_HANDLING } from "./sync-handling.js";
+export { COMMANDER_RECOVERY } from "./recovery.js";
