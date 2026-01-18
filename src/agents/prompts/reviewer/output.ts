@@ -2,9 +2,9 @@
  * Reviewer Output Format
  */
 
-import { AGENT_NAMES } from "../../../shared/index.js";
+import { AGENT_NAMES, PROMPT_TAGS } from "../../../shared/index.js";
 
-export const REVIEWER_OUTPUT = `<output_format>
+export const REVIEWER_OUTPUT = `${PROMPT_TAGS.OUTPUT_FORMAT.open}
 VERIFICATION: T[N]
 
 ## Pass Example:
@@ -26,4 +26,4 @@ Action: ${AGENT_NAMES.WORKER} to fix, then re-verify
 
 TODO STATUS:
 - [ ] T[N]: [task] | needs fix
-</output_format>`;
+${PROMPT_TAGS.OUTPUT_FORMAT.close}`;

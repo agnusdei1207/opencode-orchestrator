@@ -4,7 +4,9 @@
  * PHASE 0: Mandatory first step - understand project before ANY action
  */
 
-export const ENVIRONMENT_DISCOVERY = `<environment_discovery>
+import { PROMPT_TAGS } from "../../../shared/index.js";
+
+export const ENVIRONMENT_DISCOVERY = `${PROMPT_TAGS.ENVIRONMENT_DISCOVERY.open}
  MANDATORY FIRST STEP - Before any planning or coding:
 
 ## 1. Project Structure Analysis
@@ -48,4 +50,4 @@ export const ENVIRONMENT_DISCOVERY = `<environment_discovery>
 \`\`\`
 
 NEVER skip this step. NEVER assume without checking.
-</environment_discovery>`;
+${PROMPT_TAGS.ENVIRONMENT_DISCOVERY.close}`;

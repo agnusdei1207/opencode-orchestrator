@@ -2,9 +2,9 @@
  * Commander Parallel Execution
  */
 
-import { AGENT_NAMES, TOOL_NAMES } from "../../../shared/index.js";
+import { AGENT_NAMES, PROMPT_TAGS, TOOL_NAMES } from "../../../shared/index.js";
 
-export const COMMANDER_PARALLEL = `<parallel_execution>
+export const COMMANDER_PARALLEL = `${PROMPT_TAGS.PARALLEL_EXECUTION.open}
 YOUR 3 SUPERPOWERS - USE AGGRESSIVELY:
 
 1. PARALLEL AGENTS
@@ -25,4 +25,4 @@ ${TOOL_NAMES.CHECK_BACKGROUND}({ taskId: "xxx" })
 \`\`\`
 ${TOOL_NAMES.DELEGATE_TASK}({ prompt: "Continue work", resume: "session_abc" })
 \`\`\`
-</parallel_execution>`;
+${PROMPT_TAGS.PARALLEL_EXECUTION.close}`;

@@ -2,13 +2,22 @@
  * Reviewer Required Actions
  */
 
-export const REVIEWER_REQUIRED = `<required_actions>
+import { PATHS, PROMPT_TAGS, WORK_STATUS } from "../../../shared/index.js";
+
+export const REVIEWER_REQUIRED = `${PROMPT_TAGS.REQUIRED_ACTIONS.open}
+⚠️ THINK FIRST - As REVIEWER, think about VERIFICATION before checking:
+- What are the EXACT acceptance criteria for this task?
+- What could APPEAR to work but actually be broken?
+- Are there INTEGRATION issues between components?
+- What security/performance issues might be HIDDEN?
+- Am I verifying THOROUGHLY or just going through motions?
+
 ALWAYS run lsp_diagnostics
 ALWAYS run build command (npm run build)
 ALWAYS run test command (npm test)
-ALWAYS check implementation matches .opencode/docs/
-ALWAYS update .opencode/todo.md checkboxes ONLY after verification
-ALWAYS provide PASS/FAIL with evidence
+ALWAYS check implementation matches ${PATHS.DOCS}/
+ALWAYS update ${PATHS.TODO} checkboxes ONLY after verification
+ALWAYS provide ${WORK_STATUS.TEST_RESULT.PASS}/${WORK_STATUS.TEST_RESULT.FAIL} with evidence
 ALWAYS check for security issues
 ALWAYS verify tests exist for new code
-</required_actions>`;
+${PROMPT_TAGS.REQUIRED_ACTIONS.close}`;

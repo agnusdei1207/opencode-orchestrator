@@ -2,9 +2,9 @@
  * Reviewer TODO Update - Hierarchical
  */
 
-import { AGENT_NAMES } from "../../../shared/index.js";
+import { AGENT_NAMES, PROMPT_TAGS, WORK_STATUS } from "../../../shared/index.js";
 
-export const REVIEWER_TODO_UPDATE = `<todo_management>
+export const REVIEWER_TODO_UPDATE = `${PROMPT_TAGS.TODO_MANAGEMENT.open}
 YOU are the ONLY agent who can mark [x]!
 
 ## Hierarchical Completion Rules
@@ -23,7 +23,7 @@ LEVEL 1 (Epic): Mark [x] ONLY when ALL tasks [x]
 ## Update Format
 BEFORE:
 \`\`\`markdown
-## E1: Backend API | status: in-progress
+## E1: Backend API | status: ${WORK_STATUS.TODO_STATUS.IN_PROGRESS}
 ### T1.1: Database schema | agent:${AGENT_NAMES.WORKER}
 - [ ] S1.1.1: Create users table | size:S
 - [ ] S1.1.2: Create sessions table | size:S
@@ -31,18 +31,18 @@ BEFORE:
 
 AFTER (subtasks verified):
 \`\`\`markdown
-## E1: Backend API | status: in-progress
-### T1.1: Database schema | agent:${AGENT_NAMES.WORKER} | DONE
+## E1: Backend API | status: ${WORK_STATUS.TODO_STATUS.IN_PROGRESS}
+### T1.1: Database schema | agent:${AGENT_NAMES.WORKER} | ${WORK_STATUS.TODO_STATUS.DONE}
 - [x] S1.1.1: Create users table | verified
 - [x] S1.1.2: Create sessions table | verified
 \`\`\`
 
 AFTER (all tasks in epic verified):
 \`\`\`markdown
-## E1: Backend API | status: COMPLETE
-### T1.1: Database schema | DONE
+## E1: Backend API | status: ${WORK_STATUS.TODO_STATUS.COMPLETE}
+### T1.1: Database schema | ${WORK_STATUS.TODO_STATUS.DONE}
 ...
-### T1.2: Auth endpoints | DONE
+### T1.2: Auth endpoints | ${WORK_STATUS.TODO_STATUS.DONE}
 ...
 \`\`\`
 
@@ -50,4 +50,4 @@ AFTER (all tasks in epic verified):
 - Marking parent [x] before all children [x]
 - Marking [x] without verification
 - Trusting "done" claims without checking
-</todo_management>`;
+${PROMPT_TAGS.TODO_MANAGEMENT.close}`;

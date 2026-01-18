@@ -52,11 +52,54 @@ export const WORK_STATUS = {
         LOW: "LOW",
     },
 
+    // Research/documentation confidence level
+    CONFIDENCE: {
+        HIGH: "HIGH",      // Official documentation
+        MEDIUM: "MEDIUM",  // GitHub, verified sources
+        LOW: "LOW",        // Blog posts, unverified
+    },
+
     // Session state
     SESSION: {
         STARTED: "STARTED",
         COMPLETED: "COMPLETED",
         CANCELLED: "CANCELLED",
+    },
+
+    // Task triage - complexity classification
+    TRIAGE: {
+        TYPE: {
+            SIMPLE: "Simple",
+            MEDIUM: "Medium",
+            COMPLEX: "Complex",
+        },
+        SIGNAL: {
+            ONE_FILE: "One file",
+            MULTI_FILE: "Multi-file",
+            LARGE_SCOPE: "Large scope",
+        },
+        APPROACH: {
+            DIRECT: "Direct action",
+            PLAN_EXECUTE_VERIFY: "Plan - Execute - Verify",
+            RESEARCH_PLAN_PARALLEL: "Research - Plan - Parallel Execute",
+        },
+    },
+
+    // TODO.md status values (for Epic/Task display)
+    TODO_STATUS: {
+        PENDING: "pending",
+        IN_PROGRESS: "in-progress",
+        COMPLETE: "COMPLETE",
+        BLOCKED: "blocked",
+        DONE: "DONE",
+    },
+
+    // Task size estimation
+    TASK_SIZE: {
+        XS: "XS",   // <5min
+        S: "S",     // 5-15min
+        M: "M",     // 15-30min
+        L: "L",     // 30-60min
     },
 } as const;
 

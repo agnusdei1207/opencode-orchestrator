@@ -4,9 +4,9 @@
  * Three-level TODO system with completion rollup.
  */
 
-import { AGENT_NAMES } from "../../../shared/index.js";
+import { AGENT_NAMES, PROMPT_TAGS, WORK_STATUS } from "../../../shared/index.js";
 
-export const TODO_RULES = `<todo_rules>
+export const TODO_RULES = `${PROMPT_TAGS.TODO_RULES.open}
 TODO MANAGEMENT - HIERARCHICAL STRUCTURE
 
 ## Three-Level Hierarchy
@@ -25,14 +25,14 @@ Parent NEVER marked complete before ALL children complete!
 \`\`\`markdown
 # Mission: [goal]
 
-## E1: [Epic Name] | status: in-progress
+## E1: [Epic Name] | status: ${WORK_STATUS.TODO_STATUS.IN_PROGRESS}
 ### T1.1: [Task Name] | agent:${AGENT_NAMES.WORKER}
 - [ ] S1.1.1: [subtask] | size:S
 - [ ] S1.1.2: [subtask] | size:S
 ### T1.2: [Task Name] | agent:${AGENT_NAMES.WORKER} | depends:T1.1
 - [ ] S1.2.1: [subtask] | size:M
 
-## E2: [Epic Name] | status: blocked
+## E2: [Epic Name] | status: ${WORK_STATUS.TODO_STATUS.BLOCKED}
 ### T2.1: [Task Name] | agent:${AGENT_NAMES.PLANNER}
 - [ ] S2.1.1: [subtask] | size:S
 \`\`\`
@@ -40,8 +40,8 @@ Parent NEVER marked complete before ALL children complete!
 ## Status Indicators
 - [ ] = Not started
 - [x] = VERIFIED complete
-- status: in-progress = Currently working
-- status: blocked:[reason] = Cannot proceed
+- status: ${WORK_STATUS.TODO_STATUS.IN_PROGRESS} = Currently working
+- status: ${WORK_STATUS.TODO_STATUS.BLOCKED}:[reason] = Cannot proceed
 - depends:[id] = Dependency
 
 ## Verification Flow
@@ -54,4 +54,4 @@ FORBIDDEN:
 - Marking parent [x] before all children [x]
 - Creating items with [x] already marked
 - Skipping verification step
-</todo_rules>`;
+${PROMPT_TAGS.TODO_RULES.close}`;

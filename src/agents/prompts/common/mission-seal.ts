@@ -4,13 +4,13 @@
  * Requirements for completing and sealing a mission.
  */
 
-import { AGENT_NAMES, MISSION_SEAL } from "../../../shared/index.js";
+import { AGENT_NAMES, MISSION_SEAL, PATHS, PROMPT_TAGS } from "../../../shared/index.js";
 
-export const MISSION_SEAL_RULES = `<mission_seal>
+export const MISSION_SEAL_RULES = `${PROMPT_TAGS.MISSION_SEAL.open}
  MISSION COMPLETION SEAL
 
 ## Seal Requirements - ALL must be true:
-□ All items in .opencode/todo.md are [x]
+□ All items in ${PATHS.TODO} are [x]
 □ Build passes (npm run build or equivalent)
 □ Tests pass (npm test or equivalent)
 □ ${AGENT_NAMES.REVIEWER} verification PASS confirmed
@@ -26,4 +26,4 @@ Evidence: [test/build results]
 
  If ANY checkbox is unchecked, DO NOT seal - continue working!
  NEVER output seal before requirements met!
-</mission_seal>`;
+${PROMPT_TAGS.MISSION_SEAL.close}`;

@@ -4,7 +4,7 @@
  * Logic for reading shared state and continuing work loop.
  */
 
-import { PATHS, AGENT_NAMES, PROMPT_TAGS, WORK_STATUS } from "../../../shared/index.js";
+import { PATHS, AGENT_NAMES, MISSION_SEAL, PROMPT_TAGS, WORK_STATUS } from "../../../shared/index.js";
 
 export const COMMANDER_LOOP_CONTINUATION = `${PROMPT_TAGS.LOOP_CONTINUATION.open}
 ## LOOP CONTINUATION PROTOCOL
@@ -27,7 +27,7 @@ Commander updates ${PATHS.STATUS} each loop:
 # Mission Status
 
 ## Progress
-- TODO: 8/10 (80%)
+- ${PATHS.TODO}: 8/10 (80%)
 - Issues: 2 unresolved
 - Workers: 3 active
 - E2E: ${WORK_STATUS.E2E_STATUS.NOT_STARTED} | ${WORK_STATUS.E2E_STATUS.RUNNING} | ${WORK_STATUS.E2E_STATUS.PASS} | ${WORK_STATUS.E2E_STATUS.FAIL}
@@ -45,7 +45,7 @@ ${WORK_STATUS.PHASE.PLANNING} | ${WORK_STATUS.PHASE.IMPLEMENTATION} | ${WORK_STA
 ### Status Rules:
 - Update EVERY loop iteration
 - Keep it minimal (just the numbers)
-- Planner reads this to stay synced
+- ${AGENT_NAMES.PLANNER} reads this to stay synced
 - Delete old content, keep only current state
 
 ---
@@ -54,22 +54,22 @@ ${WORK_STATUS.PHASE.PLANNING} | ${WORK_STATUS.PHASE.IMPLEMENTATION} | ${WORK_STA
 
 ### SEALED = BOTH must be true:
 \`\`\`
-✅ TODO:        ALL items [x] (100%)
-✅ sync-issues: EMPTY (0 issues)
+✅ ${PATHS.TODO}:        ALL items [x] (100%)
+✅ ${PATHS.SYNC_ISSUES}: EMPTY (0 issues)
 ───────────────────────────────────
-ONLY THEN → output <mission_seal>SEALED</mission_seal>
+ONLY THEN → output ${MISSION_SEAL.PATTERN}
 \`\`\`
 
 ### LOOP BACK = ANY of these:
 \`\`\`
-❌ TODO < 100% → LOOP
-❌ Issues > 0 → LOOP
+❌ ${PATHS.TODO} < 100% → LOOP
+❌ ${PATHS.SYNC_ISSUES} > 0 → LOOP
 ❌ Build fails → LOOP
 ❌ E2E = ${WORK_STATUS.E2E_STATUS.FAIL} → LOOP
 \`\`\`
 
 ### ⛔ NEVER SEAL IF:
-- TODO is 100% BUT issues > 0
+- ${PATHS.TODO} is 100% BUT ${PATHS.SYNC_ISSUES} > 0
 - Workers are still active
 - E2E = ${WORK_STATUS.E2E_STATUS.FAIL}
 
@@ -77,25 +77,25 @@ ONLY THEN → output <mission_seal>SEALED</mission_seal>
 
 ## 🔄 E2E Test Timing
 
-E2E starts when **TODO ≥ 80%** (not at 100%):
+E2E starts when **${PATHS.TODO} ≥ 80%** (not at 100%):
 - Phase changes to ${WORK_STATUS.PHASE.E2E}
 - E2E runs **parallel** with remaining work
-- If E2E ${WORK_STATUS.E2E_STATUS.FAIL} → issues++ → continue TODO
-- Both TODO 100% AND issues 0 → ${WORK_STATUS.PHASE.SEALING}
+- If E2E ${WORK_STATUS.E2E_STATUS.FAIL} → ${PATHS.SYNC_ISSUES}++ → continue ${PATHS.TODO}
+- Both ${PATHS.TODO} 100% AND ${PATHS.SYNC_ISSUES} 0 → ${WORK_STATUS.PHASE.SEALING}
 
 \`\`\`
-[---TODO progress---][E2E starts ~80%]
+[---${PATHS.TODO} progress---][E2E starts ~80%]
                            ↓
-               TODO + E2E run parallel
+               ${PATHS.TODO} + E2E run parallel
                            ↓
-         TODO 100% + Issues 0 → SEALED
+         ${PATHS.TODO} 100% + ${PATHS.SYNC_ISSUES} 0 → ${MISSION_SEAL.CONFIRMATION}
 \`\`\`
 
 ---
 
 ### Decision Matrix
 
-| TODO % | Issues | Phase |
+| ${PATHS.TODO} % | ${PATHS.SYNC_ISSUES} | Phase |
 |--------|--------|-------|
 | < 100% | Any | ${WORK_STATUS.PHASE.IMPLEMENTATION} |
 | ≥ 80% | Any | ${WORK_STATUS.PHASE.E2E} (parallel) |
@@ -104,8 +104,8 @@ E2E starts when **TODO ≥ 80%** (not at 100%):
 
 ### CRITICAL RULES:
 - Update ${PATHS.STATUS} every loop
-- Planner keeps docs minimal
-- NEVER seal with issues > 0
+- ${AGENT_NAMES.PLANNER} keeps docs minimal
+- NEVER seal with ${PATHS.SYNC_ISSUES} > 0
 - E2E starts at ~80%, runs parallel
 ${PROMPT_TAGS.LOOP_CONTINUATION.close}`;
 
