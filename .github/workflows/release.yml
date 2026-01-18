@@ -89,13 +89,40 @@ jobs:
         with:
           files: binaries/**/*
           body: |
-            ## 🚀 OpenCode Orchestrator ${{ github.ref_name }}
-            
-            **Autonomous multi-agent orchestration plugin for OpenCode.**
-            
-            `/task` → Commander delegates → Parallel sessions → Auto-loop → 🎖️ SEALED
+            # 🚀 OpenCode Orchestrator ${{ github.ref_name }}
+            ### *"Multi-agent. Parallel. Non-blocking. Self-healing."*
             
             ---
+            
+            ## ⚡ Core Capabilities
+            
+            | | Feature | Description |
+            |:---:|:---|:---|
+            | ⚡ | **50 Parallel Sessions** | True multi-threading, not fake concurrency |
+            | 🔥 | **10x Faster** | Workers build different files simultaneously |
+            | 💨 | **Non-Blocking** | Fire-and-forget with automatic result collection |
+            | 🧩 | **Smart Distribution** | One file = one worker. No conflicts. |
+            | 🛡️ | **Self-Healing** | Auto-recovery from crashes, rate limits |
+            | 📡 | **Live Monitoring** | Real-time toast notifications |
+            
+            ---
+            
+            ## 🎯 How It Works
+            
+            ```
+            /task → 🎖️ Commander → 📋 Planner → 👷 Parallel Workers → 🔍 Reviewer → ✅ SEALED
+            ```
+            
+            ---
+            
+            ## 📦 Installation
+            
+            ```bash
+            npm install -g opencode-orchestrator
+            ```
+            
+            ---
+            
           generate_release_notes: true
           fail_on_unmatched_files: false
 
