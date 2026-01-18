@@ -62,16 +62,11 @@ Then in OpenCode:
 
 ## 🏛️ Mission Control
 
-*Inside the STARSHIP, Mission Control coordinates everything:*
 
 ```
-        🌍 UNKNOWN CODEBASE
-                │
         /task "Build REST API"
                 │
     ╔═══════════════════════════════════╗
-    ║   🛸 STARSHIP MISSION CONTROL     ║
-    ╠═══════════════════════════════════╣
     ║  🎯 COMMANDER — "Deploy the crew" ║
     ╚═══════════════╤═══════════════════╝
                     │
@@ -121,22 +116,6 @@ Then in OpenCode:
 | 📦 Context overflow | Smart compaction |
 | ⏱️ Session timeout | Resume from checkpoint |
 | 🔨 Build failure | Loop back, fix, retry |
-
----
-
-## 📸 Screenshots
-
-<div align="center">
-  <p><strong>TUI</strong></p>
-  <img src="assets/tui_image.png" alt="Commander TUI" width="600" />
-</div>
-
-<br />
-
-<div align="center">
-  <p><strong>Window</strong></p>
-  <img src="assets/window_image.png" alt="Commander Window" width="600" />
-</div>
 
 ---
 
