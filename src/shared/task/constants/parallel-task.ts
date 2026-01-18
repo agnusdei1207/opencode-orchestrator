@@ -4,6 +4,11 @@
 
 import { TIME } from "../../core/constants/time.js";
 
+/**
+ * Parallel task constants
+ */
+const PARALLEL_LABEL = "parallel";
+
 export const PARALLEL_TASK = {
     // Task lifecycle (24 hours for long tasks)
     TTL_MS: 24 * TIME.HOUR,
@@ -21,4 +26,11 @@ export const PARALLEL_TASK = {
     MIN_STABILITY_MS: 3 * TIME.SECOND,
     STABLE_POLLS_REQUIRED: 3,
     MAX_POLL_COUNT: 600,
+
+    // Session naming
+    SESSION_TITLE_PREFIX: "Parallel",
+
+    // Labels for output
+    LABEL: PARALLEL_LABEL,
+    GROUP_PREFIX: `${PARALLEL_LABEL}:`,
 } as const;

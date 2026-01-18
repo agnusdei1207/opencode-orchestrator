@@ -3,7 +3,7 @@
  */
 
 import type { PluginInput } from "@opencode-ai/plugin";
-import { ID_PREFIX, TASK_STATUS, PART_TYPES } from "../../../shared/index.js";
+import { ID_PREFIX, TASK_STATUS, PART_TYPES, PARALLEL_TASK } from "../../../shared/index.js";
 import { ConcurrencyController } from "../concurrency.js";
 import { TaskStore } from "../task-store.js";
 import { log } from "../logger.js";
@@ -33,7 +33,7 @@ export class TaskLauncher {
 
         try {
             const createResult = await this.client.session.create({
-                body: { parentID: input.parentSessionID, title: `Parallel: ${input.description}` },
+                body: { parentID: input.parentSessionID, title: `${PARALLEL_TASK.SESSION_TITLE_PREFIX}: ${input.description}` },
                 query: { directory: this.directory },
             });
 
