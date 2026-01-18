@@ -91,17 +91,12 @@ jobs:
           body: |
             ## 🚀 OpenCode Orchestrator ${{ github.ref_name }}
             
-            **"Multi-agent. Parallel. Non-blocking. Self-healing."**
+            **Multi-agent parallel orchestration for OpenCode.**
             
-            ### ⚡ Core Capabilities
-            | | Feature | Description |
-            |:---:|:---|:---|
-            | ⚡ | **50 Parallel Sessions** | True multi-threading, not fake concurrency |
-            | 🔥 | **10x Faster** | Workers build different files simultaneously |
-            | 💨 | **Non-Blocking** | Fire-and-forget with automatic result collection |
-            | 🧩 | **Smart Distribution** | One file = one worker. No conflicts. |
-            | 🛡️ | **Self-Healing** | Auto-recovery from crashes, rate limits |
-            | 📡 | **Live Monitoring** | Real-time toast notifications |
+            - ⚡ 50 parallel sessions
+            - 🔀 Real multi-session via `client.session.create()`
+            - 🔄 Auto-continuation on `session.idle`
+            - 🛡️ Self-healing with 3 retries
             
             ---
           generate_release_notes: true
