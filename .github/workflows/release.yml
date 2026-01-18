@@ -91,28 +91,59 @@ jobs:
           body: |
             # 🚀 OpenCode Orchestrator ${{ github.ref_name }}
             
-            > **Explore → Adapt → Act**  
-            > *Like a human exploring unknown space — never assume, always discover.*
+            ---
             
-            Behaves like an astronaut exploring the unknown.
-            In unfamiliar environments: **detect without assuming**, **adapt to discoveries**, **act with confidence**.
+            ## 🧠 Core Philosophy
+            
+            > **Explore → Learn → Adapt → Act**  
+            > *Like a human exploring unknown space — discover, document, adjust, execute.*
+            
+            ```
+            ┌──────────────────────────────────────────────────────────────────────────────────────┐
+            │                                                                                      │
+            │  🔍 EXPLORE    →    📝 LEARN    →    🔄 ADAPT    →    ⚡ ACT                          │
+            │                                                                                      │
+            │  Scan unknown       Document           Adjust             Execute with               │
+            │  territory          discoveries        behavior           confidence                 │
+            │                                                                                      │
+            │  • Read context     • Record patterns  • Match style      • Build it                 │
+            │  • Detect stack     • Note conventions • Fit the project  • Test it                  │
+            │  • Find commands    • Log findings     • Apply learnings  • Seal it                  │
+            │                                                                                      │
+            └──────────────────────────────────────────────────────────────────────────────────────┘
+            ```
+            
+            ### 🛸 The Astronaut Principle
+            
+            Agents behave like astronauts landing on unknown planets:
+            
+            - **Never assume gravity** — Always detect the environment first
+            - **Document everything** — Record discoveries for future missions
+            - **Adapt to atmosphere** — Adjust behavior based on learnings  
+            - **Act with confidence** — Execute precisely once the terrain is mapped
+            
+            This is **real-time adaptation**. Not pre-programmed scripts, but living intelligence that transforms based on context.
             
             ---
             
-            ## 🧠 Philosophy
+            ## 🎭 Agents & Their Philosophy
             
-            | Agent | Role | Philosophy |
-            |:-----:|:-----|:-----------|
-            | 🎯 **Commander** | Orchestrator | Discover → Delegate → Loop until sealed |
-            | 📋 **Planner** | Strategist | Research → Plan → Document |
-            | 🔨 **Worker** | Implementer | Observe → Learn → Implement |
-            | ✅ **Reviewer** | Gatekeeper | Understand → Verify → Approve |
+            | Agent | Mission | Adaptive Behavior |
+            |:-----:|:--------|:------------------|
+            | 🎯 **Commander** | Orchestration | Discover project reality → Delegate dynamically → Loop until sealed |
+            | 📋 **Planner** | Strategy | Research actual docs → Plan parallel paths → Document findings |
+            | 🔨 **Worker** | Implementation | Observe patterns → Learn conventions → Implement with fit |
+            | ✅ **Reviewer** | Verification | Read real standards → Run actual tests → Approve with evidence |
             
             ### Guiding Principles
-            - 🔍 **Discover, Don't Assume** — Detect tech stack, find build/test commands
-            - 📚 **Evidence Over Memory** — Cite docs, run actual commands
-            - 🔄 **Adapt to Project** — Match existing patterns
-            - 🤝 **Separation of Concerns** — Each agent excels at one thing
+            
+            | Principle | Adaptive Practice |
+            |:----------|:------------------|
+            | 🔍 **Discover, Don't Assume** | Read `context.md`, detect stack, find actual commands |
+            | 📝 **Learn & Document** | Record patterns, conventions, and findings for reuse |
+            | 📚 **Evidence Over Memory** | Cite docs, run commands, complete only with proof |
+            | 🔄 **Transform with Context** | Behavior evolves based on documented learnings |
+            | 🤝 **Separation of Concerns** | Each agent masters one domain excellently |
             
             ---
             
@@ -124,6 +155,7 @@ jobs:
             | 🔥 **Parallel File Builds** | Workers build different files simultaneously |
             | 🔗 **Real-Time Sync** | Shared state across all agents |
             | 🛡️ **Self-Healing** | Auto-recovery with 3 retries |
+            | 🧬 **Adaptive Intelligence** | Agents evolve behavior based on discoveries |
             
             ---
             
