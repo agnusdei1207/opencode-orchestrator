@@ -98,7 +98,7 @@ export async function withRecovery<T>(
                     throw new Error(`Recovery aborted: ${action.reason}`);
 
                 case "skip":
-                    console.log(`[Recovery] Skipping: ${action.reason}`);
+                    // console.log removed to prevent TUI corruption
                     return undefined as T;
 
                 default:

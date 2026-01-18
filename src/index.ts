@@ -46,9 +46,8 @@ import {
 const OrchestratorPlugin: Plugin = async (input) => {
     const { directory, client } = input;
 
-    // Log version on startup
-    console.log(`[orchestrator] v${PLUGIN_VERSION} loaded`);
-    console.log(`[orchestrator] Log file: ${getLogPath()}`);
+    // Log version on startup (to file only, no console.log to avoid TUI corruption)
+    log(`[orchestrator] v${PLUGIN_VERSION} loaded, log: ${getLogPath()}`);
     log("[index.ts] Plugin initialized", { version: PLUGIN_VERSION, directory });
 
     // =========================================================================
