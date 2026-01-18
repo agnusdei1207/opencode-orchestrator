@@ -1,8 +1,8 @@
 /**
  * Session constants
  */
-export { SESSION_EVENTS } from "./session-events.js";
-export type { SessionEventType } from "./session-events.js";
+export { SESSION_EVENTS, MESSAGE_EVENTS } from "./session-events.js";
+export type { SessionEventType, MessageEventType } from "./session-events.js";
 export {
     TASK_EVENTS,
     TODO_EVENTS,

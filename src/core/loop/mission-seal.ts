@@ -12,7 +12,7 @@ import { existsSync, readFileSync, writeFileSync, unlinkSync } from "node:fs";
 import { join } from "node:path";
 import type { PluginInput } from "@opencode-ai/plugin";
 import { log } from "../agents/logger.js";
-import { PATHS, PART_TYPES, MISSION_SEAL } from "../../shared/index.js";
+import { PATHS, PART_TYPES, MISSION_SEAL, MESSAGE_ROLES } from "../../shared/index.js";
 
 // ============================================================================
 // Constants (derived from centralized MISSION_SEAL)
@@ -176,7 +176,7 @@ export async function detectSealInSession(
         }>;
 
         // Check last few assistant messages
-        const assistantMessages = messages.filter(m => m.info?.role === "assistant");
+        const assistantMessages = messages.filter(m => m.info?.role === MESSAGE_ROLES.ASSISTANT);
         const recentMessages = assistantMessages.slice(-3); // Last 3 assistant messages
 
         for (const msg of recentMessages) {

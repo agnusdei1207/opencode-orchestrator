@@ -12,7 +12,7 @@
 
 import { tool } from "@opencode-ai/plugin";
 import { ParallelAgentManager } from "../../core/agents/index.js";
-import { PARALLEL_TASK, PART_TYPES } from "../../shared/index.js";
+import { PARALLEL_TASK, PART_TYPES, MESSAGE_ROLES, SESSION_STATUS } from "../../shared/index.js";
 import { log } from "../../core/agents/logger.js";
 import { presets } from "../../core/notification/presets.js";
 
@@ -48,9 +48,8 @@ async function validateSessionHasOutput(
             parts?: Array<{ type?: string; text?: string; tool?: string }>;
         }>;
 
-        // Check for at least one assistant message
         const hasAssistantMessage = messages.some(
-            (m) => m.info?.role === "assistant"
+            (m) => m.info?.role === MESSAGE_ROLES.ASSISTANT
         );
 
         if (!hasAssistantMessage) {
@@ -59,7 +58,7 @@ async function validateSessionHasOutput(
 
         // Check that at least one message has content
         const hasContent = messages.some((m) => {
-            if (m.info?.role !== "assistant") return false;
+            if (m.info?.role !== MESSAGE_ROLES.ASSISTANT) return false;
             const parts = m.parts ?? [];
             return parts.some((p) =>
                 // Text content
@@ -67,7 +66,7 @@ async function validateSessionHasOutput(
                 // Reasoning content
                 (p.type === PART_TYPES.REASONING && p.text && p.text.trim().length > 0) ||
                 // Tool calls (indicates work was done)
-                p.type === "tool" || p.type === "tool_use" || p.tool
+                p.type === PART_TYPES.TOOL || p.type === PART_TYPES.TOOL_USE || p.tool
             );
         });
 
@@ -139,7 +138,7 @@ async function pollWithSafetyLimits(
             }
 
             // Session is not idle - reset stability counter
-            if (sessionStatus.type !== "idle") {
+            if (sessionStatus.type !== SESSION_STATUS.IDLE) {
                 stablePolls = 0;
                 continue;
             }
@@ -202,7 +201,7 @@ async function extractSessionResult(
             info?: { role?: string };
             parts?: Array<{ type?: string; text?: string }>
         }>;
-        const lastMsg = messages.filter(m => m.info?.role === "assistant").reverse()[0];
+        const lastMsg = messages.filter(m => m.info?.role === MESSAGE_ROLES.ASSISTANT).reverse()[0];
         const text = lastMsg?.parts
             ?.filter(p => p.type === PART_TYPES.TEXT || p.type === PART_TYPES.REASONING)
             .map(p => p.text ?? "")

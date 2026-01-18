@@ -10,7 +10,7 @@
  */
 
 import type { PluginInput } from "@opencode-ai/plugin";
-import { TASK_STATUS, PART_TYPES } from "../../shared/index.js";
+import { TASK_STATUS, PART_TYPES, MESSAGE_ROLES } from "../../shared/index.js";
 import { ConcurrencyController } from "./concurrency.js";
 import { TaskStore } from "./task-store.js";
 import { log } from "./logger.js";
@@ -169,7 +169,7 @@ export class ParallelAgentManager {
             if (result.error) return `Error: ${result.error}`;
 
             const messages = (result.data ?? []) as Array<{ info?: { role?: string }; parts?: Array<{ type?: string; text?: string }> }>;
-            const lastMsg = messages.filter(m => m.info?.role === "assistant").reverse()[0];
+            const lastMsg = messages.filter(m => m.info?.role === MESSAGE_ROLES.ASSISTANT).reverse()[0];
             if (!lastMsg) return "(No response)";
 
             const text = lastMsg.parts?.filter(p => p.type === PART_TYPES.TEXT || p.type === PART_TYPES.REASONING).map(p => p.text ?? "").filter(Boolean).join("\n") ?? "";
@@ -219,7 +219,7 @@ export class ParallelAgentManager {
         const task = this.store.get(taskId);
         if (!task) return;
 
-        task.status = "error";
+        task.status = TASK_STATUS.ERROR;
         task.error = error instanceof Error ? error.message : String(error);
         task.completedAt = new Date();
 
