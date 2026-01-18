@@ -65,7 +65,7 @@ Then in OpenCode:
 
 ---
 
-## �️ Architecture
+## 🏛️ Architecture
 
 ```
             /task "Build REST API"
@@ -104,8 +104,8 @@ Then in OpenCode:
 | ⚡ **50 Parallel Sessions** | True multi-threading with isolated contexts |
 | 🔥 **Parallel File Builds** | Workers build different files simultaneously |
 | 🧩 **Smart Distribution** | One file = one worker. No conflicts |
-| � **Real-Time Sync** | Shared `.opencode/` state across all agents |
-| �️ **Auto Verification** | E2E tests, import checks, integration validation |
+| 🔗 **Real-Time Sync** | Shared `.opencode/` state across all agents |
+| 🛡️ **Auto Verification** | E2E tests, import checks, integration validation |
 | 🩹 **Self-Healing** | Auto-recovery with 3 retries per session |
 
 ### Self-Healing Details
