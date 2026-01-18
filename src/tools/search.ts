@@ -60,3 +60,127 @@ export const mgrepTool = (directory: string) => tool({
     },
 });
 
+/**
+ * Sed replace tool - find and replace patterns in files
+ * Used for bulk code migrations and refactoring
+ */
+export const sedReplaceTool = (directory: string) => tool({
+    description: `Find and replace patterns in files (sed-like). Supports regex. Use dry_run=true to preview changes.`,
+    args: {
+        pattern: tool.schema.string().describe("Regex pattern to find"),
+        replacement: tool.schema.string().describe("Replacement string"),
+        file: tool.schema.string().optional().describe("Single file to modify"),
+        dir: tool.schema.string().optional().describe("Directory to search (modifies all matching files)"),
+        dry_run: tool.schema.boolean().optional().describe("Preview changes without modifying files (default: false)"),
+        backup: tool.schema.boolean().optional().describe("Create .bak backup before modifying (default: false)"),
+    },
+    async execute(args) {
+        return callRustTool("sed_replace", {
+            pattern: args.pattern,
+            replacement: args.replacement,
+            file: args.file,
+            directory: args.dir || (args.file ? undefined : directory),
+            dry_run: args.dry_run,
+            backup: args.backup,
+        });
+    },
+});
+
+/**
+ * Diff tool - compare files or strings
+ */
+export const diffTool = () => tool({
+    description: `Compare two files or strings and show differences.`,
+    args: {
+        file1: tool.schema.string().optional().describe("First file to compare"),
+        file2: tool.schema.string().optional().describe("Second file to compare"),
+        content1: tool.schema.string().optional().describe("First string to compare"),
+        content2: tool.schema.string().optional().describe("Second string to compare"),
+        ignore_whitespace: tool.schema.boolean().optional().describe("Ignore whitespace differences"),
+    },
+    async execute(args) {
+        return callRustTool("diff", args);
+    },
+});
+
+/**
+ * JQ tool - JSON query and manipulation
+ */
+export const jqTool = () => tool({
+    description: `Query and manipulate JSON using jq expressions.`,
+    args: {
+        json_input: tool.schema.string().optional().describe("JSON string to query"),
+        file: tool.schema.string().optional().describe("JSON file to query"),
+        expression: tool.schema.string().describe("jq expression (e.g., '.foo.bar', '.[] | select(.x > 1)')"),
+        raw_output: tool.schema.boolean().optional().describe("Raw output (no JSON encoding for strings)"),
+    },
+    async execute(args) {
+        return callRustTool("jq", args);
+    },
+});
+
+/**
+ * HTTP tool - make HTTP requests (curl-like)
+ */
+export const httpTool = () => tool({
+    description: `Make HTTP requests (GET, POST, PUT, DELETE, etc).`,
+    args: {
+        url: tool.schema.string().describe("URL to request"),
+        method: tool.schema.string().optional().describe("HTTP method (GET, POST, PUT, DELETE, PATCH, HEAD)"),
+        headers: tool.schema.object({}).optional().describe("Request headers as JSON object"),
+        body: tool.schema.string().optional().describe("Request body"),
+        timeout_ms: tool.schema.number().optional().describe("Request timeout in milliseconds"),
+    },
+    async execute(args) {
+        return callRustTool("http", args);
+    },
+});
+
+/**
+ * File stats tool - analyze directory/file statistics
+ */
+export const fileStatsTool = (directory: string) => tool({
+    description: `Analyze file/directory statistics (file counts, sizes, line counts, etc).`,
+    args: {
+        dir: tool.schema.string().optional().describe("Directory to analyze (defaults to project root)"),
+        max_depth: tool.schema.number().optional().describe("Maximum directory depth to analyze"),
+    },
+    async execute(args) {
+        return callRustTool("file_stats", {
+            directory: args.dir || directory,
+            max_depth: args.max_depth,
+        });
+    },
+});
+
+/**
+ * Git diff tool - show uncommitted changes
+ */
+export const gitDiffTool = (directory: string) => tool({
+    description: `Show git diff of uncommitted changes.`,
+    args: {
+        dir: tool.schema.string().optional().describe("Repository directory (defaults to project root)"),
+        staged_only: tool.schema.boolean().optional().describe("Show only staged changes"),
+    },
+    async execute(args) {
+        return callRustTool("git_diff", {
+            directory: args.dir || directory,
+            staged_only: args.staged_only,
+        });
+    },
+});
+
+/**
+ * Git status tool - show repository status
+ */
+export const gitStatusTool = (directory: string) => tool({
+    description: `Show git status (modified, added, deleted files).`,
+    args: {
+        dir: tool.schema.string().optional().describe("Repository directory (defaults to project root)"),
+    },
+    async execute(args) {
+        return callRustTool("git_status", {
+            directory: args.dir || directory,
+        });
+    },
+});

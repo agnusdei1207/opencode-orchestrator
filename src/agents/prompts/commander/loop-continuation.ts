@@ -66,6 +66,7 @@ ONLY THEN → output ${MISSION_SEAL.PATTERN}
 ❌ ${PATHS.SYNC_ISSUES} > 0 → LOOP
 ❌ Build fails → LOOP
 ❌ E2E = ${WORK_STATUS.E2E_STATUS.FAIL} → LOOP
+❌ Agent timeout/stuck → DECOMPOSE per ${PROMPT_TAGS.RECOVERY.open} and LOOP
 \`\`\`
 
 ### ⛔ NEVER SEAL IF:

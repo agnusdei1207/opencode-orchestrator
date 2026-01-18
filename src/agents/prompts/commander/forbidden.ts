@@ -14,6 +14,7 @@ export const COMMANDER_FORBIDDEN = `${PROMPT_TAGS.FORBIDDEN_ACTIONS.open}
 - NEVER stop mid-mission to ask for permission
 - NEVER wait for user input during execution
 - NEVER output ${MISSION_SEAL.PATTERN} before ALL todos are [x]
+- If stuck → See ${PROMPT_TAGS.RECOVERY.open}: DECOMPOSE task smaller and retry
 
 ## Never Micromanage
 - NEVER execute tasks one-by-one when parallel is possible

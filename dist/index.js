@@ -203,6 +203,17 @@ var HISTORY = {
   MAX_PROGRESS: 100
 };
 
+// src/shared/recovery/constants/recovery-level.ts
+var RECOVERY_LEVEL = {
+  /** Level 1: Split task into smaller units */
+  DECOMPOSE: "DECOMPOSE",
+  /** Level 2: Step back and create new strategy */
+  RE_PLAN: "RE-PLAN",
+  /** Level 3: Ask user for direction */
+  ASK_USER: "ASK USER"
+};
+var RECOVERY_PRINCIPLE = "DECOMPOSE \u2192 RE-PLAN \u2192 ASK. Never give up silently.";
+
 // src/shared/cache/constants/cache.ts
 var CACHE = {
   /** Default cache TTL (24 hours) */
@@ -297,6 +308,18 @@ var TOOL_NAMES = {
   GREP_SEARCH: "grep_search",
   GLOB_SEARCH: "glob_search",
   MGREP: "mgrep",
+  SED_REPLACE: "sed_replace",
+  // Diff & Compare tools
+  DIFF: "diff",
+  // JSON tools
+  JQ: "jq",
+  // HTTP tools
+  HTTP: "http",
+  // File tools
+  FILE_STATS: "file_stats",
+  // Git tools
+  GIT_DIFF: "git_diff",
+  GIT_STATUS: "git_status",
   // Web tools
   WEBFETCH: "webfetch",
   WEBSEARCH: "websearch",
@@ -412,6 +435,7 @@ var PROMPT_TAGS = {
   TODO_FORMAT: { open: "<todo_format>", close: "</todo_format>" },
   SYNC_ISSUE_HANDLING: { open: "<sync_issue_handling>", close: "</sync_issue_handling>" },
   LOOP_CONTINUATION: { open: "<loop_continuation>", close: "</loop_continuation>" },
+  RECOVERY: { open: "<recovery>", close: "</recovery>" },
   // === Planner ===
   FILE_LEVEL_PLANNING: { open: "<file_level_planning>", close: "</file_level_planning>" },
   TODO_SYNC: { open: "<todo_sync>", close: "</todo_sync>" },
@@ -13378,6 +13402,7 @@ var COMMANDER_FORBIDDEN = `${PROMPT_TAGS.FORBIDDEN_ACTIONS.open}
 - NEVER stop mid-mission to ask for permission
 - NEVER wait for user input during execution
 - NEVER output ${MISSION_SEAL.PATTERN} before ALL todos are [x]
+- If stuck \u2192 See ${PROMPT_TAGS.RECOVERY.open}: DECOMPOSE task smaller and retry
 
 ## Never Micromanage
 - NEVER execute tasks one-by-one when parallel is possible
@@ -13460,6 +13485,7 @@ var COMMANDER_EXECUTION = `${PROMPT_TAGS.EXECUTION_STRATEGY.open}
 - What are the HIGH-RISK parts of this mission?
 - What is my FALLBACK if a task fails?
 - How will I DETECT and RECOVER from issues?
+- If agent fails \u2192 See ${PROMPT_TAGS.RECOVERY.open} section: DECOMPOSE and retry
 
 \u274C ANTI-PATTERNS: Sequential execution when parallel is possible. Doing work yourself instead of delegating. Starting without clear decomposition.
 
@@ -13630,6 +13656,7 @@ ONLY THEN \u2192 output ${MISSION_SEAL.PATTERN}
 \u274C ${PATHS.SYNC_ISSUES} > 0 \u2192 LOOP
 \u274C Build fails \u2192 LOOP
 \u274C E2E = ${WORK_STATUS.E2E_STATUS.FAIL} \u2192 LOOP
+\u274C Agent timeout/stuck \u2192 DECOMPOSE per ${PROMPT_TAGS.RECOVERY.open} and LOOP
 \`\`\`
 
 ### \u26D4 NEVER SEAL IF:
@@ -13762,6 +13789,43 @@ ${AGENT_NAMES.REVIEWER}: (Integration test + sync check + clear ${PATHS.SYNC_ISS
 - ALWAYS include specific instructions in ${TOOL_NAMES.DELEGATE_TASK}
 - Workers need: file path + issue ID + exact fix instructions
 ${PROMPT_TAGS.SYNC_ISSUE_HANDLING.close}`;
+
+// src/agents/prompts/commander/recovery.ts
+var COMMANDER_RECOVERY = `${PROMPT_TAGS.RECOVERY.open}
+## RECOVERY: Agent Failure Handling
+
+When any agent fails, times out, or gets stuck:
+
+### Level 1: ${RECOVERY_LEVEL.DECOMPOSE}
+- Task is too big \u2192 Split into smaller units (< 5 min each)
+- Delegate smaller pieces to fresh agents
+- For repetitive changes, use ${TOOL_NAMES.SED_REPLACE} or shell tools
+
+### Level 2: ${RECOVERY_LEVEL.RE_PLAN}
+If decomposition still fails:
+- Step back and re-analyze the problem
+- Write ${PATHS.OPENCODE}/escalation.md with analysis
+- Call ${AGENT_NAMES.PLANNER} to create new strategy
+- Try different approach
+
+### Level 3: ${RECOVERY_LEVEL.ASK_USER}
+If re-planning fails or requires human judgment:
+- Clearly explain the situation and what was tried
+- Present 2-3 options with pros/cons
+- Ask user for direction
+- Proceed based on user input
+
+### Decision Guide
+| Situation | Action |
+|-----------|--------|
+| Task too big | Level 1: ${RECOVERY_LEVEL.DECOMPOSE} |
+| Wrong approach | Level 2: ${RECOVERY_LEVEL.RE_PLAN} |
+| Ambiguous requirements | Level 3: ${RECOVERY_LEVEL.ASK_USER} |
+| Critical decision needed | Level 3: ${RECOVERY_LEVEL.ASK_USER} |
+| All attempts failed | Level 3: ${RECOVERY_LEVEL.ASK_USER} |
+
+PRINCIPLE: ${RECOVERY_PRINCIPLE}
+${PROMPT_TAGS.RECOVERY.close}`;
 
 // src/agents/prompts/planner/role.ts
 var PLANNER_ROLE = `${PROMPT_TAGS.ROLE.open}
@@ -14842,6 +14906,7 @@ var systemPrompt = [
   // Loop, shared state, sync handling
   COMMANDER_LOOP_CONTINUATION,
   COMMANDER_SYNC_HANDLING,
+  COMMANDER_RECOVERY,
   SHARED_WORKSPACE,
   ANTI_HALLUCINATION_CORE,
   MISSION_SEAL_RULES
@@ -15210,6 +15275,102 @@ var mgrepTool = (directory) => tool({
       results[pattern] = result;
     }
     return JSON.stringify(results, null, 2);
+  }
+});
+var sedReplaceTool = (directory) => tool({
+  description: `Find and replace patterns in files (sed-like). Supports regex. Use dry_run=true to preview changes.`,
+  args: {
+    pattern: tool.schema.string().describe("Regex pattern to find"),
+    replacement: tool.schema.string().describe("Replacement string"),
+    file: tool.schema.string().optional().describe("Single file to modify"),
+    dir: tool.schema.string().optional().describe("Directory to search (modifies all matching files)"),
+    dry_run: tool.schema.boolean().optional().describe("Preview changes without modifying files (default: false)"),
+    backup: tool.schema.boolean().optional().describe("Create .bak backup before modifying (default: false)")
+  },
+  async execute(args) {
+    return callRustTool("sed_replace", {
+      pattern: args.pattern,
+      replacement: args.replacement,
+      file: args.file,
+      directory: args.dir || (args.file ? void 0 : directory),
+      dry_run: args.dry_run,
+      backup: args.backup
+    });
+  }
+});
+var diffTool = () => tool({
+  description: `Compare two files or strings and show differences.`,
+  args: {
+    file1: tool.schema.string().optional().describe("First file to compare"),
+    file2: tool.schema.string().optional().describe("Second file to compare"),
+    content1: tool.schema.string().optional().describe("First string to compare"),
+    content2: tool.schema.string().optional().describe("Second string to compare"),
+    ignore_whitespace: tool.schema.boolean().optional().describe("Ignore whitespace differences")
+  },
+  async execute(args) {
+    return callRustTool("diff", args);
+  }
+});
+var jqTool = () => tool({
+  description: `Query and manipulate JSON using jq expressions.`,
+  args: {
+    json_input: tool.schema.string().optional().describe("JSON string to query"),
+    file: tool.schema.string().optional().describe("JSON file to query"),
+    expression: tool.schema.string().describe("jq expression (e.g., '.foo.bar', '.[] | select(.x > 1)')"),
+    raw_output: tool.schema.boolean().optional().describe("Raw output (no JSON encoding for strings)")
+  },
+  async execute(args) {
+    return callRustTool("jq", args);
+  }
+});
+var httpTool = () => tool({
+  description: `Make HTTP requests (GET, POST, PUT, DELETE, etc).`,
+  args: {
+    url: tool.schema.string().describe("URL to request"),
+    method: tool.schema.string().optional().describe("HTTP method (GET, POST, PUT, DELETE, PATCH, HEAD)"),
+    headers: tool.schema.object({}).optional().describe("Request headers as JSON object"),
+    body: tool.schema.string().optional().describe("Request body"),
+    timeout_ms: tool.schema.number().optional().describe("Request timeout in milliseconds")
+  },
+  async execute(args) {
+    return callRustTool("http", args);
+  }
+});
+var fileStatsTool = (directory) => tool({
+  description: `Analyze file/directory statistics (file counts, sizes, line counts, etc).`,
+  args: {
+    dir: tool.schema.string().optional().describe("Directory to analyze (defaults to project root)"),
+    max_depth: tool.schema.number().optional().describe("Maximum directory depth to analyze")
+  },
+  async execute(args) {
+    return callRustTool("file_stats", {
+      directory: args.dir || directory,
+      max_depth: args.max_depth
+    });
+  }
+});
+var gitDiffTool = (directory) => tool({
+  description: `Show git diff of uncommitted changes.`,
+  args: {
+    dir: tool.schema.string().optional().describe("Repository directory (defaults to project root)"),
+    staged_only: tool.schema.boolean().optional().describe("Show only staged changes")
+  },
+  async execute(args) {
+    return callRustTool("git_diff", {
+      directory: args.dir || directory,
+      staged_only: args.staged_only
+    });
+  }
+});
+var gitStatusTool = (directory) => tool({
+  description: `Show git status (modified, added, deleted files).`,
+  args: {
+    dir: tool.schema.string().optional().describe("Repository directory (defaults to project root)")
+  },
+  async execute(args) {
+    return callRustTool("git_status", {
+      directory: args.dir || directory
+    });
   }
 });
 
@@ -19537,9 +19698,22 @@ var OrchestratorPlugin = async (input) => {
     tool: {
       [TOOL_NAMES.CALL_AGENT]: callAgentTool,
       [TOOL_NAMES.SLASHCOMMAND]: createSlashcommandTool(),
+      // Search & Replace tools
       [TOOL_NAMES.GREP_SEARCH]: grepSearchTool(directory),
       [TOOL_NAMES.GLOB_SEARCH]: globSearchTool(directory),
       [TOOL_NAMES.MGREP]: mgrepTool(directory),
+      [TOOL_NAMES.SED_REPLACE]: sedReplaceTool(directory),
+      // Diff & Compare tools
+      [TOOL_NAMES.DIFF]: diffTool(),
+      // JSON tools
+      [TOOL_NAMES.JQ]: jqTool(),
+      // HTTP tools
+      [TOOL_NAMES.HTTP]: httpTool(),
+      // File tools
+      [TOOL_NAMES.FILE_STATS]: fileStatsTool(directory),
+      // Git tools
+      [TOOL_NAMES.GIT_DIFF]: gitDiffTool(directory),
+      [TOOL_NAMES.GIT_STATUS]: gitStatusTool(directory),
       // Background task tools
       [TOOL_NAMES.RUN_BACKGROUND]: runBackgroundTool,
       [TOOL_NAMES.CHECK_BACKGROUND]: checkBackgroundTool,

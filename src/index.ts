@@ -15,7 +15,18 @@ import type { Plugin } from "@opencode-ai/plugin";
 import { state } from "./core/orchestrator/index.js";
 import { callAgentTool } from "./tools/callAgent.js";
 import { createSlashcommandTool } from "./tools/slashCommand.js";
-import { grepSearchTool, globSearchTool, mgrepTool } from "./tools/search.js";
+import {
+    grepSearchTool,
+    globSearchTool,
+    mgrepTool,
+    sedReplaceTool,
+    diffTool,
+    jqTool,
+    httpTool,
+    fileStatsTool,
+    gitDiffTool,
+    gitStatusTool,
+} from "./tools/search.js";
 import {
     runBackgroundTool,
     checkBackgroundTool,
@@ -94,9 +105,22 @@ const OrchestratorPlugin: Plugin = async (input) => {
         tool: {
             [TOOL_NAMES.CALL_AGENT]: callAgentTool,
             [TOOL_NAMES.SLASHCOMMAND]: createSlashcommandTool(),
+            // Search & Replace tools
             [TOOL_NAMES.GREP_SEARCH]: grepSearchTool(directory),
             [TOOL_NAMES.GLOB_SEARCH]: globSearchTool(directory),
             [TOOL_NAMES.MGREP]: mgrepTool(directory),
+            [TOOL_NAMES.SED_REPLACE]: sedReplaceTool(directory),
+            // Diff & Compare tools
+            [TOOL_NAMES.DIFF]: diffTool(),
+            // JSON tools
+            [TOOL_NAMES.JQ]: jqTool(),
+            // HTTP tools
+            [TOOL_NAMES.HTTP]: httpTool(),
+            // File tools
+            [TOOL_NAMES.FILE_STATS]: fileStatsTool(directory),
+            // Git tools
+            [TOOL_NAMES.GIT_DIFF]: gitDiffTool(directory),
+            [TOOL_NAMES.GIT_STATUS]: gitStatusTool(directory),
             // Background task tools
             [TOOL_NAMES.RUN_BACKGROUND]: runBackgroundTool,
             [TOOL_NAMES.CHECK_BACKGROUND]: checkBackgroundTool,

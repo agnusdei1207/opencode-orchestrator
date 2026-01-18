@@ -27,6 +27,7 @@ export const PROMPT_TAGS = {
     TODO_FORMAT: { open: "<todo_format>", close: "</todo_format>" },
     SYNC_ISSUE_HANDLING: { open: "<sync_issue_handling>", close: "</sync_issue_handling>" },
     LOOP_CONTINUATION: { open: "<loop_continuation>", close: "</loop_continuation>" },
+    RECOVERY: { open: "<recovery>", close: "</recovery>" },
 
     // === Planner ===
     FILE_LEVEL_PLANNING: { open: "<file_level_planning>", close: "</file_level_planning>" },

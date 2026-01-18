@@ -29,6 +29,7 @@ import {
    // Loop & sync handling
    COMMANDER_LOOP_CONTINUATION,
    COMMANDER_SYNC_HANDLING,
+   COMMANDER_RECOVERY,
 } from "./prompts/index.js";
 
 /**
@@ -50,6 +51,7 @@ const systemPrompt = [
    // Loop, shared state, sync handling
    COMMANDER_LOOP_CONTINUATION,
    COMMANDER_SYNC_HANDLING,
+   COMMANDER_RECOVERY,
    SHARED_WORKSPACE,
    ANTI_HALLUCINATION_CORE,
    MISSION_SEAL_RULES,

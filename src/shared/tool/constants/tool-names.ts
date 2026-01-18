@@ -17,6 +17,18 @@ export const TOOL_NAMES = {
     GREP_SEARCH: "grep_search",
     GLOB_SEARCH: "glob_search",
     MGREP: "mgrep",
+    SED_REPLACE: "sed_replace",
+    // Diff & Compare tools
+    DIFF: "diff",
+    // JSON tools
+    JQ: "jq",
+    // HTTP tools
+    HTTP: "http",
+    // File tools
+    FILE_STATS: "file_stats",
+    // Git tools
+    GIT_DIFF: "git_diff",
+    GIT_STATUS: "git_status",
     // Web tools
     WEBFETCH: "webfetch",
     WEBSEARCH: "websearch",
