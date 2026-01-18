@@ -27,55 +27,62 @@ Then in OpenCode:
 
 ## 🧠 Core Philosophy
 
-> **Explore → Learn → Adapt → Act**  
-> *Like a human exploring unknown space — discover, document, adjust, execute.*
+> **Imagine humanity landing on an unknown planet.**  
+> No maps. No guides. Just raw terrain and a mission to complete.
+
+This is how our agents approach every project.
+
+### 🌍 The New World Protocol
+
+When you arrive on an uncharted world, you don't assume oxygen. You don't guess gravity. You **explore**, **learn**, **adapt**, and then **act**.
 
 ```
 ┌──────────────────────────────────────────────────────────────────────────────────────┐
 │                                                                                      │
 │  🔍 EXPLORE    →    📝 LEARN    →    🔄 ADAPT    →    ⚡ ACT                          │
 │                                                                                      │
-│  Scan unknown       Document           Adjust             Execute with               │
-│  territory          discoveries        behavior           confidence                 │
-│                                                                                      │
-│  • Read context     • Record patterns  • Match style      • Build it                 │
-│  • Detect stack     • Note conventions • Fit the project  • Test it                  │
-│  • Find commands    • Log findings     • Apply learnings  • Seal it                  │
+│  Scan the          Document           Adjust to          Execute the                │
+│  unknown           discoveries        the terrain        mission                    │
 │                                                                                      │
 └──────────────────────────────────────────────────────────────────────────────────────┘
 ```
 
-### 🛸 The Astronaut Principle
+### � The Crew
 
-Agents behave like astronauts landing on unknown planets:
+**🎯 Commander** — *The captain who landed the ship*
 
-- **Never assume gravity** — Always detect the environment first
-- **Document everything** — Record discoveries for future missions
-- **Adapt to atmosphere** — Adjust behavior based on learnings  
-- **Act with confidence** — Execute precisely once the terrain is mapped
+> Arrived on foreign soil with one mission: complete the objective. Doesn't know the atmosphere yet, doesn't know what grows here. But knows how to lead. Scans the horizon, delegates specialists, and keeps the mission moving until it's sealed.
 
-This is **real-time adaptation**. Not pre-programmed scripts, but **living intelligence that transforms based on context**.
+**📋 Planner** — *The scientist who maps the terrain*
 
-### Agents Mission
+> First out of the ship with instruments in hand. Tests the soil, analyzes the air, documents every discovery. Creates the maps that everyone will follow. Without the Planner's records, the crew would be lost.
 
-Each agent embodies phases of the philosophy:
+**🔨 Worker** — *The engineer who builds the base*
 
-| Agent | Focus | Mission |
-|:-----:|:------|:--------|
-| 🎯 **Commander** | All phases | The captain who orchestrates the full exploration cycle |
-| 📋 **Planner** | EXPLORE → LEARN | The cartographer who maps terrain and documents paths |
-| 🔨 **Worker** | ADAPT → ACT | The craftsman who shapes work to fit the landscape |
-| ✅ **Reviewer** | EXPLORE → LEARN → ACT | The inspector who verifies with evidence, then seals |
+> Takes the Planner's maps and builds. Adapts construction to local materials. If the terrain is rocky, builds on rock. If it's sandy, adjusts foundations. Doesn't fight the environment — works with it.
 
-### Guiding Principles
+**✅ Reviewer** — *The inspector who clears for launch*
 
-| Principle | Adaptive Practice |
-|:----------|:------------------|
-| 🔍 **Discover, Don't Assume** | Read `context.md`, detect stack, find actual commands |
-| 📝 **Learn & Document** | Record patterns, conventions, and findings for reuse |
+> Before the mission can be called complete, everything must pass inspection. Walks the perimeter, tests the structures, verifies against the original blueprints. Only when every check passes does the mission get sealed.
+
+### 🛸 The Protocol
+
+| Phase | The Crew's Action |
+|:------|:------------------|
+| 🔍 **EXPLORE** | *"What kind of world is this?"* — Scan environment, detect patterns, never assume |
+| � **LEARN** | *"Let me write this down."* — Document findings for the team and future missions |
+| � **ADAPT** | *"We'll do it this way here."* — Adjust approach to fit what we've learned |
+| ⚡ **ACT** | *"Execute."* — Build, test, verify, seal the mission |
+
+### 🌟 Crew Principles
+
+| Principle | In Practice |
+|:----------|:------------|
+| 🔍 **Never Assume Gravity** | Read `context.md`, detect stack, find actual commands |
+| 📝 **Document for Future Missions** | Record patterns, conventions, and findings for reuse |
 | 📚 **Evidence Over Memory** | Cite docs, run commands, complete only with proof |
-| 🔄 **Transform with Context** | Behavior evolves based on documented learnings |
-| 🤝 **Separation of Concerns** | Each agent masters one domain excellently |
+| 🔄 **Adapt to the Terrain** | Behavior evolves based on what we've documented |
+| 🤝 **Each Crew Member Has a Role** | Specialists don't overlap — they collaborate |
 
 ---
 
