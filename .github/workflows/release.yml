@@ -95,57 +95,48 @@ jobs:
             
             ## 🧠 Core Philosophy
             
-            > **Explore → Learn → Adapt → Act**  
-            > *Like a human exploring unknown space — discover, document, adjust, execute.*
+            > **Imagine humanity landing on an unknown planet.**  
+            > No maps. No guides. Just raw terrain and a mission to complete.
+            
+            ### 🌍 The New World Protocol
+            
+            When you arrive on an uncharted world, you don't assume oxygen. You don't guess gravity. You **explore**, **learn**, **adapt**, and then **act**.
             
             ```
             ┌──────────────────────────────────────────────────────────────────────────────────────┐
             │                                                                                      │
             │  🔍 EXPLORE    →    📝 LEARN    →    🔄 ADAPT    →    ⚡ ACT                          │
             │                                                                                      │
-            │  Scan unknown       Document           Adjust             Execute with               │
-            │  territory          discoveries        behavior           confidence                 │
-            │                                                                                      │
-            │  • Read context     • Record patterns  • Match style      • Build it                 │
-            │  • Detect stack     • Note conventions • Fit the project  • Test it                  │
-            │  • Find commands    • Log findings     • Apply learnings  • Seal it                  │
+            │  Scan the          Document           Adjust to          Execute the                │
+            │  unknown           discoveries        the terrain        mission                    │
             │                                                                                      │
             └──────────────────────────────────────────────────────────────────────────────────────┘
             ```
             
-            ### 🛸 The Astronaut Principle
-            
-            Agents behave like astronauts landing on unknown planets:
-            
-            - **Never assume gravity** — Always detect the environment first
-            - **Document everything** — Record discoveries for future missions
-            - **Adapt to atmosphere** — Adjust behavior based on learnings  
-            - **Act with confidence** — Execute precisely once the terrain is mapped
-            
-            This is **real-time adaptation**. Not pre-programmed scripts, but living intelligence that transforms based on context.
-            
             ---
             
-            ## 🎭 Agents & Their Mission
+            ## 🚀 The Crew
             
-            Each agent embodies phases of the philosophy:
+            **🎯 Commander** — *The captain who landed the ship*
+            > Scans the horizon, delegates specialists, keeps the mission moving until sealed.
             
-            | Agent | Focus | Mission |
-            |:-----:|:------|:--------|
-            | 🎯 **Commander** | All phases | The captain who orchestrates the full exploration cycle |
-            | 📋 **Planner** | EXPLORE → LEARN | The cartographer who maps terrain and documents paths |
-            | 🔨 **Worker** | ADAPT → ACT | The craftsman who shapes work to fit the landscape |
-            | ✅ **Reviewer** | EXPLORE → LEARN → ACT | The inspector who verifies with evidence, then seals |
+            **📋 Planner** — *The scientist who maps the terrain*
+            > First out with instruments. Tests, analyzes, documents. Creates maps everyone follows.
             
-            ### Guiding Principles
+            **🔨 Worker** — *The engineer who builds the base*
+            > Takes maps and builds. Adapts to local materials. Works with the terrain, not against it.
             
-            | Principle | Adaptive Practice |
-            |:----------|:------------------|
-            | 🔍 **Discover, Don't Assume** | Read `context.md`, detect stack, find actual commands |
-            | 📝 **Learn & Document** | Record patterns, conventions, and findings for reuse |
-            | 📚 **Evidence Over Memory** | Cite docs, run commands, complete only with proof |
-            | 🔄 **Transform with Context** | Behavior evolves based on documented learnings |
-            | 🤝 **Separation of Concerns** | Each agent masters one domain excellently |
+            **✅ Reviewer** — *The inspector who clears for launch*
+            > Walks the perimeter, tests structures, verifies blueprints. Seals when all checks pass.
+            
+            ### 🌟 Crew Principles
+            
+            | Principle | In Practice |
+            |:----------|:------------|
+            | 🔍 **Never Assume Gravity** | Detect environment first |
+            | 📝 **Document for Future Missions** | Record patterns for reuse |
+            | 📚 **Evidence Over Memory** | Complete only with proof |
+            | 🔄 **Adapt to the Terrain** | Evolve based on learnings |
             
             ---
             
