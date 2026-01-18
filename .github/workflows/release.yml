@@ -90,28 +90,37 @@ jobs:
           files: binaries/**/*
           body: |
             # 🚀 OpenCode Orchestrator ${{ github.ref_name }}
-            ### *"Multi-agent. Parallel. Non-blocking. Self-healing."*
+            
+            > **Explore → Adapt → Act**  
+            > *Never assume. Always verify. Then execute.*
             
             ---
             
-            ## ⚡ Core Capabilities
+            ## 🧠 Philosophy
             
-            | | Feature | Description |
-            |:---:|:---|:---|
-            | ⚡ | **50 Parallel Sessions** | True multi-threading, not fake concurrency |
-            | 🔥 | **10x Faster** | Workers build different files simultaneously |
-            | 💨 | **Non-Blocking** | Fire-and-forget with automatic result collection |
-            | 🧩 | **Smart Distribution** | One file = one worker. No conflicts. |
-            | 🛡️ | **Self-Healing** | Auto-recovery from crashes, rate limits |
-            | 📡 | **Live Monitoring** | Real-time toast notifications |
+            | Agent | Role | Philosophy |
+            |:-----:|:-----|:-----------|
+            | 🎯 **Commander** | Orchestrator | Discover → Delegate → Loop until sealed |
+            | 📋 **Planner** | Strategist | Research → Plan → Document |
+            | 🔨 **Worker** | Implementer | Observe → Learn → Implement |
+            | ✅ **Reviewer** | Gatekeeper | Understand → Verify → Approve |
+            
+            ### Guiding Principles
+            - 🔍 **Discover, Don't Assume** — Detect tech stack, find build/test commands
+            - 📚 **Evidence Over Memory** — Cite docs, run actual commands
+            - 🔄 **Adapt to Project** — Match existing patterns
+            - 🤝 **Separation of Concerns** — Each agent excels at one thing
             
             ---
             
-            ## 🎯 How It Works
+            ## ✨ Key Features
             
-            ```
-            /task → 🎖️ Commander → 📋 Planner → 👷 Parallel Workers → 🔍 Reviewer → ✅ SEALED
-            ```
+            | Feature | Description |
+            |:--------|:------------|
+            | ⚡ **50 Parallel Sessions** | True multi-threading with isolated contexts |
+            | 🔥 **Parallel File Builds** | Workers build different files simultaneously |
+            | 🔗 **Real-Time Sync** | Shared state across all agents |
+            | 🛡️ **Self-Healing** | Auto-recovery with 3 retries |
             
             ---
             
