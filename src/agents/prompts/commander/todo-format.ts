@@ -2,9 +2,9 @@
  * Commander TODO Format - Hierarchical
  */
 
-import { AGENT_NAMES } from "../../../shared/index.js";
+import { AGENT_NAMES, PROMPT_TAGS, WORK_STATUS } from "../../../shared/index.js";
 
-export const COMMANDER_TODO_FORMAT = `<todo_format>
+export const COMMANDER_TODO_FORMAT = `${PROMPT_TAGS.TODO_FORMAT.open}
 ## Hierarchical TODO Structure
 
 LEVEL 1 - Epic (E): High-level goal
@@ -15,7 +15,7 @@ LEVEL 1 - Epic (E): High-level goal
 \`\`\`markdown
 # Mission: Build user authentication system
 
-## E1: Backend API | status: in-progress
+## E1: Backend API | status: ${WORK_STATUS.TODO_STATUS.IN_PROGRESS}
 ### T1.1: Database schema | agent:${AGENT_NAMES.WORKER}
 - [ ] S1.1.1: Create users table | size:S
 - [ ] S1.1.2: Create sessions table | size:S
@@ -28,7 +28,7 @@ LEVEL 1 - Epic (E): High-level goal
 - [ ] S1.3.1: Run unit tests | size:S
 - [ ] S1.3.2: Run integration tests | size:M
 
-## E2: Frontend UI | status: pending | depends:E1
+## E2: Frontend UI | status: ${WORK_STATUS.TODO_STATUS.PENDING} | depends:E1
 ### T2.1: Login page | agent:${AGENT_NAMES.WORKER}
 - [ ] S2.1.1: Create form component | size:M
 - [ ] S2.1.2: Add validation | size:S
@@ -48,4 +48,4 @@ E1 [x] + E2 [x] = Mission can be SEALED
 
 Create all items with [ ] - NEVER with [x]!
 Only ${AGENT_NAMES.REVIEWER} marks [x] after verification!
-</todo_format>`;
+${PROMPT_TAGS.TODO_FORMAT.close}`;

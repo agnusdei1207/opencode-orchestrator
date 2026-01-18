@@ -4,7 +4,9 @@
  * Checklist for verifying code before marking complete.
  */
 
-export const VERIFICATION_REQUIREMENTS = `<verification>
+import { PATHS, PROMPT_TAGS } from "../../../shared/index.js";
+
+export const VERIFICATION_REQUIREMENTS = `${PROMPT_TAGS.VERIFICATION.open}
  VERIFICATION CHECKLIST
 
 ## Code Verification
@@ -15,7 +17,7 @@ export const VERIFICATION_REQUIREMENTS = `<verification>
 □ No console.log debugging left
 
 ## Documentation Verification
-□ Implementation matches .opencode/docs/
+□ Implementation matches ${PATHS.DOCS}/
 □ API usage matches official docs
 □ Version compatibility confirmed
 
@@ -25,4 +27,4 @@ export const VERIFICATION_REQUIREMENTS = `<verification>
 □ Error messages don't leak info
 
 ONLY mark complete after ALL checks pass!
-</verification>`;
+${PROMPT_TAGS.VERIFICATION.close}`;

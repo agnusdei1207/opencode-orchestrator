@@ -4,7 +4,7 @@
  * How Commander reads sync issues and instructs agents to fix.
  */
 
-import { PATHS, AGENT_NAMES, ID_PREFIX, PROMPT_TAGS } from "../../../shared/index.js";
+import { PATHS, AGENT_NAMES, ID_PREFIX, PROMPT_TAGS, TOOL_NAMES } from "../../../shared/index.js";
 
 export const COMMANDER_SYNC_HANDLING = `${PROMPT_TAGS.SYNC_ISSUE_HANDLING.open}
 ## SYNC ISSUE HANDLING
@@ -26,7 +26,7 @@ For each ${ID_PREFIX.SYNC_ISSUE}N issue:
 Delegate to ${AGENT_NAMES.PLANNER} with SPECIFIC instructions:
 
 \`\`\`
-delegate_task(
+${TOOL_NAMES.DELEGATE_TASK}(
   task: "Update TODO for sync fix ${ID_PREFIX.SYNC_ISSUE}1",
   agent: ${AGENT_NAMES.PLANNER},
   instructions: "
@@ -43,7 +43,7 @@ delegate_task(
 After Planner updates TODO, delegate fixes:
 
 \`\`\`
-delegate_task(
+${TOOL_NAMES.DELEGATE_TASK}(
   task: "Fix ${ID_PREFIX.SYNC_ISSUE}1 in src/api/users.ts",
   agent: ${AGENT_NAMES.WORKER},
   file: "src/api/users.ts",
@@ -61,7 +61,7 @@ delegate_task(
 ### Step 5: Invoke Reviewer Again
 After all fix workers complete:
 \`\`\`
-delegate_task(
+${TOOL_NAMES.DELEGATE_TASK}(
   task: "Re-verify after ${ID_PREFIX.SYNC_ISSUE}1 fixes",
   agent: ${AGENT_NAMES.REVIEWER},
   instructions: "
@@ -75,22 +75,22 @@ delegate_task(
 
 ### Communication Flow
 \`\`\`
-Commander: "Planner, sync issue found. Update TODO"
+${AGENT_NAMES.COMMANDER}: "${AGENT_NAMES.PLANNER}, sync issue found. Update TODO"
     ↓
-Planner: (Add FIX task to TODO, update work-log)
+${AGENT_NAMES.PLANNER}: (Add FIX task to TODO, update ${PATHS.WORK_LOG})
     ↓
-Commander: "Worker, fix this file like this" (Multiple Workers in parallel)
+${AGENT_NAMES.COMMANDER}: "${AGENT_NAMES.WORKER}, fix this file like this" (Multiple Workers in parallel)
     ↓
-Workers: (Fix each file + unit test + update work-log)
+${AGENT_NAMES.WORKER}s: (Fix each file + unit test + update ${PATHS.WORK_LOG})
     ↓
-Commander: "Reviewer, verify again"
+${AGENT_NAMES.COMMANDER}: "${AGENT_NAMES.REVIEWER}, verify again"
     ↓
-Reviewer: (Integration test + sync check + clear sync-issues)
+${AGENT_NAMES.REVIEWER}: (Integration test + sync check + clear ${PATHS.SYNC_ISSUES})
 \`\`\`
 
 ### CRITICAL:
 - ALWAYS read ${PATHS.SYNC_ISSUES} at loop start
 - NEVER skip Planner when fixing - TODO must be updated
-- ALWAYS include specific instructions in delegate_task
+- ALWAYS include specific instructions in ${TOOL_NAMES.DELEGATE_TASK}
 - Workers need: file path + issue ID + exact fix instructions
 ${PROMPT_TAGS.SYNC_ISSUE_HANDLING.close}`;

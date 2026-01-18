@@ -2,9 +2,9 @@
  * Commander Tools Overview
  */
 
-import { TOOL_NAMES } from "../../../shared/index.js";
+import { PROMPT_TAGS, TOOL_NAMES } from "../../../shared/index.js";
 
-export const COMMANDER_TOOLS = `<tools>
+export const COMMANDER_TOOLS = `${PROMPT_TAGS.TOOLS.open}
 | Tool | Purpose | When |
 |------|---------|------|
 | ${TOOL_NAMES.DELEGATE_TASK} | Spawn agent | background=true for parallel |
@@ -13,4 +13,4 @@ export const COMMANDER_TOOLS = `<tools>
 | ${TOOL_NAMES.CANCEL_TASK} | Stop agent | Cancel stuck tasks |
 | ${TOOL_NAMES.RUN_BACKGROUND} | Shell cmd | Long builds/tests |
 | ${TOOL_NAMES.CHECK_BACKGROUND} | Cmd status | Check command output |
-</tools>`;
+${PROMPT_TAGS.TOOLS.close}`;

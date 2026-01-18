@@ -2,9 +2,9 @@
  * Worker Quality Checklist
  */
 
-import { AGENT_NAMES } from "../../../shared/index.js";
+import { AGENT_NAMES, PATHS, PROMPT_TAGS } from "../../../shared/index.js";
 
-export const WORKER_QUALITY = `<quality_checklist>
+export const WORKER_QUALITY = `${PROMPT_TAGS.QUALITY_CHECKLIST.open}
 BEFORE REPORTING COMPLETE:
 - lsp_diagnostics shows no errors
 - Build passes (npm run build)
@@ -13,12 +13,12 @@ BEFORE REPORTING COMPLETE:
 - No console.log debugging left
 - Error cases handled
 - Types correct (no 'any')
-- Matches .opencode/docs/ patterns
+- Matches ${PATHS.DOCS}/ patterns
 
 OUTPUT FORMAT:
 TASK: T[N]
 CHANGED: [files] ([lines])
 VERIFY: lsp_diagnostics clean, build pass, tests pass
-DOCS_USED: .opencode/docs/[file]
+DOCS_USED: ${PATHS.DOCS}/[file]
 Ready for ${AGENT_NAMES.REVIEWER} verification
-</quality_checklist>`;
+${PROMPT_TAGS.QUALITY_CHECKLIST.close}`;

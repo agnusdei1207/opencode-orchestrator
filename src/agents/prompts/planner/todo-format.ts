@@ -2,10 +2,10 @@
  * Planner TODO Format - Hierarchical
  */
 
-import { AGENT_NAMES } from "../../../shared/index.js";
+import { AGENT_NAMES, PATHS, PROMPT_TAGS, WORK_STATUS } from "../../../shared/index.js";
 
-export const PLANNER_TODO_FORMAT = `<planning_format>
-OUTPUT TO: .opencode/todo.md
+export const PLANNER_TODO_FORMAT = `${PROMPT_TAGS.PLANNING_FORMAT.open}
+OUTPUT TO: ${PATHS.TODO}
 
 ## Hierarchical Structure
 LEVEL 1 - Epic (E): High-level deliverable
@@ -21,7 +21,7 @@ Runtime: [Node.js/Python/etc]
 Build: [npm/docker/make]
 Test: [npm test/pytest/etc]
 
-## E1: [Epic Name] | status: pending
+## E1: [Epic Name] | status: ${WORK_STATUS.TODO_STATUS.PENDING}
 ### T1.1: [Task] | agent:${AGENT_NAMES.PLANNER}
 - [ ] S1.1.1: [Research topic] | size:S
 - [ ] S1.1.2: [Cache docs] | size:S
@@ -36,7 +36,7 @@ Test: [npm test/pytest/etc]
 - [ ] S1.3.2: [Run build] | size:S
 - [ ] S1.3.3: [Run tests] | size:S
 
-## E2: [Epic Name] | status: pending | depends:E1
+## E2: [Epic Name] | status: ${WORK_STATUS.TODO_STATUS.PENDING} | depends:E1
 ...
 \`\`\`
 
@@ -45,8 +45,8 @@ Test: [npm test/pytest/etc]
 - Each subtask = one focused action
 - Maximize parallelism within task
 - Add verification task for each implementation task
-- Size: XS(<5min), S(5-15min), M(15-30min), L(30-60min)
+- Size: ${WORK_STATUS.TASK_SIZE.XS}(<5min), ${WORK_STATUS.TASK_SIZE.S}(5-15min), ${WORK_STATUS.TASK_SIZE.M}(15-30min), ${WORK_STATUS.TASK_SIZE.L}(30-60min)
 - If L or larger, break into subtasks
 
 ALL items MUST start with [ ] (unchecked)
-</planning_format>`;
+${PROMPT_TAGS.PLANNING_FORMAT.close}`;
