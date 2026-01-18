@@ -19183,7 +19183,7 @@ function createConfigHandler() {
         prompt: commanderPrompt,
         maxTokens: AGENT_TOKENS.PRIMARY_MAX_TOKENS,
         thinking: { type: "enabled", budgetTokens: AGENT_TOKENS.PRIMARY_THINKING_BUDGET },
-        color: "#FFE474"
+        color: "#ffea98"
       },
       // Consolidated subagents (4 agents instead of 6)
       [AGENT_NAMES.PLANNER]: {
