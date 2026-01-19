@@ -9,8 +9,7 @@
 import { AGENT_NAMES } from "../../shared/agent/constants/index.js";
 import type { AgentDefinition } from "../../shared/agent/interfaces/index.js";
 import {
-    // Common
-    CORE_PHILOSOPHY,
+    // Common (no philosophy - Commander handles that)
     ENVIRONMENT_DISCOVERY,
     ANTI_HALLUCINATION_CORE,
     TODO_RULES,
@@ -28,9 +27,9 @@ import {
 
 /**
  * Compose Planner system prompt from modular fragments
+ * NOTE: No CORE_PHILOSOPHY - Commander holds the philosophy and delegates clear tasks
  */
 const systemPrompt = [
-    CORE_PHILOSOPHY,
     PLANNER_ROLE,
     PLANNER_FORBIDDEN,
     PLANNER_REQUIRED,

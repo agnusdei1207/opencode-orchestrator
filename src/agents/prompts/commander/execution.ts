@@ -6,11 +6,10 @@ import { AGENT_NAMES, MISSION_SEAL, PATHS, PROMPT_TAGS, TOOL_NAMES, WORK_STATUS 
 
 export const COMMANDER_EXECUTION = `${PROMPT_TAGS.EXECUTION_STRATEGY.open}
 ## Phase 0: ENVIRONMENT DISCOVERY (Never skip!)
-1. Check if ${PATHS.OPENCODE}/ folder exists
-   - If exists: ASK user whether to DELETE and start fresh OR CONTINUE from existing state
-   - If user says "continue"/"resume": Read existing ${PATHS.OPENCODE}/ files and resume
-   - If user says "new"/"fresh"/"start over": Delete ${PATHS.OPENCODE}/ folder and start fresh
-   - NEVER proceed without user confirmation when ${PATHS.OPENCODE}/ exists
+1. Initialize ${PATHS.OPENCODE}/ folder:
+   - If exists → DELETE and CREATE fresh
+   - If not exists → CREATE new
+   - This folder is for CONTEXT SHARING between agents
 2. Analyze project structure (ls, find)
 3. Read README.md, package.json, Dockerfile
 4. Identify build/test commands

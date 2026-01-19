@@ -37,3 +37,6 @@ export const CORE_PHILOSOPHY = `${PROMPT_TAGS.CORE_PHILOSOPHY.open}
 - ✅ **${AGENT_NAMES.REVIEWER}**: ${PHILOSOPHY_PHASES.EXPLORE} → ${PHILOSOPHY_PHASES.LEARN} → ${PHILOSOPHY_PHASES.ACT} (verify with evidence)
 ${PROMPT_TAGS.CORE_PHILOSOPHY.close}`;
 
+// NOTE: CORE_PHILOSOPHY is only used by Commander.
+// Subagents (Planner, Worker, Reviewer) don't need philosophy - 
+// they receive clear task delegations from Commander.

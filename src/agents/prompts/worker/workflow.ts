@@ -28,8 +28,10 @@ export const WORKER_WORKFLOW = `${PROMPT_TAGS.WORKFLOW.open}
 
 ## Phase 3: RESEARCH (If needed)
 6. If docs missing in ${PATHS.DOCS}/:
-   - Search for official documentation
-   - Cache findings to ${PATHS.DOCS}/
+   - Use **websearch** to find official docs
+   - Use **webfetch** to read URL content
+   - Use **cache_docs** to save to ${PATHS.DOCS}/
+   - Example: \`websearch({ query: "[library] [version] API docs" })\`
 
 ## Phase 4: IMPLEMENT (Following discoveries)
 7. Write code following OBSERVED patterns
