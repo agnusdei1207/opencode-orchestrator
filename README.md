@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="assets/starship.png" alt="STARSHIP" width="280" />
+  <img src="assets/logo.png" alt="logo" width="280" />
   <h1>OpenCode Orchestrator</h1>
 
   [![MIT License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
@@ -7,9 +7,7 @@
   [![Tests](https://img.shields.io/badge/tests-216%20passed-brightgreen.svg)]()
 </div>
 
----
-
-> The STARSHIP lands on a new planet: an unfamiliar codebase. No docs. No tests. Just a mission. The crew doesn't ask — they explore, adapt, and conquer.
+> **🚀 Multi-Agent Orchestration Plugin for [OpenCode](https://opencode.ai)**
 
 ---
 
@@ -26,61 +24,60 @@ Then in OpenCode:
 
 ---
 
-## 🛸 Protocol
+## 🎄 Core Philosophy 
 
 ```
 ┌───────────────────────────────────────────────────┐
-│  🔍 EXPLORE → 📝 LEARN → 🔄 ADAPT → ⚡ ACT          │
+│  🔍 EXPLORE → 📝 LEARN → 🔄 ADAPT → ⚡ ACT       │
 │  Scan        Document    Adjust      Execute      │
 └───────────────────────────────────────────────────┘
 ```
 
-### 👨‍🚀 The Crew
+### 👨‍🚀 The Agents (Crews)
 
-*When the STARSHIP arrives, four specialists deploy:*
+*Four AI agents work together on your task:*
 
-| Agent | Role | Mission |
-|:------|:-----|:--------|
-| 🎯 **Commander** | The Captain | *"I lead the mission. I delegate. I don't leave until it's done."* |
-| 📋 **Planner** | The Scientist | *"I map the terrain. I document everything. I create paths to follow."* |
-| 🔨 **Worker** | The Engineer | *"I build with local materials. I adapt to what I find."* |
-| ✅ **Reviewer** | The Inspector | *"Nothing launches until I verify it. Zero defects."* |
+| Agent | Role | What It Does |
+|:------|:-----|:-------------|
+| 🎯 **Commander** | Orchestrator | Leads the task, delegates work to other agents, ensures completion |
+| 📋 **Planner** | Researcher | Analyzes the project, creates the plan, documents findings |
+| 🔨 **Worker** | Implementer | Writes code, modifies files, follows the project's patterns |
+| ✅ **Reviewer** | Verifier | Tests changes, checks for errors, confirms quality |
 
-### 📖 The Codex
+### 📖 Core Principles
 
-*These are the rules every crew member lives by:*
+*Rules that guide every agent:*
 
-| Principle | In Practice |
-|:----------|:------------|
-| 🔍 **Never Assume Gravity** | Read `context.md`, detect stack, find actual commands |
-| 📝 **Document for Future Missions** | Record patterns, conventions, and findings for reuse |
-| 📚 **Evidence Over Memory** | Cite docs, run commands, complete only with proof |
-| 🔄 **Adapt to the Terrain** | Behavior evolves based on what we've documented |
-| 🤝 **Each Crew Member Has a Role** | Specialists don't overlap — they collaborate |
+| Principle | What It Means |
+|:----------|:--------------|
+| 🔍 **Never Assume** | Always check the actual code and config files first |
+| 📝 **Document Everything** | Record patterns and findings for future tasks |
+| 📚 **Verify with Evidence** | Run tests, cite sources, complete with proof |
+| 🔄 **Adapt to the Project** | Match the project's existing style and patterns |
+| 🤝 **Specialized Roles** | Each agent has a clear, focused responsibility |
 
 ---
 
-## 🏛️ Mission Control
-
+## 🏛️ Workflow
 
 ```
         /task "Build REST API"
                 │
     ╔═══════════════════════════════════╗
-    ║  🎯 COMMANDER — "Deploy the crew" ║
+    ║  🎯 COMMANDER — "Start the task"  ║
     ╚═══════════════╤═══════════════════╝
                     │
     ┌───────────────┼───────────────┐
     ▼               ▼               ▼
 ┌───────┐      ┌───────┐      ┌───────┐
 │PLANNER│      │WORKER │      │WORKER │   ← 🔥 50 PARALLEL
-│plan.md│      │auth.ts│      │api.ts │      DEPLOYMENTS
+│plan.md│      │auth.ts│      │api.ts │      TASKS
 └───────┘      └───────┘      └───────┘
     │               │               │
     └───────────────┼───────────────┘
                     ▼
     ╔═══════════════════════════════════╗
-    ║  ✅ REVIEWER — "Final inspection" ║
+    ║  ✅ REVIEWER — "Verify everything" ║
     ╚═══════════════╤═══════════════════╝
                     │
            ┌────────┴────────┐
@@ -88,34 +85,32 @@ Then in OpenCode:
            │ Issues = 0?     │
            └────────┬────────┘
              No ↙       ↘ Yes
-          ♻️ LOOP      🎖️ MISSION SEALED
+          ♻️ LOOP      ✅ COMPLETE
 ```
 
 ---
 
-## 🚀 Capabilities
+## Features
 
-| Capability | What It Means |
-|:-----------|:--------------|
-| ⚡ **50 Parallel Deployments** | Deploy up to 50 crew members simultaneously |
-| 🔥 **Multi-Zone Operations** | Workers build different sectors at the same time |
-| 🧩 **Smart Crew Assignment** | One file = one specialist. Zero conflicts |
-| 🔗 **Real-Time Comms** | Shared `.opencode/` state syncs all agents |
-| 🛡️ **Pre-Launch Verification** | E2E tests, import checks, integration validation |
-| 🩹 **Self-Repair Systems** | Auto-recovery with 3 retries per session |
-| 🧬 **Adaptive AI Cores** | Agents evolve based on what they discover |
+| Feature | What It Does |
+|:---------|:-------------|
+| ⚡ **50 Parallel Tasks** | Run up to 50 agents simultaneously |
+| 🔥 **Multi-File Operations** | Work on different files at the same time |
+| 🧩 **Smart Assignment** | One file = one agent. No conflicts |
+| 🔗 **Real-Time Sync** | Shared `.opencode/` state keeps all agents in sync |
+| 🛡️ **Automatic Verification** | E2E tests, import checks, integration validation |
+| 🩹 **Auto-Recovery** | Retry failed tasks automatically (up to 3 times) |
+| 🧬 **Adaptive AI** | Agents learn and adapt based on the project |
 
-### 🚨 Emergency Protocols
+### 🚨 Error Handling
 
-*When things go wrong in space, the STARSHIP knows what to do:*
-
-| Emergency | Recovery Action |
-|:----------|:----------------|
-| 💥 Tool crash | Inject recovery prompt |
-| 🚦 Rate limit hit | Exponential backoff + retry |
-| 📦 Context overflow | Smart compaction |
-| ⏱️ Session timeout | Resume from checkpoint |
-| 🔨 Build failure | Loop back, fix, retry |
+| Error | What Happens |
+|:------|:-------------|
+| 💥 Tool crash | Inject recovery prompt and retry |
+| 🚦 Rate limit hit | Wait and retry with exponential backoff |
+| 📦 Context overflow | Compact the context automatically |
+| ⏱️ Session timeout | Resume from the last checkpoint |
+| 🔨 Build failure | Fix the issue and retry |
 
 ---
 
