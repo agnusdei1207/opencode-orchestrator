@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="assets/logo.png" alt="logo" width="280" />
+  <img src="assets/starship.png" alt="logo" width="280" />
   <h1>OpenCode Orchestrator</h1>
 
   [![MIT License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
@@ -32,6 +32,10 @@ Then in OpenCode:
 │  Scan        Document    Adjust      Execute      │
 └───────────────────────────────────────────────────┘
 ```
+
+<div align="center">
+  <img src="assets/starship_space.png" alt="logo" width="280" />
+</div>
 
 ### 👨‍🚀 The Agents (Crews)
 
