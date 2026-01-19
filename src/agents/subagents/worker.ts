@@ -9,8 +9,7 @@
 import { AGENT_NAMES } from "../../shared/agent/constants/index.js";
 import type { AgentDefinition } from "../../shared/agent/interfaces/index.js";
 import {
-    // Common
-    CORE_PHILOSOPHY,
+    // Common (no philosophy - Commander handles that)
     ANTI_HALLUCINATION_CORE,
     SHARED_WORKSPACE,
     VERIFICATION_REQUIREMENTS,
@@ -29,9 +28,9 @@ import {
 
 /**
  * Compose Worker system prompt from modular fragments
+ * NOTE: No CORE_PHILOSOPHY - Commander holds the philosophy and delegates clear tasks
  */
 const systemPrompt = [
-    CORE_PHILOSOPHY,
     WORKER_ROLE,
     WORKER_FORBIDDEN,
     WORKER_REQUIRED,

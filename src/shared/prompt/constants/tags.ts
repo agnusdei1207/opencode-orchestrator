@@ -52,6 +52,7 @@ export const PROMPT_TAGS = {
 
     // === Mission Loop ===
     MISSION_LOOP: { open: "<mission_loop>", close: "</mission_loop>" },
+    AUTONOMOUS_MODE: { open: "<autonomous_mode>", close: "</autonomous_mode>" },
 } as const;
 
 /**

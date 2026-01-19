@@ -4,10 +4,18 @@
  * Adaptive research - find the RIGHT sources for THIS project.
  */
 
-import { PATHS, PROMPT_TAGS, WORK_STATUS } from "../../../shared/index.js";
+import { PATHS, PROMPT_TAGS, TOOL_NAMES, WORK_STATUS } from "../../../shared/index.js";
 
 export const PLANNER_RESEARCH = `${PROMPT_TAGS.RESEARCH_WORKFLOW.open}
 🔬 ADAPTIVE RESEARCH WORKFLOW
+
+## Available Research Tools
+| Tool | Usage | Purpose |
+|------|-------|---------|
+| ${TOOL_NAMES.WEBSEARCH} | websearch({ query: "..." }) | Search web for docs, tutorials |
+| ${TOOL_NAMES.WEBFETCH} | webfetch({ url: "..." }) | Fetch full content from URL |
+| ${TOOL_NAMES.CODESEARCH} | codesearch({ query: "..." }) | Search GitHub for examples |
+| ${TOOL_NAMES.CACHE_DOCS} | cache_docs({ url, topic }) | Save docs to ${PATHS.DOCS}/ |
 
 ## Step 1: Identify What to Research
 - What technology/library/API is needed?
@@ -23,8 +31,10 @@ export const PLANNER_RESEARCH = `${PROMPT_TAGS.RESEARCH_WORKFLOW.open}
 
 ## Step 3: Search Strategy
 \`\`\`
-websearch "[topic] official documentation [detected version]"
-websearch "[topic] [language] example"
+${TOOL_NAMES.WEBSEARCH} "[topic] official documentation [detected version]"
+${TOOL_NAMES.WEBSEARCH} "[topic] [language] example"
+${TOOL_NAMES.WEBFETCH} "[result URL from search]"
+${TOOL_NAMES.CACHE_DOCS} "{ url, topic }"
 \`\`\`
 
 ## Step 4: Validate & Extract

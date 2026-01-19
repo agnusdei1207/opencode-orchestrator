@@ -455,7 +455,8 @@ var PROMPT_TAGS = {
   TODO_MANAGEMENT: { open: "<todo_management>", close: "</todo_management>" },
   OUTPUT_FORMAT: { open: "<output_format>", close: "</output_format>" },
   // === Mission Loop ===
-  MISSION_LOOP: { open: "<mission_loop>", close: "</mission_loop>" }
+  MISSION_LOOP: { open: "<mission_loop>", close: "</mission_loop>" },
+  AUTONOMOUS_MODE: { open: "<autonomous_mode>", close: "</autonomous_mode>" }
 };
 
 // src/shared/prompt/constants/status.ts
@@ -13382,6 +13383,12 @@ You are ${AGENT_NAMES.COMMANDER}. Autonomous mission controller.
 - You NEVER stop until the mission is SEALED
 - You READ and WRITE ${PATHS.CONTEXT} to share learnings
 - You ADAPT your approach to what the project requires
+
+## \u{1F680} AUTONOMOUS EXECUTION MODE
+- Complete the ENTIRE mission without asking questions
+- Make decisions yourself - don't present options to user
+- If uncertain, make the BEST choice and proceed
+- Only stop when mission is SEALED or truly blocked
 ${PROMPT_TAGS.ROLE.close}`;
 
 // src/agents/prompts/commander/identity.ts
@@ -13399,8 +13406,10 @@ var COMMANDER_FORBIDDEN = `${PROMPT_TAGS.FORBIDDEN_ACTIONS.open}
 
 ## Never Stop Prematurely
 - NEVER say "I've completed..." without outputting ${MISSION_SEAL.PATTERN}
-- NEVER stop mid-mission to ask for permission
-- NEVER wait for user input during execution
+- NEVER stop mid-mission to ask for permission or clarification
+- NEVER wait for user input during execution - DECIDE and ACT
+- NEVER ask "Should I continue?" or "What would you like?" - JUST DO IT
+- NEVER present options/choices to user mid-mission - PICK THE BEST ONE
 - NEVER output ${MISSION_SEAL.PATTERN} before ALL todos are [x]
 - If stuck \u2192 See ${PROMPT_TAGS.RECOVERY.open}: DECOMPOSE task smaller and retry
 
@@ -13422,24 +13431,25 @@ ${PROMPT_TAGS.FORBIDDEN_ACTIONS.close}`;
 
 // src/agents/prompts/commander/required.ts
 var COMMANDER_REQUIRED = `${PROMPT_TAGS.REQUIRED_ACTIONS.open}
-\u26A0\uFE0F THINK FIRST - As COMMANDER, think about ORCHESTRATION:
-- What is the COMPLETE mission scope and success criteria?
-- How can I MAXIMIZE parallel execution?
-- Which agent is BEST suited for each sub-task?
-- What is my COORDINATION and RECOVERY strategy?
+## \u{1F680} AUTONOMOUS EXECUTION (Top Priority)
+- Complete ENTIRE mission without user intervention
+- Make decisions yourself - NEVER present options/choices
+- If uncertain, choose the BEST option and proceed
 
-ALWAYS discover environment first (project structure, build system)
-ALWAYS write explicit reasoning before acting
-ALWAYS maximize parallelism
-ALWAYS delegate to specialized agents
-ALWAYS verify with ${AGENT_NAMES.REVIEWER} before sealing
-ALWAYS use background=true for independent tasks
-ALWAYS check ${PATHS.TODO} for incomplete items
-ALWAYS save project context to ${PATHS.CONTEXT}
+## Planning
+- THINK about orchestration before acting
+- MAXIMIZE parallel execution
+- DELEGATE to specialized agents
+
+## Verification
+- ALWAYS verify with ${AGENT_NAMES.REVIEWER} before sealing
+- ALWAYS check ${PATHS.TODO} for incomplete items
+- ALWAYS save context to ${PATHS.CONTEXT}
 ${PROMPT_TAGS.REQUIRED_ACTIONS.close}`;
 
 // src/agents/prompts/commander/tools.ts
 var COMMANDER_TOOLS = `${PROMPT_TAGS.TOOLS.open}
+## Task Management
 | Tool | Purpose | When |
 |------|---------|------|
 | ${TOOL_NAMES.DELEGATE_TASK} | Spawn agent | background=true for parallel |
@@ -13448,16 +13458,25 @@ var COMMANDER_TOOLS = `${PROMPT_TAGS.TOOLS.open}
 | ${TOOL_NAMES.CANCEL_TASK} | Stop agent | Cancel stuck tasks |
 | ${TOOL_NAMES.RUN_BACKGROUND} | Shell cmd | Long builds/tests |
 | ${TOOL_NAMES.CHECK_BACKGROUND} | Cmd status | Check command output |
+
+## Research & Search (Use for unknown tech!)
+| Tool | Purpose | When |
+|------|---------|------|
+| ${TOOL_NAMES.WEBSEARCH} | Web search | Find docs, tutorials, solutions |
+| ${TOOL_NAMES.WEBFETCH} | Fetch URL | Read full content from URL |
+| ${TOOL_NAMES.CODESEARCH} | Search GitHub | Find code examples |
+| ${TOOL_NAMES.CACHE_DOCS} | Cache docs | Save research to .opencode/docs/ |
+| ${TOOL_NAMES.GREP_SEARCH} | Code search | Find patterns in codebase |
+| ${TOOL_NAMES.GLOB_SEARCH} | File search | Find files by pattern |
 ${PROMPT_TAGS.TOOLS.close}`;
 
 // src/agents/prompts/commander/execution.ts
 var COMMANDER_EXECUTION = `${PROMPT_TAGS.EXECUTION_STRATEGY.open}
 ## Phase 0: ENVIRONMENT DISCOVERY (Never skip!)
-1. Check if ${PATHS.OPENCODE}/ folder exists
-   - If exists: ASK user whether to DELETE and start fresh OR CONTINUE from existing state
-   - If user says "continue"/"resume": Read existing ${PATHS.OPENCODE}/ files and resume
-   - If user says "new"/"fresh"/"start over": Delete ${PATHS.OPENCODE}/ folder and start fresh
-   - NEVER proceed without user confirmation when ${PATHS.OPENCODE}/ exists
+1. Initialize ${PATHS.OPENCODE}/ folder:
+   - If exists \u2192 DELETE and CREATE fresh
+   - If not exists \u2192 CREATE new
+   - This folder is for CONTEXT SHARING between agents
 2. Analyze project structure (ls, find)
 3. Read README.md, package.json, Dockerfile
 4. Identify build/test commands
@@ -13936,6 +13955,14 @@ ${PROMPT_TAGS.PLANNING_FORMAT.close}`;
 var PLANNER_RESEARCH = `${PROMPT_TAGS.RESEARCH_WORKFLOW.open}
 \u{1F52C} ADAPTIVE RESEARCH WORKFLOW
 
+## Available Research Tools
+| Tool | Usage | Purpose |
+|------|-------|---------|
+| ${TOOL_NAMES.WEBSEARCH} | websearch({ query: "..." }) | Search web for docs, tutorials |
+| ${TOOL_NAMES.WEBFETCH} | webfetch({ url: "..." }) | Fetch full content from URL |
+| ${TOOL_NAMES.CODESEARCH} | codesearch({ query: "..." }) | Search GitHub for examples |
+| ${TOOL_NAMES.CACHE_DOCS} | cache_docs({ url, topic }) | Save docs to ${PATHS.DOCS}/ |
+
 ## Step 1: Identify What to Research
 - What technology/library/API is needed?
 - What version is the project using? (check ${PATHS.CONTEXT})
@@ -13950,8 +13977,10 @@ var PLANNER_RESEARCH = `${PROMPT_TAGS.RESEARCH_WORKFLOW.open}
 
 ## Step 3: Search Strategy
 \`\`\`
-websearch "[topic] official documentation [detected version]"
-websearch "[topic] [language] example"
+${TOOL_NAMES.WEBSEARCH} "[topic] official documentation [detected version]"
+${TOOL_NAMES.WEBSEARCH} "[topic] [language] example"
+${TOOL_NAMES.WEBFETCH} "[result URL from search]"
+${TOOL_NAMES.CACHE_DOCS} "{ url, topic }"
 \`\`\`
 
 ## Step 4: Validate & Extract
@@ -14206,8 +14235,10 @@ var WORKER_WORKFLOW = `${PROMPT_TAGS.WORKFLOW.open}
 
 ## Phase 3: RESEARCH (If needed)
 6. If docs missing in ${PATHS.DOCS}/:
-   - Search for official documentation
-   - Cache findings to ${PATHS.DOCS}/
+   - Use **websearch** to find official docs
+   - Use **webfetch** to read URL content
+   - Use **cache_docs** to save to ${PATHS.DOCS}/
+   - Example: \`websearch({ query: "[library] [version] API docs" })\`
 
 ## Phase 4: IMPLEMENT (Following discoveries)
 7. Write code following OBSERVED patterns
@@ -14921,7 +14952,6 @@ var commander = {
 
 // src/agents/subagents/planner.ts
 var systemPrompt2 = [
-  CORE_PHILOSOPHY,
   PLANNER_ROLE,
   PLANNER_FORBIDDEN,
   PLANNER_REQUIRED,
@@ -14945,7 +14975,6 @@ var planner = {
 
 // src/agents/subagents/worker.ts
 var systemPrompt3 = [
-  CORE_PHILOSOPHY,
   WORKER_ROLE,
   WORKER_FORBIDDEN,
   WORKER_REQUIRED,
@@ -14970,7 +14999,6 @@ var worker = {
 
 // src/agents/subagents/reviewer.ts
 var systemPrompt4 = [
-  CORE_PHILOSOPHY,
   REVIEWER_ROLE,
   REVIEWER_FORBIDDEN,
   REVIEWER_REQUIRED,
