@@ -22,6 +22,10 @@ Then in OpenCode:
 /task "Build a REST API with authentication"
 ```
 
+<div align="center">
+  <img src="assets/starship_space.png" alt="logo" width="280" />
+</div>
+
 ---
 
 ## 🎄 Core Philosophy 
@@ -33,11 +37,9 @@ Then in OpenCode:
 └───────────────────────────────────────────────────┘
 ```
 
-<div align="center">
-  <img src="assets/starship_space.png" alt="logo" width="280" />
-</div>
+---
 
-### 👨‍🚀 The Agents (Crews)
+## 👨‍🚀 The Agents (Crews)
 
 | Agent | Role | What It Does |
 |:------|:-----|:-------------|
@@ -46,7 +48,9 @@ Then in OpenCode:
 | 🔨 **Worker** | Implementer | Writes code, modifies files, follows the project's patterns |
 | ✅ **Reviewer** | Verifier | Tests changes, checks for errors, confirms quality |
 
-### 📖 Core Principles
+---
+
+## 📖 Core Principles
 
 | Principle | What It Means |
 |:----------|:--------------|
@@ -77,7 +81,7 @@ Then in OpenCode:
     └───────────────┼───────────────┘
                     ▼
     ╔═══════════════════════════════════╗
-    ║  ✅ REVIEWER — "Verify everything" ║
+    ║  ✅ REVIEWER — "Verify everything"║
     ╚═══════════════╤═══════════════════╝
                     │
            ┌────────┴────────┐
@@ -87,8 +91,6 @@ Then in OpenCode:
              No ↙       ↘ Yes
           ♻️ LOOP      ✅ COMPLETE
 ```
-
----
 
 ## Features
 
@@ -102,7 +104,9 @@ Then in OpenCode:
 | 🩹 **Auto-Recovery** | Retry failed tasks automatically (up to 3 times) |
 | 🧬 **Adaptive AI** | Agents learn and adapt based on the project |
 
-### 🚨 Error Handling
+---
+
+## 🚨 Error Handling
 
 | Error | What Happens |
 |:------|:-------------|
