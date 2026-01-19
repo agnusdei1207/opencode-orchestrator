@@ -35,8 +35,6 @@ Then in OpenCode:
 
 ### 👨‍🚀 The Agents (Crews)
 
-*Four AI agents work together on your task:*
-
 | Agent | Role | What It Does |
 |:------|:-----|:-------------|
 | 🎯 **Commander** | Orchestrator | Leads the task, delegates work to other agents, ensures completion |
@@ -45,8 +43,6 @@ Then in OpenCode:
 | ✅ **Reviewer** | Verifier | Tests changes, checks for errors, confirms quality |
 
 ### 📖 Core Principles
-
-*Rules that guide every agent:*
 
 | Principle | What It Means |
 |:----------|:--------------|
