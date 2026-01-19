@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="assets/starship.png" alt="logo" width="280" />
+  <img src="assets/starship_approaching_planet.png" alt="logo" width="280" />
   <h1>OpenCode Orchestrator</h1>
 
   [![MIT License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
@@ -7,7 +7,7 @@
   [![Tests](https://img.shields.io/badge/tests-216%20passed-brightgreen.svg)]()
 </div>
 
-> **🚀 Multi-Agent Orchestration Plugin for [OpenCode](https://opencode.ai)**
+> **🚀🪐 Multi-Agent Orchestration Plugin for [OpenCode](https://opencode.ai)**
 
 ---
 
@@ -22,17 +22,13 @@ Then in OpenCode:
 /task "Build a REST API with authentication"
 ```
 
-<div align="center">
-  <img src="assets/starship_space.png" alt="logo" width="280" />
-</div>
-
 ---
 
-## 🎄 Core Philosophy 
+## ⭐ Core Philosophy
 
 ```
 ┌───────────────────────────────────────────────────┐
-│  🔍 EXPLORE → 📝 LEARN → 🔄 ADAPT → ⚡ ACT       │
+│  🔍 EXPLORE → 📝 LEARN → 🔄 ADAPT → ⚡ ACT          │
 │  Scan        Document    Adjust      Execute      │
 └───────────────────────────────────────────────────┘
 ```
