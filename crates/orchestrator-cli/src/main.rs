@@ -2,6 +2,13 @@
 //!
 //! CLI binary for OpenCode Orchestrator plugin.
 //!
+//! ## Philosophy
+//!
+//! This binary is pre-built and included in the package to enable immediate use of the 
+//! high-performance engine without requiring a separate Rust environment. While this 
+//! increases the package footprint, it aligns with our core philosophy: providing 
+//! maximum performance and out-of-the-box convenience for every user.
+//!
 //! ## Usage
 //!
 //! ```bash
