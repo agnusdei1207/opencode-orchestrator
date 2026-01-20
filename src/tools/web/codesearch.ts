@@ -7,6 +7,7 @@
 
 import { tool } from "@opencode-ai/plugin";
 import { OUTPUT_LABEL } from "../../shared/index.js";
+import { log } from "../../core/agents/logger.js";
 
 interface CodeSearchResult {
     repo: string;
@@ -76,7 +77,7 @@ async function searchGrepApp(query: string, options: {
 
         return results;
     } catch (error) {
-        console.error("grep.app search error:", error);
+        log("grep.app search error:", error);
         return [];
     }
 }
@@ -133,7 +134,7 @@ async function searchGitHub(query: string, options: {
 
         return results;
     } catch (error) {
-        console.error("GitHub search error:", error);
+        log("GitHub search error:", error);
         return [];
     }
 }

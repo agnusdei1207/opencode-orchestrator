@@ -7,6 +7,7 @@
 import { spawn } from "node:child_process";
 import { randomBytes } from "node:crypto";
 import { ID_PREFIX, getStatusIndicator, STATUS_LABEL, CLI_NAME } from "../../shared/index.js";
+import { log as internalLog } from "../agents/logger.js";
 import type { BackgroundTask } from "./interfaces/background-task.js";
 import type { BackgroundTaskStatus } from "./types/background-task-status.js";
 import type { RunBackgroundOptions } from "./interfaces/run-background-options.js";
@@ -32,7 +33,7 @@ class BackgroundTaskManager {
     private debug(taskId: string, message: string): void {
         if (this.debugMode) {
             const ts = new Date().toISOString().substring(11, 23);
-            console.log(`[BG ${ts}] ${taskId}: ${message}`);
+            internalLog(`[BG ${ts}] ${taskId}: ${message}`);
         }
     }
 

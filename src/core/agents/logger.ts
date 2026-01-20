@@ -22,8 +22,8 @@ export function log(...args: unknown[]): void {
         fs.appendFileSync(LOG_FILE, message + "\n");
     } catch { /* ignore file errors */ }
 
-    // Console only when DEBUG
-    if (DEBUG) console.log("[parallel-agent]", ...args);
+    // Console logging disabled to prevent TUI corruption
+    // Use 'tail -f /tmp/opencode-orchestrator.log' to view logs in real-time
 }
 
 export function getLogPath(): string {

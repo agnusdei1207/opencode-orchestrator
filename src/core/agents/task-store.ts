@@ -205,8 +205,7 @@ export class TaskStore {
             await fs.appendFile(filepath, lines.join("\n") + "\n");
             this.archivedCount += tasks.length;
         } catch (error) {
-            // Silently fail - archiving is best-effort
-            console.error("[TaskStore] Archive failed:", error);
+            // Silently fail - archiving is best-effort (no console output to prevent TUI corruption)
         }
     }
 

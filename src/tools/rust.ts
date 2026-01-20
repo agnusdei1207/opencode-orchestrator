@@ -1,6 +1,7 @@
 import { spawn } from "child_process";
 import { existsSync } from "fs";
 import { getBinaryPath } from "../utils/binary.js";
+import { log } from "../core/agents/logger.js";
 
 export async function callRustTool(name: string, args: Record<string, unknown>): Promise<string> {
     const binary = getBinaryPath();
@@ -15,7 +16,7 @@ export async function callRustTool(name: string, args: Record<string, unknown>):
         proc.stdout.on("data", (data) => { stdout += data.toString(); });
         proc.stderr.on("data", (data) => {
             const msg = data.toString().trim();
-            if (msg) console.error(`[rust-stderr] ${msg}`);
+            if (msg) log(`[rust-stderr] ${msg}`);
         });
 
         const request = JSON.stringify({
@@ -33,7 +34,7 @@ export async function callRustTool(name: string, args: Record<string, unknown>):
         proc.on("close", (code) => {
             clearTimeout(timeout);
             if (code !== 0 && code !== null) {
-                console.error(`Rust process exited with code ${code}`);
+                log(`Rust process exited with code ${code}`);
             }
             try {
                 // Return the last line that looks like valid JSON with expected structure

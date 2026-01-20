@@ -7,6 +7,7 @@
 
 import { tool } from "@opencode-ai/plugin";
 import { OUTPUT_LABEL } from "../../shared/index.js";
+import { log } from "../../core/agents/logger.js";
 
 interface SearchResult {
     title: string;
@@ -130,7 +131,7 @@ async function searchBrave(query: string): Promise<SearchResult[]> {
 
         return results;
     } catch (error) {
-        console.error("Brave search error:", error);
+        log("Brave search error:", error);
         return [];
     }
 }
@@ -207,7 +208,7 @@ async function searchDuckDuckGo(query: string): Promise<SearchResult[]> {
 
         return results;
     } catch (error) {
-        console.error("DuckDuckGo search error:", error);
+        log("DuckDuckGo search error:", error);
         return [];
     }
 }
@@ -249,7 +250,7 @@ async function searchDuckDuckGoHtml(query: string): Promise<SearchResult[]> {
 
         return results;
     } catch (error) {
-        console.error("DuckDuckGo HTML search error:", error);
+        log("DuckDuckGo HTML search error:", error);
         return [];
     }
 }
