@@ -17,3 +17,4 @@ export {
     PHASE_5_MSVP,
     HPFA_RULES
 } from "./mandates.js";
+export { SCOUTERS } from "./scouts.js";
