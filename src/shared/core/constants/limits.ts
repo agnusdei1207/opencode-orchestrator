@@ -4,7 +4,7 @@
 
 export const LIMITS = {
     /** Maximum mission loop iterations */
-    MAX_ITERATIONS: 1000,
+    MAX_ITERATIONS: 10000,
     /** Default scan limit for file listing */
     DEFAULT_SCAN_LIMIT: 20,
     /** Max message history to check for seal */
