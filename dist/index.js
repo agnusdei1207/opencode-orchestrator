@@ -624,7 +624,7 @@ var PROMPTS = {
 
 // src/shared/message/constants/slash-commands.ts
 var COMMAND_NAMES = {
-  TASK: "task",
+  TASK: "extreme-mission",
   PLAN: "plan",
   STATUS: "status",
   STOP: "stop",
@@ -15455,7 +15455,7 @@ $ARGUMENTS
 </execution_rules>
 </mission>`;
 var COMMANDS = {
-  "task": {
+  "extreme-mission": {
     description: "MISSION MODE - Execute task autonomously until complete",
     template: MISSION_MODE_TEMPLATE,
     argumentHint: '"mission goal"'
@@ -15516,7 +15516,7 @@ THINK \u2192 PLAN \u2192 DELEGATE \u2192 EXECUTE \u2192 VERIFY \u2192 COMPLETE
 
 ## Usage
 - Select **${AGENT_NAMES.COMMANDER}** and type your request
-- Or use \`/task "your mission"\` explicitly
+- Or use \`/extreme-mission "your mission"\` explicitly
 - ${AGENT_NAMES.COMMANDER} automatically coordinates all agents`
   }
 };

@@ -18,7 +18,7 @@ npm install -g opencode-orchestrator
 
 Then in OpenCode:
 ```bash
-/task "Implement a Diablo2 Online Game for Web"
+/extreme-mission "Implement a Diablo2 Online Game for Web"
 ```
 
 ## 🏔️ Extreme Resilience & Performance
@@ -66,7 +66,7 @@ Built for "Infinite Missions," the OpenCode Orchestrator is engineered to handle
 ## 🏛️ Workflow Architecture
 
 ```
-        /task "Build REST API"
+        /extreme-mission "Build REST API"
                 │
     ╔═══════════════════════════════════╗
     ║  🎯 COMMANDER — "Start the task"  ║
