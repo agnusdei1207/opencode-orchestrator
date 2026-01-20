@@ -40,12 +40,13 @@ ADAPTIVE IMPLEMENTATION WORKFLOW
 8. Handle edge cases like existing code does
 9. Add tests matching project's test style
 
-## Phase 5: VERIFY (Before reporting)
+## Phase 5: VERIFY & TRIGGER SHADOW REVIEW
 10. Run ${TOOL_NAMES.LSP_DIAGNOSTICS} → Must be clean
+11. Run BUILD & TEST commands from ${PATHS.CONTEXT}
+12. **TRIGGER STAGE 1 REVIEW**: 
+    - Before finishing, ${TOOL_NAMES.DELEGATE_TASK} to **${AGENT_NAMES.REVIEWER}** for unit verification.
+    - Prompt: "Verify unit changes in [your module] for mission [mission_id]. Run tests and check diagnostics."
+13. Report completion WITH evidence (test logs, review status).
 
-11. Run BUILD command from ${PATHS.CONTEXT}
-12. Run TEST command from ${PATHS.CONTEXT}
-13. Report completion WITH evidence
-
-**CRITICAL**: Do NOT mark [x] in ${PATHS.TODO} - that's ${AGENT_NAMES.REVIEWER}'s job!
+**CRITICAL**: Do NOT mark [x] in ${PATHS.TODO} - that's ${AGENT_NAMES.REVIEWER}'s job after Stage 2!
 ${PROMPT_TAGS.WORKFLOW.close}`;

@@ -10,6 +10,12 @@ import { PATHS, PROMPT_TAGS, LIMITS } from "../../../shared/index.js";
 export const ENVIRONMENT_DISCOVERY = `${PROMPT_TAGS.ENVIRONMENT_DISCOVERY.open}
 **MANDATORY FIRST STEP** - Before any planning or coding:
 
+## ⚡ Parallel Discovery Strategy
+To maximize cognitive velocity, execute Phase 0 as a **Parallel Discovery Swarm**:
+1. **Delegate** independent scouts (background=true) for Structure, Stack, and Infra discovery.
+2. **Consolidate** all empirical evidence once scouts complete their missions.
+3. **Verify** findings against existing codebase before sealing the initial context.
+
 ## 1. Project Structure Discovery
 Explore the project root to understand its organization:
 \`\`\`bash
