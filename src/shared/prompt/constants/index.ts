@@ -11,3 +11,4 @@ export {
     EXECUTION_CYCLE,
     EXECUTION_CYCLE_STEPS,
 } from "./philosophy.js";
+export { MANDATES } from "./mandates.js";
