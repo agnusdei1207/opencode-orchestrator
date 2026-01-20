@@ -18,7 +18,7 @@ export function createConfigHandler() {
         const existingCommands = (config.command as Record<string, unknown>) ?? {};
         const existingAgents = (config.agent as Record<string, { mode?: string; hidden?: boolean }>) ?? {};
 
-        // Register all our slash commands (like /task, /plan, etc.)
+        // Register all our slash commands (like /extreme-mission, /plan, etc.)
         const orchestratorCommands: Record<string, unknown> = {};
         for (const [name, cmd] of Object.entries(COMMANDS)) {
             orchestratorCommands[name] = {
