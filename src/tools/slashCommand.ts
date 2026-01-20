@@ -35,7 +35,7 @@ $ARGUMENTS
 // SLASH COMMANDS
 // ============================================================================
 export const COMMANDS: Record<string, { description: string; template: string; argumentHint?: string }> = {
-  "extreme-mission": {
+  "swarm": {
     description: "MISSION MODE - Execute task autonomously until complete",
     template: MISSION_MODE_TEMPLATE,
     argumentHint: '"mission goal"',
@@ -96,7 +96,7 @@ THINK → PLAN → DELEGATE → EXECUTE → VERIFY → COMPLETE
 
 ## Usage
 - Select **${AGENT_NAMES.COMMANDER}** and type your request
-- Or use \`/extreme-mission "your mission"\` explicitly
+- Or use \`/swarm "your mission"\` explicitly
 - ${AGENT_NAMES.COMMANDER} automatically coordinates all agents`,
   },
 

@@ -19,11 +19,11 @@ export const PARALLEL_TASK = {
     // Task lifecycle (24 hours for long tasks)
     TTL_MS: 24 * TIME.HOUR,
     CLEANUP_DELAY_MS: 10 * TIME.MINUTE,
-    MAX_DEPTH: 5, // Increased for fractal recursion
+    MAX_DEPTH: 8, // Titan-Class depth for complex fractal missions
 
     // Concurrency limits (Aggressive for intense processing)
-    DEFAULT_CONCURRENCY: 5,
-    MAX_CONCURRENCY: 20,
+    DEFAULT_CONCURRENCY: 10,
+    MAX_CONCURRENCY: 50,
 
     // Sync polling (for delegate_task sync mode)
     // Optimized: Reduced polling frequency while relying more on events

@@ -77,6 +77,13 @@ export class TaskLauncher {
      * Prepare task: Create session and registration without blocking on concurrency
      */
     private async prepareTask(input: LaunchInput): Promise<ParallelTask> {
+        // HPFA: Depth Guard
+        const currentDepth = input.depth ?? 0;
+        if (currentDepth >= PARALLEL_TASK.MAX_DEPTH) {
+            log(`[task-launcher.ts] Task depth limit reached (${currentDepth}/${PARALLEL_TASK.MAX_DEPTH}). Generation blocked.`);
+            throw new Error(`Maximum task depth (${PARALLEL_TASK.MAX_DEPTH}) reached. To prevent infinite recursion, no further sub-tasks can be spawned.`);
+        }
+
         const createResult = await this.client.session.create({
             body: {
                 parentID: input.parentSessionID,

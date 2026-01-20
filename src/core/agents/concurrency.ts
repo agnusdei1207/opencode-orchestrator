@@ -125,7 +125,7 @@ export class ConcurrencyController {
             // Increase limit if on a hot streak (every 5 successful tasks)
             if (streak % 5 === 0) {
                 const currentLimit = this.getConcurrencyLimit(key);
-                if (currentLimit < 20) { // Cap at 20
+                if (currentLimit < PARALLEL_TASK.MAX_CONCURRENCY) { // Use centralized constant
                     this.setLimit(key, currentLimit + 1);
                     internalLog(`[concurrency] Auto-scaling UP for ${key}: ${currentLimit + 1}`);
                 }

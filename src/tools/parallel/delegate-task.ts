@@ -241,7 +241,12 @@ export const createDelegateTaskTool = (manager: ParallelAgentManager, client: un
         const { agent, description, prompt, background, resume, mode, groupID } = args;
         const ctx = context as { sessionID: string };
 
-        log(`${PARALLEL_LOG.DELEGATE_TASK} execute() called`, { agent, description, background, resume, mode, groupID, parentSession: ctx.sessionID });
+        // HPFA: Parent depth detection
+        const allTasks = manager.getAllTasks();
+        const parentTask = allTasks.find(t => t.sessionID === ctx.sessionID);
+        const parentDepth = parentTask?.depth ?? 0;
+
+        log(`${PARALLEL_LOG.DELEGATE_TASK} execute() called`, { agent, description, background, resume, mode, groupID, parentSession: ctx.sessionID, depth: parentDepth });
 
         const sessionClient = client as {
             session: {
@@ -269,6 +274,7 @@ export const createDelegateTaskTool = (manager: ParallelAgentManager, client: un
                     description, // Assuming description is needed for resume context
                     mode: mode as any,
                     groupID,
+                    depth: parentDepth, // Preserve depth on resume
                 };
                 const launchResult = await manager.launch(input);
                 const task = (Array.isArray(launchResult) ? launchResult[0] : launchResult) as ParallelTask;
@@ -313,6 +319,7 @@ export const createDelegateTaskTool = (manager: ParallelAgentManager, client: un
                     parentSessionID: ctx.sessionID,
                     mode: mode as any,
                     groupID,
+                    depth: parentDepth,
                 });
                 const task = (Array.isArray(launchResult) ? launchResult[0] : launchResult) as ParallelTask;
 

@@ -12,12 +12,6 @@
 
 ---
 
-### 🌌 **The End of Sequential Limits. The Era of Fractal Mastery.**
-
-Where traditional agents hit a sequential wall, we deploy a fractal swarm. OpenCode Orchestrator is the world's most advanced autonomous engineering platform—a **Titan-Class Execution Engine** designed to conquer missions that break conventional AI. 
-
-By fusing **Fractal Swarm Intelligence (HPFA™)** with **Continuous Multi-Stage Verification Pipeline (MSVP™)**, it delivers a level of scale, velocity, and architectural absolute previously considered impossible. Welcome to the final form of autonomous development. No bottlenecks. No limits. Only pure execution.
-
 ## ⚡ Quick Start
 
 ```bash
@@ -26,8 +20,15 @@ npm install -g opencode-orchestrator
 
 Then in OpenCode, launch your mission:
 ```bash
-/extreme-mission "Architect and Build a Diablo-like Web Engine"
+/swarm "Architect and Build a Diablo-like Web Game"
 ```
+
+### 🌌 **The End of Sequential Limits. The Era of Fractal Mastery.**
+
+Where traditional agents hit a sequential wall, we deploy a fractal swarm. OpenCode Orchestrator is the world's most advanced autonomous engineering platform—a **Titan-Class Execution Engine** designed to conquer missions that break conventional AI. 
+
+By fusing **Fractal Swarm Intelligence (HPFA™)** with **Continuous Multi-Stage Verification Pipeline (MSVP™)**, it delivers a level of scale, velocity, and architectural absolute previously considered impossible. Welcome to the final form of autonomous development. No bottlenecks. No limits. Only pure execution.
+
 
 ## 💎 The Four Pillars of Excellence
 
@@ -74,20 +75,20 @@ We’ve combined industrial-grade reliability with cutting-edge parallel intelli
 
 ## 🏛️ Hyper-Parallel Architecture: HPFA & MSVP
 
-The orchestrator eliminates the linear bottleneck of AI development through two breakthrough technologies:
+The orchestrator eliminates the linear reasoning bottleneck of conventional AI agents by shifting from sequential execution to a **Distributed Runtime Unit** paradigm.
 
-### 🧬 **HPFA (Hyper-Parallel Fractal Architecture)**
-Imagine an agent that doesn't just work, but **thinks like a Hive Mind**. 
-*   **Fractal Delegation**: Workers are no longer just "doers." They are mini-planners that can recursively spawn their own sub-agents to handle complexity at every level.
-*   **Speculative Racing**: Ambiguous tasks are solved using multiple strategies in parallel. The fastest, most accurate path wins, while others are pruned—minimizing latency and maximizing quality.
+### 🧬 **HPFA™ (Hyper-Parallel Fractal Architecture)**
+HPFA defines a recursive problem-solving model that decomposes massive codebases into atomic task units through a fractal hierarchy.
+*   **Fractal Delegation**: Workers are instantiated as autonomous controllers with localized `TaskLauncher` contexts. This enables recursive spawning of sub-agents up to 8 levels deep, mapping complex architectural hierarchies into a parallel execution grid.
+*   **Cognitive Concurrency Control**: A dedicated state-machine manages up to 50 concurrent sessions. It monitors success/failure trajectories to dynamically scale concurrency slots, ensuring maximum throughput while maintaining strict rate-limit compliance.
 
-### 🛡️ **MSVP (Multi-Stage Verification Pipeline)**
-Speed is nothing without accuracy. MSVP ensures your code is production-ready at every second.
-*   **Shadow Parallel Review**: As soon as a file is written, a parallel reviewer session is already validating it before the main task even finishes.
-*   **Barrier-Sync Integration**: A 4-stage verification gate that prevents "architectural drift" by forcing a global synchronization barrier before final sealing.
+### 🛡️ **MSVP™ (Multi-Stage Verification Pipeline)**
+MSVP ensures continuous integration integrity by decoupling verification from the implementation lifecycle, treating code review as a parallel background-thread.
+*   **Shadow Review Pipeline**: Upon every file-write operation, a parallel reviewer session is instantly snapshotted (Unit-level Verification). This zero-latency audit identifies defects the millisecond they are introduced, without blocking the primary implementation thread.
+*   **Global Barrier-Sync Protocol**: Implements a synchronized verification gate. The system enforces a blocking "Barrier" that requires consistency across all distributed units before transitioning to the final Master Review (E2E Integration) and Mission Sealing.
 
 ```
-              /extreme-mission "Build Complex System"
+              /swarm "Build Complex System"
                            │
            ╔═══════════════════════════════════════╗
            ║     🎯 COMMANDER — Orchestrator       ║
@@ -148,14 +149,14 @@ Speed is nothing without accuracy. MSVP ensures your code is production-ready at
 
 | Feature | What It Does |
 |:---------|:-------------|
-| 🚀 **MSVP Pipeline** | Parallel unit reviews triggered immediately after worker tasks |
-| 🧬 **Fractal Spawning** | Workers can recursively spawn sub-missions for complex tasks |
-| ⚡ **20+ Parallel Tasks** | High-intensity execution with safety concurrency limits |
-| 🔄 **Non-Stop Recovery** | WAL-based persistence (resumes tasks after crashes) |
-| 🔥 **Multi-File Ops** | Work on different files at the same time |
-| 🛡️ **Self-Scaling** | Dynamic concurrency limits based on success/failure |
-| 🩹 **Memory Integrity** | Strict resource cleanup prevents leaks in long sessions |
-| 🏗️ **Architectural Modularity**| Enforces language-agnostic clean code principles |
+| 🚀 **MSVP™ Pipeline** | Zero-latency unit reviews triggered the millisecond code is written |
+| 🧬 **Fractal Spawning** | Workers recursively spawn sub-agents for infinite structural depth |
+| ⚡ **50 Parallel Tasks** | Titan-class density—run massive swarms without breaking a sweat |
+| 🔄 **Non-Stop Recovery** | WAL-powered cognitive persistence; resumes instantly after any crash |
+| 🔥 **Multi-File Ops** | Massive parallel edits with cross-file context integrity |
+| 🛡️ **Self-Scaling** | Dynamic AI-driven concurrency management based on success velocity |
+| 🩹 **Memory Integrity** | 100% reclamation; engineered for sessions with 10k+ iterations |
+| 🏗️ **Clean-Code Engine**| Enforces industrial modularity and clean architectural patterns |
 
 ---
 
