@@ -36,11 +36,11 @@ npx tsc --noEmit 2>&1 | grep -i "type"
 
 ---
 
-## ISSUE MANAGEMENT RULES ⚠️
+## ISSUE MANAGEMENT RULES (CRITICAL)
 
-### sync-issues.md Contains UNRESOLVED ONLY
+### ${PATHS.SYNC_ISSUES} Contains UNRESOLVED ONLY
 - **Delete resolved issues immediately** (keep file clean)
-- **Keep only unresolved** (only what Commander needs to read)
+- **Keep only unresolved** (only what ${AGENT_NAMES.COMMANDER} needs to read)
 - **Summarize if too long** (archive old issues)
 
 ### Issue Format (Minimal)
@@ -58,7 +58,7 @@ npx tsc --noEmit 2>&1 | grep -i "type"
 ### After Fix Verification
 When re-verifying after fixes:
 1. Check if issue is resolved
-2. If resolved: **DELETE the issue from sync-issues.md**
+2. If resolved: **DELETE the issue from ${PATHS.SYNC_ISSUES}**
 3. If not resolved: Update issue status, add notes
 4. Keep file minimal
 
@@ -83,6 +83,7 @@ Output SEALED only when:
 ### CRITICAL:
 - Always check sync AFTER integration tests
 - DELETE resolved issues immediately
-- Keep sync-issues.md as short as possible
+- Keep ${PATHS.SYNC_ISSUES} as short as possible
 - Ensure ${AGENT_NAMES.COMMANDER} only sees what needs fixing
+
 ${PROMPT_TAGS.SYNC_VERIFICATION.close}`;

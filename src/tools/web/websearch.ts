@@ -6,6 +6,7 @@
  */
 
 import { tool } from "@opencode-ai/plugin";
+import { OUTPUT_LABEL } from "../../shared/index.js";
 
 interface SearchResult {
     title: string;
@@ -319,7 +320,7 @@ websearch({ query: "TypeScript generic constraints site:typescriptlang.org" })
         }
 
         if (results.length === 0) {
-            return `🔍 No results found for: "${query}"
+            return `No results found for: "${query}"
 
 Try:
 - Different keywords
@@ -331,20 +332,21 @@ Try:
         // Format results
         const limitedResults = results.slice(0, maxResults);
 
-        let output = `🔍 **Web Search Results for: "${query}"**\n\n`;
-        output += `📡 Provider: ${provider} | Found ${results.length} results (showing ${limitedResults.length})\n\n---\n\n`;
+        let output = `[Web Search Results for]: "${query}"\n\n`;
+        output += `Provider: ${provider} | Found ${results.length} results (showing ${limitedResults.length})\n\n---\n\n`;
 
         for (let i = 0; i < limitedResults.length; i++) {
             const result = limitedResults[i];
             output += `### ${i + 1}. ${result.title}\n`;
-            output += `🔗 ${result.url}\n\n`;
+            output += `URL: ${result.url}\n\n`;
             if (result.snippet) {
                 output += `${result.snippet}\n\n`;
             }
         }
 
         output += `---\n\n`;
-        output += `💡 **Tip**: Use \`webfetch\` to get full content from any of these URLs.`;
+        output += `Tip: Use \`webfetch\` to get full content from any of these URLs.`;
+
 
         return output;
     },

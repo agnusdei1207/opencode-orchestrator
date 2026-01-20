@@ -5,8 +5,9 @@
 import { PATHS, PROMPT_TAGS, WORK_STATUS } from "../../../shared/index.js";
 
 export const PLANNER_REQUIRED = `${PROMPT_TAGS.REQUIRED_ACTIONS.open}
-⚠️ THINK FIRST - As PLANNER, think about STRATEGY before planning:
+**THINK FIRST**: As PLANNER, think about STRATEGY before planning:
 - Is my understanding of the task COMPLETE? What am I missing?
+
 - Have I researched ENOUGH? Do I need official docs?
 - What is the optimal STRUCTURE for parallel execution?
 - What DEPENDENCIES will block parallel work?

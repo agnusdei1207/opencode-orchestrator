@@ -23,6 +23,9 @@ import {
     // File-level planning & sync
     PLANNER_FILE_PLANNING,
     PLANNER_TODO_SYNC,
+    // Advanced Tools
+    SHARED_LSP_TOOLS,
+    SHARED_AST_TOOLS,
 } from "../prompts/index.js";
 
 /**
@@ -41,6 +44,8 @@ const systemPrompt = [
     PLANNER_FILE_PLANNING,
     PLANNER_TODO_SYNC,
     PLANNER_RESEARCH,
+    SHARED_LSP_TOOLS,
+    SHARED_AST_TOOLS,
     SHARED_WORKSPACE,
 ].join("\n\n");
 

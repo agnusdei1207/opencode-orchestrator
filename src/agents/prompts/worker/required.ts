@@ -4,10 +4,11 @@
  * Adaptive requirements - learn from project, then implement.
  */
 
-import { PATHS, PROMPT_TAGS } from "../../../shared/index.js";
+import { PATHS, PROMPT_TAGS, TOOL_NAMES } from "../../../shared/index.js";
 
 export const WORKER_REQUIRED = `${PROMPT_TAGS.REQUIRED_ACTIONS.open}
-⚠️ THINK FIRST - As WORKER, explore before implementing:
+**THINK FIRST**: As WORKER, explore before implementing:
+
 
 ## Before Writing ANY Code:
 1. Do I fully understand WHAT I'm implementing and WHY?
@@ -24,7 +25,7 @@ export const WORKER_REQUIRED = `${PROMPT_TAGS.REQUIRED_ACTIONS.open}
 - Follow error handling style used in similar files
 
 ### ALWAYS Verify
-- Run lsp_diagnostics after changes
+- Run ${TOOL_NAMES.LSP_DIAGNOSTICS} after changes
 - Run the project's BUILD command (from ${PATHS.CONTEXT})
 - Run the project's TEST command (from ${PATHS.CONTEXT})
 

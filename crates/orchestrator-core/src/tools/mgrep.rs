@@ -16,6 +16,7 @@ pub struct MgrepConfig {
     pub timeout: Duration,
     pub max_results_per_pattern: usize,
     pub max_file_size: u64,
+    pub include_hidden: bool,
     pub exclude_patterns: Vec<String>,
 }
 
@@ -25,6 +26,7 @@ impl Default for MgrepConfig {
             timeout: Duration::from_secs(60),
             max_results_per_pattern: 50,
             max_file_size: 10 * 1024 * 1024,
+            include_hidden: false,
             exclude_patterns: vec![
                 "**/node_modules/**".to_string(),
                 "**/.git/**".to_string(),
@@ -34,6 +36,7 @@ impl Default for MgrepConfig {
         }
     }
 }
+
 
 /// A single match result
 #[derive(Debug, Clone)]
@@ -128,9 +131,11 @@ impl MgrepTool {
         let path_str = path.to_string_lossy();
         
         // Check hidden files
-        if let Some(name) = path.file_name() {
-            if name.to_string_lossy().starts_with('.') {
-                return false;
+        if !self.config.include_hidden {
+            if let Some(name) = path.file_name() {
+                if name.to_string_lossy().starts_with('.') {
+                    return false;
+                }
             }
         }
 
@@ -146,6 +151,7 @@ impl MgrepTool {
 
         true
     }
+
 }
 
 impl Default for MgrepTool {
@@ -166,7 +172,14 @@ mod tests {
         let file = dir.path().join("test.ts");
         fs::write(&file, "const foo = 1;\nlet bar = 2;\nconst baz = 3;").unwrap();
 
-        let tool = MgrepTool::default();
+        // Use config that includes hidden files (tempdir may be hidden)
+        let config = MgrepConfig {
+            include_hidden: true,
+            exclude_patterns: vec![],
+            ..Default::default()
+        };
+
+        let tool = MgrepTool::new(config);
         let result = tool.search(
             &["const".to_string(), "let".to_string()],
             dir.path(),
@@ -178,3 +191,4 @@ mod tests {
         assert_eq!(result.results["let"].len(), 1);
     }
 }
+

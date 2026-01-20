@@ -3,6 +3,7 @@
  */
 
 import { TIME } from "../../core/constants/time.js";
+import { LIMITS } from "../../core/constants/limits.js";
 
 export const LOOP = {
     /** Countdown seconds before auto-continuation */
@@ -14,7 +15,8 @@ export const LOOP = {
     /** Window to consider abort as recent */
     ABORT_WINDOW_MS: 3 * TIME.SECOND,
     /** Maximum iterations for mission loop */
-    DEFAULT_MAX_ITERATIONS: 1000,
+    DEFAULT_MAX_ITERATIONS: LIMITS.MAX_ITERATIONS,
+
     /** Rust tool timeout */
     RUST_TOOL_TIMEOUT_MS: 60 * TIME.SECOND,
 } as const;

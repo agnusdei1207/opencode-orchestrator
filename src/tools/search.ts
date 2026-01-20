@@ -10,11 +10,15 @@ export const grepSearchTool = (directory: string) => tool({
     args: {
         pattern: tool.schema.string().describe("Regex pattern to search for"),
         dir: tool.schema.string().optional().describe("Directory to search (defaults to project root)"),
+        max_results: tool.schema.number().optional().describe("Max results (default: 100)"),
+        timeout_ms: tool.schema.number().optional().describe("Timeout in milliseconds (default: 30000)"),
     },
     async execute(args) {
         return callRustTool("grep_search", {
             pattern: args.pattern,
             directory: args.dir || directory,
+            max_results: args.max_results,
+            timeout_ms: args.timeout_ms,
         });
     },
 });
@@ -46,17 +50,16 @@ export const mgrepTool = (directory: string) => tool({
     args: {
         patterns: tool.schema.array(tool.schema.string()).describe("Array of regex patterns"),
         dir: tool.schema.string().optional().describe("Directory (defaults to project root)"),
+        max_results_per_pattern: tool.schema.number().optional().describe("Max results per pattern (default: 50)"),
+        timeout_ms: tool.schema.number().optional().describe("Timeout in milliseconds (default: 60000)"),
     },
     async execute(args) {
-        const results: Record<string, string> = {};
-        const dir = args.dir || directory;
-
-        for (const pattern of args.patterns) {
-            const result = await callRustTool("grep_search", { pattern, directory: dir });
-            results[pattern] = result;
-        }
-
-        return JSON.stringify(results, null, 2);
+        return callRustTool("mgrep", {
+            patterns: args.patterns,
+            directory: args.dir || directory,
+            max_results_per_pattern: args.max_results_per_pattern,
+            timeout_ms: args.timeout_ms,
+        });
     },
 });
 
@@ -73,6 +76,7 @@ export const sedReplaceTool = (directory: string) => tool({
         dir: tool.schema.string().optional().describe("Directory to search (modifies all matching files)"),
         dry_run: tool.schema.boolean().optional().describe("Preview changes without modifying files (default: false)"),
         backup: tool.schema.boolean().optional().describe("Create .bak backup before modifying (default: false)"),
+        timeout_ms: tool.schema.number().optional().describe("Timeout in milliseconds"),
     },
     async execute(args) {
         return callRustTool("sed_replace", {
@@ -82,6 +86,7 @@ export const sedReplaceTool = (directory: string) => tool({
             directory: args.dir || (args.file ? undefined : directory),
             dry_run: args.dry_run,
             backup: args.backup,
+            timeout_ms: args.timeout_ms,
         });
     },
 });

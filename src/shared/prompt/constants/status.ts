@@ -4,6 +4,8 @@
  * All status values used in work-log.md, todo.md, sync-issues.md, status.md.
  */
 
+import { STATUS_LABEL } from "../../core/constants/status-labels.js";
+
 export const WORK_STATUS = {
     // File action types
     ACTION: {
@@ -13,27 +15,27 @@ export const WORK_STATUS = {
         FIX: "FIX",
     },
 
-    // Task/file status
+    // Task/file status (Internal state)
     STATUS: {
-        PENDING: "PENDING",
-        IN_PROGRESS: "IN_PROGRESS",
-        DONE: "DONE",
-        FAILED: "FAILED",
+        PENDING: STATUS_LABEL.PENDING,
+        IN_PROGRESS: STATUS_LABEL.IN_PROGRESS,
+        DONE: STATUS_LABEL.DONE,
+        FAILED: STATUS_LABEL.FAILED,
     },
 
     // Test result
     TEST_RESULT: {
-        PASS: "PASS",
-        FAIL: "FAIL",
-        SKIP: "SKIP",
+        PASS: STATUS_LABEL.PASS,
+        FAIL: STATUS_LABEL.FAIL,
+        SKIP: STATUS_LABEL.SKIP,
     },
 
     // E2E integration test status
     E2E_STATUS: {
         NOT_STARTED: "NOT_STARTED",
-        RUNNING: "RUNNING",
-        PASS: "PASS",
-        FAIL: "FAIL",
+        RUNNING: STATUS_LABEL.RUNNING,
+        PASS: STATUS_LABEL.PASS,
+        FAIL: STATUS_LABEL.FAIL,
     },
 
     // Mission phase
@@ -61,9 +63,9 @@ export const WORK_STATUS = {
 
     // Session state
     SESSION: {
-        STARTED: "STARTED",
-        COMPLETED: "COMPLETED",
-        CANCELLED: "CANCELLED",
+        STARTED: STATUS_LABEL.PENDING, // Standardized mapping
+        COMPLETED: STATUS_LABEL.DONE,
+        CANCELLED: STATUS_LABEL.CANCELLED,
     },
 
     // Task triage - complexity classification
@@ -87,19 +89,23 @@ export const WORK_STATUS = {
 
     // TODO.md status values (for Epic/Task display)
     TODO_STATUS: {
-        PENDING: "pending",
-        IN_PROGRESS: "in-progress",
-        COMPLETE: "COMPLETE",
-        BLOCKED: "blocked",
-        DONE: "DONE",
+        PENDING: STATUS_LABEL.PENDING,
+        IN_PROGRESS: STATUS_LABEL.IN_PROGRESS,
+        COMPLETE: STATUS_LABEL.COMPLETED,
+        BLOCKED: STATUS_LABEL.BLOCKED,
+        DONE: STATUS_LABEL.DONE,
+        VERIFIED: STATUS_LABEL.VERIFIED,
     },
+
 
     // Task size estimation
     TASK_SIZE: {
-        XS: "XS",   // <5min
-        S: "S",     // 5-15min
-        M: "M",     // 15-30min
-        L: "L",     // 30-60min
+        XS: "XS",   // <10min
+        S: "S",     // 10-20min
+        M: "M",     // 20-40min
+        L: "L",     // 40-60min
     },
 } as const;
+
+
 

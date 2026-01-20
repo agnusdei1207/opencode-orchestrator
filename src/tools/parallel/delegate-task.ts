@@ -12,9 +12,20 @@
 
 import { tool } from "@opencode-ai/plugin";
 import { ParallelAgentManager } from "../../core/agents/index.js";
-import { PARALLEL_TASK, PART_TYPES, MESSAGE_ROLES, SESSION_STATUS } from "../../shared/index.js";
 import { log } from "../../core/agents/logger.js";
 import { presets } from "../../core/notification/presets.js";
+import {
+    PARALLEL_TASK,
+    PART_TYPES,
+    MESSAGE_ROLES,
+    SESSION_STATUS,
+    PARALLEL_LOG,
+    STATUS_LABEL,
+    OUTPUT_LABEL,
+    type SessionClient,
+    type PollResult
+} from "../../shared/index.js";
+
 
 // ============================================================
 // Safety Constants (from shared constants for consistency)
@@ -25,13 +36,7 @@ const SYNC_TIMEOUT_MS = PARALLEL_TASK.SYNC_TIMEOUT_MS;
 const MAX_POLL_COUNT = PARALLEL_TASK.MAX_POLL_COUNT;
 const STABLE_POLLS_REQUIRED = PARALLEL_TASK.STABLE_POLLS_REQUIRED;
 
-// Session client type definition
-type SessionClient = {
-    create: (opts: { body: { parentID: string; title: string }; query: { directory: string } }) => Promise<{ data?: { id: string }; error?: string }>;
-    prompt: (opts: { path: { id: string }; body: { agent: string; tools?: Record<string, boolean>; parts: { type: string; text: string }[] } }) => Promise<{ error?: string }>;
-    messages: (opts: { path: { id: string } }) => Promise<{ data?: unknown[]; error?: string }>;
-    status: () => Promise<{ data?: Record<string, { type: string }> }>;
-};
+// Session client interface and Poll result interface are now imported from shared
 
 /**
  * Validate that a session has actual output before marking complete.
@@ -72,22 +77,13 @@ async function validateSessionHasOutput(
 
         return hasContent;
     } catch (error) {
-        log("[delegate-task] Error validating session output:", error);
+        log(`${PARALLEL_LOG.DELEGATE_TASK} Error validating session output:`, error);
         // On error, allow completion to proceed (fail-open)
         return true;
     }
 }
 
-/**
- * Poll result type for clarity
- */
-type PollResult = {
-    success: boolean;
-    timedOut: boolean;
-    error?: string;
-    pollCount: number;
-    elapsedMs: number;
-};
+// PollResult is now imported from shared
 
 /**
  * Safe polling with hard limits to prevent infinite loops.
@@ -110,13 +106,13 @@ async function pollWithSafetyLimits(
 
         // Hard timeout check (belt and suspenders)
         if (elapsed >= SYNC_TIMEOUT_MS) {
-            log("[delegate-task] Hard timeout reached", { pollCount, elapsed });
+            log(`${PARALLEL_LOG.DELEGATE_TASK} Hard timeout reached`, { pollCount, elapsed });
             return { success: false, timedOut: true, pollCount, elapsedMs: elapsed };
         }
 
         // Rate-limited logging (every 10 seconds)
         if (Date.now() - lastLogTime > 10000) {
-            log("[delegate-task] Polling...", {
+            log(`${PARALLEL_LOG.DELEGATE_TASK} Polling...`, {
                 pollCount,
                 elapsed: Math.floor(elapsed / 1000) + "s",
                 stablePolls,
@@ -154,7 +150,7 @@ async function pollWithSafetyLimits(
                 if (!hasValidOutput) {
                     continue;
                 }
-                log("[delegate-task] Valid output detected", { pollCount, elapsed });
+                log(`${PARALLEL_LOG.DELEGATE_TASK} Valid output detected`, { pollCount, elapsed });
             }
 
             // Stability detection
@@ -164,7 +160,7 @@ async function pollWithSafetyLimits(
             if (count === lastMsgCount) {
                 stablePolls++;
                 if (stablePolls >= STABLE_POLLS_REQUIRED) {
-                    log("[delegate-task] Stable completion", { pollCount, stablePolls, elapsed });
+                    log(`${PARALLEL_LOG.DELEGATE_TASK} Stable completion`, { pollCount, stablePolls, elapsed });
                     return { success: true, timedOut: false, pollCount, elapsedMs: elapsed };
                 }
             } else {
@@ -172,13 +168,13 @@ async function pollWithSafetyLimits(
                 lastMsgCount = count;
             }
         } catch (error) {
-            log("[delegate-task] Poll error (continuing):", error);
+            log(`${PARALLEL_LOG.DELEGATE_TASK} Poll error (continuing):`, error);
             // Continue polling on transient errors
         }
     }
 
     // Max poll count reached (should not happen if timeout works)
-    log("[delegate-task] Max poll count reached", { pollCount, elapsed: Date.now() - startTime });
+    log(`${PARALLEL_LOG.DELEGATE_TASK} Max poll count reached`, { pollCount, elapsed: Date.now() - startTime });
     return {
         success: false,
         timedOut: true,
@@ -208,7 +204,7 @@ async function extractSessionResult(
             .join("\n") || "";
         return text;
     } catch (error) {
-        log("[delegate-task] Error extracting result:", error);
+        log(`${PARALLEL_LOG.DELEGATE_TASK} Error extracting result:`, error);
         return "(Error extracting result)";
     }
 }
@@ -243,7 +239,7 @@ export const createDelegateTaskTool = (manager: ParallelAgentManager, client: un
         const { agent, description, prompt, background, resume } = args;
         const ctx = context as { sessionID: string };
 
-        log("[delegate-task.ts] execute() called", { agent, description, background, resume, parentSession: ctx.sessionID });
+        log(`${PARALLEL_LOG.DELEGATE_TASK} execute() called`, { agent, description, background, resume, parentSession: ctx.sessionID });
 
         const sessionClient = client as {
             session: {
@@ -255,7 +251,7 @@ export const createDelegateTaskTool = (manager: ParallelAgentManager, client: un
         };
 
         if (background === undefined) {
-            return `❌ 'background' parameter is REQUIRED.`;
+            return `${OUTPUT_LABEL.ERROR} 'background' parameter is REQUIRED.`;
         }
 
         // =========================================
@@ -270,7 +266,7 @@ export const createDelegateTaskTool = (manager: ParallelAgentManager, client: un
                 });
 
                 if (background === true) {
-                    return `🔄 Resumed task: \`${task.id}\` (${task.agent}) in session \`${task.sessionID}\`\n\n` +
+                    return `${OUTPUT_LABEL.RESUME} task: \`${task.id}\` (${task.agent}) in session \`${task.sessionID}\`\n\n` +
                         `Previous context preserved. Use \`get_task_result({ taskId: "${task.id}" })\` when complete.`;
                 }
 
@@ -278,18 +274,18 @@ export const createDelegateTaskTool = (manager: ParallelAgentManager, client: un
                 const startTime = Date.now();
                 const session = sessionClient.session;
 
-                log("[delegate-task] Resume: starting sync wait", { taskId: task.id, sessionID: task.sessionID });
+                log(`${PARALLEL_LOG.DELEGATE_TASK} Resume: starting sync wait`, { taskId: task.id, sessionID: task.sessionID });
                 const pollResult = await pollWithSafetyLimits(session, task.sessionID, startTime);
 
                 if (pollResult.timedOut) {
-                    return `⚠️ Resume timeout after ${Math.floor(pollResult.elapsedMs / 1000)}s (${pollResult.pollCount} polls)\n` +
+                    return `${OUTPUT_LABEL.TIMEOUT} after ${Math.floor(pollResult.elapsedMs / 1000)}s (${pollResult.pollCount} polls)\n` +
                         `Session: \`${task.sessionID}\` - Use get_task_result or resume later.`;
                 }
 
                 const text = await extractSessionResult(session, task.sessionID);
-                return `🔄 Resumed & Completed (${Math.floor(pollResult.elapsedMs / 1000)}s)\n\n${text || "(No output)"}`;
+                return `${OUTPUT_LABEL.RESUMED_DONE} (${Math.floor(pollResult.elapsedMs / 1000)}s)\n\n${text || "(No output)"}`;
             } catch (error) {
-                return `❌ Resume failed: ${error instanceof Error ? error.message : String(error)}`;
+                return `${OUTPUT_LABEL.ERROR} Resume failed: ${error instanceof Error ? error.message : String(error)}`;
             }
         }
 
@@ -303,10 +299,10 @@ export const createDelegateTaskTool = (manager: ParallelAgentManager, client: un
                     parentSessionID: ctx.sessionID,
                 });
                 presets.taskStarted(task.id, agent);
-                return `🚀 Task spawned: \`${task.id}\` (${agent})\n` +
+                return `${OUTPUT_LABEL.SPAWNED} task: \`${task.id}\` (${agent})\n` +
                     `Session: \`${task.sessionID}\` (save for resume)`;
             } catch (error) {
-                return `❌ Failed: ${error instanceof Error ? error.message : String(error)}`;
+                return `${OUTPUT_LABEL.ERROR} Failed: ${error instanceof Error ? error.message : String(error)}`;
             }
         }
 
@@ -321,13 +317,13 @@ export const createDelegateTaskTool = (manager: ParallelAgentManager, client: un
             });
 
             if (createResult.error || !createResult.data?.id) {
-                return `❌ Failed to create session: ${createResult.error || "No session ID returned"}`;
+                return `${OUTPUT_LABEL.ERROR} Failed to create session: ${createResult.error || "No session ID returned"}`;
             }
 
             const sessionID = createResult.data.id;
             const startTime = Date.now();
 
-            log("[delegate-task] Sync: starting", { agent, sessionID });
+            log(`${PARALLEL_LOG.DELEGATE_TASK} Sync: starting`, { agent, sessionID });
 
             // Fire the prompt (don't await - it returns immediately)
             await session.prompt({
@@ -348,19 +344,20 @@ export const createDelegateTaskTool = (manager: ParallelAgentManager, client: un
             const pollResult = await pollWithSafetyLimits(session, sessionID, startTime);
 
             if (pollResult.timedOut) {
-                log("[delegate-task] Sync: timed out", pollResult);
-                return `⚠️ Timeout after ${Math.floor(pollResult.elapsedMs / 1000)}s (${pollResult.pollCount} polls)\n` +
+                log(`${PARALLEL_LOG.DELEGATE_TASK} Sync: timed out`, pollResult);
+                return `${OUTPUT_LABEL.TIMEOUT} after ${Math.floor(pollResult.elapsedMs / 1000)}s (${pollResult.pollCount} polls)\n` +
                     `Session: \`${sessionID}\` - Use get_task_result or resume later.`;
             }
 
             const text = await extractSessionResult(session, sessionID);
-            log("[delegate-task] Sync: completed", { sessionID, elapsedMs: pollResult.elapsedMs });
+            log(`${PARALLEL_LOG.DELEGATE_TASK} Sync: completed`, { sessionID, elapsedMs: pollResult.elapsedMs });
 
-            return `✅ Completed (${Math.floor(pollResult.elapsedMs / 1000)}s)\n` +
+            return `${OUTPUT_LABEL.DONE} (${Math.floor(pollResult.elapsedMs / 1000)}s)\n` +
                 `Session: \`${sessionID}\` (save for resume)\n\n${text || "(No output)"}`;
         } catch (error) {
-            log("[delegate-task] Sync: error", error);
-            return `❌ Failed: ${error instanceof Error ? error.message : String(error)}`;
+            log(`${PARALLEL_LOG.DELEGATE_TASK} Sync: error`, error);
+            return `${OUTPUT_LABEL.ERROR} Failed: ${error instanceof Error ? error.message : String(error)}`;
         }
+
     },
 });

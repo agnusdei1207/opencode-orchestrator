@@ -34,6 +34,12 @@ export const TOOL_NAMES = {
     WEBSEARCH: "websearch",
     CODESEARCH: "codesearch",
     CACHE_DOCS: "cache_docs",
+    // LSP tools
+    LSP_DIAGNOSTICS: "lsp_diagnostics",
+    // AST tools
+
+    AST_SEARCH: "ast_search",
+    AST_REPLACE: "ast_replace",
     // Other tools
     CALL_AGENT: "call_agent",
     SLASHCOMMAND: "slashcommand",

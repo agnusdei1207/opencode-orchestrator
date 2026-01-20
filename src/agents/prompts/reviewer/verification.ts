@@ -4,10 +4,11 @@
  * Adaptive verification based on discovered project environment.
  */
 
-import { PATHS, PROMPT_TAGS } from "../../../shared/index.js";
+import { PATHS, PROMPT_TAGS, TOOL_NAMES } from "../../../shared/index.js";
 
 export const REVIEWER_VERIFICATION = `${PROMPT_TAGS.VERIFICATION_PROCESS.open}
-🔍 ADAPTIVE VERIFICATION PROCESS
+**ADAPTIVE VERIFICATION PROCESS**
+
 
 ## Step 1: Read Project Context
 \`\`\`bash
@@ -18,7 +19,7 @@ cat ${PATHS.CONTEXT}  # Get build/test commands
 - Note any project-specific verification requirements
 
 ## Step 2: Static Analysis
-lsp_diagnostics - Must show NO errors or warnings
+${TOOL_NAMES.LSP_DIAGNOSTICS} - Must show NO errors or warnings
 
 ## Step 3: Build Verification
 - Run the project's BUILD command (from ${PATHS.CONTEXT})
@@ -44,6 +45,6 @@ lsp_diagnostics - Must show NO errors or warnings
 In ${PATHS.TODO}:
 - [x] T1: [task] | verified | evidence: [build/test results]
 
-⚠️ NEVER mark [x] without running ACTUAL verification commands!
+**CRITICAL**: NEVER mark [x] without running ACTUAL verification commands!
 ${PROMPT_TAGS.VERIFICATION_PROCESS.close}`;
 

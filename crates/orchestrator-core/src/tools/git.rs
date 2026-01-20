@@ -149,3 +149,29 @@ impl Default for GitTool {
         Self::new()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_parse_stat_line() {
+        let tool = GitTool::new();
+        let text = " 3 files changed, 10 insertions(+), 5 deletions(-)\n";
+        let (files, insertions, deletions) = tool.parse_stat_line(text);
+        
+        assert_eq!(files, 3);
+        assert_eq!(insertions, 10);
+        assert_eq!(deletions, 5);
+    }
+
+    #[test]
+    fn test_parse_stat_line_empty() {
+        let tool = GitTool::new();
+        let (files, insertions, deletions) = tool.parse_stat_line("");
+        
+        assert_eq!(files, 0);
+        assert_eq!(insertions, 0);
+        assert_eq!(deletions, 0);
+    }
+}

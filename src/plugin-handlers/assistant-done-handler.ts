@@ -10,7 +10,7 @@
 import type { PluginInput } from "@opencode-ai/plugin";
 import { log } from "../core/agents/logger.js";
 import { state } from "../core/orchestrator/index.js";
-import { checkOutputSanity, RECOVERY_PROMPT, ESCALATION_PROMPT } from "../utils/sanity.js";
+import { checkOutputSanity, RECOVERY_PROMPT, ESCALATION_PROMPT } from "../utils/sanity/index.js";
 import { formatTimestamp, formatElapsedTime } from "../utils/common.js";
 import { MISSION, MISSION_SEAL, PART_TYPES, PROMPTS } from "../shared/index.js";
 import { detectSealInText, isLoopActive, clearLoopState } from "../core/loop/mission-seal.js";
@@ -127,7 +127,7 @@ export function createAssistantDoneHandler(ctx: AssistantDoneHandlerContext) {
 
             clearLoopState(directory);
 
-            Toast.presets.missionComplete("🎖️ Mission Sealed - Explicit completion confirmed");
+            Toast.presets.missionComplete("Mission Sealed - Explicit completion confirmed");
 
             log("[assistant-done-handler] Mission sealed detected", { sessionID });
 
@@ -183,11 +183,12 @@ export function createAssistantDoneHandler(ctx: AssistantDoneHandlerContext) {
                     body: {
                         parts: [{
                             type: PART_TYPES.TEXT,
-                            text: CONTINUE_INSTRUCTION + `\n\n⏱️ [${currentTime}] Step ${session.step} | ${progressInfo} | This step: ${stepDuration} | Total: ${totalElapsed}`
+                            text: CONTINUE_INSTRUCTION + `\n\n[${currentTime}] Step ${session.step} | ${progressInfo} | This step: ${stepDuration} | Total: ${totalElapsed}`
                         }],
                     },
                 });
             }
+
         } catch (error) {
             // First attempt failed, wait a bit and try simpler prompt
             log("[assistant-done-handler] Continuation injection failed, retrying...", { sessionID, error });

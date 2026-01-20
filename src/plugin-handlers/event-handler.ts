@@ -14,6 +14,7 @@ import * as SessionRecovery from "../core/recovery/session-recovery.js";
 import * as TodoContinuation from "../core/loop/todo-continuation.js";
 import * as MissionSealHandler from "../core/loop/mission-seal-handler.js";
 import { isLoopActive } from "../core/loop/mission-seal.js";
+import * as ContextMonitor from "../core/context/index.js";
 import { SESSION_EVENTS, MESSAGE_EVENTS, MESSAGE_ROLES } from "../shared/index.js";
 import type { EventHandlerContext } from "./interfaces/index.js";
 
@@ -63,6 +64,7 @@ export function createEventHandler(ctx: EventHandlerContext) {
                 SessionRecovery.cleanupSessionRecovery(sessionID);
                 TodoContinuation.cleanupSession(sessionID);
                 MissionSealHandler.cleanupSession(sessionID);
+                ContextMonitor.cleanupSession(sessionID);
 
                 Toast.presets.sessionCompleted(sessionID, duration);
             }

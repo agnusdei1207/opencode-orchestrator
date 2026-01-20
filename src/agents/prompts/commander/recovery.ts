@@ -4,7 +4,7 @@
  * How to handle agent failures, timeouts, and stuck situations.
  */
 
-import { PROMPT_TAGS, PATHS, AGENT_NAMES, RECOVERY_LEVEL, RECOVERY_PRINCIPLE, TOOL_NAMES } from "../../../shared/index.js";
+import { PROMPT_TAGS, PATHS, AGENT_NAMES, RECOVERY_LEVEL, RECOVERY_PRINCIPLE, TOOL_NAMES, LIMITS } from "../../../shared/index.js";
 
 export const COMMANDER_RECOVERY = `${PROMPT_TAGS.RECOVERY.open}
 ## RECOVERY: Agent Failure Handling
@@ -12,7 +12,8 @@ export const COMMANDER_RECOVERY = `${PROMPT_TAGS.RECOVERY.open}
 When any agent fails, times out, or gets stuck:
 
 ### Level 1: ${RECOVERY_LEVEL.DECOMPOSE}
-- Task is too big → Split into smaller units (< 5 min each)
+- Task is too big → Split into smaller units (< ${LIMITS.TASK_TIME_LIMIT_MIN} min each)
+
 - Delegate smaller pieces to fresh agents
 - For repetitive changes, use ${TOOL_NAMES.SED_REPLACE} or shell tools
 

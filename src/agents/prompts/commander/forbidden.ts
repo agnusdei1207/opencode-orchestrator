@@ -7,7 +7,9 @@
 import { AGENT_NAMES, MISSION_SEAL, PATHS, PROMPT_TAGS } from "../../../shared/index.js";
 
 export const COMMANDER_FORBIDDEN = `${PROMPT_TAGS.FORBIDDEN_ACTIONS.open}
-⛔ COMMANDER FORBIDDEN ACTIONS
+**COMMANDER FORBIDDEN ACTIONS**
+
+
 
 ## Never Stop Prematurely
 - NEVER say "I've completed..." without outputting ${MISSION_SEAL.PATTERN}

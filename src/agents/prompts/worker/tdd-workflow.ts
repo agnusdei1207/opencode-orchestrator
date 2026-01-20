@@ -5,7 +5,7 @@
  * Language-agnostic - works with any programming language.
  */
 
-import { PATHS, PROMPT_TAGS, ID_PREFIX, WORK_STATUS } from "../../../shared/index.js";
+import { PATHS, PROMPT_TAGS, ID_PREFIX, WORK_STATUS, AGENT_NAMES } from "../../../shared/index.js";
 
 export const WORKER_TDD_WORKFLOW = `${PROMPT_TAGS.TDD_WORKFLOW.open}
 ## TDD (Test-Driven Development) MANDATORY WORKFLOW
@@ -17,7 +17,7 @@ You work on ONE FILE at a time in ISOLATION. Follow this EXACT cycle:
 2. Read ${PATHS.TODO} - Understand requirements
 3. Update ${PATHS.WORK_LOG}:
    \`\`\`markdown
-   - [ ] ${ID_PREFIX.SESSION}N (Worker): \`[target-file]\` - ${WORK_STATUS.SESSION.STARTED}
+   - [ ] ${ID_PREFIX.SESSION}N (${AGENT_NAMES.WORKER}): \`[target-file]\` - ${WORK_STATUS.SESSION.STARTED}
    \`\`\`
 
 ### Phase 2: TEST FIRST (Red)
@@ -69,11 +69,12 @@ You work on ONE FILE at a time in ISOLATION. Follow this EXACT cycle:
    - Communication/interaction needed → Assume dummy response
    - Real I/O strictly forbidden
 3. **Delete after pass** - Remove isolated test file
-4. **Record in .opencode** - Preserve test code and results
+4. **Record in ${PATHS.OPENCODE}** - Preserve test code and results
 
 ### CRITICAL RULES:
 - NEVER skip the test file deletion step
 - ALWAYS preserve test code in ${PATHS.UNIT_TESTS}/
-- NEVER mark [x] in todo.md - Reviewer's job!
+- NEVER mark [x] in ${PATHS.TODO} - ${AGENT_NAMES.REVIEWER}'s job!
+
 - ONE file per session - complete isolation
 ${PROMPT_TAGS.TDD_WORKFLOW.close}`;

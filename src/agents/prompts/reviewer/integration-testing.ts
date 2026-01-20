@@ -5,26 +5,23 @@
  * Language-agnostic.
  */
 
-import { PATHS, AGENT_NAMES, PROMPT_TAGS, WORK_STATUS } from "../../../shared/index.js";
+import { AGENT_NAMES, PATHS, PROMPT_TAGS, WORK_STATUS, STATUS_LABEL } from "../../../shared/index.js";
 
 export const REVIEWER_INTEGRATION_TESTING = `${PROMPT_TAGS.INTEGRATION_TESTING.open}
-## E2E INTEGRATION TESTING
+## E2E INTEGRATION TESTING RULES
 
-### ⚠️ E2E Test Timing (CRITICAL)
-E2E tests should only run when:
-1. **TODO is almost complete** - Most tasks checked [x]
-2. **All Workers done** - No active sessions in work-log.md
-3. **Or final verification** - Right before SEALED
+### 1. Timing
+Start when **${PATHS.TODO} ≥ 80%** (some Workers still active).
 
-### Pre-Integration Checklist
-- [ ] Check ${PATHS.TODO} for incomplete tasks
-- [ ] Check ${PATHS.WORK_LOG} for all workers [x] complete
-- [ ] Check ${PATHS.UNIT_TESTS}/ for unit test records
-- [ ] All isolated test files deleted
+### 2. Pre-integration Checklist
+Before running integration tests, all merged files must:
+- [ ] Have clean lsp_diagnostics
+- [ ] Have unit test passing records in ${PATHS.UNIT_TESTS}/
+- [ ] Be listed in ${PATHS.WORK_LOG} "Pending Integration"
 
 ### Integration Workflow
 
-#### Step 1: Check TODO Status
+#### Step 1: Check ${PATHS.TODO} Status
 \`\`\`bash
 cat ${PATHS.TODO}
 # If incomplete items exist, wait for E2E
@@ -33,7 +30,7 @@ cat ${PATHS.TODO}
 #### Step 2: Run Build (language-appropriate)
 \`\`\`bash
 # Run project build command
-# If failed, record in sync-issues.md
+# If failed, record in ${PATHS.SYNC_ISSUES}
 \`\`\`
 
 #### Step 3: Run Full Tests
@@ -58,8 +55,8 @@ Write to ${PATHS.INTEGRATION_STATUS}:
 - Timestamp: [ISO timestamp]
 
 ## Result
-- Build: ${WORK_STATUS.TEST_RESULT.PASS}/${WORK_STATUS.TEST_RESULT.FAIL}
-- E2E Test: ${WORK_STATUS.TEST_RESULT.PASS}/${WORK_STATUS.TEST_RESULT.FAIL}
+- Build: ${STATUS_LABEL.PASS}/${WORK_STATUS.TEST_RESULT.FAIL}
+- E2E Test: ${STATUS_LABEL.PASS}/${WORK_STATUS.TEST_RESULT.FAIL}
 
 ## Sync Issues Found
 - (omit if none)
@@ -76,13 +73,14 @@ Write to ${PATHS.INTEGRATION_STATUS}:
 - [ ] E2E test passes
 
 ### LOOP BACK Conditions
-- ${PATHS.TODO} has incomplete items → ♻️ LOOP
-- ${PATHS.SYNC_ISSUES} has unresolved issues → ♻️ LOOP
-- Build/test fails → record in sync-issues.md → ♻️ LOOP
+- ${PATHS.TODO} has incomplete items → LOOP
+- ${PATHS.SYNC_ISSUES} has unresolved issues → LOOP
+- Build/test fails → record in ${PATHS.SYNC_ISSUES} → LOOP
+
 
 ### CRITICAL:
-- E2E only at TODO completion time!
-- Record build/test failures minimally in sync-issues.md
+- E2E only at ${PATHS.TODO} completion time!
+- Record build/test failures minimally in ${PATHS.SYNC_ISSUES}
 - Delete resolved issues, keep only unresolved
-- All TODO [x] + no issues = SEALED!
+- All ${PATHS.TODO} [x] + no issues = SEALED!
 ${PROMPT_TAGS.INTEGRATION_TESTING.close}`;

@@ -4,10 +4,12 @@
  * Universal anti-patterns - adapt to project-specific conventions.
  */
 
-import { AGENT_NAMES, PATHS, PROMPT_TAGS } from "../../../shared/index.js";
+import { AGENT_NAMES, PATHS, PROMPT_TAGS, TOOL_NAMES } from "../../../shared/index.js";
 
 export const WORKER_FORBIDDEN = `${PROMPT_TAGS.FORBIDDEN_ACTIONS.open}
-⛔ FORBIDDEN ACTIONS (Adapt to Project Conventions)
+**FORBIDDEN ACTIONS (Adapt to Project Conventions)**
+
+
 
 ## Never Assume
 - NEVER guess API syntax → CHECK ${PATHS.DOCS}/ or research first
@@ -16,7 +18,8 @@ export const WORKER_FORBIDDEN = `${PROMPT_TAGS.FORBIDDEN_ACTIONS.open}
 
 ## Never Skip
 - NEVER skip error handling → Follow project's error handling patterns
-- NEVER skip lsp_diagnostics → Always verify code compiles
+- NEVER skip ${TOOL_NAMES.LSP_DIAGNOSTICS} → Always verify code compiles
+
 - NEVER skip verification → Test before claiming done
 
 ## Never Shortcut

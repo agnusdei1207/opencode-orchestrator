@@ -11,3 +11,8 @@ export { SHARED_WORKSPACE } from "./shared-workspace.js";
 export { MISSION_SEAL_RULES } from "./mission-seal.js";
 export { VERIFICATION_REQUIREMENTS } from "./verification.js";
 export { CORE_PHILOSOPHY } from "./core-philosophy.js";
+export { SHARED_LSP_TOOLS } from "./lsp.js";
+export { SHARED_AST_TOOLS } from "./ast.js";
+
+
+

@@ -3,6 +3,7 @@
  */
 
 import type { ProgressSnapshot } from "./interfaces.js";
+import { LIMITS } from "../../shared/index.js";
 
 /**
  * Format elapsed time
@@ -24,7 +25,7 @@ export function formatElapsed(ms: number): string {
 /**
  * Format progress bar
  */
-export function formatProgressBar(percentage: number, width = 20): string {
+export function formatProgressBar(percentage: number, width: number = LIMITS.DEFAULT_PROGRESS_WIDTH): string {
     const filled = Math.round(width * percentage / 100);
     const empty = width - filled;
     return `[${"█".repeat(filled)}${"░".repeat(empty)}] ${percentage}%`;

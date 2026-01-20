@@ -4,14 +4,17 @@
  * Stay in your lane - research and plan, never implement.
  */
 
-import { PATHS, PROMPT_TAGS } from "../../../shared/index.js";
+import { PATHS, PROMPT_TAGS, AGENT_NAMES } from "../../../shared/index.js";
 
 export const PLANNER_FORBIDDEN = `${PROMPT_TAGS.FORBIDDEN_ACTIONS.open}
-⛔ PLANNER FORBIDDEN ACTIONS
+**PLANNER FORBIDDEN ACTIONS**
+
+
 
 ## Never Implement
 - NEVER write actual code → Only plan and research
-- NEVER execute build/test commands → That's Worker/Reviewer's job
+- NEVER execute build/test commands → That's ${AGENT_NAMES.WORKER}/${AGENT_NAMES.REVIEWER}'s job
+
 - NEVER modify source files → Only ${PATHS.TODO} and ${PATHS.DOCS}/
 
 ## Never Assume

@@ -1,175 +1,202 @@
-//! LSP tool wrappers
+//! LSP Diagnostics tool - runs tsc and eslint to get errors/warnings
 
 use crate::Result;
+use regex::Regex;
 use serde::{Deserialize, Serialize};
+use std::path::Path;
+use std::process::Command;
+use std::time::Duration;
 
-/// LSP position
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Position {
-    pub line: u32,
-    pub character: u32,
-}
-
-/// LSP range
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Range {
-    pub start: Position,
-    pub end: Position,
-}
-
-/// LSP location
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Location {
-    pub uri: String,
-    pub range: Range,
-}
-
-/// Symbol kind
-#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+/// Diagnostic severity level
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "lowercase")]
-pub enum SymbolKind {
-    File,
-    Module,
-    Namespace,
-    Package,
-    Class,
-    Method,
-    Property,
-    Field,
-    Constructor,
-    Enum,
-    Interface,
-    Function,
-    Variable,
-    Constant,
-    String,
-    Number,
-    Boolean,
-    Array,
-    Object,
-    Key,
-    Null,
-    EnumMember,
-    Struct,
-    Event,
-    Operator,
-    TypeParameter,
-}
-
-/// Document symbol
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct DocumentSymbol {
-    pub name: String,
-    pub kind: SymbolKind,
-    pub range: Range,
-    pub selection_range: Range,
-    pub children: Option<Vec<DocumentSymbol>>,
-}
-
-/// Workspace symbol
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct WorkspaceSymbol {
-    pub name: String,
-    pub kind: SymbolKind,
-    pub location: Location,
-    pub container_name: Option<String>,
-}
-
-/// Diagnostic severity
-#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub enum DiagnosticSeverity {
-    Error = 1,
-    Warning = 2,
-    Information = 3,
-    Hint = 4,
+    Error,
+    Warning,
+    Info,
+    Hint,
 }
 
-/// Diagnostic
+/// A single diagnostic result
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Diagnostic {
-    pub range: Range,
-    pub severity: Option<DiagnosticSeverity>,
-    pub code: Option<String>,
-    pub source: Option<String>,
+    pub file: String,
+    pub line: u32,
+    pub column: u32,
+    pub severity: DiagnosticSeverity,
     pub message: String,
+    pub source: Option<String>,
+    pub code: Option<String>,
 }
 
-/// Hover information
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct HoverInfo {
-    pub contents: String,
-    pub range: Option<Range>,
+/// Configuration for diagnostics tool
+#[derive(Debug, Clone)]
+pub struct DiagnosticsConfig {
+    pub timeout: Duration,
+    pub include_warnings: bool,
+    pub max_results: usize,
 }
 
-/// LSP tools collection
-pub struct LspTools {
-    // LSP client connection would go here
-    // For now, this is a stub that would be implemented
-    // when integrating with actual LSP servers
-}
-
-impl LspTools {
-    pub fn new() -> Self {
-        Self {}
-    }
-
-    /// Get hover information at position
-    pub async fn hover(&self, _file: &str, _position: Position) -> Result<Option<HoverInfo>> {
-        // Stub - would call actual LSP server
-        Ok(None)
-    }
-
-    /// Go to definition
-    pub async fn goto_definition(&self, _file: &str, _position: Position) -> Result<Vec<Location>> {
-        // Stub - would call actual LSP server
-        Ok(vec![])
-    }
-
-    /// Find references
-    pub async fn find_references(&self, _file: &str, _position: Position) -> Result<Vec<Location>> {
-        // Stub - would call actual LSP server
-        Ok(vec![])
-    }
-
-    /// Get document symbols
-    pub async fn document_symbols(&self, _file: &str) -> Result<Vec<DocumentSymbol>> {
-        // Stub - would call actual LSP server
-        Ok(vec![])
-    }
-
-    /// Search workspace symbols
-    pub async fn workspace_symbols(&self, _query: &str) -> Result<Vec<WorkspaceSymbol>> {
-        // Stub - would call actual LSP server
-        Ok(vec![])
-    }
-
-    /// Get diagnostics for a file
-    pub async fn diagnostics(&self, _file: &str) -> Result<Vec<Diagnostic>> {
-        // Stub - would call actual LSP server
-        Ok(vec![])
-    }
-
-    /// Prepare rename
-    pub async fn prepare_rename(&self, _file: &str, _position: Position) -> Result<Option<Range>> {
-        // Stub - would call actual LSP server
-        Ok(None)
-    }
-
-    /// Execute rename
-    pub async fn rename(&self, _file: &str, _position: Position, _new_name: &str) -> Result<bool> {
-        // Stub - would call actual LSP server
-        Ok(false)
-    }
-
-    /// Get code actions
-    pub async fn code_actions(&self, _file: &str, _range: Range) -> Result<Vec<serde_json::Value>> {
-        // Stub - would call actual LSP server
-        Ok(vec![])
-    }
-}
-
-impl Default for LspTools {
+impl Default for DiagnosticsConfig {
     fn default() -> Self {
-        Self::new()
+        Self {
+            timeout: Duration::from_secs(30),
+            include_warnings: true,
+            max_results: 100,
+        }
     }
+}
+
+/// Diagnostics tool that runs TypeScript and ESLint checks
+pub struct DiagnosticsTool {
+    config: DiagnosticsConfig,
+}
+
+impl DiagnosticsTool {
+    pub fn new(config: DiagnosticsConfig) -> Self {
+        Self { config }
+    }
+
+    /// Get diagnostics for a directory
+    pub fn get_diagnostics(&self, directory: &Path, file_filter: Option<&str>) -> Result<Vec<Diagnostic>> {
+        let mut all_diagnostics = Vec::new();
+
+        // Run TypeScript type checking
+        if let Ok(tsc_diags) = self.run_tsc(directory) {
+            all_diagnostics.extend(tsc_diags);
+        }
+
+        // Run ESLint
+        if let Ok(eslint_diags) = self.run_eslint(directory, file_filter) {
+            all_diagnostics.extend(eslint_diags);
+        }
+
+        // Filter by file if specified
+        if let Some(filter) = file_filter {
+            if filter != "*" {
+                all_diagnostics.retain(|d| d.file.contains(filter) || d.file.ends_with(filter));
+            }
+        }
+
+        // Filter warnings if disabled
+        if !self.config.include_warnings {
+            all_diagnostics.retain(|d| d.severity == DiagnosticSeverity::Error);
+        }
+
+        // Limit results
+        all_diagnostics.truncate(self.config.max_results);
+
+        Ok(all_diagnostics)
+    }
+
+    /// Run TypeScript compiler in noEmit mode
+    fn run_tsc(&self, directory: &Path) -> Result<Vec<Diagnostic>> {
+        let output = Command::new("npx")
+            .args(["-y", "tsc", "--noEmit", "--pretty", "false"])
+            .current_dir(directory)
+            .output()?;
+
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        let combined = format!("{}{}", stdout, stderr);
+
+        Ok(self.parse_tsc_output(&combined))
+    }
+
+    /// Parse TypeScript compiler output
+    fn parse_tsc_output(&self, output: &str) -> Vec<Diagnostic> {
+        let mut diagnostics = Vec::new();
+        
+        // TSC format: file(line,col): error TS1234: message
+        let re = Regex::new(r"^(.+?)\((\d+),(\d+)\):\s*(error|warning)\s+(TS\d+):\s*(.+)$").unwrap();
+
+        for line in output.lines() {
+            if let Some(caps) = re.captures(line.trim()) {
+                let severity = match caps.get(4).map(|m| m.as_str()) {
+                    Some("error") => DiagnosticSeverity::Error,
+                    Some("warning") => DiagnosticSeverity::Warning,
+                    _ => DiagnosticSeverity::Info,
+                };
+
+                diagnostics.push(Diagnostic {
+                    file: caps.get(1).map(|m| m.as_str().to_string()).unwrap_or_default(),
+                    line: caps.get(2).and_then(|m| m.as_str().parse().ok()).unwrap_or(0),
+                    column: caps.get(3).and_then(|m| m.as_str().parse().ok()).unwrap_or(0),
+                    severity,
+                    message: caps.get(6).map(|m| m.as_str().to_string()).unwrap_or_default(),
+                    source: Some("typescript".to_string()),
+                    code: caps.get(5).map(|m| m.as_str().to_string()),
+                });
+            }
+        }
+
+        diagnostics
+    }
+
+    /// Run ESLint
+    fn run_eslint(&self, directory: &Path, file_filter: Option<&str>) -> Result<Vec<Diagnostic>> {
+        let target = file_filter.unwrap_or(".");
+        
+        let output = Command::new("npx")
+            .args(["-y", "eslint", target, "--format", "json", "--no-error-on-unmatched-pattern"])
+            .current_dir(directory)
+            .output()?;
+
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        
+        Ok(self.parse_eslint_output(&stdout))
+    }
+
+    /// Parse ESLint JSON output
+    fn parse_eslint_output(&self, output: &str) -> Vec<Diagnostic> {
+        let mut diagnostics = Vec::new();
+
+        // Try to parse as JSON array
+        if let Ok(files) = serde_json::from_str::<Vec<EslintFile>>(output) {
+            for file in files {
+                for msg in file.messages {
+                    let severity = match msg.severity {
+                        2 => DiagnosticSeverity::Error,
+                        1 => DiagnosticSeverity::Warning,
+                        _ => DiagnosticSeverity::Info,
+                    };
+
+                    diagnostics.push(Diagnostic {
+                        file: file.file_path.clone(),
+                        line: msg.line.unwrap_or(0),
+                        column: msg.column.unwrap_or(0),
+                        severity,
+                        message: msg.message,
+                        source: Some("eslint".to_string()),
+                        code: msg.rule_id,
+                    });
+                }
+            }
+        }
+
+        diagnostics
+    }
+}
+
+impl Default for DiagnosticsTool {
+    fn default() -> Self {
+        Self::new(DiagnosticsConfig::default())
+    }
+}
+
+#[derive(Deserialize)]
+struct EslintFile {
+    #[serde(rename = "filePath")]
+    file_path: String,
+    messages: Vec<EslintMessage>,
+}
+
+#[derive(Deserialize)]
+struct EslintMessage {
+    line: Option<u32>,
+    column: Option<u32>,
+    severity: u32,
+    message: String,
+    #[serde(rename = "ruleId")]
+    rule_id: Option<String>,
 }

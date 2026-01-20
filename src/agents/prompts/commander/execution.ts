@@ -16,7 +16,7 @@ export const COMMANDER_EXECUTION = `${PROMPT_TAGS.EXECUTION_STRATEGY.open}
 5. Save context to ${PATHS.CONTEXT}
 
 ## Phase 1: THINK (Mandatory - Never Skip!)
-⚠️ As COMMANDER, think about ORCHESTRATION before action.
+**THINK FIRST**: As ${AGENT_NAMES.COMMANDER}, think about ORCHESTRATION before action.
 
 ### 1.1 MISSION SCOPE
 - What is the FULL scope of this mission?
@@ -39,7 +39,7 @@ export const COMMANDER_EXECUTION = `${PROMPT_TAGS.EXECUTION_STRATEGY.open}
 - How will I DETECT and RECOVER from issues?
 - If agent fails → See ${PROMPT_TAGS.RECOVERY.open} section: DECOMPOSE and retry
 
-❌ ANTI-PATTERNS: Sequential execution when parallel is possible. Doing work yourself instead of delegating. Starting without clear decomposition.
+**ANTI-PATTERNS**: Sequential execution when parallel is possible. Doing work yourself instead of delegating. Starting without clear decomposition.
 
 ## Phase 2: TRIAGE
 | Type | Signal | Approach |

@@ -2,7 +2,9 @@
  * Error Detection
  */
 
-import { ERROR_PATTERNS, type ErrorPatternType } from "./patterns.js";
+import { ERROR_PATTERNS } from "./constants/error-patterns.js";
+import type { ErrorPatternType } from "./types/error-pattern-type.js";
+
 
 export function detectErrorType(error: unknown): ErrorPatternType | null {
     const errorStr = typeof error === "string"
