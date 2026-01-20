@@ -100,14 +100,11 @@ jobs:
             You don't assume oxygen. You don't guess gravity. You **explore**, **learn**, **adapt**, and **act**.
             
             ```
-            ┌──────────────────────────────────────────────────────────────────────────────────────┐
-            │                                                                                      │
-            │  🔍 EXPLORE    →    📝 LEARN    →    🔄 ADAPT    →    ⚡ ACT                           │
-            │                                                                                      │
-            │  Scan the          Document           Adjust to          Execute the                 │
-            │  unknown           discoveries        the terrain        mission                     │
-            │                                                                                      │
-            └──────────────────────────────────────────────────────────────────────────────────────┘
+            ┌───────────────────────────────────────────────────────────┐
+            │  🔍 EXPLORE   →   📝 LEARN   →   🔄 ADAPT   →   ⚡ ACT        │
+            │  Scan the         Document        Adjust to       Execute the │
+            │  unknown          findings        the project     task        │
+            └───────────────────────────────────────────────────────────┘
             ```
             
             ---
@@ -116,28 +113,20 @@ jobs:
             
             | Agent | Role | Mission |
             |:------|:-----|:--------|
-            | 🎯 **Commander** | The captain | Leads the mission. Delegates specialists. Seals when complete. |
-            | 📋 **Planner** | The scientist | Maps the terrain. Documents everything. Creates paths to follow. |
-            | 🔨 **Worker** | The engineer | Builds with local materials. Adapts to the terrain. |
-            | ✅ **Reviewer** | The inspector | Verifies all structures. Clears the mission for launch. |
-            
-            ### 🛸 The Protocol
-            
-            | Phase | The Crew's Action |
-            |:------|:------------------|
-            | 🔍 **EXPLORE** | *"What world is this?"* — Scan, detect, never assume |
-            | 📝 **LEARN** | *"Write it down."* — Document for future missions |
-            | 🔄 **ADAPT** | *"Do it this way here."* — Fit the terrain |
-            | ⚡ **ACT** | *"Execute."* — Build, test, seal |
+            | 🎯 **Commander** | Orchestrator | Leads the task, delegates work to other agents, ensures completion |
+            | 📋 **Planner** | Researcher | Analyzes the project, creates the plan, documents findings |
+            | 🔨 **Worker** | Implementer | Writes code, modifies files, follows the project's patterns |
+            | ✅ **Reviewer** | Verifier | Tests changes, checks for errors, confirms quality |
             
             ### 🌟 Crew Principles
             
             | Principle | In Practice |
             |:----------|:------------|
-            | 🔍 **Never Assume Gravity** | Detect environment first |
-            | 📝 **Document for Future Missions** | Record patterns for reuse |
-            | 📚 **Evidence Over Memory** | Complete only with proof |
-            | 🔄 **Adapt to the Terrain** | Evolve based on learnings |
+            | 🔍 **Never Assume** | Always check the actual code and config files first |
+            | 📝 **Document Everything** | Record patterns and findings for future tasks |
+            | 📚 **Verify with Evidence** | Run tests, cite sources, complete with proof |
+            | 🔄 **Adapt to the Project** | Match the project's existing style and patterns |
+            | 🤝 **Specialized Roles** | Each agent has a clear, focused responsibility |
             
             ---
             
@@ -145,11 +134,11 @@ jobs:
             
             | Feature | Description |
             |:--------|:------------|
-            | ⚡ **50 Parallel Sessions** | True multi-threading with isolated contexts |
-            | 🔥 **Parallel File Builds** | Workers build different files simultaneously |
-            | 🔗 **Real-Time Sync** | Shared state across all agents |
-            | 🛡️ **Self-Healing** | Auto-recovery with 3 retries |
-            | 🧬 **Adaptive Intelligence** | Agents evolve behavior based on discoveries |
+            | 🦀 **Rust Core** | High-performance tool engine for search, AST, and diff |
+            | ⚡ **50 Parallel Tasks** | Run up to 50 agents simultaneously in isolated contexts |
+            | 🔥 **Multi-File Ops** | Writes code across different files concurrently |
+            | 🛡️ **Self-Healing** | Automatic recovery with intelligent retry logic |
+            | 🧬 **Adaptive AI** | Agents learn project-specific patterns and adapt behavior |
             
             ---
             
@@ -167,7 +156,7 @@ jobs:
       - name: Publish to GitHub Packages
         uses: actions/setup-node@v4
         with:
-          node-version: '24'
+            node-version: '22'
           registry-url: 'https://npm.pkg.github.com'
           scope: '@agnusdei1207'
 

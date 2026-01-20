@@ -24,6 +24,11 @@ import {
     WORKER_ISOLATION_TESTING,
     // File assignment
     WORKER_FILE_ASSIGNMENT,
+    // LSP Tools
+    WORKER_LSP_TOOLS,
+    // Advanced Tools
+    SHARED_LSP_TOOLS,
+    SHARED_AST_TOOLS,
 } from "../prompts/index.js";
 
 /**
@@ -42,6 +47,9 @@ const systemPrompt = [
     // TDD-based isolated work
     WORKER_TDD_WORKFLOW,
     WORKER_ISOLATION_TESTING,
+    WORKER_LSP_TOOLS,
+    SHARED_LSP_TOOLS,
+    SHARED_AST_TOOLS,
     VERIFICATION_REQUIREMENTS,
     SHARED_WORKSPACE,
 ].join("\n\n");

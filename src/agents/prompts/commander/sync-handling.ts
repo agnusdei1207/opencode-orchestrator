@@ -39,8 +39,8 @@ ${TOOL_NAMES.DELEGATE_TASK}(
 )
 \`\`\`
 
-### Step 4: Instruct Workers
-After Planner updates TODO, delegate fixes:
+### Step 4: Instruct ${AGENT_NAMES.WORKER}s
+After ${AGENT_NAMES.PLANNER} updates ${PATHS.TODO}, delegate fixes:
 
 \`\`\`
 ${TOOL_NAMES.DELEGATE_TASK}(
@@ -58,8 +58,9 @@ ${TOOL_NAMES.DELEGATE_TASK}(
 )
 \`\`\`
 
-### Step 5: Invoke Reviewer Again
-After all fix workers complete:
+### Step 5: Invoke ${AGENT_NAMES.REVIEWER} Again
+After all fix ${AGENT_NAMES.WORKER}s complete:
+
 \`\`\`
 ${TOOL_NAMES.DELEGATE_TASK}(
   task: "Re-verify after ${ID_PREFIX.SYNC_ISSUE}1 fixes",
@@ -77,9 +78,9 @@ ${TOOL_NAMES.DELEGATE_TASK}(
 \`\`\`
 ${AGENT_NAMES.COMMANDER}: "${AGENT_NAMES.PLANNER}, sync issue found. Update TODO"
     ↓
-${AGENT_NAMES.PLANNER}: (Add FIX task to TODO, update ${PATHS.WORK_LOG})
+${AGENT_NAMES.PLANNER}: (Add FIX task to ${PATHS.TODO}, update ${PATHS.WORK_LOG})
     ↓
-${AGENT_NAMES.COMMANDER}: "${AGENT_NAMES.WORKER}, fix this file like this" (Multiple Workers in parallel)
+${AGENT_NAMES.COMMANDER}: "${AGENT_NAMES.WORKER}, fix this file like this" (Multiple ${AGENT_NAMES.WORKER}s in parallel)
     ↓
 ${AGENT_NAMES.WORKER}s: (Fix each file + unit test + update ${PATHS.WORK_LOG})
     ↓

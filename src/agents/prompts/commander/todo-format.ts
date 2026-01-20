@@ -5,47 +5,44 @@
 import { AGENT_NAMES, PROMPT_TAGS, WORK_STATUS } from "../../../shared/index.js";
 
 export const COMMANDER_TODO_FORMAT = `${PROMPT_TAGS.TODO_FORMAT.open}
-## Hierarchical TODO Structure
+## Hierarchical Task Decomposition
+Break down the mission into as many levels as needed to ensure clear ownership and parallel execution. Work is only considered DONE when the entire subtree is verified.
 
-LEVEL 1 - Epic (E): High-level goal
-  LEVEL 2 - Task (T): Feature/component  
-    LEVEL 3 - Subtask (S): Atomic work unit
+### Recursive Completion Rule
+- **Leaf Tasks**: Checked \`[x]\` ONLY by ${AGENT_NAMES.REVIEWER} after tool-based verification.
+- **Parent Nodes**: Resolved (\`${WORK_STATUS.TODO_STATUS.COMPLETE}\`) ONLY when ALL child tasks are verified (marked \`[x]\`).
+- **Mission**: SEALED only when the root of the hierarchy is fully resolved.
 
-## Example Structure
+## Structure Example
 \`\`\`markdown
-# Mission: Build user authentication system
+# Mission: [goal]
 
-## E1: Backend API | status: ${WORK_STATUS.TODO_STATUS.IN_PROGRESS}
-### T1.1: Database schema | agent:${AGENT_NAMES.WORKER}
-- [ ] S1.1.1: Create users table | size:S
-- [ ] S1.1.2: Create sessions table | size:S
-- [ ] S1.1.3: Add indexes | size:XS
-### T1.2: Auth endpoints | agent:${AGENT_NAMES.WORKER} | depends:T1.1
-- [ ] S1.2.1: POST /login | size:M
-- [ ] S1.2.2: POST /logout | size:S
-- [ ] S1.2.3: POST /refresh | size:M
-### T1.3: Verify backend | agent:${AGENT_NAMES.REVIEWER} | depends:T1.2
-- [ ] S1.3.1: Run unit tests | size:S
-- [ ] S1.3.2: Run integration tests | size:M
+## G1: [The Goal] | status: ${WORK_STATUS.TODO_STATUS.IN_PROGRESS}
+### P1.1: [Feature Project] | agent:${AGENT_NAMES.PLANNER}
+- [ ] T1.1.1: [Atomic Research] | size:S
+- [ ] T1.1.2: [Detailed Design] | size:M
 
-## E2: Frontend UI | status: ${WORK_STATUS.TODO_STATUS.PENDING} | depends:E1
-### T2.1: Login page | agent:${AGENT_NAMES.WORKER}
-- [ ] S2.1.1: Create form component | size:M
-- [ ] S2.1.2: Add validation | size:S
-### T2.2: Verify frontend | agent:${AGENT_NAMES.REVIEWER} | depends:T2.1
-- [ ] S2.2.1: Run tests | size:S
+### P1.2: [Implementation Block] | agent:${AGENT_NAMES.WORKER} | depends:P1.1
+#### P1.2.1: [Sub-module A]
+- [ ] T1.2.1.1: [Draft code] | file:src/a.ts | size:M
+- [ ] T1.2.1.2: [Tests for A] | file:tests/a.test.ts | size:S
+
+#### P1.2.2: [Sub-module B] | depends:P1.2.1
+- [ ] T1.2.2.1: [Draft code] | file:src/b.ts | size:M
+- [ ] T1.2.2.2: [Tests for B] | file:tests/b.test.ts | size:S
+
+### P1.3: [Final Quality Pass] | agent:${AGENT_NAMES.REVIEWER} | depends:P1.2
+- [ ] T1.3.1: [Visual E2E] | size:M
+- [ ] T1.3.2: [Release Build] | size:S
 \`\`\`
 
-## Parallel Groups
-Epics with same status and no dependencies = run parallel
-Tasks within epic with no depends = run parallel
-Subtasks within task = run parallel
+## Parallel Execution Groups
+Tasks with NO shared dependencies can be executed simultaneously:
+1. **Parallel Epics/Goals**: G1 and G2 can run together if independent.
+2. **Parallel Sub-modules**: P1.2.1 and P1.2.2 can run together if no \`depends:\` link.
+3. **Atomic Leaf Tasks**: All \`[ ]\` items under a single Parent can be launched in background sessions.
 
-## Completion Rollup
-S1.1.1 [x] + S1.1.2 [x] + S1.1.3 [x] = T1.1 can be [x]
-T1.1 [x] + T1.2 [x] + T1.3 [x] = E1 can be [x]
-E1 [x] + E2 [x] = Mission can be SEALED
-
-Create all items with [ ] - NEVER with [x]!
-Only ${AGENT_NAMES.REVIEWER} marks [x] after verification!
+Create all items with \`[ ]\` - NEVER with \`[x]\`!
+Only ${AGENT_NAMES.REVIEWER} marks \`[x]\` after verification!
 ${PROMPT_TAGS.TODO_FORMAT.close}`;
+

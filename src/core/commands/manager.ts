@@ -4,9 +4,9 @@
  * Runs shell commands in the background and tracks their output.
  */
 
-import { spawn } from "child_process";
-import { randomBytes } from "crypto";
-import { ID_PREFIX, getStatusEmoji } from "../../shared/index.js";
+import { spawn } from "node:child_process";
+import { randomBytes } from "node:crypto";
+import { ID_PREFIX, getStatusIndicator, STATUS_LABEL, CLI_NAME } from "../../shared/index.js";
 import type { BackgroundTask } from "./interfaces/background-task.js";
 import type { BackgroundTaskStatus } from "./types/background-task-status.js";
 import type { RunBackgroundOptions } from "./interfaces/run-background-options.js";
@@ -41,7 +41,7 @@ class BackgroundTaskManager {
         const { command, cwd = process.cwd(), timeout = 300000, label } = options;
 
         const isWindows = process.platform === "win32";
-        const shell = isWindows ? "cmd.exe" : "/bin/sh";
+        const shell = isWindows ? "cmd.exe" : CLI_NAME.SH;
         const shellFlag = isWindows ? "/c" : "-c";
 
         const task: BackgroundTask = {
@@ -50,7 +50,7 @@ class BackgroundTaskManager {
             args: [shellFlag, command],
             cwd,
             label,
-            status: "running",
+            status: STATUS_LABEL.RUNNING,
             output: "",
             errorOutput: "",
             exitCode: null,
@@ -81,29 +81,29 @@ class BackgroundTaskManager {
             proc.on("close", (code: number | null) => {
                 task.exitCode = code;
                 task.endTime = Date.now();
-                task.status = code === 0 ? "done" : "error";
+                task.status = code === 0 ? STATUS_LABEL.DONE : STATUS_LABEL.ERROR;
                 task.process = undefined;
                 this.debug(id, `Done (code=${code})`);
             });
 
             proc.on("error", (err: Error) => {
-                task.status = "error";
+                task.status = STATUS_LABEL.ERROR;
                 task.errorOutput += `\nProcess error: ${err.message}`;
                 task.endTime = Date.now();
                 task.process = undefined;
             });
 
             setTimeout(() => {
-                if (task.status === "running" && task.process) {
+                if (task.status === STATUS_LABEL.RUNNING && task.process) {
                     task.process.kill("SIGKILL");
-                    task.status = "timeout";
+                    task.status = STATUS_LABEL.TIMEOUT;
                     task.endTime = Date.now();
                     this.debug(id, "Timeout");
                 }
             }, timeout);
 
         } catch (err) {
-            task.status = "error";
+            task.status = STATUS_LABEL.ERROR;
             task.errorOutput = `Spawn failed: ${err instanceof Error ? err.message : String(err)}`;
             task.endTime = Date.now();
         }
@@ -126,7 +126,7 @@ class BackgroundTaskManager {
     clearCompleted(): number {
         let count = 0;
         for (const [id, task] of this.tasks) {
-            if (task.status !== "running" && task.status !== "pending") {
+            if (task.status !== STATUS_LABEL.RUNNING && task.status !== STATUS_LABEL.PENDING) {
                 this.tasks.delete(id);
                 count++;
             }
@@ -138,7 +138,7 @@ class BackgroundTaskManager {
         const task = this.tasks.get(taskId);
         if (task?.process) {
             task.process.kill("SIGKILL");
-            task.status = "error";
+            task.status = STATUS_LABEL.ERROR;
             task.errorOutput += "\nKilled by user";
             task.endTime = Date.now();
             return true;
@@ -154,8 +154,9 @@ class BackgroundTaskManager {
     }
 
     getStatusEmoji(status: BackgroundTaskStatus): string {
-        return getStatusEmoji(status);
+        return getStatusIndicator(status);
     }
+
 }
 
 export const backgroundTaskManager = BackgroundTaskManager.instance;

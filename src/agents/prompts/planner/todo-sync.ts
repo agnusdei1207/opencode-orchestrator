@@ -31,7 +31,7 @@ Add NEW subtasks for sync fixes:
 
 ## 📋 DOCUMENT MAINTENANCE RULES
 
-### Keep .opencode/ Minimal:
+### Keep ${PATHS.OPENCODE}/ Minimal:
 | File | Rule |
 |------|------|
 | ${PATHS.STATUS} | Overwrite each loop (no history) |
@@ -41,7 +41,7 @@ Add NEW subtasks for sync fixes:
 
 ### Summarize & Clean:
 - **Completed tasks**: Move to archive or delete
-- **Resolved issues**: DELETE from sync-issues.md
+- **Resolved issues**: DELETE from ${PATHS.SYNC_ISSUES.split("/").pop()}
 - **Old status**: Overwrite with current (no append)
 - **Long descriptions**: Summarize to 1-2 lines
 
@@ -58,8 +58,9 @@ Add NEW subtasks for sync fixes:
 - Blockers
 
 ### CRITICAL:
-- Commander should NOT see old/resolved content
+- ${AGENT_NAMES.COMMANDER} should NOT see old/resolved content
 - Only current state matters
+
 - Less context = faster decisions
 ${PROMPT_TAGS.TODO_SYNC.close}`;
 

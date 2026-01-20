@@ -25,24 +25,19 @@ var AGENT_TOKENS = {
   SUBAGENT_MAX_TOKENS: 32e3
 };
 
-// src/shared/agent/constants/status.ts
-var AGENT_EMOJI = {
-  Commander: "C",
-  Planner: "P",
-  Worker: "W",
-  Reviewer: "R"
-};
-var STATUS_EMOJI = {
-  pending: "...",
-  running: "RUN",
-  completed: "OK",
-  done: "OK",
-  error: "ERR",
-  timeout: "TIM",
-  cancelled: "CAN"
-};
-function getStatusEmoji(status) {
-  return STATUS_EMOJI[status] ?? "?";
+// src/shared/agent/utils/index.ts
+function getStatusIndicator(status) {
+  const statusMap = {
+    pending: "[P]",
+    running: "[R]",
+    done: "[D]",
+    completed: "[D]",
+    success: "[+]",
+    failed: "[-]",
+    error: "[-]",
+    cancelled: "[X]"
+  };
+  return statusMap[status.toLowerCase()] ?? "[?]";
 }
 
 // src/shared/core/constants/time.ts
@@ -91,6 +86,71 @@ var MEMORY_LIMITS = {
   MAX_PROGRESS_HISTORY_PER_SESSION: 100,
   ARCHIVE_AGE_MS: 30 * TIME.MINUTE,
   ERROR_CLEANUP_AGE_MS: 10 * TIME.MINUTE
+};
+
+// src/shared/core/constants/status-labels.ts
+var STATUS_LABEL = {
+  // Basic States
+  PENDING: "pending",
+  RUNNING: "running",
+  IN_PROGRESS: "in_progress",
+  COMPLETED: "completed",
+  DONE: "done",
+  SUCCESS: "success",
+  // Failure States
+  FAILED: "failed",
+  ERROR: "error",
+  TIMEOUT: "timeout",
+  CANCELLED: "cancelled",
+  BLOCKED: "blocked",
+  // Test/Audit Results
+  PASS: "pass",
+  FAIL: "fail",
+  SKIP: "skip",
+  // Quality/Cleanliness
+  CLEAN: "clean",
+  OK: "ok",
+  VERIFIED: "verified",
+  // Analysis/Diagnostic
+  WARNING: "warning",
+  INFO: "info",
+  HINT: "hint",
+  ALL: "all",
+  HIGH: "high",
+  MEDIUM: "medium",
+  LOW: "low"
+};
+
+// src/shared/core/constants/limits.ts
+var LIMITS = {
+  /** Maximum mission loop iterations */
+  MAX_ITERATIONS: 1e3,
+  /** Default scan limit for file listing */
+  DEFAULT_SCAN_LIMIT: 20,
+  /** Max message history to check for seal */
+  SEAL_CHECK_HISTORY: 3,
+  /** Max concurrent tasks per agent */
+  MAX_TASKS_PER_AGENT: 10,
+  /** Default history/list limit for UI */
+  DEFAULT_LIST_LIMIT: 20,
+  /** Default progress bar width */
+  DEFAULT_PROGRESS_WIDTH: 20,
+  /** Maximum time for atomic task (minutes) */
+  TASK_TIME_LIMIT_MIN: 10
+};
+
+// src/shared/core/constants/cli.ts
+var CLI_NAME = {
+  NPX: "npx",
+  TSC: "tsc",
+  ESLINT: "eslint",
+  RG: "rg",
+  SED: "sed",
+  AST_GREP: "ast-grep",
+  GIT: "git",
+  JQ: "jq",
+  NODE: "node",
+  SH: "sh"
 };
 
 // src/shared/task/constants/parallel-task.ts
@@ -145,7 +205,7 @@ var LOOP = {
   /** Window to consider abort as recent */
   ABORT_WINDOW_MS: 3 * TIME.SECOND,
   /** Maximum iterations for mission loop */
-  DEFAULT_MAX_ITERATIONS: 1e3,
+  DEFAULT_MAX_ITERATIONS: LIMITS.MAX_ITERATIONS,
   /** Rust tool timeout */
   RUST_TOOL_TIMEOUT_MS: 60 * TIME.SECOND
 };
@@ -155,7 +215,7 @@ var MISSION_SEAL = {
   TAG: "mission_seal",
   CONFIRMATION: "SEALED",
   PATTERN: "<mission_seal>SEALED</mission_seal>",
-  DEFAULT_MAX_ITERATIONS: 20,
+  DEFAULT_MAX_ITERATIONS: LIMITS.MAX_ITERATIONS,
   DEFAULT_COUNTDOWN_SECONDS: 3,
   STATE_FILE: "loop-state.json",
   STOP_COMMAND: "/stop",
@@ -242,53 +302,61 @@ var FILTER_STATUS = {
   PENDING: "pending"
 };
 
-// src/shared/session/constants/session-events.ts
-var SESSION_EVENTS = {
-  IDLE: "session.idle",
-  DELETED: "session.deleted",
-  CREATED: "session.created",
-  ERROR: "session.error"
-};
-var MESSAGE_EVENTS = {
-  UPDATED: "message.updated"
-};
-
-// src/shared/session/constants/event-types.ts
+// src/shared/session/constants/events/task-events.ts
 var TASK_EVENTS = {
   STARTED: "task.started",
   COMPLETED: "task.completed",
   FAILED: "task.failed",
   CANCELLED: "task.cancelled"
 };
+
+// src/shared/session/constants/events/todo-events.ts
 var TODO_EVENTS = {
   CREATED: "todo.created",
   UPDATED: "todo.updated",
   COMPLETED: "todo.completed"
 };
-var SESSION_EVENTS2 = {
+
+// src/shared/session/constants/events/session-events.ts
+var SESSION_EVENTS = {
   IDLE: "session.idle",
   BUSY: "session.busy",
   ERROR: "session.error",
-  DELETED: "session.deleted"
+  DELETED: "session.deleted",
+  CREATED: "session.created"
 };
+
+// src/shared/session/constants/events/document-events.ts
 var DOCUMENT_EVENTS = {
   CACHED: "document.cached",
   EXPIRED: "document.expired"
 };
+
+// src/shared/session/constants/events/mission-events.ts
 var MISSION_EVENTS = {
   COMPLETE: "mission.complete",
   FAILED: "mission.failed",
   ALL_TASKS_COMPLETE: "all_tasks.complete"
 };
+
+// src/shared/session/constants/events/message-events.ts
+var MESSAGE_EVENTS = {
+  UPDATED: "message.updated"
+};
+
+// src/shared/session/constants/events/special-events.ts
 var SPECIAL_EVENTS = {
   WILDCARD: "*"
 };
+
+// src/shared/session/constants/events/index.ts
 var EVENT_TYPES = {
   ...TASK_EVENTS,
   ...TODO_EVENTS,
-  ...SESSION_EVENTS2,
+  ...SESSION_EVENTS,
   ...DOCUMENT_EVENTS,
   ...MISSION_EVENTS,
+  ...MESSAGE_EVENTS,
   ...SPECIAL_EVENTS
 };
 
@@ -325,6 +393,11 @@ var TOOL_NAMES = {
   WEBSEARCH: "websearch",
   CODESEARCH: "codesearch",
   CACHE_DOCS: "cache_docs",
+  // LSP tools
+  LSP_DIAGNOSTICS: "lsp_diagnostics",
+  // AST tools
+  AST_SEARCH: "ast_search",
+  AST_REPLACE: "ast_replace",
   // Other tools
   CALL_AGENT: "call_agent",
   SLASHCOMMAND: "slashcommand"
@@ -336,6 +409,61 @@ var TOOL_OUTPUT = {
   MAX_HEALTHY_OUTPUT_LENGTH: 1e3,
   /** Threshold for considering output small enough to capture */
   SMALL_OUTPUT_THRESHOLD: 5e3
+};
+
+// src/shared/tool/constants/lsp/lsp-severity.ts
+var LSP_SEVERITY = {
+  ERROR: 1,
+  WARNING: 2,
+  INFO: 3,
+  HINT: 4
+};
+
+// src/shared/tool/constants/common/labels.ts
+var TOOL_LABEL = {
+  ERROR: STATUS_LABEL.ERROR,
+  WARNING: STATUS_LABEL.WARNING,
+  INFO: STATUS_LABEL.INFO,
+  HINT: STATUS_LABEL.HINT,
+  SUCCESS: STATUS_LABEL.SUCCESS,
+  FAILED: STATUS_LABEL.FAILED,
+  CLEAN: STATUS_LABEL.CLEAN,
+  TIMEOUT: STATUS_LABEL.TIMEOUT,
+  DONE: STATUS_LABEL.DONE,
+  PENDING: STATUS_LABEL.PENDING,
+  RUNNING: STATUS_LABEL.RUNNING
+};
+
+// src/shared/tool/constants/lsp/lsp-severity-labels.ts
+var LSP_SEVERITY_LABELS = {
+  [LSP_SEVERITY.ERROR]: TOOL_LABEL.ERROR,
+  [LSP_SEVERITY.WARNING]: TOOL_LABEL.WARNING,
+  [LSP_SEVERITY.INFO]: TOOL_LABEL.INFO,
+  [LSP_SEVERITY.HINT]: TOOL_LABEL.HINT
+};
+
+// src/shared/tool/constants/parallel/logging.ts
+var PARALLEL_LOG = {
+  DELEGATE_TASK: "[delegate-task]"
+};
+
+// src/shared/tool/constants/common/output-labels.ts
+var OUTPUT_LABEL = {
+  ERROR: "[ERROR]",
+  WARNING: "[WARNING]",
+  INFO: "[INFO]",
+  DONE: "[DONE]",
+  OK: "[OK]",
+  SPAWNED: "[SPAWNED]",
+  RESUME: "[RESUME]",
+  TIMEOUT: "[TIMEOUT]",
+  RUNNING: "[RUNNING]",
+  CANCELLED: "[CANCELLED]",
+  RESUMED_DONE: "[RESUMED & DONE]",
+  SYNC_START: "[SYNC START]",
+  CACHED: "[CACHED]",
+  JSON_FETCHED: "[JSON FETCHED]",
+  TEXT_FETCHED: "[TEXT FETCHED]"
 };
 
 // src/shared/message/constants/part-types.ts
@@ -380,7 +508,7 @@ var SESSION_STATUS = {
   BUSY: "busy"
 };
 
-// src/shared/errors/patterns.ts
+// src/shared/errors/constants/error-patterns.ts
 var ERROR_PATTERNS = {
   TOOL_RESULT_MISSING: /tool_result_missing|tool result.*missing/i,
   THINKING_BLOCK_ORDER: /thinking.*block.*order|thinking_block_order/i,
@@ -391,6 +519,8 @@ var ERROR_PATTERNS = {
   NETWORK_ERROR: /network|ECONNREFUSED|ETIMEDOUT|fetch failed/i,
   AUTH_ERROR: /unauthorized|401|403|invalid.*token/i
 };
+
+// src/shared/errors/constants/error-type.ts
 var ERROR_TYPE = {
   TOOL_RESULT_MISSING: "TOOL_RESULT_MISSING",
   THINKING_BLOCK_ORDER: "THINKING_BLOCK_ORDER",
@@ -468,25 +598,25 @@ var WORK_STATUS = {
     DELETE: "DELETE",
     FIX: "FIX"
   },
-  // Task/file status
+  // Task/file status (Internal state)
   STATUS: {
-    PENDING: "PENDING",
-    IN_PROGRESS: "IN_PROGRESS",
-    DONE: "DONE",
-    FAILED: "FAILED"
+    PENDING: STATUS_LABEL.PENDING,
+    IN_PROGRESS: STATUS_LABEL.IN_PROGRESS,
+    DONE: STATUS_LABEL.DONE,
+    FAILED: STATUS_LABEL.FAILED
   },
   // Test result
   TEST_RESULT: {
-    PASS: "PASS",
-    FAIL: "FAIL",
-    SKIP: "SKIP"
+    PASS: STATUS_LABEL.PASS,
+    FAIL: STATUS_LABEL.FAIL,
+    SKIP: STATUS_LABEL.SKIP
   },
   // E2E integration test status
   E2E_STATUS: {
     NOT_STARTED: "NOT_STARTED",
-    RUNNING: "RUNNING",
-    PASS: "PASS",
-    FAIL: "FAIL"
+    RUNNING: STATUS_LABEL.RUNNING,
+    PASS: STATUS_LABEL.PASS,
+    FAIL: STATUS_LABEL.FAIL
   },
   // Mission phase
   PHASE: {
@@ -513,9 +643,10 @@ var WORK_STATUS = {
   },
   // Session state
   SESSION: {
-    STARTED: "STARTED",
-    COMPLETED: "COMPLETED",
-    CANCELLED: "CANCELLED"
+    STARTED: STATUS_LABEL.PENDING,
+    // Standardized mapping
+    COMPLETED: STATUS_LABEL.DONE,
+    CANCELLED: STATUS_LABEL.CANCELLED
   },
   // Task triage - complexity classification
   TRIAGE: {
@@ -537,22 +668,23 @@ var WORK_STATUS = {
   },
   // TODO.md status values (for Epic/Task display)
   TODO_STATUS: {
-    PENDING: "pending",
-    IN_PROGRESS: "in-progress",
-    COMPLETE: "COMPLETE",
-    BLOCKED: "blocked",
-    DONE: "DONE"
+    PENDING: STATUS_LABEL.PENDING,
+    IN_PROGRESS: STATUS_LABEL.IN_PROGRESS,
+    COMPLETE: STATUS_LABEL.COMPLETED,
+    BLOCKED: STATUS_LABEL.BLOCKED,
+    DONE: STATUS_LABEL.DONE,
+    VERIFIED: STATUS_LABEL.VERIFIED
   },
   // Task size estimation
   TASK_SIZE: {
     XS: "XS",
-    // <5min
+    // <10min
     S: "S",
-    // 5-15min
+    // 10-20min
     M: "M",
-    // 15-30min
+    // 20-40min
     L: "L"
-    // 30-60min
+    // 40-60min
   }
 };
 
@@ -579,19 +711,19 @@ var PHILOSOPHY_LEARN_PRINCIPLE = "LEARN = DOCUMENT: What you discover, you recor
 
 // src/core/agents/consts/task-status.const.ts
 var TASK_STATUS = {
-  PENDING: "pending",
-  RUNNING: "running",
-  COMPLETED: "completed",
-  FAILED: "failed",
-  ERROR: "error",
-  TIMEOUT: "timeout",
-  CANCELLED: "cancelled"
+  PENDING: STATUS_LABEL.PENDING,
+  RUNNING: STATUS_LABEL.RUNNING,
+  COMPLETED: STATUS_LABEL.COMPLETED,
+  FAILED: STATUS_LABEL.FAILED,
+  ERROR: STATUS_LABEL.ERROR,
+  TIMEOUT: STATUS_LABEL.TIMEOUT,
+  CANCELLED: STATUS_LABEL.CANCELLED
 };
 var TODO_STATUS = {
-  PENDING: "pending",
-  IN_PROGRESS: "in_progress",
-  COMPLETED: "completed",
-  CANCELLED: "cancelled"
+  PENDING: STATUS_LABEL.PENDING,
+  IN_PROGRESS: STATUS_LABEL.IN_PROGRESS,
+  COMPLETED: STATUS_LABEL.COMPLETED,
+  CANCELLED: STATUS_LABEL.CANCELLED
 };
 
 // src/core/orchestrator/state.ts
@@ -13026,15 +13158,16 @@ tool.schema = external_exports;
 
 // src/agents/prompts/common/environment-discovery.ts
 var ENVIRONMENT_DISCOVERY = `${PROMPT_TAGS.ENVIRONMENT_DISCOVERY.open}
-\u26A0\uFE0F MANDATORY FIRST STEP - Before any planning or coding:
+**MANDATORY FIRST STEP** - Before any planning or coding:
 
 ## 1. Project Structure Discovery
 Explore the project root to understand its organization:
 \`\`\`bash
 ls -la                    # Root contents
-find . -maxdepth 2 -type d | head -30   # Directory structure
+find . -maxdepth 2 -type d | head -${LIMITS.DEFAULT_SCAN_LIMIT}   # Directory structure
 find . -maxdepth 1 -type f              # Root files
 \`\`\`
+
 
 **Look for patterns, NOT specific files:**
 - Source directories (src/, lib/, app/, pkg/, internal/, cmd/)
@@ -13126,7 +13259,7 @@ ls -la ${PATHS.OPENCODE}/ 2>/dev/null || echo "No existing context"
 - [Any unique patterns or requirements observed]
 \`\`\`
 
-## \u26A0\uFE0F CRITICAL RULES:
+## CRITICAL RULES:
 1. NEVER assume - always VERIFY by reading files
 2. ADAPT to what you find, don't force expectations
 3. If uncertain, ASK the user for clarification
@@ -13135,7 +13268,7 @@ ${PROMPT_TAGS.ENVIRONMENT_DISCOVERY.close}`;
 
 // src/agents/prompts/common/anti-hallucination.ts
 var ANTI_HALLUCINATION_CORE = `${PROMPT_TAGS.ANTI_HALLUCINATION.open}
-\u{1F6AB} ZERO TOLERANCE FOR GUESSING
+ZERO TOLERANCE FOR GUESSING
 
 ## The Golden Rule
 > If you're not 100% sure, **SEARCH** before you claim.
@@ -13148,7 +13281,7 @@ var ANTI_HALLUCINATION_CORE = `${PROMPT_TAGS.ANTI_HALLUCINATION.open}
 ls ${PATHS.DOCS}/  # What do we already have?
 \`\`\`
 
-### Step 2: If Not Found \u2192 Research
+### Step 2: If Not Found -> Research
 - Search for OFFICIAL documentation
 - Prefer version-specific docs matching project
 - Cache findings to ${PATHS.DOCS}/
@@ -13159,20 +13292,20 @@ ls ${PATHS.DOCS}/  # What do we already have?
 - Are there breaking changes to consider?
 
 ## Source Hierarchy (Most to Least Trusted):
-1. \u{1F7E2} **Official docs** - docs.*, *.dev, readthedocs
-2. \u{1F7E2} **GitHub source** - actual source code, README
-3. \u{1F7E1} **Package registries** - npm, PyPI, crates.io, Maven
-4. \u{1F7E1} **GitHub issues** - real-world usage patterns
-5. \u{1F534} **Blogs/tutorials** - may be outdated, verify independently
+1. [Trusted] **Official docs** - docs.*, *.dev, readthedocs
+2. [Trusted] **GitHub source** - actual source code, README
+3. [Neutral] **Package registries** - npm, PyPI, crates.io, Maven
+4. [Neutral] **GitHub issues** - real-world usage patterns
+5. [Caution] **Blogs/tutorials** - may be outdated, verify independently
 
-## \u26D4 ABSOLUTELY FORBIDDEN:
+## FORBIDDEN:
 - Inventing function signatures from memory
 - Assuming API compatibility between versions
 - Guessing version-specific syntax
 - Using knowledge without verification
 - Mixing syntax from different versions
 
-## \u2705 ALWAYS REQUIRED:
+## REQUIRED:
 - Source URL for every technical claim
 - Confidence level: ${WORK_STATUS.CONFIDENCE.HIGH} (official) / ${WORK_STATUS.CONFIDENCE.MEDIUM} (github) / ${WORK_STATUS.CONFIDENCE.LOW} (blog)
 - Say "I need to research this" if unsure
@@ -13186,81 +13319,83 @@ ${PROMPT_TAGS.ANTI_HALLUCINATION.close}`;
 
 // src/agents/prompts/common/todo-rules.ts
 var TODO_RULES = `${PROMPT_TAGS.TODO_RULES.open}
-\u{1F4CB} TODO MANAGEMENT - ADAPTIVE HIERARCHICAL STRUCTURE
+TODO MANAGEMENT - ADAPTIVE HIERARCHICAL STRUCTURE
 
 ## Before Creating TODOs: EXPLORE
 1. Read ${PATHS.CONTEXT} to understand project structure
 2. Study existing code organization
 3. Plan parallel execution groups based on actual dependencies
 
-## Three-Level Hierarchy (Adapt to Project)
-LEVEL 1 (Epic): High-level goal aligned with project modules
-  LEVEL 2 (Task): Feature/component matching project structure
-    LEVEL 3 (Subtask): Atomic work unit following project patterns
+## Recursive Hierarchy (Adapt to Project)
+Break down work into as many nested levels as necessary.
+- **Root**: The main Mission/Goal.
+- **Branch**: Parent tasks representing modules, features, or epics.
+- **Leaf**: Atomic work units (15-60 min) with checkboxes \`[ ]\`.
 
-## Completion Rules
-- LEVEL 3: Mark [x] when subtask VERIFIED by ${AGENT_NAMES.REVIEWER}
-- LEVEL 2: Mark [x] ONLY when ALL child Level 3 are [x]
-- LEVEL 1: Mark [x] ONLY when ALL child Level 2 are [x]
+## Completion & Propagation Rules
+- **Leaf Tasks**: Mark \`[x]\` ONLY when verified by ${AGENT_NAMES.REVIEWER} with evidence (build/test/lsp).
+- **Parent Tasks**: Automatically considered ${WORK_STATUS.TODO_STATUS.COMPLETE} ONLY when ALL their direct children (subtasks or sub-groups) are marked \`[x]\` or \`COMPLETE\`.
+- **Mission**: Fully resolved ONLY when the entire hierarchy is marked \`[x]\`.
 
-\u26A0\uFE0F Parent NEVER marked complete before ALL children complete!
+[CRITICAL]: Parent NEVER marked complete before ALL children are verified!
 
-## Format (Adapt structure to project)
+## Format (Nested Indentation)
 \`\`\`markdown
 # Mission: [goal]
 
-## E1: [Epic Name] | status: ${WORK_STATUS.TODO_STATUS.IN_PROGRESS}
-### T1.1: [Task Name] | agent:${AGENT_NAMES.WORKER}
-- [ ] S1.1.1: [subtask] | size:S
-- [ ] S1.1.2: [subtask] | size:S
-### T1.2: [Task Name] | agent:${AGENT_NAMES.WORKER} | depends:T1.1
-- [ ] S1.2.1: [subtask] | size:M
+## G1: [Goal Name] | status: ${WORK_STATUS.TODO_STATUS.IN_PROGRESS}
+### P1.1: [Project Name] | agent:${AGENT_NAMES.WORKER}
+- [ ] T1.1.1: [subtask] | size:S
+- [ ] T1.1.2: [subtask] | size:S
 
-## E2: [Epic Name] | status: ${WORK_STATUS.TODO_STATUS.BLOCKED}
-### T2.1: [Task Name] | agent:${AGENT_NAMES.PLANNER}
-- [ ] S2.1.1: [subtask] | size:S
+#### P1.1.3: [Sub-component]
+- [ ] T1.1.3.1: [Nested task] | size:M
+
+### P1.2: [Review Block] | agent:${AGENT_NAMES.REVIEWER} | depends:P1.1
+- [ ] T1.2.1: [Final Verification] | size:S
 \`\`\`
 
 ## Status Indicators
-- [ ] = Not started
-- [x] = VERIFIED complete (with evidence)
-- status: ${WORK_STATUS.TODO_STATUS.IN_PROGRESS} = Currently working
-- status: ${WORK_STATUS.TODO_STATUS.BLOCKED}:[reason] = Cannot proceed
-- depends:[id] = Dependency on another task
+- \`[ ]\` = Not started
+- \`[x]\` = VERIFIED complete (by ${AGENT_NAMES.REVIEWER})
+- \`status: ${WORK_STATUS.TODO_STATUS.IN_PROGRESS}\` = Currently working
+- \`status: ${WORK_STATUS.TODO_STATUS.BLOCKED}:[reason]\` = Cannot proceed
+- \`status: ${WORK_STATUS.TODO_STATUS.COMPLETE}\` = All children verified
+- \`depends:[id]\` = Dependency on another task
 
 ## Verification Flow (Evidence-Based)
-1. ${AGENT_NAMES.WORKER} completes subtask, reports with evidence
-2. ${AGENT_NAMES.REVIEWER} runs project's build/test commands from ${PATHS.CONTEXT}
-3. ${AGENT_NAMES.REVIEWER} verifies and marks subtask [x]
-4. When ALL subtasks [x], ${AGENT_NAMES.REVIEWER} marks task [x]
-5. When ALL tasks [x], ${AGENT_NAMES.REVIEWER} marks epic [x]
+1. ${AGENT_NAMES.WORKER} completes subtask, reports with evidence.
+2. ${AGENT_NAMES.REVIEWER} runs project's build/test commands from ${PATHS.CONTEXT}.
+3. ${AGENT_NAMES.REVIEWER} verifies and marks leaf subtask \`[x]\`.
+4. ${AGENT_NAMES.REVIEWER} propagates completion to Parent if ALL sibling tasks are also \`[x]\`.
 
-## \u26D4 FORBIDDEN
-- Marking parent [x] before all children [x]
-- Creating items with [x] already marked
-- Skipping verification step
-- Marking [x] without evidence
+## FORBIDDEN
+- Marking parent \`[x]\` or \`${WORK_STATUS.TODO_STATUS.COMPLETE}\` before all children \`[x]\`.
+- Creating items with \`[x]\` already marked.
+- Marking \`[x]\` without tool-based evidence.
 ${PROMPT_TAGS.TODO_RULES.close}`;
 
 // src/agents/prompts/common/shared-workspace.ts
 var SHARED_WORKSPACE = `${PROMPT_TAGS.SHARED_WORKSPACE.open}
-\u{1F4C2} ${PATHS.OPENCODE}/ - Shared Context Directory (Real-time State)
+${PATHS.OPENCODE}/ - Shared Context Directory (Real-time State)
 
 \`\`\`
 ${PATHS.OPENCODE}/
-\u251C\u2500\u2500 todo.md              - Master task list (single source of truth)
-\u251C\u2500\u2500 context.md           - Project context summary (<150 lines)
-\u251C\u2500\u2500 work-log.md          - \u{1F504} REAL-TIME work status (ALL agents read/write)
+\u251C\u2500\u2500 ${PATHS.TODO.split("/").pop()}              - Master task list (single source of truth)
+\u251C\u2500\u2500 ${PATHS.CONTEXT.split("/").pop()}           - Project context summary (<150 lines)
+\u251C\u2500\u2500 ${PATHS.WORK_LOG.split("/").pop()}          - REAL-TIME work status (ALL agents read/write)
 \u2502                        # - Active sessions & assigned files
 \u2502                        # - Unit test completion records
 \u2502                        # - Pending integration items
-\u251C\u2500\u2500 unit-tests/          - \u{1F4DD} Unit test records (preserved after deletion)
+\u251C\u2500\u2500 ${PATHS.UNIT_TESTS.split("/").pop()}/          - Unit test records (preserved after deletion)
 \u2502   \u2514\u2500\u2500 [timestamp]-[file].md  # Test content, results, deleted test code
-\u251C\u2500\u2500 sync-issues.md       - \u26A0\uFE0F File sync issues (Reviewer writes)
-\u251C\u2500\u2500 integration-status.md - \u2705 Integration test results & sync status
-\u251C\u2500\u2500 docs/                - Cached documentation
-\u2514\u2500\u2500 archive/             - Old context
+\u251C\u2500\u2500 ${PATHS.SYNC_ISSUES.split("/").pop()}       - File sync issues (Reviewer writes)
+\u251C\u2500\u2500 ${PATHS.INTEGRATION_STATUS.split("/").pop()} - Integration test results & sync status
+\u251C\u2500\u2500 ${PATHS.DOCS.split("/").pop()}/                - Cached documentation
+\u2514\u2500\u2500 ${PATHS.ARCHIVE.split("/").pop()}/             - Old context
 \`\`\`
+
+
 
 ## ID Formats (no digit limit):
 - Session: ${ID_PREFIX.SESSION}N (e.g., ${ID_PREFIX.SESSION}1, ${ID_PREFIX.SESSION}42)
@@ -13277,8 +13412,8 @@ ${PATHS.OPENCODE}/
 # Work Log
 
 ## Active Sessions
-- [ ] ${ID_PREFIX.SESSION}1 (Worker): \`src/auth/login.ts\` - ${WORK_STATUS.STATUS.IN_PROGRESS}
-- [x] ${ID_PREFIX.SESSION}2 (Worker): \`src/utils/hash.ts\` - ${WORK_STATUS.SESSION.COMPLETED}
+- [ ] ${ID_PREFIX.SESSION}1 (${AGENT_NAMES.WORKER}): \`src/auth/login.ts\` - ${WORK_STATUS.STATUS.IN_PROGRESS}
+- [x] ${ID_PREFIX.SESSION}2 (${AGENT_NAMES.WORKER}): \`src/utils/hash.ts\` - ${WORK_STATUS.SESSION.COMPLETED}
 
 ## Completed Units (Ready for Integration)
 | File | Session | Unit Test | Timestamp |
@@ -13296,22 +13431,23 @@ ${PATHS.OPENCODE}/
 
 RULES:
 - ALL agents MUST read ${PATHS.WORK_LOG} before starting
-- Worker updates ${PATHS.WORK_LOG} when starting/completing file work
-- Reviewer monitors ${PATHS.WORK_LOG} for completed units
-- Commander reads ${PATHS.WORK_LOG} in each loop iteration
-- ${PATHS.SYNC_ISSUES} = Reviewer writes issues for next iteration
-${PROMPT_TAGS.SHARED_WORKSPACE.close}`;
+- ${AGENT_NAMES.WORKER} updates ${PATHS.WORK_LOG} when starting/completing file work
+- ${AGENT_NAMES.REVIEWER} monitors ${PATHS.WORK_LOG} for completed units
+- ${AGENT_NAMES.COMMANDER} reads ${PATHS.WORK_LOG} in each loop iteration
+- ${PATHS.SYNC_ISSUES} = ${AGENT_NAMES.REVIEWER} writes issues for next iteration
+${PROMPT_TAGS.SHARED_WORKSPACE.close}
+`;
 
 // src/agents/prompts/common/mission-seal.ts
 var MISSION_SEAL_RULES = `${PROMPT_TAGS.MISSION_SEAL.open}
  MISSION COMPLETION SEAL
 
 ## Seal Requirements - ALL must be true:
-\u25A1 All items in ${PATHS.TODO} are [x]
-\u25A1 Build passes (npm run build or equivalent)
-\u25A1 Tests pass (npm test or equivalent)
-\u25A1 ${AGENT_NAMES.REVIEWER} verification PASS confirmed
-\u25A1 No pending background tasks
+- [ ] All items in ${PATHS.TODO} are [x]
+- [ ] Build passes (npm run build or equivalent)
+- [ ] Tests pass (npm test or equivalent)
+- [ ] ${AGENT_NAMES.REVIEWER} verification ${STATUS_LABEL.PASS.toUpperCase()} confirmed
+- [ ] No pending background tasks
 
 ## Seal Output Format:
 \`\`\`
@@ -13323,53 +13459,80 @@ Evidence: [test/build results]
 
  If ANY checkbox is unchecked, DO NOT seal - continue working!
  NEVER output seal before requirements met!
-${PROMPT_TAGS.MISSION_SEAL.close}`;
+${PROMPT_TAGS.MISSION_SEAL.close}
+`;
 
 // src/agents/prompts/common/verification.ts
 var VERIFICATION_REQUIREMENTS = `${PROMPT_TAGS.VERIFICATION.open}
  VERIFICATION CHECKLIST
 
 ## Code Verification
-\u25A1 lsp_diagnostics clean (no errors/warnings)
-\u25A1 Build passes (use project's build command from ${PATHS.CONTEXT})
-\u25A1 Tests pass (use project's test command from ${PATHS.CONTEXT})
-\u25A1 No untyped variables (language-appropriate)
-\u25A1 No debug logging left (console.log, print, etc.)
+- [ ] lsp_diagnostics clean (no errors/warnings)
+- [ ] Build passes (use project's build command from ${PATHS.CONTEXT})
+- [ ] Tests pass (use project's test command from ${PATHS.CONTEXT})
+- [ ] No untyped variables (language-appropriate)
+- [ ] No debug logging left (console.log, print, etc.)
 
 ## Documentation Verification
-\u25A1 Implementation matches ${PATHS.DOCS}/
-\u25A1 API usage matches official docs
-\u25A1 Version compatibility confirmed
+- [ ] Implementation matches ${PATHS.DOCS}/
+- [ ] API usage matches official docs
+- [ ] Version compatibility confirmed
 
 ## Security Verification
-\u25A1 No hardcoded secrets/passwords/API keys
-\u25A1 Input validation present
-\u25A1 Error messages don't leak sensitive info
+- [ ] No hardcoded secrets/passwords/API keys
+- [ ] Input validation present
+- [ ] Error messages don't leak sensitive info
 
 ONLY mark complete after ALL checks pass!
-${PROMPT_TAGS.VERIFICATION.close}`;
+${PROMPT_TAGS.VERIFICATION.close}
+`;
 
 // src/agents/prompts/common/core-philosophy.ts
 var CORE_PHILOSOPHY = `${PROMPT_TAGS.CORE_PHILOSOPHY.open}
-## \u{1F9E0} Core Philosophy: ${PHILOSOPHY_TAGLINE}
+## Core Philosophy: ${PHILOSOPHY_TAGLINE}
 
 > ${PHILOSOPHY_QUOTE}
 
 | Phase | Action | Key Behavior |
 |:-----:|:-------|:-------------|
-| \u{1F50D} **${PHILOSOPHY_PHASES.EXPLORE}** | Scan unknown territory | Detect environment, never assume |
-| \u{1F4DD} **${PHILOSOPHY_PHASES.LEARN}** | Document discoveries | Record patterns for future use |
-| \u{1F504} **${PHILOSOPHY_PHASES.ADAPT}** | Adjust to findings | Match project's style and context |
-| \u26A1 **${PHILOSOPHY_PHASES.ACT}** | Execute with confidence | Build, test, seal |
+| [EXPLORE] **${PHILOSOPHY_PHASES.EXPLORE}** | Scan unknown territory | Detect environment, never assume |
+| [LEARN] **${PHILOSOPHY_PHASES.LEARN}** | Document discoveries | Record patterns for future use |
+| [ADAPT] **${PHILOSOPHY_PHASES.ADAPT}** | Adjust to findings | Match project's style and context |
+| [ACT] **${PHILOSOPHY_PHASES.ACT}** | Execute with confidence | Build, test, seal |
 
 **${PHILOSOPHY_LEARN_PRINCIPLE}**
 
 ### Agent Focus:
-- \u{1F3AF} **${AGENT_NAMES.COMMANDER}**: All phases (orchestrate the full cycle)
-- \u{1F4CB} **${AGENT_NAMES.PLANNER}**: ${PHILOSOPHY_PHASES.EXPLORE} \u2192 ${PHILOSOPHY_PHASES.LEARN} (research and document)
-- \u{1F528} **${AGENT_NAMES.WORKER}**: ${PHILOSOPHY_PHASES.ADAPT} \u2192 ${PHILOSOPHY_PHASES.ACT} (implement with fit)
-- \u2705 **${AGENT_NAMES.REVIEWER}**: ${PHILOSOPHY_PHASES.EXPLORE} \u2192 ${PHILOSOPHY_PHASES.LEARN} \u2192 ${PHILOSOPHY_PHASES.ACT} (verify with evidence)
+- [COMMANDER] **${AGENT_NAMES.COMMANDER}**: All phases (orchestrate the full cycle)
+- [PLANNER] **${AGENT_NAMES.PLANNER}**: ${PHILOSOPHY_PHASES.EXPLORE} \u2192 ${PHILOSOPHY_PHASES.LEARN} (research and document)
+- [WORKER] **${AGENT_NAMES.WORKER}**: ${PHILOSOPHY_PHASES.ADAPT} \u2192 ${PHILOSOPHY_PHASES.ACT} (implement with fit)
+- [REVIEWER] **${AGENT_NAMES.REVIEWER}**: ${PHILOSOPHY_PHASES.EXPLORE} \u2192 ${PHILOSOPHY_PHASES.LEARN} \u2192 ${PHILOSOPHY_PHASES.ACT} (verify with evidence)
 ${PROMPT_TAGS.CORE_PHILOSOPHY.close}`;
+
+// src/agents/prompts/common/lsp.ts
+var SHARED_LSP_TOOLS = `<lsp_tools>
+### LSP (Language Server Protocol) Tools
+- \`${TOOL_NAMES.LSP_DIAGNOSTICS}\`: Find type errors, syntax issues, and lint warnings.
+
+**Rules**:
+- **Verification**: ALWAYS run \`${TOOL_NAMES.LSP_DIAGNOSTICS}({ file: "*" })\` before marking a task or TODO as complete.
+</lsp_tools>`;
+
+// src/agents/prompts/common/ast.ts
+var SHARED_AST_TOOLS = `<ast_tools>
+### AST (Structural) Tools
+- \`${TOOL_NAMES.AST_SEARCH}\`: Find code by syntax patterns (e.g., finding all function calls with specific arguments).
+- \`${TOOL_NAMES.AST_REPLACE}\`: Perform structural refactoring using syntax patterns.
+
+**Pattern Syntax**:
+- \`$VAR\`: Matches a single identifier/node.
+- \`$$$ARGS\`: Matches multiple elements or statements.
+- \`___ \`: Wildcard for any node.
+
+**Usage Guidelines**:
+- Use **AST** when you need to find or change code based on its logical structure where regex is too blunt.
+- Always verify structural changes with \`${TOOL_NAMES.LSP_DIAGNOSTICS}\`.
+</ast_tools>`;
 
 // src/agents/prompts/commander/role.ts
 var COMMANDER_ROLE = `${PROMPT_TAGS.ROLE.open}
@@ -13402,7 +13565,9 @@ ${PROMPT_TAGS.IDENTITY.close}`;
 
 // src/agents/prompts/commander/forbidden.ts
 var COMMANDER_FORBIDDEN = `${PROMPT_TAGS.FORBIDDEN_ACTIONS.open}
-\u26D4 COMMANDER FORBIDDEN ACTIONS
+**COMMANDER FORBIDDEN ACTIONS**
+
+
 
 ## Never Stop Prematurely
 - NEVER say "I've completed..." without outputting ${MISSION_SEAL.PATTERN}
@@ -13483,7 +13648,7 @@ var COMMANDER_EXECUTION = `${PROMPT_TAGS.EXECUTION_STRATEGY.open}
 5. Save context to ${PATHS.CONTEXT}
 
 ## Phase 1: THINK (Mandatory - Never Skip!)
-\u26A0\uFE0F As COMMANDER, think about ORCHESTRATION before action.
+**THINK FIRST**: As ${AGENT_NAMES.COMMANDER}, think about ORCHESTRATION before action.
 
 ### 1.1 MISSION SCOPE
 - What is the FULL scope of this mission?
@@ -13506,7 +13671,7 @@ var COMMANDER_EXECUTION = `${PROMPT_TAGS.EXECUTION_STRATEGY.open}
 - How will I DETECT and RECOVER from issues?
 - If agent fails \u2192 See ${PROMPT_TAGS.RECOVERY.open} section: DECOMPOSE and retry
 
-\u274C ANTI-PATTERNS: Sequential execution when parallel is possible. Doing work yourself instead of delegating. Starting without clear decomposition.
+**ANTI-PATTERNS**: Sequential execution when parallel is possible. Doing work yourself instead of delegating. Starting without clear decomposition.
 
 ## Phase 2: TRIAGE
 | Type | Signal | Approach |
@@ -13569,56 +13734,52 @@ ${PROMPT_TAGS.AGENTS.close}`;
 
 // src/agents/prompts/commander/todo-format.ts
 var COMMANDER_TODO_FORMAT = `${PROMPT_TAGS.TODO_FORMAT.open}
-## Hierarchical TODO Structure
+## Hierarchical Task Decomposition
+Break down the mission into as many levels as needed to ensure clear ownership and parallel execution. Work is only considered DONE when the entire subtree is verified.
 
-LEVEL 1 - Epic (E): High-level goal
-  LEVEL 2 - Task (T): Feature/component  
-    LEVEL 3 - Subtask (S): Atomic work unit
+### Recursive Completion Rule
+- **Leaf Tasks**: Checked \`[x]\` ONLY by ${AGENT_NAMES.REVIEWER} after tool-based verification.
+- **Parent Nodes**: Resolved (\`${WORK_STATUS.TODO_STATUS.COMPLETE}\`) ONLY when ALL child tasks are verified (marked \`[x]\`).
+- **Mission**: SEALED only when the root of the hierarchy is fully resolved.
 
-## Example Structure
+## Structure Example
 \`\`\`markdown
-# Mission: Build user authentication system
+# Mission: [goal]
 
-## E1: Backend API | status: ${WORK_STATUS.TODO_STATUS.IN_PROGRESS}
-### T1.1: Database schema | agent:${AGENT_NAMES.WORKER}
-- [ ] S1.1.1: Create users table | size:S
-- [ ] S1.1.2: Create sessions table | size:S
-- [ ] S1.1.3: Add indexes | size:XS
-### T1.2: Auth endpoints | agent:${AGENT_NAMES.WORKER} | depends:T1.1
-- [ ] S1.2.1: POST /login | size:M
-- [ ] S1.2.2: POST /logout | size:S
-- [ ] S1.2.3: POST /refresh | size:M
-### T1.3: Verify backend | agent:${AGENT_NAMES.REVIEWER} | depends:T1.2
-- [ ] S1.3.1: Run unit tests | size:S
-- [ ] S1.3.2: Run integration tests | size:M
+## G1: [The Goal] | status: ${WORK_STATUS.TODO_STATUS.IN_PROGRESS}
+### P1.1: [Feature Project] | agent:${AGENT_NAMES.PLANNER}
+- [ ] T1.1.1: [Atomic Research] | size:S
+- [ ] T1.1.2: [Detailed Design] | size:M
 
-## E2: Frontend UI | status: ${WORK_STATUS.TODO_STATUS.PENDING} | depends:E1
-### T2.1: Login page | agent:${AGENT_NAMES.WORKER}
-- [ ] S2.1.1: Create form component | size:M
-- [ ] S2.1.2: Add validation | size:S
-### T2.2: Verify frontend | agent:${AGENT_NAMES.REVIEWER} | depends:T2.1
-- [ ] S2.2.1: Run tests | size:S
+### P1.2: [Implementation Block] | agent:${AGENT_NAMES.WORKER} | depends:P1.1
+#### P1.2.1: [Sub-module A]
+- [ ] T1.2.1.1: [Draft code] | file:src/a.ts | size:M
+- [ ] T1.2.1.2: [Tests for A] | file:tests/a.test.ts | size:S
+
+#### P1.2.2: [Sub-module B] | depends:P1.2.1
+- [ ] T1.2.2.1: [Draft code] | file:src/b.ts | size:M
+- [ ] T1.2.2.2: [Tests for B] | file:tests/b.test.ts | size:S
+
+### P1.3: [Final Quality Pass] | agent:${AGENT_NAMES.REVIEWER} | depends:P1.2
+- [ ] T1.3.1: [Visual E2E] | size:M
+- [ ] T1.3.2: [Release Build] | size:S
 \`\`\`
 
-## Parallel Groups
-Epics with same status and no dependencies = run parallel
-Tasks within epic with no depends = run parallel
-Subtasks within task = run parallel
+## Parallel Execution Groups
+Tasks with NO shared dependencies can be executed simultaneously:
+1. **Parallel Epics/Goals**: G1 and G2 can run together if independent.
+2. **Parallel Sub-modules**: P1.2.1 and P1.2.2 can run together if no \`depends:\` link.
+3. **Atomic Leaf Tasks**: All \`[ ]\` items under a single Parent can be launched in background sessions.
 
-## Completion Rollup
-S1.1.1 [x] + S1.1.2 [x] + S1.1.3 [x] = T1.1 can be [x]
-T1.1 [x] + T1.2 [x] + T1.3 [x] = E1 can be [x]
-E1 [x] + E2 [x] = Mission can be SEALED
-
-Create all items with [ ] - NEVER with [x]!
-Only ${AGENT_NAMES.REVIEWER} marks [x] after verification!
+Create all items with \`[ ]\` - NEVER with \`[x]\`!
+Only ${AGENT_NAMES.REVIEWER} marks \`[x]\` after verification!
 ${PROMPT_TAGS.TODO_FORMAT.close}`;
 
 // src/agents/prompts/commander/loop-continuation.ts
 var COMMANDER_LOOP_CONTINUATION = `${PROMPT_TAGS.LOOP_CONTINUATION.open}
 ## LOOP CONTINUATION PROTOCOL
 
-At the START of each loop iteration, Commander MUST read shared state:
+At the START of each loop iteration, ${AGENT_NAMES.COMMANDER} MUST read shared state:
 
 ### Step 1: Read Status Summary
 \`\`\`bash
@@ -13629,79 +13790,49 @@ cat ${PATHS.SYNC_ISSUES} 2>/dev/null || echo "No sync issues"
 
 ---
 
-## \u{1F4CA} STATUS TRACKING
+## MISSION STATUS TRACKING
 
-Commander updates ${PATHS.STATUS} each loop:
+${AGENT_NAMES.COMMANDER} updates ${PATHS.STATUS} each loop:
 \`\`\`markdown
 # Mission Status
 
 ## Progress
-- ${PATHS.TODO}: 8/10 (80%)
-- Issues: 2 unresolved
-- Workers: 3 active
+- ${PATHS.TODO}: [N]/[Total] ([X]%)
+- Issues: [N] unresolved
+- ${AGENT_NAMES.WORKER}s: [N] active
 - E2E: ${WORK_STATUS.E2E_STATUS.NOT_STARTED} | ${WORK_STATUS.E2E_STATUS.RUNNING} | ${WORK_STATUS.E2E_STATUS.PASS} | ${WORK_STATUS.E2E_STATUS.FAIL}
 
 ## Current Phase
-${WORK_STATUS.PHASE.PLANNING} | ${WORK_STATUS.PHASE.IMPLEMENTATION} | ${WORK_STATUS.PHASE.E2E} | ${WORK_STATUS.PHASE.FIXING} | ${WORK_STATUS.PHASE.SEALING}
-
-## Next Action
-[Brief description]
-
-## Blockers
-- [List or "None"]
+...
 \`\`\`
-
-### Status Rules:
-- Update EVERY loop iteration
-- Keep it minimal (just the numbers)
-- ${AGENT_NAMES.PLANNER} reads this to stay synced
-- Delete old content, keep only current state
 
 ---
 
-## \u26A0\uFE0F SEALED CONDITIONS (CRITICAL!)
+## SEALED CONDITIONS (CRITICAL!)
 
 ### SEALED = BOTH must be true:
 \`\`\`
-\u2705 ${PATHS.TODO}:        ALL items [x] (100%)
-\u2705 ${PATHS.SYNC_ISSUES}: EMPTY (0 issues)
+${STATUS_LABEL.SUCCESS.toUpperCase()} ${PATHS.TODO}:        ALL items [x] (100%)
+${STATUS_LABEL.SUCCESS.toUpperCase()} ${PATHS.SYNC_ISSUES}: EMPTY (0 issues)
 \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
 ONLY THEN \u2192 output ${MISSION_SEAL.PATTERN}
 \`\`\`
 
 ### LOOP BACK = ANY of these:
 \`\`\`
-\u274C ${PATHS.TODO} < 100% \u2192 LOOP
-\u274C ${PATHS.SYNC_ISSUES} > 0 \u2192 LOOP
-\u274C Build fails \u2192 LOOP
-\u274C E2E = ${WORK_STATUS.E2E_STATUS.FAIL} \u2192 LOOP
-\u274C Agent timeout/stuck \u2192 DECOMPOSE per ${PROMPT_TAGS.RECOVERY.open} and LOOP
-\`\`\`
-
-### \u26D4 NEVER SEAL IF:
-- ${PATHS.TODO} is 100% BUT ${PATHS.SYNC_ISSUES} > 0
-- Workers are still active
-- E2E = ${WORK_STATUS.E2E_STATUS.FAIL}
-
----
-
-## \u{1F504} E2E Test Timing
-
-E2E starts when **${PATHS.TODO} \u2265 80%** (not at 100%):
-- Phase changes to ${WORK_STATUS.PHASE.E2E}
-- E2E runs **parallel** with remaining work
-- If E2E ${WORK_STATUS.E2E_STATUS.FAIL} \u2192 ${PATHS.SYNC_ISSUES}++ \u2192 continue ${PATHS.TODO}
-- Both ${PATHS.TODO} 100% AND ${PATHS.SYNC_ISSUES} 0 \u2192 ${WORK_STATUS.PHASE.SEALING}
-
-\`\`\`
-[---${PATHS.TODO} progress---][E2E starts ~80%]
-                           \u2193
-               ${PATHS.TODO} + E2E run parallel
-                           \u2193
-         ${PATHS.TODO} 100% + ${PATHS.SYNC_ISSUES} 0 \u2192 ${MISSION_SEAL.CONFIRMATION}
+${STATUS_LABEL.FAIL.toUpperCase()} ${PATHS.TODO} < 100% \u2192 LOOP
+${STATUS_LABEL.FAIL.toUpperCase()} ${PATHS.SYNC_ISSUES} > 0 \u2192 LOOP
+${STATUS_LABEL.FAIL.toUpperCase()} Build fails \u2192 LOOP
+${STATUS_LABEL.FAIL.toUpperCase()} E2E = ${WORK_STATUS.E2E_STATUS.FAIL} \u2192 LOOP
+${STATUS_LABEL.FAIL.toUpperCase()} Agent timeout/stuck \u2192 DECOMPOSE per ${PROMPT_TAGS.RECOVERY.open} and LOOP
 \`\`\`
 
 ---
+
+## E2E Test Timing
+
+E2E starts when **${PATHS.TODO} \u2265 80%**:
+...
 
 ### Decision Matrix
 
@@ -13710,14 +13841,12 @@ E2E starts when **${PATHS.TODO} \u2265 80%** (not at 100%):
 | < 100% | Any | ${WORK_STATUS.PHASE.IMPLEMENTATION} |
 | \u2265 80% | Any | ${WORK_STATUS.PHASE.E2E} (parallel) |
 | 100% | > 0 | ${WORK_STATUS.PHASE.FIXING} |
-| 100% | 0 | ${WORK_STATUS.PHASE.SEALING} \u2705 |
+| 100% | 0 | ${WORK_STATUS.PHASE.SEALING} (${STATUS_LABEL.SUCCESS.toUpperCase()}) |
 
-### CRITICAL RULES:
-- Update ${PATHS.STATUS} every loop
-- ${AGENT_NAMES.PLANNER} keeps docs minimal
-- NEVER seal with ${PATHS.SYNC_ISSUES} > 0
-- E2E starts at ~80%, runs parallel
-${PROMPT_TAGS.LOOP_CONTINUATION.close}`;
+...
+${PROMPT_TAGS.LOOP_CONTINUATION.close}
+
+`;
 
 // src/agents/prompts/commander/sync-handling.ts
 var COMMANDER_SYNC_HANDLING = `${PROMPT_TAGS.SYNC_ISSUE_HANDLING.open}
@@ -13753,8 +13882,8 @@ ${TOOL_NAMES.DELEGATE_TASK}(
 )
 \`\`\`
 
-### Step 4: Instruct Workers
-After Planner updates TODO, delegate fixes:
+### Step 4: Instruct ${AGENT_NAMES.WORKER}s
+After ${AGENT_NAMES.PLANNER} updates ${PATHS.TODO}, delegate fixes:
 
 \`\`\`
 ${TOOL_NAMES.DELEGATE_TASK}(
@@ -13772,8 +13901,9 @@ ${TOOL_NAMES.DELEGATE_TASK}(
 )
 \`\`\`
 
-### Step 5: Invoke Reviewer Again
-After all fix workers complete:
+### Step 5: Invoke ${AGENT_NAMES.REVIEWER} Again
+After all fix ${AGENT_NAMES.WORKER}s complete:
+
 \`\`\`
 ${TOOL_NAMES.DELEGATE_TASK}(
   task: "Re-verify after ${ID_PREFIX.SYNC_ISSUE}1 fixes",
@@ -13791,9 +13921,9 @@ ${TOOL_NAMES.DELEGATE_TASK}(
 \`\`\`
 ${AGENT_NAMES.COMMANDER}: "${AGENT_NAMES.PLANNER}, sync issue found. Update TODO"
     \u2193
-${AGENT_NAMES.PLANNER}: (Add FIX task to TODO, update ${PATHS.WORK_LOG})
+${AGENT_NAMES.PLANNER}: (Add FIX task to ${PATHS.TODO}, update ${PATHS.WORK_LOG})
     \u2193
-${AGENT_NAMES.COMMANDER}: "${AGENT_NAMES.WORKER}, fix this file like this" (Multiple Workers in parallel)
+${AGENT_NAMES.COMMANDER}: "${AGENT_NAMES.WORKER}, fix this file like this" (Multiple ${AGENT_NAMES.WORKER}s in parallel)
     \u2193
 ${AGENT_NAMES.WORKER}s: (Fix each file + unit test + update ${PATHS.WORK_LOG})
     \u2193
@@ -13816,7 +13946,8 @@ var COMMANDER_RECOVERY = `${PROMPT_TAGS.RECOVERY.open}
 When any agent fails, times out, or gets stuck:
 
 ### Level 1: ${RECOVERY_LEVEL.DECOMPOSE}
-- Task is too big \u2192 Split into smaller units (< 5 min each)
+- Task is too big \u2192 Split into smaller units (< ${LIMITS.TASK_TIME_LIMIT_MIN} min each)
+
 - Delegate smaller pieces to fresh agents
 - For repetitive changes, use ${TOOL_NAMES.SED_REPLACE} or shell tools
 
@@ -13862,11 +13993,14 @@ ${PROMPT_TAGS.ROLE.close}`;
 
 // src/agents/prompts/planner/forbidden.ts
 var PLANNER_FORBIDDEN = `${PROMPT_TAGS.FORBIDDEN_ACTIONS.open}
-\u26D4 PLANNER FORBIDDEN ACTIONS
+**PLANNER FORBIDDEN ACTIONS**
+
+
 
 ## Never Implement
 - NEVER write actual code \u2192 Only plan and research
-- NEVER execute build/test commands \u2192 That's Worker/Reviewer's job
+- NEVER execute build/test commands \u2192 That's ${AGENT_NAMES.WORKER}/${AGENT_NAMES.REVIEWER}'s job
+
 - NEVER modify source files \u2192 Only ${PATHS.TODO} and ${PATHS.DOCS}/
 
 ## Never Assume
@@ -13887,8 +14021,9 @@ ${PROMPT_TAGS.FORBIDDEN_ACTIONS.close}`;
 
 // src/agents/prompts/planner/required.ts
 var PLANNER_REQUIRED = `${PROMPT_TAGS.REQUIRED_ACTIONS.open}
-\u26A0\uFE0F THINK FIRST - As PLANNER, think about STRATEGY before planning:
+**THINK FIRST**: As PLANNER, think about STRATEGY before planning:
 - Is my understanding of the task COMPLETE? What am I missing?
+
 - Have I researched ENOUGH? Do I need official docs?
 - What is the optimal STRUCTURE for parallel execution?
 - What DEPENDENCIES will block parallel work?
@@ -13907,48 +14042,55 @@ ${PROMPT_TAGS.REQUIRED_ACTIONS.close}`;
 var PLANNER_TODO_FORMAT = `${PROMPT_TAGS.PLANNING_FORMAT.open}
 OUTPUT TO: ${PATHS.TODO}
 
-## Hierarchical Structure
-LEVEL 1 - Epic (E): High-level deliverable
-  LEVEL 2 - Task (T): Feature/component
-    LEVEL 3 - Subtask (S): Atomic work (15-30 min max)
+## Hierarchical Task Decomposition
+Break down the complex request into as many levels as needed to achieve atomic work units.
+Each level must be clearly indented and uniquely numbered.
 
-## Template
+### Level N - Parent Task/Epic/Story
+- Represents a high-level goal or a logical grouping of work.
+- Status: ${WORK_STATUS.TODO_STATUS.PENDING} | [dependencies]
+- **COMPLETION RULE**: Satisfied only when ALL child tasks are marked as [x].
+
+### Level N+1 - Actionable Subtasks
+- Represents specific, atomic actions (15-60 min).
+- Format: \`- [ ] ID: [description] | agent:[Name] | [metadata]\`
+- Metadata options: \`depends:[ID]\`, \`file:[path]\`, \`size:[XS/S/M/L]\`
+
+## Template Example
 \`\`\`markdown
 # Mission: [goal]
 
 ## Project Context
-Runtime: [Node.js/Python/etc]
-Build: [npm/docker/make]
-Test: [npm test/pytest/etc]
-
-## E1: [Epic Name] | status: ${WORK_STATUS.TODO_STATUS.PENDING}
-### T1.1: [Task] | agent:${AGENT_NAMES.PLANNER}
-- [ ] S1.1.1: [Research topic] | size:S
-- [ ] S1.1.2: [Cache docs] | size:S
-
-### T1.2: [Task] | agent:${AGENT_NAMES.WORKER} | depends:T1.1
-- [ ] S1.2.1: [Implement feature] | size:M
-- [ ] S1.2.2: [Add error handling] | size:S
-- [ ] S1.2.3: [Write tests] | size:M
-
-### T1.3: [Verify] | agent:${AGENT_NAMES.REVIEWER} | depends:T1.2
-- [ ] S1.3.1: [Run lsp_diagnostics] | size:XS
-- [ ] S1.3.2: [Run build] | size:S
-- [ ] S1.3.3: [Run tests] | size:S
-
-## E2: [Epic Name] | status: ${WORK_STATUS.TODO_STATUS.PENDING} | depends:E1
 ...
+
+## G1: [The Goal] | status: ${WORK_STATUS.TODO_STATUS.PENDING}
+### P1.1: [Feature Project] | agent:${AGENT_NAMES.PLANNER}
+- [ ] T1.1.1: [Atomic Research] | size:S
+- [ ] T1.1.2: [Detailed Design] | size:M
+
+### P1.2: [Implementation Block] | agent:${AGENT_NAMES.WORKER} | depends:P1.1
+#### P1.2.1: [Sub-module A]
+- [ ] T1.2.1.1: [Draft code] | file:src/a.ts | size:M
+- [ ] T1.2.1.2: [Tests for A] | file:tests/a.test.ts | size:S
+
+#### P1.2.2: [Sub-module B] | depends:P1.2.1
+- [ ] T1.2.2.1: [Draft code] | file:src/b.ts | size:M
+- [ ] T1.2.2.2: [Tests for B] | file:tests/b.test.ts | size:S
+
+### P1.3: [Final Quality Pass] | agent:${AGENT_NAMES.REVIEWER} | depends:P1.2
+- [ ] T1.3.1: [Visual E2E] | size:M
+- [ ] T1.3.2: [Release Build] | size:S
 \`\`\`
 
 ## Planning Rules
-- Break XL tasks into smaller subtasks
-- Each subtask = one focused action
-- Maximize parallelism within task
-- Add verification task for each implementation task
+- **No Limit on Depth**: If a task is too big for one person or session, break it down further.
+- **Atomic Execution**: Only the leaf nodes (the innermost tasks with checkboxes) are directly executed.
+- **Parent Propagation**: When you find all children of a parent header are checked, update the parent status to ${WORK_STATUS.TODO_STATUS.COMPLETE}.
+- **Max Parallelism**: Identify tasks that don't depend on each other and mark them as such to allow multiple Workers to run in parallel.
 - Size: ${WORK_STATUS.TASK_SIZE.XS}(<5min), ${WORK_STATUS.TASK_SIZE.S}(5-15min), ${WORK_STATUS.TASK_SIZE.M}(15-30min), ${WORK_STATUS.TASK_SIZE.L}(30-60min)
-- If L or larger, break into subtasks
+- If any task is L or larger, it MUST be broken into subtasks.
 
-ALL items MUST start with [ ] (unchecked)
+ALL items MUST start with [ ] (unchecked) unless already finished.
 ${PROMPT_TAGS.PLANNING_FORMAT.close}`;
 
 // src/agents/prompts/planner/research.ts
@@ -14055,12 +14197,13 @@ Create ${PATHS.WORK_LOG}:
 # Work Log
 
 ## File Status
-| File | Action | Status | Worker | Unit Test | Timestamp |
+| File | Action | Status | ${AGENT_NAMES.WORKER} | Unit Test | Timestamp |
 |------|--------|--------|--------|-----------|-----------|
 | src/types/auth.ts | ${WORK_STATUS.ACTION.CREATE} | ${WORK_STATUS.STATUS.PENDING} | - | - | - |
 | src/auth/login.ts | ${WORK_STATUS.ACTION.CREATE} | ${WORK_STATUS.STATUS.PENDING} | - | - | - |
 | src/auth/logout.ts | ${WORK_STATUS.ACTION.CREATE} | ${WORK_STATUS.STATUS.PENDING} | - | - | - |
 | src/index.ts | ${WORK_STATUS.ACTION.MODIFY} | ${WORK_STATUS.STATUS.PENDING} | - | - | - |
+
 
 ## Active Sessions
 (none yet)
@@ -14108,7 +14251,7 @@ Add NEW subtasks for sync fixes:
 
 ## \u{1F4CB} DOCUMENT MAINTENANCE RULES
 
-### Keep .opencode/ Minimal:
+### Keep ${PATHS.OPENCODE}/ Minimal:
 | File | Rule |
 |------|------|
 | ${PATHS.STATUS} | Overwrite each loop (no history) |
@@ -14118,7 +14261,7 @@ Add NEW subtasks for sync fixes:
 
 ### Summarize & Clean:
 - **Completed tasks**: Move to archive or delete
-- **Resolved issues**: DELETE from sync-issues.md
+- **Resolved issues**: DELETE from ${PATHS.SYNC_ISSUES.split("/").pop()}
 - **Old status**: Overwrite with current (no append)
 - **Long descriptions**: Summarize to 1-2 lines
 
@@ -14135,8 +14278,9 @@ Add NEW subtasks for sync fixes:
 - Blockers
 
 ### CRITICAL:
-- Commander should NOT see old/resolved content
+- ${AGENT_NAMES.COMMANDER} should NOT see old/resolved content
 - Only current state matters
+
 - Less context = faster decisions
 ${PROMPT_TAGS.TODO_SYNC.close}`;
 
@@ -14156,7 +14300,9 @@ ${PROMPT_TAGS.ROLE.close}`;
 
 // src/agents/prompts/worker/forbidden.ts
 var WORKER_FORBIDDEN = `${PROMPT_TAGS.FORBIDDEN_ACTIONS.open}
-\u26D4 FORBIDDEN ACTIONS (Adapt to Project Conventions)
+**FORBIDDEN ACTIONS (Adapt to Project Conventions)**
+
+
 
 ## Never Assume
 - NEVER guess API syntax \u2192 CHECK ${PATHS.DOCS}/ or research first
@@ -14165,7 +14311,8 @@ var WORKER_FORBIDDEN = `${PROMPT_TAGS.FORBIDDEN_ACTIONS.open}
 
 ## Never Skip
 - NEVER skip error handling \u2192 Follow project's error handling patterns
-- NEVER skip lsp_diagnostics \u2192 Always verify code compiles
+- NEVER skip ${TOOL_NAMES.LSP_DIAGNOSTICS} \u2192 Always verify code compiles
+
 - NEVER skip verification \u2192 Test before claiming done
 
 ## Never Shortcut
@@ -14182,7 +14329,8 @@ ${PROMPT_TAGS.FORBIDDEN_ACTIONS.close}`;
 
 // src/agents/prompts/worker/required.ts
 var WORKER_REQUIRED = `${PROMPT_TAGS.REQUIRED_ACTIONS.open}
-\u26A0\uFE0F THINK FIRST - As WORKER, explore before implementing:
+**THINK FIRST**: As WORKER, explore before implementing:
+
 
 ## Before Writing ANY Code:
 1. Do I fully understand WHAT I'm implementing and WHY?
@@ -14199,7 +14347,7 @@ var WORKER_REQUIRED = `${PROMPT_TAGS.REQUIRED_ACTIONS.open}
 - Follow error handling style used in similar files
 
 ### ALWAYS Verify
-- Run lsp_diagnostics after changes
+- Run ${TOOL_NAMES.LSP_DIAGNOSTICS} after changes
 - Run the project's BUILD command (from ${PATHS.CONTEXT})
 - Run the project's TEST command (from ${PATHS.CONTEXT})
 
@@ -14214,9 +14362,10 @@ ${PROMPT_TAGS.REQUIRED_ACTIONS.close}`;
 
 // src/agents/prompts/worker/workflow.ts
 var WORKER_WORKFLOW = `${PROMPT_TAGS.WORKFLOW.open}
-\u{1F504} ADAPTIVE IMPLEMENTATION WORKFLOW
+ADAPTIVE IMPLEMENTATION WORKFLOW
 
 ## Phase 1: UNDERSTAND (Before writing ANY code)
+
 1. Read ${PATHS.CONTEXT} \u2192 Get project environment, build/test commands
 2. Read ${PATHS.TODO} \u2192 Understand assigned task and acceptance criteria
 3. Read ${PATHS.DOCS}/ \u2192 Check for cached API docs, syntax references
@@ -14225,8 +14374,9 @@ var WORKER_WORKFLOW = `${PROMPT_TAGS.WORKFLOW.open}
 4. Find SIMILAR code in the project
    \`\`\`bash
    # Find related files
-   find . -name "*.ts" -o -name "*.py" -o -name "*.go" | head -20
+   find . -name "*.ts" -o -name "*.py" -o -name "*.go" | head -${LIMITS.DEFAULT_SCAN_LIMIT}
    \`\`\`
+
 5. Study existing PATTERNS:
    - How are errors handled?
    - How are tests structured?
@@ -14235,10 +14385,10 @@ var WORKER_WORKFLOW = `${PROMPT_TAGS.WORKFLOW.open}
 
 ## Phase 3: RESEARCH (If needed)
 6. If docs missing in ${PATHS.DOCS}/:
-   - Use **websearch** to find official docs
-   - Use **webfetch** to read URL content
-   - Use **cache_docs** to save to ${PATHS.DOCS}/
-   - Example: \`websearch({ query: "[library] [version] API docs" })\`
+   - Use **${TOOL_NAMES.WEBSEARCH}** to find official docs
+   - Use **${TOOL_NAMES.WEBFETCH}** to read URL content
+   - Use **${TOOL_NAMES.CACHE_DOCS}** to save to ${PATHS.DOCS}/
+   - Example: \`${TOOL_NAMES.WEBSEARCH}({ query: "[library] [version] API docs" })\`
 
 ## Phase 4: IMPLEMENT (Following discoveries)
 7. Write code following OBSERVED patterns
@@ -14246,12 +14396,13 @@ var WORKER_WORKFLOW = `${PROMPT_TAGS.WORKFLOW.open}
 9. Add tests matching project's test style
 
 ## Phase 5: VERIFY (Before reporting)
-10. Run lsp_diagnostics \u2192 Must be clean
+10. Run ${TOOL_NAMES.LSP_DIAGNOSTICS} \u2192 Must be clean
+
 11. Run BUILD command from ${PATHS.CONTEXT}
 12. Run TEST command from ${PATHS.CONTEXT}
 13. Report completion WITH evidence
 
-\u26A0\uFE0F Do NOT mark [x] in ${PATHS.TODO} - that's ${AGENT_NAMES.REVIEWER}'s job!
+**CRITICAL**: Do NOT mark [x] in ${PATHS.TODO} - that's ${AGENT_NAMES.REVIEWER}'s job!
 ${PROMPT_TAGS.WORKFLOW.close}`;
 
 // src/agents/prompts/worker/quality.ts
@@ -14306,7 +14457,7 @@ You work on ONE FILE at a time in ISOLATION. Follow this EXACT cycle:
 2. Read ${PATHS.TODO} - Understand requirements
 3. Update ${PATHS.WORK_LOG}:
    \`\`\`markdown
-   - [ ] ${ID_PREFIX.SESSION}N (Worker): \`[target-file]\` - ${WORK_STATUS.SESSION.STARTED}
+   - [ ] ${ID_PREFIX.SESSION}N (${AGENT_NAMES.WORKER}): \`[target-file]\` - ${WORK_STATUS.SESSION.STARTED}
    \`\`\`
 
 ### Phase 2: TEST FIRST (Red)
@@ -14358,18 +14509,20 @@ You work on ONE FILE at a time in ISOLATION. Follow this EXACT cycle:
    - Communication/interaction needed \u2192 Assume dummy response
    - Real I/O strictly forbidden
 3. **Delete after pass** - Remove isolated test file
-4. **Record in .opencode** - Preserve test code and results
+4. **Record in ${PATHS.OPENCODE}** - Preserve test code and results
 
 ### CRITICAL RULES:
 - NEVER skip the test file deletion step
 - ALWAYS preserve test code in ${PATHS.UNIT_TESTS}/
-- NEVER mark [x] in todo.md - Reviewer's job!
+- NEVER mark [x] in ${PATHS.TODO} - ${AGENT_NAMES.REVIEWER}'s job!
+
 - ONE file per session - complete isolation
 ${PROMPT_TAGS.TDD_WORKFLOW.close}`;
 
 // src/agents/prompts/worker/isolation-testing.ts
 var WORKER_ISOLATION_TESTING = `${PROMPT_TAGS.ISOLATION_TESTING.open}
 ## ISOLATED UNIT TEST RULES
+
 
 ### File Naming Convention
 \`[original-dir]/__tests__/[filename].isolated.test.ts\`
@@ -14410,9 +14563,10 @@ Example:
  * Target: [full-path]
  * Session: [session_id]
  * 
- * \u26A0\uFE0F THIS FILE WILL BE DELETED AFTER TEST PASSES
- * Test code preserved in: .opencode/unit-tests/
+ * **WARNING**: THIS FILE WILL BE DELETED AFTER TEST PASSES
+ * Test code preserved in: ${PATHS.UNIT_TESTS}/
  */
+
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
@@ -14455,6 +14609,7 @@ ${PROMPT_TAGS.ISOLATION_TESTING.close}`;
 var WORKER_FILE_ASSIGNMENT = `${PROMPT_TAGS.FILE_ASSIGNMENT.open}
 ## FILE ASSIGNMENT PROTOCOL
 
+
 You are assigned ONE FILE per session. Follow this protocol:
 
 ### Step 1: Read Shared State
@@ -14466,7 +14621,7 @@ cat ${PATHS.SYNC_ISSUES} 2>/dev/null || echo "No sync issues"
 \`\`\`
 
 ### Step 2: Identify Your Assignment
-Commander gives you:
+${AGENT_NAMES.COMMANDER} gives you:
 - \`file: src/path/to/file.ts\` - Your target file
 - \`action: ${WORK_STATUS.ACTION.CREATE} | ${WORK_STATUS.ACTION.MODIFY} | ${WORK_STATUS.ACTION.FIX}\` - What to do
 - \`issue: ${ID_PREFIX.SYNC_ISSUE}N\` (optional) - If fixing a sync issue
@@ -14474,7 +14629,7 @@ Commander gives you:
 ### Step 3: Update Work Log (Start)
 \`\`\`markdown
 ## Active Sessions
-- [ ] ${ID_PREFIX.SESSION}N (Worker): \`[file]\` - [action] ${WORK_STATUS.SESSION.STARTED}
+- [ ] ${ID_PREFIX.SESSION}N (${AGENT_NAMES.WORKER}): \`[file]\` - [action] ${WORK_STATUS.SESSION.STARTED}
 \`\`\`
 
 ### Step 4: Read Context
@@ -14486,23 +14641,23 @@ Commander gives you:
 1. Create isolated test
 2. Implement
 3. Pass test
-4. Delete test (record in unit-tests/)
+4. Delete test (record in ${PATHS.UNIT_TESTS}/)
 
 ### Step 6: Update Work Log (Complete)
 \`\`\`markdown
 ## Active Sessions
-- [x] ${ID_PREFIX.SESSION}N (Worker): \`[file]\` - [action] ${WORK_STATUS.SESSION.COMPLETED}
+- [x] ${ID_PREFIX.SESSION}N (${AGENT_NAMES.WORKER}): \`[file]\` - [action] ${WORK_STATUS.SESSION.COMPLETED}
 
 ## File Status (update row)
 | [file] | [action] | ${WORK_STATUS.STATUS.DONE} | ${ID_PREFIX.SESSION}N | ${WORK_STATUS.TEST_RESULT.PASS} | [timestamp] |
 \`\`\`
 
 ### Step 7: Report
-Report to Commander via tool result:
+Report to ${AGENT_NAMES.COMMANDER} via tool result:
 \`\`\`
-\u2705 File: [path]
+SUCCESS File: [path]
 Action: [${WORK_STATUS.ACTION.CREATE}/${WORK_STATUS.ACTION.MODIFY}/${WORK_STATUS.ACTION.FIX}]
-Unit Test: ${WORK_STATUS.TEST_RESULT.PASS}
+Unit Test: ${WORK_STATUS.TEST_RESULT.PASS.toUpperCase()}
 Isolated test deleted, recorded in ${PATHS.UNIT_TESTS}/
 Ready for integration.
 \`\`\`
@@ -14526,8 +14681,28 @@ Ready for integration.
 - ONE file only - never touch other files
 - ALWAYS update ${PATHS.WORK_LOG} at start and end
 - READ ${PATHS.SYNC_ISSUES} if issue: tag is present
-- Follow Commander's specific instructions
+- Follow ${AGENT_NAMES.COMMANDER}'s specific instructions
 ${PROMPT_TAGS.FILE_ASSIGNMENT.close}`;
+
+// src/agents/prompts/worker/lsp-tools.ts
+var WORKER_LSP_TOOLS = `<lsp_tools>
+## LSP Tools for Code Verification
+
+**AVAILABLE TOOLS**:
+- \`${TOOL_NAMES.LSP_DIAGNOSTICS}\`: Get errors/warnings BEFORE marking work complete
+- \`${TOOL_NAMES.AST_SEARCH}\`: Structural code search for pattern matching
+- \`${TOOL_NAMES.AST_REPLACE}\`: Safe structural code refactoring
+
+**WHEN TO USE**:
+1. After completing file edits \u2192 \`${TOOL_NAMES.LSP_DIAGNOSTICS}({ file: "your-file.ts" })\`
+2. Before marking TODO complete \u2192 \`${TOOL_NAMES.LSP_DIAGNOSTICS}({ file: "*" })\`
+3. For safe refactoring \u2192 \`${TOOL_NAMES.AST_REPLACE}\`
+
+**VERIFICATION RULE**:
+- NEVER claim "done" without running \`${TOOL_NAMES.LSP_DIAGNOSTICS}\`
+- Zero errors required before completion
+- Warnings acceptable but should be noted
+</lsp_tools>`;
 
 // src/agents/prompts/reviewer/role.ts
 var REVIEWER_ROLE = `${PROMPT_TAGS.ROLE.open}
@@ -14545,22 +14720,25 @@ ${PROMPT_TAGS.ROLE.close}`;
 
 // src/agents/prompts/reviewer/forbidden.ts
 var REVIEWER_FORBIDDEN = `${PROMPT_TAGS.FORBIDDEN_ACTIONS.open}
-\u26D4 REVIEWER FORBIDDEN ACTIONS
+**FORBIDDEN ACTIONS**
+
+
 
 ## Never Approve Without Verification
 - NEVER approve without actually running the project's test command
-- NEVER skip lsp_diagnostics check
+- NEVER skip ${TOOL_NAMES.LSP_DIAGNOSTICS} check
 - NEVER mark [x] without concrete evidence (command outputs)
 - NEVER trust "task complete" claims \u2192 Always verify yourself
 
 ## Never Assume Quality
 - NEVER approve code that doesn't match ${PATHS.DOCS}/
 - NEVER approve code that violates project's observed patterns
-- NEVER mark [x] before task was actually executed by Worker
+- NEVER mark [x] before task was actually executed by ${AGENT_NAMES.WORKER}
 
 ## Never Overstep
 - NEVER make architecture changes \u2192 Escalate to ${AGENT_NAMES.COMMANDER}
-- NEVER implement fixes yourself \u2192 Send back to Worker with clear feedback
+- NEVER implement fixes yourself \u2192 Send back to ${AGENT_NAMES.WORKER} with clear feedback
+
 
 ## Adaptive Verification
 - READ ${PATHS.CONTEXT} to know the correct build/test commands
@@ -14570,14 +14748,14 @@ ${PROMPT_TAGS.FORBIDDEN_ACTIONS.close}`;
 
 // src/agents/prompts/reviewer/required.ts
 var REVIEWER_REQUIRED = `${PROMPT_TAGS.REQUIRED_ACTIONS.open}
-\u26A0\uFE0F THINK FIRST - As REVIEWER, think about VERIFICATION before checking:
+**THINK FIRST**: As REVIEWER, think about VERIFICATION before checking:
 - What are the EXACT acceptance criteria for this task?
 - What could APPEAR to work but actually be broken?
 - Are there INTEGRATION issues between components?
 - What security/performance issues might be HIDDEN?
 - Am I verifying THOROUGHLY or just going through motions?
 
-ALWAYS run lsp_diagnostics
+ALWAYS run ${TOOL_NAMES.LSP_DIAGNOSTICS}
 ALWAYS run project's BUILD command (from ${PATHS.CONTEXT})
 ALWAYS run project's TEST command (from ${PATHS.CONTEXT})
 ALWAYS check implementation matches ${PATHS.DOCS}/
@@ -14585,11 +14763,13 @@ ALWAYS update ${PATHS.TODO} checkboxes ONLY after verification
 ALWAYS provide ${WORK_STATUS.TEST_RESULT.PASS}/${WORK_STATUS.TEST_RESULT.FAIL} with evidence
 ALWAYS check for security issues
 ALWAYS verify tests exist for new code
-${PROMPT_TAGS.REQUIRED_ACTIONS.close}`;
+${PROMPT_TAGS.REQUIRED_ACTIONS.close}
+`;
 
 // src/agents/prompts/reviewer/verification.ts
 var REVIEWER_VERIFICATION = `${PROMPT_TAGS.VERIFICATION_PROCESS.open}
-\u{1F50D} ADAPTIVE VERIFICATION PROCESS
+**ADAPTIVE VERIFICATION PROCESS**
+
 
 ## Step 1: Read Project Context
 \`\`\`bash
@@ -14600,7 +14780,7 @@ cat ${PATHS.CONTEXT}  # Get build/test commands
 - Note any project-specific verification requirements
 
 ## Step 2: Static Analysis
-lsp_diagnostics - Must show NO errors or warnings
+${TOOL_NAMES.LSP_DIAGNOSTICS} - Must show NO errors or warnings
 
 ## Step 3: Build Verification
 - Run the project's BUILD command (from ${PATHS.CONTEXT})
@@ -14626,56 +14806,50 @@ lsp_diagnostics - Must show NO errors or warnings
 In ${PATHS.TODO}:
 - [x] T1: [task] | verified | evidence: [build/test results]
 
-\u26A0\uFE0F NEVER mark [x] without running ACTUAL verification commands!
+**CRITICAL**: NEVER mark [x] without running ACTUAL verification commands!
 ${PROMPT_TAGS.VERIFICATION_PROCESS.close}`;
 
 // src/agents/prompts/reviewer/todo-update.ts
 var REVIEWER_TODO_UPDATE = `${PROMPT_TAGS.TODO_MANAGEMENT.open}
-YOU are the ONLY agent who can mark [x]!
+YOU are the ONLY agent who can mark leaf tasks as [x]!
 
-## Hierarchical Completion Rules
-LEVEL 3 (Subtask): Mark [x] when verified
-LEVEL 2 (Task): Mark [x] ONLY when ALL subtasks [x]
-LEVEL 1 (Epic): Mark [x] ONLY when ALL tasks [x]
+
+## Hierarchical Resolution Rules
+The completion state MUST propagate from the innermost subtasks up to the root goal.
+
+1. **Leaf Tasks (Inner-most)**: Mark \`[x]\` ONLY when verified via tools (build, test, lsp).
+2. **Intermediate Parent Tasks**: Mark \`[x]\` (or update status to ${WORK_STATUS.TODO_STATUS.COMPLETE}) ONLY when ALL its direct children are marked \`[x]\`.
+3. **Primary Goal (Epic)**: Mark \`[x]\` (or status ${WORK_STATUS.TODO_STATUS.COMPLETE}) ONLY when ALL underlying tasks are verified and complete.
 
 ## Verification Flow
-1. ${AGENT_NAMES.WORKER} completes subtask S1.1.1
-2. You verify: lsp_diagnostics, build, tests
-3. You mark S1.1.1 [x]
-4. Repeat for S1.1.2, S1.1.3...
-5. When ALL S1.1.x are [x], mark T1.1 [x]
-6. When ALL T1.x are [x], mark E1 [x]
+1. ${AGENT_NAMES.WORKER} claims completion of an atomic subtask (leaf node).
+2. YOU verify the claim using: \`${TOOL_NAMES.LSP_DIAGNOSTICS}\`, \`build\`, \`test\`.
+3. If verified, you mark the leaf node \`[x]\`.
+4. Check if this leaves the Parent node with ALL children complete.
+5. If so, update the Parent node to \`[x]\` or status: ${WORK_STATUS.TODO_STATUS.COMPLETE}.
+6. Repeat until the entire hierarchy is resolved.
 
-## Update Format
+## Update Example (Recursive Resolution)
 BEFORE:
 \`\`\`markdown
-## E1: Backend API | status: ${WORK_STATUS.TODO_STATUS.IN_PROGRESS}
-### T1.1: Database schema | agent:${AGENT_NAMES.WORKER}
-- [ ] S1.1.1: Create users table | size:S
-- [ ] S1.1.2: Create sessions table | size:S
+## P1.2: [Implementation Block] | status: ${WORK_STATUS.TODO_STATUS.IN_PROGRESS}
+#### P1.2.1: [Sub-module A]
+- [ ] T1.2.1.1: [Draft code] | size:M
+- [x] T1.2.1.2: [Tests for A] | ${WORK_STATUS.TODO_STATUS.VERIFIED}
 \`\`\`
 
-AFTER (subtasks verified):
+AFTER (T1.2.1.1 verified):
 \`\`\`markdown
-## E1: Backend API | status: ${WORK_STATUS.TODO_STATUS.IN_PROGRESS}
-### T1.1: Database schema | agent:${AGENT_NAMES.WORKER} | ${WORK_STATUS.TODO_STATUS.DONE}
-- [x] S1.1.1: Create users table | verified
-- [x] S1.1.2: Create sessions table | verified
-\`\`\`
-
-AFTER (all tasks in epic verified):
-\`\`\`markdown
-## E1: Backend API | status: ${WORK_STATUS.TODO_STATUS.COMPLETE}
-### T1.1: Database schema | ${WORK_STATUS.TODO_STATUS.DONE}
-...
-### T1.2: Auth endpoints | ${WORK_STATUS.TODO_STATUS.DONE}
-...
+## P1.2: [Implementation Block] | status: ${WORK_STATUS.TODO_STATUS.IN_PROGRESS}
+#### P1.2.1: [Sub-module A] | status: ${WORK_STATUS.TODO_STATUS.COMPLETE}
+- [x] T1.2.1.1: [Draft code] | ${WORK_STATUS.TODO_STATUS.VERIFIED}
+- [x] T1.2.1.2: [Tests for A] | ${WORK_STATUS.TODO_STATUS.VERIFIED}
 \`\`\`
 
 ## FORBIDDEN
-- Marking parent [x] before all children [x]
-- Marking [x] without verification
-- Trusting "done" claims without checking
+- Marking a parent complete before all children are exactly \`[x]\`.
+- Marking any task \`[x]\` without running verification tools.
+- Removing "depends:" tags before they are fully resolved.
 ${PROMPT_TAGS.TODO_MANAGEMENT.close}`;
 
 // src/agents/prompts/reviewer/output.ts
@@ -14738,15 +14912,15 @@ Do NOT block - check status asynchronously and wait for completion.
 1. If workers still running:
    - Report current status
    - DO NOT block or wait indefinitely
-   - Schedule next check (Commander will re-invoke)
+   - Schedule next check (${AGENT_NAMES.COMMANDER} will re-invoke)
 
 2. If all workers complete:
    - Proceed to integration testing
    - Update ${PATHS.INTEGRATION_STATUS}
 
-### work-log.md Interpretation
+### ${PATHS.WORK_LOG.split("/").pop()} Interpretation
 \`\`\`markdown
-# Reading work-log.md:
+# Reading ${PATHS.WORK_LOG.split("/").pop()}:
 - [ ] = Still in progress, DO NOT verify yet
 - [x] = Unit complete, READY for verification
 \`\`\`
@@ -14755,27 +14929,25 @@ Do NOT block - check status asynchronously and wait for completion.
 - NEVER verify a file before worker marks [x]
 - NEVER block waiting for workers
 - Always update ${PATHS.WORK_LOG} with your monitoring status
+
 ${PROMPT_TAGS.ASYNC_MONITORING.close}`;
 
 // src/agents/prompts/reviewer/integration-testing.ts
 var REVIEWER_INTEGRATION_TESTING = `${PROMPT_TAGS.INTEGRATION_TESTING.open}
-## E2E INTEGRATION TESTING
+## E2E INTEGRATION TESTING RULES
 
-### \u26A0\uFE0F E2E Test Timing (CRITICAL)
-E2E tests should only run when:
-1. **TODO is almost complete** - Most tasks checked [x]
-2. **All Workers done** - No active sessions in work-log.md
-3. **Or final verification** - Right before SEALED
+### 1. Timing
+Start when **${PATHS.TODO} \u2265 80%** (some Workers still active).
 
-### Pre-Integration Checklist
-- [ ] Check ${PATHS.TODO} for incomplete tasks
-- [ ] Check ${PATHS.WORK_LOG} for all workers [x] complete
-- [ ] Check ${PATHS.UNIT_TESTS}/ for unit test records
-- [ ] All isolated test files deleted
+### 2. Pre-integration Checklist
+Before running integration tests, all merged files must:
+- [ ] Have clean lsp_diagnostics
+- [ ] Have unit test passing records in ${PATHS.UNIT_TESTS}/
+- [ ] Be listed in ${PATHS.WORK_LOG} "Pending Integration"
 
 ### Integration Workflow
 
-#### Step 1: Check TODO Status
+#### Step 1: Check ${PATHS.TODO} Status
 \`\`\`bash
 cat ${PATHS.TODO}
 # If incomplete items exist, wait for E2E
@@ -14784,7 +14956,7 @@ cat ${PATHS.TODO}
 #### Step 2: Run Build (language-appropriate)
 \`\`\`bash
 # Run project build command
-# If failed, record in sync-issues.md
+# If failed, record in ${PATHS.SYNC_ISSUES}
 \`\`\`
 
 #### Step 3: Run Full Tests
@@ -14809,8 +14981,8 @@ Write to ${PATHS.INTEGRATION_STATUS}:
 - Timestamp: [ISO timestamp]
 
 ## Result
-- Build: ${WORK_STATUS.TEST_RESULT.PASS}/${WORK_STATUS.TEST_RESULT.FAIL}
-- E2E Test: ${WORK_STATUS.TEST_RESULT.PASS}/${WORK_STATUS.TEST_RESULT.FAIL}
+- Build: ${STATUS_LABEL.PASS}/${WORK_STATUS.TEST_RESULT.FAIL}
+- E2E Test: ${STATUS_LABEL.PASS}/${WORK_STATUS.TEST_RESULT.FAIL}
 
 ## Sync Issues Found
 - (omit if none)
@@ -14827,15 +14999,16 @@ Write to ${PATHS.INTEGRATION_STATUS}:
 - [ ] E2E test passes
 
 ### LOOP BACK Conditions
-- ${PATHS.TODO} has incomplete items \u2192 \u267B\uFE0F LOOP
-- ${PATHS.SYNC_ISSUES} has unresolved issues \u2192 \u267B\uFE0F LOOP
-- Build/test fails \u2192 record in sync-issues.md \u2192 \u267B\uFE0F LOOP
+- ${PATHS.TODO} has incomplete items \u2192 LOOP
+- ${PATHS.SYNC_ISSUES} has unresolved issues \u2192 LOOP
+- Build/test fails \u2192 record in ${PATHS.SYNC_ISSUES} \u2192 LOOP
+
 
 ### CRITICAL:
-- E2E only at TODO completion time!
-- Record build/test failures minimally in sync-issues.md
+- E2E only at ${PATHS.TODO} completion time!
+- Record build/test failures minimally in ${PATHS.SYNC_ISSUES}
 - Delete resolved issues, keep only unresolved
-- All TODO [x] + no issues = SEALED!
+- All ${PATHS.TODO} [x] + no issues = SEALED!
 ${PROMPT_TAGS.INTEGRATION_TESTING.close}`;
 
 // src/agents/prompts/reviewer/sync-verification.ts
@@ -14869,11 +15042,11 @@ npx tsc --noEmit 2>&1 | grep -i "type"
 
 ---
 
-## ISSUE MANAGEMENT RULES \u26A0\uFE0F
+## ISSUE MANAGEMENT RULES (CRITICAL)
 
-### sync-issues.md Contains UNRESOLVED ONLY
+### ${PATHS.SYNC_ISSUES} Contains UNRESOLVED ONLY
 - **Delete resolved issues immediately** (keep file clean)
-- **Keep only unresolved** (only what Commander needs to read)
+- **Keep only unresolved** (only what ${AGENT_NAMES.COMMANDER} needs to read)
 - **Summarize if too long** (archive old issues)
 
 ### Issue Format (Minimal)
@@ -14891,7 +15064,7 @@ npx tsc --noEmit 2>&1 | grep -i "type"
 ### After Fix Verification
 When re-verifying after fixes:
 1. Check if issue is resolved
-2. If resolved: **DELETE the issue from sync-issues.md**
+2. If resolved: **DELETE the issue from ${PATHS.SYNC_ISSUES}**
 3. If not resolved: Update issue status, add notes
 4. Keep file minimal
 
@@ -14916,9 +15089,31 @@ Output SEALED only when:
 ### CRITICAL:
 - Always check sync AFTER integration tests
 - DELETE resolved issues immediately
-- Keep sync-issues.md as short as possible
+- Keep ${PATHS.SYNC_ISSUES} as short as possible
 - Ensure ${AGENT_NAMES.COMMANDER} only sees what needs fixing
+
 ${PROMPT_TAGS.SYNC_VERIFICATION.close}`;
+
+// src/agents/prompts/reviewer/lsp-tools.ts
+var REVIEWER_LSP_TOOLS = `<lsp_tools>
+## LSP Tools for Verification
+
+**MANDATORY VERIFICATION TOOL**:
+Use \`${TOOL_NAMES.LSP_DIAGNOSTICS}\` when verifying ${AGENT_NAMES.WORKER} output.
+
+**VERIFICATION WORKFLOW**:
+1. ${AGENT_NAMES.WORKER} claims completion
+2. Run \`${TOOL_NAMES.LSP_DIAGNOSTICS}({ file: "*" })\` on affected files
+3. Zero errors = ${STATUS_LABEL.PASS.toUpperCase()}, Errors = ${STATUS_LABEL.FAIL.toUpperCase()} + return to ${AGENT_NAMES.WORKER}
+
+**OUTPUT INTERPRETATION**:
+- ${OUTPUT_LABEL.ERROR} = ${STATUS_LABEL.ERROR.toUpperCase()} (blocking)
+- ${OUTPUT_LABEL.WARNING} = ${STATUS_LABEL.WARNING.toUpperCase()} (note but proceed)
+- Clean = ${STATUS_LABEL.CLEAN.toUpperCase()} (approve)
+
+**GATEKEEPER RULE**:
+Do NOT mark [x] in ${PATHS.TODO} without clean ${TOOL_NAMES.LSP_DIAGNOSTICS}.
+</lsp_tools>`;
 
 // src/agents/commander.ts
 var systemPrompt = [
@@ -14938,6 +15133,8 @@ var systemPrompt = [
   COMMANDER_LOOP_CONTINUATION,
   COMMANDER_SYNC_HANDLING,
   COMMANDER_RECOVERY,
+  SHARED_LSP_TOOLS,
+  SHARED_AST_TOOLS,
   SHARED_WORKSPACE,
   ANTI_HALLUCINATION_CORE,
   MISSION_SEAL_RULES
@@ -14963,6 +15160,8 @@ var systemPrompt2 = [
   PLANNER_FILE_PLANNING,
   PLANNER_TODO_SYNC,
   PLANNER_RESEARCH,
+  SHARED_LSP_TOOLS,
+  SHARED_AST_TOOLS,
   SHARED_WORKSPACE
 ].join("\n\n");
 var planner = {
@@ -14986,6 +15185,9 @@ var systemPrompt3 = [
   // TDD-based isolated work
   WORKER_TDD_WORKFLOW,
   WORKER_ISOLATION_TESTING,
+  WORKER_LSP_TOOLS,
+  SHARED_LSP_TOOLS,
+  SHARED_AST_TOOLS,
   VERIFICATION_REQUIREMENTS,
   SHARED_WORKSPACE
 ].join("\n\n");
@@ -15009,6 +15211,9 @@ var systemPrompt4 = [
   REVIEWER_ASYNC_MONITORING,
   REVIEWER_INTEGRATION_TESTING,
   REVIEWER_SYNC_VERIFICATION,
+  REVIEWER_LSP_TOOLS,
+  SHARED_LSP_TOOLS,
+  SHARED_AST_TOOLS,
   REVIEWER_OUTPUT,
   SHARED_WORKSPACE
 ].join("\n\n");
@@ -15035,10 +15240,11 @@ var callAgentTool = tool({
 <agents>
 | Agent | Role | When to Use |
 |-------|------|-------------|
-| ${AGENT_NAMES.PLANNER} \u{1F4CB} | Planner + Researcher | Complex task \u2192 plan, OR need research first |
-| ${AGENT_NAMES.WORKER} \u{1F528} | Developer + Docs | Any code implementation, documentation |
-| ${AGENT_NAMES.REVIEWER} \u2705 | Verifier + Context | Before completion, verify, update TODO |
+| ${AGENT_NAMES.PLANNER} | Planner + Researcher | Complex task -> plan, OR need research first |
+| ${AGENT_NAMES.WORKER} | Developer + Docs | Any code implementation, documentation |
+| ${AGENT_NAMES.REVIEWER} | Verifier + Context | Before completion, verify, update TODO |
 </agents>
+
 
 <execution_rules>
 1. Tasks with same parallel_group run CONCURRENTLY
@@ -15057,13 +15263,12 @@ var callAgentTool = tool({
   async execute(args) {
     const agentDef = AGENTS[args.agent];
     if (!agentDef) {
-      return `\u274C Error: Unknown agent: ${args.agent}`;
+      return `Error: Unknown agent: ${args.agent}`;
     }
-    const emoji3 = AGENT_EMOJI[args.agent] || "\u{1F916}";
+    const label = args.agent[0].toUpperCase();
     const prompt = `
-\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501
-${emoji3} ${agentDef.id.toUpperCase()} :: ${agentDef.description}
-\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501
+[ ${label} ] ${agentDef.id.toUpperCase()} :: ${agentDef.description}
+
 
 <system>
 ${agentDef.systemPrompt}
@@ -15106,7 +15311,7 @@ $ARGUMENTS
 </mission>`;
 var COMMANDS = {
   "task": {
-    description: "\u{1F680} MISSION MODE - Execute task autonomously until complete",
+    description: "MISSION MODE - Execute task autonomously until complete",
     template: MISSION_MODE_TEMPLATE,
     argumentHint: '"mission goal"'
   },
@@ -15135,23 +15340,23 @@ var COMMANDS = {
   },
   "agents": {
     description: "Show the 4-agent architecture",
-    template: `## \u{1F3AF} OpenCode Orchestrator - 4-Agent Architecture (Consolidated)
+    template: `## OpenCode Orchestrator - 4-Agent Architecture
 
 | Agent | Role | Capabilities |
 |-------|------|--------------|
-| **${AGENT_NAMES.COMMANDER}** \u{1F3AF} | Master Orchestrator | Autonomous mission control, parallel task coordination, never stops until ${MISSION_SEAL.PATTERN} |
-| **${AGENT_NAMES.PLANNER}** \u{1F4CB} | Strategic Planner | Task decomposition, research, caching docs, dependency analysis |
-| **${AGENT_NAMES.WORKER}** \u{1F528} | Implementation | Code, files, terminal, documentation lookup when needed |
-| **${AGENT_NAMES.REVIEWER}** \u2705 | Quality & Context | Verification, TODO updates, context management, auto-fix |
+| **${AGENT_NAMES.COMMANDER}** | [MASTER] | Master Orchestrator: mission control, parallel coordination |
+| **${AGENT_NAMES.PLANNER}** | [STRATEGIST] | Planning, research, documentation analysis |
+| **${AGENT_NAMES.WORKER}** | [EXECUTOR] | Implementation, coding, terminal tasks |
+| **${AGENT_NAMES.REVIEWER}** | [VERIFIER] | Verification, testing, context sanity checks |
 
-## \u26A1 Parallel Execution System
+## Parallel Execution System
 \`\`\`
 Up to 50 Worker Sessions running simultaneously
 Max 10 per agent type (auto-queues excess)
 Auto-timeout: 60 min | Auto-cleanup: 30 min
 \`\`\`
 
-## \u{1F504} Execution Flow
+## Execution Flow
 \`\`\`
 THINK \u2192 PLAN \u2192 DELEGATE \u2192 EXECUTE \u2192 VERIFY \u2192 COMPLETE
    L1: Fast Track (simple fixes)
@@ -15159,12 +15364,12 @@ THINK \u2192 PLAN \u2192 DELEGATE \u2192 EXECUTE \u2192 VERIFY \u2192 COMPLETE
    L3: Deep Track (complex refactoring)
 \`\`\`
 
-## \u{1F6E1}\uFE0F Anti-Hallucination
+## Anti-Hallucination
 - ${AGENT_NAMES.PLANNER} researches BEFORE implementation
 - ${AGENT_NAMES.WORKER} caches official documentation
 - Never assumes - always verifies from sources
 
-## \u{1F4A1} Usage
+## Usage
 - Select **${AGENT_NAMES.COMMANDER}** and type your request
 - Or use \`/task "your mission"\` explicitly
 - ${AGENT_NAMES.COMMANDER} automatically coordinates all agents`
@@ -15236,9 +15441,13 @@ async function callRustTool(name, args) {
     proc.stdout.on("data", (data) => {
       stdout += data.toString();
     });
+    proc.stderr.on("data", (data) => {
+      const msg = data.toString().trim();
+      if (msg) console.error(`[rust-stderr] ${msg}`);
+    });
     const request = JSON.stringify({
       jsonrpc: "2.0",
-      id: 1,
+      id: Date.now(),
       method: "tools/call",
       params: { name, arguments: args }
     });
@@ -15248,13 +15457,25 @@ async function callRustTool(name, args) {
       proc.kill();
       resolve(JSON.stringify({ error: "Timeout" }));
     }, 6e4);
-    proc.on("close", () => {
+    proc.on("close", (code) => {
       clearTimeout(timeout);
+      if (code !== 0 && code !== null) {
+        console.error(`Rust process exited with code ${code}`);
+      }
       try {
         const lines = stdout.trim().split("\n");
-        const response = JSON.parse(lines[lines.length - 1]);
-        const text = response?.result?.content?.[0]?.text;
-        resolve(text || JSON.stringify(response.result));
+        for (let i = lines.length - 1; i >= 0; i--) {
+          try {
+            const response = JSON.parse(lines[i]);
+            if (response.result || response.error) {
+              const text = response?.result?.content?.[0]?.text;
+              return resolve(text || JSON.stringify(response.result));
+            }
+          } catch {
+            continue;
+          }
+        }
+        resolve(stdout || "No output");
       } catch {
         resolve(stdout || "No output");
       }
@@ -15267,12 +15488,16 @@ var grepSearchTool = (directory) => tool({
   description: "Search code patterns using regex. Returns matching lines with file paths and line numbers.",
   args: {
     pattern: tool.schema.string().describe("Regex pattern to search for"),
-    dir: tool.schema.string().optional().describe("Directory to search (defaults to project root)")
+    dir: tool.schema.string().optional().describe("Directory to search (defaults to project root)"),
+    max_results: tool.schema.number().optional().describe("Max results (default: 100)"),
+    timeout_ms: tool.schema.number().optional().describe("Timeout in milliseconds (default: 30000)")
   },
   async execute(args) {
     return callRustTool("grep_search", {
       pattern: args.pattern,
-      directory: args.dir || directory
+      directory: args.dir || directory,
+      max_results: args.max_results,
+      timeout_ms: args.timeout_ms
     });
   }
 });
@@ -15293,16 +15518,17 @@ var mgrepTool = (directory) => tool({
   description: `Search multiple patterns (runs grep for each pattern).`,
   args: {
     patterns: tool.schema.array(tool.schema.string()).describe("Array of regex patterns"),
-    dir: tool.schema.string().optional().describe("Directory (defaults to project root)")
+    dir: tool.schema.string().optional().describe("Directory (defaults to project root)"),
+    max_results_per_pattern: tool.schema.number().optional().describe("Max results per pattern (default: 50)"),
+    timeout_ms: tool.schema.number().optional().describe("Timeout in milliseconds (default: 60000)")
   },
   async execute(args) {
-    const results = {};
-    const dir = args.dir || directory;
-    for (const pattern of args.patterns) {
-      const result = await callRustTool("grep_search", { pattern, directory: dir });
-      results[pattern] = result;
-    }
-    return JSON.stringify(results, null, 2);
+    return callRustTool("mgrep", {
+      patterns: args.patterns,
+      directory: args.dir || directory,
+      max_results_per_pattern: args.max_results_per_pattern,
+      timeout_ms: args.timeout_ms
+    });
   }
 });
 var sedReplaceTool = (directory) => tool({
@@ -15313,7 +15539,8 @@ var sedReplaceTool = (directory) => tool({
     file: tool.schema.string().optional().describe("Single file to modify"),
     dir: tool.schema.string().optional().describe("Directory to search (modifies all matching files)"),
     dry_run: tool.schema.boolean().optional().describe("Preview changes without modifying files (default: false)"),
-    backup: tool.schema.boolean().optional().describe("Create .bak backup before modifying (default: false)")
+    backup: tool.schema.boolean().optional().describe("Create .bak backup before modifying (default: false)"),
+    timeout_ms: tool.schema.number().optional().describe("Timeout in milliseconds")
   },
   async execute(args) {
     return callRustTool("sed_replace", {
@@ -15322,7 +15549,8 @@ var sedReplaceTool = (directory) => tool({
       file: args.file,
       directory: args.dir || (args.file ? void 0 : directory),
       dry_run: args.dry_run,
-      backup: args.backup
+      backup: args.backup,
+      timeout_ms: args.timeout_ms
     });
   }
 });
@@ -15402,9 +15630,18 @@ var gitStatusTool = (directory) => tool({
   }
 });
 
+// src/core/commands/types/background-task-status.ts
+var BACKGROUND_TASK_STATUS = {
+  PENDING: STATUS_LABEL.PENDING,
+  RUNNING: STATUS_LABEL.RUNNING,
+  DONE: STATUS_LABEL.DONE,
+  ERROR: STATUS_LABEL.ERROR,
+  TIMEOUT: STATUS_LABEL.TIMEOUT
+};
+
 // src/core/commands/manager.ts
-import { spawn as spawn2 } from "child_process";
-import { randomBytes } from "crypto";
+import { spawn as spawn2 } from "node:child_process";
+import { randomBytes } from "node:crypto";
 var BackgroundTaskManager = class _BackgroundTaskManager {
   static _instance;
   tasks = /* @__PURE__ */ new Map();
@@ -15431,7 +15668,7 @@ var BackgroundTaskManager = class _BackgroundTaskManager {
     const id = this.generateId();
     const { command, cwd = process.cwd(), timeout = 3e5, label } = options;
     const isWindows = process.platform === "win32";
-    const shell = isWindows ? "cmd.exe" : "/bin/sh";
+    const shell = isWindows ? "cmd.exe" : CLI_NAME.SH;
     const shellFlag = isWindows ? "/c" : "-c";
     const task = {
       id,
@@ -15439,7 +15676,7 @@ var BackgroundTaskManager = class _BackgroundTaskManager {
       args: [shellFlag, command],
       cwd,
       label,
-      status: "running",
+      status: STATUS_LABEL.RUNNING,
       output: "",
       errorOutput: "",
       exitCode: null,
@@ -15464,27 +15701,27 @@ var BackgroundTaskManager = class _BackgroundTaskManager {
       proc.on("close", (code) => {
         task.exitCode = code;
         task.endTime = Date.now();
-        task.status = code === 0 ? "done" : "error";
+        task.status = code === 0 ? STATUS_LABEL.DONE : STATUS_LABEL.ERROR;
         task.process = void 0;
         this.debug(id, `Done (code=${code})`);
       });
       proc.on("error", (err) => {
-        task.status = "error";
+        task.status = STATUS_LABEL.ERROR;
         task.errorOutput += `
 Process error: ${err.message}`;
         task.endTime = Date.now();
         task.process = void 0;
       });
       setTimeout(() => {
-        if (task.status === "running" && task.process) {
+        if (task.status === STATUS_LABEL.RUNNING && task.process) {
           task.process.kill("SIGKILL");
-          task.status = "timeout";
+          task.status = STATUS_LABEL.TIMEOUT;
           task.endTime = Date.now();
           this.debug(id, "Timeout");
         }
       }, timeout);
     } catch (err) {
-      task.status = "error";
+      task.status = STATUS_LABEL.ERROR;
       task.errorOutput = `Spawn failed: ${err instanceof Error ? err.message : String(err)}`;
       task.endTime = Date.now();
     }
@@ -15502,7 +15739,7 @@ Process error: ${err.message}`;
   clearCompleted() {
     let count = 0;
     for (const [id, task] of this.tasks) {
-      if (task.status !== "running" && task.status !== "pending") {
+      if (task.status !== STATUS_LABEL.RUNNING && task.status !== STATUS_LABEL.PENDING) {
         this.tasks.delete(id);
         count++;
       }
@@ -15513,7 +15750,7 @@ Process error: ${err.message}`;
     const task = this.tasks.get(taskId);
     if (task?.process) {
       task.process.kill("SIGKILL");
-      task.status = "error";
+      task.status = STATUS_LABEL.ERROR;
       task.errorOutput += "\nKilled by user";
       task.endTime = Date.now();
       return true;
@@ -15527,7 +15764,7 @@ Process error: ${err.message}`;
     return `${Math.floor(seconds / 60)}m ${(seconds % 60).toFixed(0)}s`;
   }
   getStatusEmoji(status) {
-    return getStatusEmoji(status);
+    return getStatusIndicator(status);
   }
 };
 var backgroundTaskManager = BackgroundTaskManager.instance;
@@ -16289,17 +16526,17 @@ var TaskToastManager = class {
       lines.push(`Running (${running.length}):${concurrencyInfo}`);
       for (const task of running) {
         const duration3 = this.formatDuration(task.startedAt);
-        const bgIcon = task.isBackground ? "\u26A1" : "\u{1F504}";
-        const isNew = newTask && task.id === newTask.id ? " \u2190 NEW" : "";
-        lines.push(`${bgIcon} ${task.description} (${task.agent}) - ${duration3}${isNew}`);
+        const bgTag = task.isBackground ? "[B]" : "[F]";
+        const isNew = newTask && task.id === newTask.id ? " <- NEW" : "";
+        lines.push(`${bgTag} ${task.description} (${task.agent}) - ${duration3}${isNew}`);
       }
     }
     if (queued.length > 0) {
       if (lines.length > 0) lines.push("");
       lines.push(`Queued (${queued.length}):`);
       for (const task of queued) {
-        const bgIcon = task.isBackground ? "\u23F3" : "\u23F8\uFE0F";
-        lines.push(`${bgIcon} ${task.description} (${task.agent})`);
+        const bgTag = task.isBackground ? "[W]" : "[P]";
+        lines.push(`${bgTag} ${task.description} (${task.agent})`);
       }
     }
     return lines.join("\n");
@@ -16314,7 +16551,7 @@ var TaskToastManager = class {
     const message = this.buildTaskListMessage(newTask);
     const running = this.getRunningTasks();
     const queued = this.getQueuedTasks();
-    const title = newTask.isBackground ? `\u26A1 New Background Task` : `\u{1F504} New Task Started`;
+    const title = newTask.isBackground ? `Background Task Started` : `Task Started`;
     tuiClient2.tui.showToast({
       body: {
         title,
@@ -16340,12 +16577,12 @@ var TaskToastManager = class {
     let variant;
     if (info.status === "error" || info.status === "cancelled") {
       title = info.status === "error" ? "Task Failed" : "Task Cancelled";
-      message = `\u274C "${info.description}" ${info.status}
+      message = `[FAIL] "${info.description}" ${info.status}
 ${info.error || ""}`;
       variant = "error";
     } else {
       title = "Task Completed";
-      message = `\u2705 "${info.description}" finished in ${info.duration}`;
+      message = `[DONE] "${info.description}" finished in ${info.duration}`;
       variant = "success";
     }
     if (remaining.length > 0 || queued.length > 0) {
@@ -16372,10 +16609,10 @@ Still running: ${remaining.length} | Queued: ${queued.length}`;
     if (!tuiClient2.tui?.showToast) return;
     const successCount = completedTasks.filter((t) => t.status === TASK_STATUS.COMPLETED).length;
     const failCount = completedTasks.filter((t) => t.status === TASK_STATUS.ERROR || t.status === TASK_STATUS.CANCELLED).length;
-    const taskList = completedTasks.map((t) => `- ${t.status === TASK_STATUS.COMPLETED ? "\u2705" : "\u274C"} ${t.description} (${t.duration})`).join("\n");
+    const taskList = completedTasks.map((t) => `- [${t.status === TASK_STATUS.COMPLETED ? "OK" : "FAIL"}] ${t.description} (${t.duration})`).join("\n");
     tuiClient2.tui.showToast({
       body: {
-        title: "\u{1F389} All Tasks Completed",
+        title: "All Tasks Completed",
         message: `${successCount} succeeded, ${failCount} failed
 
 ${taskList}`,
@@ -16395,10 +16632,10 @@ ${taskList}`,
     const task = this.tasks.get(taskId);
     if (!task) return;
     const percentage = Math.round(progress.current / progress.total * 100);
-    const progressBar = `[${"\u2588".repeat(Math.floor(percentage / 10))}${"\u2591".repeat(10 - Math.floor(percentage / 10))}]`;
+    const progressBar = `[${"#".repeat(Math.floor(percentage / 10))}${"-".repeat(10 - Math.floor(percentage / 10))}]`;
     tuiClient2.tui.showToast({
       body: {
-        title: `\u23F3 ${task.description}`,
+        title: `Task Progress: ${task.description}`,
         message: `${progressBar} ${percentage}%
 ${progress.message || ""}`,
         variant: "info",
@@ -17064,7 +17301,7 @@ async function validateSessionHasOutput(session, sessionID) {
     });
     return hasContent;
   } catch (error45) {
-    log2("[delegate-task] Error validating session output:", error45);
+    log2(`${PARALLEL_LOG.DELEGATE_TASK} Error validating session output:`, error45);
     return true;
   }
 }
@@ -17078,11 +17315,11 @@ async function pollWithSafetyLimits(session, sessionID, startTime) {
     pollCount++;
     const elapsed = Date.now() - startTime;
     if (elapsed >= SYNC_TIMEOUT_MS) {
-      log2("[delegate-task] Hard timeout reached", { pollCount, elapsed });
+      log2(`${PARALLEL_LOG.DELEGATE_TASK} Hard timeout reached`, { pollCount, elapsed });
       return { success: false, timedOut: true, pollCount, elapsedMs: elapsed };
     }
     if (Date.now() - lastLogTime > 1e4) {
-      log2("[delegate-task] Polling...", {
+      log2(`${PARALLEL_LOG.DELEGATE_TASK} Polling...`, {
         pollCount,
         elapsed: Math.floor(elapsed / 1e3) + "s",
         stablePolls,
@@ -17110,14 +17347,14 @@ async function pollWithSafetyLimits(session, sessionID, startTime) {
         if (!hasValidOutput) {
           continue;
         }
-        log2("[delegate-task] Valid output detected", { pollCount, elapsed });
+        log2(`${PARALLEL_LOG.DELEGATE_TASK} Valid output detected`, { pollCount, elapsed });
       }
       const msgs = await session.messages({ path: { id: sessionID } });
       const count = (msgs.data ?? []).length;
       if (count === lastMsgCount) {
         stablePolls++;
         if (stablePolls >= STABLE_POLLS_REQUIRED) {
-          log2("[delegate-task] Stable completion", { pollCount, stablePolls, elapsed });
+          log2(`${PARALLEL_LOG.DELEGATE_TASK} Stable completion`, { pollCount, stablePolls, elapsed });
           return { success: true, timedOut: false, pollCount, elapsedMs: elapsed };
         }
       } else {
@@ -17125,10 +17362,10 @@ async function pollWithSafetyLimits(session, sessionID, startTime) {
         lastMsgCount = count;
       }
     } catch (error45) {
-      log2("[delegate-task] Poll error (continuing):", error45);
+      log2(`${PARALLEL_LOG.DELEGATE_TASK} Poll error (continuing):`, error45);
     }
   }
-  log2("[delegate-task] Max poll count reached", { pollCount, elapsed: Date.now() - startTime });
+  log2(`${PARALLEL_LOG.DELEGATE_TASK} Max poll count reached`, { pollCount, elapsed: Date.now() - startTime });
   return {
     success: false,
     timedOut: true,
@@ -17145,7 +17382,7 @@ async function extractSessionResult(session, sessionID) {
     const text = lastMsg?.parts?.filter((p) => p.type === PART_TYPES.TEXT || p.type === PART_TYPES.REASONING).map((p) => p.text ?? "").join("\n") || "";
     return text;
   } catch (error45) {
-    log2("[delegate-task] Error extracting result:", error45);
+    log2(`${PARALLEL_LOG.DELEGATE_TASK} Error extracting result:`, error45);
     return "(Error extracting result)";
   }
 }
@@ -17178,10 +17415,10 @@ var createDelegateTaskTool = (manager, client) => tool({
   async execute(args, context) {
     const { agent, description, prompt, background, resume } = args;
     const ctx = context;
-    log2("[delegate-task.ts] execute() called", { agent, description, background, resume, parentSession: ctx.sessionID });
+    log2(`${PARALLEL_LOG.DELEGATE_TASK} execute() called`, { agent, description, background, resume, parentSession: ctx.sessionID });
     const sessionClient = client;
     if (background === void 0) {
-      return `\u274C 'background' parameter is REQUIRED.`;
+      return `${OUTPUT_LABEL.ERROR} 'background' parameter is REQUIRED.`;
     }
     if (resume) {
       try {
@@ -17191,24 +17428,24 @@ var createDelegateTaskTool = (manager, client) => tool({
           parentSessionID: ctx.sessionID
         });
         if (background === true) {
-          return `\u{1F504} Resumed task: \`${task.id}\` (${task.agent}) in session \`${task.sessionID}\`
+          return `${OUTPUT_LABEL.RESUME} task: \`${task.id}\` (${task.agent}) in session \`${task.sessionID}\`
 
 Previous context preserved. Use \`get_task_result({ taskId: "${task.id}" })\` when complete.`;
         }
         const startTime = Date.now();
         const session = sessionClient.session;
-        log2("[delegate-task] Resume: starting sync wait", { taskId: task.id, sessionID: task.sessionID });
+        log2(`${PARALLEL_LOG.DELEGATE_TASK} Resume: starting sync wait`, { taskId: task.id, sessionID: task.sessionID });
         const pollResult = await pollWithSafetyLimits(session, task.sessionID, startTime);
         if (pollResult.timedOut) {
-          return `\u26A0\uFE0F Resume timeout after ${Math.floor(pollResult.elapsedMs / 1e3)}s (${pollResult.pollCount} polls)
+          return `${OUTPUT_LABEL.TIMEOUT} after ${Math.floor(pollResult.elapsedMs / 1e3)}s (${pollResult.pollCount} polls)
 Session: \`${task.sessionID}\` - Use get_task_result or resume later.`;
         }
         const text = await extractSessionResult(session, task.sessionID);
-        return `\u{1F504} Resumed & Completed (${Math.floor(pollResult.elapsedMs / 1e3)}s)
+        return `${OUTPUT_LABEL.RESUMED_DONE} (${Math.floor(pollResult.elapsedMs / 1e3)}s)
 
 ${text || "(No output)"}`;
       } catch (error45) {
-        return `\u274C Resume failed: ${error45 instanceof Error ? error45.message : String(error45)}`;
+        return `${OUTPUT_LABEL.ERROR} Resume failed: ${error45 instanceof Error ? error45.message : String(error45)}`;
       }
     }
     if (background === true) {
@@ -17220,10 +17457,10 @@ ${text || "(No output)"}`;
           parentSessionID: ctx.sessionID
         });
         presets.taskStarted(task.id, agent);
-        return `\u{1F680} Task spawned: \`${task.id}\` (${agent})
+        return `${OUTPUT_LABEL.SPAWNED} task: \`${task.id}\` (${agent})
 Session: \`${task.sessionID}\` (save for resume)`;
       } catch (error45) {
-        return `\u274C Failed: ${error45 instanceof Error ? error45.message : String(error45)}`;
+        return `${OUTPUT_LABEL.ERROR} Failed: ${error45 instanceof Error ? error45.message : String(error45)}`;
       }
     }
     try {
@@ -17233,11 +17470,11 @@ Session: \`${task.sessionID}\` (save for resume)`;
         query: { directory: "." }
       });
       if (createResult.error || !createResult.data?.id) {
-        return `\u274C Failed to create session: ${createResult.error || "No session ID returned"}`;
+        return `${OUTPUT_LABEL.ERROR} Failed to create session: ${createResult.error || "No session ID returned"}`;
       }
       const sessionID = createResult.data.id;
       const startTime = Date.now();
-      log2("[delegate-task] Sync: starting", { agent, sessionID });
+      log2(`${PARALLEL_LOG.DELEGATE_TASK} Sync: starting`, { agent, sessionID });
       await session.prompt({
         path: { id: sessionID },
         body: {
@@ -17253,19 +17490,19 @@ Session: \`${task.sessionID}\` (save for resume)`;
       });
       const pollResult = await pollWithSafetyLimits(session, sessionID, startTime);
       if (pollResult.timedOut) {
-        log2("[delegate-task] Sync: timed out", pollResult);
-        return `\u26A0\uFE0F Timeout after ${Math.floor(pollResult.elapsedMs / 1e3)}s (${pollResult.pollCount} polls)
+        log2(`${PARALLEL_LOG.DELEGATE_TASK} Sync: timed out`, pollResult);
+        return `${OUTPUT_LABEL.TIMEOUT} after ${Math.floor(pollResult.elapsedMs / 1e3)}s (${pollResult.pollCount} polls)
 Session: \`${sessionID}\` - Use get_task_result or resume later.`;
       }
       const text = await extractSessionResult(session, sessionID);
-      log2("[delegate-task] Sync: completed", { sessionID, elapsedMs: pollResult.elapsedMs });
-      return `\u2705 Completed (${Math.floor(pollResult.elapsedMs / 1e3)}s)
+      log2(`${PARALLEL_LOG.DELEGATE_TASK} Sync: completed`, { sessionID, elapsedMs: pollResult.elapsedMs });
+      return `${OUTPUT_LABEL.DONE} (${Math.floor(pollResult.elapsedMs / 1e3)}s)
 Session: \`${sessionID}\` (save for resume)
 
 ${text || "(No output)"}`;
     } catch (error45) {
-      log2("[delegate-task] Sync: error", error45);
-      return `\u274C Failed: ${error45 instanceof Error ? error45.message : String(error45)}`;
+      log2(`${PARALLEL_LOG.DELEGATE_TASK} Sync: error`, error45);
+      return `${OUTPUT_LABEL.ERROR} Failed: ${error45 instanceof Error ? error45.message : String(error45)}`;
     }
   }
 });
@@ -17278,14 +17515,14 @@ var createGetTaskResultTool = (manager) => tool({
   },
   async execute(args) {
     const task = manager.getTask(args.taskId);
-    if (!task) return `\u274C Task not found: \`${args.taskId}\``;
-    if (task.status === "running") return `\u23F3 Still running...`;
+    if (!task) return `${OUTPUT_LABEL.ERROR} Task not found: \`${args.taskId}\``;
+    if (task.status === STATUS_LABEL.RUNNING) return `${OUTPUT_LABEL.RUNNING} Still working...`;
     const result = await manager.getResult(args.taskId);
     const duration3 = manager.formatDuration(task.startedAt, task.completedAt);
-    if (task.status === "error" || task.status === "timeout") {
-      return `\u274C ${task.status}: ${task.error}`;
+    if (task.status === STATUS_LABEL.ERROR || task.status === STATUS_LABEL.TIMEOUT) {
+      return `[${task.status.toUpperCase()}] ${task.error}`;
     }
-    return `\u2705 Completed (${duration3})
+    return `${OUTPUT_LABEL.DONE} Completed in ${duration3}
 
 ${result || "(No output)"}`;
   }
@@ -17298,27 +17535,27 @@ var createListTasksTool = (manager) => tool({
     status: tool.schema.string().optional().describe("Filter: all, running, completed, error")
   },
   async execute(args) {
-    const { status = "all" } = args;
+    const { status = STATUS_LABEL.ALL } = args;
     let tasks;
     switch (status) {
-      case "running":
+      case STATUS_LABEL.RUNNING:
         tasks = manager.getRunningTasks();
         break;
-      case "completed":
+      case STATUS_LABEL.COMPLETED:
         tasks = manager.getAllTasks().filter((t) => t.status === TASK_STATUS.COMPLETED);
         break;
-      case "error":
+      case STATUS_LABEL.ERROR:
         tasks = manager.getAllTasks().filter((t) => t.status === TASK_STATUS.ERROR || t.status === TASK_STATUS.TIMEOUT);
         break;
       default:
         tasks = manager.getAllTasks();
     }
-    if (tasks.length === 0) return `\u{1F4CB} No tasks found.`;
+    if (tasks.length === 0) return `No tasks found.`;
     const rows = tasks.map((t) => {
       const elapsed = Math.floor((Date.now() - t.startedAt.getTime()) / 1e3);
-      return `| \`${t.id}\` | ${getStatusEmoji(t.status)} ${t.status} | ${t.agent} | ${elapsed}s |`;
+      return `| \`${t.id}\` | [${t.status.toUpperCase()}] | ${t.agent} | ${elapsed}s |`;
     }).join("\n");
-    return `\u{1F4CB} **Tasks**
+    return `**Tasks List**
 
 | ID | Status | Agent | Time |
 |----|--------|-------|------|
@@ -17334,22 +17571,66 @@ var createCancelTaskTool = (manager) => tool({
   },
   async execute(args) {
     const cancelled = await manager.cancelTask(args.taskId);
-    if (cancelled) return `\u{1F6D1} Cancelled: \`${args.taskId}\``;
+    if (cancelled) return `${OUTPUT_LABEL.CANCELLED} task: \`${args.taskId}\``;
     const task = manager.getTask(args.taskId);
-    if (task) return `\u26A0\uFE0F Cannot cancel: Task is ${task.status}`;
-    return `\u274C Not found: \`${args.taskId}\``;
+    if (task) return `${OUTPUT_LABEL.WARNING} Cannot cancel: Task is ${task.status}`;
+    return `${OUTPUT_LABEL.ERROR} Not found: \`${args.taskId}\``;
   }
 });
 
 // src/tools/parallel/index.ts
 function createAsyncAgentTools(manager, client) {
   return {
-    delegate_task: createDelegateTaskTool(manager, client),
-    get_task_result: createGetTaskResultTool(manager),
-    list_tasks: createListTasksTool(manager),
-    cancel_task: createCancelTaskTool(manager)
+    [TOOL_NAMES.DELEGATE_TASK]: createDelegateTaskTool(manager, client),
+    [TOOL_NAMES.GET_TASK_RESULT]: createGetTaskResultTool(manager),
+    [TOOL_NAMES.LIST_TASKS]: createListTasksTool(manager),
+    [TOOL_NAMES.CANCEL_TASK]: createCancelTaskTool(manager)
   };
 }
+
+// src/tools/ast/index.ts
+var astSearchTool = (directory) => tool({
+  description: `Perform structural search using ast-grep.
+Find code patterns based on syntax (e.g., 'function $NAME($$$ARGS) { $$$BODY }').
+
+<patterns>
+- $NAME: Matches a single identifier
+- $$$ARGS: Matches multiple arguments/elements
+- Use '___' for wildcards
+</patterns>`,
+  args: {
+    pattern: tool.schema.string().describe("Structural pattern to search for"),
+    lang: tool.schema.string().optional().describe("Language (typescript, javascript, json, etc. default: typescript)"),
+    include: tool.schema.string().optional().describe("Glob pattern for files to include")
+  },
+  async execute(args) {
+    return callRustTool("ast_search", {
+      pattern: args.pattern,
+      directory,
+      lang: args.lang,
+      include: args.include
+    });
+  }
+});
+var astReplaceTool = (directory) => tool({
+  description: `Perform structural search and replace using ast-grep.
+Safely refactor code across files using syntax patterns.`,
+  args: {
+    pattern: tool.schema.string().describe("Pattern to find"),
+    rewrite: tool.schema.string().describe("Replacement pattern (use $ placeholders)"),
+    lang: tool.schema.string().optional().describe("Language (typescript, javascript, etc. default: typescript)"),
+    include: tool.schema.string().optional().describe("Glob pattern for files")
+  },
+  async execute(args) {
+    return callRustTool("ast_replace", {
+      pattern: args.pattern,
+      rewrite: args.rewrite,
+      directory,
+      lang: args.lang,
+      include: args.include
+    });
+  }
+});
 
 // src/core/cache/constants.ts
 var CACHE_DIR = PATHS.DOCS;
@@ -17554,7 +17835,7 @@ webfetch({ url: "https://react.dev/reference/react/useEffect", cache: true })
     if (cache) {
       const cached2 = await get(url2);
       if (cached2) {
-        return `\u{1F4DA} **CACHED** (fetched: ${cached2.fetchedAt})
+        return `${OUTPUT_LABEL.CACHED} (fetched: ${cached2.fetchedAt})
 
 ${cached2.content}`;
       }
@@ -17569,7 +17850,7 @@ ${cached2.content}`;
         // 30 second timeout
       });
       if (!response.ok) {
-        return `\u274C Failed to fetch: HTTP ${response.status} ${response.statusText}`;
+        return `Failed to fetch: HTTP ${response.status} ${response.statusText}`;
       }
       const contentType = response.headers.get("content-type") || "";
       const html = await response.text();
@@ -17577,13 +17858,13 @@ ${cached2.content}`;
         const content = JSON.stringify(JSON.parse(html), null, 2);
         if (cache) {
           const filename = await set2(url2, content, "JSON Response");
-          return `\u{1F4C4} **JSON fetched** (cached: ${PATHS.DOCS}/${filename})
+          return `${OUTPUT_LABEL.JSON_FETCHED} (cached: ${PATHS.DOCS}/${filename})
 
 \`\`\`json
 ${content.slice(0, 5e3)}
 \`\`\``;
         }
-        return `\u{1F4C4} **JSON fetched**
+        return `${OUTPUT_LABEL.JSON_FETCHED}
 
 \`\`\`json
 ${content.slice(0, 5e3)}
@@ -17592,11 +17873,11 @@ ${content.slice(0, 5e3)}
       if (contentType.includes("text/plain")) {
         if (cache) {
           const filename = await set2(url2, html, "Plain Text");
-          return `\u{1F4C4} **Text fetched** (cached: ${PATHS.DOCS}/${filename})
+          return `${OUTPUT_LABEL.TEXT_FETCHED} (cached: ${PATHS.DOCS}/${filename})
 
 ${html.slice(0, 1e4)}`;
         }
-        return `\u{1F4C4} **Text fetched**
+        return `${OUTPUT_LABEL.TEXT_FETCHED}
 
 ${html.slice(0, 1e4)}`;
       }
@@ -17606,7 +17887,7 @@ ${html.slice(0, 1e4)}`;
       const truncated = markdown.length > 15e3 ? markdown.slice(0, 15e3) + "\n\n... [Content truncated]" : markdown;
       if (cache) {
         const filename = await set2(url2, truncated, title);
-        return `\u{1F4DA} **${title}**
+        return `[${title}]
 Source: ${url2}
 Cached: ${PATHS.DOCS}/${filename}
 
@@ -17614,7 +17895,7 @@ Cached: ${PATHS.DOCS}/${filename}
 
 ${truncated}`;
       }
-      return `\u{1F4DA} **${title}**
+      return `[${title}]
 Source: ${url2}
 
 ---
@@ -17623,11 +17904,11 @@ ${truncated}`;
     } catch (error45) {
       if (error45 instanceof Error) {
         if (error45.name === "TimeoutError") {
-          return `\u274C Request timed out after 30 seconds`;
+          return `${OUTPUT_LABEL.TIMEOUT} Request timed out after 30 seconds`;
         }
-        return `\u274C Fetch error: ${error45.message}`;
+        return `${OUTPUT_LABEL.ERROR} Fetch error: ${error45.message}`;
       }
-      return `\u274C Unknown error occurred`;
+      return `${OUTPUT_LABEL.ERROR} Unknown error occurred`;
     }
   }
 });
@@ -17845,7 +18126,7 @@ websearch({ query: "TypeScript generic constraints site:typescriptlang.org" })
       }
     }
     if (results.length === 0) {
-      return `\u{1F50D} No results found for: "${query}"
+      return `No results found for: "${query}"
 
 Try:
 - Different keywords
@@ -17854,10 +18135,10 @@ Try:
 - Add "docs" or "official" for documentation`;
     }
     const limitedResults = results.slice(0, maxResults);
-    let output = `\u{1F50D} **Web Search Results for: "${query}"**
+    let output = `[Web Search Results for]: "${query}"
 
 `;
-    output += `\u{1F4E1} Provider: ${provider} | Found ${results.length} results (showing ${limitedResults.length})
+    output += `Provider: ${provider} | Found ${results.length} results (showing ${limitedResults.length})
 
 ---
 
@@ -17866,7 +18147,7 @@ Try:
       const result = limitedResults[i];
       output += `### ${i + 1}. ${result.title}
 `;
-      output += `\u{1F517} ${result.url}
+      output += `URL: ${result.url}
 
 `;
       if (result.snippet) {
@@ -17878,7 +18159,7 @@ Try:
     output += `---
 
 `;
-    output += `\u{1F4A1} **Tip**: Use \`webfetch\` to get full content from any of these URLs.`;
+    output += `Tip: Use \`webfetch\` to get full content from any of these URLs.`;
     return output;
   }
 });
@@ -18094,14 +18375,14 @@ codesearch({ query: "next.js middleware redirect", repo: "vercel/next.js" })
       results = await searchGitHub(query, { language });
     }
     if (results.length === 0) {
-      return `\u{1F50D} No code results found for: "${query}"
+      return `No code results found for: "${query}"
 
 Try:
 - Different search terms
 - Broader language filter
 - Check spelling`;
     }
-    let output = `\u{1F50D} **Code Search Results for: "${query}"**
+    let output = `[Code Search Results for]: "${query}"
 
 `;
     output += `Found ${results.length} results${language ? ` (${language})` : ""}
@@ -18113,9 +18394,9 @@ Try:
       const r = results[i];
       output += `### ${i + 1}. ${r.repo}
 `;
-      output += `\u{1F4C4} \`${r.file}\`${r.line ? `:${r.line}` : ""}
+      output += `Path: \`${r.file}\`${r.line ? `:${r.line}` : ""}
 `;
-      output += `\u{1F517} [View on GitHub](${r.url})
+      output += `URL: ${r.url}
 
 `;
       if (r.content && r.content !== "(Use webfetch for full content)") {
@@ -18129,8 +18410,33 @@ ${r.content}
     output += `---
 
 `;
-    output += `\u{1F4A1} **Tip**: Use \`webfetch\` to get the full file content from any of these URLs.`;
+    output += `Tip: Use \`webfetch\` to get the full file content from any of these URLs.`;
     return output;
+  }
+});
+
+// src/tools/lsp/index.ts
+var lspDiagnosticsTool = (directory) => tool({
+  description: `Get LSP diagnostics (errors/warnings) for files.
+
+Use this BEFORE marking a task complete to verify code quality.
+Runs TypeScript compiler and/or ESLint to find issues.
+
+<when_to_use>
+- After editing files, before claiming "done"
+- Before marking todo items complete
+- To check for type errors without full build
+</when_to_use>`,
+  args: {
+    file: tool.schema.string().optional().describe("File path to check (or '*' for all files)"),
+    include_warnings: tool.schema.boolean().optional().describe("Include warnings (default: true)")
+  },
+  async execute(args) {
+    return callRustTool("lsp_diagnostics", {
+      directory,
+      file: args.file,
+      include_warnings: args.include_warnings
+    });
   }
 });
 
@@ -18500,14 +18806,14 @@ function generateContinuationPrompt(todos) {
   const pendingTasks = incomplete.filter((t) => t.status === TODO_STATUS.PENDING);
   const pendingCount = pendingTasks.length;
   let prompt = `<todo_continuation>
-\u{1F4CB} **TODO Progress**: ${formatProgress(todos)}
+[TODO Progress]: ${formatProgress(todos)}
 
 **Incomplete Tasks** (${incomplete.length} remaining):
 `;
   for (const todo of incomplete.slice(0, 5)) {
-    const status = todo.status === TODO_STATUS.IN_PROGRESS ? "\u{1F504}" : "\u23F3";
-    const priority = todo.priority === "high" ? "\u{1F534}" : todo.priority === "medium" ? "\u{1F7E1}" : "\u{1F7E2}";
-    prompt += `${status} ${priority} [${todo.id}] ${todo.content}
+    const statusLabel = todo.status === TODO_STATUS.IN_PROGRESS ? "[RUN]" : "[WAIT]";
+    const priorityLabel = todo.priority === STATUS_LABEL.HIGH ? "[H]" : todo.priority === STATUS_LABEL.MEDIUM ? "[M]" : "[L]";
+    prompt += `${statusLabel} ${priorityLabel} [${todo.id}] ${todo.content}
 `;
   }
   if (incomplete.length > 5) {
@@ -18516,19 +18822,19 @@ function generateContinuationPrompt(todos) {
   }
   if (pendingCount >= 2) {
     prompt += `
-\u26A1 **PARALLEL DISPATCH REQUIRED** \u26A1
+[PARALLEL DISPATCH REQUIRED]
 You have ${pendingCount} pending tasks. Launch them ALL IN PARALLEL for maximum efficiency:
 
 \`\`\`
 // EXECUTE NOW - Launch all ${pendingCount} tasks simultaneously:
 `;
     for (const todo of pendingTasks.slice(0, 6)) {
-      prompt += `delegate_task({ agent: "Worker", prompt: "${todo.content}", background: true })
+      prompt += `delegate_task({ agent: "${AGENT_NAMES.WORKER}", prompt: "${todo.content}", background: true })
 `;
     }
     prompt += `\`\`\`
 
-\u26A0\uFE0F Do NOT run these sequentially. Use background=true for ALL.
+NOTICE: Do NOT run these sequentially. Use background=true for ALL.
 After launching, use list_tasks to monitor progress.
 
 `;
@@ -19094,6 +19400,17 @@ function cleanupSession2(sessionID) {
   sessionStates2.delete(sessionID);
 }
 
+// src/core/context/context-window-monitor.ts
+var sessionStates3 = /* @__PURE__ */ new Map();
+function cleanupSession3(sessionID) {
+  const state2 = sessionStates3.get(sessionID);
+  if (state2?.intervalId) {
+    clearInterval(state2.intervalId);
+  }
+  sessionStates3.delete(sessionID);
+  log2("[context-window-monitor] Session cleaned up", { sessionID });
+}
+
 // src/plugin-handlers/event-handler.ts
 function createEventHandler(ctx) {
   const { client, directory, sessions, state: state2 } = ctx;
@@ -19122,6 +19439,7 @@ function createEventHandler(ctx) {
         cleanupSessionRecovery(sessionID);
         cleanupSession(sessionID);
         cleanupSession2(sessionID);
+        cleanupSession3(sessionID);
         presets.sessionCompleted(sessionID, duration3);
       }
     }
@@ -19373,12 +19691,56 @@ function createChatMessageHandler(ctx) {
   };
 }
 
-// src/utils/sanity.ts
+// src/utils/sanity/constants/severity.ts
 var SEVERITY = {
   OK: "ok",
   WARNING: "warning",
   CRITICAL: "critical"
 };
+
+// src/utils/sanity/constants/recovery-prompt.ts
+var RECOVERY_PROMPT = `<anomaly_recovery>
+SYSTEM NOTICE: Previous output was malformed (gibberish/loop detected).
+
+
+<recovery_protocol>
+1. DISCARD the corrupted output completely - do not reference it
+2. RECALL the original mission objective
+3. IDENTIFY the last confirmed successful step
+4. RESTART with a simpler, more focused approach
+</recovery_protocol>
+
+<instructions>
+- If a sub-agent produced bad output: try a different agent or simpler task
+- If stuck in a loop: break down the task into smaller pieces
+- If context seems corrupted: call Reviewer to restore context
+- THINK in English for maximum stability
+</instructions>
+
+What was the original task? Proceed from the last known good state.
+</anomaly_recovery>`;
+
+// src/utils/sanity/constants/escalation-prompt.ts
+var ESCALATION_PROMPT = `<critical_anomaly>
+CRITICAL: Multiple consecutive malformed outputs detected.
+
+
+<emergency_protocol>
+1. STOP current execution path immediately
+2. DO NOT continue with the same approach - it is failing
+3. CALL Planner for a completely new strategy
+4. If Planner also fails: report status to user and await guidance
+</emergency_protocol>
+
+<diagnosis>
+The current approach is producing corrupted output.
+This may indicate: context overload, model instability, or task complexity.
+</diagnosis>
+
+Request a fresh plan from Planner with reduced scope.
+</critical_anomaly>`;
+
+// src/utils/sanity/checker.ts
 function checkOutputSanity(text) {
   if (!text || text.length < 50) {
     return { isHealthy: true, severity: SEVERITY.OK };
@@ -19445,42 +19807,6 @@ function checkOutputSanity(text) {
   }
   return { isHealthy: true, severity: SEVERITY.OK };
 }
-var RECOVERY_PROMPT = `<anomaly_recovery>
-\u26A0\uFE0F SYSTEM NOTICE: Previous output was malformed (gibberish/loop detected).
-
-<recovery_protocol>
-1. DISCARD the corrupted output completely - do not reference it
-2. RECALL the original mission objective
-3. IDENTIFY the last confirmed successful step
-4. RESTART with a simpler, more focused approach
-</recovery_protocol>
-
-<instructions>
-- If a sub-agent produced bad output: try a different agent or simpler task
-- If stuck in a loop: break down the task into smaller pieces
-- If context seems corrupted: call Reviewer to restore context
-- THINK in English for maximum stability
-</instructions>
-
-What was the original task? Proceed from the last known good state.
-</anomaly_recovery>`;
-var ESCALATION_PROMPT = `<critical_anomaly>
-\u{1F6A8} CRITICAL: Multiple consecutive malformed outputs detected.
-
-<emergency_protocol>
-1. STOP current execution path immediately
-2. DO NOT continue with the same approach - it is failing
-3. CALL Planner for a completely new strategy
-4. If Planner also fails: report status to user and await guidance
-</emergency_protocol>
-
-<diagnosis>
-The current approach is producing corrupted output.
-This may indicate: context overload, model instability, or task complexity.
-</diagnosis>
-
-Request a fresh plan from Planner with reduced scope.
-</critical_anomaly>`;
 
 // src/plugin-handlers/tool-execute-handler.ts
 function createToolExecuteAfterHandler(ctx) {
@@ -19522,7 +19848,7 @@ Anomaly count: ${stateSession.anomalyCount}
         stateSession.currentTask = taskIdMatch[1].toUpperCase();
       }
       const agentName = toolInput.arguments.agent;
-      const indicator = AGENT_EMOJI[agentName] || "?";
+      const indicator = agentName[0].toUpperCase();
       toolOutput.output = `[${indicator}] [${agentName.toUpperCase()}] Working...
 
 ` + toolOutput.output;
@@ -19631,7 +19957,7 @@ function createAssistantDoneHandler(ctx) {
       session.active = false;
       state.missionActive = false;
       clearLoopState(directory);
-      presets.missionComplete("\u{1F396}\uFE0F Mission Sealed - Explicit completion confirmed");
+      presets.missionComplete("Mission Sealed - Explicit completion confirmed");
       log2("[assistant-done-handler] Mission sealed detected", { sessionID });
       clearSession(sessionID);
       sessions.delete(sessionID);
@@ -19667,7 +19993,7 @@ function createAssistantDoneHandler(ctx) {
               type: PART_TYPES.TEXT,
               text: CONTINUE_INSTRUCTION + `
 
-\u23F1\uFE0F [${currentTime}] Step ${session.step} | ${progressInfo} | This step: ${stepDuration} | Total: ${totalElapsed}`
+[${currentTime}] Step ${session.step} | ${progressInfo} | This step: ${stepDuration} | Total: ${totalElapsed}`
             }]
           }
         });
@@ -19752,6 +20078,11 @@ var OrchestratorPlugin = async (input) => {
       [TOOL_NAMES.WEBSEARCH]: websearchTool,
       [TOOL_NAMES.CACHE_DOCS]: cacheDocsTool,
       [TOOL_NAMES.CODESEARCH]: codesearchTool,
+      // LSP tools
+      [TOOL_NAMES.LSP_DIAGNOSTICS]: lspDiagnosticsTool(directory),
+      // AST tools
+      [TOOL_NAMES.AST_SEARCH]: astSearchTool(directory),
+      [TOOL_NAMES.AST_REPLACE]: astReplaceTool(directory),
       // Async agent tools
       ...asyncAgentTools
     },

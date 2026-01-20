@@ -40,15 +40,15 @@ Do NOT block - check status asynchronously and wait for completion.
 1. If workers still running:
    - Report current status
    - DO NOT block or wait indefinitely
-   - Schedule next check (Commander will re-invoke)
+   - Schedule next check (${AGENT_NAMES.COMMANDER} will re-invoke)
 
 2. If all workers complete:
    - Proceed to integration testing
    - Update ${PATHS.INTEGRATION_STATUS}
 
-### work-log.md Interpretation
+### ${PATHS.WORK_LOG.split("/").pop()} Interpretation
 \`\`\`markdown
-# Reading work-log.md:
+# Reading ${PATHS.WORK_LOG.split("/").pop()}:
 - [ ] = Still in progress, DO NOT verify yet
 - [x] = Unit complete, READY for verification
 \`\`\`
@@ -57,5 +57,6 @@ Do NOT block - check status asynchronously and wait for completion.
 - NEVER verify a file before worker marks [x]
 - NEVER block waiting for workers
 - Always update ${PATHS.WORK_LOG} with your monitoring status
+
 ${PROMPT_TAGS.ASYNC_MONITORING.close}`;
 

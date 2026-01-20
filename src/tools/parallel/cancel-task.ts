@@ -4,6 +4,7 @@
 
 import { tool } from "@opencode-ai/plugin";
 import { ParallelAgentManager } from "../../core/agents/index.js";
+import { OUTPUT_LABEL } from "../../shared/index.js";
 
 export const createCancelTaskTool = (manager: ParallelAgentManager) => tool({
     description: `Cancel a running task.`,
@@ -12,10 +13,11 @@ export const createCancelTaskTool = (manager: ParallelAgentManager) => tool({
     },
     async execute(args) {
         const cancelled = await manager.cancelTask(args.taskId);
-        if (cancelled) return `🛑 Cancelled: \`${args.taskId}\``;
+        if (cancelled) return `${OUTPUT_LABEL.CANCELLED} task: \`${args.taskId}\``;
 
         const task = manager.getTask(args.taskId);
-        if (task) return `⚠️ Cannot cancel: Task is ${task.status}`;
-        return `❌ Not found: \`${args.taskId}\``;
+        if (task) return `${OUTPUT_LABEL.WARNING} Cannot cancel: Task is ${task.status}`;
+        return `${OUTPUT_LABEL.ERROR} Not found: \`${args.taskId}\``;
+
     },
 });

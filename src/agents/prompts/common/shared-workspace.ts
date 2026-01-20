@@ -4,26 +4,28 @@
  * Defines the .opencode/ directory structure.
  */
 
-import { ID_PREFIX, PATHS, PROMPT_TAGS, WORK_STATUS } from "../../../shared/index.js";
+import { ID_PREFIX, PATHS, PROMPT_TAGS, WORK_STATUS, AGENT_NAMES, STATUS_LABEL } from "../../../shared/index.js";
 
 export const SHARED_WORKSPACE = `${PROMPT_TAGS.SHARED_WORKSPACE.open}
-📂 ${PATHS.OPENCODE}/ - Shared Context Directory (Real-time State)
+${PATHS.OPENCODE}/ - Shared Context Directory (Real-time State)
 
 \`\`\`
 ${PATHS.OPENCODE}/
-├── todo.md              - Master task list (single source of truth)
-├── context.md           - Project context summary (<150 lines)
-├── work-log.md          - 🔄 REAL-TIME work status (ALL agents read/write)
+├── ${PATHS.TODO.split("/").pop()}              - Master task list (single source of truth)
+├── ${PATHS.CONTEXT.split("/").pop()}           - Project context summary (<150 lines)
+├── ${PATHS.WORK_LOG.split("/").pop()}          - REAL-TIME work status (ALL agents read/write)
 │                        # - Active sessions & assigned files
 │                        # - Unit test completion records
 │                        # - Pending integration items
-├── unit-tests/          - 📝 Unit test records (preserved after deletion)
+├── ${PATHS.UNIT_TESTS.split("/").pop()}/          - Unit test records (preserved after deletion)
 │   └── [timestamp]-[file].md  # Test content, results, deleted test code
-├── sync-issues.md       - ⚠️ File sync issues (Reviewer writes)
-├── integration-status.md - ✅ Integration test results & sync status
-├── docs/                - Cached documentation
-└── archive/             - Old context
+├── ${PATHS.SYNC_ISSUES.split("/").pop()}       - File sync issues (Reviewer writes)
+├── ${PATHS.INTEGRATION_STATUS.split("/").pop()} - Integration test results & sync status
+├── ${PATHS.DOCS.split("/").pop()}/                - Cached documentation
+└── ${PATHS.ARCHIVE.split("/").pop()}/             - Old context
 \`\`\`
+
+
 
 ## ID Formats (no digit limit):
 - Session: ${ID_PREFIX.SESSION}N (e.g., ${ID_PREFIX.SESSION}1, ${ID_PREFIX.SESSION}42)
@@ -40,8 +42,8 @@ ${PATHS.OPENCODE}/
 # Work Log
 
 ## Active Sessions
-- [ ] ${ID_PREFIX.SESSION}1 (Worker): \`src/auth/login.ts\` - ${WORK_STATUS.STATUS.IN_PROGRESS}
-- [x] ${ID_PREFIX.SESSION}2 (Worker): \`src/utils/hash.ts\` - ${WORK_STATUS.SESSION.COMPLETED}
+- [ ] ${ID_PREFIX.SESSION}1 (${AGENT_NAMES.WORKER}): \`src/auth/login.ts\` - ${WORK_STATUS.STATUS.IN_PROGRESS}
+- [x] ${ID_PREFIX.SESSION}2 (${AGENT_NAMES.WORKER}): \`src/utils/hash.ts\` - ${WORK_STATUS.SESSION.COMPLETED}
 
 ## Completed Units (Ready for Integration)
 | File | Session | Unit Test | Timestamp |
@@ -59,8 +61,9 @@ ${PATHS.OPENCODE}/
 
 RULES:
 - ALL agents MUST read ${PATHS.WORK_LOG} before starting
-- Worker updates ${PATHS.WORK_LOG} when starting/completing file work
-- Reviewer monitors ${PATHS.WORK_LOG} for completed units
-- Commander reads ${PATHS.WORK_LOG} in each loop iteration
-- ${PATHS.SYNC_ISSUES} = Reviewer writes issues for next iteration
-${PROMPT_TAGS.SHARED_WORKSPACE.close}`;
+- ${AGENT_NAMES.WORKER} updates ${PATHS.WORK_LOG} when starting/completing file work
+- ${AGENT_NAMES.REVIEWER} monitors ${PATHS.WORK_LOG} for completed units
+- ${AGENT_NAMES.COMMANDER} reads ${PATHS.WORK_LOG} in each loop iteration
+- ${PATHS.SYNC_ISSUES} = ${AGENT_NAMES.REVIEWER} writes issues for next iteration
+${PROMPT_TAGS.SHARED_WORKSPACE.close}
+`;

@@ -1,66 +1,109 @@
-# Contributing to OpenCode Orchestrator
+# Contributing to OpenCode Orchestrator 🦀
 
-## Development Setup
+Welcome to the OpenCode Orchestrator development guide. This project uses a high-performance hybrid architecture combining **TypeScript** for agent orchestration and **Rust** for core tool execution.
 
+---
+
+## 🏗️ Architecture Overview
+
+The system is built on a **4-Agent Cognitive Architecture**:
+- **Commander**: Mission orchestration and execution.
+- **Planner**: Strategic planning and initial research.
+- **Worker**: Implementation, refactoring, and documentation.
+- **Reviewer**: Verification, context management, and quality control.
+
+### Hybrid Core
+- **Frontend**: TypeScript (Node.js) handles the OpenCode Plugin API and Agent LLM logic.
+- **Backend**: Rust (`orchestrator-cli`) handles performance-critical tools via **JSON-RPC over stdio**.
+
+---
+
+## 🚀 Development Setup
+
+### Prerequisites
+- **Node.js**: v18+ 
+- **Rust**: Latest stable (with `cargo`)
+- **OpenCode**: Installed locally
+
+### Quick Start
 ```bash
-# Build and link locally
+# Install dependencies
+npm install
+
+# Build everything (TS + Rust) and link locally
+npm run build:all
 npm run dev:link
 
-# Restart OpenCode to test
+# Start OpenCode and see the "Orchestrator" in action!
 ```
 
-## Scripts
+---
+
+## 🛠️ Scripts & Tools
 
 | Command | Description |
 |---------|-------------|
-| `npm run build` | Build the plugin |
-| `npm run dev:link` | Build + link for local testing |
-| `npm run dev:unlink` | Unlink from global |
-| `npm run dev:status` | Check link status |
+| `npm run build:all` | **Recommended**: Complete build of TS and Rust components |
+| `npm run rust:build` | Build Rust binary only |
+| `npm run rust:test` | Run Rust unit and integration tests |
+| `npm run test:all` | **Full Suite**: Runs Rust tests + TS tests + E2E Bridge tests |
+| `npm run dev:link` | Link current build to OpenCode for development |
+| `npm run dev:unlink`| Remove local link |
+| `npm run log` | Follow real-time logs of the orchestrator |
 
-## Testing
+---
 
+## 🧪 Testing Strategy
+
+We maintain strict verification across the entire stack.
+
+### 1. Rust Core Tests
+Located in `crates/orchestrator-core` and `crates/orchestrator-cli`.
 ```bash
-# Run all tests (87 tests)
-npm run test:all
+npm run rust:test
+```
 
-# Run unit tests only
+### 2. TypeScript Unit Tests
+Testing the agent logic and state management.
+```bash
 npm run test:unit
+```
 
-# Run E2E tests only
+### 3. JSON-RPC Bridge (E2E)
+Verifies the actual communication between TS and the Rust binary.
+```bash
+npx vitest tests/e2e/json-rpc-bridge.test.ts
+```
+
+### 4. Full System E2E
+Tests background tasks, parallel sessions, and real-world scenarios.
+```bash
 npm run test:e2e
-
-# Watch mode
-npm run test:watch
 ```
 
-### Test Structure
+---
 
-```
-tests/
-├── unit/                        # Unit tests
-│   ├── concurrency.test.ts
-│   ├── task-store.test.ts
-│   ├── parallel-manager.test.ts
-│   └── integration.test.ts
-└── e2e/                         # E2E tests
-    ├── background-task.test.ts
-    ├── session.test.ts
-    ├── rust-integration.test.ts
-    └── full-system.test.ts
-```
+## 📜 Coding Standards
 
-## Release
+### 1. Synchronization (CRITICAL)
+Since we use JSON-RPC for communication, **Constants must be synchronized**.
+- **Rust**: `crates/orchestrator-core/src/constants.rs`
+- **TypeScript**: `src/shared/core/constants/` and tool definitions.
+Always update both sides when adding new tools, agents, or status labels.
+
+### 2. Tool Implementation
+- Performance-heavy tools (Search, AST, Diff) should be implemented in **Rust**.
+- UI-heavy or complex logic flows should be handled in **TypeScript**.
+
+### 3. Logging
+Always use the centralized logger (`src/core/agents/logger.ts`) in TS and `tracing` in Rust. Do not use `console.log` as it can corrupt the OpenCode TUI.
+
+---
+
+## 📦 Release Process
 
 ```bash
-npm run release:patch   # 0.5.5 → 0.5.6
-npm run release:minor   # 0.5.6 → 0.6.0
-npm run release:major   # 0.6.0 → 1.0.0
+npm run release:patch   # Bug fixes
+npm run release:minor   # New features / Agent upgrades
 ```
-
-Each release:
-1. Builds the plugin
-2. Bumps version
-3. Creates git tag
-4. Pushes to remote
-5. Publishes to npm
+Releases automatically handle binary distribution for multiple architectures (Windows/macOS/Linux).

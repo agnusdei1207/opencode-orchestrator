@@ -35,7 +35,9 @@ import {
 } from "./tools/background-cmd/index.js";
 import { ParallelAgentManager } from "./core/agents/index.js";
 import { createAsyncAgentTools } from "./tools/parallel/index.js";
+import { astSearchTool, astReplaceTool } from "./tools/ast/index.js";
 import { webfetchTool, websearchTool, cacheDocsTool, codesearchTool } from "./tools/web/index.js";
+import { lspDiagnosticsTool } from "./tools/lsp/index.js";
 import { TOOL_NAMES } from "./shared/index.js";
 import * as Toast from "./core/notification/toast.js";
 import { log, getLogPath } from "./core/agents/logger.js";
@@ -131,6 +133,11 @@ const OrchestratorPlugin: Plugin = async (input) => {
             [TOOL_NAMES.WEBSEARCH]: websearchTool,
             [TOOL_NAMES.CACHE_DOCS]: cacheDocsTool,
             [TOOL_NAMES.CODESEARCH]: codesearchTool,
+            // LSP tools
+            [TOOL_NAMES.LSP_DIAGNOSTICS]: lspDiagnosticsTool(directory),
+            // AST tools
+            [TOOL_NAMES.AST_SEARCH]: astSearchTool(directory),
+            [TOOL_NAMES.AST_REPLACE]: astReplaceTool(directory),
             // Async agent tools
             ...asyncAgentTools,
         },

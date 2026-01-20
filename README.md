@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="assets/starship_approaching_planet.png" alt="logo" width="280" />
+  <img src="assets/logo.png" alt="logo" width="280" />
   <h1>OpenCode Orchestrator</h1>
 
   [![MIT License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
@@ -9,7 +9,6 @@
 
 > **🚀🪐 Multi-Agent Orchestration Plugin for [OpenCode](https://opencode.ai)**
 
----
 
 ## ⚡ Quick Start
 
@@ -22,8 +21,6 @@ Then in OpenCode:
 /task "Build a REST API with authentication"
 ```
 
----
-
 ## ⭐ Core Philosophy
 
 ```
@@ -33,9 +30,8 @@ Then in OpenCode:
 └───────────────────────────────────────────────────┘
 ```
 
----
 
-## 👨‍🚀 The Agents (Crews)
+## The Agents
 
 | Agent | Role | What It Does |
 |:------|:-----|:-------------|
@@ -44,7 +40,6 @@ Then in OpenCode:
 | 🔨 **Worker** | Implementer | Writes code, modifies files, follows the project's patterns |
 | ✅ **Reviewer** | Verifier | Tests changes, checks for errors, confirms quality |
 
----
 
 ## 📖 Core Principles
 
@@ -56,9 +51,8 @@ Then in OpenCode:
 | 🔄 **Adapt to the Project** | Match the project's existing style and patterns |
 | 🤝 **Specialized Roles** | Each agent has a clear, focused responsibility |
 
----
 
-## 🏛️ Workflow
+## 🏛️ Workflow Architecture
 
 ```
         /task "Build REST API"
@@ -71,7 +65,7 @@ Then in OpenCode:
     ▼               ▼               ▼
 ┌───────┐      ┌───────┐      ┌───────┐
 │PLANNER│      │WORKER │      │WORKER │   ← 🔥 50 PARALLEL
-│plan.md│      │auth.ts│      │api.ts │      TASKS
+│plan.md│      │auth.ts│      │api.ts │      TASKS CONCURRENTLY
 └───────┘      └───────┘      └───────┘
     │               │               │
     └───────────────┼───────────────┘
@@ -100,9 +94,8 @@ Then in OpenCode:
 | 🩹 **Auto-Recovery** | Retry failed tasks automatically (up to 3 times) |
 | 🧬 **Adaptive AI** | Agents learn and adapt based on the project |
 
----
 
-## 🚨 Error Handling
+## Error Handling
 
 | Error | What Happens |
 |:------|:-------------|
@@ -112,19 +105,16 @@ Then in OpenCode:
 | ⏱️ Session timeout | Resume from the last checkpoint |
 | 🔨 Build failure | Fix the issue and retry |
 
----
 
 ## 📚 Documentation
 
 - **[System Architecture](docs/SYSTEM_ARCHITECTURE.md)** — Full technical deep-dive
 
----
 
 ## 🎹 Developer's Words
 
 > [Read the full note →](docs/DEVELOPERS_NOTE.md)
 
----
 
 ## 📄 License
 

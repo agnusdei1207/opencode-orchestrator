@@ -4,7 +4,7 @@
 
 import type { Todo } from "./interfaces.js";
 import { getStats, getNextPending } from "./stats.js";
-import { MISSION_SEAL, TODO_STATUS } from "../../shared/index.js";
+import { MISSION_SEAL, TODO_STATUS, AGENT_NAMES, STATUS_LABEL } from "../../shared/index.js";
 
 /**
  * Format progress string
@@ -33,15 +33,15 @@ export function generateContinuationPrompt(todos: Todo[]): string {
     const pendingCount = pendingTasks.length;
 
     let prompt = `<todo_continuation>
-📋 **TODO Progress**: ${formatProgress(todos)}
+[TODO Progress]: ${formatProgress(todos)}
 
 **Incomplete Tasks** (${incomplete.length} remaining):
 `;
 
     for (const todo of incomplete.slice(0, 5)) {
-        const status = todo.status === TODO_STATUS.IN_PROGRESS ? "🔄" : "⏳";
-        const priority = todo.priority === "high" ? "🔴" : todo.priority === "medium" ? "🟡" : "🟢";
-        prompt += `${status} ${priority} [${todo.id}] ${todo.content}\n`;
+        const statusLabel = todo.status === TODO_STATUS.IN_PROGRESS ? "[RUN]" : "[WAIT]";
+        const priorityLabel = todo.priority === STATUS_LABEL.HIGH ? "[H]" : todo.priority === STATUS_LABEL.MEDIUM ? "[M]" : "[L]";
+        prompt += `${statusLabel} ${priorityLabel} [${todo.id}] ${todo.content}\n`;
     }
 
     if (incomplete.length > 5) {
@@ -51,18 +51,18 @@ export function generateContinuationPrompt(todos: Todo[]): string {
     // PARALLEL DISPATCH ENFORCEMENT - strongly encourage parallel execution
     if (pendingCount >= 2) {
         prompt += `
-⚡ **PARALLEL DISPATCH REQUIRED** ⚡
+[PARALLEL DISPATCH REQUIRED]
 You have ${pendingCount} pending tasks. Launch them ALL IN PARALLEL for maximum efficiency:
 
 \`\`\`
 // EXECUTE NOW - Launch all ${pendingCount} tasks simultaneously:
 `;
         for (const todo of pendingTasks.slice(0, 6)) {
-            prompt += `delegate_task({ agent: "Worker", prompt: "${todo.content}", background: true })\n`;
+            prompt += `delegate_task({ agent: "${AGENT_NAMES.WORKER}", prompt: "${todo.content}", background: true })\n`;
         }
         prompt += `\`\`\`
 
-⚠️ Do NOT run these sequentially. Use background=true for ALL.
+NOTICE: Do NOT run these sequentially. Use background=true for ALL.
 After launching, use list_tasks to monitor progress.
 
 `;
@@ -91,9 +91,9 @@ After launching, use list_tasks to monitor progress.
 export function generateCompletionMessage(todos: Todo[]): string {
     const stats = getStats(todos);
 
-    return `🎖️ **MISSION SEALED**
+    return `[MISSION SEALED]
 
-📊 **Final Status**:
+**Final Status**:
 - Total Tasks: ${stats.total}
 - Completed: ${stats.completed}
 - Cancelled: ${stats.cancelled}

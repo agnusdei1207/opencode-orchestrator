@@ -4,10 +4,11 @@
  * Rules for creating isolated unit tests that test ONLY the target file.
  */
 
-import { PROMPT_TAGS } from "../../../shared/index.js";
+import { PROMPT_TAGS, PATHS } from "../../../shared/index.js";
 
 export const WORKER_ISOLATION_TESTING = `${PROMPT_TAGS.ISOLATION_TESTING.open}
 ## ISOLATED UNIT TEST RULES
+
 
 ### File Naming Convention
 \`[original-dir]/__tests__/[filename].isolated.test.ts\`
@@ -48,9 +49,10 @@ Example:
  * Target: [full-path]
  * Session: [session_id]
  * 
- * ⚠️ THIS FILE WILL BE DELETED AFTER TEST PASSES
- * Test code preserved in: .opencode/unit-tests/
+ * **WARNING**: THIS FILE WILL BE DELETED AFTER TEST PASSES
+ * Test code preserved in: ${PATHS.UNIT_TESTS}/
  */
+
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 

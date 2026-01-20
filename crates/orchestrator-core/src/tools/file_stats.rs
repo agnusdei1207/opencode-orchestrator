@@ -125,3 +125,36 @@ impl Default for FileStatsTool {
         Self::new()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs;
+    use tempfile::tempdir;
+
+    #[test]
+    fn test_file_info() {
+        let dir = tempdir().unwrap();
+        let file = dir.path().join("test.txt");
+        fs::write(&file, "line1\nline2\nline3").unwrap();
+        
+        let tool = FileStatsTool::new();
+        let (size, lines) = tool.file_info(&file).unwrap();
+        
+        assert_eq!(size, 17);
+        assert_eq!(lines, 3);
+    }
+
+    #[test]
+    fn test_dir_analyze() {
+        let dir = tempdir().unwrap();
+        fs::write(dir.path().join("a.ts"), "const a = 1;").unwrap();
+        fs::write(dir.path().join("b.ts"), "const b = 2;").unwrap();
+        
+        let tool = FileStatsTool::new();
+        let stats = tool.analyze(dir.path(), None).unwrap();
+        
+        assert_eq!(stats.total_files, 2);
+        assert!(stats.file_types.iter().any(|t| t.extension == "ts"));
+    }
+}

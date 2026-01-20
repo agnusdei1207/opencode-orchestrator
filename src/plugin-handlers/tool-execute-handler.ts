@@ -9,9 +9,9 @@
 
 import { log } from "../core/agents/logger.js";
 import { state } from "../core/orchestrator/index.js";
-import { checkOutputSanity, RECOVERY_PROMPT, ESCALATION_PROMPT } from "../utils/sanity.js";
+import { checkOutputSanity, RECOVERY_PROMPT, ESCALATION_PROMPT } from "../utils/sanity/index.js";
 import { formatTimestamp, formatElapsedTime } from "../utils/common.js";
-import { TOOL_NAMES, AGENT_EMOJI, TOOL_OUTPUT } from "../shared/index.js";
+import { TOOL_NAMES, TOOL_OUTPUT } from "../shared/index.js";
 import type { ToolExecuteHandlerContext } from "./interfaces/index.js";
 
 export type { ToolExecuteHandlerContext } from "./interfaces/index.js";
@@ -70,7 +70,7 @@ export function createToolExecuteAfterHandler(ctx: ToolExecuteHandlerContext) {
             }
 
             const agentName = toolInput.arguments.agent as string;
-            const indicator = AGENT_EMOJI[agentName] || "?";
+            const indicator = agentName[0].toUpperCase();
             toolOutput.output = `[${indicator}] [${agentName.toUpperCase()}] Working...\n\n` + toolOutput.output;
         }
 

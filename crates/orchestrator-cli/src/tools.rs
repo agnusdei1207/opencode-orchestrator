@@ -4,9 +4,13 @@ use anyhow::Result;
 use orchestrator_core::hooks::Hook;
 use orchestrator_core::tools::{
     GlobTool, GrepTool, MgrepTool, SedTool, DiffTool, JqTool, HttpTool, FileStatsTool, GitTool,
+    DiagnosticsTool, AstTool,
     glob::GlobConfig, grep::GrepConfig, mgrep::MgrepConfig, sed::SedConfig,
     diff::DiffConfig, jq::JqConfig, http::HttpConfig,
+    lsp::DiagnosticsConfig, ast::AstConfig,
 };
+
+use orchestrator_core::constants::{tool, status};
 use serde::Deserialize;
 use serde_json::{Value, json};
 use std::path::PathBuf;
@@ -16,21 +20,25 @@ use std::collections::HashMap;
 /// Execute a tool by name
 pub async fn execute_tool(name: &str, arguments: Value) -> Result<String> {
     match name {
-        "grep_search" => grep_search(arguments).await,
-        "glob_search" => glob_search(arguments).await,
-        "mgrep" => mgrep(arguments).await,
-        "sed_replace" => sed_replace(arguments).await,
-        "diff" => diff_files(arguments).await,
-        "jq" => jq_query(arguments).await,
-        "http" => http_request(arguments).await,
-        "file_stats" => file_stats(arguments).await,
-        "git_diff" => git_diff(arguments).await,
-        "git_status" => git_status(arguments).await,
-        "list_agents" => list_agents().await,
-        "list_hooks" => list_hooks().await,
+        tool::GREP_SEARCH => grep_search(arguments).await,
+        tool::GLOB_SEARCH => glob_search(arguments).await,
+        tool::MGREP => mgrep(arguments).await,
+        tool::SED_REPLACE => sed_replace(arguments).await,
+        tool::DIFF => diff_files(arguments).await,
+        tool::JQ => jq_query(arguments).await,
+        tool::HTTP => http_request(arguments).await,
+        tool::FILE_STATS => file_stats(arguments).await,
+        tool::GIT_DIFF => git_diff(arguments).await,
+        tool::GIT_STATUS => git_status(arguments).await,
+        tool::LSP_DIAGNOSTICS => lsp_diagnostics(arguments).await,
+        tool::AST_SEARCH => ast_search(arguments).await,
+        tool::AST_REPLACE => ast_replace(arguments).await,
+        tool::LIST_AGENTS => list_agents().await,
+        tool::LIST_HOOKS => list_hooks().await,
         _ => Err(anyhow::anyhow!("Unknown tool: {}", name)),
     }
 }
+
 
 #[derive(Deserialize)]
 struct GrepArgs {
@@ -171,7 +179,7 @@ async fn glob_search(arguments: Value) -> Result<String> {
     }))?)
 }
 
-/// List all available agents (5-agent architecture)
+/// List all available agents (4-agent architecture)
 async fn list_agents() -> Result<String> {
     let agents = vec![
         json!({
@@ -179,20 +187,16 @@ async fn list_agents() -> Result<String> {
             "description": "Autonomous orchestrator - executes until mission complete"
         }),
         json!({
-            "id": "Architect",
-            "description": "Task decomposition & strategy correction"
+            "id": "Planner",
+            "description": "Strategic planning and research specialist"
         }),
         json!({
-            "id": "Builder",
-            "description": "Full-stack implementation (Logic + UI)"
+            "id": "Worker",
+            "description": "Implementation and documentation specialist"
         }),
         json!({
-            "id": "Inspector",
-            "description": "Quality audit & automatic bug fixing"
-        }),
-        json!({
-            "id": "Recorder",
-            "description": "Persistent context & progress tracking"
+            "id": "Reviewer",
+            "description": "Verification and context management specialist"
         }),
     ];
 
@@ -503,5 +507,126 @@ async fn git_status(arguments: Value) -> Result<String> {
         "branch": branch,
         "files": file_list,
         "total_changed": files.len()
+    }))?)
+}
+
+// ========== LSP DIAGNOSTICS TOOL ==========
+
+#[derive(Deserialize)]
+struct LspDiagnosticsArgs {
+    directory: Option<String>,
+    file: Option<String>,
+    include_warnings: Option<bool>,
+}
+
+async fn lsp_diagnostics(arguments: Value) -> Result<String> {
+    let args: LspDiagnosticsArgs = serde_json::from_value(arguments)?;
+    
+    let mut config = DiagnosticsConfig::default();
+    if let Some(include_warnings) = args.include_warnings {
+        config.include_warnings = include_warnings;
+    }
+    
+    let directory = args.directory
+        .map(PathBuf::from)
+        .unwrap_or_else(|| std::env::current_dir().unwrap_or_default());
+    
+    let tool = DiagnosticsTool::new(config);
+    let diagnostics = tool.get_diagnostics(&directory, args.file.as_deref())?;
+    
+    if diagnostics.is_empty() {
+        return Ok(json!({"status": status::CLEAN, "message": "No diagnostics found. All clean!"}).to_string());
+    }
+    
+    let errors: Vec<&_> = diagnostics.iter().filter(|d| matches!(d.severity, orchestrator_core::tools::lsp::DiagnosticSeverity::Error)).collect();
+    let warnings: Vec<&_> = diagnostics.iter().filter(|d| matches!(d.severity, orchestrator_core::tools::lsp::DiagnosticSeverity::Warning)).collect();
+
+    
+    let diag_list: Vec<Value> = diagnostics.iter().take(50).map(|d| {
+        json!({
+            "file": d.file,
+            "line": d.line,
+            "column": d.column,
+            "severity": format!("{:?}", d.severity).to_lowercase(),
+            "message": d.message,
+            "source": d.source,
+            "code": d.code
+        })
+    }).collect();
+    
+    Ok(serde_json::to_string_pretty(&json!({
+        "status": if !errors.is_empty() { status::ERROR } else if !warnings.is_empty() { status::WARNING } else { status::CLEAN },
+        "summary": format!("{} error(s), {} warning(s)", errors.len(), warnings.len()),
+        "diagnostics": diag_list,
+        "total": diagnostics.len()
+    }))?)
+}
+
+// ========== AST SEARCH TOOL ==========
+
+#[derive(Deserialize)]
+struct AstSearchArgs {
+    pattern: String,
+    directory: Option<String>,
+    lang: Option<String>,
+    include: Option<String>,
+}
+
+async fn ast_search(arguments: Value) -> Result<String> {
+    let args: AstSearchArgs = serde_json::from_value(arguments)?;
+    
+    let directory = args.directory
+        .map(PathBuf::from)
+        .unwrap_or_else(|| std::env::current_dir().unwrap_or_default());
+    
+    let tool = AstTool::new(AstConfig::default());
+    let matches = tool.search(&args.pattern, &directory, args.lang.as_deref(), args.include.as_deref())?;
+    
+    if matches.is_empty() {
+        return Ok(json!({"matches": [], "total": 0, "message": "No structural matches found."}).to_string());
+    }
+    
+    let match_list: Vec<Value> = matches.iter().take(50).map(|m| {
+        json!({
+            "file": m.file,
+            "line": m.line,
+            "column": m.column,
+            "content": m.content,
+            "matched_text": m.matched_text
+        })
+    }).collect();
+    
+    Ok(serde_json::to_string_pretty(&json!({
+        "matches": match_list,
+        "total": matches.len()
+    }))?)
+}
+
+// ========== AST REPLACE TOOL ==========
+
+#[derive(Deserialize)]
+struct AstReplaceArgs {
+    pattern: String,
+    rewrite: String,
+    directory: Option<String>,
+    lang: Option<String>,
+    include: Option<String>,
+}
+
+async fn ast_replace(arguments: Value) -> Result<String> {
+    let args: AstReplaceArgs = serde_json::from_value(arguments)?;
+    
+    let directory = args.directory
+        .map(PathBuf::from)
+        .unwrap_or_else(|| std::env::current_dir().unwrap_or_default());
+    
+    let tool = AstTool::new(AstConfig::default());
+    let result = tool.replace(&args.pattern, &args.rewrite, &directory, args.lang.as_deref(), args.include.as_deref())?;
+    
+    Ok(serde_json::to_string_pretty(&json!({
+        "success": result.success,
+        "message": result.message,
+        "pattern": args.pattern,
+        "rewrite": args.rewrite
     }))?)
 }

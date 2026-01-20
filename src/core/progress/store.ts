@@ -3,7 +3,7 @@
  */
 
 import type { ProgressSnapshot, SnapshotInput } from "./interfaces.js";
-import { HISTORY } from "../../shared/index.js";
+import { HISTORY, LIMITS } from "../../shared/index.js";
 
 // Progress history by session
 const progressHistory = new Map<string, ProgressSnapshot[]>();
@@ -81,7 +81,7 @@ export function getLatest(sessionId: string): ProgressSnapshot | undefined {
 /**
  * Get progress history
  */
-export function getHistory(sessionId: string, limit = 20): ProgressSnapshot[] {
+export function getHistory(sessionId: string, limit: number = LIMITS.DEFAULT_LIST_LIMIT): ProgressSnapshot[] {
     const history = progressHistory.get(sessionId) || [];
     return history.slice(-limit);
 }

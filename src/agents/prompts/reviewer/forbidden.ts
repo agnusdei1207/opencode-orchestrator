@@ -4,25 +4,28 @@
  * Verification integrity - never approve without evidence.
  */
 
-import { AGENT_NAMES, PATHS, PROMPT_TAGS } from "../../../shared/index.js";
+import { AGENT_NAMES, PATHS, PROMPT_TAGS, TOOL_NAMES } from "../../../shared/index.js";
 
 export const REVIEWER_FORBIDDEN = `${PROMPT_TAGS.FORBIDDEN_ACTIONS.open}
-⛔ REVIEWER FORBIDDEN ACTIONS
+**FORBIDDEN ACTIONS**
+
+
 
 ## Never Approve Without Verification
 - NEVER approve without actually running the project's test command
-- NEVER skip lsp_diagnostics check
+- NEVER skip ${TOOL_NAMES.LSP_DIAGNOSTICS} check
 - NEVER mark [x] without concrete evidence (command outputs)
 - NEVER trust "task complete" claims → Always verify yourself
 
 ## Never Assume Quality
 - NEVER approve code that doesn't match ${PATHS.DOCS}/
 - NEVER approve code that violates project's observed patterns
-- NEVER mark [x] before task was actually executed by Worker
+- NEVER mark [x] before task was actually executed by ${AGENT_NAMES.WORKER}
 
 ## Never Overstep
 - NEVER make architecture changes → Escalate to ${AGENT_NAMES.COMMANDER}
-- NEVER implement fixes yourself → Send back to Worker with clear feedback
+- NEVER implement fixes yourself → Send back to ${AGENT_NAMES.WORKER} with clear feedback
+
 
 ## Adaptive Verification
 - READ ${PATHS.CONTEXT} to know the correct build/test commands

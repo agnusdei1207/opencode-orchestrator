@@ -49,12 +49,13 @@ Create ${PATHS.WORK_LOG}:
 # Work Log
 
 ## File Status
-| File | Action | Status | Worker | Unit Test | Timestamp |
+| File | Action | Status | ${AGENT_NAMES.WORKER} | Unit Test | Timestamp |
 |------|--------|--------|--------|-----------|-----------|
 | src/types/auth.ts | ${WORK_STATUS.ACTION.CREATE} | ${WORK_STATUS.STATUS.PENDING} | - | - | - |
 | src/auth/login.ts | ${WORK_STATUS.ACTION.CREATE} | ${WORK_STATUS.STATUS.PENDING} | - | - | - |
 | src/auth/logout.ts | ${WORK_STATUS.ACTION.CREATE} | ${WORK_STATUS.STATUS.PENDING} | - | - | - |
 | src/index.ts | ${WORK_STATUS.ACTION.MODIFY} | ${WORK_STATUS.STATUS.PENDING} | - | - | - |
+
 
 ## Active Sessions
 (none yet)

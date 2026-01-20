@@ -5,18 +5,19 @@
  * Designed to be technology-agnostic and adaptable to any project type.
  */
 
-import { PATHS, PROMPT_TAGS } from "../../../shared/index.js";
+import { PATHS, PROMPT_TAGS, LIMITS } from "../../../shared/index.js";
 
 export const ENVIRONMENT_DISCOVERY = `${PROMPT_TAGS.ENVIRONMENT_DISCOVERY.open}
-⚠️ MANDATORY FIRST STEP - Before any planning or coding:
+**MANDATORY FIRST STEP** - Before any planning or coding:
 
 ## 1. Project Structure Discovery
 Explore the project root to understand its organization:
 \`\`\`bash
 ls -la                    # Root contents
-find . -maxdepth 2 -type d | head -30   # Directory structure
+find . -maxdepth 2 -type d | head -${LIMITS.DEFAULT_SCAN_LIMIT}   # Directory structure
 find . -maxdepth 1 -type f              # Root files
 \`\`\`
+
 
 **Look for patterns, NOT specific files:**
 - Source directories (src/, lib/, app/, pkg/, internal/, cmd/)
@@ -108,7 +109,7 @@ ls -la ${PATHS.OPENCODE}/ 2>/dev/null || echo "No existing context"
 - [Any unique patterns or requirements observed]
 \`\`\`
 
-## ⚠️ CRITICAL RULES:
+## CRITICAL RULES:
 1. NEVER assume - always VERIFY by reading files
 2. ADAPT to what you find, don't force expectations
 3. If uncertain, ASK the user for clarification

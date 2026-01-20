@@ -36,7 +36,7 @@ $ARGUMENTS
 // ============================================================================
 export const COMMANDS: Record<string, { description: string; template: string; argumentHint?: string }> = {
   "task": {
-    description: "🚀 MISSION MODE - Execute task autonomously until complete",
+    description: "MISSION MODE - Execute task autonomously until complete",
     template: MISSION_MODE_TEMPLATE,
     argumentHint: '"mission goal"',
   },
@@ -65,23 +65,23 @@ export const COMMANDS: Record<string, { description: string; template: string; a
   },
   "agents": {
     description: "Show the 4-agent architecture",
-    template: `## 🎯 OpenCode Orchestrator - 4-Agent Architecture (Consolidated)
+    template: `## OpenCode Orchestrator - 4-Agent Architecture
 
 | Agent | Role | Capabilities |
 |-------|------|--------------|
-| **${AGENT_NAMES.COMMANDER}** 🎯 | Master Orchestrator | Autonomous mission control, parallel task coordination, never stops until ${MISSION_SEAL.PATTERN} |
-| **${AGENT_NAMES.PLANNER}** 📋 | Strategic Planner | Task decomposition, research, caching docs, dependency analysis |
-| **${AGENT_NAMES.WORKER}** 🔨 | Implementation | Code, files, terminal, documentation lookup when needed |
-| **${AGENT_NAMES.REVIEWER}** ✅ | Quality & Context | Verification, TODO updates, context management, auto-fix |
+| **${AGENT_NAMES.COMMANDER}** | [MASTER] | Master Orchestrator: mission control, parallel coordination |
+| **${AGENT_NAMES.PLANNER}** | [STRATEGIST] | Planning, research, documentation analysis |
+| **${AGENT_NAMES.WORKER}** | [EXECUTOR] | Implementation, coding, terminal tasks |
+| **${AGENT_NAMES.REVIEWER}** | [VERIFIER] | Verification, testing, context sanity checks |
 
-## ⚡ Parallel Execution System
+## Parallel Execution System
 \`\`\`
 Up to 50 Worker Sessions running simultaneously
 Max 10 per agent type (auto-queues excess)
 Auto-timeout: 60 min | Auto-cleanup: 30 min
 \`\`\`
 
-## 🔄 Execution Flow
+## Execution Flow
 \`\`\`
 THINK → PLAN → DELEGATE → EXECUTE → VERIFY → COMPLETE
    L1: Fast Track (simple fixes)
@@ -89,16 +89,17 @@ THINK → PLAN → DELEGATE → EXECUTE → VERIFY → COMPLETE
    L3: Deep Track (complex refactoring)
 \`\`\`
 
-## 🛡️ Anti-Hallucination
+## Anti-Hallucination
 - ${AGENT_NAMES.PLANNER} researches BEFORE implementation
 - ${AGENT_NAMES.WORKER} caches official documentation
 - Never assumes - always verifies from sources
 
-## 💡 Usage
+## Usage
 - Select **${AGENT_NAMES.COMMANDER}** and type your request
 - Or use \`/task "your mission"\` explicitly
 - ${AGENT_NAMES.COMMANDER} automatically coordinates all agents`,
   },
+
 };
 
 export function createSlashcommandTool() {

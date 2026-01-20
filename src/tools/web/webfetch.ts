@@ -7,7 +7,7 @@
 
 import { tool } from "@opencode-ai/plugin";
 import * as DocumentCache from "../../core/cache/document-cache.js";
-import { PATHS } from "../../shared/index.js";
+import { PATHS, OUTPUT_LABEL } from "../../shared/index.js";
 
 // Simple HTML to Markdown converter
 function htmlToMarkdown(html: string): string {
@@ -112,7 +112,7 @@ webfetch({ url: "https://react.dev/reference/react/useEffect", cache: true })
         if (cache) {
             const cached = await DocumentCache.get(url);
             if (cached) {
-                return `📚 **CACHED** (fetched: ${cached.fetchedAt})\n\n${cached.content}`;
+                return `${OUTPUT_LABEL.CACHED} (fetched: ${cached.fetchedAt})\n\n${cached.content}`;
             }
         }
 
@@ -127,7 +127,7 @@ webfetch({ url: "https://react.dev/reference/react/useEffect", cache: true })
             });
 
             if (!response.ok) {
-                return `❌ Failed to fetch: HTTP ${response.status} ${response.statusText}`;
+                return `Failed to fetch: HTTP ${response.status} ${response.statusText}`;
             }
 
             const contentType = response.headers.get("content-type") || "";
@@ -138,17 +138,17 @@ webfetch({ url: "https://react.dev/reference/react/useEffect", cache: true })
                 const content = JSON.stringify(JSON.parse(html), null, 2);
                 if (cache) {
                     const filename = await DocumentCache.set(url, content, "JSON Response");
-                    return `📄 **JSON fetched** (cached: ${PATHS.DOCS}/${filename})\n\n\`\`\`json\n${content.slice(0, 5000)}\n\`\`\``;
+                    return `${OUTPUT_LABEL.JSON_FETCHED} (cached: ${PATHS.DOCS}/${filename})\n\n\`\`\`json\n${content.slice(0, 5000)}\n\`\`\``;
                 }
-                return `📄 **JSON fetched**\n\n\`\`\`json\n${content.slice(0, 5000)}\n\`\`\``;
+                return `${OUTPUT_LABEL.JSON_FETCHED}\n\n\`\`\`json\n${content.slice(0, 5000)}\n\`\`\``;
             }
 
             if (contentType.includes("text/plain")) {
                 if (cache) {
                     const filename = await DocumentCache.set(url, html, "Plain Text");
-                    return `📄 **Text fetched** (cached: ${PATHS.DOCS}/${filename})\n\n${html.slice(0, 10000)}`;
+                    return `${OUTPUT_LABEL.TEXT_FETCHED} (cached: ${PATHS.DOCS}/${filename})\n\n${html.slice(0, 10000)}`;
                 }
-                return `📄 **Text fetched**\n\n${html.slice(0, 10000)}`;
+                return `${OUTPUT_LABEL.TEXT_FETCHED}\n\n${html.slice(0, 10000)}`;
             }
 
             // Process HTML
@@ -164,19 +164,20 @@ webfetch({ url: "https://react.dev/reference/react/useEffect", cache: true })
             // Cache if requested
             if (cache) {
                 const filename = await DocumentCache.set(url, truncated, title);
-                return `📚 **${title}**\nSource: ${url}\nCached: ${PATHS.DOCS}/${filename}\n\n---\n\n${truncated}`;
+                return `[${title}]\nSource: ${url}\nCached: ${PATHS.DOCS}/${filename}\n\n---\n\n${truncated}`;
             }
 
-            return `📚 **${title}**\nSource: ${url}\n\n---\n\n${truncated}`;
+            return `[${title}]\nSource: ${url}\n\n---\n\n${truncated}`;
 
         } catch (error) {
             if (error instanceof Error) {
                 if (error.name === "TimeoutError") {
-                    return `❌ Request timed out after 30 seconds`;
+                    return `${OUTPUT_LABEL.TIMEOUT} Request timed out after 30 seconds`;
                 }
-                return `❌ Fetch error: ${error.message}`;
+                return `${OUTPUT_LABEL.ERROR} Fetch error: ${error.message}`;
             }
-            return `❌ Unknown error occurred`;
+            return `${OUTPUT_LABEL.ERROR} Unknown error occurred`;
         }
+
     },
 });

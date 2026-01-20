@@ -5,7 +5,7 @@
 
 import type { ToastMessage, ToastOptions, ToastVariant } from "./types.js";
 import type { PluginInput } from "@opencode-ai/plugin";
-import { HISTORY, TOAST_DURATION } from "../../shared/index.js";
+import { HISTORY, TOAST_DURATION, LIMITS } from "../../shared/index.js";
 
 type OpencodeClient = PluginInput["client"];
 
@@ -102,7 +102,7 @@ export function getActive(): ToastMessage[] {
 /**
  * Get toast history
  */
-export function getHistory(limit = 20): ToastMessage[] {
+export function getHistory(limit: number = LIMITS.DEFAULT_LIST_LIMIT): ToastMessage[] {
     return toasts.slice(-limit);
 }
 

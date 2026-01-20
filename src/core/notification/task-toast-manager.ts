@@ -177,9 +177,9 @@ export class TaskToastManager {
             lines.push(`Running (${running.length}):${concurrencyInfo}`);
             for (const task of running) {
                 const duration = this.formatDuration(task.startedAt);
-                const bgIcon = task.isBackground ? "⚡" : "🔄";
-                const isNew = newTask && task.id === newTask.id ? " ← NEW" : "";
-                lines.push(`${bgIcon} ${task.description} (${task.agent}) - ${duration}${isNew}`);
+                const bgTag = task.isBackground ? "[B]" : "[F]";
+                const isNew = newTask && task.id === newTask.id ? " <- NEW" : "";
+                lines.push(`${bgTag} ${task.description} (${task.agent}) - ${duration}${isNew}`);
             }
         }
 
@@ -188,8 +188,8 @@ export class TaskToastManager {
             if (lines.length > 0) lines.push("");
             lines.push(`Queued (${queued.length}):`);
             for (const task of queued) {
-                const bgIcon = task.isBackground ? "⏳" : "⏸️";
-                lines.push(`${bgIcon} ${task.description} (${task.agent})`);
+                const bgTag = task.isBackground ? "[W]" : "[P]";
+                lines.push(`${bgTag} ${task.description} (${task.agent})`);
             }
         }
 
@@ -210,8 +210,8 @@ export class TaskToastManager {
         const queued = this.getQueuedTasks();
 
         const title = newTask.isBackground
-            ? `⚡ New Background Task`
-            : `🔄 New Task Started`;
+            ? `Background Task Started`
+            : `Task Started`;
 
         tuiClient.tui.showToast({
             body: {
@@ -244,11 +244,11 @@ export class TaskToastManager {
 
         if (info.status === "error" || info.status === "cancelled") {
             title = info.status === "error" ? "Task Failed" : "Task Cancelled";
-            message = `❌ "${info.description}" ${info.status}\n${info.error || ""}`;
+            message = `[FAIL] "${info.description}" ${info.status}\n${info.error || ""}`;
             variant = "error";
         } else {
             title = "Task Completed";
-            message = `✅ "${info.description}" finished in ${info.duration}`;
+            message = `[DONE] "${info.description}" finished in ${info.duration}`;
             variant = "success";
         }
 
@@ -279,12 +279,12 @@ export class TaskToastManager {
         const failCount = completedTasks.filter(t => t.status === TASK_STATUS.ERROR || t.status === TASK_STATUS.CANCELLED).length;
 
         const taskList = completedTasks
-            .map(t => `- ${t.status === TASK_STATUS.COMPLETED ? "✅" : "❌"} ${t.description} (${t.duration})`)
+            .map(t => `- [${t.status === TASK_STATUS.COMPLETED ? "OK" : "FAIL"}] ${t.description} (${t.duration})`)
             .join("\n");
 
         tuiClient.tui.showToast({
             body: {
-                title: "🎉 All Tasks Completed",
+                title: "All Tasks Completed",
                 message: `${successCount} succeeded, ${failCount} failed\n\n${taskList}`,
                 variant: failCount > 0 ? "warning" : "success",
                 duration: 7000,
@@ -305,17 +305,18 @@ export class TaskToastManager {
         if (!task) return;
 
         const percentage = Math.round((progress.current / progress.total) * 100);
-        const progressBar = `[${"█".repeat(Math.floor(percentage / 10))}${"░".repeat(10 - Math.floor(percentage / 10))}]`;
+        const progressBar = `[${"#".repeat(Math.floor(percentage / 10))}${"-".repeat(10 - Math.floor(percentage / 10))}]`;
 
         tuiClient.tui.showToast({
             body: {
-                title: `⏳ ${task.description}`,
+                title: `Task Progress: ${task.description}`,
                 message: `${progressBar} ${percentage}%\n${progress.message || ""}`,
                 variant: "info",
                 duration: 2000,
             },
         }).catch(() => { });
     }
+
 
     /**
      * Clear all tracked tasks

@@ -6,6 +6,7 @@
  */
 
 import { tool } from "@opencode-ai/plugin";
+import { OUTPUT_LABEL } from "../../shared/index.js";
 
 interface CodeSearchResult {
     repo: string;
@@ -173,7 +174,7 @@ codesearch({ query: "next.js middleware redirect", repo: "vercel/next.js" })
         }
 
         if (results.length === 0) {
-            return `🔍 No code results found for: "${query}"
+            return `No code results found for: "${query}"
 
 Try:
 - Different search terms
@@ -181,21 +182,23 @@ Try:
 - Check spelling`;
         }
 
-        let output = `🔍 **Code Search Results for: "${query}"**\n\n`;
+        let output = `[Code Search Results for]: "${query}"\n\n`;
+
         output += `Found ${results.length} results${language ? ` (${language})` : ""}\n\n---\n\n`;
 
         for (let i = 0; i < results.length; i++) {
             const r = results[i];
             output += `### ${i + 1}. ${r.repo}\n`;
-            output += `📄 \`${r.file}\`${r.line ? `:${r.line}` : ""}\n`;
-            output += `🔗 [View on GitHub](${r.url})\n\n`;
+            output += `Path: \`${r.file}\`${r.line ? `:${r.line}` : ""}\n`;
+            output += `URL: ${r.url}\n\n`;
             if (r.content && r.content !== "(Use webfetch for full content)") {
                 output += `\`\`\`\n${r.content}\n\`\`\`\n\n`;
             }
         }
 
         output += `---\n\n`;
-        output += `💡 **Tip**: Use \`webfetch\` to get the full file content from any of these URLs.`;
+        output += `Tip: Use \`webfetch\` to get the full file content from any of these URLs.`;
+
 
         return output;
     },

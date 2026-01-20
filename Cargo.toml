@@ -32,4 +32,4 @@ ignore = "0.4"
 regex = "1.11"
 
 # Configuration
-toml = "0.8"
+toml = "0.9"
