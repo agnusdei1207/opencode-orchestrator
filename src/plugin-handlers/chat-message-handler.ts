@@ -43,7 +43,7 @@ export function createChatMessageHandler(ctx: ChatMessageHandlerContext) {
         }
 
         // Commander Auto-Mission Mode
-        if (agentName === AGENT_NAMES.COMMANDER) {
+        if (agentName === AGENT_NAMES.COMMANDER.toLowerCase()) {
             if (!sessions.has(sessionID)) {
                 const now = Date.now();
                 sessions.set(sessionID, {
@@ -83,7 +83,7 @@ export function createChatMessageHandler(ctx: ChatMessageHandlerContext) {
         // Handle explicit slash commands (including /task for any agent)
         if (parsed) {
             const command = COMMANDS[parsed.command];
-            if (command && agentName !== AGENT_NAMES.COMMANDER) {
+            if (command && agentName !== AGENT_NAMES.COMMANDER.toLowerCase()) {
                 parts[textPartIndex].text = command.template.replace(
                     /\$ARGUMENTS/g,
                     parsed.args || PROMPTS.CONTINUE

@@ -88,7 +88,7 @@ MSVP ensures continuous integration integrity by decoupling verification from th
 *   **Global Barrier-Sync Protocol**: Implements a synchronized verification gate. The system enforces a blocking "Barrier" that requires consistency across all distributed units before transitioning to the final Master Review (E2E Integration) and Mission Sealing.
 
 ```
-              /swarm "Build Complex System"
+              /swarm "Build Diablo Game"
                            │
            ╔═══════════════════════════════════════╗
            ║     🎯 COMMANDER — Orchestrator       ║
