@@ -5,14 +5,14 @@
 export const PHASES = {
     PHASE_0: {
         ID: "PHASE_0",
-        NAME: "STRATEGIC SCOUT SWARM",
+        NAME: "DISCOVERY SWARM",
         DESCRIPTION: "Parallel intelligence gathering and project mapping",
         MANDATORY: true,
     },
     PHASE_1: {
         ID: "PHASE_1",
-        NAME: "COMMANDER'S INTEL ANALYSIS",
-        DESCRIPTION: "Strategic synthesis and mission mandate definition",
+        NAME: "THINK",
+        DESCRIPTION: "Analyze scope, decomposition, and delegation",
         MANDATORY: true,
     },
     PHASE_2: {
@@ -35,7 +35,7 @@ export const PHASES = {
     },
     PHASE_5: {
         ID: "PHASE_5",
-        NAME: "STAGE 2 INTEGRATION REVIEW",
+        NAME: "VERIFY",
         DESCRIPTION: "MSVP final gate and E2E system validation",
         MANDATORY: true,
     },
