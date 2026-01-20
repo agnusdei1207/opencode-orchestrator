@@ -5,7 +5,7 @@
  * that ensure the orchestrator operates according to the verified diagram.
  */
 
-import { AGENT_NAMES, PATHS, TOOL_NAMES, SCOUT_STRUCTURE, SCOUT_STACK, SCOUT_DOCS, SCOUT_INFRA } from "../../index.js";
+import { AGENT_NAMES, PATHS, TOOL_NAMES, SCOUT_STRUCTURE, SCOUT_STACK, SCOUT_DOCS, SCOUT_INFRA, SCOUT_INTEGRATION } from "../../index.js";
 
 /**
  * Phase 0: Discovery Swarm Mandate
@@ -46,9 +46,10 @@ export const PHASE_1_THINK_ANALYSIS = `### 1.1 MISSION SCOPE
  * Phase 5: MSVP (Multi-Stage Verification Pipeline)
  */
 export const PHASE_5_MSVP = `1. **STAGE 1 (Unit)**: Workers MUST trigger ${AGENT_NAMES.REVIEWER} for unit verification immediately upon completion.
-2. **STAGE 2 (Integration)**: ${AGENT_NAMES.REVIEWER} validates cross-module consistency.
-3. **E2E VALIDATION**: Run full system tests and build pass check.
-4. **SEAL GATE**: No SEALED output until ${PATHS.TODO} is all [x] and zero issues remain.`;
+2. **PARALLEL DISCOVERY**: Before Stage 2, launch a swarm of scouts (background: true) using **[${SCOUT_INTEGRATION.NAME}]**: ${SCOUT_INTEGRATION.PROMPT} (To ${AGENT_NAMES.PLANNER}).
+3. **STAGE 2 (Integration Master)**: The Master ${AGENT_NAMES.REVIEWER} ingests all scout findings to validate cross-module consistency.
+4. **E2E VALIDATION**: Run full system tests and build pass check.
+5. **SEAL GATE**: No SEALED output until ${PATHS.TODO} is all [x] and zero issues remain.`;
 
 /**
  * HPFA (Hyper-Parallel Fractal Architecture) Rules
