@@ -25,10 +25,15 @@ export type { SessionState, OrchestratorState, EventHandlerContext } from "./int
  * Create event handler for session events
  */
 export function createEventHandler(ctx: EventHandlerContext) {
-    const { client, directory, sessions, state } = ctx;
+    const { client, directory, sessions, state, sessionNotifyHandler } = ctx;
 
     return async (input: { event: { type: string; properties?: Record<string, unknown> } }) => {
         const { event } = input;
+
+        // Pass events to OS notification handler for idle detection
+        if (sessionNotifyHandler) {
+            sessionNotifyHandler.handleEvent(event).catch(() => { });
+        }
 
         // Pass events to ParallelAgentManager
         try {

@@ -2,6 +2,7 @@ import { join, dirname } from "path";
 import { fileURLToPath } from "url";
 import { platform, arch } from "os";
 import { existsSync } from "fs";
+import { PLATFORM } from "../shared/index.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -12,9 +13,9 @@ export function getBinaryPath(): string {
     const cpu = arch();
 
     let binaryName: string;
-    if (os === "win32") {
+    if (os === PLATFORM.WIN32) {
         binaryName = "orchestrator-windows-x64.exe";
-    } else if (os === "darwin") {
+    } else if (os === PLATFORM.DARWIN) {
         binaryName = cpu === "arm64" ? "orchestrator-macos-arm64" : "orchestrator-macos-x64";
     } else {
         binaryName = cpu === "arm64" ? "orchestrator-linux-arm64" : "orchestrator-linux-x64";
@@ -22,7 +23,7 @@ export function getBinaryPath(): string {
 
     let binaryPath = join(binDir, binaryName);
     if (!existsSync(binaryPath)) {
-        binaryPath = join(binDir, os === "win32" ? "orchestrator.exe" : "orchestrator");
+        binaryPath = join(binDir, os === PLATFORM.WIN32 ? "orchestrator.exe" : "orchestrator");
     }
 
     return binaryPath;

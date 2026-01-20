@@ -13,7 +13,7 @@
 
 import type { PluginInput } from "@opencode-ai/plugin";
 import type { ConcurrencyController } from "../agents/concurrency.js";
-import { TASK_STATUS } from "../../shared/index.js";
+import { TASK_STATUS, STATUS_LABEL } from "../../shared/index.js";
 
 // ============================================================
 // Types
@@ -21,7 +21,7 @@ import { TASK_STATUS } from "../../shared/index.js";
 
 type OpencodeClient = PluginInput["client"];
 
-export type TaskStatus = "running" | "queued" | "completed" | "error" | "cancelled";
+export type TaskStatus = typeof STATUS_LABEL[keyof typeof STATUS_LABEL];
 
 export interface TrackedTask {
     id: string;
@@ -82,7 +82,7 @@ export class TaskToastManager {
             id: task.id,
             description: task.description,
             agent: task.agent,
-            status: task.status ?? "running",
+            status: task.status ?? STATUS_LABEL.RUNNING,
             startedAt: new Date(),
             isBackground: task.isBackground,
             parentSessionID: task.parentSessionID,
@@ -115,7 +115,7 @@ export class TaskToastManager {
      */
     getRunningTasks(): TrackedTask[] {
         return Array.from(this.tasks.values())
-            .filter((t) => t.status === "running")
+            .filter((t) => t.status === STATUS_LABEL.RUNNING)
             .sort((a, b) => b.startedAt.getTime() - a.startedAt.getTime());
     }
 
@@ -124,7 +124,7 @@ export class TaskToastManager {
      */
     getQueuedTasks(): TrackedTask[] {
         return Array.from(this.tasks.values())
-            .filter((t) => t.status === "queued")
+            .filter((t) => t.status === STATUS_LABEL.QUEUED)
             .sort((a, b) => a.startedAt.getTime() - b.startedAt.getTime());
     }
 
@@ -217,7 +217,7 @@ export class TaskToastManager {
             body: {
                 title,
                 message: message || `${newTask.description} (${newTask.agent})`,
-                variant: "info",
+                variant: STATUS_LABEL.INFO as "info",
                 duration: running.length + queued.length > 2 ? 5000 : 3000,
             },
         }).catch(() => { });
@@ -242,14 +242,14 @@ export class TaskToastManager {
         let title: string;
         let variant: "success" | "error" | "warning";
 
-        if (info.status === "error" || info.status === "cancelled") {
-            title = info.status === "error" ? "Task Failed" : "Task Cancelled";
+        if (info.status === STATUS_LABEL.ERROR || info.status === STATUS_LABEL.CANCELLED || info.status === STATUS_LABEL.FAILED) {
+            title = info.status === STATUS_LABEL.ERROR ? "Task Failed" : "Task Cancelled";
             message = `[FAIL] "${info.description}" ${info.status}\n${info.error || ""}`;
-            variant = "error";
+            variant = STATUS_LABEL.ERROR as "error";
         } else {
             title = "Task Completed";
             message = `[DONE] "${info.description}" finished in ${info.duration}`;
-            variant = "success";
+            variant = STATUS_LABEL.SUCCESS as "success";
         }
 
         if (remaining.length > 0 || queued.length > 0) {
@@ -275,18 +275,18 @@ export class TaskToastManager {
         const tuiClient = this.client as unknown as { tui?: { showToast?: (opts: unknown) => Promise<void> } };
         if (!tuiClient.tui?.showToast) return;
 
-        const successCount = completedTasks.filter(t => t.status === TASK_STATUS.COMPLETED).length;
-        const failCount = completedTasks.filter(t => t.status === TASK_STATUS.ERROR || t.status === TASK_STATUS.CANCELLED).length;
+        const successCount = completedTasks.filter(t => t.status === STATUS_LABEL.COMPLETED).length;
+        const failCount = completedTasks.filter(t => t.status === STATUS_LABEL.ERROR || t.status === STATUS_LABEL.CANCELLED || t.status === STATUS_LABEL.FAILED).length;
 
         const taskList = completedTasks
-            .map(t => `- [${t.status === TASK_STATUS.COMPLETED ? "OK" : "FAIL"}] ${t.description} (${t.duration})`)
+            .map(t => `- [${t.status === STATUS_LABEL.COMPLETED ? "OK" : "FAIL"}] ${t.description} (${t.duration})`)
             .join("\n");
 
         tuiClient.tui.showToast({
             body: {
                 title: "All Tasks Completed",
                 message: `${successCount} succeeded, ${failCount} failed\n\n${taskList}`,
-                variant: failCount > 0 ? "warning" : "success",
+                variant: failCount > 0 ? STATUS_LABEL.WARNING as "warning" : STATUS_LABEL.SUCCESS as "success",
                 duration: 7000,
             },
         }).catch(() => { });
@@ -311,7 +311,7 @@ export class TaskToastManager {
             body: {
                 title: `Task Progress: ${task.description}`,
                 message: `${progressBar} ${percentage}%\n${progress.message || ""}`,
-                variant: "info",
+                variant: STATUS_LABEL.INFO as "info",
                 duration: 2000,
             },
         }).catch(() => { });

@@ -4,6 +4,7 @@
 
 import { tool } from "@opencode-ai/plugin";
 import { backgroundTaskManager } from "../../core/commands/index.js";
+import { STATUS_LABEL } from "../../shared/index.js";
 
 export const checkBackgroundTool = tool({
     description: `Check the status and output of a background task.`,
@@ -42,12 +43,12 @@ export const checkBackgroundTool = tool({
         let result = `${statusEmoji} **Task ${task.id}**${task.label ? ` (${task.label})` : ""}
 | Command | \`${task.command}\` |
 | Status | ${statusEmoji} **${task.status.toUpperCase()}** |
-| Duration | ${duration}${task.status === "running" ? " (ongoing)" : ""} |
+| Duration | ${duration}${task.status === STATUS_LABEL.RUNNING ? " (ongoing)" : ""} |
 ${task.exitCode !== null ? `| Exit Code | ${task.exitCode} |` : ""}`;
 
         if (output.trim()) result += `\n\n📤 **stdout:**\n\`\`\`\n${output.trim()}\n\`\`\``;
         if (stderr.trim()) result += `\n\n⚠️ **stderr:**\n\`\`\`\n${stderr.trim()}\n\`\`\``;
-        if (task.status === "running") result += `\n\n⏳ Still running... check again.`;
+        if (task.status === STATUS_LABEL.RUNNING) result += `\n\n⏳ Still running... check again.`;
 
         return result;
     },

@@ -10,7 +10,7 @@
  */
 
 import type { PluginInput } from "@opencode-ai/plugin";
-import { TASK_STATUS, PART_TYPES, MESSAGE_ROLES } from "../../shared/index.js";
+import { TASK_STATUS, PART_TYPES, MESSAGE_ROLES, WAL_ACTIONS } from "../../shared/index.js";
 import { ConcurrencyController } from "./concurrency.js";
 import { TaskStore } from "./task-store.js";
 import { log } from "./logger.js";
@@ -25,6 +25,8 @@ import { TaskResumer } from "./manager/task-resumer.js";
 import { TaskPoller } from "./manager/task-poller.js";
 import { TaskCleaner } from "./manager/task-cleaner.js";
 import { EventHandler } from "./manager/event-handler.js";
+import { taskWAL } from "./persistence/task-wal.js";
+import { getTaskToastManager } from "../notification/task-toast-manager.js";
 
 // Re-export
 export type { ParallelTask };
@@ -93,6 +95,11 @@ export class ParallelAgentManager {
             (taskId) => this.cleaner.scheduleCleanup(taskId),
             (sessionID) => this.poller.validateSessionHasOutput(sessionID)
         );
+
+        // Bootstrap recovery
+        this.recoverActiveTasks().catch(err => {
+            log("Recovery error:", err);
+        });
     }
 
     static getInstance(client?: OpencodeClient, directory?: string): ParallelAgentManager {
@@ -153,6 +160,10 @@ export class ParallelAgentManager {
         }
 
         this.cleaner.scheduleCleanup(taskId);
+
+        // Log to WAL
+        taskWAL.log(WAL_ACTIONS.DELETE, task).catch(() => { });
+
         log(`Cancelled ${taskId}`);
         return true;
     }
@@ -195,6 +206,7 @@ export class ParallelAgentManager {
     cleanup(): void {
         this.poller.stop();
         this.store.clear();
+        import("../session/store.js").then(store => store.clearAll()).catch(() => { });
     }
 
     formatDuration = formatDuration;
@@ -223,11 +235,62 @@ export class ParallelAgentManager {
         task.error = error instanceof Error ? error.message : String(error);
         task.completedAt = new Date();
 
-        if (task.concurrencyKey) this.concurrency.release(task.concurrencyKey);
+        if (task.concurrencyKey) {
+            this.concurrency.release(task.concurrencyKey);
+            this.concurrency.reportResult(task.concurrencyKey, false);
+        }
         this.store.untrackPending(task.parentSessionID, taskId);
-        this.store.queueNotification(task);
         this.cleaner.notifyParentIfAllComplete(task.parentSessionID);
         this.cleaner.scheduleCleanup(taskId);
+
+        // Log to WAL
+        taskWAL.log(WAL_ACTIONS.UPDATE, task).catch(() => { });
+    }
+
+    private async recoverActiveTasks(): Promise<void> {
+        const tasks = await taskWAL.readAll();
+        if (tasks.size === 0) return;
+
+        log(`Attempting to recover ${tasks.size} tasks from WAL...`);
+        let recoveredCount = 0;
+
+        for (const task of tasks.values()) {
+            if (task.status === TASK_STATUS.RUNNING) {
+                // Verify session still exists on server
+                try {
+                    const status = await this.client.session.get({ path: { id: task.sessionID } });
+                    if (!status.error) {
+                        this.store.set(task.id, task);
+                        this.store.trackPending(task.parentSessionID, task.id);
+
+                        // Register in Toast Manager
+                        const toastManager = getTaskToastManager();
+                        if (toastManager) {
+                            toastManager.addTask({
+                                id: task.id,
+                                description: task.description,
+                                agent: task.agent,
+                                isBackground: true,
+                                parentSessionID: task.parentSessionID,
+                                sessionID: task.sessionID,
+                            });
+                        }
+
+                        recoveredCount++;
+                    }
+                } catch {
+                    // Session gone, skip
+                }
+            } else {
+                // Tasks that were already completed/errored at crash
+                // can still be added to store if needed, but usually we care about RUNNING ones
+            }
+        }
+
+        if (recoveredCount > 0) {
+            log(`Recovered ${recoveredCount} active tasks.`);
+            this.poller.start();
+        }
     }
 }
 

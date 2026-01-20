@@ -3,7 +3,8 @@
  */
 
 import type { PluginInput } from "@opencode-ai/plugin";
-import { TASK_STATUS, SESSION_EVENTS } from "../../../shared/index.js";
+import { TASK_STATUS, SESSION_EVENTS, WAL_ACTIONS } from "../../../shared/index.js";
+import { taskWAL } from "../persistence/task-wal.js";
 import { TaskStore } from "../task-store.js";
 import { ConcurrencyController } from "../concurrency.js";
 import { CONFIG } from "../config.js";
@@ -78,6 +79,7 @@ export class EventHandler {
         // Release concurrency
         if (task.concurrencyKey) {
             this.concurrency.release(task.concurrencyKey);
+            this.concurrency.reportResult(task.concurrencyKey, true); // Success
             task.concurrencyKey = undefined;
         }
 
@@ -86,6 +88,9 @@ export class EventHandler {
         this.store.queueNotification(task);
         await this.notifyParentIfAllComplete(task.parentSessionID);
         this.scheduleCleanup(task.id);
+
+        // Log to WAL
+        taskWAL.log(WAL_ACTIONS.COMPLETE, task).catch(() => { });
 
         log(`Task ${task.id} completed via session.idle event (${formatDuration(task.startedAt, task.completedAt)})`);
     }
@@ -103,6 +108,7 @@ export class EventHandler {
         // Release concurrency
         if (task.concurrencyKey) {
             this.concurrency.release(task.concurrencyKey);
+            this.concurrency.reportResult(task.concurrencyKey, false); // Failure
             task.concurrencyKey = undefined;
         }
 
@@ -110,6 +116,9 @@ export class EventHandler {
         this.store.untrackPending(task.parentSessionID, task.id);
         this.store.clearNotificationsForTask(task.id);
         this.store.delete(task.id);
+
+        // Log to WAL
+        taskWAL.log(WAL_ACTIONS.DELETE, task).catch(() => { });
 
         log(`Cleaned up deleted session task: ${task.id}`);
     }

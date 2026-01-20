@@ -3,7 +3,8 @@
  */
 
 import type { PluginInput } from "@opencode-ai/plugin";
-import { TASK_STATUS, PART_TYPES } from "../../../shared/index.js";
+import { TASK_STATUS, PART_TYPES, WAL_ACTIONS } from "../../../shared/index.js";
+import { taskWAL } from "../persistence/task-wal.js";
 import { TaskStore } from "../task-store.js";
 import { log } from "../logger.js";
 import type { ParallelTask } from "../interfaces/parallel-task.interface.js";
@@ -40,6 +41,9 @@ export class TaskResumer {
         this.store.trackPending(input.parentSessionID, existingTask.id);
         this.startPolling();
 
+        // Log to WAL
+        taskWAL.log(WAL_ACTIONS.UPDATE, existingTask).catch(() => { });
+
         log(`Resuming task ${existingTask.id} in session ${existingTask.sessionID}`);
 
         // Send new prompt to existing session
@@ -57,6 +61,9 @@ export class TaskResumer {
             this.store.untrackPending(input.parentSessionID, existingTask.id);
             this.store.queueNotification(existingTask);
             this.notifyParentIfAllComplete(input.parentSessionID).catch(() => { });
+
+            // Log error state to WAL
+            taskWAL.log(WAL_ACTIONS.UPDATE, existingTask).catch(() => { });
         });
 
         return existingTask;

@@ -1,8 +1,128 @@
 var __defProp = Object.defineProperty;
+var __getOwnPropNames = Object.getOwnPropertyNames;
+var __esm = (fn, res) => function __init() {
+  return fn && (res = (0, fn[__getOwnPropNames(fn)[0]])(fn = 0)), res;
+};
 var __export = (target, all) => {
   for (var name in all)
     __defProp(target, name, { get: all[name], enumerable: true });
 };
+
+// src/core/session/store.ts
+var store_exports = {};
+__export(store_exports, {
+  addDecision: () => addDecision,
+  addDocument: () => addDocument,
+  addFinding: () => addFinding,
+  clear: () => clear,
+  clearAll: () => clearAll,
+  create: () => create,
+  get: () => get,
+  getChildren: () => getChildren,
+  getMerged: () => getMerged,
+  getStats: () => getStats
+});
+function create(sessionId, parentId) {
+  const context = {
+    sessionId,
+    parentId,
+    documents: /* @__PURE__ */ new Map(),
+    findings: [],
+    decisions: /* @__PURE__ */ new Map(),
+    createdAt: /* @__PURE__ */ new Date(),
+    updatedAt: /* @__PURE__ */ new Date()
+  };
+  contexts.set(sessionId, context);
+  if (parentId) {
+    if (!parentChildMap.has(parentId)) {
+      parentChildMap.set(parentId, /* @__PURE__ */ new Set());
+    }
+    parentChildMap.get(parentId).add(sessionId);
+  }
+  return context;
+}
+function get(sessionId) {
+  return contexts.get(sessionId);
+}
+function getMerged(sessionId) {
+  const context = contexts.get(sessionId);
+  if (!context) return void 0;
+  if (!context.parentId) return context;
+  const parentContext = contexts.get(context.parentId);
+  if (!parentContext) return context;
+  const merged = {
+    ...context,
+    documents: new Map([...parentContext.documents, ...context.documents]),
+    findings: [...parentContext.findings, ...context.findings],
+    decisions: new Map([...parentContext.decisions, ...context.decisions])
+  };
+  return merged;
+}
+function addDocument(sessionId, doc) {
+  const context = contexts.get(sessionId);
+  if (!context) return;
+  context.documents.set(doc.filename, doc);
+  context.updatedAt = /* @__PURE__ */ new Date();
+}
+function addFinding(sessionId, finding) {
+  const context = contexts.get(sessionId);
+  if (!context) return;
+  context.findings.push({
+    ...finding,
+    id: `finding_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+    timestamp: /* @__PURE__ */ new Date()
+  });
+  context.updatedAt = /* @__PURE__ */ new Date();
+}
+function addDecision(sessionId, decision) {
+  const context = contexts.get(sessionId);
+  if (!context) return;
+  const id = `decision_${Date.now()}`;
+  context.decisions.set(id, {
+    ...decision,
+    id,
+    decidedAt: /* @__PURE__ */ new Date()
+  });
+  context.updatedAt = /* @__PURE__ */ new Date();
+}
+function getChildren(parentId) {
+  return Array.from(parentChildMap.get(parentId) || []);
+}
+function clear(sessionId) {
+  const context = contexts.get(sessionId);
+  if (context?.parentId) {
+    parentChildMap.get(context.parentId)?.delete(sessionId);
+  }
+  contexts.delete(sessionId);
+}
+function clearAll() {
+  contexts.clear();
+  parentChildMap.clear();
+}
+function getStats() {
+  let totalDocuments = 0;
+  let totalFindings = 0;
+  let totalDecisions = 0;
+  for (const context of contexts.values()) {
+    totalDocuments += context.documents.size;
+    totalFindings += context.findings.length;
+    totalDecisions += context.decisions.size;
+  }
+  return {
+    totalContexts: contexts.size,
+    totalDocuments,
+    totalFindings,
+    totalDecisions
+  };
+}
+var contexts, parentChildMap;
+var init_store = __esm({
+  "src/core/session/store.ts"() {
+    "use strict";
+    contexts = /* @__PURE__ */ new Map();
+    parentChildMap = /* @__PURE__ */ new Map();
+  }
+});
 
 // src/index.ts
 import { createRequire } from "node:module";
@@ -92,6 +212,7 @@ var MEMORY_LIMITS = {
 var STATUS_LABEL = {
   // Basic States
   PENDING: "pending",
+  QUEUED: "queued",
   RUNNING: "running",
   IN_PROGRESS: "in_progress",
   COMPLETED: "completed",
@@ -137,6 +258,14 @@ var LIMITS = {
   DEFAULT_PROGRESS_WIDTH: 20,
   /** Maximum time for atomic task (minutes) */
   TASK_TIME_LIMIT_MIN: 10
+};
+
+// src/shared/core/constants/wal-actions.ts
+var WAL_ACTIONS = {
+  LAUNCH: "LAUNCH",
+  UPDATE: "UPDATE",
+  COMPLETE: "COMPLETE",
+  DELETE: "DELETE"
 };
 
 // src/shared/core/constants/cli.ts
@@ -222,6 +351,14 @@ var MISSION_SEAL = {
   CANCEL_COMMAND: "/cancel"
 };
 var MISSION = MISSION_SEAL;
+
+// src/shared/loop/constants/todo-status.ts
+var TODO_STATUS = {
+  PENDING: STATUS_LABEL.PENDING,
+  IN_PROGRESS: STATUS_LABEL.IN_PROGRESS,
+  COMPLETED: STATUS_LABEL.COMPLETED,
+  CANCELLED: STATUS_LABEL.CANCELLED
+};
 
 // src/shared/notification/constants/toast-duration.ts
 var TOAST_DURATION = {
@@ -508,6 +645,14 @@ var SESSION_STATUS = {
   BUSY: "busy"
 };
 
+// src/shared/os/constants/platform.ts
+var PLATFORM = {
+  DARWIN: "darwin",
+  LINUX: "linux",
+  WIN32: "win32",
+  UNSUPPORTED: "unsupported"
+};
+
 // src/shared/errors/constants/error-patterns.ts
 var ERROR_PATTERNS = {
   TOOL_RESULT_MISSING: /tool_result_missing|tool result.*missing/i,
@@ -719,7 +864,7 @@ var TASK_STATUS = {
   TIMEOUT: STATUS_LABEL.TIMEOUT,
   CANCELLED: STATUS_LABEL.CANCELLED
 };
-var TODO_STATUS = {
+var TODO_STATUS2 = {
   PENDING: STATUS_LABEL.PENDING,
   IN_PROGRESS: STATUS_LABEL.IN_PROGRESS,
   COMPLETED: STATUS_LABEL.COMPLETED,
@@ -1465,10 +1610,10 @@ function mergeDefs(...defs) {
 function cloneDef(schema) {
   return mergeDefs(schema._zod.def);
 }
-function getElementAtPath(obj, path4) {
-  if (!path4)
+function getElementAtPath(obj, path5) {
+  if (!path5)
     return obj;
-  return path4.reduce((acc, key) => acc?.[key], obj);
+  return path5.reduce((acc, key) => acc?.[key], obj);
 }
 function promiseAllObject(promisesObj) {
   const keys = Object.keys(promisesObj);
@@ -1829,11 +1974,11 @@ function aborted(x, startIndex = 0) {
   }
   return false;
 }
-function prefixIssues(path4, issues) {
+function prefixIssues(path5, issues) {
   return issues.map((iss) => {
     var _a;
     (_a = iss).path ?? (_a.path = []);
-    iss.path.unshift(path4);
+    iss.path.unshift(path5);
     return iss;
   });
 }
@@ -2001,7 +2146,7 @@ function treeifyError(error45, _mapper) {
     return issue2.message;
   };
   const result = { errors: [] };
-  const processError = (error46, path4 = []) => {
+  const processError = (error46, path5 = []) => {
     var _a, _b;
     for (const issue2 of error46.issues) {
       if (issue2.code === "invalid_union" && issue2.errors.length) {
@@ -2011,7 +2156,7 @@ function treeifyError(error45, _mapper) {
       } else if (issue2.code === "invalid_element") {
         processError({ issues: issue2.issues }, issue2.path);
       } else {
-        const fullpath = [...path4, ...issue2.path];
+        const fullpath = [...path5, ...issue2.path];
         if (fullpath.length === 0) {
           result.errors.push(mapper(issue2));
           continue;
@@ -2043,8 +2188,8 @@ function treeifyError(error45, _mapper) {
 }
 function toDotPath(_path) {
   const segs = [];
-  const path4 = _path.map((seg) => typeof seg === "object" ? seg.key : seg);
-  for (const seg of path4) {
+  const path5 = _path.map((seg) => typeof seg === "object" ? seg.key : seg);
+  for (const seg of path5) {
     if (typeof seg === "number")
       segs.push(`[${seg}]`);
     else if (typeof seg === "symbol")
@@ -15415,16 +15560,16 @@ function getBinaryPath() {
   const os2 = platform();
   const cpu = arch();
   let binaryName;
-  if (os2 === "win32") {
+  if (os2 === PLATFORM.WIN32) {
     binaryName = "orchestrator-windows-x64.exe";
-  } else if (os2 === "darwin") {
+  } else if (os2 === PLATFORM.DARWIN) {
     binaryName = cpu === "arm64" ? "orchestrator-macos-arm64" : "orchestrator-macos-x64";
   } else {
     binaryName = cpu === "arm64" ? "orchestrator-linux-arm64" : "orchestrator-linux-x64";
   }
   let binaryPath = join(binDir, binaryName);
   if (!existsSync(binaryPath)) {
-    binaryPath = join(binDir, os2 === "win32" ? "orchestrator.exe" : "orchestrator");
+    binaryPath = join(binDir, os2 === PLATFORM.WIN32 ? "orchestrator.exe" : "orchestrator");
   }
   return binaryPath;
 }
@@ -15455,7 +15600,7 @@ async function callRustTool(name, args) {
   if (!existsSync2(binary)) {
     return JSON.stringify({ error: `Binary not found: ${binary}` });
   }
-  return new Promise((resolve) => {
+  return new Promise((resolve2) => {
     const proc = spawn(binary, ["serve"], { stdio: ["pipe", "pipe", "pipe"] });
     let stdout = "";
     proc.stdout.on("data", (data) => {
@@ -15475,7 +15620,7 @@ async function callRustTool(name, args) {
     proc.stdin.end();
     const timeout = setTimeout(() => {
       proc.kill();
-      resolve(JSON.stringify({ error: "Timeout" }));
+      resolve2(JSON.stringify({ error: "Timeout" }));
     }, 6e4);
     proc.on("close", (code) => {
       clearTimeout(timeout);
@@ -15489,15 +15634,15 @@ async function callRustTool(name, args) {
             const response = JSON.parse(lines[i]);
             if (response.result || response.error) {
               const text = response?.result?.content?.[0]?.text;
-              return resolve(text || JSON.stringify(response.result));
+              return resolve2(text || JSON.stringify(response.result));
             }
           } catch {
             continue;
           }
         }
-        resolve(stdout || "No output");
+        resolve2(stdout || "No output");
       } catch {
-        resolve(stdout || "No output");
+        resolve2(stdout || "No output");
       }
     });
   });
@@ -15687,7 +15832,7 @@ var BackgroundTaskManager = class _BackgroundTaskManager {
   run(options) {
     const id = this.generateId();
     const { command, cwd = process.cwd(), timeout = 3e5, label } = options;
-    const isWindows = process.platform === "win32";
+    const isWindows = process.platform === PLATFORM.WIN32;
     const shell = isWindows ? "cmd.exe" : CLI_NAME.SH;
     const shellFlag = isWindows ? "/c" : "-c";
     const task = {
@@ -15856,7 +16001,7 @@ ${taskList}`;
     let result = `${statusEmoji} **Task ${task.id}**${task.label ? ` (${task.label})` : ""}
 | Command | \`${task.command}\` |
 | Status | ${statusEmoji} **${task.status.toUpperCase()}** |
-| Duration | ${duration3}${task.status === "running" ? " (ongoing)" : ""} |
+| Duration | ${duration3}${task.status === STATUS_LABEL.RUNNING ? " (ongoing)" : ""} |
 ${task.exitCode !== null ? `| Exit Code | ${task.exitCode} |` : ""}`;
     if (output.trim()) result += `
 
@@ -15870,7 +16015,7 @@ ${output.trim()}
 \`\`\`
 ${stderr.trim()}
 \`\`\``;
-    if (task.status === "running") result += `
+    if (task.status === STATUS_LABEL.RUNNING) result += `
 
 \u23F3 Still running... check again.`;
     return result;
@@ -15928,7 +16073,7 @@ var killBackgroundTool = tool({
     const { taskId } = args;
     const task = backgroundTaskManager.get(taskId);
     if (!task) return `\u274C Task \`${taskId}\` not found.`;
-    if (task.status !== "running") return `\u26A0\uFE0F Task \`${taskId}\` is not running (${task.status}).`;
+    if (task.status !== STATUS_LABEL.RUNNING) return `\u26A0\uFE0F Task \`${taskId}\` is not running (${task.status}).`;
     const killed = backgroundTaskManager.kill(taskId);
     if (killed) {
       return `\u{1F6D1} Task \`${taskId}\` killed.
@@ -15949,6 +16094,8 @@ var ConcurrencyController = class {
   queues = /* @__PURE__ */ new Map();
   limits = /* @__PURE__ */ new Map();
   config;
+  successStreak = /* @__PURE__ */ new Map();
+  failureCount = /* @__PURE__ */ new Map();
   constructor(config2) {
     this.config = config2 ?? {};
   }
@@ -15993,9 +16140,9 @@ var ConcurrencyController = class {
       return;
     }
     log2(`Queueing ${key}: ${current}/${limit}`);
-    return new Promise((resolve) => {
+    return new Promise((resolve2) => {
       const queue = this.queues.get(key) ?? [];
-      queue.push(resolve);
+      queue.push(resolve2);
       this.queues.set(key, queue);
     });
   }
@@ -16012,6 +16159,35 @@ var ConcurrencyController = class {
       if (current > 0) {
         this.counts.set(key, current - 1);
         log2(`Released ${key}: ${current - 1}/${limit}`);
+      }
+    }
+  }
+  /**
+   * Report success/failure to adjust concurrency dynamically
+   */
+  reportResult(key, success2) {
+    if (success2) {
+      const streak = (this.successStreak.get(key) ?? 0) + 1;
+      this.successStreak.set(key, streak);
+      this.failureCount.set(key, 0);
+      if (streak % 5 === 0) {
+        const currentLimit = this.getConcurrencyLimit(key);
+        if (currentLimit < 20) {
+          this.setLimit(key, currentLimit + 1);
+          log(`[concurrency] Auto-scaling UP for ${key}: ${currentLimit + 1}`);
+        }
+      }
+    } else {
+      const failures = (this.failureCount.get(key) ?? 0) + 1;
+      this.failureCount.set(key, failures);
+      this.successStreak.set(key, 0);
+      if (failures >= 2) {
+        const currentLimit = this.getConcurrencyLimit(key);
+        const minLimit = 1;
+        if (currentLimit > minLimit) {
+          this.setLimit(key, currentLimit - 1);
+          log(`[concurrency] Auto-scaling DOWN for ${key}: ${currentLimit - 1} (due to ${failures} failures)`);
+        }
       }
     }
   }
@@ -16068,15 +16244,15 @@ var TaskStore = class {
   }
   // Pending tracking
   trackPending(parentSessionID, taskId) {
-    const pending = this.pendingByParent.get(parentSessionID) ?? /* @__PURE__ */ new Set();
-    pending.add(taskId);
-    this.pendingByParent.set(parentSessionID, pending);
+    const pending2 = this.pendingByParent.get(parentSessionID) ?? /* @__PURE__ */ new Set();
+    pending2.add(taskId);
+    this.pendingByParent.set(parentSessionID, pending2);
   }
   untrackPending(parentSessionID, taskId) {
-    const pending = this.pendingByParent.get(parentSessionID);
-    if (pending) {
-      pending.delete(taskId);
-      if (pending.size === 0) {
+    const pending2 = this.pendingByParent.get(parentSessionID);
+    if (pending2) {
+      pending2.delete(taskId);
+      if (pending2.size === 0) {
         this.pendingByParent.delete(parentSessionID);
       }
     }
@@ -16191,7 +16367,7 @@ var TaskStore = class {
   forceCleanup() {
     const toRemove = [];
     for (const [id, task] of this.tasks) {
-      if (task.status !== "running") {
+      if (task.status !== TASK_STATUS.RUNNING) {
         toRemove.push(id);
       }
     }
@@ -16322,19 +16498,19 @@ var allTasksComplete = (count) => show({
 var sessionCreated = (sessionId, agent) => show({
   title: "Session Created",
   message: `${agent} - ${sessionId.slice(0, 12)}...`,
-  variant: "info",
+  variant: STATUS_LABEL.INFO,
   duration: TOAST_DURATION.SHORT
 });
 var sessionResumed = (sessionId, agent) => show({
   title: "Session Resumed",
   message: `${agent} - ${sessionId.slice(0, 12)}...`,
-  variant: "info",
+  variant: STATUS_LABEL.INFO,
   duration: TOAST_DURATION.SHORT
 });
 var sessionCompleted = (sessionId, duration3) => show({
   title: "Session Completed",
   message: `${sessionId.slice(0, 12)}... (${duration3})`,
-  variant: "success",
+  variant: STATUS_LABEL.SUCCESS,
   duration: TOAST_DURATION.MEDIUM
 });
 
@@ -16447,7 +16623,7 @@ var TaskToastManager = class {
       id: task.id,
       description: task.description,
       agent: task.agent,
-      status: task.status ?? "running",
+      status: task.status ?? STATUS_LABEL.RUNNING,
       startedAt: /* @__PURE__ */ new Date(),
       isBackground: task.isBackground,
       parentSessionID: task.parentSessionID,
@@ -16475,13 +16651,13 @@ var TaskToastManager = class {
    * Get all running tasks (newest first)
    */
   getRunningTasks() {
-    return Array.from(this.tasks.values()).filter((t) => t.status === "running").sort((a, b) => b.startedAt.getTime() - a.startedAt.getTime());
+    return Array.from(this.tasks.values()).filter((t) => t.status === STATUS_LABEL.RUNNING).sort((a, b) => b.startedAt.getTime() - a.startedAt.getTime());
   }
   /**
    * Get all queued tasks (oldest first - FIFO)
    */
   getQueuedTasks() {
-    return Array.from(this.tasks.values()).filter((t) => t.status === "queued").sort((a, b) => a.startedAt.getTime() - b.startedAt.getTime());
+    return Array.from(this.tasks.values()).filter((t) => t.status === STATUS_LABEL.QUEUED).sort((a, b) => a.startedAt.getTime() - b.startedAt.getTime());
   }
   /**
    * Get tasks by parent session
@@ -16554,7 +16730,7 @@ var TaskToastManager = class {
       body: {
         title,
         message: message || `${newTask.description} (${newTask.agent})`,
-        variant: "info",
+        variant: STATUS_LABEL.INFO,
         duration: running.length + queued.length > 2 ? 5e3 : 3e3
       }
     }).catch(() => {
@@ -16573,15 +16749,15 @@ var TaskToastManager = class {
     let message;
     let title;
     let variant;
-    if (info.status === "error" || info.status === "cancelled") {
-      title = info.status === "error" ? "Task Failed" : "Task Cancelled";
+    if (info.status === STATUS_LABEL.ERROR || info.status === STATUS_LABEL.CANCELLED || info.status === STATUS_LABEL.FAILED) {
+      title = info.status === STATUS_LABEL.ERROR ? "Task Failed" : "Task Cancelled";
       message = `[FAIL] "${info.description}" ${info.status}
 ${info.error || ""}`;
-      variant = "error";
+      variant = STATUS_LABEL.ERROR;
     } else {
       title = "Task Completed";
       message = `[DONE] "${info.description}" finished in ${info.duration}`;
-      variant = "success";
+      variant = STATUS_LABEL.SUCCESS;
     }
     if (remaining.length > 0 || queued.length > 0) {
       message += `
@@ -16605,16 +16781,16 @@ Still running: ${remaining.length} | Queued: ${queued.length}`;
     if (!this.client) return;
     const tuiClient2 = this.client;
     if (!tuiClient2.tui?.showToast) return;
-    const successCount = completedTasks.filter((t) => t.status === TASK_STATUS.COMPLETED).length;
-    const failCount = completedTasks.filter((t) => t.status === TASK_STATUS.ERROR || t.status === TASK_STATUS.CANCELLED).length;
-    const taskList = completedTasks.map((t) => `- [${t.status === TASK_STATUS.COMPLETED ? "OK" : "FAIL"}] ${t.description} (${t.duration})`).join("\n");
+    const successCount = completedTasks.filter((t) => t.status === STATUS_LABEL.COMPLETED).length;
+    const failCount = completedTasks.filter((t) => t.status === STATUS_LABEL.ERROR || t.status === STATUS_LABEL.CANCELLED || t.status === STATUS_LABEL.FAILED).length;
+    const taskList = completedTasks.map((t) => `- [${t.status === STATUS_LABEL.COMPLETED ? "OK" : "FAIL"}] ${t.description} (${t.duration})`).join("\n");
     tuiClient2.tui.showToast({
       body: {
         title: "All Tasks Completed",
         message: `${successCount} succeeded, ${failCount} failed
 
 ${taskList}`,
-        variant: failCount > 0 ? "warning" : "success",
+        variant: failCount > 0 ? STATUS_LABEL.WARNING : STATUS_LABEL.SUCCESS,
         duration: 7e3
       }
     }).catch(() => {
@@ -16636,7 +16812,7 @@ ${taskList}`,
         title: `Task Progress: ${task.description}`,
         message: `${progressBar} ${percentage}%
 ${progress.message || ""}`,
-        variant: "info",
+        variant: STATUS_LABEL.INFO,
         duration: 2e3
       }
     }).catch(() => {
@@ -16668,6 +16844,99 @@ function initTaskToastManager(client, concurrency) {
   instance.init(client, concurrency);
   return instance;
 }
+
+// src/core/agents/persistence/task-wal.ts
+import * as fs3 from "node:fs/promises";
+import * as path3 from "node:path";
+var TaskWAL = class {
+  walPath;
+  initialized = false;
+  constructor(customPath) {
+    this.walPath = customPath || path3.resolve(process.cwd(), ".opencode/archive/tasks/active_tasks.jsonl");
+  }
+  async init() {
+    if (this.initialized) return;
+    try {
+      const dir = path3.dirname(this.walPath);
+      await fs3.mkdir(dir, { recursive: true });
+      this.initialized = true;
+    } catch (error45) {
+      log("Failed to initialize Task WAL directory:", error45);
+    }
+  }
+  async log(action, task) {
+    if (!this.initialized) await this.init();
+    const entry = {
+      timestamp: (/* @__PURE__ */ new Date()).toISOString(),
+      action,
+      taskId: task.id,
+      data: action === WAL_ACTIONS.DELETE ? { id: task.id } : {
+        id: task.id,
+        sessionID: task.sessionID,
+        parentSessionID: task.parentSessionID,
+        description: task.description,
+        agent: task.agent,
+        status: task.status,
+        startedAt: task.startedAt,
+        depth: task.depth,
+        prompt: action === WAL_ACTIONS.LAUNCH ? task.prompt : void 0
+        // Only log prompt on launch to save space
+      }
+    };
+    try {
+      await fs3.appendFile(this.walPath, JSON.stringify(entry) + "\n");
+    } catch (error45) {
+    }
+  }
+  async readAll() {
+    if (!this.initialized) await this.init();
+    const tasks = /* @__PURE__ */ new Map();
+    try {
+      const content = await fs3.readFile(this.walPath, "utf-8");
+      const lines = content.split("\n").filter(Boolean);
+      for (const line of lines) {
+        try {
+          const entry = JSON.parse(line);
+          if (entry.action === WAL_ACTIONS.DELETE) {
+            tasks.delete(entry.taskId);
+          } else if (entry.action === WAL_ACTIONS.LAUNCH) {
+            tasks.set(entry.taskId, entry.data);
+          } else {
+            const existing = tasks.get(entry.taskId);
+            if (existing) {
+              Object.assign(existing, entry.data);
+            }
+          }
+        } catch {
+        }
+      }
+    } catch (error45) {
+      if (error45.code !== "ENOENT") {
+        log("Error reading Task WAL:", error45);
+      }
+    }
+    return tasks;
+  }
+  /**
+   * Compact the WAL by writing only the current active tasks
+   */
+  async compact(activeTasks) {
+    try {
+      const tempPath = `${this.walPath}.tmp`;
+      const content = activeTasks.map((task) => JSON.stringify({
+        timestamp: (/* @__PURE__ */ new Date()).toISOString(),
+        action: WAL_ACTIONS.LAUNCH,
+        taskId: task.id,
+        data: task
+      })).join("\n") + "\n";
+      await fs3.writeFile(tempPath, content);
+      await fs3.rename(tempPath, this.walPath);
+    } catch (error45) {
+      log("Failed to compact Task WAL:", error45);
+    }
+  }
+};
+var taskWAL = new TaskWAL();
 
 // src/core/agents/manager/task-launcher.ts
 var TaskLauncher = class {
@@ -16711,6 +16980,8 @@ var TaskLauncher = class {
       };
       this.store.set(taskId, task);
       this.store.trackPending(input.parentSessionID, taskId);
+      taskWAL.log(WAL_ACTIONS.LAUNCH, task).catch(() => {
+      });
       this.startPolling();
       this.client.session.prompt({
         path: { id: sessionID },
@@ -16773,6 +17044,8 @@ var TaskResumer = class {
     existingTask.stablePolls = 0;
     this.store.trackPending(input.parentSessionID, existingTask.id);
     this.startPolling();
+    taskWAL.log(WAL_ACTIONS.UPDATE, existingTask).catch(() => {
+    });
     log(`Resuming task ${existingTask.id} in session ${existingTask.sessionID}`);
     this.client.session.prompt({
       path: { id: existingTask.sessionID },
@@ -16788,6 +17061,8 @@ var TaskResumer = class {
       this.store.untrackPending(input.parentSessionID, existingTask.id);
       this.store.queueNotification(existingTask);
       this.notifyParentIfAllComplete(input.parentSessionID).catch(() => {
+      });
+      taskWAL.log(WAL_ACTIONS.UPDATE, existingTask).catch(() => {
       });
     });
     return existingTask;
@@ -16845,14 +17120,14 @@ var TaskPoller = class {
           if (sessionStatus?.type === SESSION_STATUS.IDLE) {
             const elapsed2 = Date.now() - task.startedAt.getTime();
             if (elapsed2 < CONFIG.MIN_STABILITY_MS) continue;
-            if (!await this.validateSessionHasOutput(task.sessionID)) continue;
+            if (!task.hasStartedOutputting && !await this.validateSessionHasOutput(task.sessionID, task)) continue;
             await this.completeTask(task);
             continue;
           }
           await this.updateTaskProgress(task);
           const elapsed = Date.now() - task.startedAt.getTime();
           if (elapsed >= CONFIG.MIN_STABILITY_MS && task.stablePolls && task.stablePolls >= 3) {
-            if (await this.validateSessionHasOutput(task.sessionID)) {
+            if (task.hasStartedOutputting || await this.validateSessionHasOutput(task.sessionID, task)) {
               log(`Task ${task.id} stable for 3 polls, completing...`);
               await this.completeTask(task);
             }
@@ -16865,11 +17140,15 @@ var TaskPoller = class {
       log("Polling error:", error45);
     }
   }
-  async validateSessionHasOutput(sessionID) {
+  async validateSessionHasOutput(sessionID, task) {
     try {
       const response = await this.client.session.messages({ path: { id: sessionID } });
       const messages = response.data ?? [];
-      return messages.some((m) => m.info?.role === MESSAGE_ROLES.ASSISTANT && m.parts?.some((p) => p.type === PART_TYPES.TEXT && p.text?.trim() || p.type === PART_TYPES.TOOL));
+      const hasOutput = messages.some((m) => m.info?.role === MESSAGE_ROLES.ASSISTANT && m.parts?.some((p) => p.type === PART_TYPES.TEXT && p.text?.trim() || p.type === PART_TYPES.TOOL));
+      if (hasOutput && task) {
+        task.hasStartedOutputting = true;
+      }
+      return hasOutput;
     } catch {
       return true;
     }
@@ -16880,12 +17159,15 @@ var TaskPoller = class {
     task.completedAt = /* @__PURE__ */ new Date();
     if (task.concurrencyKey) {
       this.concurrency.release(task.concurrencyKey);
+      this.concurrency.reportResult(task.concurrencyKey, true);
       task.concurrencyKey = void 0;
     }
     this.store.untrackPending(task.parentSessionID, task.id);
     this.store.queueNotification(task);
     await this.notifyParentIfAllComplete(task.parentSessionID);
     this.scheduleCleanup(task.id);
+    taskWAL.log(WAL_ACTIONS.COMPLETE, task).catch(() => {
+    });
     const duration3 = formatDuration(task.startedAt, task.completedAt);
     presets.sessionCompleted(task.sessionID, duration3);
     log(`Completed ${task.id} (${duration3})`);
@@ -16929,6 +17211,7 @@ var TaskPoller = class {
 };
 
 // src/core/agents/manager/task-cleaner.ts
+init_store();
 var TaskCleaner = class {
   constructor(client, store, concurrency) {
     this.client = client;
@@ -16953,14 +17236,17 @@ var TaskCleaner = class {
             id: taskId,
             description: task.description,
             duration: formatDuration(task.startedAt, task.completedAt),
-            status: "error",
+            status: TASK_STATUS.ERROR,
             error: task.error
           });
         }
       }
       this.client.session.delete({ path: { id: task.sessionID } }).catch(() => {
       });
+      clear(task.sessionID);
       this.store.delete(taskId);
+      taskWAL.log(WAL_ACTIONS.DELETE, task).catch(() => {
+      });
     }
     this.store.cleanEmptyNotifications();
   }
@@ -16971,10 +17257,13 @@ var TaskCleaner = class {
       if (sessionID) {
         try {
           await this.client.session.delete({ path: { id: sessionID } });
+          clear(sessionID);
         } catch {
         }
       }
       this.store.delete(taskId);
+      if (task) taskWAL.log(WAL_ACTIONS.DELETE, task).catch(() => {
+      });
       log(`Cleaned up ${taskId}`);
     }, CONFIG.CLEANUP_DELAY_MS);
   }
@@ -17082,12 +17371,15 @@ var EventHandler = class {
     task.completedAt = /* @__PURE__ */ new Date();
     if (task.concurrencyKey) {
       this.concurrency.release(task.concurrencyKey);
+      this.concurrency.reportResult(task.concurrencyKey, true);
       task.concurrencyKey = void 0;
     }
     this.store.untrackPending(task.parentSessionID, task.id);
     this.store.queueNotification(task);
     await this.notifyParentIfAllComplete(task.parentSessionID);
     this.scheduleCleanup(task.id);
+    taskWAL.log(WAL_ACTIONS.COMPLETE, task).catch(() => {
+    });
     log(`Task ${task.id} completed via session.idle event (${formatDuration(task.startedAt, task.completedAt)})`);
   }
   handleSessionDeleted(task) {
@@ -17099,11 +17391,14 @@ var EventHandler = class {
     }
     if (task.concurrencyKey) {
       this.concurrency.release(task.concurrencyKey);
+      this.concurrency.reportResult(task.concurrencyKey, false);
       task.concurrencyKey = void 0;
     }
     this.store.untrackPending(task.parentSessionID, task.id);
     this.store.clearNotificationsForTask(task.id);
     this.store.delete(task.id);
+    taskWAL.log(WAL_ACTIONS.DELETE, task).catch(() => {
+    });
     log(`Cleaned up deleted session task: ${task.id}`);
   }
 };
@@ -17157,6 +17452,9 @@ var ParallelAgentManager = class _ParallelAgentManager {
       (taskId) => this.cleaner.scheduleCleanup(taskId),
       (sessionID) => this.poller.validateSessionHasOutput(sessionID)
     );
+    this.recoverActiveTasks().catch((err) => {
+      log("Recovery error:", err);
+    });
   }
   static getInstance(client, directory) {
     if (!_ParallelAgentManager._instance) {
@@ -17204,6 +17502,8 @@ var ParallelAgentManager = class _ParallelAgentManager {
       log(`Session ${task.sessionID.slice(0, 8)}... already gone`);
     }
     this.cleaner.scheduleCleanup(taskId);
+    taskWAL.log(WAL_ACTIONS.DELETE, task).catch(() => {
+    });
     log(`Cancelled ${taskId}`);
     return true;
   }
@@ -17238,6 +17538,8 @@ var ParallelAgentManager = class _ParallelAgentManager {
   cleanup() {
     this.poller.stop();
     this.store.clear();
+    Promise.resolve().then(() => (init_store(), store_exports)).then((store) => store.clearAll()).catch(() => {
+    });
   }
   formatDuration = formatDuration;
   // ========================================================================
@@ -17258,11 +17560,50 @@ var ParallelAgentManager = class _ParallelAgentManager {
     task.status = TASK_STATUS.ERROR;
     task.error = error45 instanceof Error ? error45.message : String(error45);
     task.completedAt = /* @__PURE__ */ new Date();
-    if (task.concurrencyKey) this.concurrency.release(task.concurrencyKey);
+    if (task.concurrencyKey) {
+      this.concurrency.release(task.concurrencyKey);
+      this.concurrency.reportResult(task.concurrencyKey, false);
+    }
     this.store.untrackPending(task.parentSessionID, taskId);
-    this.store.queueNotification(task);
     this.cleaner.notifyParentIfAllComplete(task.parentSessionID);
     this.cleaner.scheduleCleanup(taskId);
+    taskWAL.log(WAL_ACTIONS.UPDATE, task).catch(() => {
+    });
+  }
+  async recoverActiveTasks() {
+    const tasks = await taskWAL.readAll();
+    if (tasks.size === 0) return;
+    log(`Attempting to recover ${tasks.size} tasks from WAL...`);
+    let recoveredCount = 0;
+    for (const task of tasks.values()) {
+      if (task.status === TASK_STATUS.RUNNING) {
+        try {
+          const status = await this.client.session.get({ path: { id: task.sessionID } });
+          if (!status.error) {
+            this.store.set(task.id, task);
+            this.store.trackPending(task.parentSessionID, task.id);
+            const toastManager = getTaskToastManager();
+            if (toastManager) {
+              toastManager.addTask({
+                id: task.id,
+                description: task.description,
+                agent: task.agent,
+                isBackground: true,
+                parentSessionID: task.parentSessionID,
+                sessionID: task.sessionID
+              });
+            }
+            recoveredCount++;
+          }
+        } catch {
+        }
+      } else {
+      }
+    }
+    if (recoveredCount > 0) {
+      log(`Recovered ${recoveredCount} active tasks.`);
+      this.poller.start();
+    }
   }
 };
 var parallelAgentManager = {
@@ -17636,15 +17977,15 @@ var METADATA_FILE = PATHS.DOC_METADATA;
 var DEFAULT_TTL_MS = CACHE.DEFAULT_TTL_MS;
 
 // src/core/cache/operations.ts
-import * as fs4 from "node:fs/promises";
-import * as path3 from "node:path";
+import * as fs5 from "node:fs/promises";
+import * as path4 from "node:path";
 
 // src/core/cache/utils.ts
-import * as fs3 from "node:fs/promises";
+import * as fs4 from "node:fs/promises";
 import { existsSync as existsSync3 } from "node:fs";
 async function ensureCacheDir() {
   if (!existsSync3(CACHE_DIR)) {
-    await fs3.mkdir(CACHE_DIR, { recursive: true });
+    await fs4.mkdir(CACHE_DIR, { recursive: true });
   }
 }
 function urlToFilename(url2) {
@@ -17659,7 +18000,7 @@ function urlToFilename(url2) {
 }
 async function readMetadata() {
   try {
-    const content = await fs3.readFile(METADATA_FILE, "utf-8");
+    const content = await fs4.readFile(METADATA_FILE, "utf-8");
     return JSON.parse(content);
   } catch {
     return { documents: {}, lastUpdated: (/* @__PURE__ */ new Date()).toISOString() };
@@ -17668,11 +18009,11 @@ async function readMetadata() {
 async function writeMetadata(metadata) {
   await ensureCacheDir();
   metadata.lastUpdated = (/* @__PURE__ */ new Date()).toISOString();
-  await fs3.writeFile(METADATA_FILE, JSON.stringify(metadata, null, 2));
+  await fs4.writeFile(METADATA_FILE, JSON.stringify(metadata, null, 2));
 }
 
 // src/core/cache/operations.ts
-async function get(url2) {
+async function get2(url2) {
   const metadata = await readMetadata();
   const filename = urlToFilename(url2);
   const entry = metadata.documents[filename];
@@ -17682,8 +18023,8 @@ async function get(url2) {
     return null;
   }
   try {
-    const filepath = path3.join(CACHE_DIR, filename);
-    const content = await fs4.readFile(filepath, "utf-8");
+    const filepath = path4.join(CACHE_DIR, filename);
+    const content = await fs5.readFile(filepath, "utf-8");
     return { ...entry, content };
   } catch {
     return null;
@@ -17694,8 +18035,8 @@ async function getByFilename(filename) {
   const entry = metadata.documents[filename];
   if (!entry) return null;
   try {
-    const filepath = path3.join(CACHE_DIR, filename);
-    const content = await fs4.readFile(filepath, "utf-8");
+    const filepath = path4.join(CACHE_DIR, filename);
+    const content = await fs5.readFile(filepath, "utf-8");
     return { ...entry, content };
   } catch {
     return null;
@@ -17704,7 +18045,7 @@ async function getByFilename(filename) {
 async function set2(url2, content, title, ttlMs = DEFAULT_TTL_MS) {
   await ensureCacheDir();
   const filename = urlToFilename(url2);
-  const filepath = path3.join(CACHE_DIR, filename);
+  const filepath = path4.join(CACHE_DIR, filename);
   const now = /* @__PURE__ */ new Date();
   const header = `# ${title}
 
@@ -17715,7 +18056,7 @@ async function set2(url2, content, title, ttlMs = DEFAULT_TTL_MS) {
 
 `;
   const fullContent = header + content;
-  await fs4.writeFile(filepath, fullContent);
+  await fs5.writeFile(filepath, fullContent);
   const metadata = await readMetadata();
   metadata.documents[filename] = {
     url: url2,
@@ -17729,9 +18070,9 @@ async function set2(url2, content, title, ttlMs = DEFAULT_TTL_MS) {
 }
 async function remove(url2) {
   const filename = urlToFilename(url2);
-  const filepath = path3.join(CACHE_DIR, filename);
+  const filepath = path4.join(CACHE_DIR, filename);
   try {
-    await fs4.unlink(filepath);
+    await fs5.unlink(filepath);
     const metadata = await readMetadata();
     delete metadata.documents[filename];
     await writeMetadata(metadata);
@@ -17749,13 +18090,13 @@ async function list() {
     expired: new Date(entry.expiresAt) < now
   }));
 }
-async function clear() {
+async function clear2() {
   const metadata = await readMetadata();
   const count = Object.keys(metadata.documents).length;
   for (const filename of Object.keys(metadata.documents)) {
-    const filepath = path3.join(CACHE_DIR, filename);
+    const filepath = path4.join(CACHE_DIR, filename);
     try {
-      await fs4.unlink(filepath);
+      await fs5.unlink(filepath);
     } catch {
     }
   }
@@ -17829,9 +18170,9 @@ webfetch({ url: "https://react.dev/reference/react/useEffect", cache: true })
     selector: tool.schema.string().optional().describe("CSS selector to extract specific content (not implemented yet)")
   },
   async execute(args) {
-    const { url: url2, cache = true } = args;
-    if (cache) {
-      const cached2 = await get(url2);
+    const { url: url2, cache: cache2 = true } = args;
+    if (cache2) {
+      const cached2 = await get2(url2);
       if (cached2) {
         return `${OUTPUT_LABEL.CACHED} (fetched: ${cached2.fetchedAt})
 
@@ -17854,7 +18195,7 @@ ${cached2.content}`;
       const html = await response.text();
       if (contentType.includes("application/json")) {
         const content = JSON.stringify(JSON.parse(html), null, 2);
-        if (cache) {
+        if (cache2) {
           const filename = await set2(url2, content, "JSON Response");
           return `${OUTPUT_LABEL.JSON_FETCHED} (cached: ${PATHS.DOCS}/${filename})
 
@@ -17869,7 +18210,7 @@ ${content.slice(0, 5e3)}
 \`\`\``;
       }
       if (contentType.includes("text/plain")) {
-        if (cache) {
+        if (cache2) {
           const filename = await set2(url2, html, "Plain Text");
           return `${OUTPUT_LABEL.TEXT_FETCHED} (cached: ${PATHS.DOCS}/${filename})
 
@@ -17883,7 +18224,7 @@ ${html.slice(0, 1e4)}`;
       const mainContent = extractMainContent(html);
       const markdown = htmlToMarkdown(mainContent);
       const truncated = markdown.length > 15e3 ? markdown.slice(0, 15e3) + "\n\n... [Content truncated]" : markdown;
-      if (cache) {
+      if (cache2) {
         const filename = await set2(url2, truncated, title);
         return `[${title}]
 Source: ${url2}
@@ -18233,7 +18574,7 @@ Cached: ${doc.fetchedAt}
 ${doc.content}`;
       }
       case CACHE_ACTIONS.CLEAR: {
-        const count = await clear();
+        const count = await clear2();
         return `Cleared ${count} cached documents`;
       }
       case CACHE_ACTIONS.STATS: {
@@ -18437,6 +18778,393 @@ Runs TypeScript compiler and/or ESLint to find issues.
     });
   }
 });
+
+// src/shared/notification/os-notify/constants/notification-defaults.ts
+var NOTIFICATION_DEFAULTS = {
+  title: "OpenCode Orchestrator",
+  message: "Agent is ready for input",
+  playSound: true,
+  soundPath: "",
+  idleConfirmationDelay: 1500,
+  skipIfIncompleteTodos: true,
+  maxTrackedSessions: 100
+};
+
+// src/shared/notification/os-notify/constants/notification-commands.ts
+var NOTIFICATION_COMMANDS = {
+  OSASCRIPT: "osascript",
+  NOTIFY_SEND: "notify-send",
+  POWERSHELL: "powershell",
+  AFPLAY: "afplay",
+  PAPLAY: "paplay",
+  APLAY: "aplay"
+};
+
+// src/shared/notification/os-notify/constants/notification-command-keys.ts
+var NOTIFICATION_COMMAND_KEYS = {
+  OSASCRIPT: "osascript",
+  NOTIFY_SEND: "notifySend",
+  POWERSHELL: "powershell",
+  AFPLAY: "afplay",
+  PAPLAY: "paplay",
+  APLAY: "aplay"
+};
+
+// src/core/notification/os-notify/platform.ts
+import { platform as osPlatform } from "node:os";
+
+// src/core/notification/os-notify/platform-resolver.ts
+import { exec } from "node:child_process";
+import { promisify } from "node:util";
+var execAsync = promisify(exec);
+var cache = {
+  [NOTIFICATION_COMMAND_KEYS.OSASCRIPT]: null,
+  [NOTIFICATION_COMMAND_KEYS.NOTIFY_SEND]: null,
+  [NOTIFICATION_COMMAND_KEYS.POWERSHELL]: null,
+  [NOTIFICATION_COMMAND_KEYS.AFPLAY]: null,
+  [NOTIFICATION_COMMAND_KEYS.PAPLAY]: null,
+  [NOTIFICATION_COMMAND_KEYS.APLAY]: null
+};
+var pending = /* @__PURE__ */ new Map();
+async function findCommand(commandName) {
+  const isWindows = process.platform === PLATFORM.WIN32;
+  const cmd = isWindows ? "where" : "which";
+  try {
+    const { stdout } = await execAsync(`${cmd} ${commandName}`);
+    return stdout.trim().split("\n")[0] || null;
+  } catch {
+    return null;
+  }
+}
+async function resolveCommandPath(key, commandName) {
+  if (cache[key] !== null) return cache[key];
+  const currentPending = pending.get(key);
+  if (currentPending) return currentPending;
+  const promise2 = (async () => {
+    const path5 = await findCommand(commandName);
+    cache[key] = path5;
+    pending.delete(key);
+    return path5;
+  })();
+  pending.set(key, promise2);
+  return promise2;
+}
+
+// src/core/notification/os-notify/platform.ts
+function detectPlatform() {
+  const p = osPlatform();
+  if (p === PLATFORM.DARWIN) return PLATFORM.DARWIN;
+  if (p === PLATFORM.LINUX) return PLATFORM.LINUX;
+  if (p === PLATFORM.WIN32) return PLATFORM.WIN32;
+  return PLATFORM.UNSUPPORTED;
+}
+function getDefaultSoundPath(p) {
+  return "";
+}
+function preloadPlatformCommands(platform2) {
+  if (platform2 === PLATFORM.DARWIN) {
+    resolveCommandPath(
+      NOTIFICATION_COMMAND_KEYS.OSASCRIPT,
+      NOTIFICATION_COMMANDS.OSASCRIPT
+    ).catch(() => {
+    });
+    resolveCommandPath(
+      NOTIFICATION_COMMAND_KEYS.AFPLAY,
+      NOTIFICATION_COMMANDS.AFPLAY
+    ).catch(() => {
+    });
+  } else if (platform2 === PLATFORM.LINUX) {
+    resolveCommandPath(
+      NOTIFICATION_COMMAND_KEYS.NOTIFY_SEND,
+      NOTIFICATION_COMMANDS.NOTIFY_SEND
+    ).catch(() => {
+    });
+    resolveCommandPath(
+      NOTIFICATION_COMMAND_KEYS.PAPLAY,
+      NOTIFICATION_COMMANDS.PAPLAY
+    ).catch(() => {
+    });
+    resolveCommandPath(
+      NOTIFICATION_COMMAND_KEYS.APLAY,
+      NOTIFICATION_COMMANDS.APLAY
+    ).catch(() => {
+    });
+  } else if (platform2 === PLATFORM.WIN32) {
+    resolveCommandPath(
+      NOTIFICATION_COMMAND_KEYS.POWERSHELL,
+      NOTIFICATION_COMMANDS.POWERSHELL
+    ).catch(() => {
+    });
+  }
+}
+
+// src/core/notification/os-notify/notifier.ts
+import { exec as exec2 } from "node:child_process";
+import { promisify as promisify2 } from "node:util";
+var execAsync2 = promisify2(exec2);
+async function notifyDarwin(title, message) {
+  const path5 = await resolveCommandPath(
+    NOTIFICATION_COMMAND_KEYS.OSASCRIPT,
+    NOTIFICATION_COMMANDS.OSASCRIPT
+  );
+  if (!path5) return;
+  const escT = title.replace(/"/g, '\\"');
+  const escM = message.replace(/"/g, '\\"');
+  await execAsync2(`${path5} -e 'display notification "${escM}" with title "${escT}" sound name "Glass"'`);
+}
+async function notifyLinux(title, message) {
+  const path5 = await resolveCommandPath(
+    NOTIFICATION_COMMAND_KEYS.NOTIFY_SEND,
+    NOTIFICATION_COMMANDS.NOTIFY_SEND
+  );
+  if (path5) await execAsync2(`${path5} "${title}" "${message}" 2>/dev/null`);
+}
+async function notifyWindows(title, message) {
+  const ps = await resolveCommandPath(
+    NOTIFICATION_COMMAND_KEYS.POWERSHELL,
+    NOTIFICATION_COMMANDS.POWERSHELL
+  );
+  if (!ps) return;
+  const psT = title.replace(/'/g, "''");
+  const psM = message.replace(/'/g, "''");
+  const script = `
+[Windows.UI.Notifications.ToastNotificationManager, Windows.UI.Notifications, ContentType = WindowsRuntime] | Out-Null
+$Template = [Windows.UI.Notifications.ToastNotificationManager]::GetTemplateContent([Windows.UI.Notifications.ToastTemplateType]::ToastText02)
+$RawXml = [xml] $Template.GetXml()
+($RawXml.toast.visual.binding.text | Where-Object {$_.id -eq '1'}).AppendChild($RawXml.CreateTextNode('${psT}')) | Out-Null
+($RawXml.toast.visual.binding.text | Where-Object {$_.id -eq '2'}).AppendChild($RawXml.CreateTextNode('${psM}')) | Out-Null
+$SerializedXml = New-Object Windows.Data.Xml.Dom.XmlDocument
+$SerializedXml.LoadXml($RawXml.OuterXml)
+$Toast = [Windows.UI.Notifications.ToastNotification]::new($SerializedXml)
+$Notifier = [Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier('OpenCode Orchestrator')
+$Notifier.Show($Toast)
+`.trim().replace(/\n/g, "; ");
+  await execAsync2(`${ps} -Command "${script}"`);
+}
+async function sendNotification(platform2, title, message) {
+  try {
+    switch (platform2) {
+      case PLATFORM.DARWIN:
+        return await notifyDarwin(title, message);
+      case PLATFORM.LINUX:
+        return await notifyLinux(title, message);
+      case PLATFORM.WIN32:
+        return await notifyWindows(title, message);
+      default:
+        break;
+    }
+  } catch (err) {
+    log(`[session-notify] Error sending notification: ${err}`);
+  }
+}
+
+// src/core/notification/os-notify/sound-player.ts
+import { exec as exec3 } from "node:child_process";
+async function playDarwin(soundPath) {
+  if (!soundPath) return;
+  try {
+    const path5 = await resolveCommandPath(
+      NOTIFICATION_COMMAND_KEYS.AFPLAY,
+      NOTIFICATION_COMMANDS.AFPLAY
+    );
+    if (path5) exec3(`"${path5}" "${soundPath}"`);
+  } catch (err) {
+    log(`[session-notify] Error playing sound (Darwin): ${err}`);
+  }
+}
+async function playLinux(soundPath) {
+  if (!soundPath) return;
+  try {
+    const paplay = await resolveCommandPath(
+      NOTIFICATION_COMMAND_KEYS.PAPLAY,
+      NOTIFICATION_COMMANDS.PAPLAY
+    );
+    if (paplay) {
+      exec3(`"${paplay}" "${soundPath}" 2>/dev/null`);
+      return;
+    }
+    const aplay = await resolveCommandPath(
+      NOTIFICATION_COMMAND_KEYS.APLAY,
+      NOTIFICATION_COMMANDS.APLAY
+    );
+    if (aplay) exec3(`"${aplay}" "${soundPath}" 2>/dev/null`);
+  } catch (err) {
+    log(`[session-notify] Error playing sound (Linux): ${err}`);
+  }
+}
+async function playWindows(soundPath) {
+  try {
+    const ps = await resolveCommandPath(
+      NOTIFICATION_COMMAND_KEYS.POWERSHELL,
+      NOTIFICATION_COMMANDS.POWERSHELL
+    );
+    if (!ps) return;
+    if (!soundPath) {
+      exec3(`"${ps}" -Command "[System.Media.SystemSounds]::Asterisk.Play()"`);
+    } else {
+      const escaped = soundPath.replace(/'/g, "''");
+      exec3(`"${ps}" -Command "(New-Object Media.SoundPlayer '${escaped}').PlaySync()"`);
+    }
+  } catch (err) {
+    log(`[session-notify] Error playing sound (Windows): ${err}`);
+  }
+}
+async function playSound(platform2, soundPath) {
+  switch (platform2) {
+    case PLATFORM.DARWIN:
+      return playDarwin(soundPath);
+    case PLATFORM.LINUX:
+      return playLinux(soundPath);
+    case PLATFORM.WIN32:
+      return playWindows(soundPath);
+    default:
+      break;
+  }
+}
+
+// src/core/notification/os-notify/todo-checker.ts
+async function hasIncompleteTodos(client, sessionID) {
+  try {
+    const response = await client.session.todo({ path: { id: sessionID } });
+    const todos = response.data ?? response;
+    if (!todos || todos.length === 0) return false;
+    return todos.some((t) => t.status !== TODO_STATUS.COMPLETED && t.status !== TODO_STATUS.CANCELLED);
+  } catch {
+    return false;
+  }
+}
+
+// src/core/notification/os-notify/handler.ts
+function createSessionNotificationHandler(client, config2 = {}) {
+  const currentPlatform = detectPlatform();
+  const defaultSoundPath = getDefaultSoundPath(currentPlatform);
+  preloadPlatformCommands(currentPlatform);
+  const mergedConfig = {
+    ...NOTIFICATION_DEFAULTS,
+    soundPath: defaultSoundPath,
+    ...config2
+  };
+  const state2 = {
+    notifiedSessions: /* @__PURE__ */ new Set(),
+    pendingTimers: /* @__PURE__ */ new Map(),
+    sessionActivitySinceIdle: /* @__PURE__ */ new Set(),
+    notificationVersions: /* @__PURE__ */ new Map(),
+    executingNotifications: /* @__PURE__ */ new Set()
+  };
+  const backgroundSessions = /* @__PURE__ */ new Set();
+  function cleanupOldSessions() {
+    const max = mergedConfig.maxTrackedSessions;
+    const cleanup = (setOrMap) => {
+      if (setOrMap.size > max) {
+        const keys = setOrMap instanceof Set ? Array.from(setOrMap) : Array.from(setOrMap.keys());
+        keys.slice(0, setOrMap.size - max).forEach((k) => {
+          if (setOrMap instanceof Set) setOrMap.delete(k);
+          else setOrMap.delete(k);
+        });
+      }
+    };
+    cleanup(state2.notifiedSessions);
+    cleanup(state2.sessionActivitySinceIdle);
+    cleanup(state2.notificationVersions);
+    cleanup(state2.executingNotifications);
+  }
+  function markSessionActivity(sessionID) {
+    const timer = state2.pendingTimers.get(sessionID);
+    if (timer) {
+      clearTimeout(timer);
+      state2.pendingTimers.delete(sessionID);
+    }
+    state2.sessionActivitySinceIdle.add(sessionID);
+    state2.notificationVersions.set(sessionID, (state2.notificationVersions.get(sessionID) ?? 0) + 1);
+    state2.notifiedSessions.delete(sessionID);
+  }
+  async function executeNotification(sessionID, version2) {
+    if (state2.executingNotifications.has(sessionID)) {
+      state2.pendingTimers.delete(sessionID);
+      return;
+    }
+    if (state2.notificationVersions.get(sessionID) !== version2 || state2.sessionActivitySinceIdle.has(sessionID) || state2.notifiedSessions.has(sessionID)) {
+      state2.pendingTimers.delete(sessionID);
+      return;
+    }
+    state2.executingNotifications.add(sessionID);
+    try {
+      if (mergedConfig.skipIfIncompleteTodos) {
+        const pending2 = await hasIncompleteTodos(client, sessionID);
+        if (state2.notificationVersions.get(sessionID) !== version2 || state2.sessionActivitySinceIdle.has(sessionID)) {
+          return;
+        }
+        if (pending2) {
+          log(`[session-notify] Skipping notification for ${sessionID} - incomplete todos exist`);
+          return;
+        }
+      }
+      if (state2.notificationVersions.get(sessionID) !== version2 || state2.sessionActivitySinceIdle.has(sessionID)) return;
+      state2.notifiedSessions.add(sessionID);
+      log(`[session-notify] Triggering OS notification for session: ${sessionID}`);
+      await sendNotification(currentPlatform, mergedConfig.title, mergedConfig.message);
+      if (mergedConfig.playSound && mergedConfig.soundPath) {
+        await playSound(currentPlatform, mergedConfig.soundPath);
+      }
+    } catch (err) {
+      log(`[session-notify] Critical error during notification execution: ${err}`);
+    } finally {
+      state2.executingNotifications.delete(sessionID);
+      state2.pendingTimers.delete(sessionID);
+    }
+  }
+  return {
+    registerBackgroundSession: (id) => backgroundSessions.add(id),
+    unregisterBackgroundSession: (id) => backgroundSessions.delete(id),
+    getPlatform: () => currentPlatform,
+    getState: () => state2,
+    handleEvent: async (event) => {
+      if (currentPlatform === PLATFORM.UNSUPPORTED) return;
+      const props = event.properties;
+      if ([
+        "session.updated",
+        "session.created",
+        "session.compacted",
+        "session.error",
+        "message.updated",
+        "message.created",
+        "message.deleted",
+        "tool.execute.before",
+        "tool.execute.after"
+      ].includes(event.type)) {
+        const sessionID = props?.info?.sessionID || props?.info?.id || props?.sessionID;
+        if (sessionID) markSessionActivity(sessionID);
+        return;
+      }
+      if (event.type === "session.idle") {
+        const sessionID = props?.sessionID;
+        if (!sessionID || backgroundSessions.has(sessionID) || state2.notifiedSessions.has(sessionID) || state2.pendingTimers.has(sessionID) || state2.executingNotifications.has(sessionID)) return;
+        state2.sessionActivitySinceIdle.delete(sessionID);
+        const ver = (state2.notificationVersions.get(sessionID) ?? 0) + 1;
+        state2.notificationVersions.set(sessionID, ver);
+        state2.pendingTimers.set(sessionID, setTimeout(() => {
+          executeNotification(sessionID, ver).catch((err) => {
+            log(`[session-notify] Error in executeNotification: ${err}`);
+          });
+        }, mergedConfig.idleConfirmationDelay));
+        cleanupOldSessions();
+      }
+      if (event.type === "session.deleted") {
+        const id = props?.info?.id;
+        if (id) {
+          const timer = state2.pendingTimers.get(id);
+          if (timer) clearTimeout(timer);
+          state2.pendingTimers.delete(id);
+          state2.notifiedSessions.delete(id);
+          state2.sessionActivitySinceIdle.delete(id);
+          state2.notificationVersions.delete(id);
+          state2.executingNotifications.delete(id);
+          backgroundSessions.delete(id);
+        }
+      }
+    }
+  };
+}
 
 // src/core/progress/store.ts
 var progressHistory = /* @__PURE__ */ new Map();
@@ -18756,27 +19484,27 @@ function isSessionRecovering(sessionID) {
 // src/core/loop/stats.ts
 function getIncompleteCount(todos) {
   return todos.filter(
-    (t) => t.status !== TODO_STATUS.COMPLETED && t.status !== TODO_STATUS.CANCELLED
+    (t) => t.status !== TODO_STATUS2.COMPLETED && t.status !== TODO_STATUS2.CANCELLED
   ).length;
 }
 function hasRemainingWork(todos) {
   return getIncompleteCount(todos) > 0;
 }
 function getNextPending(todos) {
-  const pending = todos.filter(
-    (t) => t.status === TODO_STATUS.PENDING || t.status === TODO_STATUS.IN_PROGRESS
+  const pending2 = todos.filter(
+    (t) => t.status === TODO_STATUS2.PENDING || t.status === TODO_STATUS2.IN_PROGRESS
   );
   const priorityOrder = { high: 0, medium: 1, low: 2 };
-  pending.sort((a, b) => priorityOrder[a.priority] - priorityOrder[b.priority]);
-  return pending[0];
+  pending2.sort((a, b) => priorityOrder[a.priority] - priorityOrder[b.priority]);
+  return pending2[0];
 }
-function getStats(todos) {
+function getStats2(todos) {
   const stats2 = {
     total: todos.length,
-    pending: todos.filter((t) => t.status === TODO_STATUS.PENDING).length,
-    inProgress: todos.filter((t) => t.status === TODO_STATUS.IN_PROGRESS).length,
-    completed: todos.filter((t) => t.status === TODO_STATUS.COMPLETED).length,
-    cancelled: todos.filter((t) => t.status === TODO_STATUS.CANCELLED).length,
+    pending: todos.filter((t) => t.status === TODO_STATUS2.PENDING).length,
+    inProgress: todos.filter((t) => t.status === TODO_STATUS2.IN_PROGRESS).length,
+    completed: todos.filter((t) => t.status === TODO_STATUS2.COMPLETED).length,
+    cancelled: todos.filter((t) => t.status === TODO_STATUS2.CANCELLED).length,
     percentComplete: 0
   };
   if (stats2.total > 0) {
@@ -18789,19 +19517,19 @@ function getStats(todos) {
 
 // src/core/loop/formatters.ts
 function formatProgress(todos) {
-  const stats2 = getStats(todos);
+  const stats2 = getStats2(todos);
   const done = stats2.completed + stats2.cancelled;
   return `${done}/${stats2.total} (${stats2.percentComplete}%)`;
 }
 function generateContinuationPrompt(todos) {
   const incomplete = todos.filter(
-    (t) => t.status !== TODO_STATUS.COMPLETED && t.status !== TODO_STATUS.CANCELLED
+    (t) => t.status !== TODO_STATUS2.COMPLETED && t.status !== TODO_STATUS2.CANCELLED
   );
   if (incomplete.length === 0) {
     return "";
   }
   const next = getNextPending(todos);
-  const pendingTasks = incomplete.filter((t) => t.status === TODO_STATUS.PENDING);
+  const pendingTasks = incomplete.filter((t) => t.status === TODO_STATUS2.PENDING);
   const pendingCount = pendingTasks.length;
   let prompt = `<todo_continuation>
 [TODO Progress]: ${formatProgress(todos)}
@@ -18809,7 +19537,7 @@ function generateContinuationPrompt(todos) {
 **Incomplete Tasks** (${incomplete.length} remaining):
 `;
   for (const todo of incomplete.slice(0, 5)) {
-    const statusLabel = todo.status === TODO_STATUS.IN_PROGRESS ? "[RUN]" : "[WAIT]";
+    const statusLabel = todo.status === TODO_STATUS2.IN_PROGRESS ? "[RUN]" : "[WAIT]";
     const priorityLabel = todo.priority === STATUS_LABEL.HIGH ? "[H]" : todo.priority === STATUS_LABEL.MEDIUM ? "[M]" : "[L]";
     prompt += `${statusLabel} ${priorityLabel} [${todo.id}] ${todo.content}
 `;
@@ -19218,7 +19946,7 @@ function hasRunningBackgroundTasks2(parentSessionID) {
   try {
     const manager = ParallelAgentManager.getInstance();
     const tasks = manager.getTasksByParent(parentSessionID);
-    return tasks.some((t) => t.status === "running");
+    return tasks.some((t) => t.status === STATUS_LABEL.RUNNING);
   } catch {
     return false;
   }
@@ -19411,9 +20139,13 @@ function cleanupSession3(sessionID) {
 
 // src/plugin-handlers/event-handler.ts
 function createEventHandler(ctx) {
-  const { client, directory, sessions, state: state2 } = ctx;
+  const { client, directory, sessions, state: state2, sessionNotifyHandler } = ctx;
   return async (input) => {
     const { event } = input;
+    if (sessionNotifyHandler) {
+      sessionNotifyHandler.handleEvent(event).catch(() => {
+      });
+    }
     try {
       const manager = ParallelAgentManager.getInstance();
       manager.handleEvent(event);
@@ -20037,11 +20769,19 @@ var OrchestratorPlugin = async (input) => {
   const asyncAgentTools = createAsyncAgentTools(parallelAgentManager2, client);
   taskToastManager.setConcurrencyController(parallelAgentManager2.getConcurrency());
   log("[index.ts] ParallelAgentManager initialized with TaskToastManager integration");
+  const sessionNotifyHandler = createSessionNotificationHandler(client, {
+    title: "OpenCode Orchestrator",
+    message: "\u2705 Ready to work!",
+    playSound: true,
+    skipIfIncompleteTodos: true
+  });
+  log(`[index.ts] Session notification handler initialized (platform: ${sessionNotifyHandler.getPlatform()})`);
   const handlerContext = {
     client,
     directory,
     sessions,
-    state
+    state,
+    sessionNotifyHandler
   };
   return {
     // -----------------------------------------------------------------

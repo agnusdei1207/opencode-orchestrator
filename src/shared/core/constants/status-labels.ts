@@ -8,6 +8,7 @@
 export const STATUS_LABEL = {
     // Basic States
     PENDING: "pending",
+    QUEUED: "queued",
     RUNNING: "running",
     IN_PROGRESS: "in_progress",
 
