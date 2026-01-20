@@ -18,7 +18,7 @@ npm install -g opencode-orchestrator
 
 Then in OpenCode:
 ```bash
-/task "Build a REST API with authentication"
+/task "Implement a Diablo2 Online Game for Web"
 ```
 
 ## ⭐ Core Philosophy
