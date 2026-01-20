@@ -16,7 +16,7 @@
 
 Where traditional agents hit a sequential wall, we deploy a fractal swarm. OpenCode Orchestrator is the world's most advanced autonomous engineering platform—a **Titan-Class Execution Engine** designed to conquer missions that break conventional AI. 
 
-By fusing **Fractal Swarm Intelligence (HPFA™)** with **Continuous Multi-Stage Integrity (MSVP™)**, it delivers a level of scale, velocity, and architectural absolute previously considered impossible. Welcome to the final form of autonomous development. No bottlenecks. No limits. Only pure execution.
+By fusing **Fractal Swarm Intelligence (HPFA™)** with **Continuous Multi-Stage Verification Pipeline (MSVP™)**, it delivers a level of scale, velocity, and architectural absolute previously considered impossible. Welcome to the final form of autonomous development. No bottlenecks. No limits. Only pure execution.
 
 ## ⚡ Quick Start
 
