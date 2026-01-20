@@ -20,7 +20,7 @@ npm install -g opencode-orchestrator
 
 Then in OpenCode, launch your mission:
 ```bash
-/swarm "Architect and Build a Diablo-like Web Game"
+/task "Architect and Build a Diablo-like Web Game"
 ```
 
 ### 🌌 **The End of Sequential Limits. The Era of Fractal Mastery.**
@@ -88,14 +88,22 @@ MSVP ensures continuous integration integrity by decoupling verification from th
 *   **Global Barrier-Sync Protocol**: Implements a synchronized verification gate. The system enforces a blocking "Barrier" that requires consistency across all distributed units before transitioning to the final Master Review (E2E Integration) and Mission Sealing.
 
 ```
-              /swarm "Build Diablo Game"
+              /task "Build Diablo Game"
                            │
            ╔═══════════════════════════════════════╗
            ║     🎯 COMMANDER — Orchestrator       ║
            ║        (Main Session - Single)        ║
            ╚═══════════════════╤═══════════════════╝
                                │
-           ┌───────────────────▼───────────────────┐
+    ══════════════════════════▼══════════════════════════
+    ║          🚀 PHASE 0: DISCOVERY SWARM (Parallel)      ║
+    ══════════════════════════════════════════════════════
+    │               │               │               │
+    ▼ Scout         ▼ Scout         ▼ Scout         ▼ Scout
+ [Structure]      [Stack]         [Docs]          [Infra]
+    └───────────────┬───────────────┬───────────────┘
+                    │ Consolidate & Sync
+           ┌────────▼───────────────────┐
            │      📋 PLANNER — Create Plan         │
            │    → Outputs: Architectural Grid      │
            └───────────────────┬───────────────────┘

@@ -2,7 +2,7 @@
  * Slash Commands (with slash prefix)
  */
 export const SLASH_COMMANDS = {
-    TASK: "/swarm",
+    TASK: "/task",
     PLAN: "/plan",
     STATUS: "/status",
     STOP: "/stop",
@@ -13,7 +13,7 @@ export const SLASH_COMMANDS = {
  * Command Names (without slash prefix, for comparison after parsing)
  */
 export const COMMAND_NAMES = {
-    TASK: "swarm",
+    TASK: "task",
     PLAN: "plan",
     STATUS: "status",
     STOP: "stop",
