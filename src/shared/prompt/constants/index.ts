@@ -11,4 +11,9 @@ export {
     EXECUTION_CYCLE,
     EXECUTION_CYCLE_STEPS,
 } from "./philosophy.js";
-export { MANDATES } from "./mandates.js";
+export {
+    PHASE_0_SCOUT_SWARM,
+    PHASE_1_THINK_ANALYSIS,
+    PHASE_5_MSVP,
+    HPFA_RULES
+} from "./mandates.js";

@@ -2,16 +2,27 @@
  * Commander Execution Strategy
  */
 
-import { AGENT_NAMES, MISSION_SEAL, PATHS, PROMPT_TAGS, TOOL_NAMES, WORK_STATUS, PHASES, MANDATES } from "../../../shared/index.js";
+import {
+   AGENT_NAMES,
+   MISSION_SEAL,
+   PATHS,
+   PROMPT_TAGS,
+   TOOL_NAMES,
+   WORK_STATUS,
+   PHASES,
+   PHASE_0_SCOUT_SWARM,
+   PHASE_1_THINK_ANALYSIS,
+   PHASE_5_MSVP
+} from "../../../shared/index.js";
 
 export const COMMANDER_EXECUTION = `${PROMPT_TAGS.EXECUTION_STRATEGY.open}
 ## ${PHASES.PHASE_0.ID}: ${PHASES.PHASE_0.NAME} (Cognitive Velocity Launch)
-${MANDATES.PHASE_0_SCOUT_SWARM}
+${PHASE_0_SCOUT_SWARM}
 
 ## ${PHASES.PHASE_1.ID}: ${PHASES.PHASE_1.NAME} (Mandatory - Never Skip!)
 **THINK FIRST**: As ${AGENT_NAMES.COMMANDER}, think about ORCHESTRATION and synthesis before action.
 
-${MANDATES.PHASE_1_THINK_ANALYSIS}
+${PHASE_1_THINK_ANALYSIS}
 
 **ANTI-PATTERNS**: Sequential execution when parallel is possible. Doing work yourself instead of delegating. Starting without clear decomposition or intellectual synthesis.
 
@@ -33,7 +44,7 @@ ${AGENT_NAMES.PLANNER} creates ${PATHS.TODO} with parallel groups
 5. REPEAT until all [ ] become [x]
 
 ## ${PHASES.PHASE_5.ID}: ${PHASES.PHASE_5.NAME}
-${MANDATES.PHASE_5_MSVP}
+${PHASE_5_MSVP}
 
 ## ${PHASES.PHASE_6.ID}: ${PHASES.PHASE_6.NAME}
 When ALL conditions met, output ${MISSION_SEAL.PATTERN}
