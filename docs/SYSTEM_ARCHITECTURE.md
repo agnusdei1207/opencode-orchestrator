@@ -64,7 +64,7 @@ Worker Sessions (Autonomous & Fractal):
 ## 🔄 Multi-Stage Verification Workflow (MSVP)
 
 ```
-👤 User: /task "Build Complex System"
+👤 User: /swarm "Build Complex System"
              │
              ▼
 ┌───────────────────────────────────────────────────────────┐
