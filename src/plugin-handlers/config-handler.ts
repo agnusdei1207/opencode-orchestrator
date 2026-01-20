@@ -11,10 +11,25 @@ import { AGENT_NAMES, AGENT_TOKENS } from "../shared/index.js";
 /**
  * Create config handler for OpenCode
  */
-export function createConfigHandler() {
-    const commanderPrompt = AGENTS[AGENT_NAMES.COMMANDER]?.systemPrompt || "";
+import { findClaudeRules } from "../utils/compatibility/claude.js";
 
+/**
+ * Create config handler for OpenCode
+ */
+export function createConfigHandler() {
     return async (config: Record<string, unknown>) => {
+        // Load Claude Code compatibility rules
+        const claudeRules = findClaudeRules();
+        const injectRules = (prompt: string) => {
+            if (!claudeRules) return prompt;
+            return `${prompt}\n\n${claudeRules}`;
+        };
+
+        const commanderPrompt = injectRules(AGENTS[AGENT_NAMES.COMMANDER]?.systemPrompt || "");
+        const plannerPrompt = injectRules(AGENTS[AGENT_NAMES.PLANNER]?.systemPrompt || "");
+        const workerPrompt = injectRules(AGENTS[AGENT_NAMES.WORKER]?.systemPrompt || "");
+        const reviewerPrompt = injectRules(AGENTS[AGENT_NAMES.REVIEWER]?.systemPrompt || "");
+
         const existingCommands = (config.command as Record<string, unknown>) ?? {};
         const existingAgents = (config.agent as Record<string, { mode?: string; hidden?: boolean }>) ?? {};
 
@@ -44,7 +59,7 @@ export function createConfigHandler() {
                 description: "Strategic planning and research specialist",
                 mode: "subagent",
                 hidden: true,
-                prompt: AGENTS[AGENT_NAMES.PLANNER]?.systemPrompt || "",
+                prompt: plannerPrompt,
                 maxTokens: AGENT_TOKENS.SUBAGENT_MAX_TOKENS,
                 color: "#9B59B6",
             },
@@ -52,7 +67,7 @@ export function createConfigHandler() {
                 description: "Implementation and documentation specialist",
                 mode: "subagent",
                 hidden: true,
-                prompt: AGENTS[AGENT_NAMES.WORKER]?.systemPrompt || "",
+                prompt: workerPrompt,
                 maxTokens: AGENT_TOKENS.SUBAGENT_MAX_TOKENS,
                 color: "#E67E22",
             },
@@ -60,7 +75,7 @@ export function createConfigHandler() {
                 description: "Verification and context management specialist",
                 mode: "subagent",
                 hidden: true,
-                prompt: AGENTS[AGENT_NAMES.REVIEWER]?.systemPrompt || "",
+                prompt: reviewerPrompt,
                 maxTokens: AGENT_TOKENS.SUBAGENT_MAX_TOKENS,
                 color: "#27AE60",
             },
