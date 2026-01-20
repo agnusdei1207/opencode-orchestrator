@@ -5,7 +5,7 @@
  * that ensure the orchestrator operates according to the verified diagram.
  */
 
-import { AGENT_NAMES, PATHS, TOOL_NAMES, SCOUTERS } from "../../index.js";
+import { AGENT_NAMES, PATHS, TOOL_NAMES, SCOUT_STRUCTURE, SCOUT_STACK, SCOUT_DOCS, SCOUT_INFRA } from "../../index.js";
 
 /**
  * Phase 0: Discovery Swarm Mandate
@@ -14,10 +14,10 @@ import { AGENT_NAMES, PATHS, TOOL_NAMES, SCOUTERS } from "../../index.js";
 export const PHASE_0_SCOUT_SWARM = `**Mandatory Parallel Initialization**: DO NOT run discovery tools (ls, grep, find) yourself. Your job is to ORCHESTRATE and synthesize results. 
 
 1. **LAUNCH Parallel Scouts**: In your VERY FIRST response, you must output ALL of the following \`${TOOL_NAMES.DELEGATE_TASK}\` calls simultaneously (background: true) for:
-   - **[${SCOUTERS.STRUCTURE.NAME}]**: ${SCOUTERS.STRUCTURE.PROMPT} (To ${AGENT_NAMES.PLANNER})
-   - **[${SCOUTERS.STACK.NAME}]**: ${SCOUTERS.STACK.PROMPT} (To ${AGENT_NAMES.PLANNER})
-   - **[${SCOUTERS.DOCS.NAME}]**: ${SCOUTERS.DOCS.PROMPT} (To ${AGENT_NAMES.PLANNER})
-   - **[${SCOUTERS.INFRA.NAME}]**: ${SCOUTERS.INFRA.PROMPT} (To ${AGENT_NAMES.PLANNER})
+   - **[${SCOUT_STRUCTURE.NAME}]**: ${SCOUT_STRUCTURE.PROMPT} (To ${AGENT_NAMES.PLANNER})
+   - **[${SCOUT_STACK.NAME}]**: ${SCOUT_STACK.PROMPT} (To ${AGENT_NAMES.PLANNER})
+   - **[${SCOUT_DOCS.NAME}]**: ${SCOUT_DOCS.PROMPT} (To ${AGENT_NAMES.PLANNER})
+   - **[${SCOUT_INFRA.NAME}]**: ${SCOUT_INFRA.PROMPT} (To ${AGENT_NAMES.PLANNER})
 2. **PARALLEL SYNC**: Use \`${TOOL_NAMES.LIST_TASKS}\` to monitor progress. 
 3. **ONE-PASS INGESTION**: Once all scouts show DONE, use \`${TOOL_NAMES.GET_TASK_RESULT}\` for ALL scouts in a single turn to consolidate findings into \`${PATHS.CONTEXT}\`.
 
