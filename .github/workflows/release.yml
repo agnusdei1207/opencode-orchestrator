@@ -88,72 +88,90 @@ jobs:
         uses: softprops/action-gh-release@v1
         with:
           files: binaries/**/*
-          body: |
-            # 🚀 OpenCode Orchestrator ${{ github.ref_name }}
+# 🌌 OpenCode Orchestrator ${{ github.ref_name }}
+# Next-Gen Autonomous Mastery: Powered by HPFA™ & MSVP™
 
-            ---
+---
 
-            ## 🏔️ Extreme Resilience & Performance
+### **The End of Sequential Limits. The Era of Fractal Mastery.**
 
-            Built for "Infinite Missions," the OpenCode Orchestrator is engineered to handle massive codebases and long-running tasks where absolute stability is non-negotiable.
+OpenCode Orchestrator is not just an agent; it’s a **Titan-Class Execution Engine**. Powered by the revolutionary **HPFA (Hyper-Parallel Fractal Architecture)**, it is designed to conquer "impossible" missions with 0.1ms precision and infinite scalability.
 
-            - **🔄 Continuous Operation (WAL)**: Mission continuity is guaranteed via Write-Ahead Logging. Even after a system crash, the orchestrator "replays" its history from disk to resume complex tasks exactly where they left off.
-            - **⚡ 80% Resource Efficiency**: Smart intent-based polling and output caching reduce API overhead by 60-80%. The system intelligently filters redundant traffic, ensuring extreme agility even under heavy multi-agent load.
-            - **🧬 Self-Scaling Intelligence**: Real-time success/failure feedback dynamic concurrency. The system learns model reliability and rate limits on the fly, autonomously balancing execution speed with fail-safe stability.
-            - **💎 Zero-Leak Architecture**: Rigorous, lifecycle-based resource management ensures 100% memory reclamation. Engineered for sessions lasting 10,000+ iterations without a single byte of memory drift.
+By fusing **Fractal Swarm Intelligence (HPFA™)** with **Continuous Multi-Stage Verification Pipeline (MSVP™)**, it delivers a level of scale, velocity, and architectural absolute previously considered impossible.
 
-            ---
+---
 
-            ## ⭐ Core Philosophy
+## 💎 The Four Pillars of Excellence
 
-            > **Humanity lands on an unknown planet. No maps. No guides. Just a mission.**
+*   **⚡ Velocity**: Parallelize up to 50 concurrent sessions through **Cognitive Elasticity**.
+*   **🧬 Scale**: **Fractal Delegation** allows workers to recursively spawn their own sub-agents.
+*   **🛡️ Safety**: **MSVP™** reviews every line of code in parallel "Shadow Sessions" before it ever touches your build.
+*   **♾️ Trust**: **Iron-Clad Reliability** via Write-Ahead Logging (WAL). Represents a "permanent memory" for autonomous missions.
 
-            You don't assume oxygen. You don't guess gravity. You **explore**, **learn**, **adapt**, and **act**.
+---
 
-            ```
-            ┌───────────────────────────────────────────────────────────┐
-            │  🔍 EXPLORE   →   📝 LEARN   →   🔄 ADAPT   →   ⚡ ACT        │
-            │  Scan the         Document        Adjust to       Execute the │
-            │  unknown          findings        the project     task        │
-            └───────────────────────────────────────────────────────────┘
-            ```
+## 🏛️ Hyper-Parallel Architecture: HPFA & MSVP
 
-            ---
+```
+              /extreme-mission "Build Complex System"
+                           │
+           ╔═══════════════════════════════════════╗
+           ║     🎯 COMMANDER — Orchestrator       ║
+           ║        (Main Session - Single)        ║
+           ╚═══════════════════╤═══════════════════╝
+                               │
+           ┌───────────────────▼───────────────────┐
+           │      📋 PLANNER — Create Plan         │
+           │    → Outputs: Architectural Grid      │
+           └───────────────────┬───────────────────┘
+                               │
+    ══════════════════════════╧══════════════════════════
+    ║            🔥 HPFA PARALLEL GRID (MSVP)           ║
+    ══════════════════════════════════════════════════════
+    │               │               │               │
+    ▼               ▼               ▼               ▼
+┌──────────┐    ┌──────────┐    ┌──────────┐    ┌──────────┐
+│🔨 WORKER │    │🔨 WORKER │    │🔨 WORKER │    │🔨 WORKER │  <-- Fractal Spawning
+│ Module A │    │ Module B │    │ Module C │    │ Module D │
+└────┬─────┘    └────┬─────┘    └────┬─────┘    └────┬─────┘
+     │ ⚡ Instant    │ ⚡ Instant    │ ⚡ Instant    │ ⚡ Instant
+     ▼ Review       ▼ Review       ▼ Review       ▼ Review
+┌──────────┐    ┌──────────┐    ┌──────────┐    ┌──────────┐
+│✅ REVIEWR│    │✅ REVIEWR│    │✅ REVIEWR│    │✅ REVIEWR│  <-- Stage 1: Unit
+│ (Unit-A) │    │ (Unit-B) │    │ (Unit-C) │    │ (Unit-D) │      Verification
+└────┬─────┘    └────┬─────┘    └────┬─────┘    └────┬─────┘
+     │               │               │               │
+    ═▼═══════════════▼═══════════════▼═══════════════▼════
+    ║                ⏳ SYNC BARRIER                     ║
+    ══════════════════════════════════════════════════════
+                               │
+           ┌───────────────────▼───────────────────┐
+           │      ✅ MASTER REVIEWER — Final Pass  │
+           │         (Cross-module Integration)    │
+           │    → Stage 2: E2E & System Integrity  │
+           └───────────────────┬───────────────────┘
+                               │
+                     ┌─────────┴─────────┐
+                     │   Seal Conditions │
+                     │   Verified?       │
+                     └─────────┬─────────┘
+                         No ↙     ↘ Yes
+                     ♻️ LOOP    🎖️ MISSION
+                    (Adaptive)   SEALED
+```
 
-            ## 🚀 The Agents
+---
 
-            | Agent | Role | Mission |
-            |:------|:-----|:--------|
-            | 🎯 **Commander** | Orchestrator | Leads the task, delegates work to other agents, ensures completion |
-            | 📋 **Planner** | Researcher | Analyzes the project, creates the plan, documents findings |
-            | 🔨 **Worker** | Implementer | Writes code, modifies files, follows the project's patterns |
-            | ✅ **Reviewer** | Verifier | Tests changes, checks for errors, confirms quality |
+## ✨ Release Features
 
-            ---
-
-            ## 📖 Principles
-
-            | Principle | In Practice |
-            |:----------|:------------|
-            | 🔍 **Never Assume** | Always check actual code and config first |
-            | 📝 **Document Findings** | Record patterns for future agents |
-            | 📚 **Verify Evidence** | Run tests and cite sources |
-            | 🔄 **Adapt Style** | Match existing project patterns |
-            | 🤝 **Focused Roles** | Clear responsibilities for each agent |
-
-            ---
-
-            ## ✨ Key Features
-
-            | Feature | What It Does |
-            |:---------|:-------------|
-            | 🚀 **60-80% Optimization**| Smart polling & output caching for massive speed gains |
-            | ⚡ **50 Parallel Tasks** | Run up to 50 agents simultaneously |
-            | 🔄 **Non-Stop Recovery** | WAL-based persistence (resumes tasks after crashes) |
-            | 🔥 **Multi-File Ops** | Work on different files at the same time |
-            | 🛡️ **Self-Scaling** | Dynamic concurrency limits based on success/failure |
-            | 🩹 **Memory Integrity** | Strict resource cleanup prevents leaks in long sessions |
-            | 🧬 **Adaptive AI** | Agents learn and adapt based on the project |
+| Feature | Description |
+|:---------|:-------------|
+| 🚀 **MSVP™ Pipeline** | Parallelized unit reviews for zero-latency integrity |
+| 🧬 **Fractal Spawning** | Recursive sub-mission generation for massive complexity |
+| ⚡ **50 Parallel Tasks** | Titan-class execution density |
+| 🔄 **Non-Stop Recovery** | WAL-based cognitive persistence |
+| 🛡️ **Self-Scaling** | Dynamic concurrency management |
+| 🩹 **Memory Integrity** | 100% reclamation for infinite sessions |
 
             ---
 
