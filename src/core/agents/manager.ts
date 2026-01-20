@@ -10,7 +10,7 @@
  */
 
 import type { PluginInput } from "@opencode-ai/plugin";
-import { TASK_STATUS, PART_TYPES, MESSAGE_ROLES, WAL_ACTIONS } from "../../shared/index.js";
+import { TASK_STATUS, PART_TYPES, MESSAGE_ROLES, WAL_ACTIONS, AGENT_NAMES } from "../../shared/index.js";
 import { ConcurrencyController } from "./concurrency.js";
 import { TaskStore } from "./task-store.js";
 import { log } from "./logger.js";
@@ -63,7 +63,8 @@ export class ParallelAgentManager {
             this.concurrency,
             (parentSessionID) => this.cleaner.notifyParentIfAllComplete(parentSessionID),
             (taskId) => this.cleaner.scheduleCleanup(taskId),
-            () => this.cleaner.pruneExpiredTasks()
+            () => this.cleaner.pruneExpiredTasks(),
+            (task) => this.handleTaskComplete(task)
         );
 
         // Initialize launcher
@@ -93,7 +94,8 @@ export class ParallelAgentManager {
             (sessionID) => this.findBySession(sessionID),
             (parentSessionID) => this.cleaner.notifyParentIfAllComplete(parentSessionID),
             (taskId) => this.cleaner.scheduleCleanup(taskId),
-            (sessionID) => this.poller.validateSessionHasOutput(sessionID)
+            (sessionID) => this.poller.validateSessionHasOutput(sessionID),
+            (task) => this.handleTaskComplete(task)
         );
 
         // Bootstrap recovery
@@ -245,6 +247,32 @@ export class ParallelAgentManager {
 
         // Log to WAL
         taskWAL.log(WAL_ACTIONS.UPDATE, task).catch(() => { });
+    }
+
+    private async handleTaskComplete(task: ParallelTask): Promise<void> {
+        // MSVP: Multi-Stage Verification Pipeline (1차 리뷰)
+        // If a WORKER completes, immediately trigger a parallel REVIEWER
+        if (task.agent === AGENT_NAMES.WORKER && task.mode !== "race") {
+            log(`[MSVP] Triggering 1차 리뷰 (Unit Review) for task ${task.id}`);
+
+            try {
+                await this.launch({
+                    agent: AGENT_NAMES.REVIEWER,
+                    description: `1차 리뷰: ${task.description}`,
+                    prompt: `진행된 작업(\`${task.description}\`)에 대해 1차 리뷰(유닛 검증)를 수행하세요.\n` +
+                        `주요 점검 사항:\n` +
+                        `1. 해당 모듈의 유닛 테스트 코드 작성 여부 및 통과 확인\n` +
+                        `2. 코드 품질 및 모듈성 준수 여부\n` +
+                        `3. 발견된 결함 즉시 수정 지시 또는 리포트\n\n` +
+                        `이 작업은 전체 통합 전 부품 단위의 완결성을 보장하기 위함입니다.`,
+                    parentSessionID: task.parentSessionID,
+                    depth: task.depth,
+                    groupID: task.groupID || task.id, // Group reviews with their origins
+                });
+            } catch (error) {
+                log(`[MSVP] Failed to trigger review for ${task.id}:`, error);
+            }
+        }
     }
 
     private async recoverActiveTasks(): Promise<void> {

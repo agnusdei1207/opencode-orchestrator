@@ -103,6 +103,8 @@ export class TaskLauncher {
             startedAt: new Date(),
             concurrencyKey: input.agent,
             depth: (input.depth ?? 0) + 1,
+            mode: input.mode || "normal",
+            groupID: input.groupID,
         };
 
         // State tracking
@@ -147,10 +149,11 @@ export class TaskLauncher {
                 body: {
                     agent: task.agent,
                     tools: {
-                        delegate_task: false,
-                        get_task_result: false,
-                        list_tasks: false,
-                        cancel_task: false,
+                        // HPFA: Allow agents to delegate sub-tasks (Fractal Spawning)
+                        delegate_task: true,
+                        get_task_result: true,
+                        list_tasks: true,
+                        cancel_task: true,
                     },
                     parts: [{ type: PART_TYPES.TEXT, text: task.prompt }]
                 },

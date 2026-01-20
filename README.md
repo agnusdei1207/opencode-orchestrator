@@ -2,13 +2,21 @@
   <img src="assets/logo.png" alt="logo" width="280" />
   <h1>OpenCode Orchestrator</h1>
 
+  <p><b>Next-Gen Autonomous Mastery: Powered by HPFA™ & MSVP™</b></p>
+  <p><i>Redefining Scalability with Fractal Swarm Intelligence and Multi-Stage Integrity</i></p>
+
   [![MIT License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
   [![npm](https://img.shields.io/npm/v/opencode-orchestrator.svg)](https://www.npmjs.com/package/opencode-orchestrator)
   [![Tests](https://img.shields.io/badge/tests-216%20passed-brightgreen.svg)]()
 </div>
 
-> **Multi-Agent Orchestration Plugin for [OpenCode](https://opencode.ai)**
+---
 
+### 🌌 **The End of Sequential Limits. The Era of Fractal Mastery.**
+
+Where traditional agents hit a sequential wall, we deploy a fractal swarm. OpenCode Orchestrator is the world's most advanced autonomous engineering platform—a **Titan-Class Execution Engine** designed to conquer missions that break conventional AI. 
+
+By fusing **Fractal Swarm Intelligence (HPFA™)** with **Continuous Multi-Stage Integrity (MSVP™)**, it delivers a level of scale, velocity, and architectural absolute previously considered impossible. Welcome to the final form of autonomous development. No bottlenecks. No limits. Only pure execution.
 
 ## ⚡ Quick Start
 
@@ -16,20 +24,21 @@
 npm install -g opencode-orchestrator
 ```
 
-Then in OpenCode:
+Then in OpenCode, launch your mission:
 ```bash
-/extreme-mission "Implement a Diablo2 Online Game for Web"
+/extreme-mission "Architect and Build a Diablo-like Web Engine"
 ```
 
-## 🏔️ Extreme Resilience & Performance
+## 💎 The Four Pillars of Excellence
 
-Built for "Infinite Missions," the OpenCode Orchestrator is engineered to handle massive codebases and long-running tasks where absolute stability is non-negotiable.
+We’ve combined industrial-grade reliability with cutting-edge parallel intelligence to redefine what’s possible in AI coding.
 
-- **🔄 Continuous Operation (WAL)**: Mission continuity is guaranteed via Write-Ahead Logging. Even after a system crash, the orchestrator "replays" its history from disk to resume complex tasks exactly where they left off.
-- **⚡ 80% Resource Efficiency**: Smart intent-based polling and output caching reduce API overhead by 60-80%. The system intelligently filters redundant traffic, ensuring extreme agility even under heavy multi-agent load.
-- **🧬 Self-Scaling Intelligence**: Real-time success/failure feedback dynamic concurrency. The system learns model reliability and rate limits on the fly, autonomously balancing execution speed with fail-safe stability.
-- **💎 Zero-Leak Architecture**: Rigorous, lifecycle-based resource management ensures 100% memory reclamation. Engineered for sessions lasting 10,000+ iterations without a single byte of memory drift.
+*   **⚡ Velocity**: Parallelize up to 50 concurrent sessions. What takes hours for others is finished in minutes through **Cognitive Elasticity**.
+*   **🧬 Scale**: **Fractal Delegation** allows workers to recursively spawn their own sub-agents. No task is too big for a system that can replicate its own intelligence.
+*   **🛡️ Safety**: Our **MSVP (Multi-Stage Verification Pipeline)** reviews every line of code in parallel "Shadow Sessions" before it ever touches your build.
+*   **♾️ Trust**: **Iron-Clad Reliability** via Write-Ahead Logging (WAL). Even after a crash, the system replays its history to resume exactly where it was.
 
+---
 
 ## ⭐ Core Philosophy
 
@@ -63,73 +72,90 @@ Built for "Infinite Missions," the OpenCode Orchestrator is engineered to handle
 | 🤝 **Specialized Roles** | Each agent has a clear, focused responsibility |
 
 
-## 🏛️ Workflow Architecture
+## 🏛️ Hyper-Parallel Architecture: HPFA & MSVP
+
+The orchestrator eliminates the linear bottleneck of AI development through two breakthrough technologies:
+
+### 🧬 **HPFA (Hyper-Parallel Fractal Architecture)**
+Imagine an agent that doesn't just work, but **thinks like a Hive Mind**. 
+*   **Fractal Delegation**: Workers are no longer just "doers." They are mini-planners that can recursively spawn their own sub-agents to handle complexity at every level.
+*   **Speculative Racing**: Ambiguous tasks are solved using multiple strategies in parallel. The fastest, most accurate path wins, while others are pruned—minimizing latency and maximizing quality.
+
+### 🛡️ **MSVP (Multi-Stage Verification Pipeline)**
+Speed is nothing without accuracy. MSVP ensures your code is production-ready at every second.
+*   **Shadow Parallel Review**: As soon as a file is written, a parallel reviewer session is already validating it before the main task even finishes.
+*   **Barrier-Sync Integration**: A 4-stage verification gate that prevents "architectural drift" by forcing a global synchronization barrier before final sealing.
 
 ```
-              /extreme-mission "Build REST API"
-                          │
-          ╔═══════════════════════════════════════╗
-          ║     🎯 COMMANDER — Orchestrator       ║
-          ║        (Main Session - Single)        ║
-          ╚═══════════════════╤═══════════════════╝
-                              │
-          ┌───────────────────▼───────────────────┐
-          │      📋 PLANNER — Create Plan         │
-          │         (Single, Sync Call)           │
-          │    → Outputs: .opencode/todo.md       │
-          └───────────────────┬───────────────────┘
-                              │
+              /extreme-mission "Build Complex System"
+                           │
+           ╔═══════════════════════════════════════╗
+           ║     🎯 COMMANDER — Orchestrator       ║
+           ║        (Main Session - Single)        ║
+           ╚═══════════════════╤═══════════════════╝
+                               │
+           ┌───────────────────▼───────────────────┐
+           │      📋 PLANNER — Create Plan         │
+           │    → Outputs: Architectural Grid      │
+           └───────────────────┬───────────────────┘
+                               │
     ══════════════════════════╧══════════════════════════
-    ║                  🔥 PARALLEL ZONE                  ║
+    ║            🔥 HPFA PARALLEL GRID (MSVP)           ║
     ══════════════════════════════════════════════════════
-          │               │               │
-          ▼               ▼               ▼
-    ┌──────────┐   ┌──────────┐   ┌──────────┐
-    │ 🔨 WORKER│   │ 🔨 WORKER│   │ 🔨 WORKER│  ← Up to 50
-    │  Task 1  │   │  Task 2  │   │  Task 3  │    concurrent
-    │ auth.ts  │   │  api.ts  │   │  db.ts   │    sessions
-    └────┬─────┘   └────┬─────┘   └────┬─────┘
-         │              │              │
+    │               │               │               │
+    ▼               ▼               ▼               ▼
+┌──────────┐    ┌──────────┐    ┌──────────┐    ┌──────────┐
+│🔨 WORKER │    │🔨 WORKER │    │🔨 WORKER │    │🔨 WORKER │  <-- Fractal Spawning
+│ Module A │    │ Module B │    │ Module C │    │ Module D │
+└────┬─────┘    └────┬─────┘    └────┬─────┘    └────┬─────┘
+     │ ⚡ Instant    │ ⚡ Instant    │ ⚡ Instant    │ ⚡ Instant
+     ▼ Review       ▼ Review       ▼ Review       ▼ Review
+┌──────────┐    ┌──────────┐    ┌──────────┐    ┌──────────┐
+│✅ REVIEWR│    │✅ REVIEWR│    │✅ REVIEWR│    │✅ REVIEWR│  <-- Stage 1: Unit
+│ (Unit-A) │    │ (Unit-B) │    │ (Unit-C) │    │ (Unit-D) │      Verification
+└────┬─────┘    └────┬─────┘    └────┬─────┘    └────┬─────┘
+     │               │               │               │
+    ═▼═══════════════▼═══════════════▼═══════════════▼════
+    ║                ⏳ SYNC BARRIER                     ║
     ══════════════════════════════════════════════════════
-    ║                  ⏳ SYNC BARRIER                   ║
-    ══════════════════════════════════════════════════════
-                              │
-          ┌───────────────────▼───────────────────┐
-          │      ✅ REVIEWER — Verify All         │
-          │         (Single, Sync Call)           │
-          │    → Tests, Lint, Integration         │
-          └───────────────────┬───────────────────┘
-                              │
-                    ┌─────────┴─────────┐
-                    │   All Complete?   │
-                    │   Issues = 0?     │
-                    └─────────┬─────────┘
-                        No ↙     ↘ Yes
-                    ♻️ LOOP    🎖️ MISSION
-                   (back to     SEALED
-                   Commander)
+                               │
+           ┌───────────────────▼───────────────────┐
+           │      ✅ MASTER REVIEWER — Final Pass  │
+           │         (Cross-module Integration)    │
+           │    → Stage 2: E2E & System Integrity  │
+           └───────────────────┬───────────────────┘
+                               │
+                     ┌─────────┴─────────┐
+                     │   Seal Conditions │
+                     │   Verified?       │
+                     └─────────┬─────────┘
+                         No ↙     ↘ Yes
+                     ♻️ LOOP    🎖️ MISSION
+                    (Adaptive)   SEALED
 ```
 
-### Execution Model
+### Execution Model (MSVP)
 
-| Phase | Agent | Parallelism | Blocking |
-|:------|:------|:------------|:---------|
-| 1️⃣ Plan | Planner | **Single** | Sync (waits) |
-| 2️⃣ Execute | Workers | **Parallel** (up to 50) | Async (background) |
-| 3️⃣ Verify | Reviewer | **Single** | Sync (waits) |
-| 4️⃣ Loop | Commander | **Single** | Coordinates |
+| Phase | Agent | Parallelism | Verification Level |
+|:------|:------|:------------|:-------------------|
+| 1️⃣ Plan | Planner | **Single** | Static Analysis |
+| 2️⃣ Implement | Workers | **HPFA Parallel** | Direct Coding |
+| 3️⃣ Unit Pass | Reviewers | **Shadow Parallel** | **1차 리뷰**: Unit Tests (Async) |
+| 4️⃣ Final Sync | Barrier | **Blocking** | All Units Verified |
+| 5️⃣ Integration | Master Reviewer | **Single** | **2차 리뷰**: Full E2E & Sync |
 
 ## Features
 
 | Feature | What It Does |
 |:---------|:-------------|
-| 🚀 **60-80% Optimization**| Smart polling & output caching for massive speed gains |
-| ⚡ **50 Parallel Tasks** | Run up to 50 agents simultaneously |
+| 🚀 **MSVP Pipeline** | Parallel unit reviews triggered immediately after worker tasks |
+| 🧬 **Fractal Spawning** | Workers can recursively spawn sub-missions for complex tasks |
+| ⚡ **20+ Parallel Tasks** | High-intensity execution with safety concurrency limits |
 | 🔄 **Non-Stop Recovery** | WAL-based persistence (resumes tasks after crashes) |
 | 🔥 **Multi-File Ops** | Work on different files at the same time |
 | 🛡️ **Self-Scaling** | Dynamic concurrency limits based on success/failure |
 | 🩹 **Memory Integrity** | Strict resource cleanup prevents leaks in long sessions |
-| 🧬 **Adaptive AI** | Agents learn and adapt based on the project |
+| 🏗️ **Architectural Modularity**| Enforces language-agnostic clean code principles |
 
 ---
 
@@ -145,14 +171,13 @@ Built for "Infinite Missions," the OpenCode Orchestrator is engineered to handle
 | 🔨 Build failure | Fix the issue and retry |
 
 
-## 📚 Documentation
-
-- **[System Architecture](docs/SYSTEM_ARCHITECTURE.md)** — Full technical deep-dive
-
+---
 
 ## 🎹 Developer's Words
 
-> [Read the full note →](docs/DEVELOPERS_NOTE.md)
+> "We are not just building a tool; we are building an autonomous engineer that can evolve with the project. HPFA and MSVP are the heart of this evolution—turning AI from a chatbot into a high-performance execution engine."
+> 
+> [Read the full Developer's Note →](docs/DEVELOPERS_NOTE.md)
 
 
 ## 📄 License

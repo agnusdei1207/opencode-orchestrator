@@ -234,12 +234,14 @@ export const createDelegateTaskTool = (manager: ParallelAgentManager, client: un
         prompt: tool.schema.string().describe("Prompt for the agent"),
         background: tool.schema.boolean().describe("true=async, false=sync"),
         resume: tool.schema.string().optional().describe("Session ID to resume (from previous task.sessionID)"),
+        mode: tool.schema.enum(["normal", "race", "fractal"]).optional().describe("Task mode (race=first wins, fractal=recursive)"),
+        groupID: tool.schema.string().optional().describe("Group ID for racing or tracking recursive families"),
     },
     async execute(args, context) {
-        const { agent, description, prompt, background, resume } = args;
+        const { agent, description, prompt, background, resume, mode, groupID } = args;
         const ctx = context as { sessionID: string };
 
-        log(`${PARALLEL_LOG.DELEGATE_TASK} execute() called`, { agent, description, background, resume, parentSession: ctx.sessionID });
+        log(`${PARALLEL_LOG.DELEGATE_TASK} execute() called`, { agent, description, background, resume, mode, groupID, parentSession: ctx.sessionID });
 
         const sessionClient = client as {
             session: {
@@ -265,6 +267,8 @@ export const createDelegateTaskTool = (manager: ParallelAgentManager, client: un
                     parentSessionID: ctx.sessionID,
                     agent, // Assuming agent is needed for resume context
                     description, // Assuming description is needed for resume context
+                    mode: mode as any,
+                    groupID,
                 };
                 const launchResult = await manager.launch(input);
                 const task = (Array.isArray(launchResult) ? launchResult[0] : launchResult) as ParallelTask;
@@ -307,6 +311,8 @@ export const createDelegateTaskTool = (manager: ParallelAgentManager, client: un
                 const launchResult = await manager.launch({
                     agent, description, prompt,
                     parentSessionID: ctx.sessionID,
+                    mode: mode as any,
+                    groupID,
                 });
                 const task = (Array.isArray(launchResult) ? launchResult[0] : launchResult) as ParallelTask;
 

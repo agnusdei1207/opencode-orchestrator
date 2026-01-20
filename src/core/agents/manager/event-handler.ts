@@ -22,7 +22,8 @@ export class EventHandler {
         private findBySession: (sessionID: string) => ParallelTask | undefined,
         private notifyParentIfAllComplete: (parentSessionID: string) => Promise<void>,
         private scheduleCleanup: (taskId: string) => void,
-        private validateSessionHasOutput: (sessionID: string) => Promise<boolean>
+        private validateSessionHasOutput: (sessionID: string) => Promise<boolean>,
+        private onTaskComplete?: (task: ParallelTask) => void | Promise<void>
     ) { }
 
     /**
@@ -91,6 +92,11 @@ export class EventHandler {
 
         // Log to WAL
         taskWAL.log(WAL_ACTIONS.COMPLETE, task).catch(() => { });
+
+        // HPFA Trigger: Pipelined Review
+        if (this.onTaskComplete) {
+            Promise.resolve(this.onTaskComplete(task)).catch(err => log("Error in onTaskComplete callback:", err));
+        }
 
         log(`Task ${task.id} completed via session.idle event (${formatDuration(task.startedAt, task.completedAt)})`);
     }

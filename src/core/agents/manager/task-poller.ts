@@ -24,7 +24,8 @@ export class TaskPoller {
         private concurrency: ConcurrencyController,
         private notifyParentIfAllComplete: (parentSessionID: string) => Promise<void>,
         private scheduleCleanup: (taskId: string) => void,
-        private pruneExpiredTasks: () => void
+        private pruneExpiredTasks: () => void,
+        private onTaskComplete?: (task: ParallelTask) => void | Promise<void>
     ) { }
 
     start(): void {
@@ -128,6 +129,11 @@ export class TaskPoller {
 
         // Log to WAL
         taskWAL.log(WAL_ACTIONS.COMPLETE, task).catch(() => { });
+
+        // HPFA Trigger: Pipelined Review
+        if (this.onTaskComplete) {
+            Promise.resolve(this.onTaskComplete(task)).catch(err => log("Error in onTaskComplete callback:", err));
+        }
 
         const duration = formatDuration(task.startedAt, task.completedAt);
 
