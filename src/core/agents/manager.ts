@@ -213,6 +213,27 @@ export class ParallelAgentManager {
 
     formatDuration = formatDuration;
 
+    /**
+     * Get orchestration stats
+     */
+    getStats(): { running: number; queued: number; total: number } {
+        const running = this.store.getRunning().length;
+        const all = this.store.getAll().length;
+        // Simple logic: tasks in store that are not completed/error and not currently running are queued
+        // but it's better to check the concurrency controller's queues
+        let queued = 0;
+        const concurrencyKeys = ["default", AGENT_NAMES.WORKER, AGENT_NAMES.REVIEWER, AGENT_NAMES.PLANNER];
+        for (const key of concurrencyKeys) {
+            queued += this.concurrency.getQueueLength(key);
+        }
+
+        return {
+            running,
+            queued,
+            total: all
+        };
+    }
+
     // ========================================================================
     // Event Handling
     // ========================================================================
