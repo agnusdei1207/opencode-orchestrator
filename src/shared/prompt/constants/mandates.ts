@@ -1,17 +1,27 @@
 /**
  * Architectural Mandates - Immutable Core Logic
  * 
+ *
  * These constants define the non-negotiable architectural requirements
  * that ensure the orchestrator operates according to the verified diagram.
  */
 
-import { AGENT_NAMES, PATHS, TOOL_NAMES, SCOUT_STRUCTURE, SCOUT_STACK, SCOUT_DOCS, SCOUT_INFRA, SCOUT_INTEGRATION } from "../../index.js";
+import { AGENT_NAMES } from "../../agent/constants/names.js";
+import { PATHS } from "../../core/constants/paths.js";
+import { TOOL_NAMES } from "../../tool/constants/tool-names.js";
+import {
+   SCOUT_STRUCTURE,
+   SCOUT_STACK,
+   SCOUT_DOCS,
+   SCOUT_INFRA,
+   SCOUT_INTEGRATION
+} from "./scouts.js";
 
 /**
  * Phase 0: Discovery Swarm Mandate
  * Force parallel execution of scouts to maximize velocity.
  */
-export const PHASE_0_SCOUT_SWARM = `**Mandatory Parallel Initialization**: DO NOT run discovery tools (ls, grep, find) yourself. Your job is to ORCHESTRATE and synthesize results. 
+export const PHASE_0_SCOUT_SWARM = `**Mandatory Parallel Initialization**: DO NOT run discovery tools (ls, grep, find) yourself. Your job is to ORCHESTRATE and synthesize results.
 
 1. **LAUNCH Parallel Scouts**: In your VERY FIRST response, you must output ALL of the following \`${TOOL_NAMES.DELEGATE_TASK}\` calls simultaneously (background: true) for:
    - **[${SCOUT_STRUCTURE.NAME}]**: ${SCOUT_STRUCTURE.PROMPT} (To ${AGENT_NAMES.PLANNER})
