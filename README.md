@@ -4,21 +4,9 @@
 
   <p>Autonomous Multi-Agent Orchestration Engine for Software Engineering</p>
 
-  [![MIT License](https://img.shields.io/badge/license-MIT-gray.svg)](LICENSE)
+  [![MIT License](https://img.shields.io/badge/license-MIT-red.svg)](LICENSE)
   [![npm](https://img.shields.io/npm/v/opencode-orchestrator.svg)](https://www.npmjs.com/package/opencode-orchestrator)
 </div>
-
----
-
-## Overview
-
-OpenCode Orchestrator is a framework designed to manage complex software engineering tasks through parallel multi-agent execution. It extends the capabilities of standard AI agents by introducing a hierarchical delegation model and a multi-stage verification pipeline.
-
-### Key Characteristics
-*   **Parallel Execution**: Manages multiple concurrent agent sessions to accelerate development.
-*   **Hierarchical Delegation**: Supports recursive task decomposition (Fractal Spawning) for complex requirements.
-*   **Integrated Verification**: Employs a multi-stage pipeline (Unit & Integration) to ensure code quality.
-*   **Persistent State**: Uses structured logging to maintain state and recover from interruptions.
 
 ---
 
@@ -32,6 +20,27 @@ In an OpenCode environment:
 ```bash
 /task "Implement a real-time collaborative editor using WebSocket"
 ```
+
+## Overview
+
+OpenCode Orchestrator is a framework designed to manage complex software engineering tasks through parallel multi-agent execution. It extends the capabilities of standard AI agents by introducing a hierarchical delegation model and a multi-stage verification pipeline.
+
+### Key Characteristics
+*   **Parallel Execution**: Manages multiple concurrent agent sessions to accelerate development.
+*   **Hierarchical Delegation**: Supports recursive task decomposition (Fractal Spawning) for complex requirements.
+*   **Integrated Verification**: Employs a multi-stage pipeline (Unit & Integration) to ensure code quality.
+*   **Persistent State**: Uses structured logging to maintain state and recover from interruptions.
+
+---
+
+## Core Philosophy: Adaptive Engineering
+
+The orchestrator follows an **Explore → Learn → Adapt → Act** cycle to ensure agents remain grounded in the project's specific context.
+
+*   **Explore**: Systematically discover the project structure, tech stack, and documentation.
+*   **Learn**: Extract existing patterns, naming conventions, and architectural decisions from the codebase.
+*   **Adapt**: Adjust implementation strategies and verification parameters based on learned context.
+*   **Act**: Execute tasks through parallel delegation with evidence-based verification.
 
 ---
 
@@ -123,6 +132,7 @@ MSVP is a structured verification process that decouples implementation from qua
 OpenCode Orchestrator was developed to solve the "sequential bottleneck" in AI-assisted coding. By treating agents as distributed processing units rather than just chat interfaces, we aim to provide a more reliable and scalable autonomous engineering experience.
 
 [Full Developer's Note →](docs/DEVELOPERS_NOTE.md)
+[System Architecture →](docs/SYSTEM_ARCHITECTURE.md)
 
 ---
 
