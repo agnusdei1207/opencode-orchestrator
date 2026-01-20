@@ -89,118 +89,26 @@ jobs:
         with:
           files: binaries/**/*
           body: |
-            # 🌌 OpenCode Orchestrator ${{ github.ref_name }}
-            # Next-Gen Autonomous Mastery: Powered by HPFA™ & MSVP™
+            # OpenCode Orchestrator ${{ github.ref_name }}
+
+            This release focuses on enhancing autonomous orchestration stability and parallel execution efficiency through HPFA and MSVP.
+
+            ### Core Updates
+            *   **HPFA (Hyper-Parallel Fractal Architecture)**: Optimized recursive task delegation and concurrency management (up to 50 parallel sessions).
+            *   **MSVP (Multi-Stage Verification Pipeline)**: Improved integration of unit-level shadow reviews and master sync verification.
+            *   **Autonomous Discovery**: Enhanced Phase 0 parallel scouting for faster project environment ingestion.
+
+            ### Key Features
+            *   Parallel Multi-Agent Orchestration
+            *   Recursive Task Decomposition (Fractal Spawning)
+            *   Multi-Stage Integrity Verification
+            *   Write-Ahead Logging (WAL) for Session Recovery
 
             ---
-
-            ### **The End of Sequential Limits. The Era of Fractal Mastery.**
-
-            OpenCode Orchestrator is not just an agent; it’s a **Titan-Class Execution Engine**. Powered by the revolutionary **HPFA (Hyper-Parallel Fractal Architecture)**, it is designed to conquer "impossible" missions with 0.1ms precision and infinite scalability.
-
-            By fusing **Fractal Swarm Intelligence (HPFA™)** with **Continuous Multi-Stage Verification Pipeline (MSVP™)**, it delivers a level of scale, velocity, and architectural absolute previously considered impossible.
-
-            ---
-
-            ## 💎 The Four Pillars of Excellence
-
-            *   **⚡ Velocity**: Parallelize up to **50 concurrent sessions** through **Cognitive Elasticity**.
-            *   **🧬 Scale**: **Fractal Delegation** allows workers to recursively spawn their own sub-agents.
-            *   **🛡️ Safety**: **MSVP™** reviews every line of code in parallel "Shadow Sessions" before it ever touches your build.
-            *   **♾️ Trust**: **Iron-Clad Reliability** via Write-Ahead Logging (WAL). Represents a "permanent memory" for autonomous missions.
-
-            ---
-
-            ## 🏛️ Hyper-Parallel Architecture: HPFA & MSVP
-
-The orchestrator eliminates the linear reasoning bottleneck of conventional AI agents by shifting from sequential execution to a **Distributed Runtime Unit** paradigm.
-
-### 🧬 **HPFA™ (Hyper-Parallel Fractal Architecture)**
-*   **Fractal Delegation**: Workers are instantiated as autonomous controllers with localized `TaskLauncher` contexts. This enables recursive spawning of sub-agents up to 8 levels deep.
-*   **Cognitive Concurrency Control**: Manages up to 50 concurrent sessions with dynamic slot scaling based on success/failure trajectories.
-
-### 🛡️ **MSVP™ (Multi-Stage Verification Pipeline)**
-*   **Shadow Review Pipeline**: Parallel reviewer sessions are instantly snapshotted upon file-write, providing zero-latency audit without blocking implementation.
-*   **Global Barrier-Sync Protocol**: Enforces a synchronized verification gate requiring consistency across all units before final E2E sealing.
-
-            ```
-                          /task "Build Complex System"
-                                       │
-                       ╔═══════════════════════════════════════╗
-                       ║     🎯 COMMANDER — Orchestrator       ║
-                       ║        (Main Session - Single)        ║
-                       ╚═══════════════════╤═══════════════════╝
-                                           │
-                ══════════════════════════▼══════════════════════════
-                ║          🚀 PHASE 0: DISCOVERY SWARM (Parallel)      ║
-                ══════════════════════════════════════════════════════
-                │               │               │               │
-                ▼ Scout         ▼ Scout         ▼ Scout         ▼ Scout
-             [Structure]      [Stack]         [Docs]          [Infra]
-                └───────────────┬───────────────┬───────────────┘
-                                │ Consolidate & Sync
-                       ┌────────▼───────────────────┐
-                       │      📋 PLANNER — Create Plan         │
-                       │    → Outputs: Architectural Grid      │
-                       └───────────────────┬───────────────────┘
-                                           │
-                ══════════════════════════╧══════════════════════════
-                ║            🔥 HPFA PARALLEL GRID (MSVP)           ║
-                ══════════════════════════════════════════════════════
-                │               │               │               │
-                ▼               ▼               ▼               ▼
-            ┌──────────┐    ┌──────────┐    ┌──────────┐    ┌──────────┐
-            │🔨 WORKER │    │🔨 WORKER │    │🔨 WORKER │    │🔨 WORKER │  <-- Fractal Spawning
-            │ Module A │    │ Module B │    │ Module C │    │ Module D │
-            └────┬─────┘    └────┬─────┘    └────┬─────┘    └────┬─────┘
-                 │ ⚡ Instant    │ ⚡ Instant    │ ⚡ Instant    │ ⚡ Instant
-                 ▼ Review       ▼ Review       ▼ Review       ▼ Review
-            ┌──────────┐    ┌──────────┐    ┌──────────┐    ┌──────────┐
-            │✅ REVIEWR│    │✅ REVIEWR│    │✅ REVIEWR│    │✅ REVIEWR│  <-- Stage 1: Unit
-            │ (Unit-A) │    │ (Unit-B) │    │ (Unit-C) │    │ (Unit-D) │      Verification
-            └────┬─────┘    └────┬─────┘    └────┬─────┘    └────┬─────┘
-                 │               │               │               │
-                ═▼═══════════════▼═══════════════▼═══════════════▼════
-                ║                ⏳ SYNC BARRIER                     ║
-                ══════════════════════════════════════════════════════
-                                           │
-                       ┌───────────────────▼───────────────────┐
-                       │      ✅ MASTER REVIEWER — Final Pass  │
-                       │         (Cross-module Integration)    │
-                       │    → Stage 2: E2E & System Integrity  │
-                       └───────────────────┬───────────────────┘
-                                           │
-                                 ┌─────────┴─────────┐
-                                 │   Seal Conditions │
-                                 │   Verified?       │
-                                 └─────────┬─────────┘
-                                     No ↙     ↘ Yes
-                                 ♻️ LOOP    🎖️ MISSION
-                                (Adaptive)   SEALED
-            ```
-
-            ---
-
-            ## ✨ Release Features
-
-            | Feature | Description |
-            |:---------|:-------------|
-            | 🚀 **MSVP™ Pipeline** | Parallelized unit reviews for zero-latency integrity |
-            | 🧬 **Fractal Spawning** | Recursive sub-mission generation for massive complexity |
-            | ⚡ **50 Parallel Tasks** | Titan-class execution density |
-            | 🔄 **Non-Stop Recovery** | WAL-based cognitive persistence |
-            | 🛡️ **Self-Scaling** | Dynamic concurrency management |
-            | 🩹 **Memory Integrity** | 100% reclamation for infinite sessions |
-
-            ---
-
-            ## 📦 Installation
-
+            ## Installation
             ```bash
             npm install -g opencode-orchestrator
             ```
-
-            ---
           generate_release_notes: true
           fail_on_unmatched_files: false
 
