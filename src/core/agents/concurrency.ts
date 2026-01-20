@@ -13,9 +13,11 @@ import type { ConcurrencyConfig } from "./interfaces/concurrency-config.interfac
 // Re-export interface
 export type { ConcurrencyConfig } from "./interfaces/concurrency-config.interface.js";
 
+import { log as internalLog } from "../agents/logger.js";
+
 const DEBUG = process.env.DEBUG_PARALLEL_AGENT === "true";
 const log = (...args: unknown[]) => {
-    if (DEBUG) console.log("[concurrency]", ...args);
+    if (DEBUG) internalLog("[concurrency]", ...args);
 };
 
 export class ConcurrencyController {

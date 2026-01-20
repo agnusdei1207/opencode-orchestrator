@@ -15429,6 +15429,26 @@ function getBinaryPath() {
   return binaryPath;
 }
 
+// src/core/agents/logger.ts
+import * as fs from "fs";
+import * as os from "os";
+import * as path from "path";
+var DEBUG = process.env.DEBUG_PARALLEL_AGENT === "true";
+var LOG_FILE = path.join(os.tmpdir(), "opencode-orchestrator.log");
+function log(...args) {
+  const timestamp = (/* @__PURE__ */ new Date()).toISOString();
+  const message = `[${timestamp}] [parallel-agent] ${args.map(
+    (a) => typeof a === "object" ? JSON.stringify(a) : String(a)
+  ).join(" ")}`;
+  try {
+    fs.appendFileSync(LOG_FILE, message + "\n");
+  } catch {
+  }
+}
+function getLogPath() {
+  return LOG_FILE;
+}
+
 // src/tools/rust.ts
 async function callRustTool(name, args) {
   const binary = getBinaryPath();
@@ -15443,7 +15463,7 @@ async function callRustTool(name, args) {
     });
     proc.stderr.on("data", (data) => {
       const msg = data.toString().trim();
-      if (msg) console.error(`[rust-stderr] ${msg}`);
+      if (msg) log(`[rust-stderr] ${msg}`);
     });
     const request = JSON.stringify({
       jsonrpc: "2.0",
@@ -15460,7 +15480,7 @@ async function callRustTool(name, args) {
     proc.on("close", (code) => {
       clearTimeout(timeout);
       if (code !== 0 && code !== null) {
-        console.error(`Rust process exited with code ${code}`);
+        log(`Rust process exited with code ${code}`);
       }
       try {
         const lines = stdout.trim().split("\n");
@@ -15661,7 +15681,7 @@ var BackgroundTaskManager = class _BackgroundTaskManager {
   debug(taskId, message) {
     if (this.debugMode) {
       const ts = (/* @__PURE__ */ new Date()).toISOString().substring(11, 23);
-      console.log(`[BG ${ts}] ${taskId}: ${message}`);
+      log(`[BG ${ts}] ${taskId}: ${message}`);
     }
   }
   run(options) {
@@ -15920,9 +15940,9 @@ Duration: ${backgroundTaskManager.formatDuration(task)}`;
 });
 
 // src/core/agents/concurrency.ts
-var DEBUG = process.env.DEBUG_PARALLEL_AGENT === "true";
-var log = (...args) => {
-  if (DEBUG) console.log("[concurrency]", ...args);
+var DEBUG2 = process.env.DEBUG_PARALLEL_AGENT === "true";
+var log2 = (...args) => {
+  if (DEBUG2) log("[concurrency]", ...args);
 };
 var ConcurrencyController = class {
   counts = /* @__PURE__ */ new Map();
@@ -15969,10 +15989,10 @@ var ConcurrencyController = class {
     const current = this.counts.get(key) ?? 0;
     if (current < limit) {
       this.counts.set(key, current + 1);
-      log(`Acquired ${key}: ${current + 1}/${limit}`);
+      log2(`Acquired ${key}: ${current + 1}/${limit}`);
       return;
     }
-    log(`Queueing ${key}: ${current}/${limit}`);
+    log2(`Queueing ${key}: ${current}/${limit}`);
     return new Promise((resolve) => {
       const queue = this.queues.get(key) ?? [];
       queue.push(resolve);
@@ -15985,13 +16005,13 @@ var ConcurrencyController = class {
     const queue = this.queues.get(key);
     if (queue && queue.length > 0) {
       const next = queue.shift();
-      log(`Released ${key}: next in queue`);
+      log2(`Released ${key}: next in queue`);
       next();
     } else {
       const current = this.counts.get(key) ?? 0;
       if (current > 0) {
         this.counts.set(key, current - 1);
-        log(`Released ${key}: ${current - 1}/${limit}`);
+        log2(`Released ${key}: ${current - 1}/${limit}`);
       }
     }
   }
@@ -16013,8 +16033,8 @@ var ConcurrencyController = class {
 };
 
 // src/core/agents/task-store.ts
-import * as fs from "node:fs/promises";
-import * as path from "node:path";
+import * as fs2 from "node:fs/promises";
+import * as path2 from "node:path";
 var TaskStore = class {
   tasks = /* @__PURE__ */ new Map();
   pendingByParent = /* @__PURE__ */ new Map();
@@ -16146,10 +16166,10 @@ var TaskStore = class {
    */
   async archiveTasks(tasks) {
     try {
-      await fs.mkdir(PATHS.TASK_ARCHIVE, { recursive: true });
+      await fs2.mkdir(PATHS.TASK_ARCHIVE, { recursive: true });
       const date5 = (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
       const filename = `tasks_${date5}.jsonl`;
-      const filepath = path.join(PATHS.TASK_ARCHIVE, filename);
+      const filepath = path2.join(PATHS.TASK_ARCHIVE, filename);
       const lines = tasks.map((task) => JSON.stringify({
         id: task.id,
         agent: task.agent,
@@ -16160,10 +16180,9 @@ var TaskStore = class {
         completedAt: task.completedAt,
         parentSessionID: task.parentSessionID
       }));
-      await fs.appendFile(filepath, lines.join("\n") + "\n");
+      await fs2.appendFile(filepath, lines.join("\n") + "\n");
       this.archivedCount += tasks.length;
     } catch (error45) {
-      console.error("[TaskStore] Archive failed:", error45);
     }
   }
   /**
@@ -16182,27 +16201,6 @@ var TaskStore = class {
     return toRemove.length;
   }
 };
-
-// src/core/agents/logger.ts
-import * as fs2 from "fs";
-import * as os from "os";
-import * as path2 from "path";
-var DEBUG2 = process.env.DEBUG_PARALLEL_AGENT === "true";
-var LOG_FILE = path2.join(os.tmpdir(), "opencode-orchestrator.log");
-function log2(...args) {
-  const timestamp = (/* @__PURE__ */ new Date()).toISOString();
-  const message = `[${timestamp}] [parallel-agent] ${args.map(
-    (a) => typeof a === "object" ? JSON.stringify(a) : String(a)
-  ).join(" ")}`;
-  try {
-    fs2.appendFileSync(LOG_FILE, message + "\n");
-  } catch {
-  }
-  if (DEBUG2) console.log("[parallel-agent]", ...args);
-}
-function getLogPath() {
-  return LOG_FILE;
-}
 
 // src/core/agents/format.ts
 function formatDuration(start, end) {
@@ -16682,10 +16680,10 @@ var TaskLauncher = class {
     this.startPolling = startPolling;
   }
   async launch(input) {
-    log2("[task-launcher.ts] launch() called", { agent: input.agent, description: input.description, parent: input.parentSessionID });
+    log("[task-launcher.ts] launch() called", { agent: input.agent, description: input.description, parent: input.parentSessionID });
     const concurrencyKey = input.agent;
     await this.concurrency.acquire(concurrencyKey);
-    log2("[task-launcher.ts] concurrency acquired for", concurrencyKey);
+    log("[task-launcher.ts] concurrency acquired for", concurrencyKey);
     try {
       const createResult = await this.client.session.create({
         body: { parentID: input.parentSessionID, title: `${PARALLEL_TASK.SESSION_TITLE_PREFIX}: ${input.description}` },
@@ -16698,7 +16696,7 @@ var TaskLauncher = class {
       const sessionID = createResult.data.id;
       const taskId = `${ID_PREFIX.TASK}${crypto.randomUUID().slice(0, 8)}`;
       const depth = (input.depth ?? 0) + 1;
-      log2("[task-launcher.ts] Creating task with depth", depth);
+      log("[task-launcher.ts] Creating task with depth", depth);
       const task = {
         id: taskId,
         sessionID,
@@ -16728,7 +16726,7 @@ var TaskLauncher = class {
           parts: [{ type: PART_TYPES.TEXT, text: input.prompt }]
         }
       }).catch((error45) => {
-        log2(`Prompt error for ${taskId}:`, error45);
+        log(`Prompt error for ${taskId}:`, error45);
         this.onTaskError(taskId, error45);
       });
       const toastManager = getTaskToastManager();
@@ -16743,7 +16741,7 @@ var TaskLauncher = class {
         });
       }
       presets.sessionCreated(sessionID, input.agent);
-      log2(`Launched ${taskId} in session ${sessionID}`);
+      log(`Launched ${taskId} in session ${sessionID}`);
       return task;
     } catch (error45) {
       this.concurrency.release(concurrencyKey);
@@ -16775,7 +16773,7 @@ var TaskResumer = class {
     existingTask.stablePolls = 0;
     this.store.trackPending(input.parentSessionID, existingTask.id);
     this.startPolling();
-    log2(`Resuming task ${existingTask.id} in session ${existingTask.sessionID}`);
+    log(`Resuming task ${existingTask.id} in session ${existingTask.sessionID}`);
     this.client.session.prompt({
       path: { id: existingTask.sessionID },
       body: {
@@ -16783,7 +16781,7 @@ var TaskResumer = class {
         parts: [{ type: PART_TYPES.TEXT, text: input.prompt }]
       }
     }).catch((error45) => {
-      log2(`Resume prompt error for ${existingTask.id}:`, error45);
+      log(`Resume prompt error for ${existingTask.id}:`, error45);
       existingTask.status = TASK_STATUS.ERROR;
       existingTask.error = error45 instanceof Error ? error45.message : String(error45);
       existingTask.completedAt = /* @__PURE__ */ new Date();
@@ -16817,7 +16815,7 @@ var TaskPoller = class {
   pollingInterval;
   start() {
     if (this.pollingInterval) return;
-    log2("[task-poller.ts] start() - polling started");
+    log("[task-poller.ts] start() - polling started");
     this.pollingInterval = setInterval(() => this.poll(), CONFIG.POLL_INTERVAL_MS);
     this.pollingInterval.unref();
   }
@@ -16837,7 +16835,7 @@ var TaskPoller = class {
       this.stop();
       return;
     }
-    log2("[task-poller.ts] poll() checking", running.length, "running tasks");
+    log("[task-poller.ts] poll() checking", running.length, "running tasks");
     try {
       const statusResult = await this.client.session.status();
       const allStatuses = statusResult.data ?? {};
@@ -16855,16 +16853,16 @@ var TaskPoller = class {
           const elapsed = Date.now() - task.startedAt.getTime();
           if (elapsed >= CONFIG.MIN_STABILITY_MS && task.stablePolls && task.stablePolls >= 3) {
             if (await this.validateSessionHasOutput(task.sessionID)) {
-              log2(`Task ${task.id} stable for 3 polls, completing...`);
+              log(`Task ${task.id} stable for 3 polls, completing...`);
               await this.completeTask(task);
             }
           }
         } catch (error45) {
-          log2(`Poll error for task ${task.id}:`, error45);
+          log(`Poll error for task ${task.id}:`, error45);
         }
       }
     } catch (error45) {
-      log2("Polling error:", error45);
+      log("Polling error:", error45);
     }
   }
   async validateSessionHasOutput(sessionID) {
@@ -16877,7 +16875,7 @@ var TaskPoller = class {
     }
   }
   async completeTask(task) {
-    log2("[task-poller.ts] completeTask() called for", task.id, task.agent);
+    log("[task-poller.ts] completeTask() called for", task.id, task.agent);
     task.status = TASK_STATUS.COMPLETED;
     task.completedAt = /* @__PURE__ */ new Date();
     if (task.concurrencyKey) {
@@ -16890,7 +16888,7 @@ var TaskPoller = class {
     this.scheduleCleanup(task.id);
     const duration3 = formatDuration(task.startedAt, task.completedAt);
     presets.sessionCompleted(task.sessionID, duration3);
-    log2(`Completed ${task.id} (${duration3})`);
+    log(`Completed ${task.id} (${duration3})`);
   }
   async updateTaskProgress(task) {
     try {
@@ -16942,7 +16940,7 @@ var TaskCleaner = class {
     for (const [taskId, task] of this.store.getAll().map((t) => [t.id, t])) {
       const age = now - task.startedAt.getTime();
       if (age <= CONFIG.TASK_TTL_MS) continue;
-      log2(`Timeout: ${taskId}`);
+      log(`Timeout: ${taskId}`);
       if (task.status === TASK_STATUS.RUNNING) {
         task.status = TASK_STATUS.TIMEOUT;
         task.error = "Task exceeded 30 minute time limit";
@@ -16977,7 +16975,7 @@ var TaskCleaner = class {
         }
       }
       this.store.delete(taskId);
-      log2(`Cleaned up ${taskId}`);
+      log(`Cleaned up ${taskId}`);
     }, CONFIG.CLEANUP_DELAY_MS);
   }
   /**
@@ -17027,9 +17025,9 @@ You will be notified when ALL tasks complete. Continue productive work.`;
           parts: [{ type: PART_TYPES.TEXT, text: message }]
         }
       });
-      log2(`Notified parent ${parentSessionID} (allComplete=${allComplete}, noReply=${!allComplete})`);
+      log(`Notified parent ${parentSessionID} (allComplete=${allComplete}, noReply=${!allComplete})`);
     } catch (error45) {
-      log2("Notification error:", error45);
+      log("Notification error:", error45);
     }
     this.store.clearNotifications(parentSessionID);
   }
@@ -17058,7 +17056,7 @@ var EventHandler = class {
       const task = this.findBySession(sessionID);
       if (!task || task.status !== TASK_STATUS.RUNNING) return;
       this.handleSessionIdle(task).catch((err) => {
-        log2("Error handling session.idle:", err);
+        log("Error handling session.idle:", err);
       });
     }
     if (event.type === SESSION_EVENTS.DELETED) {
@@ -17072,12 +17070,12 @@ var EventHandler = class {
   async handleSessionIdle(task) {
     const elapsed = Date.now() - task.startedAt.getTime();
     if (elapsed < CONFIG.MIN_STABILITY_MS) {
-      log2(`Session idle but too early for ${task.id}, waiting...`);
+      log(`Session idle but too early for ${task.id}, waiting...`);
       return;
     }
     const hasOutput = await this.validateSessionHasOutput(task.sessionID);
     if (!hasOutput) {
-      log2(`Session idle but no output for ${task.id}, waiting...`);
+      log(`Session idle but no output for ${task.id}, waiting...`);
       return;
     }
     task.status = TASK_STATUS.COMPLETED;
@@ -17090,10 +17088,10 @@ var EventHandler = class {
     this.store.queueNotification(task);
     await this.notifyParentIfAllComplete(task.parentSessionID);
     this.scheduleCleanup(task.id);
-    log2(`Task ${task.id} completed via session.idle event (${formatDuration(task.startedAt, task.completedAt)})`);
+    log(`Task ${task.id} completed via session.idle event (${formatDuration(task.startedAt, task.completedAt)})`);
   }
   handleSessionDeleted(task) {
-    log2(`Session deleted event for task ${task.id}`);
+    log(`Session deleted event for task ${task.id}`);
     if (task.status === TASK_STATUS.RUNNING) {
       task.status = TASK_STATUS.ERROR;
       task.error = "Session deleted";
@@ -17106,7 +17104,7 @@ var EventHandler = class {
     this.store.untrackPending(task.parentSessionID, task.id);
     this.store.clearNotificationsForTask(task.id);
     this.store.delete(task.id);
-    log2(`Cleaned up deleted session task: ${task.id}`);
+    log(`Cleaned up deleted session task: ${task.id}`);
   }
 };
 
@@ -17201,12 +17199,12 @@ var ParallelAgentManager = class _ParallelAgentManager {
     this.store.untrackPending(task.parentSessionID, taskId);
     try {
       await this.client.session.delete({ path: { id: task.sessionID } });
-      log2(`Session ${task.sessionID.slice(0, 8)}... deleted`);
+      log(`Session ${task.sessionID.slice(0, 8)}... deleted`);
     } catch {
-      log2(`Session ${task.sessionID.slice(0, 8)}... already gone`);
+      log(`Session ${task.sessionID.slice(0, 8)}... already gone`);
     }
     this.cleaner.scheduleCleanup(taskId);
-    log2(`Cancelled ${taskId}`);
+    log(`Cancelled ${taskId}`);
     return true;
   }
   async getResult(taskId) {
@@ -17301,7 +17299,7 @@ async function validateSessionHasOutput(session, sessionID) {
     });
     return hasContent;
   } catch (error45) {
-    log2(`${PARALLEL_LOG.DELEGATE_TASK} Error validating session output:`, error45);
+    log(`${PARALLEL_LOG.DELEGATE_TASK} Error validating session output:`, error45);
     return true;
   }
 }
@@ -17315,11 +17313,11 @@ async function pollWithSafetyLimits(session, sessionID, startTime) {
     pollCount++;
     const elapsed = Date.now() - startTime;
     if (elapsed >= SYNC_TIMEOUT_MS) {
-      log2(`${PARALLEL_LOG.DELEGATE_TASK} Hard timeout reached`, { pollCount, elapsed });
+      log(`${PARALLEL_LOG.DELEGATE_TASK} Hard timeout reached`, { pollCount, elapsed });
       return { success: false, timedOut: true, pollCount, elapsedMs: elapsed };
     }
     if (Date.now() - lastLogTime > 1e4) {
-      log2(`${PARALLEL_LOG.DELEGATE_TASK} Polling...`, {
+      log(`${PARALLEL_LOG.DELEGATE_TASK} Polling...`, {
         pollCount,
         elapsed: Math.floor(elapsed / 1e3) + "s",
         stablePolls,
@@ -17347,14 +17345,14 @@ async function pollWithSafetyLimits(session, sessionID, startTime) {
         if (!hasValidOutput) {
           continue;
         }
-        log2(`${PARALLEL_LOG.DELEGATE_TASK} Valid output detected`, { pollCount, elapsed });
+        log(`${PARALLEL_LOG.DELEGATE_TASK} Valid output detected`, { pollCount, elapsed });
       }
       const msgs = await session.messages({ path: { id: sessionID } });
       const count = (msgs.data ?? []).length;
       if (count === lastMsgCount) {
         stablePolls++;
         if (stablePolls >= STABLE_POLLS_REQUIRED) {
-          log2(`${PARALLEL_LOG.DELEGATE_TASK} Stable completion`, { pollCount, stablePolls, elapsed });
+          log(`${PARALLEL_LOG.DELEGATE_TASK} Stable completion`, { pollCount, stablePolls, elapsed });
           return { success: true, timedOut: false, pollCount, elapsedMs: elapsed };
         }
       } else {
@@ -17362,10 +17360,10 @@ async function pollWithSafetyLimits(session, sessionID, startTime) {
         lastMsgCount = count;
       }
     } catch (error45) {
-      log2(`${PARALLEL_LOG.DELEGATE_TASK} Poll error (continuing):`, error45);
+      log(`${PARALLEL_LOG.DELEGATE_TASK} Poll error (continuing):`, error45);
     }
   }
-  log2(`${PARALLEL_LOG.DELEGATE_TASK} Max poll count reached`, { pollCount, elapsed: Date.now() - startTime });
+  log(`${PARALLEL_LOG.DELEGATE_TASK} Max poll count reached`, { pollCount, elapsed: Date.now() - startTime });
   return {
     success: false,
     timedOut: true,
@@ -17382,7 +17380,7 @@ async function extractSessionResult(session, sessionID) {
     const text = lastMsg?.parts?.filter((p) => p.type === PART_TYPES.TEXT || p.type === PART_TYPES.REASONING).map((p) => p.text ?? "").join("\n") || "";
     return text;
   } catch (error45) {
-    log2(`${PARALLEL_LOG.DELEGATE_TASK} Error extracting result:`, error45);
+    log(`${PARALLEL_LOG.DELEGATE_TASK} Error extracting result:`, error45);
     return "(Error extracting result)";
   }
 }
@@ -17415,7 +17413,7 @@ var createDelegateTaskTool = (manager, client) => tool({
   async execute(args, context) {
     const { agent, description, prompt, background, resume } = args;
     const ctx = context;
-    log2(`${PARALLEL_LOG.DELEGATE_TASK} execute() called`, { agent, description, background, resume, parentSession: ctx.sessionID });
+    log(`${PARALLEL_LOG.DELEGATE_TASK} execute() called`, { agent, description, background, resume, parentSession: ctx.sessionID });
     const sessionClient = client;
     if (background === void 0) {
       return `${OUTPUT_LABEL.ERROR} 'background' parameter is REQUIRED.`;
@@ -17434,7 +17432,7 @@ Previous context preserved. Use \`get_task_result({ taskId: "${task.id}" })\` wh
         }
         const startTime = Date.now();
         const session = sessionClient.session;
-        log2(`${PARALLEL_LOG.DELEGATE_TASK} Resume: starting sync wait`, { taskId: task.id, sessionID: task.sessionID });
+        log(`${PARALLEL_LOG.DELEGATE_TASK} Resume: starting sync wait`, { taskId: task.id, sessionID: task.sessionID });
         const pollResult = await pollWithSafetyLimits(session, task.sessionID, startTime);
         if (pollResult.timedOut) {
           return `${OUTPUT_LABEL.TIMEOUT} after ${Math.floor(pollResult.elapsedMs / 1e3)}s (${pollResult.pollCount} polls)
@@ -17474,7 +17472,7 @@ Session: \`${task.sessionID}\` (save for resume)`;
       }
       const sessionID = createResult.data.id;
       const startTime = Date.now();
-      log2(`${PARALLEL_LOG.DELEGATE_TASK} Sync: starting`, { agent, sessionID });
+      log(`${PARALLEL_LOG.DELEGATE_TASK} Sync: starting`, { agent, sessionID });
       await session.prompt({
         path: { id: sessionID },
         body: {
@@ -17490,18 +17488,18 @@ Session: \`${task.sessionID}\` (save for resume)`;
       });
       const pollResult = await pollWithSafetyLimits(session, sessionID, startTime);
       if (pollResult.timedOut) {
-        log2(`${PARALLEL_LOG.DELEGATE_TASK} Sync: timed out`, pollResult);
+        log(`${PARALLEL_LOG.DELEGATE_TASK} Sync: timed out`, pollResult);
         return `${OUTPUT_LABEL.TIMEOUT} after ${Math.floor(pollResult.elapsedMs / 1e3)}s (${pollResult.pollCount} polls)
 Session: \`${sessionID}\` - Use get_task_result or resume later.`;
       }
       const text = await extractSessionResult(session, sessionID);
-      log2(`${PARALLEL_LOG.DELEGATE_TASK} Sync: completed`, { sessionID, elapsedMs: pollResult.elapsedMs });
+      log(`${PARALLEL_LOG.DELEGATE_TASK} Sync: completed`, { sessionID, elapsedMs: pollResult.elapsedMs });
       return `${OUTPUT_LABEL.DONE} (${Math.floor(pollResult.elapsedMs / 1e3)}s)
 Session: \`${sessionID}\` (save for resume)
 
 ${text || "(No output)"}`;
     } catch (error45) {
-      log2(`${PARALLEL_LOG.DELEGATE_TASK} Sync: error`, error45);
+      log(`${PARALLEL_LOG.DELEGATE_TASK} Sync: error`, error45);
       return `${OUTPUT_LABEL.ERROR} Failed: ${error45 instanceof Error ? error45.message : String(error45)}`;
     }
   }
@@ -17990,7 +17988,7 @@ async function searchBrave(query) {
     }
     return results;
   } catch (error45) {
-    console.error("Brave search error:", error45);
+    log("Brave search error:", error45);
     return [];
   }
 }
@@ -18039,7 +18037,7 @@ async function searchDuckDuckGo(query) {
     }
     return results;
   } catch (error45) {
-    console.error("DuckDuckGo search error:", error45);
+    log("DuckDuckGo search error:", error45);
     return [];
   }
 }
@@ -18070,7 +18068,7 @@ async function searchDuckDuckGoHtml(query) {
     }
     return results;
   } catch (error45) {
-    console.error("DuckDuckGo HTML search error:", error45);
+    log("DuckDuckGo HTML search error:", error45);
     return [];
   }
 }
@@ -18298,7 +18296,7 @@ async function searchGrepApp(query, options) {
     }
     return results;
   } catch (error45) {
-    console.error("grep.app search error:", error45);
+    log("grep.app search error:", error45);
     return [];
   }
 }
@@ -18339,7 +18337,7 @@ async function searchGitHub(query, options) {
     }
     return results;
   } catch (error45) {
-    console.error("GitHub search error:", error45);
+    log("GitHub search error:", error45);
     return [];
   }
 }
@@ -18660,24 +18658,24 @@ There was a temporary processing issue. Please continue from where you left off.
 async function handleSessionError(client, sessionID, error45, properties) {
   const state2 = getState(sessionID);
   if (state2.isRecovering) {
-    log2("[session-recovery] Already recovering, skipping", { sessionID });
+    log("[session-recovery] Already recovering, skipping", { sessionID });
     return false;
   }
   const now = Date.now();
   if (now - state2.lastErrorTime < BACKGROUND_TASK.RETRY_COOLDOWN_MS) {
-    log2("[session-recovery] Too soon since last error, skipping", { sessionID });
+    log("[session-recovery] Too soon since last error, skipping", { sessionID });
     return false;
   }
   state2.lastErrorTime = now;
   state2.errorCount++;
   const errorType = detectErrorType(error45);
   if (!errorType) {
-    log2("[session-recovery] Unknown error type, using default handler", { sessionID, error: error45 });
+    log("[session-recovery] Unknown error type, using default handler", { sessionID, error: error45 });
     return false;
   }
-  log2("[session-recovery] Detected error type", { sessionID, errorType, errorCount: state2.errorCount });
+  log("[session-recovery] Detected error type", { sessionID, errorType, errorCount: state2.errorCount });
   if (state2.errorCount > RECOVERY.MAX_ATTEMPTS) {
-    log2("[session-recovery] Max recovery attempts exceeded", { sessionID });
+    log("[session-recovery] Max recovery attempts exceeded", { sessionID });
     presets.warningMaxRetries();
     return false;
   }
@@ -18704,7 +18702,7 @@ async function handleSessionError(client, sessionID, error45, properties) {
         };
         const action = handleError(ctx);
         if (action.type === "retry" && action.delay) {
-          log2("[session-recovery] Rate limit, waiting", { delay: action.delay });
+          log("[session-recovery] Rate limit, waiting", { delay: action.delay });
           await new Promise((r) => setTimeout(r, action.delay));
         }
         state2.isRecovering = false;
@@ -18714,7 +18712,7 @@ async function handleSessionError(client, sessionID, error45, properties) {
         state2.isRecovering = false;
         return false;
       case ERROR_TYPE.MESSAGE_ABORTED:
-        log2("[session-recovery] Message aborted by user, not recovering", { sessionID });
+        log("[session-recovery] Message aborted by user, not recovering", { sessionID });
         state2.isRecovering = false;
         return false;
       default:
@@ -18729,14 +18727,14 @@ async function handleSessionError(client, sessionID, error45, properties) {
           parts: [{ type: PART_TYPES.TEXT, text: recoveryPrompt }]
         }
       });
-      log2("[session-recovery] Recovery prompt injected", { sessionID, errorType });
+      log("[session-recovery] Recovery prompt injected", { sessionID, errorType });
       state2.isRecovering = false;
       return true;
     }
     state2.isRecovering = false;
     return false;
   } catch (injectionError) {
-    log2("[session-recovery] Failed to inject recovery prompt", { sessionID, error: injectionError });
+    log("[session-recovery] Failed to inject recovery prompt", { sessionID, error: injectionError });
     state2.isRecovering = false;
     return false;
   }
@@ -18918,20 +18916,20 @@ async function showCountdownToast(client, secondsRemaining, incompleteCount) {
 async function injectContinuation(client, sessionID, todos) {
   const state2 = getState2(sessionID);
   if (state2.isAborting) {
-    log2("[todo-continuation] Skipped: user is aborting", { sessionID });
+    log("[todo-continuation] Skipped: user is aborting", { sessionID });
     return;
   }
   if (hasRunningBackgroundTasks(sessionID)) {
-    log2("[todo-continuation] Skipped: background tasks running", { sessionID });
+    log("[todo-continuation] Skipped: background tasks running", { sessionID });
     return;
   }
   if (isSessionRecovering(sessionID)) {
-    log2("[todo-continuation] Skipped: session is recovering from error", { sessionID });
+    log("[todo-continuation] Skipped: session is recovering from error", { sessionID });
     return;
   }
   const prompt = generateContinuationPrompt(todos);
   if (!prompt) {
-    log2("[todo-continuation] Skipped: no continuation prompt needed", { sessionID });
+    log("[todo-continuation] Skipped: no continuation prompt needed", { sessionID });
     return;
   }
   try {
@@ -18941,43 +18939,43 @@ async function injectContinuation(client, sessionID, todos) {
         parts: [{ type: PART_TYPES.TEXT, text: prompt }]
       }
     });
-    log2("[todo-continuation] Injected continuation prompt", {
+    log("[todo-continuation] Injected continuation prompt", {
       sessionID,
       incompleteCount: getIncompleteCount(todos),
       progress: formatProgress(todos)
     });
   } catch (error45) {
-    log2("[todo-continuation] Failed to inject continuation", { sessionID, error: error45 });
+    log("[todo-continuation] Failed to inject continuation", { sessionID, error: error45 });
   }
 }
 async function handleSessionIdle(client, sessionID, mainSessionID) {
   const state2 = getState2(sessionID);
   const now = Date.now();
   if (state2.lastIdleTime && now - state2.lastIdleTime < MIN_TIME_BETWEEN_CONTINUATIONS_MS) {
-    log2("[todo-continuation] Skipped: too soon since last check", { sessionID });
+    log("[todo-continuation] Skipped: too soon since last check", { sessionID });
     return;
   }
   state2.lastIdleTime = now;
   cancelCountdown(sessionID);
   if (mainSessionID && sessionID !== mainSessionID) {
-    log2("[todo-continuation] Skipped: not main session", { sessionID, mainSessionID });
+    log("[todo-continuation] Skipped: not main session", { sessionID, mainSessionID });
     return;
   }
   if (isSessionRecovering(sessionID)) {
-    log2("[todo-continuation] Skipped: in recovery mode", { sessionID });
+    log("[todo-continuation] Skipped: in recovery mode", { sessionID });
     return;
   }
   if (state2.abortDetectedAt) {
     const timeSinceAbort = Date.now() - state2.abortDetectedAt;
     if (timeSinceAbort < ABORT_WINDOW_MS) {
-      log2("[todo-continuation] Skipped: abort detected recently", { sessionID, timeSinceAbort });
+      log("[todo-continuation] Skipped: abort detected recently", { sessionID, timeSinceAbort });
       state2.abortDetectedAt = void 0;
       return;
     }
     state2.abortDetectedAt = void 0;
   }
   if (hasRunningBackgroundTasks(sessionID)) {
-    log2("[todo-continuation] Skipped: background tasks running", { sessionID });
+    log("[todo-continuation] Skipped: background tasks running", { sessionID });
     return;
   }
   let todos = [];
@@ -18985,16 +18983,16 @@ async function handleSessionIdle(client, sessionID, mainSessionID) {
     const response = await client.session.todo({ path: { id: sessionID } });
     todos = parseTodos(response.data ?? response);
   } catch (error45) {
-    log2("[todo-continuation] Failed to fetch todos", { sessionID, error: error45 });
+    log("[todo-continuation] Failed to fetch todos", { sessionID, error: error45 });
     return;
   }
   if (!hasRemainingWork(todos)) {
-    log2("[todo-continuation] All todos complete", { sessionID });
+    log("[todo-continuation] All todos complete", { sessionID });
     return;
   }
   const incompleteCount = getIncompleteCount(todos);
   const nextPending = getNextPending(todos);
-  log2("[todo-continuation] Starting countdown", {
+  log("[todo-continuation] Starting countdown", {
     sessionID,
     incompleteCount,
     nextPending: nextPending?.id
@@ -19009,10 +19007,10 @@ async function handleSessionIdle(client, sessionID, mainSessionID) {
       if (hasRemainingWork(freshTodos)) {
         await injectContinuation(client, sessionID, freshTodos);
       } else {
-        log2("[todo-continuation] Todos completed during countdown", { sessionID });
+        log("[todo-continuation] Todos completed during countdown", { sessionID });
       }
     } catch {
-      log2("[todo-continuation] Failed to re-fetch todos for continuation", { sessionID });
+      log("[todo-continuation] Failed to re-fetch todos for continuation", { sessionID });
     }
   }, COUNTDOWN_SECONDS * TIME.SECOND);
 }
@@ -19021,12 +19019,12 @@ function handleUserMessage(sessionID) {
   if (state2.countdownStartedAt) {
     const elapsed = Date.now() - state2.countdownStartedAt;
     if (elapsed < COUNTDOWN_GRACE_PERIOD_MS) {
-      log2("[todo-continuation] Ignoring message in grace period", { sessionID, elapsed });
+      log("[todo-continuation] Ignoring message in grace period", { sessionID, elapsed });
       return;
     }
   }
   if (state2.countdownTimer) {
-    log2("[todo-continuation] Cancelled: user interaction", { sessionID });
+    log("[todo-continuation] Cancelled: user interaction", { sessionID });
     cancelCountdown(sessionID);
   }
   state2.isAborting = false;
@@ -19037,7 +19035,7 @@ function handleSessionError2(sessionID, error45) {
   const errorObj = error45;
   if (errorObj?.name === "MessageAbortedError" || errorObj?.name === "AbortError") {
     state2.abortDetectedAt = Date.now();
-    log2("[todo-continuation] Abort detected", { sessionID, errorName: errorObj.name });
+    log("[todo-continuation] Abort detected", { sessionID, errorName: errorObj.name });
   }
   cancelCountdown(sessionID);
 }
@@ -19071,7 +19069,7 @@ function readLoopState(directory) {
     const content = readFileSync(filePath, "utf-8");
     return JSON.parse(content);
   } catch (error45) {
-    log2(`[mission-seal] Failed to read state: ${error45}`);
+    log(`[mission-seal] Failed to read state: ${error45}`);
     return null;
   }
 }
@@ -19085,7 +19083,7 @@ function writeLoopState(directory, state2) {
     writeFileSync(filePath, JSON.stringify(state2, null, 2), "utf-8");
     return true;
   } catch (error45) {
-    log2(`[mission-seal] Failed to write state: ${error45}`);
+    log(`[mission-seal] Failed to write state: ${error45}`);
     return false;
   }
 }
@@ -19098,7 +19096,7 @@ function clearLoopState(directory) {
     unlinkSync(filePath);
     return true;
   } catch (error45) {
-    log2(`[mission-seal] Failed to clear state: ${error45}`);
+    log(`[mission-seal] Failed to clear state: ${error45}`);
     return false;
   }
 }
@@ -19134,7 +19132,7 @@ async function detectSealInSession(client, sessionID) {
     }
     return false;
   } catch (error45) {
-    log2(`[mission-seal] Failed to check session messages: ${error45}`);
+    log(`[mission-seal] Failed to check session messages: ${error45}`);
     return false;
   }
 }
@@ -19149,7 +19147,7 @@ function startMissionLoop(directory, sessionID, prompt, options = {}) {
   };
   const success2 = writeLoopState(directory, state2);
   if (success2) {
-    log2(`[mission-seal] Loop started`, {
+    log(`[mission-seal] Loop started`, {
       sessionID,
       maxIterations: state2.maxIterations
     });
@@ -19276,20 +19274,20 @@ async function showMaxIterationsToast(client, state2) {
 async function injectContinuation2(client, directory, sessionID, loopState) {
   const handlerState = getState3(sessionID);
   if (handlerState.isAborting) {
-    log2("[mission-seal-handler] Skipped: user is aborting");
+    log("[mission-seal-handler] Skipped: user is aborting");
     return;
   }
   if (hasRunningBackgroundTasks2(sessionID)) {
-    log2("[mission-seal-handler] Skipped: background tasks running");
+    log("[mission-seal-handler] Skipped: background tasks running");
     return;
   }
   if (isSessionRecovering(sessionID)) {
-    log2("[mission-seal-handler] Skipped: session recovering");
+    log("[mission-seal-handler] Skipped: session recovering");
     return;
   }
   const sealDetected = await detectSealInSession(client, sessionID);
   if (sealDetected) {
-    log2("[mission-seal-handler] Seal detected before injection, completing");
+    log("[mission-seal-handler] Seal detected before injection, completing");
     await handleSealDetected(client, directory, loopState);
     return;
   }
@@ -19301,18 +19299,18 @@ async function injectContinuation2(client, directory, sessionID, loopState) {
         parts: [{ type: PART_TYPES.TEXT, text: prompt }]
       }
     });
-    log2("[mission-seal-handler] Continuation injected", {
+    log("[mission-seal-handler] Continuation injected", {
       sessionID,
       iteration: loopState.iteration
     });
   } catch (error45) {
-    log2(`[mission-seal-handler] Failed to inject: ${error45}`);
+    log(`[mission-seal-handler] Failed to inject: ${error45}`);
   }
 }
 async function handleSealDetected(client, directory, loopState) {
   clearLoopState(directory);
   await showSealedToast(client, loopState);
-  log2("[mission-seal-handler] Mission sealed!", {
+  log("[mission-seal-handler] Mission sealed!", {
     sessionID: loopState.sessionID,
     iterations: loopState.iteration
   });
@@ -19320,7 +19318,7 @@ async function handleSealDetected(client, directory, loopState) {
 async function handleMaxIterations(client, directory, loopState) {
   clearLoopState(directory);
   await showMaxIterationsToast(client, loopState);
-  log2("[mission-seal-handler] Max iterations reached", {
+  log("[mission-seal-handler] Max iterations reached", {
     sessionID: loopState.sessionID,
     iterations: loopState.iteration,
     max: loopState.maxIterations
@@ -19338,11 +19336,11 @@ async function handleMissionSealIdle(client, directory, sessionID, mainSessionID
     return;
   }
   if (isSessionRecovering(sessionID)) {
-    log2("[mission-seal-handler] Skipped: recovering");
+    log("[mission-seal-handler] Skipped: recovering");
     return;
   }
   if (hasRunningBackgroundTasks2(sessionID)) {
-    log2("[mission-seal-handler] Skipped: background tasks");
+    log("[mission-seal-handler] Skipped: background tasks");
     return;
   }
   const loopState = readLoopState(directory);
@@ -19352,7 +19350,7 @@ async function handleMissionSealIdle(client, directory, sessionID, mainSessionID
   if (loopState.sessionID !== sessionID) {
     return;
   }
-  log2("[mission-seal-handler] Checking for seal", {
+  log("[mission-seal-handler] Checking for seal", {
     sessionID,
     iteration: loopState.iteration
   });
@@ -19367,7 +19365,7 @@ async function handleMissionSealIdle(client, directory, sessionID, mainSessionID
   }
   const newState = incrementIteration(directory);
   if (!newState) {
-    log2("[mission-seal-handler] Failed to increment iteration");
+    log("[mission-seal-handler] Failed to increment iteration");
     return;
   }
   await showCountdownToast2(client, COUNTDOWN_SECONDS2, newState.iteration, newState.maxIterations);
@@ -19375,7 +19373,7 @@ async function handleMissionSealIdle(client, directory, sessionID, mainSessionID
     cancelCountdown2(sessionID);
     await injectContinuation2(client, directory, sessionID, newState);
   }, COUNTDOWN_SECONDS2 * 1e3);
-  log2("[mission-seal-handler] Countdown started", {
+  log("[mission-seal-handler] Countdown started", {
     sessionID,
     iteration: newState.iteration,
     seconds: COUNTDOWN_SECONDS2
@@ -19384,7 +19382,7 @@ async function handleMissionSealIdle(client, directory, sessionID, mainSessionID
 function handleUserMessage2(sessionID) {
   const state2 = getState3(sessionID);
   if (state2.countdownTimer) {
-    log2("[mission-seal-handler] Cancelled by user interaction");
+    log("[mission-seal-handler] Cancelled by user interaction");
     cancelCountdown2(sessionID);
   }
   state2.isAborting = false;
@@ -19393,7 +19391,7 @@ function handleAbort(sessionID) {
   const state2 = getState3(sessionID);
   state2.isAborting = true;
   cancelCountdown2(sessionID);
-  log2("[mission-seal-handler] Marked as aborting");
+  log("[mission-seal-handler] Marked as aborting");
 }
 function cleanupSession2(sessionID) {
   cancelCountdown2(sessionID);
@@ -19408,7 +19406,7 @@ function cleanupSession3(sessionID) {
     clearInterval(state2.intervalId);
   }
   sessionStates3.delete(sessionID);
-  log2("[context-window-monitor] Session cleaned up", { sessionID });
+  log("[context-window-monitor] Session cleaned up", { sessionID });
 }
 
 // src/plugin-handlers/event-handler.ts
@@ -19423,7 +19421,7 @@ function createEventHandler(ctx) {
     }
     if (event.type === SESSION_EVENTS.CREATED) {
       const sessionID = event.properties?.id || "";
-      log2("[event-handler] session.created", { sessionID });
+      log("[event-handler] session.created", { sessionID });
       presets.missionStarted(`Session ${sessionID.slice(0, 12)}...`);
     }
     if (event.type === SESSION_EVENTS.DELETED) {
@@ -19432,7 +19430,7 @@ function createEventHandler(ctx) {
       if (session) {
         const totalTime = Date.now() - session.startTime;
         const duration3 = totalTime < 6e4 ? `${Math.round(totalTime / 1e3)}s` : `${Math.round(totalTime / 6e4)}m`;
-        log2("[event-handler] session.deleted", { sessionID, steps: session.step, duration: duration3 });
+        log("[event-handler] session.deleted", { sessionID, steps: session.step, duration: duration3 });
         sessions.delete(sessionID);
         state2.sessions.delete(sessionID);
         clearSession(sessionID);
@@ -19446,7 +19444,7 @@ function createEventHandler(ctx) {
     if (event.type === SESSION_EVENTS.ERROR) {
       const sessionID = event.properties?.sessionId || event.properties?.sessionID || "";
       const error45 = event.properties?.error;
-      log2("[event-handler] session.error", { sessionID, error: error45 });
+      log("[event-handler] session.error", { sessionID, error: error45 });
       if (sessionID) {
         handleSessionError2(sessionID, error45);
         handleAbort(sessionID);
@@ -19459,7 +19457,7 @@ function createEventHandler(ctx) {
           event.properties
         );
         if (recovered) {
-          log2("[event-handler] auto-recovery initiated", { sessionID });
+          log("[event-handler] auto-recovery initiated", { sessionID });
           return;
         }
       }
@@ -19491,13 +19489,13 @@ function createEventHandler(ctx) {
                   directory,
                   sessionID,
                   sessionID
-                ).catch((err) => log2("[event-handler] mission-seal-handler error", err));
+                ).catch((err) => log("[event-handler] mission-seal-handler error", err));
               } else {
                 await handleSessionIdle(
                   client,
                   sessionID,
                   sessionID
-                ).catch((err) => log2("[event-handler] todo-continuation error", err));
+                ).catch((err) => log("[event-handler] todo-continuation error", err));
               }
             }
           }, 500);
@@ -19615,7 +19613,7 @@ function createChatMessageHandler(ctx) {
     const parsed = detectSlashCommand(originalText);
     const sessionID = msgInput.sessionID;
     const agentName = (msgInput.agent || "").toLowerCase();
-    log2("[chat-message-handler] hook triggered", { sessionID, agent: agentName, textLength: originalText.length });
+    log("[chat-message-handler] hook triggered", { sessionID, agent: agentName, textLength: originalText.length });
     if (sessionID) {
       handleUserMessage(sessionID);
     }
@@ -19648,7 +19646,7 @@ function createChatMessageHandler(ctx) {
           userMessage || PROMPTS.CONTINUE
         );
         startMissionLoop(directory, sessionID, userMessage || originalText);
-        log2("[chat-message-handler] Auto-applied mission mode + started loop", { originalLength: originalText.length });
+        log("[chat-message-handler] Auto-applied mission mode + started loop", { originalLength: originalText.length });
       }
     }
     if (parsed) {
@@ -19678,14 +19676,14 @@ function createChatMessageHandler(ctx) {
             anomalyCount: 0
           });
           startSession(sessionID);
-          log2("[chat-message-handler] Session registered for /task command", { sessionID, agent: agentName });
+          log("[chat-message-handler] Session registered for /task command", { sessionID, agent: agentName });
         }
         parts[textPartIndex].text = command.template.replace(
           /\$ARGUMENTS/g,
           parsed.args || PROMPTS.CONTINUE
         );
         startMissionLoop(directory, sessionID, parsed.args || "continue from where we left off");
-        log2("[chat-message-handler] /task command: started mission loop", { sessionID, args: parsed.args?.slice(0, 50) });
+        log("[chat-message-handler] /task command: started mission loop", { sessionID, args: parsed.args?.slice(0, 50) });
       }
     }
   };
@@ -19958,7 +19956,7 @@ function createAssistantDoneHandler(ctx) {
       state.missionActive = false;
       clearLoopState(directory);
       presets.missionComplete("Mission Sealed - Explicit completion confirmed");
-      log2("[assistant-done-handler] Mission sealed detected", { sessionID });
+      log("[assistant-done-handler] Mission sealed detected", { sessionID });
       clearSession(sessionID);
       sessions.delete(sessionID);
       state.sessions.delete(sessionID);
@@ -19999,7 +19997,7 @@ function createAssistantDoneHandler(ctx) {
         });
       }
     } catch (error45) {
-      log2("[assistant-done-handler] Continuation injection failed, retrying...", { sessionID, error: error45 });
+      log("[assistant-done-handler] Continuation injection failed, retrying...", { sessionID, error: error45 });
       try {
         await new Promise((r) => setTimeout(r, 500));
         if (client?.session?.prompt) {
@@ -20009,13 +20007,13 @@ function createAssistantDoneHandler(ctx) {
           });
         }
       } catch (retryError) {
-        log2("[assistant-done-handler] Both continuation attempts failed, waiting for idle handler", {
+        log("[assistant-done-handler] Both continuation attempts failed, waiting for idle handler", {
           sessionID,
           error: retryError,
           loopActive: isLoopActive(directory, sessionID)
         });
         if (!isLoopActive(directory, sessionID)) {
-          log2("[assistant-done-handler] No active loop, stopping session", { sessionID });
+          log("[assistant-done-handler] No active loop, stopping session", { sessionID });
           session.active = false;
           state.missionActive = false;
         }
@@ -20029,16 +20027,16 @@ var require2 = createRequire(import.meta.url);
 var { version: PLUGIN_VERSION } = require2("../package.json");
 var OrchestratorPlugin = async (input) => {
   const { directory, client } = input;
-  log2(`[orchestrator] v${PLUGIN_VERSION} loaded, log: ${getLogPath()}`);
-  log2("[index.ts] Plugin initialized", { version: PLUGIN_VERSION, directory });
+  log(`[orchestrator] v${PLUGIN_VERSION} loaded, log: ${getLogPath()}`);
+  log("[index.ts] Plugin initialized", { version: PLUGIN_VERSION, directory });
   initToastClient(client);
   const taskToastManager = initTaskToastManager(client);
-  log2("[index.ts] Toast notifications enabled with TUI and TaskToastManager");
+  log("[index.ts] Toast notifications enabled with TUI and TaskToastManager");
   const sessions = /* @__PURE__ */ new Map();
   const parallelAgentManager2 = ParallelAgentManager.getInstance(client, directory);
   const asyncAgentTools = createAsyncAgentTools(parallelAgentManager2, client);
   taskToastManager.setConcurrencyController(parallelAgentManager2.getConcurrency());
-  log2("[index.ts] ParallelAgentManager initialized with TaskToastManager integration");
+  log("[index.ts] ParallelAgentManager initialized with TaskToastManager integration");
   const handlerContext = {
     client,
     directory,
