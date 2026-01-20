@@ -245,7 +245,7 @@ var STATUS_LABEL = {
 // src/shared/core/constants/limits.ts
 var LIMITS = {
   /** Maximum mission loop iterations */
-  MAX_ITERATIONS: 1e3,
+  MAX_ITERATIONS: 1e4,
   /** Default scan limit for file listing */
   DEFAULT_SCAN_LIMIT: 20,
   /** Max message history to check for seal */
