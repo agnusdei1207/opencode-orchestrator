@@ -314,7 +314,7 @@ WORK_STATUS.TEST_RESULT.PASS | FAIL | SKIP
 │  {                                                                          │
 │    "active": true,                                                          │
 │    "iteration": 3,                                                          │
-│    "maxIterations": 20,                                                     │
+│    "maxIterations": 1000,                                                     │
 │    "sessionID": "abc123...",                                                │
 │    "prompt": "Build REST API",                                              │
 │    "startedAt": "2026-01-17T15:00:00Z"                                      │
@@ -345,7 +345,7 @@ Your previous iteration did not seal the mission. Continue working.
 TAG: "mission_seal"
 CONFIRMATION: "SEALED"
 PATTERN: "<mission_seal>SEALED</mission_seal>"
-DEFAULT_MAX_ITERATIONS: 20
+DEFAULT_MAX_ITERATIONS: 1000
 DEFAULT_COUNTDOWN_SECONDS: 3
 STOP_COMMAND: "/stop"
 CANCEL_COMMAND: "/cancel"
@@ -380,11 +380,18 @@ src/
 │   │   ├── manager/            # TaskLauncher, TaskPoller, TaskCleaner, EventHandler
 │   │   ├── concurrency.ts      # ConcurrencyController
 │   │   └── task-store.ts       # TaskStore with GC
-│   ├── notification/           # Toast System (6 files)
+│   ├── notification/           # Notification System (12 files)
 │   │   ├── toast.ts            # Module re-exports
 │   │   ├── toast-core.ts       # Core toast functions
 │   │   ├── task-toast-manager.ts # Consolidated task notifications (P1)
-│   │   └── presets.ts          # Common notification templates
+│   │   ├── presets.ts          # Common notification templates
+│   │   └── os-notify/          # OS Native Notifications (P3)
+│   │       ├── handler.ts      # Main orchestration logic
+│   │       ├── notifier.ts     # Command execution logic
+│   │       ├── sound-player.ts # Cross-platform sound logic
+│   │       ├── platform.ts     # Platform detection utils
+│   │       ├── platform-resolver.ts # Command path resolution
+│   │       └── todo-checker.ts # Integration with Todo system
 │   ├── cache/                  # Document Cache (6 files)
 │   ├── progress/               # Progress Tracker (5 files)
 │   ├── recovery/               # Auto Recovery (6 files)
@@ -423,9 +430,10 @@ src/
 OrchestratorPlugin(input):
   1. Toast.initToastClient(client)         // Toast notifications
   2. Toast.initTaskToastManager(client)    // Consolidated task toasts
-  3. sessions Map initialization           // Track Master + Worker sessions
-  4. ParallelAgentManager.getInstance()    // Worker session manager
-  5. Return { provider, tools, hooks }
+  3. createSessionNotificationHandler()    // OS native notifications
+  4. sessions Map initialization           // Track Master + Worker sessions
+  5. ParallelAgentManager.getInstance()    // Worker session manager
+  6. Return { provider, tools, hooks }
 
 // When user sends first message:
 hooks["chat.message"] → Master Session starts:
@@ -519,6 +527,27 @@ TaskStore.gc():
   1. completed > 30min → archiveTasks()
   2. error > 10min → delete
 ```
+
+---
+
+## 🔔 OS Native Support
+
+The orchestrator includes a dedicated OS-native notification system to alert users when the agent has completed its autonomous work and requires user feedback or approval.
+
+### 🏠 OS Native Notifications
+Located in `src/core/notification/os-notify/`, this system monitors session idle events and sends cross-platform alerts.
+
+| Platform | Notification Method | Sound Player | Default Sound |
+|----------|---------------------|--------------|---------------|
+| **macOS** | `osascript` (AppleScript) | `afplay` | Glass.aiff |
+| **Linux** | `notify-send` | `paplay` / `aplay` | complete.oga |
+| **Windows** | PowerShell (Toast) | `Media.SoundPlayer` | notify.wav |
+
+### 🛠️ Key Features
+- **Intelligent Debouncing**: Uses `idleConfirmationDelay` (default: 1500ms) to ensure the session is truly idle before alerting.
+- **Race Condition Handling**: Version tracking prevents duplicate notifications if the agent resumes activity during transmission.
+- **Todo Consistency**: Optional `skipIfIncompleteTodos` check ensures notifications only fire when all planned subtasks are finished.
+- **Background Filtering**: Automatically excludes parallel worker sessions from triggering notifications, focusing only on the Master Session.
 
 ---
 

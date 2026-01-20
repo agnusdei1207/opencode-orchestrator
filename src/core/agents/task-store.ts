@@ -216,7 +216,7 @@ export class TaskStore {
         const toRemove: string[] = [];
 
         for (const [id, task] of this.tasks) {
-            if (task.status !== "running") {
+            if (task.status !== TASK_STATUS.RUNNING) {
                 toRemove.push(id);
             }
         }

@@ -25,6 +25,8 @@ export class ConcurrencyController {
     private queues: Map<string, Array<() => void>> = new Map();
     private limits: Map<string, number> = new Map();
     private config: ConcurrencyConfig;
+    private successStreak: Map<string, number> = new Map();
+    private failureCount: Map<string, number> = new Map();
 
     constructor(config?: ConcurrencyConfig) {
         this.config = config ?? {};
@@ -106,6 +108,42 @@ export class ConcurrencyController {
             if (current > 0) {
                 this.counts.set(key, current - 1);
                 log(`Released ${key}: ${current - 1}/${limit}`);
+            }
+        }
+    }
+
+    /**
+     * Report success/failure to adjust concurrency dynamically
+     */
+    reportResult(key: string, success: boolean): void {
+        if (success) {
+            // Success: increment streak
+            const streak = (this.successStreak.get(key) ?? 0) + 1;
+            this.successStreak.set(key, streak);
+            this.failureCount.set(key, 0); // Reset failure on success
+
+            // Increase limit if on a hot streak (every 5 successful tasks)
+            if (streak % 5 === 0) {
+                const currentLimit = this.getConcurrencyLimit(key);
+                if (currentLimit < 20) { // Cap at 20
+                    this.setLimit(key, currentLimit + 1);
+                    internalLog(`[concurrency] Auto-scaling UP for ${key}: ${currentLimit + 1}`);
+                }
+            }
+        } else {
+            // Failure: increment failure count
+            const failures = (this.failureCount.get(key) ?? 0) + 1;
+            this.failureCount.set(key, failures);
+            this.successStreak.set(key, 0); // Reset streak on failure
+
+            // Decrease limit if failures detected
+            if (failures >= 2) {
+                const currentLimit = this.getConcurrencyLimit(key);
+                const minLimit = 1;
+                if (currentLimit > minLimit) {
+                    this.setLimit(key, currentLimit - 1);
+                    internalLog(`[concurrency] Auto-scaling DOWN for ${key}: ${currentLimit - 1} (due to ${failures} failures)`);
+                }
             }
         }
     }

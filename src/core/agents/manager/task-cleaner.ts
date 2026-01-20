@@ -7,13 +7,15 @@
  */
 
 import type { PluginInput } from "@opencode-ai/plugin";
-import { TASK_STATUS, PART_TYPES } from "../../../shared/index.js";
+import { TASK_STATUS, PART_TYPES, WAL_ACTIONS } from "../../../shared/index.js";
 import { TaskStore } from "../task-store.js";
 import { ConcurrencyController } from "../concurrency.js";
 import { CONFIG } from "../config.js";
 import { log } from "../logger.js";
 import { buildNotificationMessage, formatDuration } from "../format.js";
 import { getTaskToastManager, type TaskCompletionInfo } from "../../notification/task-toast-manager.js";
+import * as sessionStore from "../../session/store.js";
+import { taskWAL } from "../persistence/task-wal.js";
 
 type OpencodeClient = PluginInput["client"];
 
@@ -45,14 +47,18 @@ export class TaskCleaner {
                         id: taskId,
                         description: task.description,
                         duration: formatDuration(task.startedAt, task.completedAt),
-                        status: "error",
+                        status: TASK_STATUS.ERROR,
                         error: task.error,
                     });
                 }
             }
 
             this.client.session.delete({ path: { id: task.sessionID } }).catch(() => { });
+            sessionStore.clear(task.sessionID);
             this.store.delete(taskId);
+
+            // Log to WAL
+            taskWAL.log(WAL_ACTIONS.DELETE, task).catch(() => { });
         }
         this.store.cleanEmptyNotifications();
     }
@@ -63,9 +69,16 @@ export class TaskCleaner {
 
         setTimeout(async () => {
             if (sessionID) {
-                try { await this.client.session.delete({ path: { id: sessionID } }); } catch { }
+                try {
+                    await this.client.session.delete({ path: { id: sessionID } });
+                    sessionStore.clear(sessionID);
+                } catch { }
             }
             this.store.delete(taskId);
+
+            // Log to WAL
+            if (task) taskWAL.log(WAL_ACTIONS.DELETE, task).catch(() => { });
+
             log(`Cleaned up ${taskId}`);
         }, CONFIG.CLEANUP_DELAY_MS);
     }
@@ -90,7 +103,7 @@ export class TaskCleaner {
             id: task.id,
             description: task.description,
             duration: formatDuration(task.startedAt, task.completedAt),
-            status: task.status as "completed" | "error" | "cancelled",
+            status: task.status as TaskCompletionInfo["status"],
             error: task.error,
         }));
 

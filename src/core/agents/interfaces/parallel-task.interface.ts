@@ -28,4 +28,7 @@ export interface ParallelTask {
 
     // Progress tracking
     progress?: TaskProgress;
+
+    // Output tracking for optimization
+    hasStartedOutputting?: boolean;
 }

@@ -3,7 +3,7 @@
  */
 
 import type { PluginInput } from "@opencode-ai/plugin";
-import { ID_PREFIX, TASK_STATUS, PART_TYPES, PARALLEL_TASK } from "../../../shared/index.js";
+import { ID_PREFIX, TASK_STATUS, PART_TYPES, PARALLEL_TASK, WAL_ACTIONS } from "../../../shared/index.js";
 import { ConcurrencyController } from "../concurrency.js";
 import { TaskStore } from "../task-store.js";
 import { log } from "../logger.js";
@@ -11,6 +11,7 @@ import { presets } from "../../notification/presets.js";
 import { getTaskToastManager } from "../../notification/task-toast-manager.js";
 import type { ParallelTask } from "../interfaces/parallel-task.interface.js";
 import type { LaunchInput } from "../interfaces/launch-input.interface.js";
+import { taskWAL } from "../persistence/task-wal.js";
 
 type OpencodeClient = PluginInput["client"];
 
@@ -63,6 +64,9 @@ export class TaskLauncher {
 
             this.store.set(taskId, task);
             this.store.trackPending(input.parentSessionID, taskId);
+
+            // Log to WAL
+            taskWAL.log(WAL_ACTIONS.LAUNCH, task).catch(() => { });
 
             // Context sharing is done via .opencode/ files (agents read/write directly)
             this.startPolling();

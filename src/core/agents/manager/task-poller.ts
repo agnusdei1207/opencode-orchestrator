@@ -10,7 +10,8 @@ import { log } from "../logger.js";
 import { formatDuration } from "../format.js";
 import { presets } from "../../notification/presets.js";
 import type { ParallelTask } from "../interfaces/parallel-task.interface.js";
-import { TASK_STATUS, PART_TYPES, MESSAGE_ROLES, SESSION_STATUS } from "../../../shared/index.js";
+import { TASK_STATUS, PART_TYPES, MESSAGE_ROLES, SESSION_STATUS, WAL_ACTIONS } from "../../../shared/index.js";
+import { taskWAL } from "../persistence/task-wal.js";
 
 type OpencodeClient = PluginInput["client"];
 
@@ -62,7 +63,9 @@ export class TaskPoller {
                     if (sessionStatus?.type === SESSION_STATUS.IDLE) {
                         const elapsed = Date.now() - task.startedAt.getTime();
                         if (elapsed < CONFIG.MIN_STABILITY_MS) continue;
-                        if (!(await this.validateSessionHasOutput(task.sessionID))) continue;
+
+                        // Smart Polling optimization: Skip heavy message check if we already know it has output
+                        if (!task.hasStartedOutputting && !(await this.validateSessionHasOutput(task.sessionID, task))) continue;
 
                         await this.completeTask(task);
                         continue;
@@ -74,7 +77,7 @@ export class TaskPoller {
                     // Stability detection: complete when message count stable for 3 polls
                     const elapsed = Date.now() - task.startedAt.getTime();
                     if (elapsed >= CONFIG.MIN_STABILITY_MS && task.stablePolls && task.stablePolls >= 3) {
-                        if (await this.validateSessionHasOutput(task.sessionID)) {
+                        if (task.hasStartedOutputting || await this.validateSessionHasOutput(task.sessionID, task)) {
                             log(`Task ${task.id} stable for 3 polls, completing...`);
                             await this.completeTask(task);
                         }
@@ -88,11 +91,17 @@ export class TaskPoller {
         }
     }
 
-    async validateSessionHasOutput(sessionID: string): Promise<boolean> {
+    async validateSessionHasOutput(sessionID: string, task?: ParallelTask): Promise<boolean> {
         try {
             const response = await this.client.session.messages({ path: { id: sessionID } });
             const messages = (response.data ?? []) as Array<{ info?: { role?: string }; parts?: Array<{ type?: string; text?: string }> }>;
-            return messages.some(m => m.info?.role === MESSAGE_ROLES.ASSISTANT && m.parts?.some(p => (p.type === PART_TYPES.TEXT && p.text?.trim()) || p.type === PART_TYPES.TOOL));
+            const hasOutput = messages.some(m => m.info?.role === MESSAGE_ROLES.ASSISTANT && m.parts?.some(p => (p.type === PART_TYPES.TEXT && p.text?.trim()) || p.type === PART_TYPES.TOOL));
+
+            if (hasOutput && task) {
+                task.hasStartedOutputting = true;
+            }
+
+            return hasOutput;
         } catch {
             return true;
         }
@@ -105,6 +114,7 @@ export class TaskPoller {
 
         if (task.concurrencyKey) {
             this.concurrency.release(task.concurrencyKey);
+            this.concurrency.reportResult(task.concurrencyKey, true); // Report success
             task.concurrencyKey = undefined;
         }
 
@@ -112,6 +122,9 @@ export class TaskPoller {
         this.store.queueNotification(task);
         await this.notifyParentIfAllComplete(task.parentSessionID);
         this.scheduleCleanup(task.id);
+
+        // Log to WAL
+        taskWAL.log(WAL_ACTIONS.COMPLETE, task).catch(() => { });
 
         const duration = formatDuration(task.startedAt, task.completedAt);
 

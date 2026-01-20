@@ -40,6 +40,7 @@ import { webfetchTool, websearchTool, cacheDocsTool, codesearchTool } from "./to
 import { lspDiagnosticsTool } from "./tools/lsp/index.js";
 import { TOOL_NAMES } from "./shared/index.js";
 import * as Toast from "./core/notification/toast.js";
+import { createSessionNotificationHandler } from "./core/notification/os-notify/index.js";
 import { log, getLogPath } from "./core/agents/logger.js";
 
 // Import modularized handlers
@@ -85,6 +86,15 @@ const OrchestratorPlugin: Plugin = async (input) => {
     taskToastManager.setConcurrencyController(parallelAgentManager.getConcurrency());
     log("[index.ts] ParallelAgentManager initialized with TaskToastManager integration");
 
+    // Initialize OS native notification handler for session idle alerts
+    const sessionNotifyHandler = createSessionNotificationHandler(client, {
+        title: "OpenCode Orchestrator",
+        message: "✅ Ready to work!",
+        playSound: true,
+        skipIfIncompleteTodos: true,
+    });
+    log(`[index.ts] Session notification handler initialized (platform: ${sessionNotifyHandler.getPlatform()})`);
+
     // =========================================================================
     // Create Handler Contexts
     // =========================================================================
@@ -94,6 +104,7 @@ const OrchestratorPlugin: Plugin = async (input) => {
         directory,
         sessions,
         state,
+        sessionNotifyHandler,
     };
 
     // =========================================================================

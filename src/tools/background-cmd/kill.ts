@@ -4,6 +4,7 @@
 
 import { tool } from "@opencode-ai/plugin";
 import { backgroundTaskManager } from "../../core/commands/index.js";
+import { STATUS_LABEL } from "../../shared/index.js";
 
 export const killBackgroundTool = tool({
     description: `Kill a running background task.`,
@@ -15,7 +16,7 @@ export const killBackgroundTool = tool({
         const task = backgroundTaskManager.get(taskId);
 
         if (!task) return `❌ Task \`${taskId}\` not found.`;
-        if (task.status !== "running") return `⚠️ Task \`${taskId}\` is not running (${task.status}).`;
+        if (task.status !== STATUS_LABEL.RUNNING) return `⚠️ Task \`${taskId}\` is not running (${task.status}).`;
 
         const killed = backgroundTaskManager.kill(taskId);
 

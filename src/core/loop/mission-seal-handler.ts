@@ -10,7 +10,7 @@
 import type { PluginInput } from "@opencode-ai/plugin";
 import { log } from "../agents/logger.js";
 import { presets } from "../notification/presets.js";
-import { PART_TYPES, LOOP, TOAST_DURATION } from "../../shared/index.js";
+import { PART_TYPES, LOOP, TOAST_DURATION, STATUS_LABEL } from "../../shared/index.js";
 import {
     readLoopState,
     clearLoopState,
@@ -72,7 +72,7 @@ function hasRunningBackgroundTasks(parentSessionID: string): boolean {
     try {
         const manager = ParallelAgentManager.getInstance();
         const tasks = manager.getTasksByParent(parentSessionID);
-        return tasks.some(t => t.status === "running");
+        return tasks.some(t => t.status === STATUS_LABEL.RUNNING);
     } catch {
         return false;
     }

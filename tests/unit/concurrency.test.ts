@@ -135,23 +135,61 @@ describe("ConcurrencyController", () => {
     // Concurrency Info Helper
     // ========================================================================
 
-    describe("getConcurrencyInfo", () => {
-        it("should return formatted string", async () => {
-            controller.setLimit("agent-a", 5);
-            await controller.acquire("agent-a");
-            await controller.acquire("agent-a");
+    // ========================================================================
+    // Auto-scaling (reportResult)
+    // ========================================================================
 
-            const info = controller.getConcurrencyInfo("agent-a");
-            expect(info).toBe(" (2/5 slots)");
+    describe("auto-scaling", () => {
+        it("should increase limit after 5 consecutive successes", () => {
+            controller.setLimit("agent-a", 2);
+            expect(controller.getConcurrencyLimit("agent-a")).toBe(2);
+
+            // 4 successes - no change yet
+            for (let i = 0; i < 4; i++) {
+                controller.reportResult("agent-a", true);
+            }
+            expect(controller.getConcurrencyLimit("agent-a")).toBe(2);
+
+            // 5th success - should increase to 3
+            controller.reportResult("agent-a", true);
+            expect(controller.getConcurrencyLimit("agent-a")).toBe(3);
         });
 
-        it("should return empty string for infinite limit", () => {
-            const config: ConcurrencyConfig = {
-                modelConcurrency: { "unlimited": 0 },
-            };
-            controller = new ConcurrencyController(config);
+        it("should decrease limit after 2 failures", () => {
+            controller.setLimit("agent-a", 5);
 
-            expect(controller.getConcurrencyInfo("unlimited")).toBe("");
+            // 1 failure - no change yet
+            controller.reportResult("agent-a", false);
+            expect(controller.getConcurrencyLimit("agent-a")).toBe(5);
+
+            // 2nd failure - should decrease to 4
+            controller.reportResult("agent-a", false);
+            expect(controller.getConcurrencyLimit("agent-a")).toBe(4);
+        });
+
+        it("should not decrease below 1", () => {
+            controller.setLimit("agent-a", 1);
+
+            controller.reportResult("agent-a", false);
+            controller.reportResult("agent-a", false);
+
+            expect(controller.getConcurrencyLimit("agent-a")).toBe(1);
+        });
+
+        it("should reset success streak on failure", () => {
+            controller.setLimit("agent-a", 2);
+
+            // 4 successes
+            for (let i = 0; i < 4; i++) {
+                controller.reportResult("agent-a", true);
+            }
+
+            // 1 failure
+            controller.reportResult("agent-a", false);
+
+            // 1 more success (should be 1st after reset)
+            controller.reportResult("agent-a", true);
+            expect(controller.getConcurrencyLimit("agent-a")).toBe(2);
         });
     });
 });
