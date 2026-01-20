@@ -22,5 +22,6 @@ export {
     SCOUT_STRUCTURE,
     SCOUT_STACK,
     SCOUT_DOCS,
-    SCOUT_INFRA
+    SCOUT_INFRA,
+    SCOUT_INTEGRATION
 } from "./scouts.js";

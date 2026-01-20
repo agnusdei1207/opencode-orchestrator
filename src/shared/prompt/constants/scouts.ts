@@ -30,3 +30,9 @@ export const SCOUT_INFRA = {
     NAME: `${SCOUT_LABEL}: Infra`,
     PROMPT: "Detect infrastructure and environment configs. Search for Dockerfiles, CI/CD workflows (.github, .gitlab), and environment variable templates.",
 } as const;
+
+export const SCOUT_INTEGRATION = {
+    ID: "INTEGRATION",
+    NAME: `${SCOUT_LABEL}: Integration`,
+    PROMPT: "Read all modified files and their cross-module dependencies in parallel. Map the actual integration surface and identify potential consistency issues.",
+} as const;
