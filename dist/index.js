@@ -1610,10 +1610,10 @@ function mergeDefs(...defs) {
 function cloneDef(schema) {
   return mergeDefs(schema._zod.def);
 }
-function getElementAtPath(obj, path5) {
-  if (!path5)
+function getElementAtPath(obj, path6) {
+  if (!path6)
     return obj;
-  return path5.reduce((acc, key) => acc?.[key], obj);
+  return path6.reduce((acc, key) => acc?.[key], obj);
 }
 function promiseAllObject(promisesObj) {
   const keys = Object.keys(promisesObj);
@@ -1974,11 +1974,11 @@ function aborted(x, startIndex = 0) {
   }
   return false;
 }
-function prefixIssues(path5, issues) {
+function prefixIssues(path6, issues) {
   return issues.map((iss) => {
     var _a;
     (_a = iss).path ?? (_a.path = []);
-    iss.path.unshift(path5);
+    iss.path.unshift(path6);
     return iss;
   });
 }
@@ -2146,7 +2146,7 @@ function treeifyError(error45, _mapper) {
     return issue2.message;
   };
   const result = { errors: [] };
-  const processError = (error46, path5 = []) => {
+  const processError = (error46, path6 = []) => {
     var _a, _b;
     for (const issue2 of error46.issues) {
       if (issue2.code === "invalid_union" && issue2.errors.length) {
@@ -2156,7 +2156,7 @@ function treeifyError(error45, _mapper) {
       } else if (issue2.code === "invalid_element") {
         processError({ issues: issue2.issues }, issue2.path);
       } else {
-        const fullpath = [...path5, ...issue2.path];
+        const fullpath = [...path6, ...issue2.path];
         if (fullpath.length === 0) {
           result.errors.push(mapper(issue2));
           continue;
@@ -2188,8 +2188,8 @@ function treeifyError(error45, _mapper) {
 }
 function toDotPath(_path) {
   const segs = [];
-  const path5 = _path.map((seg) => typeof seg === "object" ? seg.key : seg);
-  for (const seg of path5) {
+  const path6 = _path.map((seg) => typeof seg === "object" ? seg.key : seg);
+  for (const seg of path6) {
     if (typeof seg === "number")
       segs.push(`[${seg}]`);
     else if (typeof seg === "symbol")
@@ -18841,10 +18841,10 @@ async function resolveCommandPath(key, commandName) {
   const currentPending = pending.get(key);
   if (currentPending) return currentPending;
   const promise2 = (async () => {
-    const path5 = await findCommand(commandName);
-    cache[key] = path5;
+    const path6 = await findCommand(commandName);
+    cache[key] = path6;
     pending.delete(key);
-    return path5;
+    return path6;
   })();
   pending.set(key, promise2);
   return promise2;
@@ -18903,21 +18903,21 @@ import { exec as exec2 } from "node:child_process";
 import { promisify as promisify2 } from "node:util";
 var execAsync2 = promisify2(exec2);
 async function notifyDarwin(title, message) {
-  const path5 = await resolveCommandPath(
+  const path6 = await resolveCommandPath(
     NOTIFICATION_COMMAND_KEYS.OSASCRIPT,
     NOTIFICATION_COMMANDS.OSASCRIPT
   );
-  if (!path5) return;
+  if (!path6) return;
   const escT = title.replace(/"/g, '\\"');
   const escM = message.replace(/"/g, '\\"');
-  await execAsync2(`${path5} -e 'display notification "${escM}" with title "${escT}" sound name "Glass"'`);
+  await execAsync2(`${path6} -e 'display notification "${escM}" with title "${escT}" sound name "Glass"'`);
 }
 async function notifyLinux(title, message) {
-  const path5 = await resolveCommandPath(
+  const path6 = await resolveCommandPath(
     NOTIFICATION_COMMAND_KEYS.NOTIFY_SEND,
     NOTIFICATION_COMMANDS.NOTIFY_SEND
   );
-  if (path5) await execAsync2(`${path5} "${title}" "${message}" 2>/dev/null`);
+  if (path6) await execAsync2(`${path6} "${title}" "${message}" 2>/dev/null`);
 }
 async function notifyWindows(title, message) {
   const ps = await resolveCommandPath(
@@ -18963,11 +18963,11 @@ import { exec as exec3 } from "node:child_process";
 async function playDarwin(soundPath) {
   if (!soundPath) return;
   try {
-    const path5 = await resolveCommandPath(
+    const path6 = await resolveCommandPath(
       NOTIFICATION_COMMAND_KEYS.AFPLAY,
       NOTIFICATION_COMMANDS.AFPLAY
     );
-    if (path5) exec3(`"${path5}" "${soundPath}"`);
+    if (path6) exec3(`"${path6}" "${soundPath}"`);
   } catch (err) {
     log(`[session-notify] Error playing sound (Darwin): ${err}`);
   }
@@ -20237,10 +20237,65 @@ function createEventHandler(ctx) {
   };
 }
 
+// src/utils/compatibility/claude.ts
+import fs6 from "fs";
+import path5 from "path";
+function findClaudeRules(startDir = process.cwd()) {
+  try {
+    let currentDir = startDir;
+    const root = path5.parse(startDir).root;
+    while (true) {
+      const claudeMdPath = path5.join(currentDir, "CLAUDE.md");
+      if (fs6.existsSync(claudeMdPath)) {
+        try {
+          const content = fs6.readFileSync(claudeMdPath, "utf-8");
+          log(`[compatibility] Loaded CLAUDE.md from ${claudeMdPath}`);
+          return formatRules("CLAUDE.md", content);
+        } catch (e) {
+          log(`[compatibility] Error reading CLAUDE.md: ${e}`);
+        }
+      }
+      if (currentDir === root) break;
+      currentDir = path5.dirname(currentDir);
+    }
+    const copilotPath = path5.join(startDir, ".github", "copilot-instructions.md");
+    if (fs6.existsSync(copilotPath)) {
+      return formatRules("Copilot Instructions", fs6.readFileSync(copilotPath, "utf-8"));
+    }
+    return null;
+  } catch (error45) {
+    log(`[compatibility] Error finding Claude rules: ${error45}`);
+    return null;
+  }
+}
+function formatRules(source, content) {
+  return `
+<project_rules source="${source}">
+${content}
+</project_rules>
+
+<claude_compatibility>
+These rules are from the project's ${source}. 
+You MUST follow them as strictly as if they were your system prompt.
+This plugin runs in "Claude Code Compatibility Mode".
+</claude_compatibility>
+`;
+}
+
 // src/plugin-handlers/config-handler.ts
 function createConfigHandler() {
-  const commanderPrompt = AGENTS[AGENT_NAMES.COMMANDER]?.systemPrompt || "";
   return async (config2) => {
+    const claudeRules = findClaudeRules();
+    const injectRules = (prompt) => {
+      if (!claudeRules) return prompt;
+      return `${prompt}
+
+${claudeRules}`;
+    };
+    const commanderPrompt = injectRules(AGENTS[AGENT_NAMES.COMMANDER]?.systemPrompt || "");
+    const plannerPrompt = injectRules(AGENTS[AGENT_NAMES.PLANNER]?.systemPrompt || "");
+    const workerPrompt = injectRules(AGENTS[AGENT_NAMES.WORKER]?.systemPrompt || "");
+    const reviewerPrompt = injectRules(AGENTS[AGENT_NAMES.REVIEWER]?.systemPrompt || "");
     const existingCommands = config2.command ?? {};
     const existingAgents = config2.agent ?? {};
     const orchestratorCommands = {};
@@ -20266,7 +20321,7 @@ function createConfigHandler() {
         description: "Strategic planning and research specialist",
         mode: "subagent",
         hidden: true,
-        prompt: AGENTS[AGENT_NAMES.PLANNER]?.systemPrompt || "",
+        prompt: plannerPrompt,
         maxTokens: AGENT_TOKENS.SUBAGENT_MAX_TOKENS,
         color: "#9B59B6"
       },
@@ -20274,7 +20329,7 @@ function createConfigHandler() {
         description: "Implementation and documentation specialist",
         mode: "subagent",
         hidden: true,
-        prompt: AGENTS[AGENT_NAMES.WORKER]?.systemPrompt || "",
+        prompt: workerPrompt,
         maxTokens: AGENT_TOKENS.SUBAGENT_MAX_TOKENS,
         color: "#E67E22"
       },
@@ -20282,7 +20337,7 @@ function createConfigHandler() {
         description: "Verification and context management specialist",
         mode: "subagent",
         hidden: true,
-        prompt: AGENTS[AGENT_NAMES.REVIEWER]?.systemPrompt || "",
+        prompt: reviewerPrompt,
         maxTokens: AGENT_TOKENS.SUBAGENT_MAX_TOKENS,
         color: "#27AE60"
       }
