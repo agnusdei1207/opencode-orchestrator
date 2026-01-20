@@ -22,6 +22,10 @@ export interface ParallelTask {
     // Depth tracking - prevents infinite recursion
     depth: number;
 
+    // HPFA (Hyper-Parallel Fractal Architecture) fields
+    mode?: "normal" | "race" | "fractal";
+    groupID?: string; // Used for racing groups or recursive families
+
     // Stability detection
     lastMsgCount?: number;
     stablePolls?: number;

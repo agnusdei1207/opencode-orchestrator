@@ -7,4 +7,6 @@ export interface LaunchInput {
     agent: string;
     parentSessionID: string;
     depth?: number;  // Current nesting depth (default: 1)
+    mode?: "normal" | "race" | "fractal";
+    groupID?: string;
 }
