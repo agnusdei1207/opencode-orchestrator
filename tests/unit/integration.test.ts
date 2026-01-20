@@ -16,7 +16,8 @@ vi.mock("../../src/core/agents/logger", () => ({
 
 import { TaskStore } from "../../src/core/agents/task-store";
 import { ConcurrencyController } from "../../src/core/agents/concurrency";
-import type { ParallelTask } from "../../src/core/agents/interfaces/parallel-task";
+import type { ParallelTask } from "../../src/core/agents/interfaces/parallel-task.interface";
+import { TASK_STATUS } from "../../src/shared";
 
 function createMockTask(overrides: Partial<ParallelTask> = {}): ParallelTask {
     return {
@@ -24,10 +25,12 @@ function createMockTask(overrides: Partial<ParallelTask> = {}): ParallelTask {
         sessionID: `session_${Math.random().toString(36).slice(2, 10)}`,
         parentSessionID: "parent_main",
         description: "Integration test task",
+        prompt: "Test prompt content",
         agent: "builder",
-        status: "running",
+        status: TASK_STATUS.RUNNING,
         startedAt: new Date(),
         concurrencyKey: "builder",
+        depth: 1,
         ...overrides,
     };
 }
@@ -58,7 +61,7 @@ describe("Integration Tests", () => {
             expect(concurrency.getActiveCount("builder")).toBe(1);
 
             // 2. Task completes
-            task.status = "completed";
+            task.status = TASK_STATUS.COMPLETED;
             task.completedAt = new Date();
 
             if (task.concurrencyKey) {
@@ -69,7 +72,7 @@ describe("Integration Tests", () => {
             store.untrackPending(task.parentSessionID, task.id);
             store.queueNotification(task);
 
-            expect(task.status).toBe("completed");
+            expect(task.status).toBe(TASK_STATUS.COMPLETED);
             expect(concurrency.getActiveCount("builder")).toBe(0);
             expect(store.hasPending(task.parentSessionID)).toBe(false);
             expect(store.getNotifications(task.parentSessionID)).toHaveLength(1);
@@ -105,7 +108,7 @@ describe("Integration Tests", () => {
             expect(store.getPendingCount(task1.parentSessionID)).toBe(2);
 
             // Complete first task
-            task1.status = "completed";
+            task1.status = TASK_STATUS.COMPLETED;
             if (task1.concurrencyKey) {
                 concurrency.release(task1.concurrencyKey);
                 task1.concurrencyKey = undefined;
@@ -116,7 +119,7 @@ describe("Integration Tests", () => {
             expect(store.getPendingCount(task1.parentSessionID)).toBe(1);
 
             // Complete second task
-            task2.status = "completed";
+            task2.status = TASK_STATUS.COMPLETED;
             if (task2.concurrencyKey) {
                 concurrency.release(task2.concurrencyKey);
                 task2.concurrencyKey = undefined;
@@ -167,8 +170,8 @@ describe("Integration Tests", () => {
                 const foundTask = store.getAll().find(t => t.sessionID === sessionID);
                 if (!foundTask) return;
 
-                if (foundTask.status === "running") {
-                    foundTask.status = "error";
+                if (foundTask.status === TASK_STATUS.RUNNING) {
+                    foundTask.status = TASK_STATUS.ERROR;
                     foundTask.error = "Session deleted";
                     foundTask.completedAt = new Date();
                 }

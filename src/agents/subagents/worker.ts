@@ -29,6 +29,7 @@ import {
     // Advanced Tools
     SHARED_LSP_TOOLS,
     SHARED_AST_TOOLS,
+    MODULARITY_ENFORCEMENT,
 } from "../prompts/index.js";
 
 /**
@@ -37,6 +38,7 @@ import {
  */
 const systemPrompt = [
     WORKER_ROLE,
+    MODULARITY_ENFORCEMENT,
     WORKER_FORBIDDEN,
     WORKER_REQUIRED,
     ANTI_HALLUCINATION_CORE,

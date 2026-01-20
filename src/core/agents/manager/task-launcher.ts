@@ -25,90 +25,141 @@ export class TaskLauncher {
         private startPolling: () => void
     ) { }
 
-    async launch(input: LaunchInput): Promise<ParallelTask> {
-        log("[task-launcher.ts] launch() called", { agent: input.agent, description: input.description, parent: input.parentSessionID });
+    /**
+     * Unified launch method - handles both single and multiple tasks efficiently.
+     * All session creations happen in parallel immediately.
+     * Concurrency acquisition and prompt firing happen in the background.
+     */
+    async launch(inputs: LaunchInput | LaunchInput[]): Promise<ParallelTask | ParallelTask[]> {
+        const isArray = Array.isArray(inputs);
+        const taskInputs = isArray ? inputs : [inputs];
 
-        const concurrencyKey = input.agent;
-        await this.concurrency.acquire(concurrencyKey);
-        log("[task-launcher.ts] concurrency acquired for", concurrencyKey);
+        if (taskInputs.length === 0) return isArray ? [] : (null as any);
 
-        try {
-            const createResult = await this.client.session.create({
-                body: { parentID: input.parentSessionID, title: `${PARALLEL_TASK.SESSION_TITLE_PREFIX}: ${input.description}` },
-                query: { directory: this.directory },
+        log(`[task-launcher.ts] Batch launching ${taskInputs.length} task(s)`);
+        const startTime = Date.now();
+
+        // EXECUTION STRATEGY:
+        // 1. Create all sessions in parallel (Solves Sequential Task Start bottleneck)
+        // 2. Wrap them in ParallelTask objects with PENDING status
+        // 3. Register them in the store immediately
+        // 4. Background the concurrency acquisition and prompt firing
+
+        const tasks = await Promise.all(taskInputs.map(input =>
+            this.prepareTask(input).catch(error => {
+                log(`[task-launcher.ts] Failed to prepare task ${input.description}:`, error);
+                return null;
+            })
+        ));
+
+        const successfulTasks = tasks.filter((t): t is ParallelTask => t !== null);
+
+        // Start background execution for each task
+        successfulTasks.forEach(task => {
+            this.executeBackground(task).catch(error => {
+                log(`[task-launcher.ts] Background execution failed for ${task.id}:`, error);
+                this.onTaskError(task.id, error);
             });
+        });
 
-            if (createResult.error) {
-                this.concurrency.release(concurrencyKey);
-                throw new Error(`Failed to create session: ${createResult.error}`);
-            }
+        const elapsed = Date.now() - startTime;
+        log(`[task-launcher.ts] Batch launch prepared: ${successfulTasks.length} tasks in ${elapsed}ms`);
 
-            const sessionID = createResult.data.id;
-            const taskId = `${ID_PREFIX.TASK}${crypto.randomUUID().slice(0, 8)}`;
-            const depth = (input.depth ?? 0) + 1;
+        // Start polling if we have running/pending tasks
+        if (successfulTasks.length > 0) {
+            this.startPolling();
+        }
 
-            log("[task-launcher.ts] Creating task with depth", depth);
+        return isArray ? successfulTasks : (successfulTasks[0] || null);
+    }
 
-            const task: ParallelTask = {
+    /**
+     * Prepare task: Create session and registration without blocking on concurrency
+     */
+    private async prepareTask(input: LaunchInput): Promise<ParallelTask> {
+        const createResult = await this.client.session.create({
+            body: {
+                parentID: input.parentSessionID,
+                title: `${PARALLEL_TASK.SESSION_TITLE_PREFIX}: ${input.description}`
+            },
+            query: { directory: this.directory },
+        });
+
+        if (createResult.error || !createResult.data?.id) {
+            throw new Error(`Session creation failed: ${createResult.error || "No ID"}`);
+        }
+
+        const sessionID = createResult.data.id;
+        const taskId = `${ID_PREFIX.TASK}${crypto.randomUUID().slice(0, 8)}`;
+
+        const task: ParallelTask = {
+            id: taskId,
+            sessionID,
+            parentSessionID: input.parentSessionID,
+            description: input.description,
+            prompt: input.prompt,
+            agent: input.agent,
+            status: TASK_STATUS.PENDING, // Start as PENDING
+            startedAt: new Date(),
+            concurrencyKey: input.agent,
+            depth: (input.depth ?? 0) + 1,
+        };
+
+        // State tracking
+        this.store.set(taskId, task);
+        this.store.trackPending(input.parentSessionID, taskId);
+        taskWAL.log(WAL_ACTIONS.LAUNCH, task).catch(() => { });
+
+        // Registry in Toast & UI
+        const toastManager = getTaskToastManager();
+        if (toastManager) {
+            toastManager.addTask({
                 id: taskId,
-                sessionID,
-                parentSessionID: input.parentSessionID,
                 description: input.description,
-                prompt: input.prompt,
                 agent: input.agent,
-                status: TASK_STATUS.RUNNING,
-                startedAt: new Date(),
-                concurrencyKey,
-                depth,
-            };
+                isBackground: true,
+                parentSessionID: input.parentSessionID,
+                sessionID,
+            });
+        }
+        presets.sessionCreated(sessionID, input.agent);
 
-            this.store.set(taskId, task);
-            this.store.trackPending(input.parentSessionID, taskId);
+        return task;
+    }
 
-            // Log to WAL
+    /**
+     * Background execution: Acquire slot and fire prompt
+     */
+    private async executeBackground(task: ParallelTask): Promise<void> {
+        try {
+            // 1. Wait for concurrency slot
+            await this.concurrency.acquire(task.agent);
+
+            // 2. Update status to RUNNING
+            task.status = TASK_STATUS.RUNNING;
+            task.startedAt = new Date(); // Reset start time to when it actually started running
+            this.store.set(task.id, task);
             taskWAL.log(WAL_ACTIONS.LAUNCH, task).catch(() => { });
 
-            // Context sharing is done via .opencode/ files (agents read/write directly)
-            this.startPolling();
-
-            this.client.session.prompt({
-                path: { id: sessionID },
+            // 3. Fire prompt
+            await this.client.session.prompt({
+                path: { id: task.sessionID },
                 body: {
-                    agent: input.agent,
+                    agent: task.agent,
                     tools: {
-                        // Prevent recursive task spawning from subagents
                         delegate_task: false,
                         get_task_result: false,
                         list_tasks: false,
                         cancel_task: false,
                     },
-                    parts: [{ type: PART_TYPES.TEXT, text: input.prompt }]
+                    parts: [{ type: PART_TYPES.TEXT, text: task.prompt }]
                 },
-            }).catch((error) => {
-                log(`Prompt error for ${taskId}:`, error);
-                this.onTaskError(taskId, error);
             });
 
-            // Show consolidated task list toast (TaskToastManager)
-            const toastManager = getTaskToastManager();
-            if (toastManager) {
-                toastManager.addTask({
-                    id: taskId,
-                    description: input.description,
-                    agent: input.agent,
-                    isBackground: true,
-                    parentSessionID: input.parentSessionID,
-                    sessionID,
-                });
-            }
-
-            // Also show simple notification (legacy)
-            presets.sessionCreated(sessionID, input.agent);
-
-            log(`Launched ${taskId} in session ${sessionID}`);
-            return task;
+            log(`[task-launcher.ts] Task ${task.id} (${task.agent}) started running`);
         } catch (error) {
-            this.concurrency.release(concurrencyKey);
+            // If we acquired but failed to fire, release
+            this.concurrency.release(task.agent);
             throw error;
         }
     }

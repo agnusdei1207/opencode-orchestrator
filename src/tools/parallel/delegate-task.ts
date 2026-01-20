@@ -11,7 +11,7 @@
  */
 
 import { tool } from "@opencode-ai/plugin";
-import { ParallelAgentManager } from "../../core/agents/index.js";
+import { ParallelAgentManager, type ParallelTask } from "../../core/agents/index.js";
 import { log } from "../../core/agents/logger.js";
 import { presets } from "../../core/notification/presets.js";
 import {
@@ -259,15 +259,25 @@ export const createDelegateTaskTool = (manager: ParallelAgentManager, client: un
         // =========================================
         if (resume) {
             try {
-                const task = await manager.resume({
+                const input = {
                     sessionId: resume,
                     prompt,
                     parentSessionID: ctx.sessionID,
-                });
+                    agent, // Assuming agent is needed for resume context
+                    description, // Assuming description is needed for resume context
+                };
+                const launchResult = await manager.launch(input);
+                const task = (Array.isArray(launchResult) ? launchResult[0] : launchResult) as ParallelTask;
 
+                if (!task) {
+                    return `Failed to launch task: ${input.description}`;
+                }
+
+                const taskId = task.id;
                 if (background === true) {
-                    return `${OUTPUT_LABEL.RESUME} task: \`${task.id}\` (${task.agent}) in session \`${task.sessionID}\`\n\n` +
-                        `Previous context preserved. Use \`get_task_result({ taskId: "${task.id}" })\` when complete.`;
+                    const message = `Launched ${input.agent} task: ${input.description}\nTask ID: ${taskId}\nSession: ${task.sessionID}`;
+                    return `${OUTPUT_LABEL.RESUME} task: \`${taskId}\` (${task.agent}) in session \`${task.sessionID}\`\n\n` +
+                        `Previous context preserved. Use \`get_task_result({ taskId: "${taskId}" })\` when complete.`;
                 }
 
                 // SYNC MODE for resume - use safe polling
@@ -294,10 +304,12 @@ export const createDelegateTaskTool = (manager: ParallelAgentManager, client: un
         // =========================================
         if (background === true) {
             try {
-                const task = await manager.launch({
+                const launchResult = await manager.launch({
                     agent, description, prompt,
                     parentSessionID: ctx.sessionID,
                 });
+                const task = (Array.isArray(launchResult) ? launchResult[0] : launchResult) as ParallelTask;
+
                 presets.taskStarted(task.id, agent);
                 return `${OUTPUT_LABEL.SPAWNED} task: \`${task.id}\` (${agent})\n` +
                     `Session: \`${task.sessionID}\` (save for resume)`;

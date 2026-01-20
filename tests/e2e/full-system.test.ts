@@ -16,6 +16,7 @@ vi.mock("../../src/core/agents/logger", () => ({
 import { ConcurrencyController, type ConcurrencyConfig } from "../../src/core/agents/concurrency";
 import { TaskStore } from "../../src/core/agents/task-store";
 import type { ParallelTask } from "../../src/core/agents/interfaces/parallel-task.interface";
+import { TASK_STATUS } from "../../src/shared";
 
 // ========================================================================
 // Helpers
@@ -29,7 +30,7 @@ function createParallelTask(overrides: Partial<ParallelTask> = {}): ParallelTask
         description: "Parallel task",
         prompt: "Test task prompt",
         agent: "builder",
-        status: "running",
+        status: TASK_STATUS.RUNNING,
         startedAt: new Date(),
         concurrencyKey: "builder",
         depth: 1,
@@ -73,7 +74,7 @@ describe("Full System E2E", () => {
 
             // === Phase 2: Complete Tasks ===
             for (const task of tasks) {
-                task.status = "completed";
+                task.status = TASK_STATUS.COMPLETED;
                 task.completedAt = new Date();
 
                 if (task.concurrencyKey) {
@@ -149,8 +150,8 @@ describe("Full System E2E", () => {
                 const task = store.getAll().find((t: ParallelTask) => t.sessionID === sessionID);
                 if (!task) return;
 
-                if (task.status === "running") {
-                    task.status = "error";
+                if (task.status === TASK_STATUS.RUNNING) {
+                    task.status = TASK_STATUS.ERROR;
                     task.error = "Session deleted";
                 }
 
@@ -185,11 +186,11 @@ describe("Full System E2E", () => {
             const meetsMinTime = elapsed >= MIN_STABILITY_MS;
 
             if (isStable && meetsMinTime) {
-                task.status = "completed";
+                task.status = TASK_STATUS.COMPLETED;
                 task.completedAt = new Date();
             }
 
-            expect(task.status).toBe("completed");
+            expect(task.status).toBe(TASK_STATUS.COMPLETED);
         });
     });
 

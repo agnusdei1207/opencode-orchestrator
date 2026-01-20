@@ -10,7 +10,8 @@
 
 import { describe, it, expect, beforeEach } from "vitest";
 import { TaskStore } from "../../src/core/agents/task-store";
-import type { ParallelTask } from "../../src/core/agents/interfaces/parallel-task";
+import type { ParallelTask } from "../../src/core/agents/interfaces/parallel-task.interface";
+import { TASK_STATUS } from "../../src/shared";
 
 function createMockTask(overrides: Partial<ParallelTask> = {}): ParallelTask {
     return {
@@ -18,9 +19,11 @@ function createMockTask(overrides: Partial<ParallelTask> = {}): ParallelTask {
         sessionID: `session_${Math.random().toString(36).slice(2, 10)}`,
         parentSessionID: "parent_123",
         description: "Test task",
+        prompt: "Test prompt content",
         agent: "builder",
-        status: "running",
+        status: TASK_STATUS.RUNNING,
         startedAt: new Date(),
+        depth: 1,
         ...overrides,
     };
 }
@@ -59,13 +62,16 @@ describe("TaskStore", () => {
             expect(store.getAll()).toHaveLength(2);
         });
 
-        it("should get running tasks only", () => {
-            store.set("task_1", createMockTask({ id: "task_1", status: "running" }));
-            store.set("task_2", createMockTask({ id: "task_2", status: "completed" }));
+        it("should get running and pending tasks", () => {
+            store.set("task_1", createMockTask({ id: "task_1", status: TASK_STATUS.RUNNING }));
+            store.set("task_2", createMockTask({ id: "task_2", status: TASK_STATUS.PENDING }));
+            store.set("task_3", createMockTask({ id: "task_3", status: TASK_STATUS.COMPLETED }));
+            store.set("task_4", createMockTask({ id: "task_4", status: TASK_STATUS.FAILED }));
 
-            const running = store.getRunning();
-            expect(running).toHaveLength(1);
-            expect(running[0].id).toBe("task_1");
+            const active = store.getRunning();
+            expect(active).toHaveLength(2);
+            expect(active.map(t => t.id)).toContain("task_1");
+            expect(active.map(t => t.id)).toContain("task_2");
         });
 
         it("should get tasks by parent", () => {
