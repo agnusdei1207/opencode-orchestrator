@@ -1,6 +1,9 @@
 import { tool } from "@opencode-ai/plugin";
-import { AGENT_NAMES, PROMPTS, MISSION_SEAL } from "../shared/index.js";;
+import { AGENT_NAMES, PROMPTS, MISSION_SEAL } from "../shared/index.js";
 import { commander } from "../agents/commander.js";
+import { ParallelAgentManager } from "../core/agents/index.js";
+import { getTaskToastManager } from "../core/notification/task-toast-manager.js";
+import { getLogPath } from "../core/agents/logger.js";
 
 /**
  * Slash commands for OpenCode Orchestrator
@@ -99,7 +102,10 @@ THINK → PLAN → DELEGATE → EXECUTE → VERIFY → COMPLETE
 - Or use \`/task "your mission"\` explicitly
 - ${AGENT_NAMES.COMMANDER} automatically coordinates all agents`,
   },
-
+  "monitor": {
+    description: "SYS MONITOR - Check real-time orchestration status and connections",
+    template: "$DYNAMIC_MONITOR_STATUS",
+  },
 };
 
 export function createSlashcommandTool() {
@@ -123,6 +129,48 @@ export function createSlashcommandTool() {
 
       const command = COMMANDS[cmdName];
       if (!command) return `Unknown command: /${cmdName}\n\n${commandList}`;
+
+      if (cmdName === "monitor") {
+        try {
+          const manager = ParallelAgentManager.getInstance();
+          const stats = manager.getStats?.() || { running: 0, queued: 0, total: 0 };
+          const concurrency = manager.getConcurrency();
+          const toastManager = getTaskToastManager();
+          const logPath = getLogPath();
+
+          const activeTasks = manager.getRunningTasks();
+          const taskList = activeTasks.length > 0
+            ? activeTasks.map(t => `- [${t.agent}] ${t.description.slice(0, 40)}... (${manager.formatDuration(t.startedAt)})`).join("\n")
+            : "No active background tasks.";
+
+          const tuiConnected = (toastManager as any)?.client ? "✅ CONNECTED" : "❌ DISCONNECTED";
+
+          return `## 🖥️ System Monitor: opencode-orchestrator
+
+### 🚄 Orchestration Status
+- **Active Workers**: ${stats.running}
+- **Queued Tasks**: ${stats.queued}
+- **Total Lifetime Tasks**: ${stats.total}
+
+### 🔗 Connection Status
+- **TUI (Toast/UI)**: ${tuiConnected}
+- **Storage (WAL)**: ✅ ENABLED
+- **Log Feed**: \`${logPath}\`
+
+### ⚡ Concurrency Slots
+- **Default**: ${concurrency.getActiveCount("default")}/${concurrency.getConcurrencyLimit("default")}
+- **Worker**: ${concurrency.getActiveCount(AGENT_NAMES.WORKER)}/${concurrency.getConcurrencyLimit(AGENT_NAMES.WORKER)}
+- **Reviewer**: ${concurrency.getActiveCount(AGENT_NAMES.REVIEWER)}/${concurrency.getConcurrencyLimit(AGENT_NAMES.REVIEWER)}
+
+### 📊 Active Background Swarm
+${taskList}
+
+---
+*Use \`tail -f ${logPath}\` for real-time debug stream.*`;
+        } catch (err) {
+          return `Error fetching monitor status: ${err instanceof Error ? err.message : String(err)}`;
+        }
+      }
 
       return command.template.replace(/\$ARGUMENTS/g, cmdArgs || PROMPTS.CONTINUE_DEFAULT);
     },

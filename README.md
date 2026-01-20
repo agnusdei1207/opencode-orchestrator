@@ -18,7 +18,8 @@ npm install -g opencode-orchestrator
 
 In an OpenCode environment:
 ```bash
-/task "Implement a real-time collaborative editor using WebSocket"
+/task "Implement"
+/monitor  # Check real-time orchestration & connection status
 ```
 
 ## Overview
@@ -124,6 +125,7 @@ MSVP is a structured verification process that decouples implementation from qua
 *   **Synchronized Verification**: Ensures all distributed tasks pass Stage 1 review before final integration.
 *   **Fault Tolerance**: Automatically resumes progress from checkpoints in case of tool or session failure.
 *   **Context Optimization**: Monitors context window limits and performs automated compaction for long sessions.
+*   **Real-time System Monitor**: Provides a professional dashboard via `/monitor` command to track parallel tasks and connection health.
 
 ---
 
