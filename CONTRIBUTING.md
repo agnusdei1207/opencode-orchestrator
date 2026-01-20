@@ -21,7 +21,7 @@ The system is built on a **4-Agent Cognitive Architecture**:
 ## 🚀 Development Setup
 
 ### Prerequisites
-- **Node.js**: v18+ 
+- **Node.js**: v24+ (Latest LTS)
 - **Rust**: Latest stable (with `cargo`)
 - **OpenCode**: Installed locally
 
