@@ -4,7 +4,7 @@
  * Adaptive implementation workflow - observe, learn, then act.
  */
 
-import { AGENT_NAMES, PATHS, PROMPT_TAGS, LIMITS, TOOL_NAMES, MANDATES } from "../../../shared/index.js";
+import { AGENT_NAMES, PATHS, PROMPT_TAGS, LIMITS, TOOL_NAMES, PHASE_5_MSVP } from "../../../shared/index.js";
 
 export const WORKER_WORKFLOW = `${PROMPT_TAGS.WORKFLOW.open}
 ADAPTIVE IMPLEMENTATION WORKFLOW
@@ -38,7 +38,7 @@ ADAPTIVE IMPLEMENTATION WORKFLOW
 9. Add tests matching project's test style
 
 ## Phase 5: VERIFY & MSVP STAGE 1
-${MANDATES.PHASE_5_MSVP}
+${PHASE_5_MSVP}
 
 [ACTION]: Use ${TOOL_NAMES.DELEGATE_TASK} to trigger ${AGENT_NAMES.REVIEWER} for Unit Verification before reporting DONE.
 
