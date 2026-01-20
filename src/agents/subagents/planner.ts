@@ -26,6 +26,7 @@ import {
     // Advanced Tools
     SHARED_LSP_TOOLS,
     SHARED_AST_TOOLS,
+    MODULARITY_ENFORCEMENT,
 } from "../prompts/index.js";
 
 /**
@@ -34,6 +35,7 @@ import {
  */
 const systemPrompt = [
     PLANNER_ROLE,
+    MODULARITY_ENFORCEMENT,
     PLANNER_FORBIDDEN,
     PLANNER_REQUIRED,
     ENVIRONMENT_DISCOVERY,

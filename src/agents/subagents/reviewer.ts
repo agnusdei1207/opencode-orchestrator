@@ -28,6 +28,7 @@ import {
     // Advanced Tools
     SHARED_LSP_TOOLS,
     SHARED_AST_TOOLS,
+    MODULARITY_ENFORCEMENT,
 } from "../prompts/index.js";
 
 /**
@@ -36,6 +37,7 @@ import {
  */
 const systemPrompt = [
     REVIEWER_ROLE,
+    MODULARITY_ENFORCEMENT,
     REVIEWER_FORBIDDEN,
     REVIEWER_REQUIRED,
     REVIEWER_VERIFICATION,

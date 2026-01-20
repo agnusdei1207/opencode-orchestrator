@@ -27,7 +27,8 @@ vi.mock("../../src/core/agents/logger", () => ({
 
 import { TaskStore } from "../../src/core/agents/task-store";
 import { ConcurrencyController } from "../../src/core/agents/concurrency";
-import type { ParallelTask } from "../../src/core/agents/interfaces/parallel-task";
+import type { ParallelTask } from "../../src/core/agents/interfaces/parallel-task.interface";
+import { TASK_STATUS } from "../../src/shared";
 
 // Create mock task for testing
 function createMockTask(overrides: Partial<ParallelTask> = {}): ParallelTask {
@@ -36,10 +37,12 @@ function createMockTask(overrides: Partial<ParallelTask> = {}): ParallelTask {
         sessionID: `session_${Math.random().toString(36).slice(2, 10)}`,
         parentSessionID: "parent_123",
         description: "Test task",
+        prompt: "Test prompt content",
         agent: "builder",
-        status: "running",
+        status: TASK_STATUS.RUNNING,
         startedAt: new Date(Date.now() - 5000),  // Started 5s ago
         concurrencyKey: "builder",
+        depth: 1,
         ...overrides,
     };
 }
@@ -64,8 +67,8 @@ describe("ParallelAgentManager Features", () => {
             store.trackPending(task.parentSessionID, task.id);
 
             // Simulate session.deleted handling
-            if (task.status === "running") {
-                task.status = "error";
+            if (task.status === TASK_STATUS.RUNNING) {
+                task.status = TASK_STATUS.ERROR;
                 task.error = "Session deleted";
                 task.completedAt = new Date();
             }
@@ -91,7 +94,7 @@ describe("ParallelAgentManager Features", () => {
             store.set(task.id, task);
 
             // Simulate session.idle completion
-            task.status = "completed";
+            task.status = TASK_STATUS.COMPLETED;
             task.completedAt = new Date();
 
             if (task.concurrencyKey) {
@@ -233,23 +236,23 @@ describe("ParallelAgentManager Features", () => {
 
     describe("task lifecycle", () => {
         it("should transition through states correctly", () => {
-            const task = createMockTask({ status: "running" });
+            const task = createMockTask({ status: TASK_STATUS.RUNNING });
 
             // Running → Completed
-            task.status = "completed";
+            task.status = TASK_STATUS.COMPLETED;
             task.completedAt = new Date();
             expect(task.status).toBe("completed");
 
             // Running → Error
-            const errorTask = createMockTask({ status: "running" });
-            errorTask.status = "error";
+            const errorTask = createMockTask({ status: TASK_STATUS.RUNNING });
+            errorTask.status = TASK_STATUS.ERROR;
             errorTask.error = "Something went wrong";
-            expect(errorTask.status).toBe("error");
+            expect(errorTask.status).toBe(TASK_STATUS.ERROR);
             expect(errorTask.error).toBe("Something went wrong");
 
             // Running → Timeout
-            const timeoutTask = createMockTask({ status: "running" });
-            timeoutTask.status = "timeout";
+            const timeoutTask = createMockTask({ status: TASK_STATUS.RUNNING });
+            timeoutTask.status = TASK_STATUS.TIMEOUT;
             timeoutTask.error = "Task exceeded time limit";
             expect(timeoutTask.status).toBe("timeout");
         });
@@ -263,7 +266,7 @@ describe("ParallelAgentManager Features", () => {
             expect(store.hasPending(task.parentSessionID)).toBe(true);
 
             // Complete and untrack
-            task.status = "completed";
+            task.status = TASK_STATUS.COMPLETED;
             store.untrackPending(task.parentSessionID, task.id);
             expect(store.hasPending(task.parentSessionID)).toBe(false);
         });

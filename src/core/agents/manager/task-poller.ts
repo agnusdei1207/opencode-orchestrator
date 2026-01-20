@@ -57,6 +57,9 @@ export class TaskPoller {
 
             for (const task of running) {
                 try {
+                    // Skip tasks that haven't actually started running yet
+                    if (task.status === TASK_STATUS.PENDING) continue;
+
                     const sessionStatus = allStatuses[task.sessionID];
 
                     // If session is idle, try to complete

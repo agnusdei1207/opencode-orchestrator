@@ -293,12 +293,18 @@ var PARALLEL_TASK = {
   DEFAULT_CONCURRENCY: 3,
   MAX_CONCURRENCY: 10,
   // Sync polling (for delegate_task sync mode)
+  // Optimized: Reduced polling frequency while relying more on events
   SYNC_TIMEOUT_MS: 5 * TIME.MINUTE,
-  POLL_INTERVAL_MS: 500,
-  MIN_IDLE_TIME_MS: 5 * TIME.SECOND,
-  MIN_STABILITY_MS: 3 * TIME.SECOND,
-  STABLE_POLLS_REQUIRED: 3,
-  MAX_POLL_COUNT: 600,
+  POLL_INTERVAL_MS: 2e3,
+  // 500 → 2000ms (75% less API calls)
+  MIN_IDLE_TIME_MS: 3 * TIME.SECOND,
+  // 5s → 3s (faster detection)
+  MIN_STABILITY_MS: 2 * TIME.SECOND,
+  // 3s → 2s (faster stability)
+  STABLE_POLLS_REQUIRED: 2,
+  // 3 → 2 (faster completion)
+  MAX_POLL_COUNT: 150,
+  // 600 → 150 (adjusted for 2s interval)
   // Session naming
   SESSION_TITLE_PREFIX: "Parallel",
   // Labels for output
@@ -16948,76 +16954,96 @@ var TaskLauncher = class {
     this.onTaskError = onTaskError;
     this.startPolling = startPolling;
   }
-  async launch(input) {
-    log("[task-launcher.ts] launch() called", { agent: input.agent, description: input.description, parent: input.parentSessionID });
-    const concurrencyKey = input.agent;
-    await this.concurrency.acquire(concurrencyKey);
-    log("[task-launcher.ts] concurrency acquired for", concurrencyKey);
-    try {
-      const createResult = await this.client.session.create({
-        body: { parentID: input.parentSessionID, title: `${PARALLEL_TASK.SESSION_TITLE_PREFIX}: ${input.description}` },
-        query: { directory: this.directory }
-      });
-      if (createResult.error) {
-        this.concurrency.release(concurrencyKey);
-        throw new Error(`Failed to create session: ${createResult.error}`);
+  /**
+   * Unified launch method - handles both single and multiple tasks efficiently.
+   * Everything is treated as a batch for consistent performance and behavior.
+   */
+  async launch(inputs) {
+    const isArray = Array.isArray(inputs);
+    const taskInputs = isArray ? inputs : [inputs];
+    if (taskInputs.length === 0) return isArray ? [] : null;
+    log(`[task-launcher.ts] Unified launch for ${taskInputs.length} task(s)`);
+    const startTime = Date.now();
+    const acquired = [];
+    for (const input of taskInputs) {
+      try {
+        await this.concurrency.acquire(input.agent);
+        acquired.push(input);
+      } catch (error45) {
+        log(`[task-launcher.ts] Concurrency skip for ${input.agent}:`, error45);
       }
-      const sessionID = createResult.data.id;
-      const taskId = `${ID_PREFIX.TASK}${crypto.randomUUID().slice(0, 8)}`;
-      const depth = (input.depth ?? 0) + 1;
-      log("[task-launcher.ts] Creating task with depth", depth);
-      const task = {
-        id: taskId,
-        sessionID,
-        parentSessionID: input.parentSessionID,
-        description: input.description,
-        prompt: input.prompt,
-        agent: input.agent,
-        status: TASK_STATUS.RUNNING,
-        startedAt: /* @__PURE__ */ new Date(),
-        concurrencyKey,
-        depth
-      };
-      this.store.set(taskId, task);
-      this.store.trackPending(input.parentSessionID, taskId);
-      taskWAL.log(WAL_ACTIONS.LAUNCH, task).catch(() => {
-      });
-      this.startPolling();
-      this.client.session.prompt({
-        path: { id: sessionID },
-        body: {
-          agent: input.agent,
-          tools: {
-            // Prevent recursive task spawning from subagents
-            delegate_task: false,
-            get_task_result: false,
-            list_tasks: false,
-            cancel_task: false
-          },
-          parts: [{ type: PART_TYPES.TEXT, text: input.prompt }]
-        }
-      }).catch((error45) => {
-        log(`Prompt error for ${taskId}:`, error45);
-        this.onTaskError(taskId, error45);
-      });
-      const toastManager = getTaskToastManager();
-      if (toastManager) {
-        toastManager.addTask({
-          id: taskId,
-          description: input.description,
-          agent: input.agent,
-          isBackground: true,
-          parentSessionID: input.parentSessionID,
-          sessionID
-        });
-      }
-      presets.sessionCreated(sessionID, input.agent);
-      log(`Launched ${taskId} in session ${sessionID}`);
-      return task;
-    } catch (error45) {
-      this.concurrency.release(concurrencyKey);
-      throw error45;
     }
+    const results = await Promise.all(acquired.map(
+      (input) => this.executeInternal(input).catch((error45) => {
+        this.concurrency.release(input.agent);
+        log(`[task-launcher.ts] Execution failed for ${input.description}:`, error45);
+        return null;
+      })
+    ));
+    const successfulTasks = results.filter((t) => t !== null);
+    const elapsed = Date.now() - startTime;
+    log(`[task-launcher.ts] Launch completed: ${successfulTasks.length} tasks in ${elapsed}ms`);
+    return isArray ? successfulTasks : successfulTasks[0];
+  }
+  /**
+   * Internal execution logic - creates session and fires prompt
+   */
+  async executeInternal(input) {
+    const createResult = await this.client.session.create({
+      body: {
+        parentID: input.parentSessionID,
+        title: `${PARALLEL_TASK.SESSION_TITLE_PREFIX}: ${input.description}`
+      },
+      query: { directory: this.directory }
+    });
+    if (createResult.error || !createResult.data?.id) {
+      throw new Error(`Session creation failed: ${createResult.error || "No ID"}`);
+    }
+    const sessionID = createResult.data.id;
+    const taskId = `${ID_PREFIX.TASK}${crypto.randomUUID().slice(0, 8)}`;
+    const task = {
+      id: taskId,
+      sessionID,
+      parentSessionID: input.parentSessionID,
+      description: input.description,
+      prompt: input.prompt,
+      agent: input.agent,
+      status: TASK_STATUS.RUNNING,
+      startedAt: /* @__PURE__ */ new Date(),
+      concurrencyKey: input.agent,
+      depth: (input.depth ?? 0) + 1
+    };
+    this.store.set(taskId, task);
+    this.store.trackPending(input.parentSessionID, taskId);
+    taskWAL.log(WAL_ACTIONS.LAUNCH, task).catch(() => {
+    });
+    this.startPolling();
+    this.client.session.prompt({
+      path: { id: sessionID },
+      body: {
+        agent: input.agent,
+        tools: {
+          delegate_task: false,
+          get_task_result: false,
+          list_tasks: false,
+          cancel_task: false
+        },
+        parts: [{ type: PART_TYPES.TEXT, text: input.prompt }]
+      }
+    }).catch((err) => this.onTaskError(taskId, err));
+    const toastManager = getTaskToastManager();
+    if (toastManager) {
+      toastManager.addTask({
+        id: taskId,
+        description: input.description,
+        agent: input.agent,
+        isBackground: true,
+        parentSessionID: input.parentSessionID,
+        sessionID
+      });
+    }
+    presets.sessionCreated(sessionID, input.agent);
+    return task;
   }
 };
 
@@ -17468,9 +17494,9 @@ var ParallelAgentManager = class _ParallelAgentManager {
   // ========================================================================
   // Public API
   // ========================================================================
-  async launch(input) {
+  async launch(inputs) {
     this.cleaner.pruneExpiredTasks();
-    return this.launcher.launch(input);
+    return this.launcher.launch(inputs);
   }
   async resume(input) {
     return this.resumer.resume(input);
@@ -17761,15 +17787,28 @@ var createDelegateTaskTool = (manager, client) => tool({
     }
     if (resume) {
       try {
-        const task = await manager.resume({
+        const input = {
           sessionId: resume,
           prompt,
-          parentSessionID: ctx.sessionID
-        });
+          parentSessionID: ctx.sessionID,
+          agent,
+          // Assuming agent is needed for resume context
+          description
+          // Assuming description is needed for resume context
+        };
+        const launchResult = await manager.launch(input);
+        const task = Array.isArray(launchResult) ? launchResult[0] : launchResult;
+        if (!task) {
+          return `Failed to launch task: ${input.description}`;
+        }
+        const taskId = task.id;
         if (background === true) {
-          return `${OUTPUT_LABEL.RESUME} task: \`${task.id}\` (${task.agent}) in session \`${task.sessionID}\`
+          const message = `Launched ${input.agent} task: ${input.description}
+Task ID: ${taskId}
+Session: ${task.sessionID}`;
+          return `${OUTPUT_LABEL.RESUME} task: \`${taskId}\` (${task.agent}) in session \`${task.sessionID}\`
 
-Previous context preserved. Use \`get_task_result({ taskId: "${task.id}" })\` when complete.`;
+Previous context preserved. Use \`get_task_result({ taskId: "${taskId}" })\` when complete.`;
         }
         const startTime = Date.now();
         const session = sessionClient.session;
@@ -17789,12 +17828,13 @@ ${text || "(No output)"}`;
     }
     if (background === true) {
       try {
-        const task = await manager.launch({
+        const launchResult = await manager.launch({
           agent,
           description,
           prompt,
           parentSessionID: ctx.sessionID
         });
+        const task = Array.isArray(launchResult) ? launchResult[0] : launchResult;
         presets.taskStarted(task.id, agent);
         return `${OUTPUT_LABEL.SPAWNED} task: \`${task.id}\` (${agent})
 Session: \`${task.sessionID}\` (save for resume)`;

@@ -36,7 +36,7 @@ export class TaskStore {
     }
 
     getRunning(): ParallelTask[] {
-        return this.getAll().filter(t => t.status === TASK_STATUS.RUNNING);
+        return this.getAll().filter(t => t.status === TASK_STATUS.RUNNING || t.status === TASK_STATUS.PENDING);
     }
 
     getByParent(parentSessionID: string): ParallelTask[] {

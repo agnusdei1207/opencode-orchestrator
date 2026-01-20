@@ -116,9 +116,9 @@ export class ParallelAgentManager {
     // Public API
     // ========================================================================
 
-    async launch(input: LaunchInput): Promise<ParallelTask> {
+    async launch(inputs: LaunchInput | LaunchInput[]): Promise<ParallelTask | ParallelTask[]> {
         this.cleaner.pruneExpiredTasks();
-        return this.launcher.launch(input);
+        return this.launcher.launch(inputs);
     }
 
     async resume(input: ResumeInput): Promise<ParallelTask> {
