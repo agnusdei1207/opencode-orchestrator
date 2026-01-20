@@ -3,7 +3,7 @@ name: Build & Release
 on:
   push:
     tags:
-      - 'v*'
+      - "v*"
   workflow_dispatch:
 
 permissions:
@@ -35,12 +35,12 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
         with:
           targets: ${{ matrix.target }}
-          
+
       - name: Install cross-compilation tools (Linux ARM64)
         if: matrix.target == 'aarch64-unknown-linux-gnu'
         run: |
@@ -74,7 +74,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: Download all artifacts
         uses: actions/download-artifact@v4
         with:
@@ -90,15 +90,15 @@ jobs:
           files: binaries/**/*
           body: |
             # 🚀 OpenCode Orchestrator ${{ github.ref_name }}
-            
+
             ---
-            
+
             ## ⭐ Core Philosophy
-            
+
             > **Humanity lands on an unknown planet. No maps. No guides. Just a mission.**
-            
+
             You don't assume oxygen. You don't guess gravity. You **explore**, **learn**, **adapt**, and **act**.
-            
+
             ```
             ┌───────────────────────────────────────────────────────────┐
             │  🔍 EXPLORE   →   📝 LEARN   →   🔄 ADAPT   →   ⚡ ACT        │
@@ -106,20 +106,20 @@ jobs:
             │  unknown          findings        the project     task        │
             └───────────────────────────────────────────────────────────┘
             ```
-            
+
             ---
-            
+
             ## 👨‍🚀 The Crew
-            
+
             | Agent | Role | Mission |
             |:------|:-----|:--------|
             | 🎯 **Commander** | Orchestrator | Leads the task, delegates work to other agents, ensures completion |
             | 📋 **Planner** | Researcher | Analyzes the project, creates the plan, documents findings |
             | 🔨 **Worker** | Implementer | Writes code, modifies files, follows the project's patterns |
             | ✅ **Reviewer** | Verifier | Tests changes, checks for errors, confirms quality |
-            
+
             ### 🌟 Crew Principles
-            
+
             | Principle | In Practice |
             |:----------|:------------|
             | 🔍 **Never Assume** | Always check the actual code and config files first |
@@ -127,11 +127,11 @@ jobs:
             | 📚 **Verify with Evidence** | Run tests, cite sources, complete with proof |
             | 🔄 **Adapt to the Project** | Match the project's existing style and patterns |
             | 🤝 **Specialized Roles** | Each agent has a clear, focused responsibility |
-            
+
             ---
-            
+
             ## ✨ Key Features
-            
+
             | Feature | Description |
             |:--------|:------------|
             | 🦀 **Rust Core** | High-performance tool engine for search, AST, and diff |
@@ -139,37 +139,37 @@ jobs:
             | 🔥 **Multi-File Ops** | Writes code across different files concurrently |
             | 🛡️ **Self-Healing** | Automatic recovery with intelligent retry logic |
             | 🧬 **Adaptive AI** | Agents learn project-specific patterns and adapt behavior |
-            
+
             ---
-            
+
             ## 📦 Installation
-            
+
             ```bash
             npm install -g opencode-orchestrator
             ```
-            
+
             ---
-            
+
           generate_release_notes: true
           fail_on_unmatched_files: false
 
       - name: Publish to GitHub Packages
         uses: actions/setup-node@v4
         with:
-          node-version: '24'
-          registry-url: 'https://npm.pkg.github.com'
-          scope: '@agnusdei1207'
+          node-version: "24"
+          registry-url: "https://npm.pkg.github.com"
+          scope: "@agnusdei1207"
 
       - name: Install Bun
         uses: oven-sh/setup-bun@v1
         with:
           bun-version: latest
-          registry-url: 'https://npm.pkg.github.com'
-          scope: '@agnusdei1207'
-          
+          registry-url: "https://npm.pkg.github.com"
+          scope: "@agnusdei1207"
+
       - name: Install dependencies
         run: npm install --force
-        
+
       - name: Prepare binaries for NPM
         run: |
           mkdir -p bin
