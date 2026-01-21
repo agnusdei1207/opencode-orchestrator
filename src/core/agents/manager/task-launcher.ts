@@ -6,7 +6,6 @@ import type { PluginInput } from "@opencode-ai/plugin";
 import { ID_PREFIX, TASK_STATUS, PART_TYPES, PARALLEL_TASK, WAL_ACTIONS, TOOL_NAMES } from "../../../shared/index.js";
 import { ConcurrencyController } from "../concurrency.js";
 import { TaskStore } from "../task-store.js";
-import { log } from "../logger.js";
 import { presets } from "../../notification/presets.js";
 import { getTaskToastManager } from "../../notification/task-toast-manager.js";
 import type { ParallelTask } from "../interfaces/parallel-task.interface.js";
@@ -36,9 +35,6 @@ export class TaskLauncher {
 
         if (taskInputs.length === 0) return isArray ? [] : (null as any);
 
-        log(`[task-launcher.ts] Batch launching ${taskInputs.length} task(s)`);
-        const startTime = Date.now();
-
         // EXECUTION STRATEGY:
         // 1. Create all sessions in parallel (Solves Sequential Task Start bottleneck)
         // 2. Wrap them in ParallelTask objects with PENDING status
@@ -46,10 +42,7 @@ export class TaskLauncher {
         // 4. Background the concurrency acquisition and prompt firing
 
         const tasks = await Promise.all(taskInputs.map(input =>
-            this.prepareTask(input).catch(error => {
-                log(`[task-launcher.ts] Failed to prepare task ${input.description}:`, error);
-                return null;
-            })
+            this.prepareTask(input).catch(() => null)
         ));
 
         const successfulTasks = tasks.filter((t): t is ParallelTask => t !== null);
@@ -57,13 +50,11 @@ export class TaskLauncher {
         // Start background execution for each task
         successfulTasks.forEach(task => {
             this.executeBackground(task).catch(error => {
-                log(`[task-launcher.ts] Background execution failed for ${task.id}:`, error);
                 this.onTaskError(task.id, error);
             });
         });
 
-        const elapsed = Date.now() - startTime;
-        log(`[task-launcher.ts] Batch launch prepared: ${successfulTasks.length} tasks in ${elapsed}ms`);
+
 
         // Start polling if we have running/pending tasks
         if (successfulTasks.length > 0) {
@@ -80,7 +71,6 @@ export class TaskLauncher {
         // HPFA: Depth Guard
         const currentDepth = input.depth ?? 0;
         if (currentDepth >= PARALLEL_TASK.MAX_DEPTH) {
-            log(`[task-launcher.ts] Task depth limit reached (${currentDepth}/${PARALLEL_TASK.MAX_DEPTH}). Generation blocked.`);
             throw new Error(`Maximum task depth (${PARALLEL_TASK.MAX_DEPTH}) reached. To prevent infinite recursion, no further sub-tasks can be spawned.`);
         }
 
@@ -182,8 +172,6 @@ export class TaskLauncher {
                     setTimeout(() => reject(new Error("Session prompt execution timed out after 600s")), 600000)
                 )
             ]);
-
-            log(`[task-launcher.ts] Task ${task.id} (${task.agent}) started running`);
         } catch (error) {
             // If we acquired but failed to fire, release
             this.concurrency.release(task.agent);

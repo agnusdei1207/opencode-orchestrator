@@ -6,7 +6,6 @@
  * - message.updated
  */
 
-import { log } from "../core/agents/logger.js";
 import { ParallelAgentManager } from "../core/agents/manager.js";
 import * as Toast from "../core/notification/toast.js";
 import * as ProgressTracker from "../core/progress/tracker.js";
@@ -25,15 +24,10 @@ export type { SessionState, OrchestratorState, EventHandlerContext } from "./int
  * Create event handler for session events
  */
 export function createEventHandler(ctx: EventHandlerContext) {
-    const { client, directory, sessions, state, sessionNotifyHandler } = ctx;
+    const { client, directory, sessions, state } = ctx;
 
     return async (input: { event: { type: string; properties?: Record<string, unknown> } }) => {
         const { event } = input;
-
-        // Pass events to OS notification handler for idle detection
-        if (sessionNotifyHandler) {
-            sessionNotifyHandler.handleEvent(event).catch(() => { });
-        }
 
         // Pass events to ParallelAgentManager
         try {
@@ -46,7 +40,6 @@ export function createEventHandler(ctx: EventHandlerContext) {
         // session.created
         if (event.type === SESSION_EVENTS.CREATED) {
             const sessionID = event.properties?.id as string || "";
-            log("[event-handler] session.created", { sessionID });
             Toast.presets.missionStarted(`Session ${sessionID.slice(0, 12)}...`);
         }
 
@@ -60,8 +53,6 @@ export function createEventHandler(ctx: EventHandlerContext) {
                 const duration = totalTime < 60000
                     ? `${Math.round(totalTime / 1000)}s`
                     : `${Math.round(totalTime / 60000)}m`;
-
-                log("[event-handler] session.deleted", { sessionID, steps: session.step, duration });
 
                 sessions.delete(sessionID);
                 state.sessions.delete(sessionID);
@@ -79,7 +70,6 @@ export function createEventHandler(ctx: EventHandlerContext) {
         if (event.type === SESSION_EVENTS.ERROR) {
             const sessionID = event.properties?.sessionId as string || event.properties?.sessionID as string || "";
             const error = event.properties?.error;
-            log("[event-handler] session.error", { sessionID, error });
 
             if (sessionID) {
                 TodoContinuation.handleSessionError(sessionID, error);
@@ -90,10 +80,7 @@ export function createEventHandler(ctx: EventHandlerContext) {
                 const recovered = await SessionRecovery.handleSessionError(
                     client, sessionID, error, event.properties
                 );
-                if (recovered) {
-                    log("[event-handler] auto-recovery initiated", { sessionID });
-                    return;
-                }
+                if (recovered) return;
             }
 
             Toast.presets.taskFailed("session", String(error).slice(0, 50));
@@ -144,11 +131,11 @@ export function createEventHandler(ctx: EventHandlerContext) {
                             if (isLoopActive(directory, sessionID)) {
                                 await MissionSealHandler.handleMissionSealIdle(
                                     client, directory, sessionID, sessionID
-                                ).catch(err => log("[event-handler] mission-seal-handler error", err));
+                                ).catch(() => { });
                             } else {
                                 await TodoContinuation.handleSessionIdle(
                                     client, sessionID, sessionID
-                                ).catch(err => log("[event-handler] todo-continuation error", err));
+                                ).catch(() => { });
                             }
                         }
                     }, 500);

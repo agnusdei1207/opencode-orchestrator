@@ -40,8 +40,6 @@ import { webfetchTool, websearchTool, cacheDocsTool, codesearchTool } from "./to
 import { lspDiagnosticsTool } from "./tools/lsp/index.js";
 import { TOOL_NAMES } from "./shared/index.js";
 import * as Toast from "./core/notification/toast.js";
-import { createSessionNotificationHandler } from "./core/notification/os-notify/index.js";
-import { log, getLogPath } from "./core/agents/logger.js";
 import { initializeHooks } from "./hooks/index.js"; // Initialize Hooks
 
 // Import modularized handlers
@@ -52,6 +50,8 @@ import {
     createChatMessageHandler,
     createToolExecuteAfterHandler,
     createAssistantDoneHandler,
+    createSessionCompactingHandler,
+    createSystemTransformHandler,
     type SessionState,
 } from "./plugin-handlers/index.js";
 
@@ -65,10 +65,6 @@ const OrchestratorPlugin: Plugin = async (input) => {
     // Initialize Hooks System
     initializeHooks();
 
-    // Log version on startup (to file only, no console.log to avoid TUI corruption)
-    log(`[orchestrator] v${PLUGIN_VERSION} loaded, log: ${getLogPath()}`);
-    log("[index.ts] Plugin initialized", { version: PLUGIN_VERSION, directory });
-
     // =========================================================================
     // Initialize Core Systems
     // =========================================================================
@@ -78,7 +74,6 @@ const OrchestratorPlugin: Plugin = async (input) => {
 
     // Initialize task toast manager for consolidated task notifications
     const taskToastManager = Toast.initTaskToastManager(client);
-    log("[index.ts] Toast notifications enabled with TUI and TaskToastManager");
 
     // Track active sessions - using event-based continuation (no step limits)
     const sessions = new Map<string, SessionState>();
@@ -89,16 +84,6 @@ const OrchestratorPlugin: Plugin = async (input) => {
 
     // Connect task toast manager to concurrency controller for slot info
     taskToastManager.setConcurrencyController(parallelAgentManager.getConcurrency());
-    log("[index.ts] ParallelAgentManager initialized with TaskToastManager integration");
-
-    // Initialize OS native notification handler for session idle alerts
-    const sessionNotifyHandler = createSessionNotificationHandler(client, {
-        title: "OpenCode Orchestrator",
-        message: "✅ Ready to work!",
-        playSound: true,
-        skipIfIncompleteTodos: true,
-    });
-    log(`[index.ts] Session notification handler initialized (platform: ${sessionNotifyHandler.getPlatform()})`);
 
     // =========================================================================
     // Create Handler Contexts
@@ -109,7 +94,6 @@ const OrchestratorPlugin: Plugin = async (input) => {
         directory,
         sessions,
         state,
-        sessionNotifyHandler,
     };
 
     // =========================================================================
@@ -187,6 +171,16 @@ const OrchestratorPlugin: Plugin = async (input) => {
         // assistant.done hook - runs when the LLM finishes responding
         // -----------------------------------------------------------------
         "assistant.done": createAssistantDoneHandler(handlerContext),
+
+        // -----------------------------------------------------------------
+        // experimental.session.compacting hook - preserves mission context during compaction
+        // -----------------------------------------------------------------
+        "experimental.session.compacting": createSessionCompactingHandler(handlerContext),
+
+        // -----------------------------------------------------------------
+        // experimental.chat.system.transform hook - dynamic system prompt injection
+        // -----------------------------------------------------------------
+        "experimental.chat.system.transform": createSystemTransformHandler(handlerContext),
     };
 };
 
