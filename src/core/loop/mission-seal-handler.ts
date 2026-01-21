@@ -8,7 +8,6 @@
  */
 
 import type { PluginInput } from "@opencode-ai/plugin";
-import { log } from "../agents/logger.js";
 import { presets } from "../notification/presets.js";
 import { PART_TYPES, LOOP, TOAST_DURATION, STATUS_LABEL } from "../../shared/index.js";
 import {
@@ -24,6 +23,9 @@ import {
 import { hasRemainingWork, getIncompleteCount } from "./stats.js";
 import { isSessionRecovering } from "../recovery/session-recovery.js";
 import { ParallelAgentManager } from "../agents/manager.js";
+import { sendNotification } from "../notification/os-notify/notifier.js";
+import { playSound } from "../notification/os-notify/sound-player.js";
+import { detectPlatform, getDefaultSoundPath } from "../notification/os-notify/platform.js";
 
 type OpencodeClient = PluginInput["client"];
 
@@ -169,25 +171,13 @@ async function injectContinuation(
     const handlerState = getState(sessionID);
 
     // Double-check conditions
-    if (handlerState.isAborting) {
-        log("[mission-seal-handler] Skipped: user is aborting");
-        return;
-    }
-
-    if (hasRunningBackgroundTasks(sessionID)) {
-        log("[mission-seal-handler] Skipped: background tasks running");
-        return;
-    }
-
-    if (isSessionRecovering(sessionID)) {
-        log("[mission-seal-handler] Skipped: session recovering");
-        return;
-    }
+    if (handlerState.isAborting) return;
+    if (hasRunningBackgroundTasks(sessionID)) return;
+    if (isSessionRecovering(sessionID)) return;
 
     // Check for seal one more time
     const sealDetected = await detectSealInSession(client, sessionID);
     if (sealDetected) {
-        log("[mission-seal-handler] Seal detected before injection, completing");
         await handleSealDetected(client, directory, loopState);
         return;
     }
@@ -202,13 +192,8 @@ async function injectContinuation(
                 parts: [{ type: PART_TYPES.TEXT, text: prompt }],
             },
         });
-
-        log("[mission-seal-handler] Continuation injected", {
-            sessionID,
-            iteration: loopState.iteration,
-        });
-    } catch (error) {
-        log(`[mission-seal-handler] Failed to inject: ${error}`);
+    } catch {
+        // Injection failed, continue anyway
     }
 }
 
@@ -223,10 +208,8 @@ async function handleSealDetected(
     clearLoopState(directory);
     await showSealedToast(client, loopState);
 
-    log("[mission-seal-handler] Mission sealed!", {
-        sessionID: loopState.sessionID,
-        iterations: loopState.iteration,
-    });
+    // Send OS-level notification when mission is sealed
+    await sendMissionSealedNotification(loopState);
 }
 
 /**
@@ -239,12 +222,28 @@ async function handleMaxIterations(
 ): Promise<void> {
     clearLoopState(directory);
     await showMaxIterationsToast(client, loopState);
+}
 
-    log("[mission-seal-handler] Max iterations reached", {
-        sessionID: loopState.sessionID,
-        iterations: loopState.iteration,
-        max: loopState.maxIterations,
-    });
+/**
+ * Send OS-level notification when mission is sealed
+ */
+async function sendMissionSealedNotification(loopState: MissionLoopState): Promise<void> {
+    try {
+        const platform = detectPlatform();
+        const soundPath = getDefaultSoundPath(platform);
+
+        await sendNotification(
+            platform,
+            "🎖️ Mission Sealed!",
+            `Task completed after ${loopState.iteration} iteration(s)`
+        );
+
+        if (soundPath) {
+            await playSound(platform, soundPath);
+        }
+    } catch {
+        // OS notification failed, continue anyway (toast was already shown)
+    }
 }
 
 // ============================================================================
@@ -279,16 +278,10 @@ export async function handleMissionSealIdle(
     }
 
     // Skip if recovering
-    if (isSessionRecovering(sessionID)) {
-        log("[mission-seal-handler] Skipped: recovering");
-        return;
-    }
+    if (isSessionRecovering(sessionID)) return;
 
     // Skip if background tasks running
-    if (hasRunningBackgroundTasks(sessionID)) {
-        log("[mission-seal-handler] Skipped: background tasks");
-        return;
-    }
+    if (hasRunningBackgroundTasks(sessionID)) return;
 
     // Read loop state
     const loopState = readLoopState(directory);
@@ -302,10 +295,7 @@ export async function handleMissionSealIdle(
         return;
     }
 
-    log("[mission-seal-handler] Checking for seal", {
-        sessionID,
-        iteration: loopState.iteration,
-    });
+
 
     // Check for seal
     const sealDetected = await detectSealInSession(client, sessionID);
@@ -323,10 +313,7 @@ export async function handleMissionSealIdle(
 
     // Increment iteration
     const newState = incrementIteration(directory);
-    if (!newState) {
-        log("[mission-seal-handler] Failed to increment iteration");
-        return;
-    }
+    if (!newState) return;
 
     // Show countdown toast
     await showCountdownToast(client, COUNTDOWN_SECONDS, newState.iteration, newState.maxIterations);
@@ -337,11 +324,7 @@ export async function handleMissionSealIdle(
         await injectContinuation(client, directory, sessionID, newState);
     }, COUNTDOWN_SECONDS * 1000);
 
-    log("[mission-seal-handler] Countdown started", {
-        sessionID,
-        iteration: newState.iteration,
-        seconds: COUNTDOWN_SECONDS,
-    });
+
 }
 
 /**
@@ -351,7 +334,6 @@ export function handleUserMessage(sessionID: string): void {
     const state = getState(sessionID);
 
     if (state.countdownTimer) {
-        log("[mission-seal-handler] Cancelled by user interaction");
         cancelCountdown(sessionID);
     }
 
@@ -365,7 +347,6 @@ export function handleAbort(sessionID: string): void {
     const state = getState(sessionID);
     state.isAborting = true;
     cancelCountdown(sessionID);
-    log("[mission-seal-handler] Marked as aborting");
 }
 
 /**
