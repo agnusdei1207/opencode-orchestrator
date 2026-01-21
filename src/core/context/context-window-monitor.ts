@@ -38,7 +38,7 @@ export const CONTEXT_MONITOR_CONFIG = {
 // State
 // ============================================================
 
-interface MonitorState {
+export interface MonitorState {
     lastAlertTime: number;
     lastAlertLevel: "info" | "warning" | "critical" | null;
     isMonitoring: boolean;
@@ -50,6 +50,11 @@ const sessionStates = new Map<string, MonitorState>();
 // ============================================================
 // Core Functions
 // ============================================================
+
+// Export for Hooks
+export function getMonitorState(sessionID: string): MonitorState {
+    return getState(sessionID);
+}
 
 function getState(sessionID: string): MonitorState {
     let state = sessionStates.get(sessionID);

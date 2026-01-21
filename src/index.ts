@@ -42,8 +42,10 @@ import { TOOL_NAMES } from "./shared/index.js";
 import * as Toast from "./core/notification/toast.js";
 import { createSessionNotificationHandler } from "./core/notification/os-notify/index.js";
 import { log, getLogPath } from "./core/agents/logger.js";
+import { initializeHooks } from "./hooks/index.js"; // Initialize Hooks
 
 // Import modularized handlers
+import { createToolExecuteBeforeHandler } from "./plugin-handlers/tool-execute-pre-handler.js"; // Added import
 import {
     createEventHandler,
     createConfigHandler,
@@ -59,6 +61,9 @@ import {
 
 const OrchestratorPlugin: Plugin = async (input) => {
     const { directory, client } = input;
+
+    // Initialize Hooks System
+    initializeHooks();
 
     // Log version on startup (to file only, no console.log to avoid TUI corruption)
     log(`[orchestrator] v${PLUGIN_VERSION} loaded, log: ${getLogPath()}`);
@@ -167,6 +172,11 @@ const OrchestratorPlugin: Plugin = async (input) => {
         // chat.message hook - intercepts commands and sets up sessions
         // -----------------------------------------------------------------
         "chat.message": createChatMessageHandler(handlerContext),
+
+        // -----------------------------------------------------------------
+        // tool.execute.before hook - runs before any tool call
+        // -----------------------------------------------------------------
+        "tool.execute.before": createToolExecuteBeforeHandler(handlerContext),
 
         // -----------------------------------------------------------------
         // tool.execute.after hook - runs after any tool call completes

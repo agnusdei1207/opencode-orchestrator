@@ -94,6 +94,7 @@ OpenCode Orchestrator manages complex software tasks through **parallel multi-ag
 OpenCode Orchestrator was developed to solve the "sequential bottleneck" in AI-assisted coding. By treating agents as distributed processing units rather than just chat interfaces, we aim to provide a more reliable and scalable autonomous engineering experience.
 
 [Full Developer's Note →](docs/DEVELOPERS_NOTE.md)
+
 [System Architecture →](docs/SYSTEM_ARCHITECTURE.md)
 
 ---

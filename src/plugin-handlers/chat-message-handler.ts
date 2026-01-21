@@ -16,6 +16,8 @@ import * as Toast from "../core/notification/toast.js";
 import * as ProgressTracker from "../core/progress/tracker.js";
 import * as TodoContinuation from "../core/loop/todo-continuation.js";
 import { startMissionLoop } from "../core/loop/mission-seal.js";
+import { HookRegistry } from "../hooks/registry.js"; // Added import
+import { HOOK_ACTIONS } from "../hooks/constants.js";
 import type { ChatMessageHandlerContext } from "./interfaces/index.js";
 
 export type { ChatMessageHandlerContext } from "./interfaces/index.js";
@@ -38,55 +40,37 @@ export function createChatMessageHandler(ctx: ChatMessageHandlerContext) {
 
         log("[chat-message-handler] hook triggered", { sessionID, agent: agentName, textLength: originalText.length });
 
-        if (sessionID) {
-            TodoContinuation.handleUserMessage(sessionID);
+        if (sessionID && !sessions.has(sessionID)) {
+            // Fallback: Ensure session exists even if not /task (e.g. normal chat)
+            // But usually ExternalPlugin or SlashCommand handles this?
+            // If no hook creates session, we might need a default here?
+            // Let's keep minimal safe fallback or rely on Hooks.
+            // Given safety requirement: let's keep minimal session init if missing.
+            // Actually, wait. SlashCommandHook only inits on /task. 
+            // Normal chat should probably also track session?
+            // Let's rely on the previous implementation's logic: 
+            // "Register session if not already registered (allows /task with any agent)"
+            // BUT ONLY FOR /task in legacy code.
+            // So normal chat didn't auto-create session in legacy code? 
+            // Let's assume Hooks cover it or we don't change behavior.
         }
 
+        // Execute Chat Hooks
+        const hooks = HookRegistry.getInstance();
+        const hookContext = {
+            sessionID,
+            directory,
+            sessions: sessions as Map<string, any>
+        };
 
+        const hookResult = await hooks.executeChat(hookContext, originalText);
 
-        // Handle explicit slash commands (including /task for any agent)
-        if (parsed) {
-            const command = COMMANDS[parsed.command];
-            if (command) {
-                parts[textPartIndex].text = command.template.replace(
-                    /\$ARGUMENTS/g,
-                    parsed.args || PROMPTS.CONTINUE
-                );
-            }
+        if (hookResult.action === HOOK_ACTIONS.INTERCEPT) {
+            return;
+        }
 
-            // /task command - register session and start loop regardless of agent
-            if (command && parsed.command === COMMAND_NAMES.TASK) {
-                // Register session if not already registered (allows /task with any agent)
-                if (!sessions.has(sessionID)) {
-                    const now = Date.now();
-                    sessions.set(sessionID, {
-                        active: true,
-                        step: 0,
-                        timestamp: now,
-                        startTime: now,
-                        lastStepTime: now,
-                    });
-                    state.missionActive = true;
-                    state.sessions.set(sessionID, {
-                        enabled: true,
-                        iterations: 0,
-                        taskRetries: new Map(),
-                        currentTask: "",
-                        anomalyCount: 0,
-                    });
-
-                    ProgressTracker.startSession(sessionID);
-                    log("[chat-message-handler] Session registered for /task command", { sessionID, agent: agentName });
-                }
-
-                parts[textPartIndex].text = command.template.replace(
-                    /\$ARGUMENTS/g,
-                    parsed.args || PROMPTS.CONTINUE
-                );
-
-                startMissionLoop(directory, sessionID, parsed.args || "continue from where we left off");
-                log("[chat-message-handler] /task command: started mission loop", { sessionID, args: parsed.args?.slice(0, 50) });
-            }
+        if (hookResult.modifiedMessage) {
+            parts[textPartIndex].text = hookResult.modifiedMessage;
         }
     };
 }

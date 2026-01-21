@@ -8,4 +8,9 @@ export interface SessionState {
     timestamp: number;
     startTime: number;
     lastStepTime: number;
+    tokens: {
+        totalInput: number;
+        totalOutput: number;
+        estimatedCost: number;
+    };
 }
