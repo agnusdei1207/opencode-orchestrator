@@ -101,8 +101,8 @@ export class ConcurrencyController {
                         this.queues.set(key, currentQueue);
                     }
                 }
-                reject(new Error(`Concurrency acquisition timed out after 60s for ${key}`));
-            }, 60000); // 60s timeout
+                reject(new Error(`Concurrency acquisition timed out after 300s for ${key}`));
+            }, 300000); // 300s (5min) timeout
 
             queue.push({ resolve, timeoutId });
             this.queues.set(key, queue);
