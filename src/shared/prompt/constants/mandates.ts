@@ -48,17 +48,24 @@ export const PHASE_1_THINK_ANALYSIS = `### 1.1 ANALYZE & SCOPE (INPUT)
 
 /**
  * Phase 5: MSVP (Multi-Stage Verification Pipeline)
+ * 
+ * NOTE: Commander spawns both Workers AND Reviewers.
+ * Workers are terminal nodes and do not spawn Reviewers themselves.
  */
-export const PHASE_5_MSVP = `1. **STAGE 1 (Unit)**: Workers MUST trigger ${AGENT_NAMES.REVIEWER} for unit verification immediately upon completion.
-2. **STAGE 2 (Integration Master)**: The Master ${AGENT_NAMES.REVIEWER} directly reads all modified files and validates cross-module consistency.
-3. **E2E VALIDATION**: Run full system tests and build pass check.
+export const PHASE_5_MSVP = `1. **STAGE 1 (Unit)**: As Workers complete, Commander spawns ${AGENT_NAMES.REVIEWER} for each to verify.
+2. **STAGE 2 (Integration Master)**: Once all Units pass, Commander spawns Master ${AGENT_NAMES.REVIEWER} for cross-module validation.
+3. **E2E VALIDATION**: Master Reviewer runs full system tests and build pass check.
 4. **SEAL GATE**: No SEALED output until ${PATHS.TODO} is all [x] and zero issues remain.`;
 
 /**
  * HPFA (Hyper-Parallel Fractal Architecture) Rules
+ * 
+ * All spawning happens at Commander level only.
+ * Workers and Reviewers are terminal nodes and cannot spawn sub-agents.
  */
-export const HPFA_RULES = `1. **Fractal Spawning**: Workers spawn sub-workers for complex files/modules.
-2. **Speculative Racing**: Launch multiple strategies in parallel (mode: race) for uncertainty.
-3. **Asynchronous Batching**: Group non-dependent tool calls to trigger host-side parallelism.
-4. **Barrier-Sync Pipeline**: Reviewers start Unit Review (Stage 1) while other workers still run.
-5. **Real-time Brain Sync**: Parallel sessions share public interfaces via shared task logs.`;
+export const HPFA_RULES = `1. **Commander Parallel Workers**: Commander spawns multiple Workers in parallel for independent modules.
+2. **Commander Parallel Reviewers**: As Workers complete, Commander spawns Unit Reviewers for each.
+3. **Speculative Racing**: Launch multiple strategies in parallel (mode: race) for uncertainty.
+4. **Asynchronous Batching**: Group non-dependent tool calls to trigger host-side parallelism.
+5. **Barrier-Sync Pipeline**: Commander waits at sync barrier before launching Master Reviewer.
+6. **Terminal Nodes**: Workers and Reviewers are TERMINAL - they cannot spawn any sub-agents.`;

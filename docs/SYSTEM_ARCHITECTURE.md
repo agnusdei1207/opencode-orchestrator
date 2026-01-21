@@ -68,14 +68,14 @@ Worker Sessions (Autonomous & Fractal):
              │
              ▼
 ┌───────────────────────────────────────────────────────────┐
-│  🎯 COMMANDER (depth: 0)                                  │
+│  🎯 COMMANDER (Orchestrator)                              │
 │  - Direct Discovery (Phase 0)                             │
-│  - Orchestration & Delegation                             │
+│  - Spawns ALL agents (Planner, Workers, Reviewers)        │
 └───────────────────────────────────────────────────────────┘
              │
              ▼
 ┌───────────────────────────────────────────────────────────┐
-│  📋 PLANNER (depth: 1)                                    │
+│  📋 PLANNER                                               │
 │  - Create TODO.md with parallel boundaries                │
 └───────────────────────────────────────────────────────────┘
              │
@@ -86,13 +86,17 @@ Worker Sessions (Autonomous & Fractal):
     │               │               │
     ▼               ▼               ▼
 ┌──────────┐    ┌──────────┐    ┌──────────┐
-│🔨 WORKER │    │🔨 WORKER │    │🔨 WORKER │  depth: 1
+│🔨 WORKER │    │🔨 WORKER │    │🔨 WORKER │  (TERMINAL)
 │ Module A │    │ Module B │    │ Module C │
 └────┬─────┘    └────┬─────┘    └────┬─────┘
-     │               │               │  (spawn Unit Reviewer)
-     ▼               ▼               ▼
+     │               │               │  (return to Commander)
+    ═▼═══════════════▼═══════════════▼════════════════════
+    ║       🔍 COMMANDER: Parallel Reviewer Launch        ║
+    ══════════════════════════════════════════════════════
+    │               │               │
+    ▼               ▼               ▼
 ┌──────────┐    ┌──────────┐    ┌──────────┐
-│✅ REVIEW │    │✅ REVIEW │    │✅ REVIEW │  depth: 2 (TERMINAL)
+│✅ REVIEW │    │✅ REVIEW │    │✅ REVIEW │  (TERMINAL)
 │ (Unit-A) │    │ (Unit-B) │    │ (Unit-C) │
 └────┬─────┘    └────┬─────┘    └────┬─────┘
      │               │               │
@@ -102,7 +106,7 @@ Worker Sessions (Autonomous & Fractal):
     ══════════════════════════════════════════════════════
                              │
            ┌─────────────────▼─────────────────┐
-           │  ✅ MASTER REVIEWER (depth: 1)    │
+           │  ✅ MASTER REVIEWER               │
            │  - Cross-module Integration       │
            │  - Full E2E, Build & Test         │
            └─────────────────┬─────────────────┘

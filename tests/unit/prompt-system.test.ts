@@ -113,18 +113,18 @@ describe("Prompt System", () => {
             expect(PHASE_1_THINK_ANALYSIS).toContain("SCOPE");
         });
 
-        it("should export PHASE_5_MSVP with direct reading", () => {
+        it("should export PHASE_5_MSVP with Commander-centric spawning", () => {
             expect(PHASE_5_MSVP).toBeDefined();
             expect(PHASE_5_MSVP).toContain("STAGE 1");
             expect(PHASE_5_MSVP).toContain("STAGE 2");
-            // Should mention direct reading, not scouts
-            expect(PHASE_5_MSVP).toContain("directly");
+            // Commander spawns all agents
+            expect(PHASE_5_MSVP).toContain("Commander spawns");
             expect(PHASE_5_MSVP).not.toContain("PARALLEL DISCOVERY");
         });
 
-        it("should export HPFA_RULES", () => {
+        it("should export HPFA_RULES with terminal node concept", () => {
             expect(HPFA_RULES).toBeDefined();
-            expect(HPFA_RULES).toContain("Fractal Spawning");
+            expect(HPFA_RULES).toContain("TERMINAL");
             expect(HPFA_RULES).toContain("Speculative Racing");
         });
     });
