@@ -42,48 +42,12 @@ export function createChatMessageHandler(ctx: ChatMessageHandlerContext) {
             TodoContinuation.handleUserMessage(sessionID);
         }
 
-        // Commander Auto-Mission Mode
-        if (agentName === AGENT_NAMES.COMMANDER.toLowerCase()) {
-            if (!sessions.has(sessionID)) {
-                const now = Date.now();
-                sessions.set(sessionID, {
-                    active: true,
-                    step: 0,
-                    timestamp: now,
-                    startTime: now,
-                    lastStepTime: now,
-                });
-                state.missionActive = true;
-                state.sessions.set(sessionID, {
-                    enabled: true,
-                    iterations: 0,
-                    taskRetries: new Map(),
-                    currentTask: "",
-                    anomalyCount: 0,
-                });
 
-                ProgressTracker.startSession(sessionID);
-                Toast.presets.taskStarted(sessionID, AGENT_NAMES.COMMANDER);
-            }
-
-            if (!parsed || parsed.command !== COMMAND_NAMES.TASK) {
-                const taskTemplate = COMMANDS[COMMAND_NAMES.TASK].template;
-                const userMessage = parsed?.args || originalText;
-
-                parts[textPartIndex].text = taskTemplate.replace(
-                    /\$ARGUMENTS/g,
-                    userMessage || PROMPTS.CONTINUE
-                );
-
-                startMissionLoop(directory, sessionID, userMessage || originalText);
-                log("[chat-message-handler] Auto-applied mission mode + started loop", { originalLength: originalText.length });
-            }
-        }
 
         // Handle explicit slash commands (including /task for any agent)
         if (parsed) {
             const command = COMMANDS[parsed.command];
-            if (command && agentName !== AGENT_NAMES.COMMANDER.toLowerCase()) {
+            if (command) {
                 parts[textPartIndex].text = command.template.replace(
                     /\$ARGUMENTS/g,
                     parsed.args || PROMPTS.CONTINUE
