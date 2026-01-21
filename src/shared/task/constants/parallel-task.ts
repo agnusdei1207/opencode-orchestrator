@@ -34,6 +34,12 @@ export const PARALLEL_TASK = {
      */
     MAX_DEPTH: 3,
 
+    /**
+     * Terminal node depth - agents at this depth cannot spawn sub-agents.
+     * Worker and Reviewer are terminal nodes by design.
+     */
+    TERMINAL_DEPTH: 2,
+
     // Concurrency limits (Aggressive for intense processing)
     DEFAULT_CONCURRENCY: 10,
     MAX_CONCURRENCY: 50,
