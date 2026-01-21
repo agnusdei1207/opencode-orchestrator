@@ -117,12 +117,12 @@ describe("Hook System", () => {
         const hook = new SecretScannerHook();
 
         it("should redact secrets", async () => {
-            const secret = "Items: sk-TEST_MOCK_SECRET_DO_NOT_DETECT_1234567890";
+            const secret = "Items: ghp_000000000000000000000000000000000000";
             const output = { title: "Res", output: secret, metadata: {} };
             const result = await hook.execute(mockContext, "tool", {}, output);
 
             expect(result.output).toContain("REDACTED");
-            expect(result.output).not.toContain("sk-TEST_MOCK");
+            expect(result.output).not.toContain("ghp_000000000000000000000000000000000000");
         });
     });
 

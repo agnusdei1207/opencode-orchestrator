@@ -250,21 +250,21 @@ export class ParallelAgentManager {
     }
 
     private async handleTaskComplete(task: ParallelTask): Promise<void> {
-        // MSVP: Multi-Stage Verification Pipeline (1차 리뷰)
+        // MSVP: Multi-Stage Verification Pipeline (Unit Review)
         // If a WORKER completes, immediately trigger a parallel REVIEWER
         if (task.agent === AGENT_NAMES.WORKER && task.mode !== "race") {
-            log(`[MSVP] Triggering 1차 리뷰 (Unit Review) for task ${task.id}`);
+            log(`[MSVP] Triggering Unit Review for task ${task.id}`);
 
             try {
                 await this.launch({
                     agent: AGENT_NAMES.REVIEWER,
-                    description: `1차 리뷰: ${task.description}`,
-                    prompt: `진행된 작업(\`${task.description}\`)에 대해 1차 리뷰(유닛 검증)를 수행하세요.\n` +
-                        `주요 점검 사항:\n` +
-                        `1. 해당 모듈의 유닛 테스트 코드 작성 여부 및 통과 확인\n` +
-                        `2. 코드 품질 및 모듈성 준수 여부\n` +
-                        `3. 발견된 결함 즉시 수정 지시 또는 리포트\n\n` +
-                        `이 작업은 전체 통합 전 부품 단위의 완결성을 보장하기 위함입니다.`,
+                    description: `Unit Review: ${task.description}`,
+                    prompt: `Perform a Unit Review (verification) for the completed task (\`${task.description}\`).\n` +
+                        `Key Checklist:\n` +
+                        `1. Verify if unit test code for the module is written and passes.\n` +
+                        `2. Check for code quality and modularity compliance.\n` +
+                        `3. Instruct immediate correction of found defects or report them.\n\n` +
+                        `This task ensures the completeness of the unit before global integration.`,
                     parentSessionID: task.parentSessionID,
                     depth: task.depth,
                     groupID: task.groupID || task.id, // Group reviews with their origins

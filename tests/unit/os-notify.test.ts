@@ -4,11 +4,13 @@
  * Comprehensive tests for the os-notify system.
  */
 
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { detectPlatform, getDefaultSoundPath } from "../../src/core/notification/os-notify/platform";
 import { hasIncompleteTodos } from "../../src/core/notification/os-notify/todo-checker";
 import { PLATFORM } from "../../src/shared/os/index.js";
 import { TODO_STATUS } from "../../src/shared/loop/index.js";
+import { ParallelAgentManager } from "../../src/core/agents/manager.js";
+import { isSessionRecovering } from "../../src/core/recovery/session-recovery.js";
 
 // --- Mocks ---
 
@@ -33,7 +35,7 @@ vi.mock("../../src/core/notification/os-notify/platform-resolver", () => ({
     resolveCommandPath: (key: string, name: string) => mockResolveCommandPath(key, name),
 }));
 
-// Mock todo-checker (needed because we want to vary it)
+// Mock todo-checker
 vi.mock("../../src/core/notification/os-notify/todo-checker", async () => {
     const actual = await vi.importActual("../../src/core/notification/os-notify/todo-checker") as any;
     return {
@@ -41,6 +43,26 @@ vi.mock("../../src/core/notification/os-notify/todo-checker", async () => {
         hasIncompleteTodos: vi.fn(actual.hasIncompleteTodos),
     };
 });
+
+// Mock ParallelAgentManager
+const mockGetTasksByParent = vi.fn();
+vi.mock("../../src/core/agents/manager.js", () => ({
+    ParallelAgentManager: {
+        getInstance: vi.fn(() => ({
+            getTasksByParent: mockGetTasksByParent
+        }))
+    }
+}));
+
+// Mock Session Recovery
+vi.mock("../../src/core/recovery/session-recovery.js", () => ({
+    isSessionRecovering: vi.fn(),
+}));
+
+// Mock Mission Seal
+vi.mock("../../src/core/loop/mission-seal.js", () => ({
+    isLoopActive: vi.fn(),
+}));
 
 // --- Tests ---
 
@@ -69,7 +91,6 @@ describe("os-notify/todo-checker", () => {
                 })
             }
         };
-        // Use the actual implementation (which is what hasIncompleteTodos normally is before being mocked)
         const result = await hasIncompleteTodos(mockClient as any, "session-1");
         expect(result).toBe(true);
     });
@@ -148,6 +169,11 @@ describe("os-notify/sound-player", () => {
 });
 
 describe("os-notify/handler activity tracking", () => {
+    beforeEach(() => {
+        vi.mocked(isSessionRecovering).mockReturnValue(false);
+        mockGetTasksByParent.mockReturnValue([]);
+    });
+
     it("should track activity for expanded event types", async () => {
         const { createSessionNotificationHandler } = await import("../../src/core/notification/os-notify/handler");
         const mockClient = { session: { todo: vi.fn() } };
@@ -166,6 +192,7 @@ describe("os-notify/handler activity tracking", () => {
 
         // Mock hasIncompleteTodos for this specific sub-test
         vi.mocked(hasIncompleteTodos).mockImplementation(() => new Promise(r => setTimeout(() => r(false), 200)));
+        mockGetTasksByParent.mockReturnValue([]);
 
         const mockClient = { session: { todo: vi.fn() } };
         const handler = createSessionNotificationHandler(mockClient as any);
@@ -180,5 +207,64 @@ describe("os-notify/handler activity tracking", () => {
 
         expect(handler.getState().notifiedSessions.has("s1")).toBe(false);
         vi.useRealTimers();
+    });
+});
+
+describe("os-notify/handler background checks", () => {
+    beforeEach(() => {
+        vi.useFakeTimers();
+        vi.mocked(isSessionRecovering).mockReturnValue(false);
+        mockGetTasksByParent.mockReturnValue([]);
+        vi.mocked(hasIncompleteTodos).mockResolvedValue(false);
+    });
+
+    afterEach(() => {
+        vi.useRealTimers();
+    });
+
+    it("should skip notification if session is recovering", async () => {
+        const { createSessionNotificationHandler } = await import("../../src/core/notification/os-notify/handler");
+        const mockClient = { session: { todo: vi.fn() } };
+        const handler = createSessionNotificationHandler(mockClient as any);
+
+        vi.mocked(isSessionRecovering).mockReturnValue(true);
+
+        await handler.handleEvent({ type: "session.idle", properties: { sessionID: "s1" } });
+        vi.advanceTimersByTime(2000); // Wait for idle confirmation
+
+        expect(handler.getState().notifiedSessions.has("s1")).toBe(false);
+    });
+
+    it("should skip notification if background tasks are running", async () => {
+        const { createSessionNotificationHandler } = await import("../../src/core/notification/os-notify/handler");
+        const mockClient = { session: { todo: vi.fn() } };
+        const handler = createSessionNotificationHandler(mockClient as any);
+
+        mockGetTasksByParent.mockReturnValue([{ status: "running" }]);
+
+        await handler.handleEvent({ type: "session.idle", properties: { sessionID: "s1" } });
+        vi.advanceTimersByTime(2000);
+
+        expect(handler.getState().notifiedSessions.has("s1")).toBe(false);
+    });
+
+    it("should proceed if everything is clear", async () => {
+        const { createSessionNotificationHandler } = await import("../../src/core/notification/os-notify/handler");
+        const mockClient = { session: { todo: vi.fn() } };
+        const handler = createSessionNotificationHandler(mockClient as any, { playSound: false });
+
+        mockGetTasksByParent.mockReturnValue([]);
+        vi.mocked(isSessionRecovering).mockReturnValue(false);
+
+        await handler.handleEvent({ type: "session.idle", properties: { sessionID: "s1" } });
+
+        // Trigger timer
+        vi.advanceTimersByTime(2000);
+
+        // Allow async executeNotification to proceed past await points
+        await Promise.resolve();
+        await new Promise(process.nextTick);
+
+        expect(handler.getState().notifiedSessions.has("s1")).toBe(true);
     });
 });

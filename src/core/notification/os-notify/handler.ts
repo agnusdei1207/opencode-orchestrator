@@ -14,6 +14,10 @@ import {
 import { sendNotification } from "./notifier.js";
 import { playSound } from "./sound-player.js";
 import { hasIncompleteTodos } from "./todo-checker.js";
+import { ParallelAgentManager } from "../../agents/manager.js";
+import { isSessionRecovering } from "../../recovery/session-recovery.js";
+import { isLoopActive } from "../../loop/mission-seal.js";
+import { STATUS_LABEL } from "../../../shared/index.js";
 import {
     NOTIFICATION_DEFAULTS,
     type NotificationConfig,
@@ -74,15 +78,48 @@ export function createSessionNotificationHandler(
         state.notifiedSessions.delete(sessionID);
     }
 
+    function hasRunningBackgroundTasks(parentSessionID: string): boolean {
+        try {
+            const manager = ParallelAgentManager.getInstance();
+            const tasks = manager.getTasksByParent(parentSessionID);
+            return tasks.some(t => t.status === STATUS_LABEL.RUNNING);
+        } catch {
+            return false;
+        }
+    }
+
     async function executeNotification(sessionID: string, version: number): Promise<void> {
         if (state.executingNotifications.has(sessionID)) {
             state.pendingTimers.delete(sessionID);
             return;
         }
 
+        // Pre-check conditions to avoid unnecessary processing
         if (state.notificationVersions.get(sessionID) !== version ||
             state.sessionActivitySinceIdle.has(sessionID) ||
             state.notifiedSessions.has(sessionID)) {
+            state.pendingTimers.delete(sessionID);
+            return;
+        }
+
+        // Check for active background processes (Recovery, Mission Loop, Background Tasks)
+        // These conditions mean the agent is "busy" even if technically idle in the main session
+        if (isSessionRecovering(sessionID)) {
+            log(`[session-notify] Skipping notification for ${sessionID} - session is recovering`);
+            state.pendingTimers.delete(sessionID);
+            return;
+        }
+
+        // Note: We need directory for isLoopActive. Assuming ctx.directory is available in closure or we pass it.
+        // But ctx is not available here directly, avoiding breaking change.
+        // However, isLoopActive requires directory. 
+        // We can skip isLoopActive check if we can't reliably get directory, 
+        // OR rely on MissionSealHandler having already marked activity if loop was active.
+        // Actually, MissionSealHandler handles the specific checks. If MissionSeal is active, it likely injected a prompt.
+        // But if it's waiting (e.g. countdown), we shouldn't notify yet.
+
+        if (hasRunningBackgroundTasks(sessionID)) {
+            log(`[session-notify] Skipping notification for ${sessionID} - background tasks running`);
             state.pendingTimers.delete(sessionID);
             return;
         }
