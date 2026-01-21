@@ -15,4 +15,5 @@ export { SHARED_LSP_TOOLS } from "./lsp.js";
 export { SHARED_AST_TOOLS } from "./ast.js";
 export { MODULARITY_ENFORCEMENT } from "./modularity.js";
 export { HYPER_PARALLEL_ENFORCEMENT } from "./hyper-parallel.js";
+export { SKILLS_CAPABILITIES } from "./skills.js";
 

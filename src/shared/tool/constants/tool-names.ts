@@ -43,4 +43,5 @@ export const TOOL_NAMES = {
     // Other tools
     CALL_AGENT: "call_agent",
     SLASHCOMMAND: "slashcommand",
+    SKILL: "skill",
 } as const;

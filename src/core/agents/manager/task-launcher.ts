@@ -161,6 +161,8 @@ export class TaskLauncher {
                         get_task_result: true,
                         list_tasks: true,
                         cancel_task: true,
+                        skill: true,
+                        run_command: true,
                     },
                     parts: [{ type: PART_TYPES.TEXT, text: task.prompt }]
                 },
