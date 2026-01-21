@@ -158,8 +158,8 @@ export class TaskLauncher {
             this.store.set(task.id, task);
             taskWAL.log(WAL_ACTIONS.LAUNCH, task).catch(() => { });
 
-            // 3. Fire prompt
-            await this.client.session.prompt({
+            // 3. Fire prompt with timeout
+            const promptPromise = this.client.session.prompt({
                 path: { id: task.sessionID },
                 body: {
                     agent: task.agent,
@@ -175,6 +175,13 @@ export class TaskLauncher {
                     parts: [{ type: PART_TYPES.TEXT, text: task.prompt }]
                 },
             });
+
+            await Promise.race([
+                promptPromise,
+                new Promise((_, reject) =>
+                    setTimeout(() => reject(new Error("Session prompt execution timed out after 30s")), 30000)
+                )
+            ]);
 
             log(`[task-launcher.ts] Task ${task.id} (${task.agent}) started running`);
         } catch (error) {
