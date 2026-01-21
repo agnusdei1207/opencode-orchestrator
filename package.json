@@ -2,7 +2,7 @@
   "name": "opencode-orchestrator",
   "displayName": "OpenCode Orchestrator",
   "description": "Distributed Cognitive Architecture for OpenCode. Turns simple prompts into specialized multi-agent workflows (Planner, Coder, Reviewer).",
-  "version": "1.0.38",
+  "version": "1.0.39",
   "author": "agnusdei1207",
   "license": "MIT",
   "repository": {
@@ -62,7 +62,7 @@
     "release:minor": "npm run build && npm run rust:dist && npm version minor && git push --follow-tags && npm publish --access public",
     "release:major": "npm run build && npm run rust:dist && npm version major && git push --follow-tags && npm publish --access public",
     "reset:local": "brew uninstall opencode 2>/dev/null; rm -rf ~/.config/opencode ~/.opencode ~/.local/share/opencode ~/.cache/opencode/node_modules/opencode-orchestrator && echo '=== Clean done ===' && brew install opencode && echo '{\"plugin\": [\"opencode-orchestrator\"], \"$schema\": \"https://opencode.ai/config.json\"}' > ~/.config/opencode/opencode.json && echo '=== Reset (Dev) complete. Run: opencode ==='",
-    "reset:prod": "brew uninstall opencode 2>/dev/null; rm -rf ~/.config/opencode ~/.opencode ~/.local/share/opencode ~/.cache/opencode/node_modules/opencode-orchestrator && echo '=== Clean done ===' && brew install opencode && echo '{\"plugin\": [\"opencode-orchestrator\"], \"$schema\": \"https://opencode.ai/config.json\"}' > ~/.config/opencode/opencode.json && npm install -g opencode-orchestrator && echo '=== Reset (Prod) complete. Run: opencode ==='",
+    "reset:prod": "brew uninstall opencode 2>/dev/null; rm -rf ~/.config/opencode ~/.opencode ~/.local/share/opencode ~/.cache/opencode/node_modules/opencode-orchestrator && echo '=== Clean done ===' && brew install opencode && echo '{\"plugin\": [\"opencode-orchestrator\"], \"$schema\": \"https://opencode.ai/config.json\"}' > ~/.config/opencode/opencode.json && npm uninstall -g opencode-orchestrator && echo '=== Reset (Prod) complete. Run: opencode ==='",
     "ginstall": "npm install -g opencode-orchestrator",
     "log": "tail -f \"$(node -e 'console.log(require(\"os\").tmpdir())')/opencode-orchestrator.log\""
   },
