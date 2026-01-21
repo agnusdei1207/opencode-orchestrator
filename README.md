@@ -23,50 +23,17 @@ In an OpenCode environment:
 
 ## Overview
 
-OpenCode Orchestrator is a framework designed to manage complex software engineering tasks through parallel multi-agent execution. It extends the capabilities of standard AI agents by introducing a hierarchical delegation model and a multi-stage verification pipeline.
-
-### Key Characteristics
-*   **Parallel Execution**: Manages multiple concurrent agent sessions to accelerate development.
-*   **Hierarchical Delegation**: Supports recursive task decomposition (Fractal Spawning) for complex requirements.
-*   **Integrated Verification**: Employs a multi-stage pipeline (Unit & Integration) to ensure code quality.
-*   **Persistent State**: Uses structured logging to maintain state and recover from interruptions.
+OpenCode Orchestrator manages complex software tasks through **parallel multi-agent execution**. Commander orchestrates Workers and Reviewers to implement and verify code concurrently.
 
 ---
 
-## Core Philosophy: Adaptive Engineering
-
-The orchestrator follows an **Explore → Learn → Adapt → Act** cycle to ensure agents remain grounded in the project's specific context.
-
-*   **Explore**: Systematically discover the project structure, tech stack, and documentation.
-*   **Learn**: Extract existing patterns, naming conventions, and architectural decisions from the codebase.
-*   **Adapt**: Adjust implementation strategies and verification parameters based on learned context.
-*   **Act**: Execute tasks through parallel delegation with evidence-based verification.
-
----
-
-## 🏗️ Architecture
-
-The system is built upon two core mechanisms that handle scaling and quality control.
-
-### HPFA (Hyper-Parallel Fractal Architecture)
-HPFA is a parallel execution model that enables task decomposition at scale.
-*   **Managed Concurrency**: Orchestrates up to 50 parallel agent sessions simultaneously.
-*   **Recursive Scaling**: Allows "Worker" agents to spawn sub-workers for modular tasks, ensuring deep architectural coverage.
-
-### MSVP (Multi-Stage Verification Pipeline)
-MSVP is a structured verification process that decouples implementation from quality assurance.
-*   **Stage 1 (Unit Verification)**: Reviewers validate individual module changes and run local tests immediately after implementation.
-*   **Stage 2 (Integration Review)**: A master reviewer verifies cross-module consistency and system integrity after all individual units are completed.
-
----
-
-## 📊 Workflow Diagram
+## 📊 Workflow
 
 ```text
               [User Task Input]
                      │
            ┌─────────▼─────────┐
-           │     COMMANDER     │  (Orchestration & Discovery)
+           │     COMMANDER     │  (Orchestration)
            └─────────┬─────────┘
                      │
            ┌─────────▼─────────┐
@@ -78,7 +45,7 @@ MSVP is a structured verification process that decouples implementation from qua
     └──────┬─────────┬─────────┬──────┘
            │         │         │
     ┌──────▼──┐ ┌────▼───┐ ┌───▼────┐
-    │ WORKER A│ │ WORKER B│ │ WORKER C│  (Implementation)
+    │ WORKER  │ │ WORKER │ │ WORKER │
     └──────┬──┘ └────┬───┘ └────┬────┘
            │         │          │
     ╔══════▼═════════▼══════════▼══════╗
@@ -86,44 +53,39 @@ MSVP is a structured verification process that decouples implementation from qua
     ╚══════╤═════════╤══════════╤══════╝
            │         │          │
     ┌──────▼──┐ ┌────▼───┐ ┌────▼────┐
-    │REVIEWER │ │REVIEWER │ │REVIEWER │  (Unit Verification)
+    │REVIEWER │ │REVIEWER │ │REVIEWER │
     └──────┬──┘ └────┬───┘ └────┬────┘
            │         │          │
-    ═══════▼═════════▼══════════▼══════
-    │          SYNC BARRIER           │
-    ════════════════╤══════════════════
-                    │
-          ┌─────────▼─────────┐
-          │  MASTER REVIEWER  │  (E2E Verification)
-          └─────────┬─────────┘
-                    │
-          ┌─────────▼─────────┐
-          │  Mission Sealed?  │
-          └─────────┬─────────┘
-               No ↙   ↘ Yes
-            [Loop]   [Complete]
+          ═▼═════════▼══════════▼═
+          │     SYNC BARRIER     │
+          ═══════════╤═══════════
+                     │
+           ┌─────────▼─────────┐
+           │  MASTER REVIEWER  │  (E2E Verification)
+           └─────────┬─────────┘
+                     │
+                [MISSION SEALED]
 ```
 
 ---
 
-## 🚀 System Roles
+## 🚀 Agents
 
-| Role | Responsibility | Key Actions |
-|:-----|:---------------|:------------|
-| **Commander** | Mission Control | Task assignment, conflict resolution, global synchronization |
-| **Planner** | Architecture | Environment analysis, dependency mapping, TODO generation |
-| **Worker** | Implementation | Code writing, file modification, unit test creation |
-| **Reviewer** | Quality Control| Static analysis, build verification, integration testing |
+| Agent | Role |
+|:------|:-----|
+| **Commander** | Orchestrates all agents, manages task flow |
+| **Planner** | Creates TODO.md with task breakdown |
+| **Worker** | Implements features, writes tests |
+| **Reviewer** | Validates code, runs verification |
 
 ---
 
-## 🛠️ Features
+## ✨ Key Features
 
-*   **Concurrent Task Management**: Efficiently handles up to 50 background agent sessions.
-*   **Automated Context Synthesis**: Parallel scouters gather environment intelligence (Structure, Stack, Docs) instantly.
-*   **Synchronized Verification**: Ensures all distributed tasks pass Stage 1 review before final integration.
-*   **Fault Tolerance**: Automatically resumes progress from checkpoints in case of tool or session failure.
-*   **Context Optimization**: Monitors context window limits and performs automated compaction for long sessions.
+- **Parallel Execution**: Up to 50 concurrent agent sessions
+- **Two-Stage Verification**: Unit review → Master review → Seal
+- **Fault Tolerance**: Auto-recovery from failures
+- **Context Optimization**: Manages token limits automatically
 
 ---
 
