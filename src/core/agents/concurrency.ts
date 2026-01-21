@@ -22,7 +22,7 @@ const log = (...args: unknown[]) => {
 
 export class ConcurrencyController {
     private counts: Map<string, number> = new Map();
-    private queues: Map<string, Array<() => void>> = new Map();
+    private queues: Map<string, Array<{ resolve: () => void; timeoutId: NodeJS.Timeout }>> = new Map();
     private limits: Map<string, number> = new Map();
     private config: ConcurrencyConfig;
     private successStreak: Map<string, number> = new Map();
@@ -87,9 +87,24 @@ export class ConcurrencyController {
         }
 
         log(`Queueing ${key}: ${current}/${limit}`);
-        return new Promise<void>((resolve) => {
+        return new Promise<void>((resolve, reject) => {
             const queue = this.queues.get(key) ?? [];
-            queue.push(resolve);
+
+            // Timeout safety: Don't queue forever
+            const timeoutId = setTimeout(() => {
+                // Remove from queue
+                const currentQueue = this.queues.get(key);
+                if (currentQueue) {
+                    const index = currentQueue.findIndex(item => item.resolve === resolve);
+                    if (index !== -1) {
+                        currentQueue.splice(index, 1);
+                        this.queues.set(key, currentQueue);
+                    }
+                }
+                reject(new Error(`Concurrency acquisition timed out after 60s for ${key}`));
+            }, 60000); // 60s timeout
+
+            queue.push({ resolve, timeoutId });
             this.queues.set(key, queue);
         });
     }
@@ -101,8 +116,9 @@ export class ConcurrencyController {
         const queue = this.queues.get(key);
         if (queue && queue.length > 0) {
             const next = queue.shift()!;
+            clearTimeout(next.timeoutId);
             log(`Released ${key}: next in queue`);
-            next();
+            next.resolve();
         } else {
             const current = this.counts.get(key) ?? 0;
             if (current > 0) {

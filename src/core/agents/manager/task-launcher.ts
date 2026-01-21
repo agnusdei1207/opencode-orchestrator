@@ -3,7 +3,7 @@
  */
 
 import type { PluginInput } from "@opencode-ai/plugin";
-import { ID_PREFIX, TASK_STATUS, PART_TYPES, PARALLEL_TASK, WAL_ACTIONS } from "../../../shared/index.js";
+import { ID_PREFIX, TASK_STATUS, PART_TYPES, PARALLEL_TASK, WAL_ACTIONS, TOOL_NAMES } from "../../../shared/index.js";
 import { ConcurrencyController } from "../concurrency.js";
 import { TaskStore } from "../task-store.js";
 import { log } from "../logger.js";
@@ -84,13 +84,21 @@ export class TaskLauncher {
             throw new Error(`Maximum task depth (${PARALLEL_TASK.MAX_DEPTH}) reached. To prevent infinite recursion, no further sub-tasks can be spawned.`);
         }
 
-        const createResult = await this.client.session.create({
+        const sessionCreatePromise = this.client.session.create({
             body: {
                 parentID: input.parentSessionID,
                 title: `${PARALLEL_TASK.SESSION_TITLE_PREFIX}: ${input.description}`
             },
             query: { directory: this.directory },
         });
+
+        // Timeout wrapper for session creation
+        const createResult = await Promise.race([
+            sessionCreatePromise,
+            new Promise<any>((_, reject) =>
+                setTimeout(() => reject(new Error("Session creation timed out after 15s")), 15000)
+            )
+        ]);
 
         if (createResult.error || !createResult.data?.id) {
             throw new Error(`Session creation failed: ${createResult.error || "No ID"}`);
@@ -161,8 +169,8 @@ export class TaskLauncher {
                         get_task_result: true,
                         list_tasks: true,
                         cancel_task: true,
-                        skill: true,
-                        run_command: true,
+                        [TOOL_NAMES.SKILL]: true,
+                        [TOOL_NAMES.RUN_COMMAND]: true,
                     },
                     parts: [{ type: PART_TYPES.TEXT, text: task.prompt }]
                 },
