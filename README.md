@@ -66,38 +66,38 @@ MSVP is a structured verification process that decouples implementation from qua
               [User Task Input]
                      │
            ┌─────────▼─────────┐
-           │     COMMANDER     │ (Orchestration context)
+           │     COMMANDER     │  (Orchestration & Discovery)
            └─────────┬─────────┘
                      │
            ┌─────────▼─────────┐
-           │      PLANNER      │ (Create Hierarchical Plan)
+           │      PLANNER      │  (Create TODO.md)
            └─────────┬─────────┘
                      │
     ┌────────────────▼────────────────┐
-    │  Phase 1: Parallel Execution    │ (HPFA Implementation Grid)
+    │     COMMANDER: Parallel Launch  │
     └──────┬─────────┬─────────┬──────┘
            │         │         │
     ┌──────▼──┐ ┌────▼───┐ ┌───▼────┐
-    │ WORKER  │ │ WORKER │ │ WORKER │ (Fractal Spawning)
-    └──────┬──┘ └────┬───┘ └───┬────┘
-           │         │         │
-    ┌──────▼──┐ ┌────▼───┐ ┌───▼────┐
-    │ REVIEWER│ │ REVIEWER│ │ REVIEWER│ (Stage 1: Unit Verification)
-    └──────┬──┘ └────┬───┘ └───┬────┘
-           │         │         │
-    ───────▼─────────▼─────────▼───────
-    │          Sync Barrier           │ (Wait for all units)
-    ─────────────────┬─────────────────
-                     │
-           ┌─────────▼─────────┐
-           │  MASTER REVIEWER  │ (Stage 2: e2e Verification)
-           └─────────┬─────────┘
-                     │
-           ┌─────────▼─────────┐
-           │  Mission Sealed?  │
-           └─────────┬─────────┘
-                No ↙   ↘ Yes
-             [Loop]   [Complete]
+    │ WORKER A│ │ WORKER B│ │ WORKER C│  (Implementation)
+    └────┬────┘ └────┬───┘ └────┬────┘
+         │           │          │
+    ┌────▼────┐ ┌────▼───┐ ┌────▼────┐
+    │REVIEWER │ │REVIEWER │ │REVIEWER │  (Unit Verification)
+    └────┬────┘ └────┬───┘ └────┬────┘
+         │           │          │
+    ═════▼═══════════▼══════════▼══════
+    │          SYNC BARRIER           │
+    ════════════════╤══════════════════
+                    │
+          ┌─────────▼─────────┐
+          │  MASTER REVIEWER  │  (E2E Verification)
+          └─────────┬─────────┘
+                    │
+          ┌─────────▼─────────┐
+          │  Mission Sealed?  │
+          └─────────┬─────────┘
+               No ↙   ↘ Yes
+            [Loop]   [Complete]
 ```
 
 ---

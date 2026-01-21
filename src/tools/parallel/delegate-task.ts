@@ -22,6 +22,7 @@ import {
     PARALLEL_LOG,
     STATUS_LABEL,
     OUTPUT_LABEL,
+    AGENT_NAMES,
     type SessionClient,
     type PollResult
 } from "../../shared/index.js";
@@ -251,18 +252,17 @@ export const createDelegateTaskTool = (manager: ParallelAgentManager, client: un
         // =========================================
         // TERMINAL NODE GUARD: Block deep recursion
         // =========================================
-        // Workers and Reviewers (depth >= 2) are terminal nodes
+        // Workers and Reviewers (depth >= TERMINAL_DEPTH) are terminal nodes
         // They should complete their work directly, not spawn sub-agents
-        const TERMINAL_DEPTH = 2;
-        if (parentDepth >= TERMINAL_DEPTH) {
-            log(`${PARALLEL_LOG.DELEGATE_TASK} Terminal node guard triggered`, { parentDepth, TERMINAL_DEPTH });
+        if (parentDepth >= PARALLEL_TASK.TERMINAL_DEPTH) {
+            log(`${PARALLEL_LOG.DELEGATE_TASK} Terminal node guard triggered`, { parentDepth, TERMINAL_DEPTH: PARALLEL_TASK.TERMINAL_DEPTH });
             return `${OUTPUT_LABEL.ERROR} Delegation blocked: You are a terminal node (depth ${parentDepth}).
 
-**Workers and Reviewers cannot spawn sub-agents.** This prevents infinite recursion.
+**${AGENT_NAMES.WORKER} and ${AGENT_NAMES.REVIEWER} cannot spawn sub-agents.** This prevents infinite recursion.
 
 If your task is too complex, please:
-1. Report back to Commander with specific blockers
-2. Request task decomposition at the Planner level
+1. Report back to ${AGENT_NAMES.COMMANDER} with specific blockers
+2. Request task decomposition at the ${AGENT_NAMES.PLANNER} level
 3. Complete your assigned file directly without delegation`;
         }
 
