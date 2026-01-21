@@ -20,7 +20,7 @@ export class StrictRoleGuardHook implements PreToolUseHook {
         // "Prevent 'rm -rf /' or dangerous commands" globally for now.
 
         // Check for both background and standard command execution
-        if (tool === "run_command" || tool === TOOL_NAMES.RUN_BACKGROUND) {
+        if (tool === TOOL_NAMES.RUN_COMMAND || tool === TOOL_NAMES.RUN_BACKGROUND) {
             const cmd = args?.command as string;
             if (cmd) {
                 // Prevent Fork Bomb
