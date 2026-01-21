@@ -19,7 +19,20 @@ export const PARALLEL_TASK = {
     // Task lifecycle (24 hours for long tasks)
     TTL_MS: 24 * TIME.HOUR,
     CLEANUP_DELAY_MS: 10 * TIME.MINUTE,
-    MAX_DEPTH: 8, // Titan-Class depth for complex fractal missions
+
+    /**
+     * Maximum recursion depth for parallel task spawning
+     * 
+     * Depth hierarchy:
+     * - Depth 0: Commander (can spawn Planner/Worker/Reviewer)
+     * - Depth 1: Planner (can spawn Worker)
+     * - Depth 2: Worker/Reviewer (TERMINAL - cannot spawn sub-agents)
+     * - Depth 3: BLOCKED
+     * 
+     * This prevents infinite recursion and ensures Master Reviewer
+     * doesn't wait indefinitely for deeply nested sub-tasks.
+     */
+    MAX_DEPTH: 3,
 
     // Concurrency limits (Aggressive for intense processing)
     DEFAULT_CONCURRENCY: 10,
