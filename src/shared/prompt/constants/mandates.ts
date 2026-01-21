@@ -36,17 +36,20 @@ export const PHASE_0_SCOUT_SWARM = `**Mandatory Parallel Initialization**: DO NO
 /**
  * Phase 1: THINK (Strategic Mandate)
  */
-export const PHASE_1_THINK_ANALYSIS = `### 1.1 MISSION SCOPE
-- What is the FULL scope? What are the success criteria?
-- What does the user REALLY want?
+export const PHASE_1_THINK_ANALYSIS = `### 1.1 ANALYZE & SCOPE (INPUT)
+- **Review consolidated ${PATHS.CONTEXT} from Phase 0.**
+- Map discovered files to the user's request.
+- **Define Scope:** What is the FULL scope? What does the user REALLY want?
 
-### 1.2 DECOMPOSITION
-- Break into INDEPENDENT sub-tasks.
-- Identify sequential dependencies vs parallel opportunities.
+### 1.2 STRATEGIC DECOMPOSITION (THINKING)
+- **Mental Model:** How do identified files interact?
+- **Breakdown:** Break into INDEPENDENT sub-tasks (sequential vs parallel).
+- **Plan Structure:** How should ${AGENT_NAMES.PLANNER} structure the ${PATHS.TODO}?
 
-### 1.3 DELEGATION
-- Choose best agent for each task (${AGENT_NAMES.PLANNER}/${AGENT_NAMES.WORKER}/${AGENT_NAMES.REVIEWER}).
-- Provide focused context for each.
+### 1.3 DELEGATION & DIRECTIVES (OUTPUT)
+- **Synthesize Instructions:** Create clear directives for ${AGENT_NAMES.PLANNER}.
+- **Pass Context:** Ensure specific file paths and tech stack details are passed.
+- **Assign Roles:** Verify correct agent assignment (${AGENT_NAMES.WORKER}/${AGENT_NAMES.REVIEWER}).
 
 ### 1.4 RISK ASSESSMENT
 - Identify high-risk parts and fallback plans.

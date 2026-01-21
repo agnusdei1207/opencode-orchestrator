@@ -101,9 +101,26 @@ export function createEventHandler(ctx: EventHandlerContext) {
 
         // message.updated
         if (event.type === MESSAGE_EVENTS.UPDATED) {
-            const messageInfo = event.properties?.info as { sessionID?: string; role?: string } | undefined;
+            const messageProperties = event.properties as {
+                info?: { sessionID?: string; role?: string };
+                usage?: { totalTokens?: number; inputTokens?: number; outputTokens?: number };
+            };
+
+            const messageInfo = messageProperties?.info;
             const sessionID = messageInfo?.sessionID;
             const role = messageInfo?.role;
+
+            // Context Window Monitoring integration
+            // Use the usage data from the event to check against thresholds
+            if (sessionID && messageProperties?.usage) {
+                const totalTokens = messageProperties.usage.totalTokens ??
+                    ((messageProperties.usage.inputTokens ?? 0) + (messageProperties.usage.outputTokens ?? 0));
+
+                if (totalTokens > 0) {
+                    // This function has built-in cooldowns so it won't spam
+                    ContextMonitor.checkContextWindow(sessionID, totalTokens);
+                }
+            }
 
             if (sessionID && role === MESSAGE_ROLES.ASSISTANT) {
                 SessionRecovery.markRecoveryComplete(sessionID);
