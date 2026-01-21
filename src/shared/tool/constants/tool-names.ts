@@ -13,6 +13,8 @@ export const TOOL_NAMES = {
     CHECK_BACKGROUND: "check_background",
     LIST_BACKGROUND: "list_background",
     KILL_BACKGROUND: "kill_background",
+    // Command tools
+    RUN_COMMAND: "run_command",
     // Search tools
     GREP_SEARCH: "grep_search",
     GLOB_SEARCH: "glob_search",

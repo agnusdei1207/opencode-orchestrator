@@ -44,45 +44,50 @@ The Hook Architecture moves critical logic (security, monitoring, UI) out of mon
 
 | Trigger Point | Event Name | Description | Capabilities |
 |---|---|---|---|
-| **Chat** | `chat.message` | User sends a message | **Intercept** (block), **Modify** (template), **Process** (side-effects) |
-| **Pre-Tool** | `tool.execute.before` | Tool requested by Agent | **Block** (security), **Modify** (args), **Allow** |
-| **Post-Tool** | `tool.execute.after` | Tool finished execution | **Analyze** (secrets), **Decorate** (UI), **Track** (tokens), **Inject** (prompts) |
-| **Done** | `assistant.done` | Agent turn finished | **Control Loop** (auto-continue), **Finalize** (cleanup) |
+| **Chat** | `chat.message` | User input | **Intercept**, **Modify**, **Process** |
+| **Pre-Tool** | `tool.execute.before` | Tool request | **Block**, **Modify**, **Allow** |
+| **Post-Tool** | `tool.execute.after` | Tool finished | **Analyze**, **Decorate**, **Track**, **Inject** |
+| **Done** | `assistant.done` | Turn finished | **Control Loop**, **Finalize** |
 
-### 3. Current Hook Stack
+---
 
-| Hook Name | Role | Trigger | Description |
-|-----------|------|---------|-------------|
-| **UserActivity** | Utility | Chat | Pauses auto-loops when user speaks. |
-| **MissionControl** | Control | Chat & Done | **(Unified)** Handles `/task` start, template expansion, and auto-loop/seal checks. Uses `SessionManager` for state. |
-| **StrictRoleGuard** | Security | Pre-Tool | Blocks dangerous commands (`rm -rf` on root) defined in `SecurityPatterns`. |
-| **SecretScanner** | Security | Post-Tool | Redacts keys/secrets defined in `SecurityPatterns`. |
-| **AgentUI** | UI | Post-Tool | Adds `[PLANNER]` headers & tracks IDs. Uses `SystemMessages` for formatting. |
-| **ResourceControl** | System | Post/Done | Delegates token tracking to `SessionManager`. Triggers Memory Compaction. |
-| **SanityCheck** | Validation | Post/Done | Warns on empty outputs or loops. Uses `SessionManager` for anomaly counts. |
+## ⚡ Adaptive Capabilities (Skills System)
+
+The Orchestrator employs an **Adaptive Skills System** that allows agents to autonomously extend their capabilities at runtime without code changes or restarts.
+
+### 1. Autonomous Skill Acquisition Loop
+When an agent (typically a Worker or Planner) encounters a task for which it lacks knowledge or internal instructions:
+
+1.  **Awareness**: The agent recognizes a gap in its knowledge (e.g., "I don't know how to deploy to AWS").
+2.  **Discovery**: It searches for available OpenCode Skills repositories (e.g., via web search or known registries).
+3.  **Acquisition**: The agent executes `npx skills add <owner/repo>` using the `run_command` tool.
+    *   *Note: This is authorized behavior for sub-agents.*
+4.  **Ingestion**: The agent calls the `skill({ name: "..." })` tool.
+    *   The OpenCode host reads the installed `SKILL.md`.
+    *   The host injects the skill's instructions directly into the context.
+5.  **Execution**: The agent proceeds with the task using the newly acquired knowledge.
+
+### 2. Implementation Details
+*   **Permissions**: Sub-agents (Worker/Planner/Reviewer) are explicitly granted `run_command` (for `npx` execution) and `skill` (for reading instructions) permissions in `task-launcher.ts`.
+*   **Prompts**: The `<skills_capabilities>` system prompt explicitly instructs agents on this workflow, empowering them to act without asking the user for permission to learn standard skills.
 
 ---
 
 ## 🚦 Hook Action Flow (Visual Feel)
 
-Imagine the OpenCode Orchestrator as an automated factory. Hooks are the **Checkpoints and Sensors** placed along the pipeline.
+*(Diagrams and tables below illustrate the flow including the new Skill System interactions where applicable, though standard Hook flow remains primary.)*
 
 ### 1. Life of a User Request
 
 | Stage | Activity | Hook Involved | What Happens? |
 |:---:|---|:---:|---|
-| **1. Input** | **User:** `"/task build"` | **MissionControl (Chat)** | 1. Detects `/task`. <br> 2. Sets Global Mission Active. <br> 3. Modifies text to "Start mission...". |
-| **2. Reasoning** | **Agent:** "I must delete root." | *(Internal)* | Agent decides to run `rm -rf /`. |
-| **3. Checkpoint** | **Tool Request:** `run("rm -rf /")` | **StrictRoleGuard** | 🚨 **BLOCK!** "Forbidden command." <br> Agent gets error immediately. |
-| **4. Action** | **Tool Request:** `ls -R` | **StrictRoleGuard** | ✅ **ALLOW**. Tool executes. |
-| **5. Result** | **Tool Output:** "API_KEY=sk-123..." | **SecretScanner** | 🕵️ **MODIFY**. Output becomes "API_KEY=***". |
-| **6. Decoration** | **Display:** Showing to User | **AgentUI** | 🎨 **DECORATE**. Adds `[P] PLANNER Working...` header. |
-| **7. Resource** | **Telemetry:** Token Counting | **ResourceControl** | 📊 **TRACK**. Adds tokens to stats. <br> If >85% full, schedules compaction. |
-| **8. Completion** | **Agent Done:** "I finished listing." | **MissionControl (Done)** | 🔄 **LOOP**. Checks `<mission_seal>`. <br> If missing, auto-injects "Continue working!". |
+| **1. Input** | **User:** `"/task build"` | **MissionControl (Chat)** | 1. Detects `/task`. <br> 2. Sets Global Mission Active. |
+| **2. Reasoning** | **Agent:** "Need `git-release` skill." | *(Adaptive)* | Agent decides to install skill. |
+| **3. Action** | **Tool:** `run("npx skills add...")` | **StrictRoleGuard** | ✅ **ALLOW**. Skill installation is safe. |
+| **4. Learning** | **Tool:** `skill("git-release")` | *(Host Native)* | Host injects skill context. |
+| **5. Result** | **Agent:** "I know how to release!" | **MissionControl (Done)** | Agent proceeds with new capability. |
 
 ### 2. Flow Diagram (Detailed)
-
-This diagram illustrates the complete lifecycle including the **Mission Control** Loop.
 
 ```mermaid
 graph TD
@@ -90,6 +95,7 @@ graph TD
     User(("User 👤"))
     LLM(("Brain (LLM) 🧠"))
     Tool(("Tool 🛠️"))
+    SkillStore[("Skill Store 📚")]
     
     %% 1. Chat Processing
     subgraph Chat_Processing [Chat Processing]
@@ -121,9 +127,12 @@ graph TD
     UserAct --> MissionChat
     MissionChat -->|2. Modified Prompt| LLM
     
-    LLM -->|3. Tool Call| RoleGuard
+    LLM -->|3. Tool Call / Skill| RoleGuard
     RoleGuard -->|4. Safe?| Tool
     RoleGuard -.->|Blocked| LLM
+    
+    Tool -.->|Install| SkillStore
+    SkillStore -.->|Read Skill| LLM
     
     Tool -->|5. Output| Scanner
     Scanner --> UI
@@ -133,8 +142,8 @@ graph TD
     LLM -->|7. Turn Done| Sanity
     Sanity --> MissionDone
     
-    MissionDone -.->|No Seal: Auto-Continue| LLM
-    MissionDone -->|Yes Seal: Complete| ResourceComp
+    MissionDone -.->|No Seal| LLM
+    MissionDone -->|Yes Seal| ResourceComp
     ResourceComp -->|9. Final Response| User
 ```
 
