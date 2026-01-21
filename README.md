@@ -69,10 +69,6 @@ MSVP is a structured verification process that decouples implementation from qua
            │     COMMANDER     │ (Orchestration context)
            └─────────┬─────────┘
                      │
-    ┌────────────────▼────────────────┐
-    │  Phase 0: Parallel Discovery    │ (Structure, Tech Stack, Docs, Infra)
-    └────────────────┬────────────────┘
-                     │
            ┌─────────▼─────────┐
            │      PLANNER      │ (Create Hierarchical Plan)
            └─────────┬─────────┘

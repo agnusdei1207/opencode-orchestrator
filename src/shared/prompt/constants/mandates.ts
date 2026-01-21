@@ -1,37 +1,28 @@
 /**
  * Architectural Mandates - Immutable Core Logic
  * 
- *
  * These constants define the non-negotiable architectural requirements
  * that ensure the orchestrator operates according to the verified diagram.
+ * 
+ * NOTE: Direct reading is preferred over parallel scouts to reduce token costs.
  */
 
 import { AGENT_NAMES } from "../../agent/constants/names.js";
 import { PATHS } from "../../core/constants/paths.js";
-import { TOOL_NAMES } from "../../tool/constants/tool-names.js";
-import {
-   SCOUT_STRUCTURE,
-   SCOUT_STACK,
-   SCOUT_DOCS,
-   SCOUT_INFRA,
-   SCOUT_INTEGRATION
-} from "./scouts.js";
 
 /**
- * Phase 0: Discovery Swarm Mandate
- * Force parallel execution of scouts to maximize velocity.
+ * Phase 0: Direct Discovery
+ * Read directly - no parallel scout overhead, saves tokens and time.
  */
-export const PHASE_0_SCOUT_SWARM = `**Mandatory Parallel Initialization**: DO NOT run discovery tools (ls, grep, find) yourself. Your job is to ORCHESTRATE and synthesize results.
+export const PHASE_0_DIRECT_DISCOVERY = `**Direct Project Discovery**: Read the project directly to understand it.
 
-1. **LAUNCH Parallel Scouts**: In your VERY FIRST response, you must output ALL of the following \`${TOOL_NAMES.DELEGATE_TASK}\` calls simultaneously (background: true) for:
-   - **[${SCOUT_STRUCTURE.NAME}]**: ${SCOUT_STRUCTURE.PROMPT} (To ${AGENT_NAMES.PLANNER})
-   - **[${SCOUT_STACK.NAME}]**: ${SCOUT_STACK.PROMPT} (To ${AGENT_NAMES.PLANNER})
-   - **[${SCOUT_DOCS.NAME}]**: ${SCOUT_DOCS.PROMPT} (To ${AGENT_NAMES.PLANNER})
-   - **[${SCOUT_INFRA.NAME}]**: ${SCOUT_INFRA.PROMPT} (To ${AGENT_NAMES.PLANNER})
-2. **PARALLEL SYNC**: Use \`${TOOL_NAMES.LIST_TASKS}\` to monitor progress. 
-3. **ONE-PASS INGESTION**: Once all scouts show DONE, use \`${TOOL_NAMES.GET_TASK_RESULT}\` for ALL scouts in a single turn to consolidate findings into \`${PATHS.CONTEXT}\`.
+1. **STRUCTURE**: Run \`ls -la\` and \`find . -maxdepth 2 -type d | head -30\` to map the project layout.
+2. **STACK**: Read config files (package.json, Cargo.toml, go.mod, etc.) to identify build/test commands.
+3. **DOCS**: Read README.md and key documentation to understand the architecture.
+4. **INFRA**: Check for Dockerfile, CI/CD configs, and infrastructure files.
+5. **CONSOLIDATE**: Save findings to \`${PATHS.CONTEXT}\`.
 
-[CRITICAL]: Sequential execution (running tools yourself) is a mission failure. Launch the swarm NOW.`;
+[EFFICIENT]: Direct reading is faster and cheaper than delegating to parallel scouts.`;
 
 /**
  * Phase 1: THINK (Strategic Mandate)
@@ -59,10 +50,9 @@ export const PHASE_1_THINK_ANALYSIS = `### 1.1 ANALYZE & SCOPE (INPUT)
  * Phase 5: MSVP (Multi-Stage Verification Pipeline)
  */
 export const PHASE_5_MSVP = `1. **STAGE 1 (Unit)**: Workers MUST trigger ${AGENT_NAMES.REVIEWER} for unit verification immediately upon completion.
-2. **PARALLEL DISCOVERY**: Before Stage 2, launch a swarm of scouts (background: true) using **[${SCOUT_INTEGRATION.NAME}]**: ${SCOUT_INTEGRATION.PROMPT} (To ${AGENT_NAMES.PLANNER}).
-3. **STAGE 2 (Integration Master)**: The Master ${AGENT_NAMES.REVIEWER} ingests all scout findings to validate cross-module consistency.
-4. **E2E VALIDATION**: Run full system tests and build pass check.
-5. **SEAL GATE**: No SEALED output until ${PATHS.TODO} is all [x] and zero issues remain.`;
+2. **STAGE 2 (Integration Master)**: The Master ${AGENT_NAMES.REVIEWER} directly reads all modified files and validates cross-module consistency.
+3. **E2E VALIDATION**: Run full system tests and build pass check.
+4. **SEAL GATE**: No SEALED output until ${PATHS.TODO} is all [x] and zero issues remain.`;
 
 /**
  * HPFA (Hyper-Parallel Fractal Architecture) Rules

@@ -5,7 +5,7 @@
  * Language-agnostic.
  */
 
-import { AGENT_NAMES, PATHS, PROMPT_TAGS, WORK_STATUS, STATUS_LABEL, SCOUT_INTEGRATION } from "../../../shared/index.js";
+import { AGENT_NAMES, PATHS, PROMPT_TAGS, WORK_STATUS, STATUS_LABEL } from "../../../shared/index.js";
 
 export const REVIEWER_INTEGRATION_TESTING = `${PROMPT_TAGS.INTEGRATION_TESTING.open}
 ## E2E INTEGRATION TESTING RULES
@@ -21,11 +21,13 @@ Before running integration tests, all merged files must:
 
 ### Integration Workflow (Master Mode)
 
-#### Step 0: Ingest Parallel Scout Findings
-Read the output of the **[${SCOUT_INTEGRATION.NAME}]** swarm. Locate:
+#### Step 0: Direct File Reading
+Read all modified files directly from ${PATHS.WORK_LOG}. Identify:
 - Cross-module interface changes
 - Shared constant modifications
 - Potential synchronization bottlenecks
+
+[NOTE]: Read directly - no parallel scout overhead, saves tokens.
 
 #### Step 1: Check ${PATHS.TODO} Status
 \`\`\`bash
@@ -88,6 +90,7 @@ Write to ${PATHS.INTEGRATION_STATUS}:
 
 **CRITICAL**:
 - E2E only at ${PATHS.TODO} completion time!
-- Use the parallel intelligence from **[${SCOUT_INTEGRATION.NAME}]** to ensure 100% mission integrity.
+- Read modified files directly for maximum efficiency.
 - All ${PATHS.TODO} [x] + no issues = SEALED!
 ${PROMPT_TAGS.INTEGRATION_TESTING.close}`;
+
