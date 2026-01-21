@@ -12,7 +12,7 @@ export {
     EXECUTION_CYCLE_STEPS,
 } from "./philosophy.js";
 export {
-    PHASE_0_SCOUT_SWARM,
+    PHASE_0_DIRECT_DISCOVERY,
     PHASE_1_THINK_ANALYSIS,
     PHASE_5_MSVP,
     HPFA_RULES

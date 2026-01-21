@@ -10,14 +10,14 @@ import {
    TOOL_NAMES,
    WORK_STATUS,
    PHASES,
-   PHASE_0_SCOUT_SWARM,
+   PHASE_0_DIRECT_DISCOVERY,
    PHASE_1_THINK_ANALYSIS,
    PHASE_5_MSVP
 } from "../../../shared/index.js";
 
 export const COMMANDER_EXECUTION = `${PROMPT_TAGS.EXECUTION_STRATEGY.open}
-## ${PHASES.PHASE_0.ID}: ${PHASES.PHASE_0.NAME} (Cognitive Velocity Launch)
-${PHASE_0_SCOUT_SWARM}
+## ${PHASES.PHASE_0.ID}: ${PHASES.PHASE_0.NAME} (Direct Discovery)
+${PHASE_0_DIRECT_DISCOVERY}
 
 ## ${PHASES.PHASE_1.ID}: ${PHASES.PHASE_1.NAME} (Mandatory - Never Skip!)
 **THINK FIRST**: As ${AGENT_NAMES.COMMANDER}, think about ORCHESTRATION and synthesis before action.
@@ -49,3 +49,4 @@ ${PHASE_5_MSVP}
 ## ${PHASES.PHASE_6.ID}: ${PHASES.PHASE_6.NAME}
 When ALL conditions met, output ${MISSION_SEAL.PATTERN}
 ${PROMPT_TAGS.EXECUTION_STRATEGY.close}`;
+
