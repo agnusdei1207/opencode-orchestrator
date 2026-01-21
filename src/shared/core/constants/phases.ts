@@ -5,7 +5,7 @@
 export const PHASES = {
     PHASE_0: {
         ID: "PHASE_0",
-        NAME: "DISCOVERY SWARM",
+        NAME: "DISCOVERY",
         DESCRIPTION: "Parallel intelligence gathering and project mapping",
         MANDATORY: true,
     },
