@@ -4,10 +4,11 @@
  * Implements output anomaly detection.
  */
 import type { PostToolUseHook, AssistantDoneHook, HookContext, HookResult } from "../types.js";
-import { state } from "../../core/orchestrator/index.js";
 import { checkOutputSanity, RECOVERY_PROMPT, ESCALATION_PROMPT } from "../../utils/sanity/index.js";
-import { TOOL_NAMES, PART_TYPES } from "../../shared/index.js";
+import { TOOL_NAMES } from "../../shared/index.js";
 import { HOOK_ACTIONS, HOOK_NAMES } from "../constants.js";
+import { recordAnomaly, resetAnomaly } from "../../core/orchestrator/session-manager.js";
+import { MISSION_MESSAGES } from "../../shared/constants/system-messages.js";
 
 export class SanityCheckHook implements PostToolUseHook, AssistantDoneHook {
     name = HOOK_NAMES.SANITY_CHECK;
@@ -20,7 +21,6 @@ export class SanityCheckHook implements PostToolUseHook, AssistantDoneHook {
     ): Promise<any> {
         // Handle PostToolUse (checks CallAgent output)
         if (output) {
-            // It's a tool output check
             if (toolOrText === TOOL_NAMES.CALL_AGENT) {
                 return this.checkToolOutput(ctx, input, output);
             }
@@ -32,42 +32,36 @@ export class SanityCheckHook implements PostToolUseHook, AssistantDoneHook {
     }
 
     private async checkToolOutput(ctx: HookContext, toolInput: any, toolOutput: { output: string }) {
-        const stateSession = state.sessions.get(ctx.sessionID);
-        if (!stateSession) return {};
-
         const sanityResult = checkOutputSanity(toolOutput.output);
         if (!sanityResult.isHealthy) {
-            stateSession.anomalyCount = (stateSession.anomalyCount || 0) + 1;
+            const count = recordAnomaly(ctx.sessionID);
             const agentName = toolInput?.agent as string || "unknown";
+            const recoveryText = count >= 2 ? ESCALATION_PROMPT : RECOVERY_PROMPT;
 
-            const errorMsg = `[${agentName.toUpperCase()}] OUTPUT ANOMALY DETECTED\n\n` +
-                `Gibberish/loop detected: ${sanityResult.reason}\n` +
-                `Anomaly count: ${stateSession.anomalyCount}\n\n` +
-                (stateSession.anomalyCount >= 2 ? ESCALATION_PROMPT : RECOVERY_PROMPT);
+            const errorMsg = MISSION_MESSAGES.ANOMALY_DETECTED_TITLE(agentName.toUpperCase()) + "\n\n" +
+                MISSION_MESSAGES.ANOMALY_DETECTED_BODY(sanityResult.reason || "Unknown anomaly", count, recoveryText);
 
             return { output: errorMsg };
         } else {
-            if (stateSession.anomalyCount > 0) stateSession.anomalyCount = 0;
+            resetAnomaly(ctx.sessionID);
         }
         return {};
     }
 
     private async checkFinalText(ctx: HookContext, finalText: string): Promise<HookResult> {
-        const stateSession = state.sessions.get(ctx.sessionID);
-        if (!stateSession) return { action: HOOK_ACTIONS.CONTINUE };
-
         const sanityResult = checkOutputSanity(finalText);
         if (!sanityResult.isHealthy) {
-            stateSession.anomalyCount = (stateSession.anomalyCount || 0) + 1;
-            const recoveryText = stateSession.anomalyCount >= 2 ? ESCALATION_PROMPT : RECOVERY_PROMPT;
+            const count = recordAnomaly(ctx.sessionID);
+            const recoveryText = count >= 2 ? ESCALATION_PROMPT : RECOVERY_PROMPT;
+            const prompt = MISSION_MESSAGES.ANOMALY_INJECT_MSG(count, sanityResult.reason || "Unknown anomaly", recoveryText);
 
             return {
                 action: HOOK_ACTIONS.INJECT,
-                prompts: [`⚠️ ANOMALY #${stateSession.anomalyCount}: ${sanityResult.reason}\n\n${recoveryText}`]
+                prompts: [prompt]
             };
         }
 
-        if (stateSession.anomalyCount > 0) stateSession.anomalyCount = 0;
+        resetAnomaly(ctx.sessionID);
         return { action: HOOK_ACTIONS.CONTINUE };
     }
 }

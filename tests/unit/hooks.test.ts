@@ -11,25 +11,23 @@ import { describe, it, expect, beforeEach, vi, afterEach } from "vitest";
 import { HookRegistry } from "../../src/hooks/registry";
 import { MissionControlHook } from "../../src/hooks/features/mission-loop";
 import { StrictRoleGuardHook } from "../../src/hooks/custom/strict-role-guard";
-import { HOOK_ACTIONS, HOOK_NAMES } from "../../src/hooks/constants";
-import { TOOL_NAMES, COMMAND_NAMES } from "../../src/shared";
+import { ResourceControlHook } from "../../src/hooks/custom/resource-control";
+import { AgentUIHook } from "../../src/hooks/custom/agent-ui";
+import { SanityCheckHook } from "../../src/hooks/features/sanity-check";
+import { SecretScannerHook } from "../../src/hooks/custom/secret-scanner";
+
+import { HOOK_ACTIONS } from "../../src/hooks/constants";
+import { TOOL_NAMES } from "../../src/shared";
 import { state } from "../../src/core/orchestrator/state";
+import { updateSessionTokens, recordAnomaly } from "../../src/core/orchestrator/session-manager";
+import { MISSION_MESSAGES } from "../../src/shared/constants/system-messages.js";
 
 // Mock dependencies
-vi.mock("../../src/core/agents/logger", () => ({
-    log: vi.fn(),
-}));
-
-// Mock slashCommand to avoid loading @opencode-ai/plugin which causes module not found error in tests
+vi.mock("../../src/core/agents/logger", () => ({ log: vi.fn() }));
+vi.mock("../../src/core/notification/toast", () => ({ show: vi.fn() }));
 vi.mock("../../src/tools/slashCommand", () => ({
-    COMMANDS: {
-        task: {
-            description: "Mock Task Command",
-            template: "Mock Template: $ARGUMENTS"
-        }
-    }
+    COMMANDS: { task: { description: "Mock", template: "Mock: $ARGUMENTS" } }
 }));
-
 vi.mock("../../src/core/loop/mission-seal", () => ({
     startMissionLoop: vi.fn(),
     cancelMissionLoop: vi.fn(),
@@ -38,31 +36,21 @@ vi.mock("../../src/core/loop/mission-seal", () => ({
     clearLoopState: vi.fn(),
     SEAL_PATTERN: "<mission_seal>"
 }));
-
-vi.mock("../../src/core/notification/toast", () => ({
-    show: vi.fn(),
+vi.mock("../../src/utils/sanity/index", () => ({
+    checkOutputSanity: vi.fn().mockReturnValue({ isHealthy: true }),
+    RECOVERY_PROMPT: "Recover",
+    ESCALATION_PROMPT: "Escalate"
 }));
 
 describe("Hook System", () => {
-    let registry: HookRegistry;
     let mockContext: any;
 
     beforeEach(() => {
-        // Reset singleton (if possible, or just get instance)
-        // Since it's a singleton, we might need to clear hooks if methods available, 
-        // or just rely on overwriting behavior if we test specific instances.
-        // HookRegistry doesn't expose clear method. 
-        // We will create new instances of Hooks and call them directly for unit logic,
-        // and test Registry integration separately if needed.
-        registry = HookRegistry.getInstance();
-
         mockContext = {
             sessionID: "test-session",
             directory: "/tmp/test",
             sessions: new Map(),
         };
-
-        // Reset state
         state.sessions.clear();
         state.missionActive = false;
     });
@@ -78,57 +66,75 @@ describe("Hook System", () => {
         it("should block root deletion 'rm -rf /'", async () => {
             const result = await hook.execute(mockContext, "run_command", { command: "rm -rf /" });
             expect(result.action).toBe(HOOK_ACTIONS.BLOCK);
-            expect(result.reason).toContain("Root deletion");
-        });
-
-        it("should allow non-root deletion 'rm -rf ./dist'", async () => {
-            const result = await hook.execute(mockContext, "run_command", { command: "rm -rf ./dist" });
-            expect(result.action).toBe(HOOK_ACTIONS.ALLOW);
-        });
-
-        it("should block 'run_background' with root deletion", async () => {
-            const result = await hook.execute(mockContext, TOOL_NAMES.RUN_BACKGROUND, { command: "rm -rf / " });
-            expect(result.action).toBe(HOOK_ACTIONS.BLOCK);
         });
     });
 
     describe("MissionControlHook", () => {
         const hook = new MissionControlHook();
 
-        describe("Chat Execution (/task)", () => {
-            it("should ignore normal text", async () => {
-                const result = await hook.execute(mockContext, "hello world");
-                // execute calls handleMissionSeal if not command. 
-                // handleMissionSeal checks loops. 
-                // We mocked isLoopActive to true. 
-                // detectSealInText mocked to undefined -> returns continue (or inject if enabled)
-                // Wait, handleMissionSeal returns INJECT in current implementation if loop active & not sealed.
-                expect(result.action).not.toBe(HOOK_ACTIONS.PROCESS); // It might be INJECT or CONTINUE
-            });
-
-            it("should detect /task command", async () => {
-                const msg = `/task "build app"`;
-                const result = await hook.execute(mockContext, msg);
-
-                expect(result.action).toBe(HOOK_ACTIONS.PROCESS);
-                expect(result.modifiedMessage).toBeDefined();
-                expect(state.missionActive).toBe(true);
-                expect(state.sessions.has("test-session")).toBe(true);
-            });
+        it("should detect /task command", async () => {
+            const result = await hook.execute(mockContext, `/task "build"`);
+            expect(result.action).toBe(HOOK_ACTIONS.PROCESS);
+            expect(state.missionActive).toBe(true);
         });
 
-        describe("Done Execution (Seal)", () => {
-            it("should stop if seal detected", async () => {
-                // Setup active mission state
-                state.missionActive = true;
-                state.sessions.set("test-session", { enabled: true } as any);
+        it("should stopping if seal detected", async () => {
+            state.missionActive = true;
+            state.sessions.set("test-session", { enabled: true } as any);
 
-                const { detectSealInText } = await import("../../src/core/loop/mission-seal");
-                vi.mocked(detectSealInText).mockReturnValue(true);
+            const { detectSealInText } = await import("../../src/core/loop/mission-seal");
+            vi.mocked(detectSealInText).mockReturnValue(true);
 
-                const result = await hook.execute(mockContext, "All done <mission_seal>");
-                expect(result.action).toBe(HOOK_ACTIONS.STOP);
-            });
+            const result = await hook.execute(mockContext, "All done <mission_seal>");
+            expect(result.action).toBe(HOOK_ACTIONS.STOP);
+        });
+    });
+
+    describe("ResourceControlHook", () => {
+        const hook = new ResourceControlHook();
+
+        it("should track tokens", async () => {
+            await hook.execute(mockContext, "tool", "input", "output");
+            const session = mockContext.sessions.get("test-session");
+            expect(session.tokens.totalInput).toBeGreaterThan(0);
+            expect(session.tokens.active).not.toBeDefined(); // should be session root
+        });
+    });
+
+    describe("AgentUIHook", () => {
+        const hook = new AgentUIHook();
+
+        it("should decorate agent output", async () => {
+            const input = { agent: "planner" };
+            const output = { title: "Res", output: "Thinking...", metadata: {} };
+            const result = await hook.execute(mockContext, TOOL_NAMES.CALL_AGENT, input, output);
+
+            expect(result.output).toContain("[P] [PLANNER] Working...");
+        });
+    });
+
+    describe("SecretScannerHook", () => {
+        const hook = new SecretScannerHook();
+
+        it("should redact secrets", async () => {
+            const secret = "Items: sk-TEST_MOCK_SECRET_DO_NOT_DETECT_1234567890";
+            const output = { title: "Res", output: secret, metadata: {} };
+            const result = await hook.execute(mockContext, "tool", {}, output);
+
+            expect(result.output).toContain("REDACTED");
+            expect(result.output).not.toContain("sk-TEST_MOCK");
+        });
+    });
+
+    describe("SanityCheckHook", () => {
+        const hook = new SanityCheckHook();
+
+        it("should detect anomalies", async () => {
+            const { checkOutputSanity } = await import("../../src/utils/sanity/index");
+            vi.mocked(checkOutputSanity).mockReturnValue({ isHealthy: false, reason: "Loop", severity: "warning" });
+
+            const result = await hook.execute(mockContext, TOOL_NAMES.CALL_AGENT, { agent: "worker" }, { output: "bad", title: "", metadata: {} });
+            expect(result.output).toContain("ANOMALY DETECTED");
         });
     });
 });

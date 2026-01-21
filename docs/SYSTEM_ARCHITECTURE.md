@@ -21,9 +21,13 @@ The center of all event processing. Handlers strictly delegate to the Registry i
 *   **Worker**: Code implementation and execution.
 *   **Reviewer**: Code quality review and testing.
 
-### 3. State Management
-*   **Global State**: Manages global flags like active sessions, anomaly counts.
-*   **Session State**: Manages per-session **Token Usage**, **Current Task ID**, and **Timestamps**.
+### 3. State Management (Refactored v1.0.39)
+*   **SessionManager**: Centralized controller for all session-related state operations.
+    *   **Initialization**: automatically ensures local session objects exist.
+    *   **Mission Activation**: Toggles global mission flags via `activateMissionState`.
+    *   **Resource Tracking**: Centralized token/cost counting via `updateSessionTokens`.
+    *   **Anomaly Management**: Tracks and resets anomaly counts via `recordAnomaly`.
+*   **SystemMessages**: Centralized repository for all system prompts, UI templates, and error messages.
 
 ---
 
@@ -50,12 +54,12 @@ The Hook Architecture moves critical logic (security, monitoring, UI) out of mon
 | Hook Name | Role | Trigger | Description |
 |-----------|------|---------|-------------|
 | **UserActivity** | Utility | Chat | Pauses auto-loops when user speaks. |
-| **MissionControl** | Control | Chat & Done | **(Unified)** Handles `/task` start, template expansion, and auto-loop/seal checks. |
-| **StrictRoleGuard** | Security | Pre-Tool | Blocks dangerous commands (`rm -rf` on root). |
-| **SecretScanner** | Security | Post-Tool | Redacts keys/secrets from output. |
-| **AgentUI** | UI | Post-Tool | Adds `[PLANNER]` headers & tracks IDs. |
-| **ResourceControl** | System | Post/Done | Tracks tokens, triggers Memory Compaction. |
-| **SanityCheck** | Validation | Post/Done | Warns on empty outputs or loops. |
+| **MissionControl** | Control | Chat & Done | **(Unified)** Handles `/task` start, template expansion, and auto-loop/seal checks. Uses `SessionManager` for state. |
+| **StrictRoleGuard** | Security | Pre-Tool | Blocks dangerous commands (`rm -rf` on root) defined in `SecurityPatterns`. |
+| **SecretScanner** | Security | Post-Tool | Redacts keys/secrets defined in `SecurityPatterns`. |
+| **AgentUI** | UI | Post-Tool | Adds `[PLANNER]` headers & tracks IDs. Uses `SystemMessages` for formatting. |
+| **ResourceControl** | System | Post/Done | Delegates token tracking to `SessionManager`. Triggers Memory Compaction. |
+| **SanityCheck** | Validation | Post/Done | Warns on empty outputs or loops. Uses `SessionManager` for anomaly counts. |
 
 ---
 

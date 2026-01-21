@@ -19,7 +19,7 @@ npm install -g opencode-orchestrator
 In an OpenCode environment:
 ```bash
 /task "Implement"
-```
+``` 
 
 ## Overview
 
@@ -67,60 +67,6 @@ OpenCode Orchestrator manages complex software tasks through **parallel multi-ag
                 [MISSION SEALED]
 ```
 
-
-```mermaid
-graph TD
-    %% Nodes
-    User(("User 👤"))
-    LLM(("Brain (LLM) 🧠"))
-    Tool(("Tool 🛠️"))
-    
-    %% 1. Chat Processing
-    subgraph Chat_Processing [Chat Processing]
-        UserAct[UserActivity Hook]
-        MissionChat[MissionControl Hook - Start]
-    end
-
-    %% 2. Pre-Execution
-    subgraph Pre_Execution [Pre-Execution Guard]
-        RoleGuard[StrictRoleGuard]
-    end
-
-    %% 3. Post-Execution
-    subgraph Post_Execution [Post-Execution Processing]
-        Scanner[SecretScanner]
-        UI[AgentUI Hook]
-        Resource[ResourceControl - Track]
-    end
-
-    %% 4. Completion
-    subgraph Completion [Completion & Loop Control]
-        Sanity[SanityCheck]
-        MissionDone[MissionControl Hook - Loop]
-        ResourceComp[ResourceControl - Compact]
-    end
-
-    %% Flow Connections
-    User -->|1. Message| UserAct
-    UserAct --> MissionChat
-    MissionChat -->|2. Modified Prompt| LLM
-    
-    LLM -->|3. Tool Call| RoleGuard
-    RoleGuard -->|4. Safe?| Tool
-    RoleGuard -.->|Blocked| LLM
-    
-    Tool -->|5. Output| Scanner
-    Scanner --> UI
-    UI --> Resource
-    Resource -->|6. Result| LLM
-    
-    LLM -->|7. Turn Done| Sanity
-    Sanity --> MissionDone
-    
-    MissionDone -.->|No Seal: Auto-Continue| LLM
-    MissionDone -->|Yes Seal: Complete| ResourceComp
-    ResourceComp -->|9. Final Response| User
-```
 
 ---
 
