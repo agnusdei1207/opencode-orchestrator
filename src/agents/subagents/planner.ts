@@ -28,6 +28,7 @@ import {
     SHARED_AST_TOOLS,
     MODULARITY_ENFORCEMENT,
     HYPER_PARALLEL_ENFORCEMENT,
+    SKILLS_CAPABILITIES,
 } from "../prompts/index.js";
 
 /**
@@ -50,6 +51,7 @@ const systemPrompt = [
     PLANNER_RESEARCH,
     SHARED_LSP_TOOLS,
     SHARED_AST_TOOLS,
+    SKILLS_CAPABILITIES,
     SHARED_WORKSPACE,
 ].join("\n\n");
 
