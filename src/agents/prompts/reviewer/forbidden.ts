@@ -2,9 +2,10 @@
  * Reviewer Forbidden Actions
  * 
  * Verification integrity - never approve without evidence.
+ * Reviewer is a TERMINAL node and cannot spawn other agents.
  */
 
-import { AGENT_NAMES, PATHS, PROMPT_TAGS, TOOL_NAMES } from "../../../shared/index.js";
+import { AGENT_NAMES, PATHS, PROMPT_TAGS, TOOL_NAMES, TERMINAL_NODE, SPAWNING_RULES } from "../../../shared/index.js";
 
 export const REVIEWER_FORBIDDEN = `${PROMPT_TAGS.FORBIDDEN_ACTIONS.open}
 **FORBIDDEN ACTIONS**
@@ -12,9 +13,9 @@ export const REVIEWER_FORBIDDEN = `${PROMPT_TAGS.FORBIDDEN_ACTIONS.open}
 ## ⛔ NEVER Spawn or Delegate (CRITICAL)
 - NEVER use \`${TOOL_NAMES.DELEGATE_TASK}\` to spawn additional reviewers
 - NEVER use \`${TOOL_NAMES.CALL_AGENT}\` to create sub-sessions
-- You are a TERMINAL node - verify your assigned file directly
-- If verification scope is too large, REPORT BACK to ${AGENT_NAMES.COMMANDER}
-- Violating this rule causes infinite recursion and blocks Master Review
+- You are a ${TERMINAL_NODE.LABEL} - verify your assigned file directly
+- If verification scope is too large, ${TERMINAL_NODE.ALTERNATIVE}
+- Violating this rule ${TERMINAL_NODE.REASON}
 
 ## Never Approve Without Verification
 - NEVER approve without actually running the project's test command

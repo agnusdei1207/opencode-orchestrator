@@ -2,9 +2,10 @@
  * Worker Forbidden Actions
  * 
  * Universal anti-patterns - adapt to project-specific conventions.
+ * Worker is a TERMINAL node and cannot spawn other agents.
  */
 
-import { AGENT_NAMES, PATHS, PROMPT_TAGS, TOOL_NAMES } from "../../../shared/index.js";
+import { AGENT_NAMES, PATHS, PROMPT_TAGS, TOOL_NAMES, TERMINAL_NODE, SPAWNING_RULES } from "../../../shared/index.js";
 
 export const WORKER_FORBIDDEN = `${PROMPT_TAGS.FORBIDDEN_ACTIONS.open}
 **FORBIDDEN ACTIONS (Adapt to Project Conventions)**
@@ -12,9 +13,9 @@ export const WORKER_FORBIDDEN = `${PROMPT_TAGS.FORBIDDEN_ACTIONS.open}
 ## ⛔ NEVER Spawn or Delegate (CRITICAL)
 - NEVER use \`${TOOL_NAMES.DELEGATE_TASK}\` to spawn sub-workers
 - NEVER use \`${TOOL_NAMES.CALL_AGENT}\` to create additional sessions
-- You are a TERMINAL node - complete your assigned file directly
-- If task is too complex, REPORT BACK to ${AGENT_NAMES.COMMANDER} with specific blockers
-- Violating this rule causes infinite recursion and system failure
+- You are a ${TERMINAL_NODE.LABEL} - ${SPAWNING_RULES.TERMINAL_BEHAVIOR}
+- If task is too complex, ${TERMINAL_NODE.ALTERNATIVE}
+- Violating this rule ${TERMINAL_NODE.REASON}
 
 ## Never Assume
 - NEVER guess API syntax → CHECK ${PATHS.DOCS}/ or research first

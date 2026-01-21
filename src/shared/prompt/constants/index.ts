@@ -25,3 +25,9 @@ export {
     SCOUT_INFRA,
     SCOUT_INTEGRATION
 } from "./scouts.js";
+export {
+    AGENT_ROLES,
+    TERMINAL_NODE,
+    SPAWNING_RULES,
+    ARCHITECTURE_RULES,
+} from "./architecture.js";

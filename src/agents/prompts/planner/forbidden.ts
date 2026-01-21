@@ -5,7 +5,7 @@
  * Planner is a TERMINAL node and cannot spawn other agents.
  */
 
-import { PATHS, PROMPT_TAGS, AGENT_NAMES, TOOL_NAMES } from "../../../shared/index.js";
+import { PATHS, PROMPT_TAGS, AGENT_NAMES, TOOL_NAMES, TERMINAL_NODE, SPAWNING_RULES } from "../../../shared/index.js";
 
 export const PLANNER_FORBIDDEN = `${PROMPT_TAGS.FORBIDDEN_ACTIONS.open}
 **PLANNER FORBIDDEN ACTIONS**
@@ -13,8 +13,8 @@ export const PLANNER_FORBIDDEN = `${PROMPT_TAGS.FORBIDDEN_ACTIONS.open}
 ## ⛔ NEVER Spawn or Delegate (CRITICAL)
 - NEVER use \`${TOOL_NAMES.DELEGATE_TASK}\` to spawn agents
 - NEVER use \`${TOOL_NAMES.CALL_AGENT}\` to create sessions
-- You are a TERMINAL node - create plans, don't execute them
-- ${AGENT_NAMES.COMMANDER} is the ONLY agent who can spawn Workers/Reviewers
+- You are a ${TERMINAL_NODE.LABEL} - create plans, don't execute them
+- ${SPAWNING_RULES.SPAWNER_ONLY}
 
 ## Never Implement
 - NEVER write actual code → Only plan and research
