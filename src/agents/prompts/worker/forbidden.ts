@@ -9,7 +9,12 @@ import { AGENT_NAMES, PATHS, PROMPT_TAGS, TOOL_NAMES } from "../../../shared/ind
 export const WORKER_FORBIDDEN = `${PROMPT_TAGS.FORBIDDEN_ACTIONS.open}
 **FORBIDDEN ACTIONS (Adapt to Project Conventions)**
 
-
+## ⛔ NEVER Spawn or Delegate (CRITICAL)
+- NEVER use \`${TOOL_NAMES.DELEGATE_TASK}\` to spawn sub-workers
+- NEVER use \`${TOOL_NAMES.CALL_AGENT}\` to create additional sessions
+- You are a TERMINAL node - complete your assigned file directly
+- If task is too complex, REPORT BACK to ${AGENT_NAMES.COMMANDER} with specific blockers
+- Violating this rule causes infinite recursion and system failure
 
 ## Never Assume
 - NEVER guess API syntax → CHECK ${PATHS.DOCS}/ or research first
@@ -19,7 +24,6 @@ export const WORKER_FORBIDDEN = `${PROMPT_TAGS.FORBIDDEN_ACTIONS.open}
 ## Never Skip
 - NEVER skip error handling → Follow project's error handling patterns
 - NEVER skip ${TOOL_NAMES.LSP_DIAGNOSTICS} → Always verify code compiles
-
 - NEVER skip verification → Test before claiming done
 
 ## Never Shortcut
@@ -33,4 +37,3 @@ export const WORKER_FORBIDDEN = `${PROMPT_TAGS.FORBIDDEN_ACTIONS.open}
 
 Remember: OBSERVE how existing code handles these, then FOLLOW those patterns.
 ${PROMPT_TAGS.FORBIDDEN_ACTIONS.close}`;
-

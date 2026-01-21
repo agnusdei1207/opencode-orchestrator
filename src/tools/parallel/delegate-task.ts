@@ -248,6 +248,24 @@ export const createDelegateTaskTool = (manager: ParallelAgentManager, client: un
 
         log(`${PARALLEL_LOG.DELEGATE_TASK} execute() called`, { agent, description, background, resume, mode, groupID, parentSession: ctx.sessionID, depth: parentDepth });
 
+        // =========================================
+        // TERMINAL NODE GUARD: Block deep recursion
+        // =========================================
+        // Workers and Reviewers (depth >= 2) are terminal nodes
+        // They should complete their work directly, not spawn sub-agents
+        const TERMINAL_DEPTH = 2;
+        if (parentDepth >= TERMINAL_DEPTH) {
+            log(`${PARALLEL_LOG.DELEGATE_TASK} Terminal node guard triggered`, { parentDepth, TERMINAL_DEPTH });
+            return `${OUTPUT_LABEL.ERROR} Delegation blocked: You are a terminal node (depth ${parentDepth}).
+
+**Workers and Reviewers cannot spawn sub-agents.** This prevents infinite recursion.
+
+If your task is too complex, please:
+1. Report back to Commander with specific blockers
+2. Request task decomposition at the Planner level
+3. Complete your assigned file directly without delegation`;
+        }
+
         const sessionClient = client as {
             session: {
                 create: (opts: { body: { parentID: string; title: string }; query: { directory: string } }) => Promise<{ data?: { id: string }; error?: string }>;
