@@ -96,7 +96,7 @@ export class TaskLauncher {
         const createResult = await Promise.race([
             sessionCreatePromise,
             new Promise<any>((_, reject) =>
-                setTimeout(() => reject(new Error("Session creation timed out after 15s")), 6000)
+                setTimeout(() => reject(new Error("Session creation timed out after 60s")), 60000)
             )
         ]);
 
@@ -179,7 +179,7 @@ export class TaskLauncher {
             await Promise.race([
                 promptPromise,
                 new Promise((_, reject) =>
-                    setTimeout(() => reject(new Error("Session prompt execution timed out after 30s")), 30000)
+                    setTimeout(() => reject(new Error("Session prompt execution timed out after 600s")), 600000)
                 )
             ]);
 
