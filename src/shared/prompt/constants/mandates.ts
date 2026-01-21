@@ -15,14 +15,15 @@ import { PATHS } from "../../core/constants/paths.js";
  * Read directly - no parallel scout overhead, saves tokens and time.
  */
 export const PHASE_0_DIRECT_DISCOVERY = `**Direct Project Discovery**: Read the project directly to understand it.
-
-1. **STRUCTURE**: Run \`ls -la\` and \`find . -maxdepth 2 -type d | head -30\` to map the project layout.
-2. **STACK**: Read config files (package.json, Cargo.toml, go.mod, etc.) to identify build/test commands.
-3. **DOCS**: Read README.md and key documentation to understand the architecture.
-4. **INFRA**: Check for Dockerfile, CI/CD configs, and infrastructure files.
-5. **CONSOLIDATE**: Save findings to \`${PATHS.CONTEXT}\`.
-
-[EFFICIENT]: Direct reading is faster and cheaper than delegating to parallel scouts.`;
+ 
+ 0. **FRESH START**: If ${PATHS.TODO} or ${PATHS.CONTEXT} exist, assume they are from a previous task. Archive or overwrite them.
+ 1. **STRUCTURE**: Run \`ls -la\` and \`find . -maxdepth 2 -type d | head -30\` to map the project layout.
+ 2. **STACK**: Read config files (package.json, Cargo.toml, go.mod, etc.) to identify build/test commands.
+ 3. **DOCS**: Read README.md and key documentation to understand the architecture.
+ 4. **INFRA**: Check for Dockerfile, CI/CD configs, and infrastructure files.
+ 5. **CONSOLIDATE**: FORCE OVERWRITE \`${PATHS.CONTEXT}\` with fresh findings. Do NOT read existing content; assume it is stale.
+ 
+ [EFFICIENT]: Direct reading is faster and cheaper than delegating to parallel scouts.`;
 
 /**
  * Phase 1: THINK (Strategic Mandate)
