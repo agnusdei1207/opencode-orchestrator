@@ -12,9 +12,12 @@
 
 ## ⚡ Quick Start
 
+> 💡 **Tip**: Updated daily. Run this command everyday to stay up to date.
+
 ```bash
 npm install -g opencode-orchestrator
 ```
+
 
 In an OpenCode environment:
 ```bash
