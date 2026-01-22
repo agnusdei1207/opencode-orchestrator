@@ -1,21 +1,20 @@
 /**
  * Agent Prompts - Index
  * 
- * Exports all modular prompt fragments.
- * Structure: 1 folder per agent/category, 1 file per const
+ * Exports all modular prompt fragments from the new structure.
  */
 
-// Common prompts
-export * from "./common/index.js";
+// Categories
+export * from "./philosophy/index.js";
+export * from "./mission/index.js";
+export * from "./verification/index.js";
+export * from "./planning/index.js";
+export * from "./execution/index.js";
+export * from "./discovery/index.js";
+export * from "./tools/index.js";
 
-// Commander prompts
-export * from "./commander/index.js";
-
-// Planner prompts
-export * from "./planner/index.js";
-
-// Worker prompts
-export * from "./worker/index.js";
-
-// Reviewer prompts
-export * from "./reviewer/index.js";
+// Roles
+export * from "./roles/commander/index.js";
+export * from "./roles/planner/index.js";
+export * from "./roles/worker/index.js";
+export * from "./roles/reviewer/index.js";
