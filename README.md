@@ -23,11 +23,13 @@ In an OpenCode environment:
 
 ## Overview
 
-OpenCode Orchestrator is a testament to the operational paradox: **Complexity is easy; Simplicity is hard.**
+OpenCode Orchestrator is a **Distributed Cognitive Architecture** designed for high-precision software engineering. It operates on a strict **"Verify, then Trust"** philosophy, distinguishing itself from simple stochastic chatbots by enforcing rigorous architectural standards.
+
+The system is a testament to the operational paradox: **Complexity is easy; Simplicity is hard.**
 
 While the user interaction remains elegantly minimal, the internal architecture encapsulates a rigorous alignment of **microscopic state management** (`Rust atoms`) and **macroscopic strategic planning** (`Agent Topology`). Every component reflects a deep design philosophy aimed at abstracting chaos into order.
 
-Building this system reaffirmed a timeless engineering truth: **"Simple is Best" is the ultimate complexity to conquer.** This engine is our answer to that challenge—hiding the heavy machinery of autonomous intelligence behind a seamless veil of collaboration.
+Building this system reaffirmed a timeless engineering truth: **"Simple is Best" is the ultimate complexity to conquer.** This engine is our answer to that challenge—hiding the **intricate dynamics of Autonomous Agentic Collaboration** behind a seamless, user-friendly veil.
 
 This philosophy extends to efficiency. We achieved **Zero-Configuration** usability while rigorously optimizing for **Token Efficiency** (saving ~40% vs major alternatives). By maximizing the potential of cost-effective models like **GLM-4.7**, we prove that superior engineering—not just raw model size—is the key to autonomous performance.
 
@@ -36,7 +38,7 @@ This philosophy extends to efficiency. We achieved **Zero-Configuration** usabil
 ## 📊 Workflow
 
 ```text
-              [ 👑 User Task Input ]
+              [ User Task Input ]
                         │
             ┌───────────▼───────────┐ <────────────────────────────────────────┐
             │   🫡 COMMANDER (Hub)  │  (Orchestration)                         │
@@ -85,23 +87,27 @@ This philosophy extends to efficiency. We achieved **Zero-Configuration** usabil
 
 ## 🧠 Cognitive Architecture & Key Strengths
 
-### 📉 Exponential Context Smoothing & Stable Memory
-We combat "Context Drift" using a mechanism akin to **Exponential Smoothing**. Irrelevant conversation noise decays rapidly, while critical architectural decisions are reinforced into a **Stable Core Memory**. This ensures agents retain only the "pure essence" of the mission state, allowing them to work indefinitely without **Catastrophic Forgetting** or polluting the context window.
+### 📉 Adaptive Context Gating (EMA-based)
+We combat "Context Drift" using a mechanism derived from **Exponential Moving Average (EMA)** algorithms. Irrelevant conversation noise follows a rapid decay curve, while critical architectural decisions are reinforced into **Stable Core Memory**. This functions as an **Attention Sink**, allowing agents to work indefinitely without **Catastrophic Forgetting**.
 
-### 🧬 Adaptive Anthropomorphic Collaboration
-Built on an **Adaptive AI Philosophy**, the agents function like a **Human Engineering Squad**, not a chatbot. They **do not estimate** or guess. If tools are missing, they install them; if requirements are vague, they clarify. The Commander, Planner, and Reviewer collaborate organically to solve problems deterministically, mirroring a senior team's workflow.
+### 🧬 BDI (Belief-Desire-Intention) Collaboration
+The system implements a variant of the **BDI Software Agent Model**:
+- **Belief (Context)**: Shared state & file system reality.
+- **Desire (Mission)**: The user's goal (e.g., "Fix this bug").
+- **Intention (Plan)**: The `TODO.md` roadmap execution.
+Agents do not merely "chat"; they collaborate to align their Beliefs with Desires through strictly executed Intentions, mirroring human engineering squads.
 
-### ⚙️ Neuro-Symbolic Hybrid Engine (Rust + LLM)
+### ⚙️ Neuro-Symbolic Hybrid Engine
 Pure LLM approaches are stochastic. We bind them with a **Neuro-Symbolic Architecture** that anchors probabilistic reasoning to the deterministic precision of **Rust-based AST/LSP Tools**. This ensures every generated token is grounded in rigorous syntax analysis, delivering high performance with minimal resource overhead.
 
-### ⚡ Hybrid Sync/Async & Dynamic Parallelism
-The engine features an **Intelligent Load-Balancing System** that fluidly switches between synchronous synchronization barriers and asynchronous fork-join patterns. It monitors execution pressure to **Dynamically Adjust** concurrency slots in real-time. This **Resource-Aware Multi-Parallel System** maximizes throughput on high-end hardware while maintaining stability on constrained environments.
+### ⚡ Dynamic Fork-Join Parallelism with Backpressure
+The engine features an **Intelligent Load-Balancing System** that fluidly switches between synchronous barriers and asynchronous **Fork-Join** patterns. It monitors **System Backpressure** to dynamically adjust concurrency slots in real-time (`Adaptive Throttling`), maximizing throughput on high-end hardware while maintaining stability on constrained environments.
 
 ### 🎯 Iterative Rejection Sampling (Zero-Shot Defense)
-We employ a **Rejection Sampling Loop** driven by the Reviewer Agent (Reward Model). Through the **Metric-based Strict Verification Protocol (MSVP)**, code paths that fail execution tests are pruned. The system iterates until the solution converges on a mathematically correct state (0% Error Rate), rejecting any solution that lacks evidence.
+We employ a **Rejection Sampling Loop** driven by the Reviewer Agent (**Reward Model**). Through the **Metric-based Strict Verification Protocol (MSVP)**, code paths that fail execution tests are pruned. The system iterates until the solution converges on a mathematically correct state (0% Error Rate), rejecting any solution that lacks evidence.
 
 ### 🧩 Externalized Chain-of-Thought (CoT)
-The Planner's `TODO.md` serves as an **Externalized Working Memory**. This persistent **Symbolic Chain-of-Thought** decouples detailed planning from the LLM's immediate context window, enabling the orchestration of massive, multi-step engineering tasks without logical degradation.
+The Planner's `TODO.md` serves as an **Externalized Working Memory** (Scratchpad). This persistent **Symbolic Chain-of-Thought** decouples detailed planning from the LLM's immediate context window, enabling the orchestration of massive, multi-step engineering tasks without logical degradation.
 
 ---
 
