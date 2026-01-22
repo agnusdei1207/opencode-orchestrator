@@ -2,8 +2,8 @@
  * Parallel Processing Presets
  */
 
-import { show } from "../toast-core.js";
-import { TOAST_DURATION } from "../../../shared/index.js";
+import { show } from "../../../core/notification/toast-core.js";
+import { TOAST_DURATION } from "../../index.js";
 
 export const parallelTasksLaunched = (count: number, agents: string[]) => show({
     title: "Parallel Tasks Launched",

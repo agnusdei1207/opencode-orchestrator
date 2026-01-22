@@ -112,11 +112,23 @@ export class MissionControlHook implements AssistantDoneHook, ChatMessageHook {
         if (detectSealInText(finalText)) {
             log(MISSION_MESSAGES.SEAL_LOG);
             clearLoopState(directory);
-            await Toast.show({
-                title: MISSION_MESSAGES.TOAST_COMPLETE_TITLE,
-                message: MISSION_MESSAGES.TOAST_COMPLETE_MESSAGE,
-                variant: "success"
-            });
+
+            // Use TaskToastManager for consistent and enhanced TUI feedback
+            const toastManager = Toast.getTaskToastManager();
+            if (toastManager) {
+                toastManager.showMissionSealedToast(
+                    MISSION_MESSAGES.TOAST_COMPLETE_TITLE,
+                    MISSION_MESSAGES.TOAST_COMPLETE_MESSAGE
+                );
+            } else {
+                // Fallback if manager not initialized
+                await Toast.show({
+                    title: MISSION_MESSAGES.TOAST_COMPLETE_TITLE,
+                    message: MISSION_MESSAGES.TOAST_COMPLETE_MESSAGE,
+                    variant: "success"
+                });
+            }
+
             return { action: HOOK_ACTIONS.STOP, reason: "Mission Sealed" };
         }
 

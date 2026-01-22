@@ -8,7 +8,7 @@
  */
 
 import type { PluginInput } from "@opencode-ai/plugin";
-import { presets } from "../notification/presets.js";
+import { presets } from "../../shared/index.js";
 import { PART_TYPES, LOOP, TOAST_DURATION, STATUS_LABEL } from "../../shared/index.js";
 import {
     readLoopState,

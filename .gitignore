@@ -19,3 +19,4 @@ package-lock.json
 
 # Korean internal docs (not for public)
 docs/OPENCODE.md
+.opencode/

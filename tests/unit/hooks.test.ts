@@ -24,7 +24,12 @@ import { MISSION_MESSAGES } from "../../src/shared/constants/system-messages.js"
 
 // Mock dependencies
 vi.mock("../../src/core/agents/logger", () => ({ log: vi.fn() }));
-vi.mock("../../src/core/notification/toast", () => ({ show: vi.fn() }));
+vi.mock("../../src/core/notification/toast", () => ({
+    show: vi.fn(),
+    getTaskToastManager: vi.fn().mockReturnValue({
+        showMissionSealedToast: vi.fn(),
+    })
+}));
 vi.mock("../../src/tools/slashCommand", () => ({
     COMMANDS: { task: { description: "Mock", template: "Mock: $ARGUMENTS" } }
 }));

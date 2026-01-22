@@ -3,7 +3,7 @@
  * Uses OpenCode TUI's showToast API for actual UI display
  */
 
-import type { ToastMessage, ToastOptions, ToastVariant } from "./types.js";
+import type { ToastMessage, ToastOptions, ToastVariant } from "../../shared/index.js";
 import type { PluginInput } from "@opencode-ai/plugin";
 import { HISTORY, TOAST_DURATION, LIMITS } from "../../shared/index.js";
 

@@ -8,7 +8,7 @@ import { ConcurrencyController } from "../concurrency.js";
 import { CONFIG } from "../config.js";
 import { log } from "../logger.js";
 import { formatDuration } from "../format.js";
-import { presets } from "../../notification/presets.js";
+import { presets } from "../../../shared/index.js";
 import type { ParallelTask } from "../interfaces/parallel-task.interface.js";
 import { TASK_STATUS, PART_TYPES, MESSAGE_ROLES, SESSION_STATUS, WAL_ACTIONS } from "../../../shared/index.js";
 import { taskWAL } from "../persistence/task-wal.js";

@@ -15,11 +15,18 @@ The center of all event processing. Handlers strictly delegate to the Registry i
 *   **Tool Execution**: Handles pre/post tool execution → Executes `Security`, `UI`, `Resource`, etc.
 *   **Assistant Done**: Handles turn completion → Executes `MissionLoop`, etc.
 
-### 2. Agent Layer
-*   **Commander**: Requirement analysis and strategy (Entry Point).
-*   **Planner**: Implementation planning and task distribution (Manages `todo.md`).
-*   **Worker**: Code implementation and execution.
-*   **Reviewer**: Code quality review and testing.
+### 2. Agent Topology (Star / Hub-and-Spoke)
+
+The system operates on a **Commander-Centric Flat Topology**, explicitly avoiding recursive (fractal) nesting to ensure stability and controllable context depth.
+
+*   **Commander (Hub)**: The central orchestrator. It runs a linear control loop: analyzing requirements, planning, and spawning parallel tasks. It is the **only** agent authorized to spawn sub-agents.
+*   **Spokes (Parallel Agents)**:
+    *   **Planner**: Creates the `TODO.md` roadmap.
+    *   **Worker**: Implements code in parallel execution slots (managed by `ConcurrencyController`).
+    *   **Reviewer**: Verifies code quality via MSVP (Multi-Stage Verification Pipeline).
+    
+**Execution Model: Linear Control, Parallel Execution**
+The Commander maintains a single, coherent narrative (Linear) but offloads heavy lifting to Workers (Parallel). This "Fan-Out, Fan-In" approach enables multiple files to be edited simultaneously without the Commander losing context.
 
 ### 3. State Management (Refactored v1.0.39)
 *   **SessionManager**: Centralized controller for all session-related state operations.
