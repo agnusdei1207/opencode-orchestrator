@@ -23,9 +23,13 @@ In an OpenCode environment:
 
 ## Overview
 
-OpenCode Orchestrator is an **autonomous software engineering engine** designed for mission-critical tasks. Unlike simple chat assistants, it operates on a strict **"verify, then trust"** philosophy.
+OpenCode Orchestrator is a testament to the operational paradox: **Complexity is easy; Simplicity is hard.**
 
-The Commander orchestrates specialized agents (Planner, Worker, Reviewer) to execute complex engineering workflows—adapting to new requirements, writing strict tests, and persisting until the job is done.
+While the user interaction remains elegantly minimal, the internal architecture encapsulates a rigorous alignment of **microscopic state management** (`Rust atoms`) and **macroscopic strategic planning** (`Agent Topology`). Every component reflects a deep design philosophy aimed at abstracting chaos into order.
+
+Building this system reaffirmed a timeless engineering truth: **"Simple is Best" is the ultimate complexity to conquer.** This engine is our answer to that challenge—hiding the heavy machinery of autonomous intelligence behind a seamless veil of collaboration.
+
+This philosophy extends to efficiency. We achieved **Zero-Configuration** usability while rigorously optimizing for **Token Efficiency** (saving ~40% vs major alternatives). By maximizing the potential of cost-effective models like **GLM-4.7**, we prove that superior engineering—not just raw model size—is the key to autonomous performance.
 
 ---
 
@@ -113,14 +117,6 @@ The Planner's `TODO.md` serves as an **Externalized Working Memory**. This persi
 ---
 
 ## Developer's Note
-
-OpenCode Orchestrator is a testament to the operational paradox: **Complexity is easy; Simplicity is hard.**
-
-While the user interaction remains elegantly minimal, the internal architecture encapsulates a rigorous alignment of **microscopic state management** (`Rust atoms`) and **macroscopic strategic planning** (`Agent Topology`). Every component reflects a deep design philosophy aimed at abstracting chaos into order.
-
-Building this system reaffirmed a timeless engineering truth: **"Simple is Best" is the ultimate complexity to conquer.** This engine is our answer to that challenge—hiding the heavy machinery of autonomous intelligence behind a seamless veil of collaboration.
-
-This philosophy extends to efficiency. We achieved **Zero-Configuration** usability while rigorously optimizing for **Token Efficiency** (saving ~40% vs major alternatives). By maximizing the potential of cost-effective models like **GLM-4.7**, we prove that superior engineering—not just raw model size—is the key to autonomous performance.
 
 [Full Developer's Note →](docs/DEVELOPERS_NOTE.md)
 
