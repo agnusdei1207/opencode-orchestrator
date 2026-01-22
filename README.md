@@ -31,7 +31,7 @@ While the user interaction remains elegantly minimal, the internal architecture 
 
 Building this system reaffirmed a timeless engineering truth: **"Simple is Best" is the ultimate complexity to conquer.** This engine is our answer to that challenge—hiding the **intricate dynamics of Autonomous Agentic Collaboration** behind a seamless, user-friendly veil.
 
-This philosophy extends to efficiency. We achieved **Zero-Configuration** usability while rigorously optimizing for **Token Efficiency** (saving ~40% vs major alternatives). By maximizing the potential of cost-effective models like **GLM-4.7**, we prove that superior engineering—not just raw model size—is the key to autonomous performance.
+This philosophy extends to efficiency. We achieved **Zero-Configuration** usability while rigorously optimizing for performance—**delivering higher quality outcomes** than alternatives while **saving ~40% of tokens**. By maximizing the potential of cost-effective models like **GLM-4.7**, we prove that superior engineering—not just raw model size—is the key to autonomous performance.
 
 ---
 
