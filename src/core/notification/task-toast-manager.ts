@@ -13,34 +13,16 @@
 
 import type { PluginInput } from "@opencode-ai/plugin";
 import type { ConcurrencyController } from "../agents/concurrency.js";
-import { TASK_STATUS, STATUS_LABEL } from "../../shared/index.js";
+import { TASK_STATUS, STATUS_LABEL, TUI_ICONS, TUI_BLOCKS, TUI_TAGS, TUI_MESSAGES, type TaskStatus, type TrackedTask, type TaskCompletionInfo } from "../../shared/index.js";
 
 // ============================================================
 // Types
 // ============================================================
 
+// Re-export for backward compatibility and internal usage
+export type { TaskStatus, TrackedTask, TaskCompletionInfo } from "../../shared/index.js";
+
 type OpencodeClient = PluginInput["client"];
-
-export type TaskStatus = typeof STATUS_LABEL[keyof typeof STATUS_LABEL];
-
-export interface TrackedTask {
-    id: string;
-    description: string;
-    agent: string;
-    status: TaskStatus;
-    startedAt: Date;
-    isBackground: boolean;
-    parentSessionID?: string;
-    sessionID?: string;
-}
-
-export interface TaskCompletionInfo {
-    id: string;
-    description: string;
-    duration: string;
-    status: TaskStatus;
-    error?: string;
-}
 
 // ============================================================
 // Task Toast Manager Class
@@ -151,15 +133,25 @@ export class TaskToastManager {
     /**
      * Get concurrency info string (e.g., " [2/5]")
      */
+    /**
+     * Get concurrency info string (e.g., " [2/5]")
+     */
     private getConcurrencyInfo(): string {
         if (!this.concurrency) return "";
         const running = this.getRunningTasks();
         const queued = this.getQueuedTasks();
-        const total = running.length + queued.length;
-        // Use "default" as a representative key
+        const total = running.length;
+
+        // Use "default" as a representative key for now, assuming mostly default agents
         const limit = this.concurrency.getConcurrencyLimit("default");
+
         if (limit === Infinity) return "";
-        return ` [${total}/${limit}]`;
+
+        // ▣/▢ style blocks for visual concurrency
+        const filled = TUI_BLOCKS.FILLED.repeat(total);
+        const empty = TUI_BLOCKS.EMPTY.repeat(Math.max(0, limit - total));
+
+        return ` [${filled}${empty} ${total}/${limit}]`;
     }
 
     /**
@@ -174,11 +166,11 @@ export class TaskToastManager {
 
         // Running tasks
         if (running.length > 0) {
-            lines.push(`Running (${running.length}):${concurrencyInfo}`);
+            lines.push(`${TUI_ICONS.RUNNING} Running (${running.length}) ${concurrencyInfo}`);
             for (const task of running) {
                 const duration = this.formatDuration(task.startedAt);
-                const bgTag = task.isBackground ? "[B]" : "[F]";
-                const isNew = newTask && task.id === newTask.id ? " <- NEW" : "";
+                const bgTag = task.isBackground ? TUI_TAGS.BACKGROUND : TUI_TAGS.FOREGROUND;
+                const isNew = newTask && task.id === newTask.id ? TUI_ICONS.NEW : "";
                 lines.push(`${bgTag} ${task.description} (${task.agent}) - ${duration}${isNew}`);
             }
         }
@@ -186,9 +178,9 @@ export class TaskToastManager {
         // Queued tasks
         if (queued.length > 0) {
             if (lines.length > 0) lines.push("");
-            lines.push(`Queued (${queued.length}):`);
+            lines.push(`${TUI_ICONS.QUEUED} Queued (${queued.length}):`);
             for (const task of queued) {
-                const bgTag = task.isBackground ? "[W]" : "[P]";
+                const bgTag = task.isBackground ? TUI_TAGS.WAITING : TUI_TAGS.PENDING;
                 lines.push(`${bgTag} ${task.description} (${task.agent})`);
             }
         }
@@ -288,6 +280,33 @@ export class TaskToastManager {
                 message: `${successCount} succeeded, ${failCount} failed\n\n${taskList}`,
                 variant: failCount > 0 ? STATUS_LABEL.WARNING as "warning" : STATUS_LABEL.SUCCESS as "success",
                 duration: 7000,
+            },
+        }).catch(() => { });
+    }
+
+    /**
+     * Show Mission Sealed toast (Grand Finale)
+     */
+    showMissionSealedToast(title: string = "Mission Sealed", message: string = "All tasks completed successfully."): void {
+        if (!this.client) return;
+        const tuiClient = this.client as unknown as { tui?: { showToast?: (opts: unknown) => Promise<void> } };
+        if (!tuiClient.tui?.showToast) return;
+
+        // Visual flourish for the seal
+        const decoratedMessage = `
+${TUI_ICONS.MISSION_SEALED} ${TUI_MESSAGES.MISSION_SEALED_TITLE} ${TUI_ICONS.MISSION_SEALED}
+──────────────────────────
+${message}
+──────────────────────────
+${TUI_MESSAGES.MISSION_SEALED_SUBTITLE}
+`.trim();
+
+        tuiClient.tui.showToast({
+            body: {
+                title: `${TUI_ICONS.SHIELD} ${title}`,
+                message: decoratedMessage,
+                variant: "success",
+                duration: 10000, // Longer duration for the finale
             },
         }).catch(() => { });
     }

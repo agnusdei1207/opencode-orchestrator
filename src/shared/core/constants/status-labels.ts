@@ -44,4 +44,4 @@ export const STATUS_LABEL = {
     LOW: "low",
 } as const;
 
-
+export type TaskStatus = typeof STATUS_LABEL[keyof typeof STATUS_LABEL];

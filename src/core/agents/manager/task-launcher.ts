@@ -6,7 +6,7 @@ import type { PluginInput } from "@opencode-ai/plugin";
 import { ID_PREFIX, TASK_STATUS, PART_TYPES, PARALLEL_TASK, WAL_ACTIONS, TOOL_NAMES } from "../../../shared/index.js";
 import { ConcurrencyController } from "../concurrency.js";
 import { TaskStore } from "../task-store.js";
-import { presets } from "../../notification/presets.js";
+import { presets } from "../../../shared/index.js";
 import { getTaskToastManager } from "../../notification/task-toast-manager.js";
 import type { ParallelTask } from "../interfaces/parallel-task.interface.js";
 import type { LaunchInput } from "../interfaces/launch-input.interface.js";

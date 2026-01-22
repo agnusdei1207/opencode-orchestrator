@@ -2,7 +2,7 @@
  * Task Lifecycle Presets
  */
 
-import { show } from "../toast-core.js";
+import { show } from "../../../core/notification/toast-core.js";
 
 export const taskStarted = (taskId: string, agent: string) => show({
     title: "Task Started",

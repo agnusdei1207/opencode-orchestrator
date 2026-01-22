@@ -2,7 +2,7 @@
  * Mission & Progress Presets
  */
 
-import { show } from "../toast-core.js";
+import { show } from "../../../core/notification/toast-core.js";
 
 export const missionComplete = (summary: string) => show({
     title: "Mission Complete",

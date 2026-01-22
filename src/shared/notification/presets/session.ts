@@ -2,8 +2,8 @@
  * Session Management Presets
  */
 
-import { show } from "../toast-core.js";
-import { TOAST_DURATION, STATUS_LABEL } from "../../../shared/index.js";
+import { show } from "../../../core/notification/toast-core.js";
+import { TOAST_DURATION, STATUS_LABEL } from "../../index.js";
 
 export const sessionCreated = (sessionId: string, agent: string) => show({
     title: "Session Created",
