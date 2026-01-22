@@ -128,6 +128,8 @@ The Planner's `TODO.md` serves as an **Externalized Working Memory** (Scratchpad
 
 [System Architecture →](docs/SYSTEM_ARCHITECTURE.md)
 
+[Architectural Verification Report →](docs/ARCHITECTURAL_VERIFICATION_REPORT.md)
+
 ---
 
 ## 📄 License
