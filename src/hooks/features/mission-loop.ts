@@ -3,21 +3,18 @@
  * Mission Loop Hook
  * 
  * Handles:
- * - Mission seal detection (Stop)
+ * - Persistent execution until all TODOs are verified
  * - Auto-continuation injection (Loop)
  * - User cancellation detection
- * 
- * Refactored to use SessionManager and SystemMessages for better maintainability.
  */
 import type { AssistantDoneHook, ChatMessageHook, HookContext, HookResult } from "../types.js";
 import { log } from "../../core/agents/logger.js";
 import {
     startMissionLoop,
     cancelMissionLoop,
-    detectSealInText,
     isLoopActive,
     clearLoopState,
-} from "../../core/loop/mission-seal.js";
+} from "../../core/loop/mission-loop.js";
 import { PROMPTS, COMMAND_NAMES, TOAST_VARIANTS } from "../../shared/index.js";
 import { HOOK_ACTIONS, HOOK_NAMES } from "../constants.js";
 import * as Toast from "../../core/notification/toast.js";
@@ -38,8 +35,11 @@ import {
 import {
     verifyMissionCompletion,
     buildVerificationFailurePrompt,
-    buildVerificationSummary
+    buildTodoIncompletePrompt,
+    buildVerificationSummary,
+    type VerificationResult
 } from "../../core/loop/verification.js";
+
 // OS Notification
 import { sendNotification } from "../../core/notification/os-notify/notifier.js";
 import { playSound } from "../../core/notification/os-notify/sound-player.js";
@@ -53,8 +53,8 @@ export class MissionControlHook implements AssistantDoneHook, ChatMessageHook {
         const chatResult = await this.handleChatCommand(ctx, text);
         if (chatResult) return chatResult;
 
-        // 2. If not a command, treat as Agent Output (check for Seal)
-        return this.handleMissionSeal(ctx, text);
+        // 2. If not a command, treat as Agent Output
+        return this.handleMissionProgress(ctx, text);
     }
 
     // -------------------------------------------------------------------------------
@@ -93,58 +93,15 @@ export class MissionControlHook implements AssistantDoneHook, ChatMessageHook {
     }
 
     // -------------------------------------------------------------------------------
-    // 2. Done Logic: Check Seal & Auto-Continue
+    // 2. Done Logic: Check Completion & Auto-Continue
     // -------------------------------------------------------------------------------
-    private async handleMissionSeal(ctx: HookContext, agentText: string): Promise<any> {
+    private async handleMissionProgress(ctx: HookContext, agentText: string): Promise<any> {
         const { sessionID, directory, sessions } = ctx;
         const session = sessions.get(sessionID);
         const finalText = agentText || "";
 
-        // 0. CRITICAL: Check TODO completion FIRST (before mission state checks)
-        // This ensures we NEVER stop when work remains, even if mission state is wrong
-        const preVerification = verifyMissionCompletion(directory);
-
-        if (!preVerification.todoComplete && preVerification.todoProgress !== "0/0") {
-            // TODO exists and has incomplete items → FORCE continuation
-            log("[MissionControl] TODO incomplete - forcing continuation", {
-                todoProgress: preVerification.todoProgress,
-                todoIncomplete: preVerification.todoIncomplete
-            });
-
-            // Check for SEAL attempt despite incomplete TODO
-            if (detectSealInText(finalText)) {
-                log("[MissionControl] SEAL detected but TODO incomplete - REJECTED");
-                return {
-                    action: HOOK_ACTIONS.INJECT,
-                    prompts: [buildVerificationFailurePrompt(preVerification)]
-                };
-            }
-
-            // No SEAL, just continue working - inject continuation prompt
-            const continuePrompt = `⚠️ **TODO Incomplete: ${preVerification.todoProgress}**
-
-${preVerification.todoIncomplete} task(s) remaining. Continue working on incomplete items.
-
-**REQUIRED**: Check TODO.md and complete ALL [ ] items before attempting SEAL.
-
-\`\`\`bash
-cat .opencode/todo.md
-\`\`\`
-
-**DO NOT** output <mission_seal> until ALL items are [x].`;
-
-            return {
-                action: HOOK_ACTIONS.INJECT,
-                prompts: [continuePrompt]
-            };
-        }
-
-        // 1. Validate Active State (only after confirming TODO is complete or empty)
-        if (!isMissionActive(sessionID)) {
-            return { action: HOOK_ACTIONS.CONTINUE };
-        }
-
-        if (!isLoopActive(directory, sessionID)) {
+        // 1. Skip if mission is not active
+        if (!isMissionActive(sessionID) || !isLoopActive(directory, sessionID)) {
             return { action: HOOK_ACTIONS.CONTINUE };
         }
 
@@ -155,76 +112,46 @@ cat .opencode/todo.md
             return { action: HOOK_ACTIONS.STOP, reason: "User cancelled via text" };
         }
 
-        // 3. Mission Seal Check with Verification Gate
-        if (detectSealInText(finalText)) {
-            // ⚠️ VERIFICATION GATE: Check actual completion conditions
-            const verification = verifyMissionCompletion(directory);
+        // 3. Verification Gate
+        const verification = verifyMissionCompletion(directory);
 
-            if (!verification.passed) {
-                // Verification FAILED - reject SEAL and continue loop
-                log("[MissionControl] SEAL detected but verification FAILED", {
-                    todoProgress: verification.todoProgress,
-                    todoComplete: verification.todoComplete,
-                    syncIssuesEmpty: verification.syncIssuesEmpty,
-                    errors: verification.errors
-                });
-
-                // Inject rejection prompt to force continuation
-                return {
-                    action: HOOK_ACTIONS.INJECT,
-                    prompts: [buildVerificationFailurePrompt(verification)]
-                };
-            }
-
-            // ✅ Verification PASSED - allow mission completion
-            log(MISSION_MESSAGES.SEAL_LOG + " " + buildVerificationSummary(verification));
-            clearLoopState(directory);
-
-            // Use TaskToastManager for consistent and enhanced TUI feedback
-            const toastManager = Toast.getTaskToastManager();
-            if (toastManager) {
-                toastManager.showMissionSealedToast(
-                    MISSION_MESSAGES.TOAST_COMPLETE_TITLE,
-                    MISSION_MESSAGES.TOAST_COMPLETE_MESSAGE
-                );
-            } else {
-                // Fallback if manager not initialized
-                await Toast.show({
-                    title: MISSION_MESSAGES.TOAST_COMPLETE_TITLE,
-                    message: MISSION_MESSAGES.TOAST_COMPLETE_MESSAGE,
-                    variant: TOAST_VARIANTS.SUCCESS
-                });
-            }
-
-            // 🎉 OS Notification - Only sent when verification PASSES
-            try {
-                const platform = detectPlatform();
-                const soundPath = getDefaultSoundPath(platform);
-
-                await sendNotification(
-                    platform,
-                    "🎖️ Mission Complete!",
-                    `All verifications passed. ${verification.checklistProgress !== "0/0"
-                        ? `Checklist: ${verification.checklistProgress}`
-                        : `TODO: ${verification.todoProgress}`}`
-                );
-
-                if (soundPath) {
-                    await playSound(platform, soundPath);
-                }
-            } catch {
-                // OS notification failed, TUI toast was already shown
-            }
-
-            return { action: HOOK_ACTIONS.STOP, reason: "Mission Sealed (Verified)" };
+        if (verification.passed) {
+            // ✅ Verification PASSED - all tasks done
+            return this.handleMissionComplete(directory, verification);
         }
 
-        // 4. Auto-Continuation Injection
+        // 4. Work remains - Force continuation if agent thinks it's done
+        // (This hook is called when the assistant is "Done" with a turn)
+        log("[MissionControl] Work remains - forcing autonomous continuation", {
+            todo: verification.todoProgress,
+            checklist: verification.checklistProgress
+        });
+
+        // Use verification failure prompt to guide the agent
+        const failurePrompt = verification.checklistProgress !== "0/0"
+            ? buildVerificationFailurePrompt(verification)
+            : buildTodoIncompletePrompt(verification);
+
+        const continuation = this.buildContinuationResponse(session, sessionID);
+        const prompts = [failurePrompt];
+        if (continuation.action === HOOK_ACTIONS.INJECT) {
+            prompts.push(...continuation.prompts);
+        }
+
+        return {
+            action: HOOK_ACTIONS.INJECT,
+            prompts
+        };
+    }
+
+    // -------------------------------------------------------------------------------
+    // 4. Helper: Build Continuation Response
+    // -------------------------------------------------------------------------------
+    private buildContinuationResponse(session: any, sessionID: string): HookResult {
         const now = Date.now();
         const stepDuration = formatElapsedTime(session.lastStepTime, now);
         const totalElapsed = formatElapsedTime(session.startTime, now);
         const currentTime = formatTimestamp();
-
         const progressInfo = ProgressTracker.formatCompact(sessionID);
 
         const continuePrompt = CONTINUE_INSTRUCTION +
@@ -234,5 +161,61 @@ cat .opencode/todo.md
             action: HOOK_ACTIONS.INJECT,
             prompts: [continuePrompt]
         };
+    }
+
+    // -------------------------------------------------------------------------------
+    // 5. Helper: Handle Mission Complete
+    // -------------------------------------------------------------------------------
+    private async handleMissionComplete(directory: string, verification: VerificationResult): Promise<HookResult> {
+        log(MISSION_MESSAGES.COMPLETE_LOG + " " + buildVerificationSummary(verification));
+        const cleared = clearLoopState(directory);
+
+        // Only show UI and send notification if we are the ones who cleared the state
+        // This prevents duplicates if multiple handlers run simultaneously (e.g. Idle and Hook)
+        if (cleared) {
+            // Use TaskToastManager for consistent and enhanced TUI feedback
+            const toastManager = Toast.getTaskToastManager();
+            if (toastManager) {
+                toastManager.showMissionCompleteToast(
+                    MISSION_MESSAGES.TOAST_COMPLETE_TITLE,
+                    MISSION_MESSAGES.TOAST_COMPLETE_MESSAGE
+                );
+            } else {
+                await Toast.show({
+                    title: MISSION_MESSAGES.TOAST_COMPLETE_TITLE,
+                    message: MISSION_MESSAGES.TOAST_COMPLETE_MESSAGE,
+                    variant: TOAST_VARIANTS.SUCCESS
+                });
+            }
+
+            // 🎉 OS Notification
+            await this.sendCompletionNotification(verification);
+        }
+
+        return { action: HOOK_ACTIONS.STOP, reason: "Mission Verified and Complete" };
+    }
+
+    // -------------------------------------------------------------------------------
+    // 6. Helper: Send OS Notification
+    // -------------------------------------------------------------------------------
+    private async sendCompletionNotification(verification: VerificationResult): Promise<void> {
+        try {
+            const platform = detectPlatform();
+            const soundPath = getDefaultSoundPath(platform);
+
+            await sendNotification(
+                platform,
+                "🎖️ Mission Complete!",
+                `All verifications passed. ${verification.checklistProgress !== "0/0"
+                    ? `Checklist: ${verification.checklistProgress}`
+                    : `TODO: ${verification.todoProgress}`}`
+            );
+
+            if (soundPath) {
+                await playSound(platform, soundPath);
+            }
+        } catch {
+            // OS notification failed, TUI toast was already shown
+        }
     }
 }

@@ -238,7 +238,7 @@ describe("Mission Verification", () => {
 
             const prompt = buildVerificationFailurePrompt(result);
 
-            expect(prompt).toContain("SEAL REJECTED");
+            expect(prompt).toContain("COMPLETION BLOCKED");
             expect(prompt).toContain("TODO incomplete");
             expect(prompt).toContain("2/5");
             expect(prompt).toContain("Sync issues not resolved");

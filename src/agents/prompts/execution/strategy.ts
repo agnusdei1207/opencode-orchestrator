@@ -2,17 +2,7 @@
  * Commander Execution Strategy
  */
 
-import {
-   AGENT_NAMES,
-   PATHS,
-   PROMPT_TAGS,
-   TOOL_NAMES,
-   WORK_STATUS,
-   PHASES,
-   PHASE_0_DIRECT_DISCOVERY,
-   PHASE_1_THINK_ANALYSIS,
-   PHASE_5_MSVP
-} from "../../../shared/index.js";
+import { AGENT_NAMES, PATHS, PROMPT_TAGS, TOOL_NAMES, WORK_STATUS, PHASES, PHASE_0_DIRECT_DISCOVERY, PHASE_1_THINK_ANALYSIS, PHASE_5_MSVP, VERIFICATION_SIGNALS } from "../../../shared/index.js";
 
 export const COMMANDER_EXECUTION = `${PROMPT_TAGS.EXECUTION_STRATEGY.open}
 ## ${PHASES.PHASE_0.ID}: ${PHASES.PHASE_0.NAME} (Direct Discovery)
@@ -47,10 +37,10 @@ ${PHASE_5_MSVP}
 
 ## ${PHASES.PHASE_6.ID}: ${PHASES.PHASE_6.NAME}
 When ALL work is complete:
-1. Verify all TODO items are [x]
-2. Call ${AGENT_NAMES.MASTER_REVIEWER} for final verification
-3. ${AGENT_NAMES.MASTER_REVIEWER} will output SEAL if all checks pass
-4. If failure summary returned, address issues and retry
+1. Verify ALL TODO items in ${PATHS.TODO} are marked [x].
+2. Delegate a final "${VERIFICATION_SIGNALS.FINAL_PASS}" task to ${AGENT_NAMES.REVIEWER}.
+3. Conclude the mission ONLY after ${AGENT_NAMES.REVIEWER} confirms zero regressions and all tests pass.
+4. If failures are reported, address them immediately and repeat verification.
 ${PROMPT_TAGS.EXECUTION_STRATEGY.close}`;
 
 

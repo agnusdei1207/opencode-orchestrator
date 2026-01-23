@@ -1,4 +1,3 @@
-import { SEAL_PATTERN } from "../../core/loop/mission-seal.js";
 import { PATHS } from "../core/constants/paths.js";
 
 /**
@@ -10,10 +9,10 @@ import { PATHS } from "../core/constants/paths.js";
 export const MISSION_MESSAGES = {
   START_LOG: "[MissionControl] Detected /task command. Starting mission...",
   CANCEL_LOG: "[MissionControl] Detected user cancellation signal.",
-  SEAL_LOG: "[MissionControl] Mission Seal detected! Finishing loop.",
+  COMPLETE_LOG: "[MissionControl] Mission Verified! Finishing loop.",
 
   TOAST_COMPLETE_TITLE: "Mission Complete",
-  TOAST_COMPLETE_MESSAGE: "Agent sealed the mission.",
+  TOAST_COMPLETE_MESSAGE: "Mission verified and finished.",
 
   STOP_TRIGGER: "STOP MISSION",
   CANCEL_TRIGGER: "CANCEL MISSION",
@@ -58,27 +57,24 @@ export const CONTINUE_INSTRUCTION = `<auto_continue>
 <rules>
 1. DO NOT stop - mission is incomplete
 2. DO NOT wait for user input
-3. DO NOT output SEAL until verified complete
-4. If previous action failed, try different approach
-5. Check your todo list - complete ALL pending items
+3. If previous action failed, try different approach
+4. Check your hierarchical todo list - complete ALL pending items
+5. Breakdown abstract tasks into Grade 3 sub-tasks before execution
 </rules>
 
 <next_step>
-1. Run: cat ${PATHS.TODO}
-2. Find the first [ ] uncompleted item
+1. Read: \`cat ${PATHS.TODO}\`
+2. Find the first \`[ ]\` uncompleted item
 3. Execute that task NOW
-4. Mark [x] when done
-5. Repeat until ALL items are [x]
+4. Mark \`[x]\` ONLY after tool-based verification
+5. Repeat until ALL items (Grade 1, 2, 3) are \`[x]\`
 </next_step>
 
-<seal_warning>
+<completion_mandate>
 ⚠️ SYSTEM VERIFICATION ACTIVE
-- Your SEAL will be REJECTED if TODO is incomplete
-- Your SEAL will be REJECTED if sync-issues exist
-- Verify completion BEFORE outputting SEAL:
-  1. cat ${PATHS.TODO} → ALL [x]
-  2. cat ${PATHS.SYNC_ISSUES} → EMPTY
-  3. Only then: ${SEAL_PATTERN}
-</seal_warning>
+- Completion will be BLOCKED if any \`[ ]\` remain in ${PATHS.TODO}
+- Completion will be BLOCKED if any unresolved sync-issues exist
+- Verify 100% completion before concluding
+</completion_mandate>
 </auto_continue>`;
 

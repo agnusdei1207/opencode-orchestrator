@@ -4,7 +4,7 @@
 
 import type { Todo } from "./interfaces.js";
 import { getStats, getNextPending } from "./stats.js";
-import { MISSION_SEAL, TODO_STATUS, AGENT_NAMES, STATUS_LABEL } from "../../shared/index.js";
+import { MISSION_CONTROL, TODO_STATUS, AGENT_NAMES, STATUS_LABEL } from "../../shared/index.js";
 
 /**
  * Format progress string
@@ -91,7 +91,7 @@ After launching, use list_tasks to monitor progress.
 export function generateCompletionMessage(todos: Todo[]): string {
     const stats = getStats(todos);
 
-    return `[MISSION SEALED]
+    return `[Verified Complete]
 
 **Final Status**:
 - Total Tasks: ${stats.total}
@@ -99,7 +99,5 @@ export function generateCompletionMessage(todos: Todo[]): string {
 - Cancelled: ${stats.cancelled}
 - Success Rate: ${stats.percentComplete}%
 
-${MISSION_SEAL.PATTERN}
-
-All tasks have been processed. Mission accomplished!`;
+All tasks have been processed and verified. Mission accomplished!`;
 }

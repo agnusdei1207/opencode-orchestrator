@@ -4,7 +4,7 @@
  * Provides a structured checklist system for mission completion verification.
  * 
  * The LLM creates and checks items in .opencode/verification-checklist.md
- * The hook system verifies all items are checked before allowing SEAL.
+ * The hook system verifies all items are checked before allowing CONCLUDE.
  * 
  * This approach:
  * 1. LLM discovers environment and creates appropriate checklist items
@@ -16,7 +16,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import {
     PATHS,
-    MISSION_SEAL,
+    MISSION_CONTROL,
     // Verification constants
     CHECKLIST,
     CHECKLIST_PATTERNS,
@@ -261,9 +261,9 @@ export function buildChecklistFailurePrompt(result: ChecklistVerificationResult)
         .join('\n');
 
     return `<verification_failure>
-⚠️ **SEAL REJECTED - Verification Checklist Incomplete**
+⚠️ **COMPLETION BLOCKED - Verification Checklist Incomplete**
 
-Your SEAL was detected but the verification checklist is **NOT COMPLETE**.
+Your attempt to finish was detected but the verification checklist is **NOT COMPLETE**.
 
 ## Status: ${result.progress} items verified
 
@@ -277,7 +277,7 @@ ${incompleteFormatted || "No items parsed - check checklist format"}
    - Run the verification command
    - Confirm it passes
    - Mark the item as [x] in the checklist
-3. **Only output ${MISSION_SEAL.PATTERN} when ALL items are [x]**
+3. **Only conclude when ALL items are [x]**
 
 ### Checklist Format
 Each item should be marked complete when verified:
@@ -286,7 +286,7 @@ Each item should be marked complete when verified:
 - [ ] ⏳ Pending item (not yet verified)
 \`\`\`
 
-⚠️ The system verifies the checklist file. SEAL will be REJECTED until all items are [x].
+⚠️ The system verifies the checklist file. Completion will be BLOCKED until all items are [x].
 
 **CONTINUE WORKING NOW** - Complete the remaining verification items.
 </verification_failure>`;
@@ -299,15 +299,15 @@ export function getChecklistCreationInstructions(): string {
     return `
 ## Verification Checklist Requirements
 
-Before sealing, you MUST create and complete a verification checklist at \`${CHECKLIST_FILE}\`.
+Before concluding, you MUST create and complete a verification checklist at \`${CHECKLIST_FILE}\`.
 
 ### Checklist Template
 \`\`\`markdown
 # Verification Checklist
 
 ## Code Quality
-- [ ] **Lint**: No lint errors (\`npm run lint\` or equivalent)
-- [ ] **Type Check**: Type checking passes (\`tsc --noEmit\` or equivalent)
+- [ ] **Lint**: No lint errors (using detected project linter)
+- [ ] **Type Check**: Type checking passes (using project-native compiler/checker)
 
 ## Unit Tests
 - [ ] **Unit Tests**: All unit tests pass
@@ -335,7 +335,7 @@ Before sealing, you MUST create and complete a verification checklist at \`${CHE
 2. **Adapt**: Add/remove items based on what exists in this project
 3. **Execute**: Run each verification and record the result
 4. **Mark**: Check off [x] each item as it passes
-5. **Only SEAL when ALL items are [x]**
+5. **Only conclude when ALL items are [x]**
 
 ### Environment Discovery Hints
 - \`package.json\` → npm scripts, test commands
@@ -347,7 +347,7 @@ Before sealing, you MUST create and complete a verification checklist at \`${CHE
 - \`pyproject.toml\` → Python builds
 - \`go.mod\` → Go builds
 
-⚠️ **SYSTEM ENFORCEMENT**: The hook verifies all checklist items are [x] before allowing SEAL.
+⚠️ **SYSTEM ENFORCEMENT**: The hook verifies all checklist items are [x] before allowing completion.
 `;
 }
 
@@ -509,16 +509,16 @@ export function verifyMissionCompletion(directory: string): VerificationResult {
 }
 
 /**
- * Build prompt for when SEAL is rejected due to verification failure
+ * Build prompt for when conclusion is rejected due to verification failure
  */
 export function buildVerificationFailurePrompt(result: VerificationResult): string {
     const errorList = result.errors.map(e => `❌ ${e}`).join('\n');
     const hasChecklist = result.checklistProgress !== "0/0";
 
     return `<verification_failure>
-⚠️ **SEAL REJECTED - Verification Failed**
+⚠️ **COMPLETION BLOCKED - Verification Failed**
 
-Your <mission_seal>SEALED</mission_seal> was detected but the following checks **FAILED**:
+Your attempt to finish was detected but the following checks **FAILED**:
 
 ${errorList}
 
@@ -529,20 +529,38 @@ ${hasChecklist ? `| Checklist | ${result.checklistComplete ? '✅' : '❌'} | ${
 | TODO Progress | ${result.todoComplete ? '✅' : '❌'} | ${result.todoProgress} complete |
 | Sync Issues | ${result.syncIssuesEmpty ? '✅' : '❌'} | ${result.syncIssuesCount} issue(s) |
 
-## REQUIRED ACTIONS (DO NOT OUTPUT SEAL AGAIN)
+## REQUIRED ACTIONS (DO NOT TRY TO FINISH AGAIN UNTIL RESOLVED)
 
 ${hasChecklist ? `1. **Complete Checklist**: \`cat ${CHECKLIST_FILE}\` - Check off ALL [ ] items
 2. **Verify each item passes** before marking [x]` : `1. **Check TODO**: \`cat ${PATHS.TODO}\` - Find ALL [ ] items
 2. **Complete remaining tasks** - Execute each incomplete item`}
 3. **Check sync issues**: \`cat ${PATHS.SYNC_ISSUES}\` - Resolve any errors
 4. **Verify builds/tests pass** - Run project build and test commands
-5. **Only output ${MISSION_SEAL.PATTERN} when ALL conditions pass**
+5. **Only conclude when ALL conditions pass**
 
-⚠️ The system will REJECT premature SEAL every time. Work until truly complete.
+⚠️ The system will BLOCK premature completion every time. Work until truly complete.
 
 **CONTINUE EXECUTING NOW** - Do not wait for user input.
 </verification_failure>`;
 }
+
+/**
+ * Build prompt for when TODO is incomplete
+ */
+export function buildTodoIncompletePrompt(result: VerificationResult): string {
+    return `⚠️ **TODO Incomplete: ${result.todoProgress}**
+
+${result.todoIncomplete} task(s) remaining. Continue working on incomplete items.
+
+**REQUIRED**: Check .opencode/todo.md and complete ALL [ ] items before concluding.
+
+\`\`\`bash
+cat .opencode/todo.md
+\`\`\`
+
+**DO NOT** try to finish until ALL items are [x].`;
+}
+
 
 /**
  * Build a concise status summary for logs

@@ -16,7 +16,7 @@ export const COMMANDER_REQUIRED = `${PROMPT_TAGS.REQUIRED_ACTIONS.open}
 - DELEGATE to specialized agents
 
 ## Verification
-- ALWAYS verify with ${AGENT_NAMES.REVIEWER} before sealing
+- ALWAYS verify with ${AGENT_NAMES.REVIEWER} before concluding
 - ALWAYS check ${PATHS.TODO} for incomplete items
 - ALWAYS save context to ${PATHS.CONTEXT}
 ${PROMPT_TAGS.REQUIRED_ACTIONS.close}`;

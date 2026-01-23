@@ -4,7 +4,7 @@
  * Logic for reading shared state and continuing work loop.
  */
 
-import { PATHS, AGENT_NAMES, PROMPT_TAGS, WORK_STATUS, STATUS_LABEL } from "../../../shared/index.js";
+import { PATHS, AGENT_NAMES, PROMPT_TAGS, WORK_STATUS, STATUS_LABEL, VERIFICATION_SIGNALS } from "../../../shared/index.js";
 
 export const COMMANDER_LOOP_CONTINUATION = `${PROMPT_TAGS.LOOP_CONTINUATION.open}
 ## LOOP CONTINUATION PROTOCOL
@@ -26,13 +26,13 @@ cat ${PATHS.SYNC_ISSUES} 2>/dev/null || echo "No sync issues"
 |--------|--------|--------|
 | Incomplete items | Any | Continue work |
 | All [x] | Issues exist | Fix sync issues |
-| All [x] | Empty | Call ${AGENT_NAMES.MASTER_REVIEWER} for final verification |
+| All [x] | Empty | Conclude mission |
 
 ### When All Work Complete
 When ALL TODO items are [x] and NO sync issues:
-→ Spawn ${AGENT_NAMES.MASTER_REVIEWER} for final verification
-→ ${AGENT_NAMES.MASTER_REVIEWER} will output SEAL if all checks pass
-→ If ${AGENT_NAMES.MASTER_REVIEWER} returns failure, address issues and retry
+→ Ensure a final "${VERIFICATION_SIGNALS.FINAL_PASS}" task was performed by ${AGENT_NAMES.REVIEWER}
+→ If all checks pass, you may conclude the mission
+→ If any check fails, address issues and repeat verification
 
 ${PROMPT_TAGS.LOOP_CONTINUATION.close}
 

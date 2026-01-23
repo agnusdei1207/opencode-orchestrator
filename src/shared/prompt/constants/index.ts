@@ -15,7 +15,8 @@ export {
     PHASE_0_DIRECT_DISCOVERY,
     PHASE_1_THINK_ANALYSIS,
     PHASE_5_MSVP,
-    HPFA_RULES
+    HPFA_RULES,
+    AUTONOMOUS_MANDATE
 } from "./mandates.js";
 export {
     SCOUT_LABEL,

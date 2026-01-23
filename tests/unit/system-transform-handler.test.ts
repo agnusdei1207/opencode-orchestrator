@@ -12,7 +12,7 @@ import { createSystemTransformHandler } from "../../src/plugin-handlers/system-t
 import type { EventHandlerContext, SystemTransformInput, SystemTransformOutput } from "../../src/plugin-handlers/interfaces";
 
 // Mock dependencies
-vi.mock("../../src/core/loop/mission-seal", () => ({
+vi.mock("../../src/core/loop/mission-loop", () => ({
     readLoopState: vi.fn(),
 }));
 
@@ -52,7 +52,7 @@ describe("System Transform Handler", () => {
     });
 
     it("should inject system prompts for orchestrated sessions", async () => {
-        const { readLoopState } = await import("../../src/core/loop/mission-seal");
+        const { readLoopState } = await import("../../src/core/loop/mission-loop");
         vi.mocked(readLoopState).mockReturnValue({
             active: true,
             iteration: 2,
@@ -72,7 +72,7 @@ describe("System Transform Handler", () => {
     });
 
     it("should inject active session prompt", async () => {
-        const { readLoopState } = await import("../../src/core/loop/mission-seal");
+        const { readLoopState } = await import("../../src/core/loop/mission-loop");
         vi.mocked(readLoopState).mockReturnValue({
             active: true,
             iteration: 1,
@@ -92,7 +92,7 @@ describe("System Transform Handler", () => {
     });
 
     it("should inject background tasks prompt when tasks exist", async () => {
-        const { readLoopState } = await import("../../src/core/loop/mission-seal");
+        const { readLoopState } = await import("../../src/core/loop/mission-loop");
         vi.mocked(readLoopState).mockReturnValue({
             active: true,
             iteration: 1,
@@ -124,7 +124,7 @@ describe("System Transform Handler", () => {
     it("should not inject for non-orchestrated sessions", async () => {
         mockContext.state.sessions.clear();
 
-        const { readLoopState } = await import("../../src/core/loop/mission-seal");
+        const { readLoopState } = await import("../../src/core/loop/mission-loop");
         vi.mocked(readLoopState).mockReturnValue(null);
 
         const handler = createSystemTransformHandler(mockContext);
@@ -137,8 +137,8 @@ describe("System Transform Handler", () => {
         expect(output.system.length).toBe(0);
     });
 
-    it("should include mission seal pattern in loop prompt", async () => {
-        const { readLoopState } = await import("../../src/core/loop/mission-seal");
+    it("should include mission loop prompt", async () => {
+        const { readLoopState } = await import("../../src/core/loop/mission-loop");
         vi.mocked(readLoopState).mockReturnValue({
             active: true,
             iteration: 5,
@@ -153,6 +153,7 @@ describe("System Transform Handler", () => {
 
         await handler(input, output);
 
-        expect(output.system.some(s => s.includes("<mission_seal>SEALED</mission_seal>"))).toBe(true);
+        expect(output.system.some(s => s.includes("MISSION LOOP ACTIVE"))).toBe(true);
+        expect(output.system.some(s => s.includes("Iteration 5/10"))).toBe(true);
     });
 });

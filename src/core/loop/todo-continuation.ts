@@ -34,7 +34,7 @@ interface ContinuationState {
 const sessionStates = new Map<string, ContinuationState>();
 
 // Configuration (from shared constants)
-const COUNTDOWN_SECONDS = 2;  // Slightly shorter than mission-seal for responsiveness
+const COUNTDOWN_SECONDS = 2;  // Slightly shorter than mission-conclude for responsiveness
 const TOAST_DURATION_MS = TOAST_DURATION.EXTRA_SHORT;
 const MIN_TIME_BETWEEN_CONTINUATIONS_MS = LOOP.MIN_TIME_BETWEEN_CHECKS_MS;
 const COUNTDOWN_GRACE_PERIOD_MS = LOOP.COUNTDOWN_GRACE_PERIOD_MS;
@@ -123,6 +123,7 @@ async function showCountdownToast(
  */
 async function injectContinuation(
     client: OpencodeClient,
+    directory: string,
     sessionID: string,
     todos: Todo[]
 ): Promise<void> {
@@ -145,7 +146,22 @@ async function injectContinuation(
     }
 
     // Generate continuation prompt
-    const prompt = generateContinuationPrompt(todos);
+    let prompt = generateContinuationPrompt(todos);
+
+    // [Improvement]: If no built-in prompt, check for file-based TODOs
+    if (!prompt) {
+        try {
+            const { verifyMissionCompletion, buildTodoIncompletePrompt } = await import("./verification.js");
+            // Use specialized hook-style prompt for file-based todos
+            const v = verifyMissionCompletion(directory);
+            if (!v.passed && (v.todoIncomplete > 0 || (v.checklistProgress !== "0/0" && !v.checklistComplete))) {
+                prompt = buildTodoIncompletePrompt(v);
+            }
+        } catch (err) {
+            log("[todo-continuation] Failed to generate file-based prompt", err);
+        }
+    }
+
     if (!prompt) {
         log("[todo-continuation] Skipped: no continuation prompt needed", { sessionID });
         return;
@@ -173,6 +189,7 @@ async function injectContinuation(
  */
 export async function handleSessionIdle(
     client: OpencodeClient,
+    directory: string,
     sessionID: string,
     mainSessionID?: string
 ): Promise<void> {
@@ -229,12 +246,25 @@ export async function handleSessionIdle(
     }
 
     // Check if there are incomplete todos
-    if (!hasRemainingWork(todos)) {
-        log("[todo-continuation] All todos complete", { sessionID });
+    const hasBuiltinWork = hasRemainingWork(todos);
+
+    // [Improvement]: Also check for file-based TODOs
+    let hasFileWork = false;
+    try {
+        const { verifyMissionCompletion } = await import("./verification.js");
+        const verification = verifyMissionCompletion(directory);
+        hasFileWork = !verification.passed && (verification.todoIncomplete > 0 || (verification.checklistProgress !== "0/0" && !verification.checklistComplete));
+    } catch (err) {
+        log("[todo-continuation] Failed to check file-based todos", err);
+    }
+
+    if (!hasBuiltinWork && !hasFileWork) {
+        log("[todo-continuation] All work complete (built-in and file-based)", { sessionID });
         return;
     }
 
-    const incompleteCount = getIncompleteCount(todos);
+    const incompleteCount = hasBuiltinWork ? getIncompleteCount(todos) : 0;
+    const fileIncompleteCount = hasFileWork ? 1 : 0; // Simplified
     const nextPending = getNextPending(todos);
     log("[todo-continuation] Starting countdown", {
         sessionID,
@@ -255,10 +285,18 @@ export async function handleSessionIdle(
             const freshResponse = await client.session.todo({ path: { id: sessionID } });
             const freshTodos = parseTodos(freshResponse.data ?? freshResponse);
 
-            if (hasRemainingWork(freshTodos)) {
-                await injectContinuation(client, sessionID, freshTodos);
+            // Re-verify file work
+            let freshFileWork = false;
+            try {
+                const { verifyMissionCompletion } = await import("./verification.js");
+                const v = verifyMissionCompletion(directory);
+                freshFileWork = !v.passed && (v.todoIncomplete > 0 || (v.checklistProgress !== "0/0" && !v.checklistComplete));
+            } catch { }
+
+            if (hasRemainingWork(freshTodos) || freshFileWork) {
+                await injectContinuation(client, directory, sessionID, freshTodos);
             } else {
-                log("[todo-continuation] Todos completed during countdown", { sessionID });
+                log("[todo-continuation] All work completed during countdown", { sessionID });
             }
         } catch {
             log("[todo-continuation] Failed to re-fetch todos for continuation", { sessionID });

@@ -13,7 +13,7 @@ import { createSessionCompactingHandler } from "../../src/plugin-handlers/sessio
 import type { EventHandlerContext, SessionCompactingInput, SessionCompactingOutput } from "../../src/plugin-handlers/interfaces";
 
 // Mock dependencies
-vi.mock("../../src/core/loop/mission-seal", () => ({
+vi.mock("../../src/core/loop/mission-loop", () => ({
     readLoopState: vi.fn(),
 }));
 
@@ -73,7 +73,7 @@ describe("Session Compacting Handler", () => {
     });
 
     it("should inject mission context when loop is active", async () => {
-        const { readLoopState } = await import("../../src/core/loop/mission-seal");
+        const { readLoopState } = await import("../../src/core/loop/mission-loop");
         vi.mocked(readLoopState).mockReturnValue({
             active: true,
             iteration: 2,
@@ -93,7 +93,7 @@ describe("Session Compacting Handler", () => {
     });
 
     it("should not inject mission context for different session", async () => {
-        const { readLoopState } = await import("../../src/core/loop/mission-seal");
+        const { readLoopState } = await import("../../src/core/loop/mission-loop");
         vi.mocked(readLoopState).mockReturnValue({
             active: true,
             iteration: 1,
@@ -134,7 +134,7 @@ describe("Session Compacting Handler", () => {
         mockContext.sessions.clear();
         mockContext.state.sessions.clear();
 
-        const { readLoopState } = await import("../../src/core/loop/mission-seal");
+        const { readLoopState } = await import("../../src/core/loop/mission-loop");
         vi.mocked(readLoopState).mockReturnValue(null);
 
         // Reset ParallelAgentManager to return empty tasks

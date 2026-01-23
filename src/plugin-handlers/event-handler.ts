@@ -11,8 +11,8 @@ import * as Toast from "../core/notification/toast.js";
 import * as ProgressTracker from "../core/progress/tracker.js";
 import * as SessionRecovery from "../core/recovery/session-recovery.js";
 import * as TodoContinuation from "../core/loop/todo-continuation.js";
-import * as MissionSealHandler from "../core/loop/mission-seal-handler.js";
-import { isLoopActive } from "../core/loop/mission-seal.js";
+import * as MissionLoopHandler from "../core/loop/mission-loop-handler.js";
+import { isLoopActive } from "../core/loop/mission-loop.js";
 import * as ContextMonitor from "../core/context/index.js";
 import { SESSION_EVENTS, MESSAGE_EVENTS, MESSAGE_ROLES } from "../shared/index.js";
 import type { EventHandlerContext } from "./interfaces/index.js";
@@ -59,7 +59,7 @@ export function createEventHandler(ctx: EventHandlerContext) {
                 ProgressTracker.clearSession(sessionID);
                 SessionRecovery.cleanupSessionRecovery(sessionID);
                 TodoContinuation.cleanupSession(sessionID);
-                MissionSealHandler.cleanupSession(sessionID);
+                MissionLoopHandler.cleanupSession(sessionID);
                 ContextMonitor.cleanupSession(sessionID);
 
                 Toast.presets.sessionCompleted(sessionID, duration);
@@ -73,7 +73,7 @@ export function createEventHandler(ctx: EventHandlerContext) {
 
             if (sessionID) {
                 TodoContinuation.handleSessionError(sessionID, error);
-                MissionSealHandler.handleAbort(sessionID);
+                MissionLoopHandler.handleAbort(sessionID);
             }
 
             if (sessionID && error) {
@@ -115,7 +115,7 @@ export function createEventHandler(ctx: EventHandlerContext) {
 
             if (sessionID && role === MESSAGE_ROLES.USER) {
                 TodoContinuation.handleUserMessage(sessionID);
-                MissionSealHandler.handleUserMessage(sessionID);
+                MissionLoopHandler.handleUserMessage(sessionID);
             }
         }
 
@@ -129,12 +129,12 @@ export function createEventHandler(ctx: EventHandlerContext) {
                         const session = sessions.get(sessionID);
                         if (session?.active) {
                             if (isLoopActive(directory, sessionID)) {
-                                await MissionSealHandler.handleMissionSealIdle(
+                                await MissionLoopHandler.handleMissionIdle(
                                     client, directory, sessionID, sessionID
                                 ).catch(() => { });
                             } else {
                                 await TodoContinuation.handleSessionIdle(
-                                    client, sessionID, sessionID
+                                    client, directory, sessionID, sessionID
                                 ).catch(() => { });
                             }
                         }

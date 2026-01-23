@@ -113,19 +113,20 @@ describe("Prompt System", () => {
             expect(PHASE_1_THINK_ANALYSIS).toContain("SCOPE");
         });
 
-        it("should export PHASE_5_MSVP with Commander-centric spawning", () => {
+        it("should export PHASE_5_MSVP with hierarchical roll-up mandate", () => {
             expect(PHASE_5_MSVP).toBeDefined();
-            expect(PHASE_5_MSVP).toContain("STAGE 1");
-            expect(PHASE_5_MSVP).toContain("STAGE 2");
-            // Commander spawns all agents
-            expect(PHASE_5_MSVP).toContain("Commander spawns");
-            expect(PHASE_5_MSVP).not.toContain("PARALLEL DISCOVERY");
+            expect(PHASE_5_MSVP).toContain("UNIT VERIFICATION");
+            expect(PHASE_5_MSVP).toContain("HIERARCHICAL ROLL-UP");
+            expect(PHASE_5_MSVP).toContain("AUTONOMOUS COMPLETION");
+            expect(PHASE_5_MSVP).toContain("LOOP PERSISTENCE");
         });
 
-        it("should export HPFA_RULES with terminal node concept", () => {
+        it("should export HPFA_RULES with parallel execution concept", () => {
             expect(HPFA_RULES).toBeDefined();
-            expect(HPFA_RULES).toContain("TERMINAL");
-            expect(HPFA_RULES).toContain("Speculative Racing");
+            expect(HPFA_RULES).toContain("Commander-Only Spawning");
+            expect(HPFA_RULES).toContain("Parallel Branches");
+            expect(HPFA_RULES).toContain("Recursive Breakdown");
+            expect(HPFA_RULES).toContain("Autonomous Termination");
         });
     });
 
@@ -134,12 +135,11 @@ describe("Prompt System", () => {
     // ========================================================================
 
     describe("agent names", () => {
-        it("should define all five agents", () => {
+        it("should define all four agents", () => {
             expect(AGENT_NAMES.COMMANDER).toBeDefined();
             expect(AGENT_NAMES.PLANNER).toBeDefined();
             expect(AGENT_NAMES.WORKER).toBeDefined();
             expect(AGENT_NAMES.REVIEWER).toBeDefined();
-            expect(AGENT_NAMES.MASTER_REVIEWER).toBeDefined();
         });
 
         it("should have unique agent names", () => {
@@ -148,7 +148,6 @@ describe("Prompt System", () => {
                 AGENT_NAMES.PLANNER,
                 AGENT_NAMES.WORKER,
                 AGENT_NAMES.REVIEWER,
-                AGENT_NAMES.MASTER_REVIEWER,
             ];
             const uniqueNames = new Set(names);
             expect(uniqueNames.size).toBe(names.length);

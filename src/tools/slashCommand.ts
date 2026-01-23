@@ -1,5 +1,5 @@
 import { tool } from "@opencode-ai/plugin";
-import { AGENT_NAMES, PROMPTS, MISSION_SEAL } from "../shared/index.js";
+import { AGENT_NAMES, PROMPTS } from "../shared/index.js";
 import { commander } from "../agents/commander.js";
 
 /**
@@ -25,9 +25,9 @@ $ARGUMENTS
 </task>
 
 <execution_rules>
-1. Complete this mission without user intervention
-2. Use your full capabilities: research, implement, verify
-3. Output "${MISSION_SEAL.PATTERN}" when done
+1. Complete this mission without user intervention.
+2. Use your full capabilities: hierarchical planning, parallel execution, and strict verification.
+3. Conclude ONLY when all items in .opencode/todo.md are verified and marked [x].
 </execution_rules>
 </mission>`;
 

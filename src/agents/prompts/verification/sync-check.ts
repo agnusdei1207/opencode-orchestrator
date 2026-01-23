@@ -2,7 +2,6 @@
  * Reviewer Sync Verification
  * 
  * Verify file synchronization and report issues for next iteration.
- * Note: Final SEAL is handled by Master Reviewer, not Reviewer.
  * Environment-agnostic - works for any project type.
  */
 
@@ -71,9 +70,6 @@ If sync issues exist:
 2. Delete resolved issues from file
 3. Update ${PATHS.WORK_LOG} with required rework
 4. Report status to ${AGENT_NAMES.COMMANDER}
-
-> **NOTE**: You (Reviewer) do NOT output SEAL.
-> ${AGENT_NAMES.MASTER_REVIEWER} handles final verification and SEAL.
 
 ### CRITICAL:
 - Always check sync AFTER integration tests
