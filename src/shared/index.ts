@@ -15,6 +15,7 @@ export * from "./command/index.js";
 export * from "./tool/index.js";
 export * from "./message/index.js";
 export * from "./os/index.js";
+export * from "./verification/index.js";
 
 // Error handling
 export * from "./errors/index.js";

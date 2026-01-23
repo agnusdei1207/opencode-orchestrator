@@ -41,6 +41,21 @@ vi.mock("../../src/core/loop/mission-seal", () => ({
     clearLoopState: vi.fn(),
     SEAL_PATTERN: "<mission_seal>"
 }));
+vi.mock("../../src/core/loop/verification", () => ({
+    verifyMissionCompletion: vi.fn().mockReturnValue({
+        passed: true,
+        todoComplete: true,
+        todoProgress: "3/3",
+        todoIncomplete: 0,
+        syncIssuesEmpty: true,
+        syncIssuesCount: 0,
+        checklistComplete: false,
+        checklistProgress: "0/0",
+        errors: []
+    }),
+    buildVerificationFailurePrompt: vi.fn().mockReturnValue("Verification failed"),
+    buildVerificationSummary: vi.fn().mockReturnValue("[Verification ✅ PASSED]")
+}));
 vi.mock("../../src/utils/sanity/index", () => ({
     checkOutputSanity: vi.fn().mockReturnValue({ isHealthy: true }),
     RECOVERY_PROMPT: "Recover",
