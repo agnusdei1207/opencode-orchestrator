@@ -31,24 +31,28 @@ OpenCode Orchestrator executes a **Linear Strategy** through **Parallel Sessions
                [ User Task ]
                     │
          ┌──────────▼──────────┐
-         │     COMMANDER       │ (Context Hub)
-         └──────────┬──────────┘
-                    │
-         ┌──────────▼──────────┐
-         │      PLANNER        │ (Symbolic Todo)
-         └──────────┬──────────┘
-                    │
-     ┌──────────────┼──────────────┐
-     ▼     (Async Session Pool)    ▼
-[ Session A ]  [ Session B ]  [ Session C ]
-[ Worker    ]  [ Worker    ]  [ Reviewer  ]
-     └──────────────┬──────────────┘
-                    │
-         ┌──────────▼──────────┐
-         │     MISSION LOOP    │ (State Verification)
-         └──────────┬──────────┘
-                    │
-              [ COMPLETE ]
+         │     COMMANDER       │◄───────────┐
+         └────────┬────────────┘            │
+                  │                         │
+         ┌────────▼──────────┐              │
+         │      PLANNER      │ (Todo)       │
+         └────────┬──────────┘              │
+                  │                         │ (Mission Loop)
+    ┌─────────────┼──────────────┐          │
+    ▼     (Async Session Pool)   ▼          │
+[ Session A ] [ Session B ] [ Session C ]   │
+[  Worker   ] [  Worker   ] [  Reviewer ]   │
+    └─────────────┬──────────────┘          │
+                  │                         │
+         ┌────────▼──────────┐              │
+         │   STATE MONITOR   │──────────────┘
+         └────────┬──────────┘
+                  │
+         ┌────────▼──────────┐
+         │ FINAL REVIEW SEAL │ (Reviewer Gate)
+         └────────┬──────────┘
+                  │
+            [  COMPLETED  ]
 ```
 
 ---
