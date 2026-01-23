@@ -39,7 +39,7 @@ OpenCode Orchestrator executes a **Linear Strategy** through **Parallel Sessions
          └──────────┬──────────┘
                     │
      ┌──────────────┼──────────────┐
-     ▼        (Session Pool)       ▼
+     ▼     (Async Session Pool)    ▼
 [ Session A ]  [ Session B ]  [ Session C ]
 [ Worker    ]  [ Worker    ]  [ Reviewer  ]
      └──────────────┬──────────────┘
