@@ -28,7 +28,7 @@ Inside an OpenCode environment:
 OpenCode Orchestrator executes a **Linear Strategy** through **Parallel Sessions**.
 
 ```text
-               [ User Task ]
+            [ User Task ]
                     │
          ┌──────────▼──────────┐
          │     COMMANDER       │◄───────────┐
@@ -49,10 +49,10 @@ OpenCode Orchestrator executes a **Linear Strategy** through **Parallel Sessions
          └────────┬──────────┘
                   │
          ┌────────▼──────────┐
-         │ FINAL REVIEW SEAL │ (Reviewer Gate)
+         │ FINAL REVIEW SEAL │
          └────────┬──────────┘
                   │
-            [  COMPLETED  ]
+            [ ✨COMPLETED ]
 ```
 
 ---
