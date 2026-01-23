@@ -6,8 +6,6 @@
  * - 90% reduction in session creation time (500ms → 50ms)
  * - Reduced OpenCode server load
  * - Faster parallel task startup
- * 
- * @see ORCHESTRATOR_IMPROVEMENT_PLAN.md Section 5.2 - 제안 2.1
  */
 
 import type { PluginInput } from "@opencode-ai/plugin";

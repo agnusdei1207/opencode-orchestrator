@@ -1,100 +1,117 @@
-# OpenCode Orchestrator: Comprehensive Cognitive Architecture
+# OpenCode Orchestrator: Sovereign Cognitive Architecture
 
-OpenCode Orchestrator is a **Persistent-Parallel Cognitive Architecture** designed for autonomous software engineering. It transforms high-level user prompts into structured, verifiable, and parallel execution flows using a multi-agent swarm.
-
----
-
-## 1. Core Engineering Philosophy: "Explore → Learn → Adapt → Act"
-
-The system operates on an iterative feedback loop where knowledge is the primary currency.
-- **EXPLORE**: Detect the environment, repo structure, and existing constraints. NEVER assume state.
-- **LEARN**: Permanent documentation. Every discovery is recorded in `.opencode/` to prevent redundant reasoning.
-- **ADAPT**: Match the project's style, architectural patterns, and local context.
-- **ACT**: Execute with precision. Build, test, and verify until the mission matches the symbolic roadmap.
+OpenCode Orchestrator is a **Persistent-Parallel Cognitive Architecture** designed for high-integrity autonomous software engineering. It operates as a sovereign multi-agent swarm, leveraging isolated execution environments (sessions) to transform abstract goals into verified production code.
 
 ---
 
-## 2. Structural Architecture (Hub-and-Spoke Topology)
+## 1. Core Engineering Philosophy: "E.L.A.A."
 
-The engine employs an isolated multi-session model to maintain absolute context integrity.
+The system is governed by a recursion-safe discovery loop designed to minimize hallucinations and maximize reliability.
 
-### 2.1. The Commander (Central Hub)
-The **Commander** is the master orchestrator. It does not write code directly but manages the mission life-cycle:
-- **Session Pooling**: Spawns isolated execution environments for sub-agents.
-- **Parallel Coordination**: Manages dependencies between async tasks.
-- **State Rehydration**: Ensures mission continuity by syncing state to `.opencode/mission_loop.json`.
-
-### 2.2. Specialized Sub-Agents (The Swarm)
-- **Planner (Strategic Lead)**: Translates goals into a symbolic `todo.md`. It focuses on research and roadmapping.
-- **Worker (Implementation)**: The high-throughput builder. Specialized in code production and unit test generation.
-- **Reviewer (Quality Gate)**: The internal auditor. Performs module-level verification and is the final authority for the "Mission Seal".
+- **EXPLORE**: Proactive environmental discovery. Agents scan the repository for structural patterns, dependency graphs, and existing build systems. They NEVER assume pre-existing state.
+- **LEARN**: Permanent knowledge acquisition. Every discovery is persisted in the `.opencode/` knowledge-base (Symbolic Memory). Learning is equated to documentation.
+- **ADAPT**: Context-sensitive execution. Agents adjust their implementation strategies based on the project's unique "lexicon" and architectural style discovered during exploration.
+- **ACT**: Deterministic goal pursuit. Guided by the symbolic roadmap (`todo.md`), agents execute tasks, verify outputs via LSP/Tests, and autonomously advance to the next state.
 
 ---
 
-## 3. Persistent State Management (`.opencode/` Directory)
+## 2. Structural Topology
 
-All system intelligence is persisted in the project root to ensure robustness across reloads.
-- `todo.md`: The symbolic roadmap. Acts as the Single Source of Truth for progress.
-- `context.md`: The "active project memory" shared across all agents.
-- `mission_loop.json`: Technical state of the mission (iterations, session IDs, etc.).
-- `work-log.md`: Detailed audit trail of all agent actions.
-- `sync-issues.md`: Registry for build errors, lint issues, and test failures.
+The engine utilizes a **Hub-and-Spoke Topology** where a central "Commander" manages specialized sub-agents through isolated RPC-capable sessions.
 
----
+### 2.1. The Commander (Hub)
+The Commander acts as the MISSION ORCHESTRATOR. It focuses on high-level state management, delegation logic, and mission-loop continuity.
+- **Sovereign Orchestration**: Manages the `ParallelAgentManager` and `SessionPool`.
+- **System Transform**: Dynamically modifies the global system prompt to inject role-specific instructions without bloating message history.
+- **State Rehydration**: Periodically syncs in-memory session metadata to `.opencode/mission_loop.json` for crash survival.
 
-## 4. Advanced Execution Mechanisms
-
-### 4.1. Zero-Payload Initiation (Turbo Mode)
-Leverages `system.transform` hooks to inject agent roles on the server side.
-- **Benefit**: Reduces initial message size by 90%, preventing payload-related hangs and ensuring the agent never forgets its role.
-
-### 4.2. Self-Healing Rehydration
-OpenCode Orchestrator is designed for survival.
-- **Mechanism**: Every critical handler (Idle, Done, Message) cross-checks the in-memory state with on-disk artifacts.
-- **Result**: If the plugin reloads, it automatically "picks up the thread" and continues the mission as if nothing happened.
-
-### 2.3. Multi-Stage Verification Pipeline (MSVP)
-1. **LSP Scan**: Immediate syntax and type-check verification.
-2. **Unit Review**: Automatic Reviewer spawning for every completed Worker task.
-3. **Integration Gate**: Final check of the mission against the original user intent.
-
----
-
-## 5. Hook System & Event Flow
-
-| Hook Point | Component | Logical Responsibility |
+### 2.2. The Specialized Swarm (Spokes)
+| Agent | Role | Specialized Capability |
 |:---|:---|:---|
-| `experimental.chat.system.transform` | `SystemTransform` | Injects Commander/Agent personality and background task status. |
-| `assistant.done` | `ProgressBroadcaster` | Triggers the next mission iteration and broadcasts state to UI. |
-| `session.idle` | `TodoContinuation` | Detects when more work is needed and triggers automatic resumption. |
-| `tool.pre_execute` | `StrictRoleGuard` | Enforces permissions (e.g., blocking dangerous commands). |
+| **Planner** | Architect & Researcher | Symbolic roadmap generation (`todo.md`), dependency analysis, and research documentation. |
+| **Worker** | Implementation Engine | High-throughput code generation, unit test authoring, and documentation updates. |
+| **Reviewer** | Quality Auditor | Rigid verification against LSP/Lint/Tests. Final gatekeeper for "Mission Completion". |
 
 ---
 
-## 6. Execution Flow Diagram
+## 3. Persistent Memory & State Synchronization (`.opencode/`)
+
+The directory is the **Engine's Shared Brain**. All agents are instructed to treat these files as the absolute source of truth.
+
+- **`todo.md`**: Hierarchical symbolic roadmap. Managed by `TodoManager` for atomic, incremental updates.
+- **`context.md`**: Global project knowledge. A living document updated during the LEARN phase.
+- **`mission_loop.json`**: Low-level engine state. Stores iteration counts, active session IDs, and start-up metadata.
+- **`work-log.md`**: A sequential audit trail of all high-level agent decisions and tool results.
+- **`sync-issues.md`**: A central registry for failures. Any build/test error is logged here for the Planner to analyze.
+- **`archive/tasks/`**: Write-Ahead Logs (WAL) for every parallel task, allowing the engine to resume background work after a plugin restart.
+
+---
+
+## 4. Advanced Execution Dynamics
+
+### 4.1. Zero-Payload Turbo-Mode
+Instead of sending 20k tokens of instructions with every user prompt, we use the `system.transform` hook.
+- **Mechanism**: The hook intercepts the server's system prompt and unshifts the modular `Commander` system instructions.
+- **Result**: Zero latency increase during deep conversation. Agents can maintain "Commander" persona for thousands of turns without context-limit fragmentation.
+
+### 4.2. Persistent-Autonomous Rehydration (S.H.R.)
+Designed for **Total Fault Tolerance**.
+- **SHR (Self-Healing Rehydration)**: During every event (Idle, Completion, Done), the engine cross-references the volatile `state` map with the persistent `.opencode` state.
+- **Logic**: If `sessions.has(id)` is false but `mission_loop.json` exists, the engine re-instantiates the session object and re-activates mission flags.
+
+### 4.3. Multi-Stage Verification Pipeline (MSVP)
+1. **LSP/Lint Gate**: Immediate static analysis of every modified file. 
+2. **Unit Review**: Automatic Reviewer spawning. For every completed Worker task, a parallel Reviewer session is launched to audit the delta.
+3. **Recursive Decomposition**: If a task fails verification, the Reviewer feeds back to the Planner to decompose the fix into sub-tasks.
+
+---
+
+## 5. Hook Ecosystem & Protocol Integration
+
+| Hook Name | Lifecycle Point | Implementation Detail |
+|:---|:---|:---|
+| `system.transform` | Pre-Turn | Injects modular fragments (`CORE_PHILOSOPHY`, `AUTO_MANDATE`, `SEARCH_TOOLS`) and background task status markers. |
+| `assistant.done` | Post-Response | Triggers the `MissionControlHook` to evaluate loop continuation without blocking the turn-closing protocol. |
+| `session.idle` | Inactivity | Invokes `TodoContinuation` to detect remaining items and trigger the "Resuming in 3s..." workflow. |
+| `tool.pre_execute` | Pre-Tool | Enforces the `StrictRoleGuard`, preventing Worker agents from performing destructive root operations. |
+
+---
+
+## 6. Logic Flow Chart
 
 ```mermaid
 graph TD
-    User["User Prompt"] -->|/task| Commander["Commander (Hub)"]
-    Commander -->|Decompose| Planner["Planner"]
-    Planner -->|Initialize| Todo["Incremental todo.md"]
+    %% Entry Phase
+    User["User Prompt"] -->|Slash Command| MissionControl["MissionControl Hook"]
+    MissionControl -->|Initialize| Disk[".opencode/mission_loop.json"]
     
-    subgraph "Swarm Execution (Async)"
-        Todo -->|Delegate| Worker1["Worker A"]
-        Todo -->|Delegate| Worker2["Worker B"]
-        Worker1 -->|Verification| Reviewer1["Reviewer A"]
-        Worker2 -->|Verification| Reviewer2["Reviewer B"]
+    %% Planning Phase
+    Disk -->|Read| Planner["Planner Agent"]
+    Planner -->|Generate| Todo["🌳 todo.md (Symbolic State)"]
+    
+    %% Execution Cycle
+    subgraph "Parallel Swarm Execution"
+        Todo -->|Delegate Background| Worker1["Worker A (Implementation)"]
+        Todo -->|Delegate Background| Worker2["Worker B (Refactoring)"]
     end
     
-    Reviewer1 & Reviewer2 -->|Merge| Sync["sync-issues.md"]
-    Sync -->|Feedback| Commander
-    Todo -->|Completed| Seal["Final Review Seal"]
-    Seal -->|Done| User
+    %% Verification Loop
+    Worker1 & Worker2 -->|Trigger| MSVP["Multi-Stage Verification (Reviewer)"]
+    MSVP -->|Pass| Success["Mark [x] in todo.md"]
+    MSVP -->|Fail| Log["Write to sync-issues.md"]
+    
+    %% Monitoring & UI
+    Log & Success -->|Broadcast| TUI["📊 Terminal Monitor Overaly"]
+    
+    %% Continuation
+    Success -->|Done?| MissionControl
+    MissionControl -->|No| NextLoop["Iteration++ & Re-inject Prompt"]
+    MissionControl -->|Yes| Conclude["🏅 Conclude Mission"]
 ```
 
 ---
 
-## 7. Performance & Reliability
-- **Throughput**: Up to 10 concurrent sessions (Adaptive).
-- **Survival**: 100% mission recovery across plugin restarts via Write-Ahead Logging (WAL).
-- **Communication**: Zero-latency ANSI TUI updates through isolated broadcast channels.
+## 7. Operational Safety & Resource Shielding
+- **Recursion Guard**: Maximum task depth is enforced (Default: 5). Worker agents are denied further delegation to prevent infinite fractal spawning.
+- **Rate-Limit Jitter**: Parallel launcher applies randomized back-off delays when spawning multi-agent sessions to avoid server-side rate-limiting.
+- **Protocol Isolation**: TUI updates are strictly isolated from the bridge protocol to prevent JSON-RPC malformation.
