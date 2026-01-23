@@ -75,17 +75,20 @@ Write to ${PATHS.INTEGRATION_STATUS}:
 
 ---
 
-## Loop Condition Check (Reviewer verifies)
+## Loop Condition Check (SYSTEM-VERIFIED)
 
-### SEALED Conditions (all must be true)
-- [ ] ${PATHS.TODO} all items [x]
-- [ ] ${PATHS.SYNC_ISSUES} is EMPTY
-- [ ] Build passes
-- [ ] E2E test passes
+> ⚠️ The orchestrator performs HARD VERIFICATION on every SEAL attempt.
+> Premature SEAL = Automatic rejection + forced continuation.
+
+### SEALED Conditions (all must be true - verified by system)
+- [x] ${PATHS.TODO} all items [x] (system verifies)
+- [x] ${PATHS.SYNC_ISSUES} is EMPTY (system verifies)
+- [x] Build passes
+- [x] E2E test passes
 
 ### LOOP BACK Conditions
-- ${PATHS.TODO} has incomplete items → LOOP
-- ${PATHS.SYNC_ISSUES} has unresolved issues → LOOP
+- ${PATHS.TODO} has incomplete items → SEAL REJECTED → LOOP
+- ${PATHS.SYNC_ISSUES} has unresolved issues → SEAL REJECTED → LOOP
 - Build/test fails → record in ${PATHS.SYNC_ISSUES} → LOOP
 
 **CRITICAL**:

@@ -58,6 +58,81 @@ The Hook Architecture moves critical logic (security, monitoring, UI) out of mon
 
 ---
 
+## 📋 Verification System (v1.0.58+)
+
+The orchestrator enforces a **hard verification gate** before allowing mission completion. This prevents premature sealing and ensures all tasks are truly complete.
+
+### 1. Verification Checklist
+
+Agents create a verification checklist at `.opencode/verification-checklist.md`:
+
+```markdown
+# Verification Checklist
+
+## Code Quality
+- [x] **Lint**: No lint errors
+- [x] **Type Check**: Type checking passes
+
+## Unit Tests
+- [x] **Unit Tests**: All unit tests pass
+
+## Build Verification
+- [x] **Build**: Project builds successfully
+
+## Infrastructure (Environment-specific)
+- [x] **Docker Build**: Container builds successfully
+```
+
+### 2. Verification Flow
+
+```
+LLM outputs <mission_seal>SEALED</mission_seal>
+                    │
+                    ▼
+         ┌─────────────────────┐
+         │ verifyMissionCompletion() │
+         └──────────┬──────────┘
+                    │
+    ┌───────────────┴───────────────┐
+    ▼                               ▼
+Checklist exists?               No checklist?
+    │                               │
+    ▼                               ▼
+ALL items [x]?              ALL TODO items [x]?
++ sync-issues empty?        + sync-issues empty?
+    │                               │
+    ▼                               ▼
+PASS → STOP + Notification   FAIL → INJECT (loop back)
+```
+
+### 3. Key Features
+
+| Feature | Description |
+|---------|-------------|
+| **Environment Agnostic** | Works with any project structure |
+| **Flexible Categories** | Code quality, tests, build, runtime, infrastructure |
+| **LLM Discovery** | Agent discovers and adds project-specific checks |
+| **System Enforced** | Hook-level gate rejects premature SEAL |
+| **Dual Notification** | TUI Toast + OS Notification on success |
+
+### 4. File Structure
+
+```
+src/shared/verification/
+├── constants/
+│   ├── checklist.ts      # CHECKLIST.FILE, MIN_ITEMS
+│   ├── patterns.ts       # Regex patterns for parsing
+│   └── categories.ts     # CATEGORY_ID, LABELS, ICONS
+├── types/
+│   └── checklist-category.ts
+└── interfaces/
+    ├── checklist-item.ts
+    ├── verification-result.ts
+    └── checklist-verification-result.ts
+```
+
+---
+
 ## ⚡ Adaptive Capabilities (Skills System)
 
 The Orchestrator employs an **Adaptive Skills System** that allows agents to autonomously extend their capabilities at runtime without code changes or restarts.

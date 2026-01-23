@@ -9,7 +9,7 @@
 
 import type { PluginInput } from "@opencode-ai/plugin";
 import { presets } from "../../shared/index.js";
-import { PART_TYPES, LOOP, TOAST_DURATION, STATUS_LABEL } from "../../shared/index.js";
+import { PART_TYPES, LOOP, TOAST_DURATION, STATUS_LABEL, TOAST_VARIANTS } from "../../shared/index.js";
 import {
     readLoopState,
     clearLoopState,
@@ -99,7 +99,7 @@ async function showCountdownToast(
                 body: {
                     title: "🔄 Mission Loop",
                     message: `Continuing in ${seconds}s... (iteration ${iteration}/${maxIterations})`,
-                    variant: "warning",
+                    variant: TOAST_VARIANTS.WARNING,
                     duration: TOAST_DURATION_MS,
                 },
             });
@@ -122,7 +122,7 @@ async function showSealedToast(
                 body: {
                     title: "🎖️ Mission Sealed!",
                     message: `Completed after ${state.iteration} iteration(s)`,
-                    variant: "success",
+                    variant: TOAST_VARIANTS.SUCCESS,
                     duration: TOAST_DURATION.LONG,
                 },
             });
@@ -145,7 +145,7 @@ async function showMaxIterationsToast(
                 body: {
                     title: "⚠️ Mission Loop Stopped",
                     message: `Max iterations (${state.maxIterations}) reached`,
-                    variant: "warning",
+                    variant: TOAST_VARIANTS.WARNING,
                     duration: TOAST_DURATION.LONG,
                 },
             });

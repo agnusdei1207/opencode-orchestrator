@@ -305,7 +305,7 @@ ${TUI_MESSAGES.MISSION_SEALED_SUBTITLE}
             body: {
                 title: `${TUI_ICONS.SHIELD} ${title}`,
                 message: decoratedMessage,
-                variant: "success",
+                variant: STATUS_LABEL.SUCCESS as "success",
                 duration: 10000, // Longer duration for the finale
             },
         }).catch(() => { });

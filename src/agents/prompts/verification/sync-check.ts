@@ -72,13 +72,15 @@ If sync issues exist:
 4. DO NOT output SEALED
 5. ${AGENT_NAMES.COMMANDER} will read and dispatch new work
 
-### Seal Condition
+### Seal Condition (SYSTEM VERIFIED)
+> ⚠️ The system will REJECT your SEAL if these conditions are not met.
+
 Output SEALED only when:
-- [ ] All TODO items [x]
-- [ ] Build passes
-- [ ] All tests pass (${WORK_STATUS.TEST_RESULT.PASS})
-- [ ] ${PATHS.SYNC_ISSUES} is EMPTY (no unresolved issues)
-- [ ] ${PATHS.INTEGRATION_STATUS} shows ${WORK_STATUS.TEST_RESULT.PASS}
+- [x] All TODO items [x] (system checks ${PATHS.TODO})
+- [x] Build passes
+- [x] All tests pass (${WORK_STATUS.TEST_RESULT.PASS})
+- [x] ${PATHS.SYNC_ISSUES} is EMPTY (system checks this)
+- [x] ${PATHS.INTEGRATION_STATUS} shows ${WORK_STATUS.TEST_RESULT.PASS}
 
 ### CRITICAL:
 - Always check sync AFTER integration tests

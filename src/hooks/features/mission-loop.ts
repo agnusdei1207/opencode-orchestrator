@@ -18,7 +18,7 @@ import {
     isLoopActive,
     clearLoopState,
 } from "../../core/loop/mission-seal.js";
-import { PROMPTS, COMMAND_NAMES } from "../../shared/index.js";
+import { PROMPTS, COMMAND_NAMES, TOAST_VARIANTS } from "../../shared/index.js";
 import { HOOK_ACTIONS, HOOK_NAMES } from "../constants.js";
 import * as Toast from "../../core/notification/toast.js";
 import * as ProgressTracker from "../../core/progress/tracker.js";
@@ -35,6 +35,15 @@ import {
     MISSION_MESSAGES,
     CONTINUE_INSTRUCTION
 } from "../../shared/constants/system-messages.js";
+import {
+    verifyMissionCompletion,
+    buildVerificationFailurePrompt,
+    buildVerificationSummary
+} from "../../core/loop/verification.js";
+// OS Notification
+import { sendNotification } from "../../core/notification/os-notify/notifier.js";
+import { playSound } from "../../core/notification/os-notify/sound-player.js";
+import { detectPlatform, getDefaultSoundPath } from "../../core/notification/os-notify/platform.js";
 
 export class MissionControlHook implements AssistantDoneHook, ChatMessageHook {
     name = HOOK_NAMES.MISSION_LOOP;
@@ -108,9 +117,29 @@ export class MissionControlHook implements AssistantDoneHook, ChatMessageHook {
             return { action: HOOK_ACTIONS.STOP, reason: "User cancelled via text" };
         }
 
-        // 3. Mission Seal Check
+        // 3. Mission Seal Check with Verification Gate
         if (detectSealInText(finalText)) {
-            log(MISSION_MESSAGES.SEAL_LOG);
+            // ⚠️ VERIFICATION GATE: Check actual completion conditions
+            const verification = verifyMissionCompletion(directory);
+
+            if (!verification.passed) {
+                // Verification FAILED - reject SEAL and continue loop
+                log("[MissionControl] SEAL detected but verification FAILED", {
+                    todoProgress: verification.todoProgress,
+                    todoComplete: verification.todoComplete,
+                    syncIssuesEmpty: verification.syncIssuesEmpty,
+                    errors: verification.errors
+                });
+
+                // Inject rejection prompt to force continuation
+                return {
+                    action: HOOK_ACTIONS.INJECT,
+                    prompts: [buildVerificationFailurePrompt(verification)]
+                };
+            }
+
+            // ✅ Verification PASSED - allow mission completion
+            log(MISSION_MESSAGES.SEAL_LOG + " " + buildVerificationSummary(verification));
             clearLoopState(directory);
 
             // Use TaskToastManager for consistent and enhanced TUI feedback
@@ -125,11 +154,31 @@ export class MissionControlHook implements AssistantDoneHook, ChatMessageHook {
                 await Toast.show({
                     title: MISSION_MESSAGES.TOAST_COMPLETE_TITLE,
                     message: MISSION_MESSAGES.TOAST_COMPLETE_MESSAGE,
-                    variant: "success"
+                    variant: TOAST_VARIANTS.SUCCESS
                 });
             }
 
-            return { action: HOOK_ACTIONS.STOP, reason: "Mission Sealed" };
+            // 🎉 OS Notification - Only sent when verification PASSES
+            try {
+                const platform = detectPlatform();
+                const soundPath = getDefaultSoundPath(platform);
+
+                await sendNotification(
+                    platform,
+                    "🎖️ Mission Complete!",
+                    `All verifications passed. ${verification.checklistProgress !== "0/0"
+                        ? `Checklist: ${verification.checklistProgress}`
+                        : `TODO: ${verification.todoProgress}`}`
+                );
+
+                if (soundPath) {
+                    await playSound(platform, soundPath);
+                }
+            } catch {
+                // OS notification failed, TUI toast was already shown
+            }
+
+            return { action: HOOK_ACTIONS.STOP, reason: "Mission Sealed (Verified)" };
         }
 
         // 4. Auto-Continuation Injection

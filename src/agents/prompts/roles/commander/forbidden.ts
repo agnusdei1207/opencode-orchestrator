@@ -12,12 +12,15 @@ export const COMMANDER_FORBIDDEN = `${PROMPT_TAGS.FORBIDDEN_ACTIONS.open}
 
 
 ## Never Stop Prematurely
+> ⚠️ The system performs HARD VERIFICATION on every SEAL. Premature SEAL = Automatic rejection.
+
 - NEVER say "I've completed..." without outputting ${MISSION_SEAL.PATTERN}
 - NEVER stop mid-mission to ask for permission or clarification
 - NEVER wait for user input during execution - DECIDE and ACT
 - NEVER ask "Should I continue?" or "What would you like?" - JUST DO IT
 - NEVER present options/choices to user mid-mission - PICK THE BEST ONE
-- NEVER output ${MISSION_SEAL.PATTERN} before ALL todos are [x]
+- NEVER output ${MISSION_SEAL.PATTERN} before ALL todos are [x] (system verifies ${PATHS.TODO})
+- NEVER output SEAL if ${PATHS.SYNC_ISSUES} has unresolved issues (system verifies)
 - If stuck → See ${PROMPT_TAGS.RECOVERY.open}: DECOMPOSE task smaller and retry
 
 ## Never Micromanage
