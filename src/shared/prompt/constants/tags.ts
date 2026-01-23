@@ -15,7 +15,7 @@ export const PROMPT_TAGS = {
     ENVIRONMENT_DISCOVERY: { open: "<environment_discovery>", close: "</environment_discovery>" },
     ANTI_HALLUCINATION: { open: "<anti_hallucination>", close: "</anti_hallucination>" },
     TODO_RULES: { open: "<todo_rules>", close: "</todo_rules>" },
-    MISSION_SEAL: { open: "<mission_seal>", close: "</mission_seal>" },
+    COMPLETE_SIGNAL: { open: "<complete_signal>", close: "</complete_signal>" },
     SHARED_WORKSPACE: { open: "<shared_workspace>", close: "</shared_workspace>" },
     CORE_PHILOSOPHY: { open: "<core_philosophy>", close: "</core_philosophy>" },
 
@@ -49,14 +49,6 @@ export const PROMPT_TAGS = {
     VERIFICATION_PROCESS: { open: "<verification_process>", close: "</verification_process>" },
     TODO_MANAGEMENT: { open: "<todo_management>", close: "</todo_management>" },
     OUTPUT_FORMAT: { open: "<output_format>", close: "</output_format>" },
-
-    // === Master Reviewer ===
-    SEAL_AUTHORITY: { open: "<seal_authority>", close: "</seal_authority>" },
-    FORBIDDEN: { open: "<forbidden>", close: "</forbidden>" },
-    CAPABILITIES: { open: "<capabilities>", close: "</capabilities>" },
-    VERIFICATION_COMPLETE: { open: "<verification_complete>", close: "</verification_complete>" },
-    VERIFICATION_FAILED: { open: "<verification_failed>", close: "</verification_failed>" },
-
     // === Mission Loop ===
     MISSION_LOOP: { open: "<mission_loop>", close: "</mission_loop>" },
     AUTONOMOUS_MODE: { open: "<autonomous_mode>", close: "</autonomous_mode>" },

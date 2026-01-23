@@ -1,10 +1,10 @@
 /**
- * Mission Seal Lifecycle Tests
+ * Mission Loop Lifecycle Tests
  * 
  * E2E tests for:
- * - Mission seal detection
+ * - Mission loop state management
  * - Loop continuation logic
- * - Seal validation
+ * - Progressive iteration tracking
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
@@ -19,22 +19,20 @@ import {
     startMissionLoop,
     incrementIteration,
     clearLoopState,
-    detectSealInText,
     generateMissionContinuationPrompt,
-    SEAL_REGEX,
     type MissionLoopState,
-} from "../../src/core/loop/mission-seal";
-import { MISSION_SEAL } from "../../src/shared";
+} from "../../src/core/loop/mission-loop";
+import { MISSION_CONTROL } from "../../src/shared";
 import * as fs from "fs";
 import * as path from "path";
 import { tmpdir } from "os";
 
-describe("Mission Seal Lifecycle E2E", () => {
+describe("Mission Loop Lifecycle E2E", () => {
     let testDir: string;
     const testSessionID = "test_session_123";
 
     beforeEach(() => {
-        testDir = path.join(tmpdir(), `mission-seal-test-${Date.now()}`);
+        testDir = path.join(tmpdir(), `mission-loop-test-${Date.now()}`);
         fs.mkdirSync(testDir, { recursive: true });
         fs.mkdirSync(path.join(testDir, ".opencode"), { recursive: true });
     });
@@ -69,7 +67,7 @@ describe("Mission Seal Lifecycle E2E", () => {
             startMissionLoop(testDir, testSessionID, "Test task");
 
             const state = readLoopState(testDir);
-            expect(state?.maxIterations).toBe(MISSION_SEAL.DEFAULT_MAX_ITERATIONS);
+            expect(state?.maxIterations).toBe(MISSION_CONTROL.DEFAULT_MAX_ITERATIONS);
         });
 
         it("should allow custom max iterations", () => {
@@ -128,56 +126,13 @@ describe("Mission Seal Lifecycle E2E", () => {
     });
 
     // ========================================================================
-    // Seal Pattern Detection
+    // Mission Loop Constants
     // ========================================================================
 
-    describe("seal pattern detection", () => {
-        it("should define correct seal pattern", () => {
-            expect(MISSION_SEAL.PATTERN).toBe("<mission_seal>SEALED</mission_seal>");
-        });
-
-        it("should detect seal in text using function", () => {
-            const textWithSeal = `
-                Task completed successfully.
-                All tests passing.
-                <mission_seal>SEALED</mission_seal>
-            `;
-
-            expect(detectSealInText(textWithSeal)).toBe(true);
-        });
-
-        it("should detect seal in text using regex", () => {
-            const textWithSeal = "Done! <mission_seal>SEALED</mission_seal>";
-            expect(SEAL_REGEX.test(textWithSeal)).toBe(true);
-        });
-
-        it("should not detect partial seal", () => {
-            const partialSeal = "<mission_seal>PENDING</mission_seal>";
-            expect(detectSealInText(partialSeal)).toBe(false);
-        });
-
-        it("should handle whitespace in seal tag", () => {
-            const sealWithWhitespace = "<mission_seal> SEALED </mission_seal>";
-            expect(SEAL_REGEX.test(sealWithWhitespace)).toBe(true);
-        });
-    });
-
-    // ========================================================================
-    // Mission Seal Constants
-    // ========================================================================
-
-    describe("mission seal constants", () => {
+    describe("mission loop constants", () => {
         it("should have all required constants", () => {
-            expect(MISSION_SEAL.TAG).toBe("mission_seal");
-            expect(MISSION_SEAL.CONFIRMATION).toBe("SEALED");
-            expect(MISSION_SEAL.PATTERN).toBeDefined();
-            expect(MISSION_SEAL.DEFAULT_MAX_ITERATIONS).toBeGreaterThan(0);
-            expect(MISSION_SEAL.DEFAULT_COUNTDOWN_SECONDS).toBeGreaterThan(0);
-        });
-
-        it("should have stop and cancel commands", () => {
-            expect(MISSION_SEAL.STOP_COMMAND).toBe("/stop");
-            expect(MISSION_SEAL.CANCEL_COMMAND).toBe("/cancel");
+            expect(MISSION_CONTROL.DEFAULT_MAX_ITERATIONS).toBeGreaterThan(0);
+            expect(MISSION_CONTROL.DEFAULT_COUNTDOWN_SECONDS).toBeGreaterThan(0);
         });
     });
 
@@ -191,7 +146,7 @@ describe("Mission Seal Lifecycle E2E", () => {
             const state = readLoopState(testDir);
 
             if (state) {
-                const prompt = generateMissionContinuationPrompt(state);
+                const prompt = generateMissionContinuationPrompt(state, testDir);
                 expect(prompt).toContain("mission_loop");
                 expect(prompt).toContain("Build API");
             }
@@ -204,7 +159,7 @@ describe("Mission Seal Lifecycle E2E", () => {
 
             const state = readLoopState(testDir);
             if (state) {
-                const prompt = generateMissionContinuationPrompt(state);
+                const prompt = generateMissionContinuationPrompt(state, testDir);
                 expect(prompt).toContain("3"); // iteration 3
             }
         });
@@ -230,7 +185,7 @@ describe("Mission Seal Lifecycle E2E", () => {
             const state = readLoopState(testDir);
             expect(state?.iteration).toBe(4);
 
-            // 3. Mission sealed
+            // 3. Mission completed
             clearLoopState(testDir);
             expect(isLoopActive(testDir, testSessionID)).toBe(false);
         });

@@ -1,6 +1,6 @@
 import { tool } from "@opencode-ai/plugin";
 import { AGENTS } from "../agents/definitions.js";
-import { AGENT_NAMES, EXECUTION_CYCLE_STEPS } from "../shared/index.js";
+import { AGENT_NAMES, EXECUTION_CYCLE_STEPS, VERIFICATION_SIGNALS } from "../shared/index.js";
 
 export const callAgentTool = tool({
     description: `Call a specialized agent for parallel execution.
@@ -10,15 +10,14 @@ export const callAgentTool = tool({
 |-------|------|-------------|
 | ${AGENT_NAMES.PLANNER} | Planner + Researcher | Complex task -> plan, OR need research first |
 | ${AGENT_NAMES.WORKER} | Developer + Docs | Any code implementation, documentation |
-| ${AGENT_NAMES.REVIEWER} | Verifier + Context | Module-level verification, update TODO |
-| ${AGENT_NAMES.MASTER_REVIEWER} | Final Gate | Final verification, E2E tests, SEAL authority |
+| ${AGENT_NAMES.REVIEWER} | Verifier + Context | Module-level & Final Verification, update TODO |
 </agents>
 
 
 <execution_rules>
 1. Tasks with same parallel_group run CONCURRENTLY
 2. Call Reviewer for module-level verification
-3. Call Master Reviewer when ALL work is done for final SEAL
+3. Call Reviewer for final "${VERIFICATION_SIGNALS.FINAL_PASS}" pass
 4. Never stop until mission is 100% complete
 </execution_rules>`,
     args: {
@@ -27,7 +26,6 @@ export const callAgentTool = tool({
                 AGENT_NAMES.PLANNER,
                 AGENT_NAMES.WORKER,
                 AGENT_NAMES.REVIEWER,
-                AGENT_NAMES.MASTER_REVIEWER,
             ])
             .describe("Agent to call"),
         task: tool.schema.string().describe("Atomic task description"),

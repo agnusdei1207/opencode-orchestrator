@@ -29,7 +29,7 @@ export const PARALLEL_TASK = {
      * - Depth 2: Worker/Reviewer (TERMINAL - cannot spawn sub-agents)
      * - Depth 3: BLOCKED
      * 
-     * This prevents infinite recursion and ensures Master Reviewer
+     * This prevents infinite recursion and ensures the Reviewer
      * doesn't wait indefinitely for deeply nested sub-tasks.
      */
     MAX_DEPTH: 3,

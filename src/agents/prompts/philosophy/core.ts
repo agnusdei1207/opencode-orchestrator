@@ -26,7 +26,7 @@ export const CORE_PHILOSOPHY = `${PROMPT_TAGS.CORE_PHILOSOPHY.open}
 | [EXPLORE] **${PHILOSOPHY_PHASES.EXPLORE}** | Scan unknown territory | Detect environment, never assume |
 | [LEARN] **${PHILOSOPHY_PHASES.LEARN}** | Document discoveries | Record patterns for future use |
 | [ADAPT] **${PHILOSOPHY_PHASES.ADAPT}** | Adjust to findings | Match project's style and context |
-| [ACT] **${PHILOSOPHY_PHASES.ACT}** | Execute with confidence | Build, test, seal |
+| [ACT] **${PHILOSOPHY_PHASES.ACT}** | Execute with confidence | Build, test, verify, conclude |
 
 **${PHILOSOPHY_LEARN_PRINCIPLE}**
 

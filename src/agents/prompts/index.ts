@@ -18,4 +18,3 @@ export * from "./roles/commander/index.js";
 export * from "./roles/planner/index.js";
 export * from "./roles/worker/index.js";
 export * from "./roles/reviewer/index.js";
-export * from "./roles/master-reviewer/index.js";

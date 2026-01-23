@@ -44,7 +44,7 @@ export const WORK_STATUS = {
         IMPLEMENTATION: "IMPLEMENTATION",
         E2E: "E2E",
         FIXING: "FIXING",
-        SEALING: "SEALING",
+        VERIFYING: "VERIFYING",
     },
 
     // Issue severity  

@@ -43,11 +43,11 @@ This philosophy extends to efficiency. We achieved **Zero-Configuration** usabil
               [ User Task Input ]
                         │
             ┌───────────▼───────────┐ ◄────────────────────────────────────────┐
-            │   🫡 COMMANDER (Hub)  │  (Orchestration)                         │
+            │   🧐 COMMANDER (Hub)  │  (Orchestration)                         │
             └───────────┬───────────┘                                          │
                         │                                                      │
             ┌───────────▼───────────┐                                          │
-            │   🗓️ PLANNER (Map)    │  (Create TODO.md)                        │
+            │   🗓️ PLANNER (Map)    │  (Create Hierarchical TODO.md)           │
             └───────────┬───────────┘                                          │
                         │                                                      │
      ┌──────────────────▼──────────────────┐                                   │
@@ -55,24 +55,25 @@ This philosophy extends to efficiency. We achieved **Zero-Configuration** usabil
      └──────┬───────────┬───────────┬──────┘                                   │
             │           │           │                                          │
      ┌──────▼───┐ ┌─────▼────┐ ┌────▼─────┐                                    │
-     │ 🔨 WORKER│ │ 🔨 WORKER│ │ 🔨 WORKER│                                    │
+     │ 🔨 WORKER│ │ 🔨 WORKER│ │ 🔨 WORKER│  (Implementation)                  │
      └──────┬───┘ └─────┬────┘ └────┬─────┘                                    │
             │           │           │                                          │
      ╔══════▼═══════════▼═══════════▼══════╗                                   │
-     ║   🔍 COMMANDER: Parallel Reviewers  ║                                   │
+     ║   🔍 COMMANDER: Parallel Reviewers  ║  (Sync Barrier)                   │
      ╚══════╤═══════════╤═══════════╤══════╝                                   │
             │           │           │                                          │
      ┌──────▼───┐ ┌─────▼────┐ ┌────▼─────┐                                    │
-     │🔍REVIEWER│ │🔍REVIEWER│ │🔍REVIEWER│  (Module-level)                    │
+     │🔍REVIEWER│ │🔍REVIEWER│ │🔍REVIEWER│  (Module-level Verification)        │
      └──────┬───┘ └─────┬────┘ └────┬─────┘                                    │
             │           │           │                                          │
            ═▼═══════════▼═══════════▼═                                         │
-           │      🚦 SYNC BARRIER      │                                        │
+           │     🌳 TODO ROLL-UP       │                                        │
            ═════════════╤═════════════                                         │
                         │                                                      │
             ┌───────────▼───────────┐                                          │
-            │  🎖️ MASTER REVIEWER   │  (Final Verification Authority)          │
+            │     🔍 REVIEWER       │  (Final Quality Gate)                    │
             │   ┌─────────────────┐ │                                          │
+            │   │ [x] TODO 100%   │ │                                          │
             │   │ [x] Build Pass  │ │                                          │
             │   │ [x] Tests Pass  │ │                                          │
             │   │ [x] E2E Pass    │ │                                          │
@@ -80,24 +81,23 @@ This philosophy extends to efficiency. We achieved **Zero-Configuration** usabil
             │   └─────────────────┘ │                                          │
             └───────────┬───────────┘                                          │
                         │                                                      │
-              __________▼_________                                             │
-             ╱                    ╲    NO (Failure Summary → Commander)        │
-            ╱   ✅ All Checks Pass ╲ ──────────────────────────────────────────┘
-            ╲   🛡️ Sync Issues 0?  ╱   (Infinite Loopback Until Resolved)
-             ╲____________________╱
+               _________▼__________                                             │
+              ╱                    ╲    NO (Failure Summary → Commander)        │
+             ╱   ✅ All Checks Pass ╲ ──────────────────────────────────────────┘
+             ╲   🛡️ Sync Issues 0?  ╱   (Autonomous Loopback via File State)
+              ╲____________________╱
                         │ YES
                         │
-                [ 🎖️ MISSION SEALED ]
+                [ 🎖️ MISSION COMPLETE ]
                         │
             ┌───────────▼───────────┐
-            │   🔔 OS Notification  │
-            │   🎵 Success Sound    │
+            │   🔔 Notification     │
             └───────────────────────┘
 ```
 
 ---
 
-## � Cognitive Architecture & Key Strengths
+## 🧠 Cognitive Architecture & Key Strengths
 
 ### 📉 Adaptive Context Gating (EMA-based)
 We combat "Context Drift" using a mechanism derived from **Exponential Moving Average (EMA)** algorithms. Irrelevant conversation noise follows a rapid decay curve, while critical architectural decisions are reinforced into **Stable Core Memory**. This functions as an **Attention Sink**, allowing agents to work indefinitely without **Catastrophic Forgetting**.
@@ -115,22 +115,17 @@ Pure LLM approaches are stochastic. We bind them with a **Neuro-Symbolic Archite
 ### ⚡ Dynamic Fork-Join Parallelism with Backpressure
 The engine features an **Intelligent Load-Balancing System** that fluidly switches between synchronous barriers and asynchronous **Fork-Join** patterns. It monitors **System Backpressure** to dynamically adjust concurrency slots in real-time (`Adaptive Throttling`), maximizing throughput on high-end hardware while maintaining stability on constrained environments.
 
-### 🎯 Iterative Rejection Sampling (Zero-Shot Defense)
-We employ a **Rejection Sampling Loop** driven by the Master Reviewer Agent (**Final Reward Model**). Through the **Metric-based Strict Verification Protocol (MSVP)**, code paths that fail execution tests are pruned. The system iterates until the solution converges on a mathematically correct state (0% Error Rate), rejecting any solution that lacks evidence.
+### 🎯 Multi-Stage Verification Pipeline (MSVP)
+We employ a **Rejection Sampling Loop** driven by the Reviewer Agent. Through MSVP, code paths that fail execution-based verification are pruned. The system iterates until the solution converges on a verified state (0% Error Rate), rejecting any solution that lacks empirical evidence from the project's native tools.
 
 ### 🧩 Externalized Chain-of-Thought (CoT)
-The Planner's `TODO.md` serves as an **Externalized Working Memory** (Scratchpad). This persistent **Symbolic Chain-of-Thought** decouples detailed planning from the LLM's immediate context window, enabling the orchestration of massive, multi-step engineering tasks without logical degradation.
+The Planner's `TODO.md` serves as an **Externalized Working Memory**. This persistent **Symbolic Chain-of-Thought** decouples detailed planning from the LLM's immediate context window, enabling the orchestration of massive, multi-step engineering tasks without logical degradation.
 
-### 🔄 Hierarchical Verification Pipeline (MVP)
-The system employs a **Multi-Stage Verification Pipeline**:
-1. **Module-Level**: Reviewers verify individual Worker outputs (unit tests, type checks)
-2. **System-Level**: Master Reviewer performs comprehensive E2E verification
-3. **Loopback**: Failed checks trigger automatic re-planning and correction cycles
+### 🛠️ Autonomous Skill Extension
+The orchestrator is not limited by its initial programming. It can autonomously **discover, install, and learn** new skills (tools/instructions) on-the-fly when it encounters unfamiliar technologies (e.g., Kubernetes, specific cloud SDKs, or legacy build systems).
 
-This separation of concerns ensures both granular code quality and holistic system integrity.
-
-### 🌍 Environment-Agnostic Verification
-The Master Reviewer **auto-detects** project environments (Node.js, Rust, Python, Java, Go, C/C++, Docker, etc.) and adapts verification strategies accordingly. No hardcoded assumptions—true polyglot support.
+### 🌍 Adaptive Verification Frontier
+The system **auto-detects** project environments (Node.js, Rust, Python, Go, C/C++, Docker, etc.) by scouting configuration files and infrastructure. It identifies the unique **Verification Frontier** of each project—whether it's a Makefile, a CI/CD workflow, or a custom test harness—and adapts its strategy accordingly. No hardcoded assumptions—true polyglot autonomy.
 
 ---
 
@@ -138,11 +133,10 @@ The Master Reviewer **auto-detects** project environments (Node.js, Rust, Python
 
 | Agent | Role |
 |:------|:-----|
-| **Commander** | Orchestrates the mission, manages parallel threads and sync barriers |
-| **Planner** | Architecture architect. Breaks down tasks into strictly defined steps |
-| **Worker** | The builder. Writes code and corresponding unit tests |
-| **Reviewer** | Module-level gatekeeper. Verifies Worker outputs with build/test execution |
-| **Master Reviewer** | 🎖️ Final verification authority. Runs comprehensive E2E tests and holds **exclusive SEAL rights** |
+| **Commander** | Orchestrates the mission, manages parallel threads and sync barriers. |
+| **Planner** | Architecture architect. Breaks down tasks into strictly defined steps. |
+| **Worker** | The builder. Writes code and corresponding unit tests. |
+| **Reviewer** | **Verification Authority**. Module-level gatekeeper AND Final Quality Gate. |
 
 ---
 

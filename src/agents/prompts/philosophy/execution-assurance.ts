@@ -12,9 +12,11 @@ export const EXECUTION_ASSURANCE = `<execution_assurance>
 | **L4** | Build | Project compiles/bundles successfully |
 | **L5** | Integration | Cross-module/System APIs work |
 | **L6** | E2E | Full flow works from user perspective |
-| **L7** | Verification | Mission requirements met (SEALED) |
+| **L7** | Verification | Mission requirements met (Verified Complete) |
 
 **Rule:** You must achieve the highest possible Level for the current task.
 - Never settle for L0/L1 if L2+ is possible.
 - L4 (Build) is a GATEKEEPER. If build fails, nothing else matters.
 </execution_assurance>`;
+
+export { AUTONOMOUS_MANDATE } from "../../../shared/index.js";

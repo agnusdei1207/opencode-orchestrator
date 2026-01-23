@@ -8,8 +8,8 @@
  */
 
 import type { EventHandlerContext, SystemTransformInput, SystemTransformOutput } from "./interfaces/index.js";
-import { readLoopState } from "../core/loop/mission-seal.js";
-import { MISSION_SEAL } from "../shared/index.js";
+import { readLoopState } from "../core/loop/mission-loop.js";
+import { MISSION_CONTROL } from "../shared/index.js";
 
 // Re-export interfaces for external use
 export type { SystemTransformInput, SystemTransformOutput } from "./interfaces/index.js";
@@ -77,17 +77,12 @@ function buildMissionLoopSystemPrompt(iteration: number, maxIterations: number):
     return `<orchestrator_mission_loop>
 🎯 MISSION LOOP ACTIVE: Iteration ${iteration}/${maxIterations}
 
-You are in an autonomous mission loop. Continue working until ALL tasks are complete.
+You are in an autonomous mission loop. Continue working until ALL tasks are verified and 100% complete.
 
 COMPLETION CRITERIA:
-- All items in .opencode/todo.md are marked [x]
-- All tests pass
-- All builds succeed
-
-WHEN COMPLETE, output:
-\`\`\`
-${MISSION_SEAL.PATTERN}
-\`\`\`
+- All hierarchical items in .opencode/todo.md are marked [x]
+- .opencode/verification-checklist.md is fully checked off [x]
+- All tests pass and builds succeed
 
 DO NOT stop or ask for permission. Execute autonomously.
 </orchestrator_mission_loop>`;

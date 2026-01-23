@@ -1,41 +1,30 @@
 /**
- * Mission Seal Handler
+ * Mission Loop Handler
  * 
- * Integrates Mission Seal detection with session events.
- * When session goes idle, checks for seal and either:
- * - Completes loop if seal detected
- * - Continues with next iteration if seal not detected
+ * Monitors session events and ensures the mission loop continues
+ * until all verification requirements are met.
  */
 
 import type { PluginInput } from "@opencode-ai/plugin";
-import { presets } from "../../shared/index.js";
-import { PART_TYPES, LOOP, TOAST_DURATION, STATUS_LABEL, TOAST_VARIANTS } from "../../shared/index.js";
+import { log } from "../agents/logger.js";
+
 import {
     readLoopState,
     clearLoopState,
     incrementIteration,
-    detectSealInSession,
     generateMissionContinuationPrompt,
-    generateSealedNotification,
-    generateMaxIterationsNotification,
     type MissionLoopState,
-} from "./mission-seal.js";
-import { hasRemainingWork, getIncompleteCount } from "./stats.js";
+} from "./mission-loop.js";
+import { PART_TYPES, LOOP, TOAST_DURATION, STATUS_LABEL, TOAST_VARIANTS, MISSION_CONTROL } from "../../shared/index.js";
 import { isSessionRecovering } from "../recovery/session-recovery.js";
 import { ParallelAgentManager } from "../agents/manager.js";
 import { sendNotification } from "../notification/os-notify/notifier.js";
 import { playSound } from "../notification/os-notify/sound-player.js";
 import { detectPlatform, getDefaultSoundPath } from "../notification/os-notify/platform.js";
+import { verifyMissionCompletion, buildVerificationFailurePrompt } from "./verification.js";
+
 
 type OpencodeClient = PluginInput["client"];
-
-// ============================================================================
-// Configuration (from shared constants)
-// ============================================================================
-
-const COUNTDOWN_SECONDS = LOOP.COUNTDOWN_SECONDS;
-const TOAST_DURATION_MS = TOAST_DURATION.EXTRA_SHORT;
-const MIN_TIME_BETWEEN_CHECKS_MS = LOOP.MIN_TIME_BETWEEN_CHECKS_MS;
 
 // ============================================================================
 // State
@@ -100,30 +89,7 @@ async function showCountdownToast(
                     title: "🔄 Mission Loop",
                     message: `Continuing in ${seconds}s... (iteration ${iteration}/${maxIterations})`,
                     variant: TOAST_VARIANTS.WARNING,
-                    duration: TOAST_DURATION_MS,
-                },
-            });
-        }
-    } catch {
-        // Toast failed, continue anyway
-    }
-}
-
-async function showSealedToast(
-    client: OpencodeClient,
-    state: MissionLoopState
-): Promise<void> {
-    try {
-        const tuiClient = client as unknown as {
-            tui?: { showToast?: (opts: unknown) => Promise<void> }
-        };
-        if (tuiClient.tui?.showToast) {
-            await tuiClient.tui.showToast({
-                body: {
-                    title: "🎖️ Mission Sealed!",
-                    message: `Completed after ${state.iteration} iteration(s)`,
-                    variant: TOAST_VARIANTS.SUCCESS,
-                    duration: TOAST_DURATION.LONG,
+                    duration: TOAST_DURATION.EXTRA_SHORT,
                 },
             });
         }
@@ -132,7 +98,7 @@ async function showSealedToast(
     }
 }
 
-async function showMaxIterationsToast(
+async function showCompletedToast(
     client: OpencodeClient,
     state: MissionLoopState
 ): Promise<void> {
@@ -143,9 +109,9 @@ async function showMaxIterationsToast(
         if (tuiClient.tui?.showToast) {
             await tuiClient.tui.showToast({
                 body: {
-                    title: "⚠️ Mission Loop Stopped",
-                    message: `Max iterations (${state.maxIterations}) reached`,
-                    variant: TOAST_VARIANTS.WARNING,
+                    title: "🎖️ Mission Complete!",
+                    message: `Verified and finished after ${state.iteration} iteration(s)`,
+                    variant: TOAST_VARIANTS.SUCCESS,
                     duration: TOAST_DURATION.LONG,
                 },
             });
@@ -175,15 +141,15 @@ async function injectContinuation(
     if (hasRunningBackgroundTasks(sessionID)) return;
     if (isSessionRecovering(sessionID)) return;
 
-    // Check for seal one more time
-    const sealDetected = await detectSealInSession(client, sessionID);
-    if (sealDetected) {
-        await handleSealDetected(client, directory, loopState);
+    // Verify completion one last time
+    const verification = verifyMissionCompletion(directory);
+    if (verification.passed) {
+        await handleMissionComplete(client, directory, loopState);
         return;
     }
 
     // Generate and inject continuation prompt
-    const prompt = generateMissionContinuationPrompt(loopState);
+    const prompt = generateMissionContinuationPrompt(loopState, directory);
 
     try {
         await client.session.prompt({
@@ -193,56 +159,44 @@ async function injectContinuation(
             },
         });
     } catch {
-        // Injection failed, continue anyway
+        // Injection failed
     }
 }
 
 /**
- * Handle when seal is detected - complete the loop
+ * Handle mission complete
  */
-async function handleSealDetected(
+async function handleMissionComplete(
     client: OpencodeClient,
     directory: string,
     loopState: MissionLoopState
 ): Promise<void> {
-    clearLoopState(directory);
-    await showSealedToast(client, loopState);
-
-    // Send OS-level notification when mission is sealed
-    await sendMissionSealedNotification(loopState);
+    const cleared = clearLoopState(directory);
+    if (cleared) {
+        await showCompletedToast(client, loopState);
+        await sendMissionCompleteNotification(loopState);
+    }
 }
 
 /**
- * Handle when max iterations reached
+ * Send OS-level notification when mission is complete
  */
-async function handleMaxIterations(
-    client: OpencodeClient,
-    directory: string,
-    loopState: MissionLoopState
-): Promise<void> {
-    clearLoopState(directory);
-    await showMaxIterationsToast(client, loopState);
-}
-
-/**
- * Send OS-level notification when mission is sealed
- */
-async function sendMissionSealedNotification(loopState: MissionLoopState): Promise<void> {
+async function sendMissionCompleteNotification(loopState: MissionLoopState): Promise<void> {
     try {
         const platform = detectPlatform();
         const soundPath = getDefaultSoundPath(platform);
 
         await sendNotification(
             platform,
-            "🎖️ Mission Sealed!",
-            `Task completed after ${loopState.iteration} iteration(s)`
+            "🎖️ Mission Complete!",
+            `All tasks verified after ${loopState.iteration} iteration(s)`
         );
 
         if (soundPath) {
             await playSound(platform, soundPath);
         }
     } catch {
-        // OS notification failed, continue anyway (toast was already shown)
+        // Notification failed
     }
 }
 
@@ -251,9 +205,9 @@ async function sendMissionSealedNotification(loopState: MissionLoopState): Promi
 // ============================================================================
 
 /**
- * Handle session.idle event for mission seal loop
+ * Handle session.idle event for mission loop
  */
-export async function handleMissionSealIdle(
+export async function handleMissionIdle(
     client: OpencodeClient,
     directory: string,
     sessionID: string,
@@ -264,7 +218,7 @@ export async function handleMissionSealIdle(
 
     // Rate limit
     if (handlerState.lastCheckTime &&
-        (now - handlerState.lastCheckTime) < MIN_TIME_BETWEEN_CHECKS_MS) {
+        (now - handlerState.lastCheckTime) < LOOP.MIN_TIME_BETWEEN_CHECKS_MS) {
         return;
     }
     handlerState.lastCheckTime = now;
@@ -286,7 +240,6 @@ export async function handleMissionSealIdle(
     // Read loop state
     const loopState = readLoopState(directory);
     if (!loopState || !loopState.active) {
-        // No active loop - let todo-continuation handle it
         return;
     }
 
@@ -295,20 +248,25 @@ export async function handleMissionSealIdle(
         return;
     }
 
+    // VERIFICATION GATE: Check if work is truly done
+    const verification = verifyMissionCompletion(directory);
 
-
-    // Check for seal
-    const sealDetected = await detectSealInSession(client, sessionID);
-
-    if (sealDetected) {
-        await handleSealDetected(client, directory, loopState);
+    if (verification.passed) {
+        log(`[mission-loop-handler] Verification passed for ${sessionID}. Completion confirmed.`);
+        await handleMissionComplete(client, directory, loopState);
         return;
     }
 
-    // Check max iterations
+    // Work remains - continue the loop
+    log(`[mission-loop-handler] Work remains for ${sessionID}, continuing...`, {
+        todo: verification.todoProgress,
+        checklist: verification.checklistProgress
+    });
+
+    // Handle max iterations exhaustion
     if (loopState.iteration >= loopState.maxIterations) {
-        await handleMaxIterations(client, directory, loopState);
-        return;
+        log(`[mission-loop-handler] Max iterations (${loopState.maxIterations}) reached but verification failed. Forced continuation enabled.`);
+        // In "Infinite Loop" mode, we might just keep going or notify
     }
 
     // Increment iteration
@@ -316,15 +274,13 @@ export async function handleMissionSealIdle(
     if (!newState) return;
 
     // Show countdown toast
-    await showCountdownToast(client, COUNTDOWN_SECONDS, newState.iteration, newState.maxIterations);
+    await showCountdownToast(client, MISSION_CONTROL.DEFAULT_COUNTDOWN_SECONDS, newState.iteration, newState.maxIterations);
 
     // Start countdown timer
     handlerState.countdownTimer = setTimeout(async () => {
         cancelCountdown(sessionID);
         await injectContinuation(client, directory, sessionID, newState);
-    }, COUNTDOWN_SECONDS * 1000);
-
-
+    }, MISSION_CONTROL.DEFAULT_COUNTDOWN_SECONDS * 1000);
 }
 
 /**
@@ -332,16 +288,13 @@ export async function handleMissionSealIdle(
  */
 export function handleUserMessage(sessionID: string): void {
     const state = getState(sessionID);
-
     if (state.countdownTimer) {
         cancelCountdown(sessionID);
     }
-
-    state.isAborting = false;
 }
 
 /**
- * Handle abort - prevent continuation
+ * Handle abort
  */
 export function handleAbort(sessionID: string): void {
     const state = getState(sessionID);
@@ -355,14 +308,4 @@ export function handleAbort(sessionID: string): void {
 export function cleanupSession(sessionID: string): void {
     cancelCountdown(sessionID);
     sessionStates.delete(sessionID);
-}
-
-/**
- * Check if there's a pending countdown
- * 
- * Utility function for debugging and testing continuation state.
- * Can be used to verify countdown status before injecting prompts.
- */
-export function hasPendingContinuation(sessionID: string): boolean {
-    return !!sessionStates.get(sessionID)?.countdownTimer;
 }

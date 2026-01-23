@@ -7,9 +7,9 @@ export const LIMITS = {
     MAX_ITERATIONS: 10000,
     /** Default scan limit for file listing */
     DEFAULT_SCAN_LIMIT: 20,
-    /** Max message history to check for seal */
+    /** Max message history to check for conclusion */
 
-    SEAL_CHECK_HISTORY: 3,
+    CONCLUDE_CHECK_HISTORY: 3,
     /** Max concurrent tasks per agent */
     MAX_TASKS_PER_AGENT: 10,
     /** Default history/list limit for UI */

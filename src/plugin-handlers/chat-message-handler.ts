@@ -15,7 +15,7 @@ import { AGENT_NAMES, PART_TYPES, PROMPTS, COMMAND_NAMES } from "../shared/index
 import * as Toast from "../core/notification/toast.js";
 import * as ProgressTracker from "../core/progress/tracker.js";
 import * as TodoContinuation from "../core/loop/todo-continuation.js";
-import { startMissionLoop } from "../core/loop/mission-seal.js";
+import { startMissionLoop } from "../core/loop/mission-loop.js";
 import { HookRegistry } from "../hooks/registry.js"; // Added import
 import { HOOK_ACTIONS } from "../hooks/constants.js";
 import type { ChatMessageHandlerContext } from "./interfaces/index.js";

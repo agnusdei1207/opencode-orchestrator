@@ -27,19 +27,17 @@ vi.mock("../../src/core/agents/logger", () => ({ log: vi.fn() }));
 vi.mock("../../src/core/notification/toast", () => ({
     show: vi.fn(),
     getTaskToastManager: vi.fn().mockReturnValue({
-        showMissionSealedToast: vi.fn(),
+        showMissionCompleteToast: vi.fn(),
     })
 }));
 vi.mock("../../src/tools/slashCommand", () => ({
     COMMANDS: { task: { description: "Mock", template: "Mock: $ARGUMENTS" } }
 }));
-vi.mock("../../src/core/loop/mission-seal", () => ({
+vi.mock("../../src/core/loop/mission-loop", () => ({
     startMissionLoop: vi.fn(),
     cancelMissionLoop: vi.fn(),
     isLoopActive: vi.fn().mockReturnValue(true),
-    detectSealInText: vi.fn(),
     clearLoopState: vi.fn(),
-    SEAL_PATTERN: "<mission_seal>"
 }));
 vi.mock("../../src/core/loop/verification", () => ({
     verifyMissionCompletion: vi.fn().mockReturnValue({
@@ -98,14 +96,14 @@ describe("Hook System", () => {
             expect(state.missionActive).toBe(true);
         });
 
-        it("should stopping if seal detected", async () => {
+        it("should stop if verification passes", async () => {
             state.missionActive = true;
             state.sessions.set("test-session", { enabled: true } as any);
 
-            const { detectSealInText } = await import("../../src/core/loop/mission-seal");
-            vi.mocked(detectSealInText).mockReturnValue(true);
+            const { verifyMissionCompletion } = await import("../../src/core/loop/verification");
+            vi.mocked(verifyMissionCompletion).mockReturnValue({ passed: true } as any);
 
-            const result = await hook.execute(mockContext, "All done <mission_seal>");
+            const result = await hook.execute(mockContext, "All done");
             expect(result.action).toBe(HOOK_ACTIONS.STOP);
         });
     });

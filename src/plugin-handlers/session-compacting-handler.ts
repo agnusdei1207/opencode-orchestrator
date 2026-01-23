@@ -7,7 +7,7 @@
  * additional context into the compaction prompt.
  */
 
-import { readLoopState, type MissionLoopState } from "../core/loop/mission-seal.js";
+import { readLoopState, type MissionLoopState } from "../core/loop/mission-loop.js";
 import type { EventHandlerContext, SessionCompactingInput, SessionCompactingOutput } from "./interfaces/index.js";
 
 // Re-export interfaces for external use
@@ -77,7 +77,7 @@ ACTIVE MISSION LOOP:
 - Original Task: ${loopState.prompt.slice(0, 500)}${loopState.prompt.length > 500 ? "..." : ""}
 
 IMPORTANT: Continue this mission after compaction. Check .opencode/todo.md for progress.
-The mission is NOT complete until <mission_seal>SEALED</mission_seal> is output.
+The mission is NOT complete until all hierarchical tasks are verified [x].
 </mission_context>`;
 }
 
@@ -122,6 +122,6 @@ function buildBackgroundTasksContext(tasks: Array<{ id: string; description: str
 RUNNING BACKGROUND TASKS (${tasks.length}):
 ${taskList}
 
-Wait for these tasks to complete before sealing the mission.
+Wait for these tasks to complete before concluding the mission.
 </background_tasks_context>`;
 }

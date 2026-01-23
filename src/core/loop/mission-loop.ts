@@ -1,46 +1,26 @@
 /**
- * Mission Seal - Explicit completion detection system
+ * Mission Loop - Persistent Execution System
  * 
- * When an agent outputs `<mission_seal>SEALED</mission_seal>`,
- * the task loop knows the mission is truly complete.
- * 
- * This prevents false-positive idle detection and ensures
- * agents explicitly confirm task completion.
+ * Ensures the mission continues until all TODO items are complete.
+ * This system moves away from explicit signaling (seals) and relies
+ * strictly on file-based state verification.
  */
 
 import { existsSync, readFileSync, writeFileSync, unlinkSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
 import type { PluginInput } from "@opencode-ai/plugin";
 import { log } from "../agents/logger.js";
-import { PATHS, PART_TYPES, MISSION_SEAL, MESSAGE_ROLES } from "../../shared/index.js";
+import { PATHS, MISSION_CONTROL } from "../../shared/index.js";
 
 // ============================================================================
-// Constants (derived from centralized MISSION_SEAL)
+// Constants
 // ============================================================================
-
-/** Tag for mission seal detection */
-export const MISSION_SEAL_TAG = MISSION_SEAL.TAG;
-
-/** Seal confirmation value */
-export const SEAL_CONFIRMATION = MISSION_SEAL.CONFIRMATION;
-
-/** Full seal pattern: <mission_seal>SEALED</mission_seal> */
-export const SEAL_PATTERN = MISSION_SEAL.PATTERN;
-
-/** Regex for detecting seal in text */
-export const SEAL_REGEX = new RegExp(
-    `<${MISSION_SEAL.TAG}>\\s*${MISSION_SEAL.CONFIRMATION}\\s*</${MISSION_SEAL.TAG}>`,
-    "i"
-);
 
 /** State file path */
-const STATE_FILE = MISSION_SEAL.STATE_FILE;
+const STATE_FILE = MISSION_CONTROL.STATE_FILE;
 
 /** Default max iterations before giving up */
-const DEFAULT_MAX_ITERATIONS = MISSION_SEAL.DEFAULT_MAX_ITERATIONS;
-
-/** Default countdown before auto-continue (seconds) */
-const DEFAULT_COUNTDOWN_SECONDS = MISSION_SEAL.DEFAULT_COUNTDOWN_SECONDS;
+const DEFAULT_MAX_ITERATIONS = MISSION_CONTROL.DEFAULT_MAX_ITERATIONS;
 
 // ============================================================================
 // Types
@@ -95,7 +75,7 @@ export function readLoopState(directory: string): MissionLoopState | null {
         const content = readFileSync(filePath, "utf-8");
         return JSON.parse(content) as MissionLoopState;
     } catch (error) {
-        log(`[mission-seal] Failed to read state: ${error}`);
+        log(`[mission-loop] Failed to read state: ${error}`);
         return null;
     }
 }
@@ -115,7 +95,7 @@ export function writeLoopState(directory: string, state: MissionLoopState): bool
         writeFileSync(filePath, JSON.stringify(state, null, 2), "utf-8");
         return true;
     } catch (error) {
-        log(`[mission-seal] Failed to write state: ${error}`);
+        log(`[mission-loop] Failed to write state: ${error}`);
         return false;
     }
 }
@@ -127,14 +107,14 @@ export function clearLoopState(directory: string): boolean {
     const filePath = getStateFilePath(directory);
 
     if (!existsSync(filePath)) {
-        return true;
+        return false;
     }
 
     try {
         unlinkSync(filePath);
         return true;
     } catch (error) {
-        log(`[mission-seal] Failed to clear state: ${error}`);
+        log(`[mission-loop] Failed to clear state: ${error}`);
         return false;
     }
 }
@@ -153,56 +133,6 @@ export function incrementIteration(directory: string): MissionLoopState | null {
         return state;
     }
     return null;
-}
-
-// ============================================================================
-// Detection
-// ============================================================================
-
-/**
- * Check if text contains mission seal
- */
-export function detectSealInText(text: string): boolean {
-    return SEAL_REGEX.test(text);
-}
-
-/**
- * Check session messages for mission seal
- */
-export async function detectSealInSession(
-    client: PluginInput["client"],
-    sessionID: string
-): Promise<boolean> {
-    try {
-        const response = await client.session.messages({ path: { id: sessionID } });
-        const messages = (response.data ?? []) as Array<{
-            info?: { role?: string };
-            parts?: Array<{ type?: string; text?: string }>;
-        }>;
-
-        // Check last few assistant messages
-        const assistantMessages = messages.filter(m => m.info?.role === MESSAGE_ROLES.ASSISTANT);
-        const recentMessages = assistantMessages.slice(-3); // Last 3 assistant messages
-
-        for (const msg of recentMessages) {
-            if (!msg.parts) continue;
-
-            const textParts = msg.parts.filter(
-                p => p.type === PART_TYPES.TEXT || p.type === PART_TYPES.REASONING
-            );
-
-            for (const part of textParts) {
-                if (part.text && detectSealInText(part.text)) {
-                    return true;
-                }
-            }
-        }
-
-        return false;
-    } catch (error) {
-        log(`[mission-seal] Failed to check session messages: ${error}`);
-        return false;
-    }
 }
 
 // ============================================================================
@@ -230,7 +160,7 @@ export function startMissionLoop(
     const success = writeLoopState(directory, state);
 
     if (success) {
-        log(`[mission-seal] Loop started`, {
+        log(`[mission-loop] Loop started`, {
             sessionID,
             maxIterations: state.maxIterations,
         });
@@ -241,9 +171,6 @@ export function startMissionLoop(
 
 /**
  * Cancel an active mission loop
- * 
- * TODO: Will be used when /cancel slash command is implemented
- * to allow users to cancel an active mission loop.
  */
 export function cancelMissionLoop(directory: string, sessionID: string): boolean {
     const state = readLoopState(directory);
@@ -255,7 +182,7 @@ export function cancelMissionLoop(directory: string, sessionID: string): boolean
     const success = clearLoopState(directory);
 
     if (success) {
-        log(`[mission-seal] Loop cancelled`, { sessionID, iteration: state.iteration });
+        log(`[mission-loop] Loop cancelled`, { sessionID, iteration: state.iteration });
     }
 
     return success;
@@ -269,15 +196,6 @@ export function isLoopActive(directory: string, sessionID: string): boolean {
     return state?.active === true && state?.sessionID === sessionID;
 }
 
-/**
- * Get remaining iterations
- */
-export function getRemainingIterations(directory: string): number {
-    const state = readLoopState(directory);
-    if (!state) return 0;
-    return Math.max(0, state.maxIterations - state.iteration);
-}
-
 // ============================================================================
 // Continuation Prompt
 // ============================================================================
@@ -285,57 +203,59 @@ export function getRemainingIterations(directory: string): number {
 /**
  * Generate continuation prompt for mission loop
  */
-export function generateMissionContinuationPrompt(state: MissionLoopState): string {
+export function generateMissionContinuationPrompt(state: MissionLoopState, directory?: string): string {
+    let verificationSummary = "";
+    if (directory) {
+        try {
+            const { verifyMissionCompletion, buildVerificationSummary } = require("./verification.js");
+            const v = verifyMissionCompletion(directory);
+            verificationSummary = `\n[Verification Status]: ${buildVerificationSummary(v)}\n`;
+        } catch { }
+    }
+
     return `<mission_loop iteration="${state.iteration}" max="${state.maxIterations}">
 ⚠️ **MISSION NOT COMPLETE** - Iteration ${state.iteration}/${state.maxIterations}
+${verificationSummary}
 
 The mission is INCOMPLETE. You MUST continue working NOW.
 
-**FORBIDDEN**:
-❌ Do NOT stop or ask for permission
-❌ Do NOT say "I've completed..." without SEAL
-❌ Do NOT output partial results
-❌ Do NOT wait for user input
+**HIERARCHICAL TODO MANDATE**:
+Your work is strictly governed by the hierarchy in \`.opencode/todo.md\`.
+1️⃣ **Milestones (Grade 1)**: Large phases of the mission.
+2️⃣ **Tasks (Grade 2)**: Sub-tasks within milestones.
+3️⃣ **Sub-tasks (Grade 3)**: Atomic actions.
+
+**CONCLUDING RULES**:
+❌ Do NOT stop if there are ANY \`[ ]\` items remaining.
+❌ Do NOT ask for permission to continue.
+❌ Do NOT declare completion without verifying EVERY leaf node.
 
 **REQUIRED SEQUENCE**:
-1️⃣ Check .opencode/todo.md for [ ] incomplete items
-2️⃣ Execute the NEXT pending task
-3️⃣ Use delegate_task with background=true for parallel work
-4️⃣ Mark completed items as [x]
-5️⃣ Repeat until ALL items are [x]
-
-**ONLY WHEN TRULY DONE**:
-- All todos marked [x]
-- All tests pass
-- All builds succeed
-Then and ONLY then output:
-
-\`\`\`
-${SEAL_PATTERN}
-\`\`\`
+1. Read \`.opencode/todo.md\` to identify the next \`[ ]\` item.
+2. If the plan is too abstract, breakdown the next task into smaller sub-tasks.
+3. Execute and mark as \`[x]\` ONLY after verification.
+4. Move to the next item immediately.
 
 **Your Original Task**:
 ${state.prompt}
 
-**NOW**: Continue executing until ${SEAL_PATTERN} is output!
+**NOW**: Continue executing!
 </mission_loop>`;
 }
 
 /**
  * Generate completion notification
  */
-export function generateSealedNotification(state: MissionLoopState): string {
+export function generateCompletionNotification(state: MissionLoopState): string {
     const duration = new Date().getTime() - new Date(state.startedAt).getTime();
     const minutes = Math.floor(duration / 60000);
     const seconds = Math.floor((duration % 60000) / 1000);
 
-    return `🎖️ **MISSION SEALED**
+    return `🎖️ **MISSION COMPLETE**
 
 - Iterations: ${state.iteration}/${state.maxIterations}
 - Duration: ${minutes}m ${seconds}s
-- Status: Complete
-
-The agent has confirmed mission completion.`;
+- Status: Verified`;
 }
 
 /**
@@ -347,6 +267,5 @@ export function generateMaxIterationsNotification(state: MissionLoopState): stri
 - Iterations: ${state.iteration}/${state.maxIterations} (max reached)
 - Status: Incomplete
 
-The mission loop reached the maximum iteration limit without sealing.
-Review the work done and decide how to proceed.`;
+Maximum iteration limit reached. Review the work done and decide how to proceed.`;
 }

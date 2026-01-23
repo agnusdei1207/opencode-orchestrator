@@ -59,8 +59,8 @@ vi.mock("../../src/core/recovery/session-recovery.js", () => ({
     isSessionRecovering: vi.fn(),
 }));
 
-// Mock Mission Seal
-vi.mock("../../src/core/loop/mission-seal.js", () => ({
+// Mock Mission Loop
+vi.mock("../../src/core/loop/mission-loop.js", () => ({
     isLoopActive: vi.fn(),
 }));
 
@@ -168,6 +168,5 @@ describe("os-notify/sound-player", () => {
     });
 });
 
-// NOTE: Handler tests removed - idle notification handler was deprecated
-// Only mission seal completion notifications are now supported (via mission-seal-handler.ts)
+// Only mission completion notifications are now supported (via mission-loop-handler.ts)
 

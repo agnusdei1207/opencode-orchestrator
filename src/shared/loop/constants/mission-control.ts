@@ -1,13 +1,10 @@
 /**
- * Mission Seal Configuration
+ * Mission Control Configuration
  */
 
 import { LIMITS } from "../../core/constants/limits.js";
 
-export const MISSION_SEAL = {
-    TAG: "mission_seal",
-    CONFIRMATION: "SEALED",
-    PATTERN: "<mission_seal>SEALED</mission_seal>",
+export const MISSION_CONTROL = {
     DEFAULT_MAX_ITERATIONS: LIMITS.MAX_ITERATIONS,
     DEFAULT_COUNTDOWN_SECONDS: 3,
     STATE_FILE: "loop-state.json",
@@ -15,6 +12,5 @@ export const MISSION_SEAL = {
     CANCEL_COMMAND: "/cancel",
 } as const;
 
-
-/** @deprecated Use MISSION_SEAL instead */
-export const MISSION = MISSION_SEAL;
+/** @deprecated Use MISSION_CONTROL instead */
+export const MISSION = MISSION_CONTROL;

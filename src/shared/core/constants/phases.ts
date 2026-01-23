@@ -41,7 +41,7 @@ export const PHASES = {
     },
     PHASE_6: {
         ID: "PHASE_6",
-        NAME: "SEAL",
+        NAME: "CONCLUDE",
         DESCRIPTION: "Mission completion and deterministic output",
         MANDATORY: true,
     },

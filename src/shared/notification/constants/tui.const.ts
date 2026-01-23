@@ -5,7 +5,7 @@
 export const TUI_ICONS = {
     RUNNING: "⚡",
     QUEUED: "⏳",
-    MISSION_SEALED: "🎉",
+    MISSION_COMPLETE: "🎉",
     SHIELD: "🛡️",
     NEW: " <- NEW",
 } as const;
@@ -23,6 +23,6 @@ export const TUI_TAGS = {
 } as const;
 
 export const TUI_MESSAGES = {
-    MISSION_SEALED_TITLE: "MISSION ACCOMPLISHED",
-    MISSION_SEALED_SUBTITLE: "Passed all verifications.\nCodebase is sealed.",
+    MISSION_COMPLETE_TITLE: "MISSION ACCOMPLISHED",
+    MISSION_COMPLETE_SUBTITLE: "Passed all verifications.\nWork is complete.",
 } as const;

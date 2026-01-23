@@ -285,20 +285,20 @@ export class TaskToastManager {
     }
 
     /**
-     * Show Mission Sealed toast (Grand Finale)
+     * Show Mission Complete toast (Grand Finale)
      */
-    showMissionSealedToast(title: string = "Mission Sealed", message: string = "All tasks completed successfully."): void {
+    showMissionCompleteToast(title: string = "Mission Complete", message: string = "All tasks completed successfully."): void {
         if (!this.client) return;
         const tuiClient = this.client as unknown as { tui?: { showToast?: (opts: unknown) => Promise<void> } };
         if (!tuiClient.tui?.showToast) return;
 
-        // Visual flourish for the seal
+        // Visual flourish for completion
         const decoratedMessage = `
-${TUI_ICONS.MISSION_SEALED} ${TUI_MESSAGES.MISSION_SEALED_TITLE} ${TUI_ICONS.MISSION_SEALED}
+${TUI_ICONS.MISSION_COMPLETE} ${TUI_MESSAGES.MISSION_COMPLETE_TITLE} ${TUI_ICONS.MISSION_COMPLETE}
 ──────────────────────────
 ${message}
 ──────────────────────────
-${TUI_MESSAGES.MISSION_SEALED_SUBTITLE}
+${TUI_MESSAGES.MISSION_COMPLETE_SUBTITLE}
 `.trim();
 
         tuiClient.tui.showToast({

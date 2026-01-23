@@ -264,7 +264,7 @@ describe("Multi-Agent Coordination E2E", () => {
                 store.untrackPending(mainSession, reviewer.id);
             }
 
-            // Phase 6: All complete, ready for seal
+            // Phase 6: All complete, ready for conclusion
             expect(store.getPendingCount(mainSession)).toBe(0);
             expect(concurrency.getActiveCount(AGENT_NAMES.WORKER)).toBe(0);
             expect(concurrency.getActiveCount(AGENT_NAMES.REVIEWER)).toBe(0);
