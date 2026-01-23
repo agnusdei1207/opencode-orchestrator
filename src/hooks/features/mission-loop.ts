@@ -15,7 +15,7 @@ import {
     isLoopActive,
     clearLoopState,
 } from "../../core/loop/mission-loop.js";
-import { PROMPTS, COMMAND_NAMES, TOAST_VARIANTS } from "../../shared/index.js";
+import { PROMPTS, COMMAND_NAMES, TOAST_VARIANTS, MISSION_CONTROL } from "../../shared/index.js";
 import { HOOK_ACTIONS, HOOK_NAMES } from "../constants.js";
 import * as Toast from "../../core/notification/toast.js";
 import * as ProgressTracker from "../../core/progress/tracker.js";
@@ -122,7 +122,7 @@ export class MissionControlHook implements AssistantDoneHook, ChatMessageHook {
 
         // 4. Work remains - Force continuation if agent thinks it's done
         // (This hook is called when the assistant is "Done" with a turn)
-        log("[MissionControl] Work remains - forcing autonomous continuation", {
+        log(`[${MISSION_CONTROL.LOG_SOURCE}] Work remains - forcing autonomous continuation`, {
             todo: verification.todoProgress,
             checklist: verification.checklistProgress
         });

@@ -75,7 +75,7 @@ export function readLoopState(directory: string): MissionLoopState | null {
         const content = readFileSync(filePath, "utf-8");
         return JSON.parse(content) as MissionLoopState;
     } catch (error) {
-        log(`[mission-loop] Failed to read state: ${error}`);
+        log(`[${MISSION_CONTROL.LOG_SOURCE}] Failed to read state: ${error}`);
         return null;
     }
 }
@@ -95,7 +95,7 @@ export function writeLoopState(directory: string, state: MissionLoopState): bool
         writeFileSync(filePath, JSON.stringify(state, null, 2), "utf-8");
         return true;
     } catch (error) {
-        log(`[mission-loop] Failed to write state: ${error}`);
+        log(`[${MISSION_CONTROL.LOG_SOURCE}] Failed to write state: ${error}`);
         return false;
     }
 }
@@ -114,7 +114,7 @@ export function clearLoopState(directory: string): boolean {
         unlinkSync(filePath);
         return true;
     } catch (error) {
-        log(`[mission-loop] Failed to clear state: ${error}`);
+        log(`[${MISSION_CONTROL.LOG_SOURCE}] Failed to clear state: ${error}`);
         return false;
     }
 }
@@ -160,7 +160,7 @@ export function startMissionLoop(
     const success = writeLoopState(directory, state);
 
     if (success) {
-        log(`[mission-loop] Loop started`, {
+        log(`[${MISSION_CONTROL.LOG_SOURCE}] Loop started`, {
             sessionID,
             maxIterations: state.maxIterations,
         });
@@ -182,7 +182,7 @@ export function cancelMissionLoop(directory: string, sessionID: string): boolean
     const success = clearLoopState(directory);
 
     if (success) {
-        log(`[mission-loop] Loop cancelled`, { sessionID, iteration: state.iteration });
+        log(`[${MISSION_CONTROL.LOG_SOURCE}] Loop cancelled`, { sessionID, iteration: state.iteration });
     }
 
     return success;
@@ -203,19 +203,12 @@ export function isLoopActive(directory: string, sessionID: string): boolean {
 /**
  * Generate continuation prompt for mission loop
  */
-export function generateMissionContinuationPrompt(state: MissionLoopState, directory?: string): string {
-    let verificationSummary = "";
-    if (directory) {
-        try {
-            const { verifyMissionCompletion, buildVerificationSummary } = require("./verification.js");
-            const v = verifyMissionCompletion(directory);
-            verificationSummary = `\n[Verification Status]: ${buildVerificationSummary(v)}\n`;
-        } catch { }
-    }
+export function generateMissionContinuationPrompt(state: MissionLoopState, verificationSummary?: string): string {
+    const summaryHeader = verificationSummary ? `\n[Verification Status]: ${verificationSummary}\n` : "";
 
     return `<mission_loop iteration="${state.iteration}" max="${state.maxIterations}">
 ⚠️ **MISSION NOT COMPLETE** - Iteration ${state.iteration}/${state.maxIterations}
-${verificationSummary}
+${summaryHeader}
 
 The mission is INCOMPLETE. You MUST continue working NOW.
 

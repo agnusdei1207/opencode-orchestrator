@@ -19,6 +19,7 @@ import { generateContinuationPrompt, formatProgress } from "./formatters.js";
 import type { Todo } from "./interfaces.js";
 import { ParallelAgentManager } from "../agents/manager.js";
 import { isSessionRecovering } from "../recovery/session-recovery.js";
+import { verifyMissionCompletion, buildTodoIncompletePrompt } from "./verification.js";
 
 type OpencodeClient = PluginInput["client"];
 
@@ -151,7 +152,6 @@ async function injectContinuation(
     // [Improvement]: If no built-in prompt, check for file-based TODOs
     if (!prompt) {
         try {
-            const { verifyMissionCompletion, buildTodoIncompletePrompt } = await import("./verification.js");
             // Use specialized hook-style prompt for file-based todos
             const v = verifyMissionCompletion(directory);
             if (!v.passed && (v.todoIncomplete > 0 || (v.checklistProgress !== "0/0" && !v.checklistComplete))) {
@@ -251,7 +251,6 @@ export async function handleSessionIdle(
     // [Improvement]: Also check for file-based TODOs
     let hasFileWork = false;
     try {
-        const { verifyMissionCompletion } = await import("./verification.js");
         const verification = verifyMissionCompletion(directory);
         hasFileWork = !verification.passed && (verification.todoIncomplete > 0 || (verification.checklistProgress !== "0/0" && !verification.checklistComplete));
     } catch (err) {
@@ -288,7 +287,6 @@ export async function handleSessionIdle(
             // Re-verify file work
             let freshFileWork = false;
             try {
-                const { verifyMissionCompletion } = await import("./verification.js");
                 const v = verifyMissionCompletion(directory);
                 freshFileWork = !v.passed && (v.todoIncomplete > 0 || (v.checklistProgress !== "0/0" && !v.checklistComplete));
             } catch { }

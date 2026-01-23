@@ -10,6 +10,7 @@
 import type { EventHandlerContext, SystemTransformInput, SystemTransformOutput } from "./interfaces/index.js";
 import { readLoopState } from "../core/loop/mission-loop.js";
 import { MISSION_CONTROL } from "../shared/index.js";
+import { ParallelAgentManager } from "../core/agents/manager.js";
 
 // Re-export interfaces for external use
 export type { SystemTransformInput, SystemTransformOutput } from "./interfaces/index.js";
@@ -50,7 +51,6 @@ export function createSystemTransformHandler(ctx: EventHandlerContext) {
 
         // 3. Background task awareness
         try {
-            const { ParallelAgentManager } = await import("../core/agents/manager.js");
             const manager = ParallelAgentManager.getInstance();
             const tasks = manager.getTasksByParent(sessionID);
             const runningCount = tasks.filter(t => t.status === "running").length;
