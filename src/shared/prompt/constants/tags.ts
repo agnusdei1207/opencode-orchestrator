@@ -18,10 +18,23 @@ export const PROMPT_TAGS = {
     COMPLETE_SIGNAL: { open: "<complete_signal>", close: "</complete_signal>" },
     SHARED_WORKSPACE: { open: "<shared_workspace>", close: "</shared_workspace>" },
     CORE_PHILOSOPHY: { open: "<core_philosophy>", close: "</core_philosophy>" },
+    SYSTEM: { open: "<system>", close: "</system>" },
+    TASK: { open: "<task>", close: "</task>" },
+    CONTEXT: { open: "<context>", close: "</context>" },
+    EXECUTION: { open: "<execution>", close: "</execution>" },
+    MODE: { open: "<mode>", close: "</mode>" },
+    RESUME: { open: "<resume>", close: "</resume>" },
+    SAFETY: { open: "<safety>", close: "</safety>" },
+    AST_TOOLS: { open: "<ast_tools>", close: "</ast_tools>" },
+    LSP_TOOLS: { open: "<lsp_tools>", close: "</lsp_tools>" },
+    SKILLS_CAPABILITIES: { open: "<skills_capabilities>", close: "</skills_capabilities>" },
+    DECOMPOSITION_RULES: { open: "<decomposition_rules>", close: "</decomposition_rules>" },
+    EXECUTION_ASSURANCE: { open: "<execution_assurance>", close: "</execution_assurance>" },
 
     // === Commander ===
     TOOLS: { open: "<tools>", close: "</tools>" },
     AGENTS: { open: "<agents>", close: "</agents>" },
+    EXECUTION_RULES: { open: "<execution_rules>", close: "</execution_rules>" },
     EXECUTION_STRATEGY: { open: "<execution_strategy>", close: "</execution_strategy>" },
     PARALLEL_EXECUTION: { open: "<parallel_execution>", close: "</parallel_execution>" },
     TODO_FORMAT: { open: "<todo_format>", close: "</todo_format>" },
@@ -51,6 +64,7 @@ export const PROMPT_TAGS = {
     OUTPUT_FORMAT: { open: "<output_format>", close: "</output_format>" },
     // === Mission Loop ===
     MISSION_LOOP: { open: "<mission_loop>", close: "</mission_loop>" },
+    TODO_CONTINUATION: { open: "<todo_continuation>", close: "</todo_continuation>" },
     AUTONOMOUS_MODE: { open: "<autonomous_mode>", close: "</autonomous_mode>" },
 } as const;
 

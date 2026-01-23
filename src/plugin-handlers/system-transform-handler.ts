@@ -9,7 +9,7 @@
 
 import type { EventHandlerContext, SystemTransformInput, SystemTransformOutput } from "./interfaces/index.js";
 import { readLoopState } from "../core/loop/mission-loop.js";
-import { MISSION_CONTROL } from "../shared/index.js";
+import { MISSION_CONTROL, STATUS_LABEL } from "../shared/index.js";
 import { ParallelAgentManager } from "../core/agents/manager.js";
 
 // Re-export interfaces for external use
@@ -53,8 +53,8 @@ export function createSystemTransformHandler(ctx: EventHandlerContext) {
         try {
             const manager = ParallelAgentManager.getInstance();
             const tasks = manager.getTasksByParent(sessionID);
-            const runningCount = tasks.filter(t => t.status === "running").length;
-            const pendingCount = tasks.filter(t => t.status === "pending").length;
+            const runningCount = tasks.filter(t => t.status === STATUS_LABEL.RUNNING).length;
+            const pendingCount = tasks.filter(t => t.status === STATUS_LABEL.PENDING).length;
 
             if (runningCount > 0 || pendingCount > 0) {
                 systemAdditions.push(buildBackgroundTasksPrompt(runningCount, pendingCount));

@@ -78,26 +78,26 @@ function detectCategory(headerLine: string): ChecklistCategory {
     const headerLower = headerLine.toLowerCase();
 
     if (headerLower.includes('code quality') || headerLower.includes('lint') || headerLower.includes('type')) {
-        return 'code-quality';
+        return CHECKLIST_CATEGORIES.IDS.CODE_QUALITY;
     }
     if (headerLower.includes('unit test')) {
-        return 'unit-tests';
+        return CHECKLIST_CATEGORIES.IDS.UNIT_TESTS;
     }
     if (headerLower.includes('integration') || headerLower.includes('e2e')) {
-        return 'integration-tests';
+        return CHECKLIST_CATEGORIES.IDS.INTEGRATION_TESTS;
     }
     if (headerLower.includes('build')) {
-        return 'build';
+        return CHECKLIST_CATEGORIES.IDS.BUILD;
     }
     if (headerLower.includes('runtime') || headerLower.includes('start') || headerLower.includes('run')) {
-        return 'runtime';
+        return CHECKLIST_CATEGORIES.IDS.RUNTIME;
     }
     if (headerLower.includes('infrastructure') || headerLower.includes('environment') ||
         headerLower.includes('docker') || headerLower.includes('deploy')) {
-        return 'infrastructure';
+        return CHECKLIST_CATEGORIES.IDS.INFRASTRUCTURE;
     }
 
-    return 'custom';
+    return CHECKLIST_CATEGORIES.IDS.CUSTOM;
 }
 
 /**
@@ -107,7 +107,7 @@ export function parseChecklist(content: string): ChecklistItem[] {
     const items: ChecklistItem[] = [];
     const lines = content.split('\n');
 
-    let currentCategory: ChecklistCategory = 'custom';
+    let currentCategory: ChecklistCategory = CHECKLIST_CATEGORIES.IDS.CUSTOM;
 
     for (const line of lines) {
         const trimmed = line.trim();

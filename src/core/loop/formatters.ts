@@ -4,7 +4,16 @@
 
 import type { Todo } from "./interfaces.js";
 import { getStats, getNextPending } from "./stats.js";
-import { MISSION_CONTROL, TODO_STATUS, AGENT_NAMES, STATUS_LABEL } from "../../shared/index.js";
+import {
+    MISSION_CONTROL,
+    TODO_STATUS,
+    AGENT_NAMES,
+    STATUS_LABEL,
+    LOOP_LABELS,
+    PROMPT_TAGS,
+    TOOL_NAMES,
+    PARALLEL_PARAMS
+} from "../../shared/index.js";
 
 /**
  * Format progress string
@@ -32,15 +41,15 @@ export function generateContinuationPrompt(todos: Todo[]): string {
     const pendingTasks = incomplete.filter(t => t.status === TODO_STATUS.PENDING);
     const pendingCount = pendingTasks.length;
 
-    let prompt = `<todo_continuation>
-[TODO Progress]: ${formatProgress(todos)}
+    let prompt = `${PROMPT_TAGS.TODO_CONTINUATION.open}
+${LOOP_LABELS.PROGRESS_PREFIX} ${formatProgress(todos)}
 
-**Incomplete Tasks** (${incomplete.length} remaining):
+**${LOOP_LABELS.INCOMPLETE_TASKS}** (${incomplete.length} remaining):
 `;
 
     for (const todo of incomplete.slice(0, 5)) {
-        const statusLabel = todo.status === TODO_STATUS.IN_PROGRESS ? "[RUN]" : "[WAIT]";
-        const priorityLabel = todo.priority === STATUS_LABEL.HIGH ? "[H]" : todo.priority === STATUS_LABEL.MEDIUM ? "[M]" : "[L]";
+        const statusLabel = todo.status === TODO_STATUS.IN_PROGRESS ? LOOP_LABELS.STATUS.RUNNING : LOOP_LABELS.STATUS.WAITING;
+        const priorityLabel = todo.priority === STATUS_LABEL.HIGH ? LOOP_LABELS.PRIORITY.HIGH : todo.priority === STATUS_LABEL.MEDIUM ? LOOP_LABELS.PRIORITY.MEDIUM : LOOP_LABELS.PRIORITY.LOW;
         prompt += `${statusLabel} ${priorityLabel} [${todo.id}] ${todo.content}\n`;
     }
 
@@ -51,36 +60,36 @@ export function generateContinuationPrompt(todos: Todo[]): string {
     // PARALLEL DISPATCH ENFORCEMENT - strongly encourage parallel execution
     if (pendingCount >= 2) {
         prompt += `
-[PARALLEL DISPATCH REQUIRED]
+${LOOP_LABELS.PARALLEL_REQUIRED}
 You have ${pendingCount} pending tasks. Launch them ALL IN PARALLEL for maximum efficiency:
 
 \`\`\`
-// EXECUTE NOW - Launch all ${pendingCount} tasks simultaneously:
+${LOOP_LABELS.EXECUTE_NOW.replace("$COUNT", pendingCount.toString())}
 `;
         for (const todo of pendingTasks.slice(0, 6)) {
-            prompt += `delegate_task({ agent: "${AGENT_NAMES.WORKER}", prompt: "${todo.content}", background: true })\n`;
+            prompt += `${TOOL_NAMES.DELEGATE_TASK}({ ${PARALLEL_PARAMS.AGENT}: "${AGENT_NAMES.WORKER}", ${PARALLEL_PARAMS.PROMPT}: "${todo.content}", ${PARALLEL_PARAMS.BACKGROUND}: true })\n`;
         }
         prompt += `\`\`\`
 
-NOTICE: Do NOT run these sequentially. Use background=true for ALL.
-After launching, use list_tasks to monitor progress.
+${LOOP_LABELS.PARALLEL_NOTICE}
+${LOOP_LABELS.MONITOR_PROGRESS}
 
 `;
     } else {
         prompt += `
-**Action Required**:
-1. Continue working on incomplete todos
-2. Mark each task complete when finished
-3. Do NOT stop until all todos are completed or cancelled
+${LOOP_LABELS.ACTION_REQUIRED}
+${LOOP_LABELS.ACTION_CONTINUE}
+${LOOP_LABELS.ACTION_MARK_COMPLETE}
+${LOOP_LABELS.ACTION_DONT_STOP}
 
 `;
     }
 
     if (next) {
-        prompt += `**Next Task**: [${next.id}] ${next.content}\n`;
+        prompt += `**${LOOP_LABELS.NEXT_TASK}**: [${next.id}] ${next.content}\n`;
     }
 
-    prompt += `</todo_continuation>`;
+    prompt += PROMPT_TAGS.TODO_CONTINUATION.close;
 
     return prompt;
 }
@@ -91,13 +100,13 @@ After launching, use list_tasks to monitor progress.
 export function generateCompletionMessage(todos: Todo[]): string {
     const stats = getStats(todos);
 
-    return `[Verified Complete]
+    return `${LOOP_LABELS.VERIFIED_COMPLETE}
 
-**Final Status**:
-- Total Tasks: ${stats.total}
-- Completed: ${stats.completed}
-- Cancelled: ${stats.cancelled}
-- Success Rate: ${stats.percentComplete}%
+${LOOP_LABELS.FINAL_STATUS}
+- ${LOOP_LABELS.TOTAL_TASKS}: ${stats.total}
+- ${LOOP_LABELS.COMPLETED}: ${stats.completed}
+- ${LOOP_LABELS.CANCELLED}: ${stats.cancelled}
+- ${LOOP_LABELS.SUCCESS_RATE}: ${stats.percentComplete}%
 
-All tasks have been processed and verified. Mission accomplished!`;
+${LOOP_LABELS.MISSION_ACCOMPLISHED}`;
 }

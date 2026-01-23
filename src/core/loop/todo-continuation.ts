@@ -11,7 +11,7 @@
  */
 
 import type { PluginInput } from "@opencode-ai/plugin";
-import { PART_TYPES, LOOP, TOAST_DURATION, TIME } from "../../shared/index.js";
+import { PART_TYPES, LOOP, TOAST_DURATION, TIME, STATUS_LABEL } from "../../shared/index.js";
 import { log } from "../agents/logger.js";
 import { presets } from "../../shared/index.js";
 import { getIncompleteCount, hasRemainingWork, getNextPending } from "./stats.js";
@@ -75,8 +75,8 @@ function parseTodos(data: unknown): Todo[] {
     ).map(item => ({
         id: item.id,
         content: item.content || "",
-        status: item.status || "pending",
-        priority: item.priority || "medium",
+        status: item.status || STATUS_LABEL.PENDING,
+        priority: item.priority || STATUS_LABEL.MEDIUM,
         createdAt: item.createdAt ? new Date(item.createdAt) : new Date(),
     }));
 }
@@ -88,7 +88,7 @@ function hasRunningBackgroundTasks(parentSessionID: string): boolean {
     try {
         const manager = ParallelAgentManager.getInstance();
         const tasks = manager.getTasksByParent(parentSessionID);
-        return tasks.some(t => t.status === "running");
+        return tasks.some(t => t.status === STATUS_LABEL.RUNNING);
     } catch {
         return false;
     }

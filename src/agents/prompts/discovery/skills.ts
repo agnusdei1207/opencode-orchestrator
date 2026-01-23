@@ -6,7 +6,7 @@
  */
 import { PROMPT_TAGS, wrapTag } from "../../../shared/prompt/constants/tags.js";
 
-export const SKILLS_CAPABILITIES = wrapTag({ open: "<skills_capabilities>", close: "</skills_capabilities>" }, `
+export const SKILLS_CAPABILITIES = wrapTag(PROMPT_TAGS.SKILLS_CAPABILITIES, `
 ### AUTONOMOUS SKILL ACQUISITION
 You have the ability to extend your capabilities using the **Skills System**.
 If you encounter a task or technology you are unfamiliar with (e.g., "deploy to AWS", "use specific library"):

@@ -1,6 +1,6 @@
-import { PROMPT_TAGS } from "../../../shared/index.js";
+import { PROMPT_TAGS, wrapTag } from "../../../shared/index.js";
 
-export const TASK_DECOMPOSITION = `<decomposition_rules>
+export const TASK_DECOMPOSITION = wrapTag(PROMPT_TAGS.DECOMPOSITION_RULES, `
 ## Task Decomposition Rules
 
 When a task is too large or complex:
@@ -11,5 +11,4 @@ When a task is too large or complex:
 If stuck:
 - Do not retry the same failing action more than twice.
 - Decompose the problem into smaller investigation steps.
-- Create a specific "Research" task to find the root cause.
-</decomposition_rules>`;
+- Create a specific "Research" task to find the root cause.`);
