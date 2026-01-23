@@ -4,6 +4,8 @@
  * Defines strict constant values for hook actions and statuses.
  */
 
+import { HOOK_NAMES as SHARED_HOOK_NAMES } from "../shared/index.js";
+
 export const HOOK_ACTIONS = {
     // General Actions
     CONTINUE: "continue",
@@ -22,16 +24,7 @@ export const HOOK_ACTIONS = {
     INTERCEPT: "intercept",
 } as const;
 
-export const HOOK_NAMES = {
-    SANITY_CHECK: "SanityCheck",
-    MISSION_LOOP: "MissionLoop",
-    STRICT_ROLE_GUARD: "StrictRoleGuard",
-    SECRET_SCANNER: "SecretScanner",
-    AGENT_UI: "AgentUI",
-    RESOURCE_CONTROL: "ResourceControl",
-    SLASH_COMMAND: "SlashCommandDispatcher",
-    USER_ACTIVITY: "UserActivity",
-} as const;
+export const HOOK_NAMES = SHARED_HOOK_NAMES;
 
 // Type helper to extract values if needed, though we use literals in types currently.
 // export type HookActionType = typeof HOOK_ACTIONS[keyof typeof HOOK_ACTIONS];

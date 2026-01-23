@@ -3,7 +3,7 @@
  */
 
 export type RecoveryAction =
-    | { type: "retry"; delay: number; attempt: number }
+    | { type: "retry"; delay: number; attempt: number; modifyPrompt?: string }
     | { type: "skip"; reason: string }
     | { type: "escalate"; to: string; reason: string }
     | { type: "resume"; sessionId: string }

@@ -12,6 +12,7 @@ import { presets } from "../../../shared/index.js";
 import type { ParallelTask } from "../interfaces/parallel-task.interface.js";
 import { TASK_STATUS, PART_TYPES, MESSAGE_ROLES, SESSION_STATUS, WAL_ACTIONS } from "../../../shared/index.js";
 import { taskWAL } from "../persistence/task-wal.js";
+import { progressNotifier } from "../../progress/progress-notifier.js";
 
 type OpencodeClient = PluginInput["client"];
 
@@ -90,6 +91,7 @@ export class TaskPoller {
                     log(`Poll error for task ${task.id}:`, error);
                 }
             }
+            progressNotifier.update();
         } catch (error) {
             log("Polling error:", error);
         }
@@ -141,6 +143,7 @@ export class TaskPoller {
         presets.sessionCompleted(task.sessionID, duration);
 
         log(`Completed ${task.id} (${duration})`);
+        progressNotifier.update();
     }
 
     private async updateTaskProgress(task: ParallelTask): Promise<void> {

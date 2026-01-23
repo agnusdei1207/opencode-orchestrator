@@ -3,7 +3,7 @@
  */
 
 import type { PluginInput } from "@opencode-ai/plugin";
-import { ID_PREFIX, TASK_STATUS, PART_TYPES, PARALLEL_TASK, WAL_ACTIONS, TOOL_NAMES } from "../../../shared/index.js";
+import { ID_PREFIX, TASK_STATUS, PART_TYPES, PARALLEL_TASK, WAL_ACTIONS, TOOL_NAMES, AGENT_NAMES } from "../../../shared/index.js";
 import { ConcurrencyController } from "../concurrency.js";
 import { TaskStore } from "../task-store.js";
 import { presets } from "../../../shared/index.js";
@@ -11,6 +11,12 @@ import { getTaskToastManager } from "../../notification/task-toast-manager.js";
 import type { ParallelTask } from "../interfaces/parallel-task.interface.js";
 import type { LaunchInput } from "../interfaces/launch-input.interface.js";
 import { taskWAL } from "../persistence/task-wal.js";
+import { SessionPool } from "../session-pool.js";
+import { handleError } from "../../recovery/auto-recovery.js";
+import type { ErrorContext } from "../../recovery/interfaces.js";
+import { log } from "../logger.js";
+import { MemoryManager } from "../../memory/memory-manager.js";
+import { AgentRegistry } from "../agent-registry.js";
 
 type OpencodeClient = PluginInput["client"];
 
@@ -20,6 +26,7 @@ export class TaskLauncher {
         private directory: string,
         private store: TaskStore,
         private concurrency: ConcurrencyController,
+        private sessionPool: SessionPool,
         private onTaskError: (taskId: string, error: unknown) => void,
         private startPolling: () => void
     ) { }
@@ -74,27 +81,14 @@ export class TaskLauncher {
             throw new Error(`Maximum task depth (${PARALLEL_TASK.MAX_DEPTH}) reached. To prevent infinite recursion, no further sub-tasks can be spawned.`);
         }
 
-        const sessionCreatePromise = this.client.session.create({
-            body: {
-                parentID: input.parentSessionID,
-                title: `${PARALLEL_TASK.SESSION_TITLE_PREFIX}: ${input.description}`
-            },
-            query: { directory: this.directory },
-        });
+        // Use SessionPool to acquire or create session
+        const session = await this.sessionPool.acquire(
+            input.agent,
+            input.parentSessionID,
+            input.description
+        );
 
-        // Timeout wrapper for session creation
-        const createResult = await Promise.race([
-            sessionCreatePromise,
-            new Promise<any>((_, reject) =>
-                setTimeout(() => reject(new Error("Session creation timed out after 60s")), 60000)
-            )
-        ]);
-
-        if (createResult.error || !createResult.data?.id) {
-            throw new Error(`Session creation failed: ${createResult.error || "No ID"}`);
-        }
-
-        const sessionID = createResult.data.id;
+        const sessionID = session.id;
         const taskId = `${ID_PREFIX.TASK}${crypto.randomUUID().slice(0, 8)}`;
 
         const task: ParallelTask = {
@@ -135,47 +129,97 @@ export class TaskLauncher {
     }
 
     /**
-     * Background execution: Acquire slot and fire prompt
+     * Background execution: Acquire slot and fire prompt with auto-retry
      */
     private async executeBackground(task: ParallelTask): Promise<void> {
-        try {
-            // 1. Wait for concurrency slot
-            await this.concurrency.acquire(task.agent);
+        let attempt = 1;
 
-            // 2. Update status to RUNNING
-            task.status = TASK_STATUS.RUNNING;
-            task.startedAt = new Date(); // Reset start time to when it actually started running
-            this.store.set(task.id, task);
-            taskWAL.log(WAL_ACTIONS.LAUNCH, task).catch(() => { });
+        while (true) {
+            try {
+                // 1. Wait for concurrency slot
+                await this.concurrency.acquire(task.agent);
 
-            // 3. Fire prompt with timeout
-            const promptPromise = this.client.session.prompt({
-                path: { id: task.sessionID },
-                body: {
-                    agent: task.agent,
-                    tools: {
-                        // HPFA: Allow agents to delegate sub-tasks (Fractal Spawning)
-                        delegate_task: true,
-                        get_task_result: true,
-                        list_tasks: true,
-                        cancel_task: true,
-                        [TOOL_NAMES.SKILL]: true,
-                        [TOOL_NAMES.RUN_COMMAND]: true,
+                // 2. Update status to RUNNING
+                task.status = TASK_STATUS.RUNNING;
+                task.startedAt = new Date();
+                this.store.set(task.id, task);
+                taskWAL.log(WAL_ACTIONS.LAUNCH, task).catch(() => { });
+
+                // 3. Fire prompt with timeout
+                const agentDef = AgentRegistry.getInstance().getAgent(task.agent);
+                let finalPrompt = task.prompt;
+
+                // If it's a custom agent (or if we want to ensure system prompt is used)
+                if (agentDef) {
+                    finalPrompt = `### AGENT ROLE: ${agentDef.id}\n${agentDef.description}\n\n${agentDef.systemPrompt}\n\n${finalPrompt}`;
+                }
+
+                const memory = MemoryManager.getInstance().getContext(finalPrompt);
+                const injectedPrompt = memory ? `${memory}\n\n${finalPrompt}` : finalPrompt;
+
+                // Resolve "wire" agent name for OpenCode server
+                const wireAgent = Object.values(AGENT_NAMES).includes(task.agent as any)
+                    ? task.agent
+                    : AGENT_NAMES.COMMANDER;
+
+                const promptPromise = this.client.session.prompt({
+                    path: { id: task.sessionID },
+                    body: {
+                        agent: wireAgent,
+                        tools: {
+                            [TOOL_NAMES.DELEGATE_TASK]: true,
+                            [TOOL_NAMES.GET_TASK_RESULT]: true,
+                            [TOOL_NAMES.LIST_TASKS]: true,
+                            [TOOL_NAMES.CANCEL_TASK]: true,
+                            [TOOL_NAMES.SKILL]: true,
+                            [TOOL_NAMES.RUN_COMMAND]: true,
+                        },
+                        parts: [{ type: PART_TYPES.TEXT, text: injectedPrompt }]
                     },
-                    parts: [{ type: PART_TYPES.TEXT, text: task.prompt }]
-                },
-            });
+                });
 
-            await Promise.race([
-                promptPromise,
-                new Promise((_, reject) =>
-                    setTimeout(() => reject(new Error("Session prompt execution timed out after 600s")), 600000)
-                )
-            ]);
-        } catch (error) {
-            // If we acquired but failed to fire, release
-            this.concurrency.release(task.agent);
-            throw error;
+                await Promise.race([
+                    promptPromise,
+                    new Promise((_, reject) =>
+                        setTimeout(() => reject(new Error("Session prompt execution timed out after 600s")), 600000)
+                    )
+                ]);
+
+                // Success! Exit loop
+                return;
+
+            } catch (error) {
+                // If we acquired but failed to fire, release
+                this.concurrency.release(task.agent);
+
+                // Auto-recovery logic
+                const context: ErrorContext = {
+                    sessionId: task.sessionID,
+                    taskId: task.id,
+                    agent: task.agent,
+                    error: error instanceof Error ? error : new Error(String(error)),
+                    attempt,
+                    timestamp: new Date(),
+                };
+
+                const action = handleError(context);
+
+                if (action.type === "retry") {
+                    log(`[AutoRetry] Task ${task.id} failed (attempt ${attempt}). Retrying in ${action.delay}ms...`);
+
+                    // Adjust prompt if strategy suggests it
+                    if (action.modifyPrompt) {
+                        task.prompt += `\n\n${action.modifyPrompt}`;
+                    }
+
+                    await new Promise(r => setTimeout(r, action.delay));
+                    attempt++;
+                    continue;
+                }
+
+                // Cannot retry or max attempts reached
+                throw error;
+            }
         }
     }
 }

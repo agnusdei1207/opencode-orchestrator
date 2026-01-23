@@ -19,5 +19,8 @@ export const PATHS = {
     INTEGRATION_STATUS: ".opencode/integration-status.md",
     // Progress tracking
     STATUS: ".opencode/status.md",
+    // Configuration
+    AGENTS_CONFIG: ".opencode/agents.json",
+    PLUGINS: ".opencode/plugins",
 } as const;
 

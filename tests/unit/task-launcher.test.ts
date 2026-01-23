@@ -25,6 +25,7 @@ describe("TaskLauncher", () => {
     let mockClient: any;
     let store: TaskStore;
     let concurrency: ConcurrencyController;
+    let sessionPool: any;
     let launcher: TaskLauncher;
     let startPolling: any;
     let onTaskError: any;
@@ -48,11 +49,21 @@ describe("TaskLauncher", () => {
 
         startPolling = vi.fn();
         onTaskError = vi.fn();
+
+        sessionPool = {
+            acquire: vi.fn().mockImplementation(async (agentName, parentID, description) => {
+                const result = await mockClient.session.create({ body: { parentID, title: description } });
+                return { id: result.data.id, agentName };
+            }),
+            release: vi.fn().mockResolvedValue(undefined),
+        };
+
         launcher = new TaskLauncher(
             mockClient,
             "/test/dir",
             store,
             concurrency,
+            sessionPool,
             onTaskError,
             startPolling
         );
@@ -129,7 +140,7 @@ describe("TaskLauncher", () => {
     it("should respect concurrency limits in background", async () => {
         // Limit is 1
         concurrency = new ConcurrencyController({ defaultConcurrency: 1 });
-        launcher = new TaskLauncher(mockClient, "/dir", store, concurrency, onTaskError, startPolling);
+        launcher = new TaskLauncher(mockClient, "/dir", store, concurrency, sessionPool, onTaskError, startPolling);
 
         const inputs = [
             { description: "T1", prompt: "P1", agent: "a", parentSessionID: "p" },

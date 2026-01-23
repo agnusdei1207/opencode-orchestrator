@@ -39,6 +39,7 @@ import {
     buildVerificationSummary,
     type VerificationResult
 } from "../../core/loop/verification.js";
+import { parallelAgentManager } from "../../core/agents/manager.js";
 
 // OS Notification
 import { sendNotification } from "../../core/notification/os-notify/notifier.js";
@@ -169,6 +170,7 @@ export class MissionControlHook implements AssistantDoneHook, ChatMessageHook {
     private async handleMissionComplete(directory: string, verification: VerificationResult): Promise<HookResult> {
         log(MISSION_MESSAGES.COMPLETE_LOG + " " + buildVerificationSummary(verification));
         const cleared = clearLoopState(directory);
+        parallelAgentManager.cleanup();
 
         // Only show UI and send notification if we are the ones who cleared the state
         // This prevents duplicates if multiple handlers run simultaneously (e.g. Idle and Hook)

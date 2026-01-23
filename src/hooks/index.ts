@@ -12,6 +12,8 @@ import { SecretScannerHook } from "./custom/secret-scanner.js";
 import { AgentUIHook } from "./custom/agent-ui.js";
 import { ResourceControlHook } from "./custom/resource-control.js";
 import { UserActivityHook } from "./custom/user-activity.js";
+import { MemoryGateHook } from "./custom/memory-gate.js";
+import { MetricsHook } from "./custom/metrics.js";
 
 export function initializeHooks() {
     const registry = HookRegistry.getInstance();
@@ -26,6 +28,8 @@ export function initializeHooks() {
     const agentUI = new AgentUIHook();
     const resourceControl = new ResourceControlHook();
     const userActivity = new UserActivityHook();
+    const memoryGate = new MemoryGateHook();
+    const metricsHook = new MetricsHook();
 
     // Register Chat
     registry.registerChat(userActivity); // Track activity first
@@ -37,12 +41,17 @@ export function initializeHooks() {
     registry.registerPostTool(secretScanner); // Scan first
     registry.registerPostTool(agentUI); // Decorate second
     registry.registerPostTool(resourceControl); // Control resources (Track + Compact)
+    registry.registerPostTool(memoryGate); // Capture tool results for memory
+    registry.registerPostTool(metricsHook); // Collect tool metrics
 
     // Register Pre-Tool
     registry.registerPreTool(roleGuard); // Check logic before tool runs
+    registry.registerPreTool(metricsHook); // Capture start times
 
     // Register Done
     registry.registerDone(sanityCheck);
     registry.registerDone(missionControl); // Handle loop check
     registry.registerDone(resourceControl); // Update stats & Check memory
+    registry.registerDone(memoryGate); // Maintain turn memory
+    registry.registerDone(metricsHook); // Final metrics capture
 }

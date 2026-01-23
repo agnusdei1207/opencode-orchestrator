@@ -232,6 +232,7 @@ ${PROMPT_TAGS.RESUME.close}
 ${PROMPT_TAGS.SAFETY.open}
 - Max 10 tasks per agent type (configurable)
 - Auto-timeout: 60 minutes
+- Use \`${TOOL_NAMES.LIST_AGENTS}\` to see all available agents (including custom ones).
 ${PROMPT_TAGS.SAFETY.close}`,
     args: {
         [PARALLEL_PARAMS.AGENT]: tool.schema.string().describe("Agent name"),
@@ -400,7 +401,7 @@ If your task is too complex, please:
             if (pollResult.timedOut) {
                 log(`${PARALLEL_LOG.DELEGATE_TASK} Sync: timed out`, pollResult);
                 return `${OUTPUT_LABEL.TIMEOUT} after ${Math.floor(pollResult.elapsedMs / 1000)}s (${pollResult.pollCount} polls)\n` +
-                    `Session: \`${sessionID}\` - Use get_task_result or resume later.`;
+                    `Session: \`${sessionID}\` - Use ${TOOL_NAMES.GET_TASK_RESULT} or resume later.`;
             }
 
             const text = await extractSessionResult(session, sessionID);

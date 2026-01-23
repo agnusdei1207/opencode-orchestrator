@@ -41,6 +41,7 @@ import { lspDiagnosticsTool } from "./tools/lsp/index.js";
 import { TOOL_NAMES } from "./shared/index.js";
 import * as Toast from "./core/notification/toast.js";
 import { initializeHooks } from "./hooks/index.js"; // Initialize Hooks
+import { PluginManager } from "./core/plugins/plugin-manager.js";
 
 // Import modularized handlers
 import { createToolExecuteBeforeHandler } from "./plugin-handlers/tool-execute-pre-handler.js"; // Added import
@@ -81,6 +82,11 @@ const OrchestratorPlugin: Plugin = async (input) => {
     // Initialize parallel agent manager
     const parallelAgentManager = ParallelAgentManager.getInstance(client, directory);
     const asyncAgentTools = createAsyncAgentTools(parallelAgentManager, client);
+
+    // Initialize Plugin System
+    const pluginManager = PluginManager.getInstance();
+    await pluginManager.initialize(directory);
+    const dynamicTools = pluginManager.getDynamicTools();
 
     // Connect task toast manager to concurrency controller for slot info
     taskToastManager.setConcurrencyController(parallelAgentManager.getConcurrency());
@@ -140,6 +146,8 @@ const OrchestratorPlugin: Plugin = async (input) => {
             [TOOL_NAMES.AST_REPLACE]: astReplaceTool(directory),
             // Async agent tools
             ...asyncAgentTools,
+            // Dynamic tools from plugins
+            ...dynamicTools,
         },
 
         // -----------------------------------------------------------------

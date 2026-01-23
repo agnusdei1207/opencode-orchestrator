@@ -10,6 +10,7 @@ import { ConcurrencyController } from "../concurrency.js";
 import { CONFIG } from "../config.js";
 import { log } from "../logger.js";
 import { formatDuration } from "../format.js";
+import { progressNotifier } from "../../progress/progress-notifier.js";
 import type { ParallelTask } from "../interfaces/parallel-task.interface.js";
 
 type OpencodeClient = PluginInput["client"];
@@ -98,6 +99,7 @@ export class EventHandler {
             Promise.resolve(this.onTaskComplete(task)).catch(err => log("Error in onTaskComplete callback:", err));
         }
 
+        progressNotifier.update();
         log(`Task ${task.id} completed via session.idle event (${formatDuration(task.startedAt, task.completedAt)})`);
     }
 
@@ -126,6 +128,7 @@ export class EventHandler {
         // Log to WAL
         taskWAL.log(WAL_ACTIONS.DELETE, task).catch(() => { });
 
+        progressNotifier.update();
         log(`Cleaned up deleted session task: ${task.id}`);
     }
 }
