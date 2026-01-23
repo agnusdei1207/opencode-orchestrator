@@ -1,5 +1,6 @@
 import { state } from "./state.js";
 import { log } from "../agents/logger.js";
+import { SessionState } from "./interfaces/session-state.js";
 
 /**
  * Session Manager
@@ -33,29 +34,32 @@ export function ensureSessionInitialized(
 }
 
 /**
- * Activates the global mission state for a specific session.
- * This is "Session State 2" (Global Orchestrator State).
+ * Ensures a global mission state exists for a specific session.
  */
-export function activateMissionState(sessionID: string): void {
+function ensureGlobalState(sessionID: string): SessionState {
     let stateSession = state.sessions.get(sessionID);
 
     if (!stateSession) {
-        state.sessions.set(sessionID, {
+        const newState: SessionState = {
             enabled: true,
             iterations: 0,
             taskRetries: new Map(),
             currentTask: "",
             anomalyCount: 0,
-        });
-        stateSession = state.sessions.get(sessionID);
-        log(`[SessionManager] Created new global mission state for ${sessionID}`);
+        };
+        state.sessions.set(sessionID, newState);
+        return newState;
     }
+    return stateSession;
+}
 
-    if (stateSession) {
-        stateSession.enabled = true;
-        stateSession.anomalyCount = 0;
-    }
-
+/**
+ * Activates the global mission state for a specific session.
+ */
+export function activateMissionState(sessionID: string): void {
+    const stateSession = ensureGlobalState(sessionID);
+    stateSession.enabled = true;
+    stateSession.anomalyCount = 0;
     state.missionActive = true;
     log(`[SessionManager] Mission Activated: ${sessionID}`);
 }
@@ -116,22 +120,20 @@ export function updateSessionTokens(
  * Anomaly Management
  */
 export function recordAnomaly(sessionID: string): number {
-    const session = ensureSessionInitialized(state.sessions, sessionID);
+    const session = ensureGlobalState(sessionID);
     session.anomalyCount = (session.anomalyCount || 0) + 1;
     return session.anomalyCount;
 }
 
 export function resetAnomaly(sessionID: string): void {
-    const session = ensureSessionInitialized(state.sessions, sessionID);
-    if (session.anomalyCount > 0) {
-        session.anomalyCount = 0;
-    }
+    const session = ensureGlobalState(sessionID);
+    session.anomalyCount = 0;
 }
 
 /**
  * Task Tracking
  */
 export function updateCurrentTask(sessionID: string, taskID: string): void {
-    const session = ensureSessionInitialized(state.sessions, sessionID);
+    const session = ensureGlobalState(sessionID);
     session.currentTask = taskID;
 }

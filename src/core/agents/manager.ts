@@ -25,8 +25,16 @@ import { TaskResumer } from "./manager/task-resumer.js";
 import { TaskPoller } from "./manager/task-poller.js";
 import { TaskCleaner } from "./manager/task-cleaner.js";
 import { EventHandler } from "./manager/event-handler.js";
+import { SessionPool } from "./session-pool.js";
 import { taskWAL } from "./persistence/task-wal.js";
 import { getTaskToastManager } from "../notification/task-toast-manager.js";
+import { progressNotifier } from "../progress/progress-notifier.js";
+import { TerminalMonitor } from "../progress/terminal-monitor.js";
+import { MemoryManager } from "../memory/memory-manager.js";
+import { MemoryLevel } from "../memory/interfaces.js";
+import { CORE_PHILOSOPHY } from "../../agents/prompts/philosophy/core.js";
+import { AgentRegistry } from "./agent-registry.js";
+import { TodoManager } from "../loop/todo-manager.js";
 
 // Re-export
 export type { ParallelTask };
@@ -41,6 +49,7 @@ export class ParallelAgentManager {
     private client: OpencodeClient;
     private directory: string;
     private concurrency = new ConcurrencyController();
+    private sessionPool: SessionPool;
 
     // Composed components
     private launcher: TaskLauncher;
@@ -53,8 +62,22 @@ export class ParallelAgentManager {
         this.client = client;
         this.directory = directory;
 
+        // Initialize Memory System
+        const memory = MemoryManager.getInstance();
+        memory.add(MemoryLevel.SYSTEM, CORE_PHILOSOPHY, 1.0);
+        memory.add(MemoryLevel.PROJECT, `Working directory: ${directory}`, 0.9);
+
+        // Initialize Agent Registry
+        AgentRegistry.getInstance().setDirectory(directory);
+
+        // Initialize Todo Manager
+        TodoManager.getInstance().setDirectory(directory);
+
+        // Initialize SessionPool
+        this.sessionPool = SessionPool.getInstance(client, directory);
+
         // Initialize cleaner first (needed by others)
-        this.cleaner = new TaskCleaner(client, this.store, this.concurrency);
+        this.cleaner = new TaskCleaner(client, this.store, this.concurrency, this.sessionPool);
 
         // Initialize poller
         this.poller = new TaskPoller(
@@ -73,6 +96,7 @@ export class ParallelAgentManager {
             directory,
             this.store,
             this.concurrency,
+            this.sessionPool,
             (taskId, error) => this.handleTaskError(taskId, error),
             () => this.poller.start()
         );
@@ -98,6 +122,12 @@ export class ParallelAgentManager {
             (task) => this.handleTaskComplete(task)
         );
 
+        // Initialize ProgressNotifier
+        progressNotifier.setManager(this);
+
+        // Start TUI Monitor
+        TerminalMonitor.getInstance().start();
+
         // Bootstrap recovery
         this.recoverActiveTasks().catch(err => {
             log("Recovery error:", err);
@@ -120,7 +150,9 @@ export class ParallelAgentManager {
 
     async launch(inputs: LaunchInput | LaunchInput[]): Promise<ParallelTask | ParallelTask[]> {
         this.cleaner.pruneExpiredTasks();
-        return this.launcher.launch(inputs);
+        const result = await this.launcher.launch(inputs);
+        progressNotifier.update();
+        return result;
     }
 
     async resume(input: ResumeInput): Promise<ParallelTask> {
@@ -166,6 +198,7 @@ export class ParallelAgentManager {
         // Log to WAL
         taskWAL.log(WAL_ACTIONS.DELETE, task).catch(() => { });
 
+        progressNotifier.update();
         log(`Cancelled ${taskId}`);
         return true;
     }
@@ -208,6 +241,8 @@ export class ParallelAgentManager {
     cleanup(): void {
         this.poller.stop();
         this.store.clear();
+        MemoryManager.getInstance().clearTaskMemory();
+        TerminalMonitor.getInstance().stop();
         import("../session/store.js").then(store => store.clearAll()).catch(() => { });
     }
 
@@ -245,6 +280,8 @@ export class ParallelAgentManager {
         this.cleaner.notifyParentIfAllComplete(task.parentSessionID);
         this.cleaner.scheduleCleanup(taskId);
 
+        progressNotifier.update();
+
         // Log to WAL
         taskWAL.log(WAL_ACTIONS.UPDATE, task).catch(() => { });
     }
@@ -273,6 +310,7 @@ export class ParallelAgentManager {
                 log(`[MSVP] Failed to trigger review for ${task.id}:`, error);
             }
         }
+        progressNotifier.update();
     }
 
     private async recoverActiveTasks(): Promise<void> {
@@ -324,4 +362,11 @@ export class ParallelAgentManager {
 
 export const parallelAgentManager = {
     getInstance: ParallelAgentManager.getInstance.bind(ParallelAgentManager),
+    cleanup: () => {
+        try {
+            ParallelAgentManager.getInstance().cleanup();
+        } catch {
+            // Not initialized, ignore
+        }
+    },
 };

@@ -9,6 +9,7 @@ export { STATUS_LABEL, type TaskStatus } from "./status-labels.js";
 export { LIMITS } from "./limits.js";
 export { WAL_ACTIONS } from "./wal-actions.js";
 export { PHASES } from "./phases.js";
+export { MEMORY_CONSTANTS, HOOK_NAMES, TODO_CONSTANTS, TUI_CONSTANTS } from "./memory-hooks.js";
 export * from "./cli.js";
 
 

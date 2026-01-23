@@ -8,6 +8,9 @@ export const TOOL_NAMES = {
     GET_TASK_RESULT: "get_task_result",
     LIST_TASKS: "list_tasks",
     CANCEL_TASK: "cancel_task",
+    LIST_AGENTS: "list_agents",
+    SHOW_METRICS: "show_metrics",
+    UPDATE_TODO: "update_todo",
     // Background command tools
     RUN_BACKGROUND: "run_background",
     CHECK_BACKGROUND: "check_background",

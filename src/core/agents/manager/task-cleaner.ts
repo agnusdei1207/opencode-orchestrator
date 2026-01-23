@@ -12,6 +12,7 @@ import { TaskStore } from "../task-store.js";
 import { ConcurrencyController } from "../concurrency.js";
 import { CONFIG } from "../config.js";
 import { log } from "../logger.js";
+import { SessionPool } from "../session-pool.js";
 import { buildNotificationMessage, formatDuration } from "../format.js";
 import { getTaskToastManager, type TaskCompletionInfo } from "../../notification/task-toast-manager.js";
 import * as sessionStore from "../../session/store.js";
@@ -23,7 +24,8 @@ export class TaskCleaner {
     constructor(
         private client: OpencodeClient,
         private store: TaskStore,
-        private concurrency: ConcurrencyController
+        private concurrency: ConcurrencyController,
+        private sessionPool: SessionPool
     ) { }
 
     pruneExpiredTasks(): void {
@@ -53,7 +55,7 @@ export class TaskCleaner {
                 }
             }
 
-            this.client.session.delete({ path: { id: task.sessionID } }).catch(() => { });
+            this.sessionPool.release(task.sessionID).catch(() => { });
             sessionStore.clear(task.sessionID);
             this.store.delete(taskId);
 
@@ -70,7 +72,7 @@ export class TaskCleaner {
         setTimeout(async () => {
             if (sessionID) {
                 try {
-                    await this.client.session.delete({ path: { id: sessionID } });
+                    await this.sessionPool.release(sessionID);
                     sessionStore.clear(sessionID);
                 } catch { }
             }

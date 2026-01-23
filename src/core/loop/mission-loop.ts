@@ -11,6 +11,8 @@ import { join } from "node:path";
 import type { PluginInput } from "@opencode-ai/plugin";
 import { log } from "../agents/logger.js";
 import { PATHS, MISSION_CONTROL } from "../../shared/index.js";
+import { TerminalMonitor } from "../progress/terminal-monitor.js";
+import { CONTINUE_INSTRUCTION } from "../../shared/constants/system-messages.js";
 
 // ============================================================================
 // Constants
@@ -160,6 +162,7 @@ export function startMissionLoop(
     const success = writeLoopState(directory, state);
 
     if (success) {
+        TerminalMonitor.getInstance().start();
         log(`[${MISSION_CONTROL.LOG_SOURCE}] Loop started`, {
             sessionID,
             maxIterations: state.maxIterations,
@@ -206,28 +209,11 @@ export function isLoopActive(directory: string, sessionID: string): boolean {
 export function generateMissionContinuationPrompt(state: MissionLoopState, verificationSummary?: string): string {
     const summaryHeader = verificationSummary ? `\n[Verification Status]: ${verificationSummary}\n` : "";
 
-    return `<mission_loop iteration="${state.iteration}" max="${state.maxIterations}">
+    return `${CONTINUE_INSTRUCTION}
+
+<mission_loop iteration="${state.iteration}" max="${state.maxIterations}">
 ⚠️ **MISSION NOT COMPLETE** - Iteration ${state.iteration}/${state.maxIterations}
 ${summaryHeader}
-
-The mission is INCOMPLETE. You MUST continue working NOW.
-
-**HIERARCHICAL TODO MANDATE**:
-Your work is strictly governed by the hierarchy in \`.opencode/todo.md\`.
-1️⃣ **Milestones (Grade 1)**: Large phases of the mission.
-2️⃣ **Tasks (Grade 2)**: Sub-tasks within milestones.
-3️⃣ **Sub-tasks (Grade 3)**: Atomic actions.
-
-**CONCLUDING RULES**:
-❌ Do NOT stop if there are ANY \`[ ]\` items remaining.
-❌ Do NOT ask for permission to continue.
-❌ Do NOT declare completion without verifying EVERY leaf node.
-
-**REQUIRED SEQUENCE**:
-1. Read \`.opencode/todo.md\` to identify the next \`[ ]\` item.
-2. If the plan is too abstract, breakdown the next task into smaller sub-tasks.
-3. Execute and mark as \`[x]\` ONLY after verification.
-4. Move to the next item immediately.
 
 **Your Original Task**:
 ${state.prompt}

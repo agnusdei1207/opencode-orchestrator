@@ -6,6 +6,7 @@
 
 import { tool } from "@opencode-ai/plugin";
 import { callRustTool } from "../rust.js";
+import { diagnosticsCache } from "./diagnostics-cache.js";
 
 /**
  * LSP Diagnostics Tool
@@ -27,10 +28,22 @@ Runs TypeScript compiler and/or ESLint to find issues.
         include_warnings: tool.schema.boolean().optional().describe("Include warnings (default: true)"),
     },
     async execute(args) {
-        return callRustTool("lsp_diagnostics", {
+        // Try cache first
+        const cached = await diagnosticsCache.get(directory, args.file);
+        if (cached) return cached;
+
+        // Call Rust tool
+        const result = await callRustTool("lsp_diagnostics", {
             directory,
             file: args.file,
             include_warnings: args.include_warnings,
         });
+
+        // Store in cache if successful
+        if (result) {
+            await diagnosticsCache.set(directory, args.file, result);
+        }
+
+        return result;
     },
 });

@@ -82,4 +82,22 @@ export const errorPatterns: ErrorPattern[] = [
             return { type: "retry", delay: 1000, attempt: 1 };
         },
     },
+
+    // LSP specific errors
+    {
+        pattern: /lsp.?diagnostics|tsc.?error|eslint.?error/i,
+        category: "lsp",
+        handler: (ctx: ErrorContext): RecoveryAction => {
+            return { type: "retry", delay: 2000, attempt: ctx.attempt + 1, modifyPrompt: "Note: Previous attempt had LSP issues. Ensure code quality and consider simpler implementation." };
+        },
+    },
+
+    // execution timeout
+    {
+        pattern: /execution.?timed.?out|timeout/i,
+        category: "timeout",
+        handler: (ctx: ErrorContext): RecoveryAction => {
+            return { type: "retry", delay: 5000, attempt: ctx.attempt + 1, modifyPrompt: "Note: Previous attempt timed out. Break down the task into smaller sub-tasks if necessary." };
+        },
+    },
 ];
