@@ -10,12 +10,19 @@ import { SessionState } from "./interfaces/session-state.js";
  */
 
 /**
+ * Rehydrates session state from directory if it exists on disk.
+ * This ensures survival across plugin reloads.
+ */
+import { readLoopState } from "../loop/mission-loop.js";
+
+/**
  * Ensures a local session object exists in the plugin context map.
- * This is "Session State 1" (Plugin-local tracking).
+ * Now WITH disk-based rehydration for robustness.
  */
 export function ensureSessionInitialized(
     sessions: Map<string, any>,
-    sessionID: string
+    sessionID: string,
+    directory?: string
 ): any {
     if (!sessions.has(sessionID)) {
         const now = Date.now();
@@ -27,8 +34,18 @@ export function ensureSessionInitialized(
             lastStepTime: now,
             tokens: { totalInput: 0, totalOutput: 0, estimatedCost: 0 },
         };
+
+        // Rehydration attempt: If directory is provided, check mission loop state
+        if (directory) {
+            const diskState = readLoopState(directory);
+            if (diskState && diskState.sessionID === sessionID) {
+                newSession.step = diskState.iteration;
+                newSession.startTime = new Date(diskState.startedAt).getTime();
+                log(`[SessionManager] Rehydrated session from disk: ${sessionID}`);
+            }
+        }
+
         sessions.set(sessionID, newSession);
-        // log(`[SessionManager] Initialized local session: ${sessionID}`);
     }
     return sessions.get(sessionID);
 }
@@ -36,12 +53,19 @@ export function ensureSessionInitialized(
 /**
  * Ensures a global mission state exists for a specific session.
  */
-function ensureGlobalState(sessionID: string): SessionState {
+function ensureGlobalState(sessionID: string, directory?: string): SessionState {
     let stateSession = state.sessions.get(sessionID);
 
     if (!stateSession) {
+        // Fallback: Check if mission is active on disk
+        let isEnabled = true;
+        if (directory) {
+            const diskState = readLoopState(directory);
+            isEnabled = diskState?.active === true && diskState?.sessionID === sessionID;
+        }
+
         const newState: SessionState = {
-            enabled: true,
+            enabled: isEnabled,
             iterations: 0,
             taskRetries: new Map(),
             currentTask: "",
@@ -66,10 +90,26 @@ export function activateMissionState(sessionID: string): void {
 
 /**
  * Checks if the mission is globally active and the session is enabled.
+ * CROSS-CHECK: Will return true if disk state confirms mission, even if in-memory 'missionActive' flag reset.
  */
-export function isMissionActive(sessionID: string): boolean {
+export function isMissionActive(sessionID: string, directory?: string): boolean {
     const stateSession = state.sessions.get(sessionID);
-    return !!(state.missionActive && stateSession?.enabled);
+
+    // In-memory hit
+    if (state.missionActive && stateSession?.enabled) return true;
+
+    // Disk-based fallback (Fundamental robustness against plugin reload)
+    if (directory) {
+        const diskState = readLoopState(directory);
+        if (diskState?.active && diskState?.sessionID === sessionID) {
+            // Self-heal: Re-activate global flags
+            state.missionActive = true;
+            ensureGlobalState(sessionID, directory).enabled = true;
+            return true;
+        }
+    }
+
+    return false;
 }
 
 /**

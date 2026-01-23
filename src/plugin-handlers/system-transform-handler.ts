@@ -8,9 +8,10 @@
  */
 
 import type { EventHandlerContext, SystemTransformInput, SystemTransformOutput } from "./interfaces/index.js";
-import { readLoopState } from "../core/loop/mission-loop.js";
+import { readLoopState, isLoopActive } from "../core/loop/mission-loop.js";
 import { MISSION_CONTROL, STATUS_LABEL } from "../shared/index.js";
 import { ParallelAgentManager } from "../core/agents/manager.js";
+import { isMissionActive, ensureSessionInitialized } from "../core/orchestrator/session-manager.js";
 
 // Re-export interfaces for external use
 export type { SystemTransformInput, SystemTransformOutput } from "./interfaces/index.js";
@@ -25,14 +26,12 @@ export function createSystemTransformHandler(ctx: EventHandlerContext) {
         const { sessionID } = input;
 
         // Check if this is an orchestrated session
-        const orchestratorSession = state.sessions.get(sessionID);
-        const isOrchestratedSession = orchestratorSession?.enabled ?? false;
-        const session = sessions.get(sessionID);
         const loopState = readLoopState(directory);
-        const isActiveLoop = loopState?.active && loopState?.sessionID === sessionID;
+        const isActiveLoop = isMissionActive(sessionID, directory) || (loopState?.active && loopState?.sessionID === sessionID);
+        const session = ensureSessionInitialized(sessions, sessionID, directory);
 
         // Only inject for orchestrated sessions
-        if (!isOrchestratedSession && !isActiveLoop) {
+        if (!isActiveLoop) {
             return;
         }
 
@@ -41,6 +40,10 @@ export function createSystemTransformHandler(ctx: EventHandlerContext) {
 
         // 1. Mission loop context (if active)
         if (isActiveLoop && loopState) {
+            // FUNDAMENTAL: Inject full Commander instructions via system transform
+            // This prevents massive prompt injection in user messages.
+            const { commander } = await import("../agents/commander.js");
+            systemAdditions.push(commander.systemPrompt);
             systemAdditions.push(buildMissionLoopSystemPrompt(loopState.iteration, loopState.maxIterations));
         }
 
@@ -65,7 +68,7 @@ export function createSystemTransformHandler(ctx: EventHandlerContext) {
 
         // Inject additions
         if (systemAdditions.length > 0) {
-            output.system.push(...systemAdditions);
+            output.system.unshift(...systemAdditions); // unshift to put core instructions first
         }
     };
 }

@@ -165,15 +165,18 @@ export async function handleSessionError(
         if (recoveryPrompt && toastMessage) {
             presets.errorRecovery(toastMessage);
 
-            // Inject recovery prompt
-            await client.session.prompt({
+            // Fire and forget: Do NOT await prompt injection.
+            // Prevents blocking the plugin process during error recovery turns.
+            client.session.prompt({
                 path: { id: sessionID },
                 body: {
                     parts: [{ type: PART_TYPES.TEXT, text: recoveryPrompt }],
                 },
+            }).catch(injectionError => {
+                log("[session-recovery] Failed to inject recovery prompt", { sessionID, error: injectionError });
             });
 
-            log("[session-recovery] Recovery prompt injected", { sessionID, errorType });
+            log("[session-recovery] Recovery prompt injected (async)", { sessionID, errorType });
             state.isRecovering = false;
             return true;
         }

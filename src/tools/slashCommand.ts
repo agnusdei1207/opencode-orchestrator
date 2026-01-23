@@ -12,14 +12,11 @@ import { commander } from "../agents/commander.js";
 // ============================================================================
 // COMMANDER SYSTEM PROMPT - Imported from commander.ts (single source of truth)
 // ============================================================================
-export const COMMANDER_SYSTEM_PROMPT = commander.systemPrompt;
-
 // ============================================================================
-// MISSION MODE TEMPLATE - Wraps user request with Commander instructions
+// MISSION MODE TEMPLATE - Lightweight trigger for autonomous missions
+// System-level roles are now fundamentally handled via the SystemTransform hook.
 // ============================================================================
-export const MISSION_MODE_TEMPLATE = `${COMMANDER_SYSTEM_PROMPT}
-
-<mission>
+export const MISSION_MODE_TEMPLATE = `<mission>
 <task>
 $ARGUMENTS
 </task>

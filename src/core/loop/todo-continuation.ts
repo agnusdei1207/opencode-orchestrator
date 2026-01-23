@@ -168,19 +168,24 @@ async function injectContinuation(
     }
 
     try {
-        await client.session.prompt({
+        // Fire and forget: Do NOT await prompt injection.
+        // Prevents blocking the plugin's main event loop during idle-triggered resumptions.
+        client.session.prompt({
             path: { id: sessionID },
             body: {
                 parts: [{ type: PART_TYPES.TEXT, text: prompt }],
             },
+        }).catch(error => {
+            log("[todo-continuation] Failed to inject continuation", { sessionID, error });
         });
-        log("[todo-continuation] Injected continuation prompt", {
+
+        log("[todo-continuation] Injected continuation prompt (async)", {
             sessionID,
             incompleteCount: getIncompleteCount(todos),
             progress: formatProgress(todos),
         });
     } catch (error) {
-        log("[todo-continuation] Failed to inject continuation", { sessionID, error });
+        log("[todo-continuation] Failed to trigger async continuation", { sessionID, error });
     }
 }
 

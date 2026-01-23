@@ -71,9 +71,15 @@ export function createAssistantDoneHandler(ctx: AssistantDoneHandlerContext) {
                         text: p
                     }));
 
-                    await client.session.prompt({
+                    // Fire and forget: Do NOT await this prompt call here.
+                    // Awaiting here causes a recursive hook-await deadlock 
+                    // because the server waits for this hook to finish before closing the turn,
+                    // while this prompt call starts a new turn that would trigger another hook.
+                    client.session.prompt({
                         path: { id: sessionID },
                         body: { parts },
+                    }).catch(error => {
+                        log("[assistant-done-handler] Failed to inject continuation prompts", { sessionID, error });
                     });
                 }
             } catch (error) {
