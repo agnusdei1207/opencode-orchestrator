@@ -153,11 +153,15 @@ async function injectContinuation(
     const prompt = generateMissionContinuationPrompt(loopState, summary);
 
     try {
-        await client.session.prompt({
+        // Fire and forget: Do NOT await prompt injection.
+        // This ensures the IDLE event handler returns quickly and doesn't block the plugin process.
+        client.session.prompt({
             path: { id: sessionID },
             body: {
                 parts: [{ type: PART_TYPES.TEXT, text: prompt }],
             },
+        }).catch(error => {
+            log("[mission-loop-handler] Failed to inject continuation prompt", { sessionID, error });
         });
     } catch {
         // Injection failed

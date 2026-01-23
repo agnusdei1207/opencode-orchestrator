@@ -314,43 +314,48 @@ export class ParallelAgentManager {
     }
 
     private async recoverActiveTasks(): Promise<void> {
-        const tasks = await taskWAL.readAll();
-        if (tasks.size === 0) return;
+        const tasksMap = await taskWAL.readAll();
+        if (tasksMap.size === 0) return;
 
-        log(`Attempting to recover ${tasks.size} tasks from WAL...`);
+        const tasks = Array.from(tasksMap.values());
+        log(`Attempting to recover ${tasks.length} tasks from WAL in parallel...`);
+
         let recoveredCount = 0;
 
-        for (const task of tasks.values()) {
-            if (task.status === TASK_STATUS.RUNNING) {
-                // Verify session still exists on server
-                try {
-                    const status = await this.client.session.get({ path: { id: task.sessionID } });
-                    if (!status.error) {
-                        this.store.set(task.id, task);
-                        this.store.trackPending(task.parentSessionID, task.id);
+        // Recover tasks in parallel batches to avoid overloading the server connection
+        const chunks: ParallelTask[][] = [];
+        const chunkSize = 10;
+        for (let i = 0; i < tasks.length; i += chunkSize) {
+            chunks.push(tasks.slice(i, i + chunkSize));
+        }
 
-                        // Register in Toast Manager
-                        const toastManager = getTaskToastManager();
-                        if (toastManager) {
-                            toastManager.addTask({
-                                id: task.id,
-                                description: task.description,
-                                agent: task.agent,
-                                isBackground: true,
-                                parentSessionID: task.parentSessionID,
-                                sessionID: task.sessionID,
-                            });
+        for (const chunk of chunks) {
+            await Promise.all(chunk.map(async (task) => {
+                if (task.status === TASK_STATUS.RUNNING) {
+                    try {
+                        const status = await this.client.session.get({ path: { id: task.sessionID } });
+                        if (!status.error) {
+                            this.store.set(task.id, task);
+                            this.store.trackPending(task.parentSessionID, task.id);
+
+                            const toastManager = getTaskToastManager();
+                            if (toastManager) {
+                                toastManager.addTask({
+                                    id: task.id,
+                                    description: task.description,
+                                    agent: task.agent,
+                                    isBackground: true,
+                                    parentSessionID: task.parentSessionID,
+                                    sessionID: task.sessionID,
+                                });
+                            }
+                            recoveredCount++;
                         }
-
-                        recoveredCount++;
+                    } catch {
+                        // Session gone
                     }
-                } catch {
-                    // Session gone, skip
                 }
-            } else {
-                // Tasks that were already completed/errored at crash
-                // can still be added to store if needed, but usually we care about RUNNING ones
-            }
+            }));
         }
 
         if (recoveredCount > 0) {

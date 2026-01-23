@@ -71,7 +71,7 @@ export class MissionControlHook implements AssistantDoneHook, ChatMessageHook {
         log(MISSION_MESSAGES.START_LOG);
 
         // 1. Initialize Session State (Local)
-        ensureSessionInitialized(sessions, sessionID);
+        ensureSessionInitialized(sessions, sessionID, directory);
 
         // 2. Activate Mission State (Global)
         activateMissionState(sessionID);
@@ -102,7 +102,7 @@ export class MissionControlHook implements AssistantDoneHook, ChatMessageHook {
         const finalText = agentText || "";
 
         // 1. Skip if mission is not active
-        if (!isMissionActive(sessionID) || !isLoopActive(directory, sessionID)) {
+        if (!isMissionActive(sessionID, directory) || !isLoopActive(directory, sessionID)) {
             return { action: HOOK_ACTIONS.CONTINUE };
         }
 
