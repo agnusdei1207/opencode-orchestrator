@@ -23,7 +23,7 @@ Inside an OpenCode environment:
 
 ---
 
-## � Engine Workflow
+## 🚀 Engine Workflow
 
 OpenCode Orchestrator executes a **Linear Strategy** through **Parallel Sessions**.
 
@@ -38,11 +38,11 @@ OpenCode Orchestrator executes a **Linear Strategy** through **Parallel Sessions
          │      PLANNER        │ (Symbolic Todo)
          └──────────┬──────────┘
                     │
-       ┌────────────┴────────────┐
-       ▼      (Session Pool)     ▼
- [ Session A ]             [ Session B ]
- [ Worker    ]             [ Reviewer  ] (Parallel Async)
-       └────────────┬────────────┘
+     ┌──────────────┼──────────────┐
+     ▼        (Session Pool)       ▼
+[ Session A ]  [ Session B ]  [ Session C ]
+[ Worker    ]  [ Worker    ]  [ Reviewer  ]
+     └──────────────┬──────────────┘
                     │
          ┌──────────▼──────────┐
          │     MISSION LOOP    │ (State Verification)
