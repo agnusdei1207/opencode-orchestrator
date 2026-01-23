@@ -4,7 +4,6 @@
 
 import {
    AGENT_NAMES,
-   MISSION_SEAL,
    PATHS,
    PROMPT_TAGS,
    TOOL_NAMES,
@@ -47,6 +46,11 @@ ${AGENT_NAMES.PLANNER} creates ${PATHS.TODO} with parallel groups
 ${PHASE_5_MSVP}
 
 ## ${PHASES.PHASE_6.ID}: ${PHASES.PHASE_6.NAME}
-When ALL conditions met, output ${MISSION_SEAL.PATTERN}
+When ALL work is complete:
+1. Verify all TODO items are [x]
+2. Call ${AGENT_NAMES.MASTER_REVIEWER} for final verification
+3. ${AGENT_NAMES.MASTER_REVIEWER} will output SEAL if all checks pass
+4. If failure summary returned, address issues and retry
 ${PROMPT_TAGS.EXECUTION_STRATEGY.close}`;
+
 

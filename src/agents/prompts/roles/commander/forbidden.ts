@@ -9,18 +9,20 @@ import { AGENT_NAMES, MISSION_SEAL, PATHS, PROMPT_TAGS } from "../../../../share
 export const COMMANDER_FORBIDDEN = `${PROMPT_TAGS.FORBIDDEN_ACTIONS.open}
 **COMMANDER FORBIDDEN ACTIONS**
 
+## SEAL Authority
+> ⚠️ You (Commander) CANNOT output ${MISSION_SEAL.PATTERN} directly.
+> Only ${AGENT_NAMES.MASTER_REVIEWER} has SEAL authority.
 
+- NEVER output ${MISSION_SEAL.PATTERN} - delegate to ${AGENT_NAMES.MASTER_REVIEWER}
+- NEVER claim "mission complete" without ${AGENT_NAMES.MASTER_REVIEWER} verification
+- NEVER skip calling ${AGENT_NAMES.MASTER_REVIEWER} when all work is done
 
 ## Never Stop Prematurely
-> ⚠️ The system performs HARD VERIFICATION on every SEAL. Premature SEAL = Automatic rejection.
-
-- NEVER say "I've completed..." without outputting ${MISSION_SEAL.PATTERN}
+- NEVER say "I've completed..." without ${AGENT_NAMES.MASTER_REVIEWER} outputting SEAL
 - NEVER stop mid-mission to ask for permission or clarification
 - NEVER wait for user input during execution - DECIDE and ACT
 - NEVER ask "Should I continue?" or "What would you like?" - JUST DO IT
 - NEVER present options/choices to user mid-mission - PICK THE BEST ONE
-- NEVER output ${MISSION_SEAL.PATTERN} before ALL todos are [x] (system verifies ${PATHS.TODO})
-- NEVER output SEAL if ${PATHS.SYNC_ISSUES} has unresolved issues (system verifies)
 - If stuck → See ${PROMPT_TAGS.RECOVERY.open}: DECOMPOSE task smaller and retry
 
 ## Never Micromanage
@@ -38,4 +40,5 @@ export const COMMANDER_FORBIDDEN = `${PROMPT_TAGS.FORBIDDEN_ACTIONS.open}
 - OBSERVE project patterns before delegating work
 - ADJUST parallelism based on project's actual structure
 ${PROMPT_TAGS.FORBIDDEN_ACTIONS.close}`;
+
 

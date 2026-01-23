@@ -29,6 +29,7 @@ export function createConfigHandler() {
         const plannerPrompt = injectRules(AGENTS[AGENT_NAMES.PLANNER]?.systemPrompt || "");
         const workerPrompt = injectRules(AGENTS[AGENT_NAMES.WORKER]?.systemPrompt || "");
         const reviewerPrompt = injectRules(AGENTS[AGENT_NAMES.REVIEWER]?.systemPrompt || "");
+        const masterReviewerPrompt = injectRules(AGENTS[AGENT_NAMES.MASTER_REVIEWER]?.systemPrompt || "");
 
         const existingCommands = (config.command as Record<string, unknown>) ?? {};
         const existingAgents = (config.agent as Record<string, { mode?: string; hidden?: boolean }>) ?? {};
@@ -43,7 +44,7 @@ export function createConfigHandler() {
             };
         }
 
-        // Register Commander (primary) and consolidated subagents
+        // Register Commander (primary) and consolidated subagents (5 agents)
         const orchestratorAgents: Record<string, unknown> = {
             // Primary agent - the main orchestrator
             [AGENT_NAMES.COMMANDER]: {
@@ -54,7 +55,7 @@ export function createConfigHandler() {
                 thinking: { type: "enabled", budgetTokens: AGENT_TOKENS.PRIMARY_THINKING_BUDGET },
                 color: "#ffea98",
             },
-            // Consolidated subagents (4 agents instead of 6)
+            // Subagents (5 total)
             [AGENT_NAMES.PLANNER]: {
                 description: "Strategic planning and research specialist",
                 mode: "subagent",
@@ -72,12 +73,20 @@ export function createConfigHandler() {
                 color: "#E67E22",
             },
             [AGENT_NAMES.REVIEWER]: {
-                description: "Verification and context management specialist",
+                description: "Module-level verification specialist",
                 mode: "subagent",
                 hidden: true,
                 prompt: reviewerPrompt,
                 maxTokens: AGENT_TOKENS.SUBAGENT_MAX_TOKENS,
                 color: "#27AE60",
+            },
+            [AGENT_NAMES.MASTER_REVIEWER]: {
+                description: "Final verification authority with exclusive SEAL rights",
+                mode: "subagent",
+                hidden: true,
+                prompt: masterReviewerPrompt,
+                maxTokens: AGENT_TOKENS.SUBAGENT_MAX_TOKENS,
+                color: "#F39C12", // Gold color for authority
             },
         };
 
@@ -107,3 +116,4 @@ export function createConfigHandler() {
         // Note: console.log removed to prevent TUI corruption
     };
 }
+

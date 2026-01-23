@@ -50,6 +50,13 @@ export const PROMPT_TAGS = {
     TODO_MANAGEMENT: { open: "<todo_management>", close: "</todo_management>" },
     OUTPUT_FORMAT: { open: "<output_format>", close: "</output_format>" },
 
+    // === Master Reviewer ===
+    SEAL_AUTHORITY: { open: "<seal_authority>", close: "</seal_authority>" },
+    FORBIDDEN: { open: "<forbidden>", close: "</forbidden>" },
+    CAPABILITIES: { open: "<capabilities>", close: "</capabilities>" },
+    VERIFICATION_COMPLETE: { open: "<verification_complete>", close: "</verification_complete>" },
+    VERIFICATION_FAILED: { open: "<verification_failed>", close: "</verification_failed>" },
+
     // === Mission Loop ===
     MISSION_LOOP: { open: "<mission_loop>", close: "</mission_loop>" },
     AUTONOMOUS_MODE: { open: "<autonomous_mode>", close: "</autonomous_mode>" },

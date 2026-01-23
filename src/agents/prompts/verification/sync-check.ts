@@ -2,6 +2,8 @@
  * Reviewer Sync Verification
  * 
  * Verify file synchronization and report issues for next iteration.
+ * Note: Final SEAL is handled by Master Reviewer, not Reviewer.
+ * Environment-agnostic - works for any project type.
  */
 
 import { PATHS, AGENT_NAMES, ID_PREFIX, PROMPT_TAGS, WORK_STATUS } from "../../../shared/index.js";
@@ -14,17 +16,16 @@ After integration, verify all files are properly synchronized.
 ### Sync Check Areas
 
 #### 1. Import/Export Consistency
-\`\`\`bash
-# Check for broken imports
-npm run build 2>&1 | grep -i "cannot find"
-npm run build 2>&1 | grep -i "not exported"
-\`\`\`
+Run the project's **build command** and check for:
+- Missing imports/includes
+- Missing exports/declarations
+- Broken dependencies
 
-#### 2. Type Consistency
-\`\`\`bash
-# Check for type mismatches
-npx tsc --noEmit 2>&1 | grep -i "type"
-\`\`\`
+#### 2. Type/Interface Consistency
+Run the project's **type check command** (if applicable) and check for:
+- Type mismatches across files
+- Interface implementation errors
+- Signature mismatches
 
 #### 3. Interface Implementation
 - Check implemented interfaces match declarations
@@ -64,23 +65,15 @@ When re-verifying after fixes:
 
 ---
 
-### Loop Continuation (NOT SEALED)
+### Loop Continuation
 If sync issues exist:
 1. Write ONLY unresolved issues to ${PATHS.SYNC_ISSUES}
 2. Delete resolved issues from file
 3. Update ${PATHS.WORK_LOG} with required rework
-4. DO NOT output SEALED
-5. ${AGENT_NAMES.COMMANDER} will read and dispatch new work
+4. Report status to ${AGENT_NAMES.COMMANDER}
 
-### Seal Condition (SYSTEM VERIFIED)
-> ⚠️ The system will REJECT your SEAL if these conditions are not met.
-
-Output SEALED only when:
-- [x] All TODO items [x] (system checks ${PATHS.TODO})
-- [x] Build passes
-- [x] All tests pass (${WORK_STATUS.TEST_RESULT.PASS})
-- [x] ${PATHS.SYNC_ISSUES} is EMPTY (system checks this)
-- [x] ${PATHS.INTEGRATION_STATUS} shows ${WORK_STATUS.TEST_RESULT.PASS}
+> **NOTE**: You (Reviewer) do NOT output SEAL.
+> ${AGENT_NAMES.MASTER_REVIEWER} handles final verification and SEAL.
 
 ### CRITICAL:
 - Always check sync AFTER integration tests
@@ -89,3 +82,4 @@ Output SEALED only when:
 - Ensure ${AGENT_NAMES.COMMANDER} only sees what needs fixing
 
 ${PROMPT_TAGS.SYNC_VERIFICATION.close}`;
+
