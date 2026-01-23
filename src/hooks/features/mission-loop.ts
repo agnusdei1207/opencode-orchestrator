@@ -98,8 +98,48 @@ export class MissionControlHook implements AssistantDoneHook, ChatMessageHook {
     private async handleMissionSeal(ctx: HookContext, agentText: string): Promise<any> {
         const { sessionID, directory, sessions } = ctx;
         const session = sessions.get(sessionID);
+        const finalText = agentText || "";
 
-        // 1. Validate Active State
+        // 0. CRITICAL: Check TODO completion FIRST (before mission state checks)
+        // This ensures we NEVER stop when work remains, even if mission state is wrong
+        const preVerification = verifyMissionCompletion(directory);
+
+        if (!preVerification.todoComplete && preVerification.todoProgress !== "0/0") {
+            // TODO exists and has incomplete items → FORCE continuation
+            log("[MissionControl] TODO incomplete - forcing continuation", {
+                todoProgress: preVerification.todoProgress,
+                todoIncomplete: preVerification.todoIncomplete
+            });
+
+            // Check for SEAL attempt despite incomplete TODO
+            if (detectSealInText(finalText)) {
+                log("[MissionControl] SEAL detected but TODO incomplete - REJECTED");
+                return {
+                    action: HOOK_ACTIONS.INJECT,
+                    prompts: [buildVerificationFailurePrompt(preVerification)]
+                };
+            }
+
+            // No SEAL, just continue working - inject continuation prompt
+            const continuePrompt = `⚠️ **TODO Incomplete: ${preVerification.todoProgress}**
+
+${preVerification.todoIncomplete} task(s) remaining. Continue working on incomplete items.
+
+**REQUIRED**: Check TODO.md and complete ALL [ ] items before attempting SEAL.
+
+\`\`\`bash
+cat .opencode/todo.md
+\`\`\`
+
+**DO NOT** output <mission_seal> until ALL items are [x].`;
+
+            return {
+                action: HOOK_ACTIONS.INJECT,
+                prompts: [continuePrompt]
+            };
+        }
+
+        // 1. Validate Active State (only after confirming TODO is complete or empty)
         if (!isMissionActive(sessionID)) {
             return { action: HOOK_ACTIONS.CONTINUE };
         }
@@ -107,8 +147,6 @@ export class MissionControlHook implements AssistantDoneHook, ChatMessageHook {
         if (!isLoopActive(directory, sessionID)) {
             return { action: HOOK_ACTIONS.CONTINUE };
         }
-
-        const finalText = agentText || "";
 
         // 2. User Cancellation
         if (finalText.includes(MISSION_MESSAGES.STOP_TRIGGER) || finalText.includes(MISSION_MESSAGES.CANCEL_TRIGGER)) {
