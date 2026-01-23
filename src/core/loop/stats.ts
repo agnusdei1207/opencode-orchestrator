@@ -3,7 +3,7 @@
  */
 
 import type { Todo, TodoStats } from "./interfaces.js";
-import { TODO_STATUS } from "../../shared/index.js";
+import { TODO_STATUS, STATUS_LABEL } from "../../shared/index.js";
 
 /**
  * Get count of incomplete todos
@@ -31,7 +31,11 @@ export function getNextPending(todos: Todo[]): Todo | undefined {
     );
 
     // Sort by priority: high > medium > low
-    const priorityOrder = { high: 0, medium: 1, low: 2 };
+    const priorityOrder = {
+        [STATUS_LABEL.HIGH]: 0,
+        [STATUS_LABEL.MEDIUM]: 1,
+        [STATUS_LABEL.LOW]: 2
+    };
     pending.sort((a, b) => priorityOrder[a.priority] - priorityOrder[b.priority]);
 
     return pending[0];

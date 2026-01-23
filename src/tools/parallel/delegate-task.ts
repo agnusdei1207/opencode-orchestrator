@@ -23,6 +23,9 @@ import {
     STATUS_LABEL,
     OUTPUT_LABEL,
     AGENT_NAMES,
+    PROMPT_TAGS,
+    PARALLEL_PARAMS,
+    TOOL_NAMES,
     type SessionClient,
     type PollResult
 } from "../../shared/index.js";
@@ -214,33 +217,40 @@ async function extractSessionResult(
 export const createDelegateTaskTool = (manager: ParallelAgentManager, client: unknown) => tool({
     description: `Delegate a task to an agent.
 
-<mode>
-- background=true: Non-blocking. Returns task ID immediately.
-- background=false: Blocking. Waits for result.
-</mode>
+${PROMPT_TAGS.MODE.open}
+- ${PARALLEL_PARAMS.BACKGROUND}=true: Non-blocking. Returns task ID immediately.
+- ${PARALLEL_PARAMS.BACKGROUND}=false: Blocking. Waits for result.
+${PROMPT_TAGS.MODE.close}
 
-<resume>
-- resume: Optional session ID to continue existing session.
+${PROMPT_TAGS.RESUME.open}
+- ${PARALLEL_PARAMS.RESUME}: Optional session ID to continue existing session.
 - When set, continues previous work instead of starting fresh.
 - Preserves all context from previous conversation.
 - Use for: retry after failure, follow-up questions, token efficiency.
-</resume>
+${PROMPT_TAGS.RESUME.close}
 
-<safety>
+${PROMPT_TAGS.SAFETY.open}
 - Max 10 tasks per agent type (configurable)
 - Auto-timeout: 60 minutes
-</safety>`,
+${PROMPT_TAGS.SAFETY.close}`,
     args: {
-        agent: tool.schema.string().describe("Agent name"),
-        description: tool.schema.string().describe("Task description"),
-        prompt: tool.schema.string().describe("Prompt for the agent"),
-        background: tool.schema.boolean().describe("true=async, false=sync"),
-        resume: tool.schema.string().optional().describe("Session ID to resume (from previous task.sessionID)"),
-        mode: tool.schema.enum(["normal", "race", "fractal"]).optional().describe("Task mode (race=first wins, fractal=recursive)"),
-        groupID: tool.schema.string().optional().describe("Group ID for racing or tracking recursive families"),
+        [PARALLEL_PARAMS.AGENT]: tool.schema.string().describe("Agent name"),
+        [PARALLEL_PARAMS.DESCRIPTION]: tool.schema.string().describe("Task description"),
+        [PARALLEL_PARAMS.PROMPT]: tool.schema.string().describe("Prompt for the agent"),
+        [PARALLEL_PARAMS.BACKGROUND]: tool.schema.boolean().describe("true=async, false=sync"),
+        [PARALLEL_PARAMS.RESUME]: tool.schema.string().optional().describe("Session ID to resume (from previous task.sessionID)"),
+        [PARALLEL_PARAMS.MODE]: tool.schema.enum(["normal", "race", "fractal"]).optional().describe("Task mode (race=first wins, fractal=recursive)"),
+        [PARALLEL_PARAMS.GROUP_ID]: tool.schema.string().optional().describe("Group ID for racing or tracking recursive families"),
     },
     async execute(args, context) {
-        const { agent, description, prompt, background, resume, mode, groupID } = args;
+        const agent = args[PARALLEL_PARAMS.AGENT];
+        const description = args[PARALLEL_PARAMS.DESCRIPTION];
+        const prompt = args[PARALLEL_PARAMS.PROMPT];
+        const background = args[PARALLEL_PARAMS.BACKGROUND];
+        const resume = args[PARALLEL_PARAMS.RESUME];
+        const mode = args[PARALLEL_PARAMS.MODE];
+        const groupID = args[PARALLEL_PARAMS.GROUP_ID];
+
         const ctx = context as { sessionID: string };
 
         // HPFA: Parent depth detection
@@ -306,7 +316,7 @@ If your task is too complex, please:
                 if (background === true) {
                     const message = `Launched ${input.agent} task: ${input.description}\nTask ID: ${taskId}\nSession: ${task.sessionID}`;
                     return `${OUTPUT_LABEL.RESUME} task: \`${taskId}\` (${task.agent}) in session \`${task.sessionID}\`\n\n` +
-                        `Previous context preserved. Use \`get_task_result({ taskId: "${taskId}" })\` when complete.`;
+                        `Previous context preserved. Use \`${TOOL_NAMES.GET_TASK_RESULT}({ taskId: "${taskId}" })\` when complete.`;
                 }
 
                 // SYNC MODE for resume - use safe polling
@@ -375,10 +385,10 @@ If your task is too complex, please:
                 body: {
                     agent,
                     tools: {
-                        delegate_task: false,
-                        get_task_result: false,
-                        list_tasks: false,
-                        cancel_task: false,
+                        [TOOL_NAMES.DELEGATE_TASK]: false,
+                        [TOOL_NAMES.GET_TASK_RESULT]: false,
+                        [TOOL_NAMES.LIST_TASKS]: false,
+                        [TOOL_NAMES.CANCEL_TASK]: false,
                     },
                     parts: [{ type: PART_TYPES.TEXT, text: prompt }]
                 },

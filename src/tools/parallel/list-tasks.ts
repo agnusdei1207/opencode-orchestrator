@@ -4,15 +4,15 @@
 
 import { tool } from "@opencode-ai/plugin";
 import { ParallelAgentManager, type ParallelTask } from "../../core/agents/index.js";
-import { STATUS_LABEL, TASK_STATUS } from "../../shared/index.js";
+import { STATUS_LABEL, TASK_STATUS, PARALLEL_PARAMS, LOOP_LABELS } from "../../shared/index.js";
 
 export const createListTasksTool = (manager: ParallelAgentManager) => tool({
     description: `List all background tasks.`,
     args: {
-        status: tool.schema.string().optional().describe("Filter: all, running, completed, error"),
+        [PARALLEL_PARAMS.STATUS]: tool.schema.string().optional().describe("Filter: all, running, completed, error"),
     },
     async execute(args) {
-        const { status = STATUS_LABEL.ALL } = args;
+        const status = args[PARALLEL_PARAMS.STATUS] || STATUS_LABEL.ALL;
         let tasks: ParallelTask[];
 
         switch (status) {
@@ -30,7 +30,7 @@ export const createListTasksTool = (manager: ParallelAgentManager) => tool({
             return `| \`${t.id}\` | [${t.status.toUpperCase()}] | ${t.agent} | ${elapsed}s |`;
         }).join("\n");
 
-        return `**Tasks List**\n\n| ID | Status | Agent | Time |\n|----|--------|-------|------|\n${rows}`;
+        return `**Tasks List**\n\n| ID | ${LOOP_LABELS.STATUS_TITLE || "Status"} | ${PARALLEL_PARAMS.AGENT.toUpperCase()} | Time |\n|----|--------|-------|------|\n${rows}`;
 
     },
 });

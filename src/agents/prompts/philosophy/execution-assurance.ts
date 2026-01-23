@@ -1,6 +1,6 @@
-import { PROMPT_TAGS } from "../../../shared/index.js";
+import { PROMPT_TAGS, wrapTag } from "../../../shared/index.js";
 
-export const EXECUTION_ASSURANCE = `<execution_assurance>
+export const EXECUTION_ASSURANCE = wrapTag(PROMPT_TAGS.EXECUTION_ASSURANCE, `
 ## L0-L7 Execution Assurance Levels
 
 | Level | Scope | Requirement |
@@ -16,7 +16,6 @@ export const EXECUTION_ASSURANCE = `<execution_assurance>
 
 **Rule:** You must achieve the highest possible Level for the current task.
 - Never settle for L0/L1 if L2+ is possible.
-- L4 (Build) is a GATEKEEPER. If build fails, nothing else matters.
-</execution_assurance>`;
+- L4 (Build) is a GATEKEEPER. If build fails, nothing else matters.`);
 
 export { AUTONOMOUS_MANDATE } from "../../../shared/index.js";

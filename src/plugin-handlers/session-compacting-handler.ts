@@ -10,6 +10,7 @@
 import { readLoopState, type MissionLoopState } from "../core/loop/mission-loop.js";
 import type { EventHandlerContext, SessionCompactingInput, SessionCompactingOutput } from "./interfaces/index.js";
 import { ParallelAgentManager } from "../core/agents/manager.js";
+import { STATUS_LABEL } from "../shared/index.js";
 
 // Re-export interfaces for external use
 export type { SessionCompactingInput, SessionCompactingOutput } from "./interfaces/index.js";
@@ -50,7 +51,7 @@ export function createSessionCompactingHandler(ctx: EventHandlerContext) {
         try {
             const manager = ParallelAgentManager.getInstance();
             const tasks = manager.getTasksByParent(sessionID);
-            const runningTasks = tasks.filter(t => t.status === "running");
+            const runningTasks = tasks.filter(t => t.status === STATUS_LABEL.RUNNING);
 
             if (runningTasks.length > 0) {
                 contextItems.push(buildBackgroundTasksContext(runningTasks));

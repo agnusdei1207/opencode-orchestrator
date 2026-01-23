@@ -4,6 +4,7 @@
 
 import type { TaskHierarchy } from "./interfaces.js";
 import { create, addTask, getHierarchy } from "./store.js";
+import { TASK_METADATA } from "../../shared/index.js";
 
 /**
  * Parse task hierarchy from text (Planner output)
@@ -40,11 +41,11 @@ export function parseFromText(sessionId: string, text: string): TaskHierarchy {
         if (metadata) {
             const parts = metadata.split(",").map(p => p.trim());
             for (const part of parts) {
-                if (part.startsWith("parallel:") || part.startsWith("parallel_group:")) {
+                if (part.startsWith(`${TASK_METADATA.PARALLEL}:`) || part.startsWith(`${TASK_METADATA.PARALLEL_GROUP}:`)) {
                     parallelGroup = part.split(":")[1];
-                } else if (part.startsWith("depends:")) {
+                } else if (part.startsWith(`${TASK_METADATA.DEPENDS}:`)) {
                     dependsOn = part.split(":")[1].split(",").map(s => s.trim());
-                } else if (part.startsWith("agent:")) {
+                } else if (part.startsWith(`${TASK_METADATA.AGENT}:`)) {
                     agent = part.split(":")[1];
                 }
             }

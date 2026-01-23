@@ -2,7 +2,7 @@
  * Commander TODO Format - Strict Hierarchical
  */
 
-import { AGENT_NAMES, PROMPT_TAGS } from "../../../shared/index.js";
+import { AGENT_NAMES, PROMPT_TAGS, TASK_METADATA } from "../../../shared/index.js";
 
 export const COMMANDER_TODO_FORMAT = `${PROMPT_TAGS.TODO_FORMAT.open}
 ## Strict Hierarchical Task Decomposition
@@ -24,15 +24,15 @@ This allows for maximum parallel execution and granular verification.
 # Mission: [Overall Goal]
 
 ## M1: [First Milestone]
-### T1.1: [Feature A] | agent:${AGENT_NAMES.WORKER}
-- [ ] S1.1.1: [Atomic Step 1] | size:S
-- [ ] S1.1.2: [Atomic Step 2] | size:M
+### T1.1: [Feature A] | ${TASK_METADATA.AGENT}:${AGENT_NAMES.WORKER}
+- [ ] S1.1.1: [Atomic Step 1] | ${TASK_METADATA.SIZE}:S
+- [ ] S1.1.2: [Atomic Step 2] | ${TASK_METADATA.SIZE}:M
 
-### T1.2: [Feature B] | depends:T1.1
-- [ ] S1.2.1: [Atomic Step 1] | size:L
-- [ ] S1.2.2: [Verification Test] | size:S
+### T1.2: [Feature B] | ${TASK_METADATA.DEPENDS}:T1.1
+- [ ] S1.2.1: [Atomic Step 1] | ${TASK_METADATA.SIZE}:L
+- [ ] S1.2.2: [Verification Test] | ${TASK_METADATA.SIZE}:S
 
-## M2: [Second Milestone] | depends:M1
+## M2: [Second Milestone] | ${TASK_METADATA.DEPENDS}:M1
 ...
 \`\`\`
 

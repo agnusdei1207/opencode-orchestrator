@@ -71,7 +71,8 @@
   },
   "dependencies": {
     "@opencode-ai/plugin": "^1.1.1",
-    "@opencode-ai/sdk": "^1.1.14"
+    "@opencode-ai/sdk": "^1.1.14",
+    "zod": "4.1.8"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",

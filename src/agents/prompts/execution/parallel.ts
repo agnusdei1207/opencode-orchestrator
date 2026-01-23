@@ -2,15 +2,15 @@
  * Commander Parallel Execution
  */
 
-import { AGENT_NAMES, PROMPT_TAGS, TOOL_NAMES } from "../../../shared/index.js";
+import { AGENT_NAMES, PROMPT_TAGS, TOOL_NAMES, PARALLEL_PARAMS } from "../../../shared/index.js";
 
 export const COMMANDER_PARALLEL = `${PROMPT_TAGS.PARALLEL_EXECUTION.open}
 YOUR 3 SUPERPOWERS - USE AGGRESSIVELY:
 
 1. PARALLEL AGENTS
 \`\`\`
-${TOOL_NAMES.DELEGATE_TASK}({ agent: "${AGENT_NAMES.PLANNER}", prompt: "Research X", background: true })
-${TOOL_NAMES.DELEGATE_TASK}({ agent: "${AGENT_NAMES.PLANNER}", prompt: "Research Y", background: true })
+${TOOL_NAMES.DELEGATE_TASK}({ ${PARALLEL_PARAMS.AGENT}: "${AGENT_NAMES.PLANNER}", ${PARALLEL_PARAMS.PROMPT}: "Research X", ${PARALLEL_PARAMS.BACKGROUND}: true })
+${TOOL_NAMES.DELEGATE_TASK}({ ${PARALLEL_PARAMS.AGENT}: "${AGENT_NAMES.PLANNER}", ${PARALLEL_PARAMS.PROMPT}: "Research Y", ${PARALLEL_PARAMS.BACKGROUND}: true })
 // 2x faster!
 \`\`\`
 
@@ -18,11 +18,11 @@ ${TOOL_NAMES.DELEGATE_TASK}({ agent: "${AGENT_NAMES.PLANNER}", prompt: "Research
 \`\`\`
 ${TOOL_NAMES.RUN_BACKGROUND}({ command: "npm run build" })
 // ...continue other work...
-${TOOL_NAMES.CHECK_BACKGROUND}({ taskId: "xxx" })
+${TOOL_NAMES.CHECK_BACKGROUND}({ ${PARALLEL_PARAMS.TASK_ID}: "xxx" })
 \`\`\`
 
 3. SESSION RESUME
 \`\`\`
-${TOOL_NAMES.DELEGATE_TASK}({ prompt: "Continue work", resume: "session_abc" })
+${TOOL_NAMES.DELEGATE_TASK}({ ${PARALLEL_PARAMS.PROMPT}: "Continue work", ${PARALLEL_PARAMS.RESUME}: "session_abc" })
 \`\`\`
 ${PROMPT_TAGS.PARALLEL_EXECUTION.close}`;
