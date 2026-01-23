@@ -7,4 +7,5 @@ export const AGENT_NAMES = {
     PLANNER: "Planner",
     WORKER: "Worker",
     REVIEWER: "Reviewer",
+    MASTER_REVIEWER: "MasterReviewer",
 } as const;

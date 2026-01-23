@@ -19,15 +19,16 @@ describe("Agent Definitions", () => {
     // ========================================================================
 
     describe("AGENTS registry", () => {
-        it("should export all four agents", () => {
+        it("should export all five agents", () => {
             expect(AGENTS[AGENT_NAMES.COMMANDER]).toBeDefined();
             expect(AGENTS[AGENT_NAMES.PLANNER]).toBeDefined();
             expect(AGENTS[AGENT_NAMES.WORKER]).toBeDefined();
             expect(AGENTS[AGENT_NAMES.REVIEWER]).toBeDefined();
+            expect(AGENTS[AGENT_NAMES.MASTER_REVIEWER]).toBeDefined();
         });
 
-        it("should have exactly 4 agents", () => {
-            expect(Object.keys(AGENTS)).toHaveLength(4);
+        it("should have exactly 5 agents", () => {
+            expect(Object.keys(AGENTS)).toHaveLength(5);
         });
     });
 
@@ -162,6 +163,37 @@ describe("Agent Definitions", () => {
             // After refactoring, Reviewer reads directly
             expect(reviewer.systemPrompt).not.toContain("Integration Scout");
             expect(reviewer.systemPrompt).toContain("directly");
+        });
+    });
+
+    // ========================================================================
+    // Master Reviewer Agent
+    // ========================================================================
+
+    describe("Master Reviewer agent", () => {
+        const masterReviewer = AGENTS[AGENT_NAMES.MASTER_REVIEWER];
+
+        it("should have final verification role", () => {
+            expect(masterReviewer.id).toBe(AGENT_NAMES.MASTER_REVIEWER);
+            expect(masterReviewer.description).toContain("verification");
+        });
+
+        it("should have write and bash capabilities", () => {
+            expect(masterReviewer.canWrite).toBe(true);
+            expect(masterReviewer.canBash).toBe(true);
+        });
+
+        it("should have SEAL authority", () => {
+            expect(masterReviewer.systemPrompt).toContain("SEAL");
+            expect(masterReviewer.systemPrompt).toContain("authority");
+        });
+
+        it("should include verification process", () => {
+            expect(masterReviewer.systemPrompt).toContain("verification");
+        });
+
+        it("should include forbidden actions", () => {
+            expect(masterReviewer.systemPrompt).toContain("FORBIDDEN");
         });
     });
 

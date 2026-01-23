@@ -18,7 +18,6 @@
 npm install -g opencode-orchestrator
 ```
 
-
 In an OpenCode environment:
 ```bash
 /task "Implement"
@@ -64,7 +63,7 @@ This philosophy extends to efficiency. We achieved **Zero-Configuration** usabil
      ╚══════╤═══════════╤═══════════╤══════╝                                   │
             │           │           │                                          │
      ┌──────▼───┐ ┌─────▼────┐ ┌────▼─────┐                                    │
-     │🔍REVIEWER│ │🔍REVIEWER│ │🔍REVIEWER│                                    │
+     │🔍REVIEWER│ │🔍REVIEWER│ │🔍REVIEWER│  (Module-level)                    │
      └──────┬───┘ └─────┬────┘ └────┬─────┘                                    │
             │           │           │                                          │
            ═▼═══════════▼═══════════▼═                                         │
@@ -72,18 +71,19 @@ This philosophy extends to efficiency. We achieved **Zero-Configuration** usabil
            ═════════════╤═════════════                                         │
                         │                                                      │
             ┌───────────▼───────────┐                                          │
-            │   📋 VERIFICATION     │  (Checklist Gate)                        │
+            │  🎖️ MASTER REVIEWER   │  (Final Verification Authority)          │
             │   ┌─────────────────┐ │                                          │
             │   │ [x] Build Pass  │ │                                          │
             │   │ [x] Tests Pass  │ │                                          │
-            │   │ [x] No Errors   │ │                                          │
+            │   │ [x] E2E Pass    │ │                                          │
+            │   │ [x] Sync OK     │ │                                          │
             │   └─────────────────┘ │                                          │
             └───────────┬───────────┘                                          │
                         │                                                      │
               __________▼_________                                             │
-             ╱                    ╲    NO (Loop / Auto-Correction)             │
-            ╱   ✅ Checklist 100%? ╲ ──────────────────────────────────────────┘
-            ╲   🛡️ Sync Issues 0?  ╱
+             ╱                    ╲    NO (Failure Summary → Commander)        │
+            ╱   ✅ All Checks Pass ╲ ──────────────────────────────────────────┘
+            ╲   🛡️ Sync Issues 0?  ╱   (Infinite Loopback Until Resolved)
              ╲____________________╱
                         │ YES
                         │
@@ -95,10 +95,9 @@ This philosophy extends to efficiency. We achieved **Zero-Configuration** usabil
             └───────────────────────┘
 ```
 
-
 ---
 
-## 🧠 Cognitive Architecture & Key Strengths
+## � Cognitive Architecture & Key Strengths
 
 ### 📉 Adaptive Context Gating (EMA-based)
 We combat "Context Drift" using a mechanism derived from **Exponential Moving Average (EMA)** algorithms. Irrelevant conversation noise follows a rapid decay curve, while critical architectural decisions are reinforced into **Stable Core Memory**. This functions as an **Attention Sink**, allowing agents to work indefinitely without **Catastrophic Forgetting**.
@@ -117,10 +116,21 @@ Pure LLM approaches are stochastic. We bind them with a **Neuro-Symbolic Archite
 The engine features an **Intelligent Load-Balancing System** that fluidly switches between synchronous barriers and asynchronous **Fork-Join** patterns. It monitors **System Backpressure** to dynamically adjust concurrency slots in real-time (`Adaptive Throttling`), maximizing throughput on high-end hardware while maintaining stability on constrained environments.
 
 ### 🎯 Iterative Rejection Sampling (Zero-Shot Defense)
-We employ a **Rejection Sampling Loop** driven by the Reviewer Agent (**Reward Model**). Through the **Metric-based Strict Verification Protocol (MSVP)**, code paths that fail execution tests are pruned. The system iterates until the solution converges on a mathematically correct state (0% Error Rate), rejecting any solution that lacks evidence.
+We employ a **Rejection Sampling Loop** driven by the Master Reviewer Agent (**Final Reward Model**). Through the **Metric-based Strict Verification Protocol (MSVP)**, code paths that fail execution tests are pruned. The system iterates until the solution converges on a mathematically correct state (0% Error Rate), rejecting any solution that lacks evidence.
 
 ### 🧩 Externalized Chain-of-Thought (CoT)
 The Planner's `TODO.md` serves as an **Externalized Working Memory** (Scratchpad). This persistent **Symbolic Chain-of-Thought** decouples detailed planning from the LLM's immediate context window, enabling the orchestration of massive, multi-step engineering tasks without logical degradation.
+
+### 🔄 Hierarchical Verification Pipeline (MVP)
+The system employs a **Multi-Stage Verification Pipeline**:
+1. **Module-Level**: Reviewers verify individual Worker outputs (unit tests, type checks)
+2. **System-Level**: Master Reviewer performs comprehensive E2E verification
+3. **Loopback**: Failed checks trigger automatic re-planning and correction cycles
+
+This separation of concerns ensures both granular code quality and holistic system integrity.
+
+### 🌍 Environment-Agnostic Verification
+The Master Reviewer **auto-detects** project environments (Node.js, Rust, Python, Java, Go, C/C++, Docker, etc.) and adapts verification strategies accordingly. No hardcoded assumptions—true polyglot support.
 
 ---
 
@@ -129,9 +139,10 @@ The Planner's `TODO.md` serves as an **Externalized Working Memory** (Scratchpad
 | Agent | Role |
 |:------|:-----|
 | **Commander** | Orchestrates the mission, manages parallel threads and sync barriers |
-| **Planner** | Architecture architect. Breaks downtasks into strictly defined steps |
+| **Planner** | Architecture architect. Breaks down tasks into strictly defined steps |
 | **Worker** | The builder. Writes code and corresponding unit tests |
-| **Reviewer** | The gatekeeper. Rejects any code that doesn't pass execution verification |
+| **Reviewer** | Module-level gatekeeper. Verifies Worker outputs with build/test execution |
+| **Master Reviewer** | 🎖️ Final verification authority. Runs comprehensive E2E tests and holds **exclusive SEAL rights** |
 
 ---
 
@@ -141,10 +152,11 @@ The Planner's `TODO.md` serves as an **Externalized Working Memory** (Scratchpad
 
 [System Architecture →](docs/SYSTEM_ARCHITECTURE.md)
 
-[Architectural Verification Report →](docs/ARCHITECTURAL_VERIFICATION_REPORT.md)
-
 ---
 
 ## 📄 License
 
 MIT License. See [LICENSE](LICENSE) for details.
+
+
+

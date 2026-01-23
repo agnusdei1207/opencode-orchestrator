@@ -20,22 +20,22 @@ cat ${PATHS.SYNC_ISSUES} 2>/dev/null || echo "No sync issues"
 
 ---
 
-## E2E Test Timing
+## Decision Matrix
 
-E2E starts when **${PATHS.TODO} ≥ 80%**:
-...
+| ${PATHS.TODO} Status | ${PATHS.SYNC_ISSUES} | Action |
+|--------|--------|--------|
+| Incomplete items | Any | Continue work |
+| All [x] | Issues exist | Fix sync issues |
+| All [x] | Empty | Call ${AGENT_NAMES.MASTER_REVIEWER} for final verification |
 
-### Decision Matrix
+### When All Work Complete
+When ALL TODO items are [x] and NO sync issues:
+→ Spawn ${AGENT_NAMES.MASTER_REVIEWER} for final verification
+→ ${AGENT_NAMES.MASTER_REVIEWER} will output SEAL if all checks pass
+→ If ${AGENT_NAMES.MASTER_REVIEWER} returns failure, address issues and retry
 
-| ${PATHS.TODO} % | ${PATHS.SYNC_ISSUES} | Phase |
-|--------|--------|-------|
-| < 100% | Any | ${WORK_STATUS.PHASE.IMPLEMENTATION} |
-| ≥ 80% | Any | ${WORK_STATUS.PHASE.E2E} (parallel) |
-| 100% | > 0 | ${WORK_STATUS.PHASE.FIXING} |
-| 100% | 0 | ${WORK_STATUS.PHASE.SEALING} (${STATUS_LABEL.SUCCESS.toUpperCase()}) |
-
-...
 ${PROMPT_TAGS.LOOP_CONTINUATION.close}
 
 `;
+
 

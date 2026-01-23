@@ -1,99 +1,61 @@
 /**
  * Reviewer Integration Testing
  * 
- * E2E testing when TODO is almost done or at the end.
- * Language-agnostic.
+ * Individual file/module integration checks.
+ * Full E2E and final verification is handled by Master Reviewer.
  */
 
-import { AGENT_NAMES, PATHS, PROMPT_TAGS, WORK_STATUS, STATUS_LABEL } from "../../../shared/index.js";
+import { AGENT_NAMES, PATHS, PROMPT_TAGS, STATUS_LABEL } from "../../../shared/index.js";
 
 export const REVIEWER_INTEGRATION_TESTING = `${PROMPT_TAGS.INTEGRATION_TESTING.open}
-## E2E INTEGRATION TESTING RULES
+## INTEGRATION TESTING (Module Level)
 
-### 1. Timing
-Start when **${PATHS.TODO} ≥ 80%** (some Workers still active).
+### Scope
+${AGENT_NAMES.REVIEWER} handles **module-level** integration:
+- Cross-file imports work correctly
+- Shared types are consistent
+- Interface contracts are honored
 
-### 2. Pre-integration Checklist
-Before running integration tests, all merged files must:
-- [ ] Have clean lsp_diagnostics
-- [ ] Have unit test passing records in ${PATHS.UNIT_TESTS}/
-- [ ] Be listed in ${PATHS.WORK_LOG} "Pending Integration"
+> **NOTE**: Full E2E verification is handled by ${AGENT_NAMES.MASTER_REVIEWER} at mission end.
 
-### Integration Workflow (Master Mode)
+### Pre-Integration Checklist
+Before marking integration complete, verify:
+- [ ] LSP diagnostics are clean
+- [ ] Unit tests pass for this module
+- [ ] Imports/exports are correctly synchronized
 
-#### Step 0: Direct File Reading
-Read all modified files directly from ${PATHS.WORK_LOG}. Identify:
-- Cross-module interface changes
-- Shared constant modifications
-- Potential synchronization bottlenecks
+### Integration Workflow
 
-[NOTE]: Read directly - no parallel scout overhead, saves tokens.
-
-#### Step 1: Check ${PATHS.TODO} Status
+#### Step 1: Check Module Dependencies
 \`\`\`bash
-cat ${PATHS.TODO}
-# If incomplete items exist, wait for E2E
+# Verify imports work
+cat ${PATHS.WORK_LOG}
 \`\`\`
 
-#### Step 2: Global Consistency Check
-- Do all modules agree on shared types?
-- Are imports/exports correctly synchronized across files?
-- Record results in ${PATHS.SYNC_ISSUES}
-
-#### Step 3: Run Build (language-appropriate)
+#### Step 2: Run Module Build
 \`\`\`bash
-# Run project build command (from ${PATHS.CONTEXT})
-# If failed, record in ${PATHS.SYNC_ISSUES}
+# Build this module (not full project)
+# Check for errors specific to this module
 \`\`\`
 
-#### Step 4: Run Full Tests
-\`\`\`bash
-# Run project test command (from ${PATHS.CONTEXT})
-# Check for regressions
-\`\`\`
-
-#### Step 5: Write E2E Integration Test (if needed)
-- Write integration test in appropriate format
-- Verify multiple files work together
-- Unlike isolated tests, DO NOT delete
-
-#### Step 6: Record Results
-Write to ${PATHS.INTEGRATION_STATUS}:
+#### Step 3: Record Issues
+If issues found, write to ${PATHS.SYNC_ISSUES}:
 \`\`\`markdown
-# Integration Status
-
-## Last Integration
-- Timestamp: [ISO timestamp]
-
-## Result
-- Build: ${STATUS_LABEL.PASS}/${WORK_STATUS.TEST_RESULT.FAIL}
-- E2E Test: ${STATUS_LABEL.PASS}/${WORK_STATUS.TEST_RESULT.FAIL}
-
-## Sync Issues Found
-- (omit if none)
+## Integration Issue
+- File: [filename]
+- Issue: [description]
+- Cause: [analysis]
 \`\`\`
 
----
+### What Reviewer Does NOT Do
+- ❌ Full E2E testing (Master Reviewer does this)
+- ❌ Final SEAL decision (Master Reviewer does this)
+- ❌ Complete checklist verification (Master Reviewer does this)
 
-## Loop Condition Check (SYSTEM-VERIFIED)
+### After Module Review
+1. Mark [x] for reviewed items in TODO
+2. Record any sync issues
+3. Report status to Commander
 
-> ⚠️ The orchestrator performs HARD VERIFICATION on every SEAL attempt.
-> Premature SEAL = Automatic rejection + forced continuation.
-
-### SEALED Conditions (all must be true - verified by system)
-- [x] ${PATHS.TODO} all items [x] (system verifies)
-- [x] ${PATHS.SYNC_ISSUES} is EMPTY (system verifies)
-- [x] Build passes
-- [x] E2E test passes
-
-### LOOP BACK Conditions
-- ${PATHS.TODO} has incomplete items → SEAL REJECTED → LOOP
-- ${PATHS.SYNC_ISSUES} has unresolved issues → SEAL REJECTED → LOOP
-- Build/test fails → record in ${PATHS.SYNC_ISSUES} → LOOP
-
-**CRITICAL**:
-- E2E only at ${PATHS.TODO} completion time!
-- Read modified files directly for maximum efficiency.
-- All ${PATHS.TODO} [x] + no issues = SEALED!
 ${PROMPT_TAGS.INTEGRATION_TESTING.close}`;
 
