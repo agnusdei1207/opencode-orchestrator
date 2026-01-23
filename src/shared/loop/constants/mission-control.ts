@@ -10,6 +10,7 @@ export const MISSION_CONTROL = {
     STATE_FILE: "loop-state.json",
     STOP_COMMAND: "/stop",
     CANCEL_COMMAND: "/cancel",
+    LOG_SOURCE: "mission-loop",
 } as const;
 
 /** @deprecated Use MISSION_CONTROL instead */

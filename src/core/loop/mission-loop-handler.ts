@@ -21,7 +21,7 @@ import { ParallelAgentManager } from "../agents/manager.js";
 import { sendNotification } from "../notification/os-notify/notifier.js";
 import { playSound } from "../notification/os-notify/sound-player.js";
 import { detectPlatform, getDefaultSoundPath } from "../notification/os-notify/platform.js";
-import { verifyMissionCompletion, buildVerificationFailurePrompt } from "./verification.js";
+import { verifyMissionCompletion, buildVerificationFailurePrompt, buildVerificationSummary } from "./verification.js";
 
 
 type OpencodeClient = PluginInput["client"];
@@ -148,8 +148,9 @@ async function injectContinuation(
         return;
     }
 
-    // Generate and inject continuation prompt
-    const prompt = generateMissionContinuationPrompt(loopState, directory);
+    // Generate and inject continuation prompt with summary
+    const summary = buildVerificationSummary(verification);
+    const prompt = generateMissionContinuationPrompt(loopState, summary);
 
     try {
         await client.session.prompt({
@@ -252,20 +253,20 @@ export async function handleMissionIdle(
     const verification = verifyMissionCompletion(directory);
 
     if (verification.passed) {
-        log(`[mission-loop-handler] Verification passed for ${sessionID}. Completion confirmed.`);
+        log(`[${MISSION_CONTROL.LOG_SOURCE}-handler] Verification passed for ${sessionID}. Completion confirmed.`);
         await handleMissionComplete(client, directory, loopState);
         return;
     }
 
     // Work remains - continue the loop
-    log(`[mission-loop-handler] Work remains for ${sessionID}, continuing...`, {
+    log(`[${MISSION_CONTROL.LOG_SOURCE}-handler] Work remains for ${sessionID}, continuing...`, {
         todo: verification.todoProgress,
         checklist: verification.checklistProgress
     });
 
     // Handle max iterations exhaustion
     if (loopState.iteration >= loopState.maxIterations) {
-        log(`[mission-loop-handler] Max iterations (${loopState.maxIterations}) reached but verification failed. Forced continuation enabled.`);
+        log(`[${MISSION_CONTROL.LOG_SOURCE}-handler] Max iterations (${loopState.maxIterations}) reached but verification failed. Forced continuation enabled.`);
         // In "Infinite Loop" mode, we might just keep going or notify
     }
 

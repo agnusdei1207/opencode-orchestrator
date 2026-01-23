@@ -1,3 +1,4 @@
+import { MISSION_CONTROL } from "../loop/constants/mission-control.js";
 import { PATHS } from "../core/constants/paths.js";
 
 /**
@@ -7,9 +8,9 @@ import { PATHS } from "../core/constants/paths.js";
  */
 
 export const MISSION_MESSAGES = {
-  START_LOG: "[MissionControl] Detected /task command. Starting mission...",
-  CANCEL_LOG: "[MissionControl] Detected user cancellation signal.",
-  COMPLETE_LOG: "[MissionControl] Mission Verified! Finishing loop.",
+  START_LOG: `[${MISSION_CONTROL.LOG_SOURCE}] Detected /task command. Starting mission...`,
+  CANCEL_LOG: `[${MISSION_CONTROL.LOG_SOURCE}] Detected user cancellation signal.`,
+  COMPLETE_LOG: `[${MISSION_CONTROL.LOG_SOURCE}] Mission Verified! Finishing loop.`,
 
   TOAST_COMPLETE_TITLE: "Mission Complete",
   TOAST_COMPLETE_MESSAGE: "Mission verified and finished.",
