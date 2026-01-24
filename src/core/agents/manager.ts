@@ -32,7 +32,7 @@ import { progressNotifier } from "../progress/progress-notifier.js";
 import { TerminalMonitor } from "../progress/terminal-monitor.js";
 import { MemoryManager } from "../memory/memory-manager.js";
 import { MemoryLevel } from "../memory/interfaces.js";
-import { CORE_PHILOSOPHY } from "../../agents/prompts/philosophy/core.js";
+import { CORE_PHILOSOPHY } from "../../agents/prompts/01_philosophy/core.js";
 import { AgentRegistry } from "./agent-registry.js";
 import { TodoManager } from "../loop/todo-manager.js";
 

@@ -115,3 +115,66 @@ graph TD
 - **Recursion Guard**: Maximum task depth is enforced (Default: 5). Worker agents are denied further delegation to prevent infinite fractal spawning.
 - **Rate-Limit Jitter**: Parallel launcher applies randomized back-off delays when spawning multi-agent sessions to avoid server-side rate-limiting.
 - **Protocol Isolation**: TUI updates are strictly isolated from the bridge protocol to prevent JSON-RPC malformation.
+
+
+
+## 현재 아키텍처 분석
+
+### 1. `/task` 명령어 실행 흐름 (End-to-End)
+
+```
+사용자 입력: /task "Build REST API"
+    ↓
+1. ChatMessageHandler (chat.message hook)
+    ├─ UserActivityHook: 활동 추적
+    └─ MissionControlHook: /task 명령어 감지
+        ├─ ensureSessionInitialized(): SessionState 생성
+        ├─ activateMissionState(): 전역 mission 플래그 활성화
+        └─ startMissionLoop(): .opencode/mission.state 파일 생성
+    ↓
+2. Template Expansion
+    └─ MISSION_MODE_TEMPLATE에 사용자 입력 주입
+    ↓
+3. Commander Agent 초기화
+    ├─ System Prompt 조립 (20+ 프롬프트 조각)
+    ├─ 메모리 주입 (SYSTEM+PROJECT+MISSION+TASK)
+    └─ 도구 컨텍스트 제공 (50+ tools)
+    ↓
+4. Commander 실행
+    ├─ 요구사항 분석
+    ├─ delegateTask() → Planner에게 위임
+    ├─ delegateTask() → Worker 1 (user routes)
+    ├─ delegateTask() → Worker 2 (product routes)
+    └─ 진행 상황 모니터링
+    ↓
+5. Parallel Execution
+    ├─ ParallelAgentManager.launch([task1, task2, task3])
+    ├─ TaskLauncher: 병렬 세션 생성
+    │   ├─ SessionPool.acquire(): 세션 재사용 또는 생성
+    │   └─ ConcurrencyController.acquire(): 슬롯 대기
+    ├─ executeBackground(): 각 태스크 백그라운드 실행
+    │   ├─ Memory 주입
+    │   ├─ Agent System Prompt 주입
+    │   └─ client.session.prompt() 호출
+    └─ TaskPoller.poll(): 완료 감지 (2초마다)
+    ↓
+6. Task Completion & MSVP (Mission Synchronous Verification Protocol)
+    ├─ TaskPoller: Worker 세션 idle 감지
+    ├─ completeTask(): 상태를 COMPLETED로 변경
+    ├─ ConcurrencyController.release(): 슬롯 해제
+    └─ MSVP 트리거: Reviewer 자동 시작
+        ├─ 단위 테스트 실행 확인
+        ├─ 코드 품질 검증
+        └─ TODO 항목 [x] 마킹 (Reviewer만 권한 보유)
+    ↓
+7. Mission Completion Check (assistant.done hook)
+    ├─ MissionControlHook.handleMissionProgress()
+    ├─ verifyMissionCompletion(directory)
+    │   ├─ .opencode/todo.md 읽기
+    │   ├─ 총 항목 수 계산
+    │   └─ 완료 항목 [x] 수 계산
+    ├─ 완료 여부 판단:
+    │   ├─ 완료: clearLoopState() → 알림 → STOP
+    │   └─ 미완료: buildVerificationFailurePrompt() → INJECT 계속
+    └─ Fire-and-forget 프롬프트 주입 (데드락 방지)
+```
