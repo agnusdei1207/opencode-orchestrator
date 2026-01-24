@@ -14,6 +14,9 @@ import {
     cancelMissionLoop,
     isLoopActive,
     clearLoopState,
+    readLoopState,
+    writeLoopState,
+    STAGNATION_INTERVENTION,
 } from "../../core/loop/mission-loop.js";
 import { PROMPTS, COMMAND_NAMES, TOAST_VARIANTS, MISSION_CONTROL } from "../../shared/index.js";
 import { HOOK_ACTIONS, HOOK_NAMES } from "../constants.js";
@@ -121,20 +124,37 @@ export class MissionControlHook implements AssistantDoneHook, ChatMessageHook {
             return this.handleMissionComplete(directory, verification);
         }
 
-        // 4. Work remains - Force continuation if agent thinks it's done
-        // (This hook is called when the assistant is "Done" with a turn)
-        log(`[${MISSION_CONTROL.LOG_SOURCE}] Work remains - forcing autonomous continuation`, {
-            todo: verification.todoProgress,
-            checklist: verification.checklistProgress
-        });
+        // 4. Detect stagnation
+        const loopState = readLoopState(directory);
+        let isStagnant = false;
 
-        // Use verification failure prompt to guide the agent
+        if (loopState && loopState.active && loopState.sessionID === sessionID) {
+            const currentProgress = verification.todoProgress;
+            if (loopState.lastProgress === currentProgress) {
+                loopState.stagnationCount = (loopState.stagnationCount || 0) + 1;
+                if (loopState.stagnationCount >= 2) {
+                    isStagnant = true;
+                }
+            } else {
+                loopState.stagnationCount = 0;
+            }
+            loopState.lastProgress = currentProgress;
+            writeLoopState(directory, loopState);
+        }
+
+        // 5. Build response
         const failurePrompt = verification.checklistProgress !== "0/0"
             ? buildVerificationFailurePrompt(verification)
             : buildTodoIncompletePrompt(verification);
 
         const continuation = this.buildContinuationResponse(session, sessionID);
         const prompts = [failurePrompt];
+
+        // Inject stagnation intervention if needed
+        if (isStagnant) {
+            prompts.push(STAGNATION_INTERVENTION);
+        }
+
         if (continuation.action === HOOK_ACTIONS.INJECT) {
             prompts.push(...continuation.prompts);
         }
