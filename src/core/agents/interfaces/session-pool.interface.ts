@@ -20,6 +20,10 @@ export interface PooledSession {
     reuseCount: number;
     /** Whether this session is currently in use */
     inUse: boolean;
+    /** Timestamp when the session was last reset/compacted */
+    lastResetAt?: Date;
+    /** Health status of the session */
+    health: "healthy" | "degraded" | "unhealthy";
 }
 
 export interface SessionPoolConfig {

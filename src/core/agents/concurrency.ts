@@ -138,11 +138,13 @@ export class ConcurrencyController {
             this.successStreak.set(key, streak);
             this.failureCount.set(key, 0); // Reset failure on success
 
-            // Increase limit if on a hot streak (every 5 successful tasks)
-            if (streak % 5 === 0) {
+            // Increase limit if on a hot streak (every 3 successful tasks)
+            // More responsive than the previous 5-streak rule
+            if (streak >= 3) {
                 const currentLimit = this.getConcurrencyLimit(key);
-                if (currentLimit < PARALLEL_TASK.MAX_CONCURRENCY) { // Use centralized constant
+                if (currentLimit < PARALLEL_TASK.MAX_CONCURRENCY) {
                     this.setLimit(key, currentLimit + 1);
+                    this.successStreak.set(key, 0); // Reset after increase
                     internalLog(`[concurrency] Auto-scaling UP for ${key}: ${currentLimit + 1}`);
                 }
             }
@@ -152,12 +154,13 @@ export class ConcurrencyController {
             this.failureCount.set(key, failures);
             this.successStreak.set(key, 0); // Reset streak on failure
 
-            // Decrease limit if failures detected
+            // Decrease limit if failures detected (aggressive detection)
             if (failures >= 2) {
                 const currentLimit = this.getConcurrencyLimit(key);
                 const minLimit = 1;
                 if (currentLimit > minLimit) {
                     this.setLimit(key, currentLimit - 1);
+                    this.failureCount.set(key, 0); // Reset after decrease
                     internalLog(`[concurrency] Auto-scaling DOWN for ${key}: ${currentLimit - 1} (due to ${failures} failures)`);
                 }
             }

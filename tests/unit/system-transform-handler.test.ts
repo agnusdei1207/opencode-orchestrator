@@ -1,19 +1,22 @@
 /**
  * System Transform Handler Tests
- * 
- * Tests the experimental.chat.system.transform hook handler:
- * - Dynamic system prompt injection
- * - Mission loop prompts
- * - Background task awareness
  */
 
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { createSystemTransformHandler } from "../../src/plugin-handlers/system-transform-handler";
 import type { EventHandlerContext, SystemTransformInput, SystemTransformOutput } from "../../src/plugin-handlers/interfaces";
+import { isMissionActive, ensureSessionInitialized } from "../../src/core/orchestrator/session-manager";
+import { readLoopState } from "../../src/core/loop/mission-loop";
+import { ParallelAgentManager } from "../../src/core/agents/manager";
 
 // Mock dependencies
 vi.mock("../../src/core/loop/mission-loop", () => ({
     readLoopState: vi.fn(),
+}));
+
+vi.mock("../../src/core/orchestrator/session-manager", () => ({
+    isMissionActive: vi.fn(),
+    ensureSessionInitialized: vi.fn(),
 }));
 
 vi.mock("../../src/core/agents/manager", () => ({
@@ -44,15 +47,13 @@ describe("System Transform Handler", () => {
         };
 
         handler = createSystemTransformHandler(mockContext);
-    });
 
-    it("should create handler successfully", () => {
-        expect(handler).toBeDefined();
-        expect(typeof handler).toBe("function");
+        // Default mocks
+        vi.mocked(isMissionActive).mockReturnValue(true);
+        vi.mocked(ensureSessionInitialized).mockReturnValue({ step: 5, active: true });
     });
 
     it("should inject system prompts for orchestrated sessions", async () => {
-        const { readLoopState } = await import("../../src/core/loop/mission-loop");
         vi.mocked(readLoopState).mockReturnValue({
             active: true,
             iteration: 2,
@@ -72,7 +73,6 @@ describe("System Transform Handler", () => {
     });
 
     it("should inject active session prompt", async () => {
-        const { readLoopState } = await import("../../src/core/loop/mission-loop");
         vi.mocked(readLoopState).mockReturnValue({
             active: true,
             iteration: 1,
@@ -92,7 +92,6 @@ describe("System Transform Handler", () => {
     });
 
     it("should inject background tasks prompt when tasks exist", async () => {
-        const { readLoopState } = await import("../../src/core/loop/mission-loop");
         vi.mocked(readLoopState).mockReturnValue({
             active: true,
             iteration: 1,
@@ -102,7 +101,6 @@ describe("System Transform Handler", () => {
             startedAt: new Date().toISOString(),
         });
 
-        const { ParallelAgentManager } = await import("../../src/core/agents/manager");
         vi.mocked(ParallelAgentManager.getInstance).mockReturnValue({
             getTasksByParent: vi.fn(() => [
                 { id: "t1", status: "running" },
@@ -122,12 +120,8 @@ describe("System Transform Handler", () => {
     });
 
     it("should not inject for non-orchestrated sessions", async () => {
-        mockContext.state.sessions.clear();
-
-        const { readLoopState } = await import("../../src/core/loop/mission-loop");
+        vi.mocked(isMissionActive).mockReturnValue(false);
         vi.mocked(readLoopState).mockReturnValue(null);
-
-        const handler = createSystemTransformHandler(mockContext);
 
         const input: SystemTransformInput = { sessionID: "test-session" };
         const output: SystemTransformOutput = { system: [] };
@@ -138,7 +132,6 @@ describe("System Transform Handler", () => {
     });
 
     it("should include mission loop prompt", async () => {
-        const { readLoopState } = await import("../../src/core/loop/mission-loop");
         vi.mocked(readLoopState).mockReturnValue({
             active: true,
             iteration: 5,

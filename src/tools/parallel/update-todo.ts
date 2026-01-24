@@ -5,7 +5,7 @@
  */
 
 import { tool } from "@opencode-ai/plugin";
-import { TodoManager } from "../../core/loop/todo-manager.js";
+import { TodoManager } from "../../core/todo/todo-manager.js";
 import { OUTPUT_LABEL, TODO_CONSTANTS } from "../../shared/index.js";
 
 export const createUpdateTodoTool = () => tool({
@@ -21,13 +21,13 @@ export const createUpdateTodoTool = () => tool({
 
         if (args.action === "update") {
             if (!args.status) return `${OUTPUT_LABEL.ERROR} 'status' is required for update action.`;
-            const success = manager.updateItem(args.task, args.status as any);
+            const success = await manager.updateItem(args.task, args.status as any);
             return success
                 ? `${OUTPUT_LABEL.DONE} Updated task status: "${args.task}" -> ${args.status}`
                 : `${OUTPUT_LABEL.ERROR} Task not found: "${args.task}"`;
         } else {
             if (!args.subtask) return `${OUTPUT_LABEL.ERROR} 'subtask' is required for add action.`;
-            const success = manager.addSubTask(args.task, args.subtask);
+            const success = await manager.addSubTask(args.task, args.subtask);
             return success
                 ? `${OUTPUT_LABEL.DONE} Added sub-task: "${args.subtask}" under "${args.task}"`
                 : `${OUTPUT_LABEL.ERROR} Parent task not found: "${args.task}"`;

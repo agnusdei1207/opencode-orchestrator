@@ -140,6 +140,7 @@ export class SessionPool implements ISessionPool {
         }
 
         // Return session to pool
+        await this.resetSession(sessionId);
         session.inUse = false;
         log(`[SessionPool] Released session ${sessionId.slice(0, 8)}... to pool`);
     }
@@ -236,6 +237,26 @@ export class SessionPool implements ISessionPool {
     // Private Methods
     // =========================================================================
 
+    /**
+     * Reset/Compact a session to clear context for next reuse.
+     */
+    private async resetSession(sessionId: string): Promise<void> {
+        const session = this.sessionsById.get(sessionId);
+        if (!session) return;
+
+        log(`[SessionPool] Resetting session ${sessionId.slice(0, 8)}...`);
+        try {
+            // Use compaction to clear context while preserving essential mission state
+            // (The session-compacting-handler hook will deal with what to keep)
+            await (this.client.session as any).compact?.({ path: { id: sessionId } });
+            session.lastResetAt = new Date();
+            session.health = "healthy";
+        } catch (error) {
+            log(`[SessionPool] Failed to reset session ${sessionId.slice(0, 8)}: ${error}`);
+            session.health = "degraded";
+        }
+    }
+
     private getPoolKey(agentName: string): string {
         return agentName;
     }
@@ -272,6 +293,8 @@ export class SessionPool implements ISessionPool {
             lastUsedAt: new Date(),
             reuseCount: 0,
             inUse: true,
+            health: "healthy",
+            lastResetAt: new Date(),
         };
 
         // Add to pool
