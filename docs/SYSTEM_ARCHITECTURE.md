@@ -146,6 +146,6 @@ Upon stagnation, the engine swaps the standard `CONTINUE_INSTRUCTION` with a Hig
 
 ---
 
-**Version:** 1.2
+**Version:** 1.2.1
 **Last Updated:** 2026-01-25
-**Status:** Validated for Orchestration v1.1.0 - Adaptive Intelligence Active
+**Status:** Validated for Orchestration v1.2.1 - Adaptive Intelligence & Hook Synchronization Active
