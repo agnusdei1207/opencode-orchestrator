@@ -38,6 +38,7 @@ vi.mock("../../src/core/loop/mission-loop", () => ({
     cancelMissionLoop: vi.fn(),
     isLoopActive: vi.fn().mockReturnValue(true),
     clearLoopState: vi.fn(),
+    readLoopState: vi.fn().mockReturnValue({ active: true, sessionID: "test-session" }),
 }));
 vi.mock("../../src/core/loop/verification", () => ({
     verifyMissionCompletion: vi.fn().mockReturnValue({

@@ -34,7 +34,7 @@ import { MemoryManager } from "../memory/memory-manager.js";
 import { MemoryLevel } from "../memory/interfaces.js";
 import { CORE_PHILOSOPHY } from "../../agents/prompts/01_philosophy/core.js";
 import { AgentRegistry } from "./agent-registry.js";
-import { TodoManager } from "../loop/todo-manager.js";
+import { TodoManager } from "../todo/todo-manager.js";
 
 // Re-export
 export type { ParallelTask };

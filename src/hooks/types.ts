@@ -13,6 +13,14 @@ export interface HookContext {
     sessions: Map<string, any>; // Added
 }
 
+export interface HookMetadata {
+    name: string;
+    priority: number; // 0-100, lower runs first
+    phase?: "early" | "normal" | "late";
+    dependencies?: string[];
+    errorHandling?: "continue" | "stop" | "retry";
+}
+
 export type HookResult =
     | { action: typeof HOOK_ACTIONS.CONTINUE }
     | { action: typeof HOOK_ACTIONS.STOP; reason?: string }

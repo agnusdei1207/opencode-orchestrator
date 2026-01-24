@@ -1,7 +1,6 @@
-
 /**
  * Initialize Hooks
- * Registers all default hooks.
+ * Registers all default hooks with explicit priority and dependency management.
  */
 
 import { HookRegistry } from "./registry.js";
@@ -18,11 +17,9 @@ import { MetricsHook } from "./custom/metrics.js";
 export function initializeHooks() {
     const registry = HookRegistry.getInstance();
 
-    // Features
+    // Instantiate Hooks
     const sanityCheck = new SanityCheckHook();
-    const missionControl = new MissionControlHook(); // Was MissionLoopHook
-
-    // Custom Hooks
+    const missionControl = new MissionControlHook();
     const roleGuard = new StrictRoleGuardHook();
     const secretScanner = new SecretScannerHook();
     const agentUI = new AgentUIHook();
@@ -31,27 +28,104 @@ export function initializeHooks() {
     const memoryGate = new MemoryGateHook();
     const metricsHook = new MetricsHook();
 
-    // Register Chat
-    registry.registerChat(userActivity); // Track activity first
-    registry.registerChat(missionControl); // Handle /task
-    // registry.registerChat(slashCommand); // Removed: SlashCommandDispatcher deleted
+    // 1. Register Chat Hooks
+    registry.registerChat(userActivity, {
+        name: "user-activity",
+        priority: 10,
+        phase: "early"
+    });
 
-    // Register Post-Tool
-    registry.registerPostTool(sanityCheck);
-    registry.registerPostTool(secretScanner); // Scan first
-    registry.registerPostTool(agentUI); // Decorate second
-    registry.registerPostTool(resourceControl); // Control resources (Track + Compact)
-    registry.registerPostTool(memoryGate); // Capture tool results for memory
-    registry.registerPostTool(metricsHook); // Collect tool metrics
+    registry.registerChat(missionControl, {
+        name: "mission-control",
+        priority: 20,
+        phase: "early",
+        dependencies: ["user-activity"],
+        errorHandling: "stop"
+    });
 
-    // Register Pre-Tool
-    registry.registerPreTool(roleGuard); // Check logic before tool runs
-    registry.registerPreTool(metricsHook); // Capture start times
+    // 2. Register Pre-Tool Hooks
+    registry.registerPreTool(roleGuard, {
+        name: "role-guard",
+        priority: 10,
+        phase: "early",
+        errorHandling: "stop"
+    });
 
-    // Register Done
-    registry.registerDone(sanityCheck);
-    registry.registerDone(missionControl); // Handle loop check
-    registry.registerDone(resourceControl); // Update stats & Check memory
-    registry.registerDone(memoryGate); // Maintain turn memory
-    registry.registerDone(metricsHook); // Final metrics capture
+    registry.registerPreTool(metricsHook, {
+        name: "metrics-pre",
+        priority: 90,
+        phase: "late"
+    });
+
+    // 3. Register Post-Tool Hooks
+    registry.registerPostTool(sanityCheck, {
+        name: "sanity-check",
+        priority: 10,
+        phase: "early",
+        errorHandling: "stop"
+    });
+
+    registry.registerPostTool(secretScanner, {
+        name: "secret-scanner",
+        priority: 20,
+        phase: "early",
+        dependencies: ["sanity-check"],
+        errorHandling: "stop"
+    });
+
+    registry.registerPostTool(agentUI, {
+        name: "agent-ui",
+        priority: 40,
+        phase: "normal"
+    });
+
+    registry.registerPostTool(resourceControl, {
+        name: "resource-control",
+        priority: 50,
+        phase: "normal"
+    });
+
+    registry.registerPostTool(memoryGate, {
+        name: "memory-gate",
+        priority: 60,
+        phase: "normal"
+    });
+
+    registry.registerPostTool(metricsHook, {
+        name: "metrics-post",
+        priority: 90,
+        phase: "late",
+        dependencies: ["metrics-pre"]
+    });
+
+    // 4. Register Done Hooks
+    registry.registerDone(sanityCheck, {
+        name: "sanity-check",
+        priority: 10,
+        phase: "early"
+    });
+
+    registry.registerDone(missionControl, {
+        name: "mission-control",
+        priority: 20,
+        phase: "early"
+    });
+
+    registry.registerDone(resourceControl, {
+        name: "resource-control",
+        priority: 50,
+        phase: "normal"
+    });
+
+    registry.registerDone(memoryGate, {
+        name: "memory-gate",
+        priority: 60,
+        phase: "normal"
+    });
+
+    registry.registerDone(metricsHook, {
+        name: "metrics-done",
+        priority: 90,
+        phase: "late"
+    });
 }
