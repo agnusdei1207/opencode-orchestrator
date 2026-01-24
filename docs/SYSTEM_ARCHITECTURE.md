@@ -129,6 +129,23 @@ graph TD
 - **Protocol Isolation**: TUI rendering is decoupled from JSON-RPC streams to prevent malformation.
 
 ---
-**Version:** 1.1
-**Last Updated:** 2026-01-24
-**Status:** Validated for Orchestration v1.0.77
+
+## 8. Adaptive Intelligence Loop (Cognitive Resilience)
+
+The orchestrator employs a non-linear feedback system to prevent cognitive stagnation and infinite monitoring loops.
+
+### 8.1. Stagnation Sensing
+The engine monitors the **Delta of Implementation** between iteration `N` and `N+1`.
+- **Metric**: Comparison of `.opencode/todo.md` completion rates and state file hashes.
+- **Trigger**: If `todoProgress` remains identical for 2 consecutive iterations, the session is flagged as **STAGNANT**.
+
+### 8.2. Diagnostic Intervention
+Upon stagnation, the engine swaps the standard `CONTINUE_INSTRUCTION` with a High-Integrity **Diagnostic Mandate**:
+- **Forced Log Audits**: Mandatory execution of `check_background_task` or `read_file` on active logs.
+- **Speculative Pivot**: Agents are forbidden from "monitoring" and must either propose a new strategy or terminate the stalled process.
+
+---
+
+**Version:** 1.2
+**Last Updated:** 2026-01-25
+**Status:** Validated for Orchestration v1.1.0 - Adaptive Intelligence Active

@@ -58,8 +58,11 @@ export const CONTINUE_INSTRUCTION = `<auto_continue>
 <rules>
 1. DO NOT stop - mission is incomplete
 2. DO NOT wait for user input
-3. If previous action failed, try different approach
-4. Check your hierarchical todo list - complete ALL pending items
+3. **PROACTIVE THINKING MANDATORY**: If background tasks are running, use the time to:
+   - Run \`check_background_task\` to audit logs and ensure no deadlocks.
+   - speculatively plan the next steps or prepare necessary code templates.
+   - execute independent sub-tasks from the TODO list.
+4. If previous action failed, try different approach
 5. Breakdown abstract tasks into Grade 3 sub-tasks before execution
 </rules>
 

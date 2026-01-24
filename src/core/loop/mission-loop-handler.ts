@@ -12,8 +12,10 @@ import {
     readLoopState,
     clearLoopState,
     incrementIteration,
+    writeLoopState,
     generateMissionContinuationPrompt,
     type MissionLoopState,
+    STAGNATION_INTERVENTION,
 } from "./mission-loop.js";
 import { PART_TYPES, LOOP, TOAST_DURATION, STATUS_LABEL, TOAST_VARIANTS, MISSION_CONTROL } from "../../shared/index.js";
 import { isSessionRecovering } from "../recovery/session-recovery.js";
@@ -132,7 +134,8 @@ async function injectContinuation(
     client: OpencodeClient,
     directory: string,
     sessionID: string,
-    loopState: MissionLoopState
+    loopState: MissionLoopState,
+    customPrompt?: string
 ): Promise<void> {
     const handlerState = getState(sessionID);
 
@@ -150,7 +153,12 @@ async function injectContinuation(
 
     // Generate and inject continuation prompt with summary
     const summary = buildVerificationSummary(verification);
-    const prompt = generateMissionContinuationPrompt(loopState, summary);
+    let prompt = generateMissionContinuationPrompt(loopState, summary);
+
+    // If custom prompt (intervention) is provided, prepend it
+    if (customPrompt) {
+        prompt = `${customPrompt}\n\n${prompt}`;
+    }
 
     try {
         // Fire and forget: Do NOT await prompt injection.
@@ -262,29 +270,40 @@ export async function handleMissionIdle(
         return;
     }
 
-    // Work remains - continue the loop
-    log(`[${MISSION_CONTROL.LOG_SOURCE}-handler] Work remains for ${sessionID}, continuing...`, {
-        todo: verification.todoProgress,
-        checklist: verification.checklistProgress
-    });
+    // 1. Detect stagnation
+    const currentProgress = verification.todoProgress;
+    let isStagnant = false;
 
-    // Handle max iterations exhaustion
-    if (loopState.iteration >= loopState.maxIterations) {
-        log(`[${MISSION_CONTROL.LOG_SOURCE}-handler] Max iterations (${loopState.maxIterations}) reached but verification failed. Forced continuation enabled.`);
-        // In "Infinite Loop" mode, we might just keep going or notify
+    if (loopState.lastProgress === currentProgress) {
+        loopState.stagnationCount = (loopState.stagnationCount || 0) + 1;
+        // After 2 iterations with no progress, we consider it stagnant
+        if (loopState.stagnationCount >= 2) {
+            isStagnant = true;
+            log(`[${MISSION_CONTROL.LOG_SOURCE}-handler] Stagnation detected for ${sessionID} (${currentProgress}). Intervention ready.`);
+        }
+    } else {
+        loopState.stagnationCount = 0;
     }
 
-    // Increment iteration
+    // Update state with current progress and stagnation count
+    loopState.lastProgress = currentProgress;
     const newState = incrementIteration(directory);
     if (!newState) return;
 
+    // Update newly created state with our custom trackers
+    newState.lastProgress = currentProgress;
+    newState.stagnationCount = loopState.stagnationCount;
+    writeLoopState(directory, newState);
+
     // Show countdown toast
-    await showCountdownToast(client, MISSION_CONTROL.DEFAULT_COUNTDOWN_SECONDS, newState.iteration, newState.maxIterations);
+    const countdownMsg = isStagnant ? "Stagnation Detected! Intervening..." : `Continuing in ${MISSION_CONTROL.DEFAULT_COUNTDOWN_SECONDS}s... (iteration ${newState.iteration}/${newState.maxIterations})`;
+
+    // (We'll keep the toast simple but can log the intervention)
 
     // Start countdown timer
     handlerState.countdownTimer = setTimeout(async () => {
         cancelCountdown(sessionID);
-        await injectContinuation(client, directory, sessionID, newState);
+        await injectContinuation(client, directory, sessionID, newState, isStagnant ? STAGNATION_INTERVENTION : undefined);
     }, MISSION_CONTROL.DEFAULT_COUNTDOWN_SECONDS * 1000);
 }
 
