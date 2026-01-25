@@ -18,6 +18,7 @@ type OpencodeClient = PluginInput["client"];
 
 export class TaskPoller {
     private pollingInterval?: ReturnType<typeof setInterval>;
+    private messageCache: Map<string, { count: number; lastChecked: Date }> = new Map();
 
     constructor(
         private client: OpencodeClient,
@@ -148,7 +149,25 @@ export class TaskPoller {
 
     private async updateTaskProgress(task: ParallelTask): Promise<void> {
         try {
+            const cached = this.messageCache.get(task.sessionID);
+
+            // OPTION C: Check status first (lightweight) before fetching messages (heavy)
+            const statusResult = await this.client.session.status();
+            const sessionInfo = (statusResult.data as Record<string, { messageCount?: number }>)?.[task.sessionID];
+            const currentMsgCount = sessionInfo?.messageCount ?? 0;
+
+            if (cached && cached.count === currentMsgCount) {
+                // No change, skip heavy fetch
+                // But still increment stable polls if needed
+                task.stablePolls = (task.stablePolls ?? 0) + 1;
+                return;
+            }
+
+            // Change detected or first fetch
             const result = await this.client.session.messages({ path: { id: task.sessionID } });
+            // Update cache
+            this.messageCache.set(task.sessionID, { count: currentMsgCount, lastChecked: new Date() });
+
             if (result.error) return;
 
             const messages = (result.data ?? []) as Array<{
@@ -181,10 +200,12 @@ export class TaskPoller {
                 lastUpdate: new Date(),
             };
 
-            // Stability detection
-            const currentMsgCount = messages.length;
+            // Stability detection handled via cache check above or here
             if (task.lastMsgCount === currentMsgCount) {
-                task.stablePolls = (task.stablePolls ?? 0) + 1;
+                // Redundant if handled by cache check, but safe to keep logic consistent
+                // Actually if cache hit, we returned early.
+                // If we are here, it means things CHANGED.
+                task.stablePolls = 0;
             } else {
                 task.stablePolls = 0;
             }
