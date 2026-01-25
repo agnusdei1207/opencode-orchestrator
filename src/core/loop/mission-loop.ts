@@ -11,8 +11,8 @@ import { join } from "node:path";
 import type { PluginInput } from "@opencode-ai/plugin";
 import { log } from "../agents/logger.js";
 import { PATHS, MISSION_CONTROL } from "../../shared/index.js";
-// import { TerminalMonitor } from "../progress/terminal-monitor.js";
-import { CONTINUE_INSTRUCTION } from "../../shared/constants/system-messages.js";
+import { CONTINUE_INSTRUCTION, CLEANUP_INSTRUCTION, STAGNATION_INTERVENTION } from "../../shared/constants/system-messages.js";
+import type { MissionLoopState, MissionLoopOptions } from "../../shared/loop/interfaces/mission-loop.js";
 
 // ============================================================================
 // Constants
@@ -23,38 +23,6 @@ const STATE_FILE = MISSION_CONTROL.STATE_FILE;
 
 /** Default max iterations before giving up */
 const DEFAULT_MAX_ITERATIONS = MISSION_CONTROL.DEFAULT_MAX_ITERATIONS;
-
-// ============================================================================
-// Types
-// ============================================================================
-
-export interface MissionLoopState {
-    /** Whether loop is active */
-    active: boolean;
-    /** Current iteration number */
-    iteration: number;
-    /** Maximum allowed iterations */
-    maxIterations: number;
-    /** Original task prompt */
-    prompt: string;
-    /** Session ID */
-    sessionID: string;
-    /** When loop started */
-    startedAt: string;
-    /** Last activity timestamp */
-    lastActivity?: string;
-    /** Last known progress string (e.g., "3/10") */
-    lastProgress?: string;
-    /** Number of iterations without progress */
-    stagnationCount?: number;
-}
-
-export interface MissionLoopOptions {
-    /** Maximum iterations before stopping (default: 1000) */
-    maxIterations?: number;
-    /** Countdown seconds before auto-continue (default: 3) */
-    countdownSeconds?: number;
-}
 
 // ============================================================================
 // State Management
@@ -213,7 +181,7 @@ export function isLoopActive(directory: string, sessionID: string): boolean {
 export function generateMissionContinuationPrompt(state: MissionLoopState, verificationSummary?: string): string {
     const summaryHeader = verificationSummary ? `\n[Verification Status]: ${verificationSummary}\n` : "";
 
-    return `${CONTINUE_INSTRUCTION}
+    let prompt = `${CONTINUE_INSTRUCTION}
 
 <mission_loop iteration="${state.iteration}" max="${state.maxIterations}">
 ⚠️ **MISSION NOT COMPLETE** - Iteration ${state.iteration}/${state.maxIterations}
@@ -224,6 +192,13 @@ ${state.prompt}
 
 **NOW**: Continue executing!
 </mission_loop>`;
+
+    // Inject Maintenance Instruction based on iteration
+    if (state.iteration > 1) {
+        prompt += "\n" + CLEANUP_INSTRUCTION.replace("%ITER%", state.iteration.toString());
+    }
+
+    return prompt;
 }
 
 /**
@@ -253,18 +228,7 @@ export function generateMaxIterationsNotification(state: MissionLoopState): stri
 Maximum iteration limit reached. Review the work done and decide how to proceed.`;
 }
 
-/**
- * Stagnation intervention prompt
- */
-export const STAGNATION_INTERVENTION = `
-<system_intervention type="stagnation_detected">
-⚠️ **경고: 진행 정체 감지 (STAGNATION DETECTED)**
-최근 여러 턴 동안 실질적인 진전이 감지되지 않았습니다. 단순 "모니터링"이나 같은 행동을 반복하는 것은 금지됩니다.
 
-**자율적 진단 및 해결 지침:**
-1. **실시간 로그 확인**: \`check_background_task\` 또는 \`read_file\`을 사용하여 진행 중인 작업의 출력 로그를 직접 확인하십시오.
-2. **프로세스 생존 진단**: 작업이 좀비 상태이거나 멈춘 것 같다면 과감하게 \`kill\`하고 단계를 세분화하여 다시 실행하십시오.
-3. **전략 전환**: 동일한 접근 방식이 실패하고 있다면, 다른 도구나 방법을 사용하여 목표에 도달하십시오.
 
-**지금 바로 능동적으로 개입하십시오. 대기하지 마십시오.**
-</system_intervention>`;
+
+
