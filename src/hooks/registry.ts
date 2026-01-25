@@ -121,7 +121,7 @@ export class HookRegistry {
         return sorted;
     }
 
-    async executePreTool(ctx: HookContext, tool: string, args: any): Promise<{ action: typeof HOOK_ACTIONS.ALLOW | typeof HOOK_ACTIONS.BLOCK | typeof HOOK_ACTIONS.MODIFY; modifiedArgs?: any; reason?: string }> {
+    async executePreTool(ctx: HookContext, tool: string, args: Record<string, unknown>): Promise<{ action: typeof HOOK_ACTIONS.ALLOW | typeof HOOK_ACTIONS.BLOCK | typeof HOOK_ACTIONS.MODIFY; modifiedArgs?: Record<string, unknown>; reason?: string }> {
         for (const { hook, metadata } of this.preToolHooks) {
             try {
                 const result = await hook.execute(ctx, tool, args);
@@ -137,7 +137,7 @@ export class HookRegistry {
         return { action: HOOK_ACTIONS.ALLOW, modifiedArgs: args };
     }
 
-    async executePostTool(ctx: HookContext, tool: string, input: any, output: { title: string; output: string; metadata: any }) {
+    async executePostTool(ctx: HookContext, tool: string, input: Record<string, unknown>, output: { title: string; output: string; metadata: Record<string, unknown> }) {
         for (const { hook, metadata } of this.postToolHooks) {
             try {
                 const result = await hook.execute(ctx, tool, input, output);

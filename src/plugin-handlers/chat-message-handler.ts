@@ -23,10 +23,13 @@ import type { ChatMessageHandlerContext } from "./interfaces/index.js";
 
 export type { ChatMessageHandlerContext } from "./interfaces/index.js";
 
-// Extend PluginInput to include properties available in chat.message hook
-type ChatHookInput = PluginInput & {
+// Redefine based on actual hook input seen in validation
+type ChatHookInput = {
     sessionID: string;
     agent?: string;
+    model?: { providerID: string; modelID: string };
+    messageID?: string;
+    variant?: string;
 };
 
 type ChatHookOutput = {
