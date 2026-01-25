@@ -1,5 +1,5 @@
 
-import { type Todo, TODO_STATUS } from "../../shared/index.js";
+import { type Todo, TODO_STATUS, STATUS_LABEL, TODO_CONSTANTS } from "../../shared/index.js";
 
 /**
  * Parses markdown content into Todo objects
@@ -10,7 +10,7 @@ export function parseTodoMd(content: string): Todo[] {
 
     // Simple ID generator if none exists
     const generateId = (text: string, index: number) => {
-        return `file-task-${index}-${text.substring(0, 10).replace(/[^a-zA-Z0-9]/g, '')}`;
+        return `${TODO_CONSTANTS.PREFIX.FILE}${index}-${text.substring(0, 10).replace(/[^a-zA-Z0-9]/g, '')}`;
     };
 
     let index = 0;
@@ -23,22 +23,22 @@ export function parseTodoMd(content: string): Todo[] {
             const [, statusChar, text] = match;
             const content = text.trim();
 
-            let status: Todo["status"] = "pending";
+            let status: Todo["status"] = TODO_STATUS.PENDING;
             // Map characters to status
             switch (statusChar.toLowerCase()) {
                 case 'x':
-                    status = "completed";
+                    status = TODO_STATUS.COMPLETED;
                     break;
                 case '/':
                 case '.': // sometimes used for in progress
-                    status = "in_progress";
+                    status = TODO_STATUS.IN_PROGRESS;
                     break;
                 case '-':
-                    status = "cancelled";
+                    status = TODO_STATUS.CANCELLED;
                     break;
                 case ' ':
                 default:
-                    status = "pending";
+                    status = TODO_STATUS.PENDING;
                     break;
             }
 
@@ -46,7 +46,7 @@ export function parseTodoMd(content: string): Todo[] {
                 id: generateId(content, index),
                 content: content,
                 status: status,
-                priority: "medium", // Default priority for file items
+                priority: STATUS_LABEL.MEDIUM as Todo["priority"], // Default priority for file items
                 createdAt: new Date()
             });
             index++;
