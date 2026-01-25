@@ -59,6 +59,10 @@ export const TODO_CONSTANTS = {
         COMPLETED: "completed",
         PROGRESS: "progress",
         FAILED: "failed",
+    },
+    PREFIX: {
+        TASK: "task-",
+        FILE: "file-task-",
     }
 } as const;
 

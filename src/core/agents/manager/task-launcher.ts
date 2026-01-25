@@ -43,10 +43,8 @@ export class TaskLauncher {
         if (taskInputs.length === 0) return isArray ? [] : (null as any);
 
         // EXECUTION STRATEGY:
-        // 1. Create all sessions in parallel (Solves Sequential Task Start bottleneck)
-        // 2. Wrap them in ParallelTask objects with PENDING status
-        // 3. Register them in the store immediately
-        // 4. Background the concurrency acquisition and prompt firing
+        // 1. Create and prepare sessions/tasks
+        // 2. Background process execution
 
         const tasks = await Promise.all(taskInputs.map(input =>
             this.prepareTask(input).catch(() => null)
@@ -60,8 +58,6 @@ export class TaskLauncher {
                 this.onTaskError(task.id, error);
             });
         });
-
-
 
         // Start polling if we have running/pending tasks
         if (successfulTasks.length > 0) {

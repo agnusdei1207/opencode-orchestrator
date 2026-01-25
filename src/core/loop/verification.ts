@@ -5,11 +5,6 @@
  * 
  * The LLM creates and checks items in .opencode/verification-checklist.md
  * The hook system verifies all items are checked before allowing CONCLUDE.
- * 
- * This approach:
- * 1. LLM discovers environment and creates appropriate checklist items
- * 2. LLM executes and marks items as complete
- * 3. Hook verifies all items are checked (hard gate)
  */
 
 import { existsSync, readFileSync } from "node:fs";
@@ -32,16 +27,15 @@ import { log } from "../agents/logger.js";
 // Re-export for backward compatibility
 export type { ChecklistItem, ChecklistCategory, ChecklistVerificationResult, VerificationResult };
 
-/** Path to the verification checklist file (re-export for convenience) */
 export const CHECKLIST_FILE = CHECKLIST.FILE;
+
+
 
 // ============================================================================
 // Parsing Functions
 // ============================================================================
 
-/**
- * Parse a single line into a checklist item
- */
+
 function parseChecklistLine(line: string, currentCategory: ChecklistCategory): ChecklistItem | null {
     const trimmedLine = line.trim();
 
@@ -71,9 +65,7 @@ function parseChecklistLine(line: string, currentCategory: ChecklistCategory): C
     return null;
 }
 
-/**
- * Detect category from header line
- */
+
 function detectCategory(headerLine: string): ChecklistCategory {
     const headerLower = headerLine.toLowerCase();
 
@@ -100,9 +92,7 @@ function detectCategory(headerLine: string): ChecklistCategory {
     return CHECKLIST_CATEGORIES.IDS.CUSTOM;
 }
 
-/**
- * Parse checklist from markdown content
- */
+
 export function parseChecklist(content: string): ChecklistItem[] {
     const items: ChecklistItem[] = [];
     const lines = content.split('\n');
@@ -128,9 +118,7 @@ export function parseChecklist(content: string): ChecklistItem[] {
     return items;
 }
 
-/**
- * Read checklist from file
- */
+
 export function readChecklist(directory: string): ChecklistItem[] {
     const filePath = join(directory, CHECKLIST_FILE);
 
@@ -151,9 +139,7 @@ export function readChecklist(directory: string): ChecklistItem[] {
 // Verification Functions
 // ============================================================================
 
-/**
- * Verify that all checklist items are complete
- */
+
 export function verifyChecklist(directory: string): ChecklistVerificationResult {
     const result: ChecklistVerificationResult = {
         passed: false,
@@ -210,17 +196,13 @@ export function verifyChecklist(directory: string): ChecklistVerificationResult 
     return result;
 }
 
-/**
- * Quick check if checklist exists and has items
- */
+
 export function hasValidChecklist(directory: string): boolean {
     const items = readChecklist(directory);
     return items.length > 0;
 }
 
-/**
- * Get checklist summary for display
- */
+
 export function getChecklistSummary(directory: string): string {
     const items = readChecklist(directory);
 
@@ -252,9 +234,7 @@ export function getChecklistSummary(directory: string): string {
 // Prompt Builders
 // ============================================================================
 
-/**
- * Build prompt for when checklist verification fails
- */
+
 export function buildChecklistFailurePrompt(result: ChecklistVerificationResult): string {
     const incompleteFormatted = result.incompleteList
         .map((item, i) => `${i + 1}. [ ] ${item}`)
@@ -292,9 +272,7 @@ Each item should be marked complete when verified:
 </verification_failure>`;
 }
 
-/**
- * Build checklist creation prompt (for inclusion in agent prompts)
- */
+
 export function getChecklistCreationInstructions(): string {
     return `
 ## Verification Checklist Requirements
@@ -351,20 +329,12 @@ Before concluding, you MUST create and complete a verification checklist at \`${
 `;
 }
 
-// ============================================================================
-// Combined Verification (for backward compatibility)
-// ============================================================================
 
-// Note: VerificationResult interface is now defined in shared/verification/interfaces
-// and imported at the top of this file
 
-/** Pattern to match incomplete TODO items */
 const TODO_INCOMPLETE_PATTERN = /^[-*]\s*\[\s*\]/gm;
 
-/** Pattern to match complete TODO items */
 const TODO_COMPLETE_PATTERN = /^[-*]\s*\[[xX]\]/gm;
 
-/** Patterns indicating issues in sync-issues.md */
 const SYNC_ISSUE_PATTERNS = [
     /^[-*]\s+\S/gm,
     /ERROR/gi,
@@ -372,17 +342,13 @@ const SYNC_ISSUE_PATTERNS = [
     /CONFLICT/gi,
 ];
 
-/**
- * Count pattern matches in text
- */
+
 function countMatches(text: string, pattern: RegExp): number {
     const matches = text.match(pattern);
     return matches?.length ?? 0;
 }
 
-/**
- * Check if sync-issues content indicates real issues
- */
+
 function hasRealSyncIssues(content: string): boolean {
     const trimmed = content.trim();
     if (!trimmed) return false;
@@ -400,14 +366,7 @@ function hasRealSyncIssues(content: string): boolean {
     return lines.length > 0;
 }
 
-/**
- * Verify mission completion conditions
- * 
- * Checks (in order):
- * 1. Verification checklist (primary - if exists)
- * 2. TODO completion rate (fallback)
- * 3. Sync issues (always checked)
- */
+
 export function verifyMissionCompletion(directory: string): VerificationResult {
     const result: VerificationResult = {
         passed: false,
@@ -508,9 +467,7 @@ export function verifyMissionCompletion(directory: string): VerificationResult {
     return result;
 }
 
-/**
- * Build prompt for when conclusion is rejected due to verification failure
- */
+
 export function buildVerificationFailurePrompt(result: VerificationResult): string {
     const errorList = result.errors.map(e => `❌ ${e}`).join('\n');
     const hasChecklist = result.checklistProgress !== "0/0";
@@ -544,9 +501,7 @@ ${hasChecklist ? `1. **Complete Checklist**: \`cat ${CHECKLIST_FILE}\` - Check o
 </verification_failure>`;
 }
 
-/**
- * Build prompt for when TODO is incomplete
- */
+
 export function buildTodoIncompletePrompt(result: VerificationResult): string {
     return `⚠️ **TODO Incomplete: ${result.todoProgress}**
 
@@ -562,9 +517,7 @@ cat .opencode/todo.md
 }
 
 
-/**
- * Build a concise status summary for logs
- */
+
 export function buildVerificationSummary(result: VerificationResult): string {
     const status = result.passed ? "✅ PASSED" : "❌ FAILED";
     const hasChecklist = result.checklistProgress !== "0/0";
