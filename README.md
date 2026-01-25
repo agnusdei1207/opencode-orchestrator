@@ -117,7 +117,7 @@ A live dashboard directly in your TUI. Monitor **Mission Progress**, active **Ag
 
 ---
 
-[Internal Architecture Deep-Dive →](docs/SYSTEM_ARCHITECTURE.md)
+[Internal Architecture Deep-Dive →](docs/SYSTEM_ARCHITECTURE.md) | [Windows Configuration Guide →](docs/WINDOWS_CONFIGURATION.md)
 
 ## 📄 License
 MIT License.
