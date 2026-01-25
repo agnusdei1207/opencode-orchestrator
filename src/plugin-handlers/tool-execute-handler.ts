@@ -12,7 +12,7 @@ import { state } from "../core/orchestrator/index.js";
 import { formatElapsedTime, formatTimestamp } from "../utils/common.js";
 import { TOOL_NAMES } from "../shared/index.js";
 import { HookRegistry } from "../hooks/registry.js"; // Import Registry
-import type { ToolExecuteHandlerContext } from "./interfaces/index.js";
+import type { ToolExecuteHandlerContext, ToolHookInput, ToolHookOutput } from "./interfaces/index.js";
 
 export type { ToolExecuteHandlerContext } from "./interfaces/index.js";
 
@@ -24,8 +24,8 @@ export function createToolExecuteAfterHandler(ctx: ToolExecuteHandlerContext) {
     const hooks = HookRegistry.getInstance();
 
     return async (
-        toolInput: { tool: string; sessionID: string; callID: string; arguments?: any },
-        toolOutput: { title: string; output: string; metadata: any }
+        toolInput: ToolHookInput,
+        toolOutput: ToolHookOutput
     ) => {
         const session = sessions.get(toolInput.sessionID);
         if (!session?.active) return;
@@ -51,7 +51,7 @@ export function createToolExecuteAfterHandler(ctx: ToolExecuteHandlerContext) {
                 sessions: sessions as Map<string, any>
             },
             toolInput.tool,
-            toolInput.arguments,
+            toolInput.arguments || {},
             toolOutput
         );
 

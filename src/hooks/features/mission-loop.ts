@@ -16,9 +16,10 @@ import {
     clearLoopState,
     readLoopState,
     writeLoopState,
-    STAGNATION_INTERVENTION,
 } from "../../core/loop/mission-loop.js";
 import { PROMPTS, COMMAND_NAMES, TOAST_VARIANTS, MISSION_CONTROL } from "../../shared/index.js";
+import { STAGNATION_INTERVENTION } from "../../shared/constants/system-messages.js";
+import type { MissionLoopState } from "../../shared/loop/interfaces/mission-loop.js";
 import { HOOK_ACTIONS, HOOK_NAMES } from "../constants.js";
 import * as Toast from "../../core/notification/toast.js";
 import * as ProgressTracker from "../../core/progress/tracker.js";

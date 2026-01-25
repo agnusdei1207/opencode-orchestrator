@@ -7,7 +7,7 @@
  */
 
 import { HookRegistry } from "../hooks/registry.js";
-import type { ToolExecuteHandlerContext } from "./interfaces/index.js";
+import type { ToolExecuteHandlerContext, ToolHookInput } from "./interfaces/index.js";
 import { log } from "../core/agents/logger.js";
 import { HOOK_ACTIONS } from "../hooks/constants.js";
 
@@ -16,7 +16,7 @@ export function createToolExecuteBeforeHandler(ctx: ToolExecuteHandlerContext) {
     const hooks = HookRegistry.getInstance();
 
     return async (
-        toolInput: { tool: string; sessionID: string; callID: string; arguments?: any }
+        toolInput: ToolHookInput
     ) => {
         const session = sessions.get(toolInput.sessionID);
         if (!session?.active) return; // or proceed? If not active, maybe we don't care, or we default allow.
@@ -30,7 +30,7 @@ export function createToolExecuteBeforeHandler(ctx: ToolExecuteHandlerContext) {
                 // In future, try to resolve 'agent' from session state if possible
             },
             toolInput.tool,
-            toolInput.arguments
+            toolInput.arguments || {}
         );
 
         if (result.action === HOOK_ACTIONS.BLOCK) {
@@ -42,6 +42,7 @@ export function createToolExecuteBeforeHandler(ctx: ToolExecuteHandlerContext) {
         if (result.action === HOOK_ACTIONS.MODIFY && result.modifiedArgs) {
             // Mutate arguments in place if the framework allows reference mutation.
             // Usually input.arguments is a reference to the actual object being passed to the tool.
+            if (!toolInput.arguments) toolInput.arguments = {};
             Object.assign(toolInput.arguments, result.modifiedArgs);
         }
     };
