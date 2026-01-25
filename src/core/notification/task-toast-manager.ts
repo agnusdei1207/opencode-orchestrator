@@ -192,10 +192,7 @@ export class TaskToastManager {
      * Show consolidated toast with all running/queued tasks
      */
     private showTaskListToast(newTask: TrackedTask): void {
-        if (!this.client) return;
-
-        const tuiClient = this.client as unknown as { tui?: { showToast?: (opts: unknown) => Promise<void> } };
-        if (!tuiClient.tui?.showToast) return;
+        if (!this.client || !this.client.tui) return;
 
         const message = this.buildTaskListMessage(newTask);
         const running = this.getRunningTasks();
@@ -205,11 +202,11 @@ export class TaskToastManager {
             ? `Background Task Started`
             : `Task Started`;
 
-        tuiClient.tui.showToast({
+        this.client.tui.showToast({
             body: {
                 title,
                 message: message || `${newTask.description} (${newTask.agent})`,
-                variant: STATUS_LABEL.INFO as "info",
+                variant: STATUS_LABEL.INFO,
                 duration: running.length + queued.length > 2 ? 5000 : 3000,
             },
         }).catch(() => { });
@@ -219,10 +216,7 @@ export class TaskToastManager {
      * Show task completion toast
      */
     showCompletionToast(info: TaskCompletionInfo): void {
-        if (!this.client) return;
-
-        const tuiClient = this.client as unknown as { tui?: { showToast?: (opts: unknown) => Promise<void> } };
-        if (!tuiClient.tui?.showToast) return;
+        if (!this.client || !this.client.tui) return;
 
         // Remove the completed task
         this.removeTask(info.id);
@@ -237,18 +231,18 @@ export class TaskToastManager {
         if (info.status === STATUS_LABEL.ERROR || info.status === STATUS_LABEL.CANCELLED || info.status === STATUS_LABEL.FAILED) {
             title = info.status === STATUS_LABEL.ERROR ? "Task Failed" : "Task Cancelled";
             message = `[FAIL] "${info.description}" ${info.status}\n${info.error || ""}`;
-            variant = STATUS_LABEL.ERROR as "error";
+            variant = STATUS_LABEL.ERROR;
         } else {
             title = "Task Completed";
             message = `[DONE] "${info.description}" finished in ${info.duration}`;
-            variant = STATUS_LABEL.SUCCESS as "success";
+            variant = STATUS_LABEL.SUCCESS;
         }
 
         if (remaining.length > 0 || queued.length > 0) {
             message += `\n\nStill running: ${remaining.length} | Queued: ${queued.length}`;
         }
 
-        tuiClient.tui.showToast({
+        this.client.tui.showToast({
             body: {
                 title,
                 message,
@@ -262,10 +256,7 @@ export class TaskToastManager {
      * Show all-tasks-complete summary toast
      */
     showAllCompleteToast(parentSessionID: string, completedTasks: TaskCompletionInfo[]): void {
-        if (!this.client) return;
-
-        const tuiClient = this.client as unknown as { tui?: { showToast?: (opts: unknown) => Promise<void> } };
-        if (!tuiClient.tui?.showToast) return;
+        if (!this.client || !this.client.tui) return;
 
         const successCount = completedTasks.filter(t => t.status === STATUS_LABEL.COMPLETED).length;
         const failCount = completedTasks.filter(t => t.status === STATUS_LABEL.ERROR || t.status === STATUS_LABEL.CANCELLED || t.status === STATUS_LABEL.FAILED).length;
@@ -274,11 +265,11 @@ export class TaskToastManager {
             .map(t => `- [${t.status === STATUS_LABEL.COMPLETED ? "OK" : "FAIL"}] ${t.description} (${t.duration})`)
             .join("\n");
 
-        tuiClient.tui.showToast({
+        this.client.tui.showToast({
             body: {
                 title: "All Tasks Completed",
                 message: `${successCount} succeeded, ${failCount} failed\n\n${taskList}`,
-                variant: failCount > 0 ? STATUS_LABEL.WARNING as "warning" : STATUS_LABEL.SUCCESS as "success",
+                variant: failCount > 0 ? STATUS_LABEL.WARNING : STATUS_LABEL.SUCCESS,
                 duration: 7000,
             },
         }).catch(() => { });
@@ -288,9 +279,7 @@ export class TaskToastManager {
      * Show Mission Complete toast (Grand Finale)
      */
     showMissionCompleteToast(title: string = "Mission Complete", message: string = "All tasks completed successfully."): void {
-        if (!this.client) return;
-        const tuiClient = this.client as unknown as { tui?: { showToast?: (opts: unknown) => Promise<void> } };
-        if (!tuiClient.tui?.showToast) return;
+        if (!this.client || !this.client.tui) return;
 
         // Visual flourish for completion
         const decoratedMessage = `
@@ -301,11 +290,11 @@ ${message}
 ${TUI_MESSAGES.MISSION_COMPLETE_SUBTITLE}
 `.trim();
 
-        tuiClient.tui.showToast({
+        this.client.tui.showToast({
             body: {
                 title: `${TUI_ICONS.SHIELD} ${title}`,
                 message: decoratedMessage,
-                variant: STATUS_LABEL.SUCCESS as "success",
+                variant: STATUS_LABEL.SUCCESS,
                 duration: 10000, // Longer duration for the finale
             },
         }).catch(() => { });
@@ -315,10 +304,7 @@ ${TUI_MESSAGES.MISSION_COMPLETE_SUBTITLE}
      * Show progress toast (for long-running tasks)
      */
     showProgressToast(taskId: string, progress: { current: number; total: number; message?: string }): void {
-        if (!this.client) return;
-
-        const tuiClient = this.client as unknown as { tui?: { showToast?: (opts: unknown) => Promise<void> } };
-        if (!tuiClient.tui?.showToast) return;
+        if (!this.client || !this.client.tui) return;
 
         const task = this.tasks.get(taskId);
         if (!task) return;
@@ -326,11 +312,11 @@ ${TUI_MESSAGES.MISSION_COMPLETE_SUBTITLE}
         const percentage = Math.round((progress.current / progress.total) * 100);
         const progressBar = `[${"#".repeat(Math.floor(percentage / 10))}${"-".repeat(10 - Math.floor(percentage / 10))}]`;
 
-        tuiClient.tui.showToast({
+        this.client.tui.showToast({
             body: {
                 title: `Task Progress: ${task.description}`,
                 message: `${progressBar} ${percentage}%\n${progress.message || ""}`,
-                variant: STATUS_LABEL.INFO as "info",
+                variant: STATUS_LABEL.INFO,
                 duration: 2000,
             },
         }).catch(() => { });

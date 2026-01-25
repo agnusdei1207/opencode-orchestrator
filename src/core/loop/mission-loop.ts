@@ -11,7 +11,7 @@ import { join } from "node:path";
 import type { PluginInput } from "@opencode-ai/plugin";
 import { log } from "../agents/logger.js";
 import { PATHS, MISSION_CONTROL } from "../../shared/index.js";
-import { TerminalMonitor } from "../progress/terminal-monitor.js";
+// import { TerminalMonitor } from "../progress/terminal-monitor.js";
 import { CONTINUE_INSTRUCTION } from "../../shared/constants/system-messages.js";
 
 // ============================================================================
@@ -166,7 +166,7 @@ export function startMissionLoop(
     const success = writeLoopState(directory, state);
 
     if (success) {
-        TerminalMonitor.getInstance().start();
+        // TerminalMonitor.getInstance().start();
         log(`[${MISSION_CONTROL.LOG_SOURCE}] Loop started`, {
             sessionID,
             maxIterations: state.maxIterations,

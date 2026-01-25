@@ -29,7 +29,6 @@ import { SessionPool } from "./session-pool.js";
 import { taskWAL } from "./persistence/task-wal.js";
 import { getTaskToastManager } from "../notification/task-toast-manager.js";
 import { progressNotifier } from "../progress/progress-notifier.js";
-import { TerminalMonitor } from "../progress/terminal-monitor.js";
 import { MemoryManager } from "../memory/memory-manager.js";
 import { MemoryLevel } from "../memory/interfaces.js";
 import { CORE_PHILOSOPHY } from "../../agents/prompts/01_philosophy/core.js";
@@ -126,7 +125,9 @@ export class ParallelAgentManager {
         progressNotifier.setManager(this);
 
         // Start TUI Monitor
-        TerminalMonitor.getInstance().start();
+        // Start TUI Monitor
+        // TerminalMonitor has been deprecated in favor of native TUI integration (TaskToastManager)
+        // TerminalMonitor.getInstance().start();
 
         // Bootstrap recovery
         this.recoverActiveTasks().catch(err => {
@@ -242,7 +243,7 @@ export class ParallelAgentManager {
         this.poller.stop();
         this.store.clear();
         MemoryManager.getInstance().clearTaskMemory();
-        TerminalMonitor.getInstance().stop();
+        // TerminalMonitor.getInstance().stop();
         import("../session/store.js").then(store => store.clearAll()).catch(() => { });
     }
 

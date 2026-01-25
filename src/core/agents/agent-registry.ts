@@ -9,6 +9,23 @@ import * as fs from "fs/promises";
 import * as path from "path";
 import { PATHS } from "../../shared/index.js";
 
+import { z } from "zod";
+
+// Schema for Agent Definition
+const AgentDefinitionSchema = z.object({
+    id: z.string(), // ID is required inside the definition object
+    description: z.string(),
+    systemPrompt: z.string(),
+    mode: z.enum(["primary", "subagent"]).optional(),
+    color: z.string().optional(),
+    hidden: z.boolean().optional(),
+    thinking: z.boolean().optional(),
+    maxTokens: z.number().optional(),
+    budgetTokens: z.number().optional(),
+    canWrite: z.boolean(), // Required per interface
+    canBash: z.boolean(), // Required per interface
+});
+
 export class AgentRegistry {
     private static instance: AgentRegistry;
     private agents: Map<string, AgentDefinition> = new Map();
@@ -68,10 +85,11 @@ export class AgentRegistry {
 
             if (typeof customAgents === "object" && customAgents !== null) {
                 for (const [name, def] of Object.entries(customAgents)) {
-                    if (this.isValidAgentDefinition(def)) {
+                    const result = AgentDefinitionSchema.safeParse(def);
+                    if (result.success) {
                         this.registerAgent(name, def as AgentDefinition);
                     } else {
-                        log(`[AgentRegistry] Invalid custom agent definition for: ${name}`);
+                        log(`[AgentRegistry] Invalid custom agent definition for: ${name}. Errors: ${result.error.message}`);
                     }
                 }
             }
@@ -81,15 +99,5 @@ export class AgentRegistry {
                 log(`[AgentRegistry] Error loading custom agents: ${error}`);
             }
         }
-    }
-
-    private isValidAgentDefinition(def: any): boolean {
-        return (
-            typeof def.id === "string" &&
-            typeof def.description === "string" &&
-            typeof def.systemPrompt === "string" &&
-            typeof def.canWrite === "boolean" &&
-            typeof def.canBash === "boolean"
-        );
     }
 }
