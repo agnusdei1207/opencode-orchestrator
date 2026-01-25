@@ -93,8 +93,14 @@ Combines LLM reasoning with deterministic **AST/LSP verification**. Every code c
 - **Diagnostic Intervention**: Forces the agent into a "Diagnostic Mode" when stagnation is detected, mandating log audits and strategy pivots.
 - **Proactive Agency**: Mandates Speculative Planning and Parallel Thinking during background task execution.
 
-### 📊 Real-time TUI Monitor
-A live dashboard directly in your TUI. Monitor **Mission Progress**, active **Agent Sub-sessions**, and **Technical Metrics** through optimized, protocol-safe channels.
+### 📊 Native TUI Integration
+Seamless integration with OpenCode's native TUI via **TaskToastManager**. Provides non-intrusive, real-time feedback on **Mission Progress**, active **Agent Sub-sessions**, and **Technical Metrics** using protocol-safe Toast notifications.
+
+### ⚡ Event-Driven Architecture
+Utilizes a hybrid event-driven pipeline (`EventHandler` + `TaskPoller`) to maximize responsiveness while maintaining robust state tracking and resource cleanup.
+
+### 🔒 Secure Configuration
+Runtime agent configuration is strictly validated using **Zod schemas**, ensuring that custom agent definitions in `agents.json` are type-safe and error-free before execution.
 
 ---
 
