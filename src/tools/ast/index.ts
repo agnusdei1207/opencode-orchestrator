@@ -4,14 +4,14 @@
  * Re-exports AST search/replace tools using Rust backend.
  */
 
-import { tool } from "@opencode-ai/plugin";
+import { tool, type ToolDefinition } from "@opencode-ai/plugin";
 import { callRustTool } from "../rust.js";
 
 /**
  * AST Search Tool
  * Uses Rust backend to run ast-grep for structural code search.
  */
-export const astSearchTool = (directory: string) => tool({
+export const astSearchTool = (directory: string): ToolDefinition => tool({
     description: `Perform structural search using ast-grep.
 Find code patterns based on syntax (e.g., 'function $NAME($$$ARGS) { $$$BODY }').
 
@@ -39,7 +39,7 @@ Find code patterns based on syntax (e.g., 'function $NAME($$$ARGS) { $$$BODY }')
  * AST Replace Tool
  * Uses Rust backend to run ast-grep for structural code replacement.
  */
-export const astReplaceTool = (directory: string) => tool({
+export const astReplaceTool = (directory: string): ToolDefinition => tool({
     description: `Perform structural search and replace using ast-grep.
 Safely refactor code across files using syntax patterns.`,
     args: {

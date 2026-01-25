@@ -2,11 +2,11 @@
  * list_background Tool - List all background tasks
  */
 
-import { tool } from "@opencode-ai/plugin";
+import { tool, type ToolDefinition } from "@opencode-ai/plugin";
 import { backgroundTaskManager, type BackgroundTask } from "../../core/commands/index.js";
 import { BACKGROUND_STATUS, FILTER_STATUS } from "../../shared/index.js";
 
-export const listBackgroundTool = tool({
+export const listBackgroundTool: ToolDefinition = tool({
     description: `List all background tasks and their status.`,
     args: {
         status: tool.schema.enum([

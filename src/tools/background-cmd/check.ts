@@ -2,11 +2,11 @@
  * check_background Tool - Check background task status
  */
 
-import { tool } from "@opencode-ai/plugin";
+import { tool, type ToolDefinition } from "@opencode-ai/plugin";
 import { backgroundTaskManager } from "../../core/commands/index.js";
 import { STATUS_LABEL } from "../../shared/index.js";
 
-export const checkBackgroundTool = tool({
+export const checkBackgroundTool: ToolDefinition = tool({
     description: `Check the status and output of a background task.`,
     args: {
         taskId: tool.schema.string().describe("Task ID from run_background"),

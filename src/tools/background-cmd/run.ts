@@ -2,11 +2,11 @@
  * run_background Tool - Start a background command
  */
 
-import { tool } from "@opencode-ai/plugin";
+import { tool, type ToolDefinition } from "@opencode-ai/plugin";
 import { backgroundTaskManager } from "../../core/commands/index.js";
 import { BACKGROUND_TASK } from "../../shared/index.js";
 
-export const runBackgroundTool = tool({
+export const runBackgroundTool: ToolDefinition = tool({
     description: `Run a shell command in the background and get a task ID.
 
 <purpose>

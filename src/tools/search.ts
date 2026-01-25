@@ -1,11 +1,11 @@
-import { tool } from "@opencode-ai/plugin";
+import { tool, type ToolDefinition } from "@opencode-ai/plugin";
 import { callRustTool } from "./rust.js";
 
 /**
  * Grep search tool - finds patterns in code
  * Used by Worker and Reviewer for codebase analysis
  */
-export const grepSearchTool = (directory: string) => tool({
+export const grepSearchTool = (directory: string): ToolDefinition => tool({
     description: "Search code patterns using regex. Returns matching lines with file paths and line numbers.",
     args: {
         pattern: tool.schema.string().describe("Regex pattern to search for"),
@@ -27,7 +27,7 @@ export const grepSearchTool = (directory: string) => tool({
  * Glob search tool - finds files by pattern
  * Used by Worker and Reviewer for file discovery
  */
-export const globSearchTool = (directory: string) => tool({
+export const globSearchTool = (directory: string): ToolDefinition => tool({
     description: "Find files matching a glob pattern. Returns list of file paths.",
     args: {
         pattern: tool.schema.string().describe("Glob pattern (e.g., '**/*.ts', 'src/**/*.md')"),
@@ -45,7 +45,7 @@ export const globSearchTool = (directory: string) => tool({
  * Multi-grep (mgrep) tool - search multiple patterns
  * Runs grep for each pattern and combines results
  */
-export const mgrepTool = (directory: string) => tool({
+export const mgrepTool = (directory: string): ToolDefinition => tool({
     description: `Search multiple patterns (runs grep for each pattern).`,
     args: {
         patterns: tool.schema.array(tool.schema.string()).describe("Array of regex patterns"),
@@ -67,7 +67,7 @@ export const mgrepTool = (directory: string) => tool({
  * Sed replace tool - find and replace patterns in files
  * Used for bulk code migrations and refactoring
  */
-export const sedReplaceTool = (directory: string) => tool({
+export const sedReplaceTool = (directory: string): ToolDefinition => tool({
     description: `Find and replace patterns in files (sed-like). Supports regex. Use dry_run=true to preview changes.`,
     args: {
         pattern: tool.schema.string().describe("Regex pattern to find"),
@@ -94,7 +94,7 @@ export const sedReplaceTool = (directory: string) => tool({
 /**
  * Diff tool - compare files or strings
  */
-export const diffTool = () => tool({
+export const diffTool = (): ToolDefinition => tool({
     description: `Compare two files or strings and show differences.`,
     args: {
         file1: tool.schema.string().optional().describe("First file to compare"),
@@ -111,7 +111,7 @@ export const diffTool = () => tool({
 /**
  * JQ tool - JSON query and manipulation
  */
-export const jqTool = () => tool({
+export const jqTool = (): ToolDefinition => tool({
     description: `Query and manipulate JSON using jq expressions.`,
     args: {
         json_input: tool.schema.string().optional().describe("JSON string to query"),
@@ -127,7 +127,7 @@ export const jqTool = () => tool({
 /**
  * HTTP tool - make HTTP requests (curl-like)
  */
-export const httpTool = () => tool({
+export const httpTool = (): ToolDefinition => tool({
     description: `Make HTTP requests (GET, POST, PUT, DELETE, etc).`,
     args: {
         url: tool.schema.string().describe("URL to request"),
@@ -144,7 +144,7 @@ export const httpTool = () => tool({
 /**
  * File stats tool - analyze directory/file statistics
  */
-export const fileStatsTool = (directory: string) => tool({
+export const fileStatsTool = (directory: string): ToolDefinition => tool({
     description: `Analyze file/directory statistics (file counts, sizes, line counts, etc).`,
     args: {
         dir: tool.schema.string().optional().describe("Directory to analyze (defaults to project root)"),
@@ -161,7 +161,7 @@ export const fileStatsTool = (directory: string) => tool({
 /**
  * Git diff tool - show uncommitted changes
  */
-export const gitDiffTool = (directory: string) => tool({
+export const gitDiffTool = (directory: string): ToolDefinition => tool({
     description: `Show git diff of uncommitted changes.`,
     args: {
         dir: tool.schema.string().optional().describe("Repository directory (defaults to project root)"),
@@ -178,7 +178,7 @@ export const gitDiffTool = (directory: string) => tool({
 /**
  * Git status tool - show repository status
  */
-export const gitStatusTool = (directory: string) => tool({
+export const gitStatusTool = (directory: string): ToolDefinition => tool({
     description: `Show git status (modified, added, deleted files).`,
     args: {
         dir: tool.schema.string().optional().describe("Repository directory (defaults to project root)"),

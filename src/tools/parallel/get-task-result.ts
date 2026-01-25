@@ -2,11 +2,11 @@
  * get_task_result Tool
  */
 
-import { tool } from "@opencode-ai/plugin";
+import { tool, type ToolDefinition } from "@opencode-ai/plugin";
 import { ParallelAgentManager } from "../../core/agents/index.js";
 import { STATUS_LABEL, OUTPUT_LABEL, PARALLEL_PARAMS } from "../../shared/index.js";
 
-export const createGetTaskResultTool = (manager: ParallelAgentManager) => tool({
+export const createGetTaskResultTool = (manager: ParallelAgentManager): ToolDefinition => tool({
     description: `Get result from a completed background task.`,
     args: {
         [PARALLEL_PARAMS.TASK_ID]: tool.schema.string().describe("Task ID"),

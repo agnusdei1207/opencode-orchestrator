@@ -1,6 +1,8 @@
-import { tool } from "@opencode-ai/plugin";
+import { tool, type ToolDefinition } from "@opencode-ai/plugin";
 import { AGENT_NAMES, PROMPTS } from "../shared/index.js";
 import { commander } from "../agents/commander.js";
+
+// ... (existing content logic)
 
 /**
  * Slash commands for OpenCode Orchestrator
@@ -98,7 +100,7 @@ THINK → PLAN → DELEGATE → EXECUTE → VERIFY → COMPLETE
   },
 };
 
-export function createSlashcommandTool() {
+export function createSlashcommandTool(): ToolDefinition {
   const commandList = Object.entries(COMMANDS)
     .map(([name, cmd]) => {
       const hint = cmd.argumentHint ? ` ${cmd.argumentHint}` : "";

@@ -2,11 +2,11 @@
  * cancel_task Tool
  */
 
-import { tool } from "@opencode-ai/plugin";
+import { tool, type ToolDefinition } from "@opencode-ai/plugin";
 import { ParallelAgentManager } from "../../core/agents/index.js";
 import { OUTPUT_LABEL } from "../../shared/index.js";
 
-export const createCancelTaskTool = (manager: ParallelAgentManager) => tool({
+export const createCancelTaskTool = (manager: ParallelAgentManager): ToolDefinition => tool({
     description: `Cancel a running task.`,
     args: {
         taskId: tool.schema.string().describe("Task ID to cancel"),
