@@ -10,7 +10,7 @@ export interface HookContext {
     sessionID: string;
     agent?: string;
     directory: string; // Added
-    sessions: Map<string, any>; // Added
+    sessions: Map<string, unknown>; // Added
 }
 
 export interface HookMetadata {
@@ -35,8 +35,8 @@ export interface PreToolUseHook {
     execute(
         context: HookContext,
         tool: string,
-        args: any
-    ): Promise<{ action: typeof HOOK_ACTIONS.ALLOW | typeof HOOK_ACTIONS.BLOCK | typeof HOOK_ACTIONS.MODIFY; modifiedArgs?: any; reason?: string }>;
+        args: Record<string, unknown>
+    ): Promise<{ action: typeof HOOK_ACTIONS.ALLOW | typeof HOOK_ACTIONS.BLOCK | typeof HOOK_ACTIONS.MODIFY; modifiedArgs?: Record<string, unknown>; reason?: string }>;
 }
 
 /**
@@ -48,8 +48,8 @@ export interface PostToolUseHook {
     execute(
         context: HookContext,
         tool: string,
-        input: any,
-        output: { title: string; output: string; metadata: any }
+        input: Record<string, unknown>,
+        output: { title: string; output: string; metadata: Record<string, unknown> }
     ): Promise<{ output?: string }>; // meaningful valid return modification
 }
 

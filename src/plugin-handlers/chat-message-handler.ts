@@ -7,6 +7,7 @@
  * - Auto-applying mission mode for Commander
  */
 
+import type { PluginInput } from "@opencode-ai/plugin";
 import { log } from "../core/agents/logger.js";
 import { state } from "../core/orchestrator/index.js";
 import { COMMANDS } from "../tools/slashCommand.js";
@@ -22,14 +23,24 @@ import type { ChatMessageHandlerContext } from "./interfaces/index.js";
 
 export type { ChatMessageHandlerContext } from "./interfaces/index.js";
 
+// Extend PluginInput to include properties available in chat.message hook
+type ChatHookInput = PluginInput & {
+    sessionID: string;
+    agent?: string;
+};
+
+type ChatHookOutput = {
+    parts: Array<{ type: string; text?: string }>;
+};
+
 /**
  * Create chat.message handler
  */
 export function createChatMessageHandler(ctx: ChatMessageHandlerContext) {
     const { directory, sessions } = ctx;
 
-    return async (msgInput: any, msgOutput: any) => {
-        const parts = msgOutput.parts as Array<{ type: string; text?: string }>;
+    return async (msgInput: ChatHookInput, msgOutput: ChatHookOutput) => {
+        const parts = msgOutput.parts;
         const textPartIndex = parts.findIndex(p => p.type === PART_TYPES.TEXT && p.text);
         if (textPartIndex === -1) return;
 
@@ -60,7 +71,7 @@ export function createChatMessageHandler(ctx: ChatMessageHandlerContext) {
         const hookContext = {
             sessionID,
             directory,
-            sessions: sessions as Map<string, any>
+            sessions: sessions as Map<string, unknown>
         };
 
         const hookResult = await hooks.executeChat(hookContext, originalText);
