@@ -11,3 +11,4 @@ export * from "./interfaces/index.js";
 // Classes
 export { ConcurrencyController } from "./concurrency.js";
 export { ParallelAgentManager, parallelAgentManager } from "./manager.js";
+export { taskWAL } from "./persistence/task-wal.js";

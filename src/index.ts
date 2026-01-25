@@ -42,6 +42,8 @@ import { TOOL_NAMES } from "./shared/index.js";
 import * as Toast from "./core/notification/toast.js";
 import { initializeHooks } from "./hooks/index.js"; // Initialize Hooks
 import { PluginManager } from "./core/plugins/plugin-manager.js";
+import { TodoSyncService } from "./core/sync/todo-sync-service.js";
+import { CleanupScheduler } from "./core/cleanup/cleanup-scheduler.js";
 
 // Import modularized handlers
 import { createToolExecuteBeforeHandler } from "./plugin-handlers/tool-execute-pre-handler.js"; // Added import
@@ -90,6 +92,15 @@ const OrchestratorPlugin: Plugin = async (input) => {
 
     // Connect task toast manager to concurrency controller for slot info
     taskToastManager.setConcurrencyController(parallelAgentManager.getConcurrency());
+
+    // Initialize Todo Sync Service (Phase 1 Improvement)
+    const todoSync = new TodoSyncService(client, directory);
+    await todoSync.start();
+    taskToastManager.setTodoSync(todoSync);
+
+    // Initialize Cleanup Scheduler (Phase 1 Improvement)
+    const cleanupScheduler = new CleanupScheduler(directory);
+    cleanupScheduler.start();
 
     // =========================================================================
     // Create Handler Contexts
@@ -158,7 +169,24 @@ const OrchestratorPlugin: Plugin = async (input) => {
         // -----------------------------------------------------------------
         // Event hook - handles OpenCode events
         // -----------------------------------------------------------------
-        event: createEventHandler(handlerContext),
+        // -----------------------------------------------------------------
+        // Event hook - handles OpenCode events
+        // -----------------------------------------------------------------
+        event: async (payload) => {
+            // Call the modular event handler
+            const result = await createEventHandler(handlerContext)(payload);
+
+            // Additional logic for Todo Sync
+            const { event } = payload;
+            if (event.type === "session.created" && event.properties) {
+                const sessionID = (event.properties as any).sessionID || (event.properties as any).id || (event.properties as any).info?.sessionID;
+                if (sessionID) {
+                    todoSync.registerSession(sessionID);
+                }
+            }
+
+            return result;
+        },
 
         // -----------------------------------------------------------------
         // chat.message hook - intercepts commands and sets up sessions
