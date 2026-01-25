@@ -4,11 +4,11 @@
  * Manage cached documentation
  */
 
-import { tool } from "@opencode-ai/plugin";
+import { tool, type ToolDefinition } from "@opencode-ai/plugin";
 import * as DocumentCache from "../../core/cache/document-cache.js";
 import { CACHE_ACTIONS } from "../../shared/index.js";
 
-export const cacheDocsTool = tool({
+export const cacheDocsTool: ToolDefinition = tool({
     description: `Manage cached documentation.
 
 <usage>

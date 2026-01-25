@@ -70,9 +70,9 @@
     "node": ">=24"
   },
   "dependencies": {
-    "@opencode-ai/plugin": "^1.1.1",
-    "@opencode-ai/sdk": "^1.1.14",
-    "zod": "4.1.8"
+    "@opencode-ai/plugin": "^1.1.35",
+    "@opencode-ai/sdk": "^1.1.35",
+    "zod": "^4.3.6"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",

@@ -2,11 +2,11 @@
  * kill_background Tool - Kill a running background task
  */
 
-import { tool } from "@opencode-ai/plugin";
+import { tool, type ToolDefinition } from "@opencode-ai/plugin";
 import { backgroundTaskManager } from "../../core/commands/index.js";
 import { STATUS_LABEL } from "../../shared/index.js";
 
-export const killBackgroundTool = tool({
+export const killBackgroundTool: ToolDefinition = tool({
     description: `Kill a running background task.`,
     args: {
         taskId: tool.schema.string().describe("Task ID to kill"),

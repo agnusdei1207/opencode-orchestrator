@@ -5,7 +5,7 @@
  * Useful for finding patterns and examples from verified repositories
  */
 
-import { tool } from "@opencode-ai/plugin";
+import { tool, type ToolDefinition } from "@opencode-ai/plugin";
 import { OUTPUT_LABEL } from "../../shared/index.js";
 import { log } from "../../core/agents/logger.js";
 
@@ -139,7 +139,7 @@ async function searchGitHub(query: string, options: {
     }
 }
 
-export const codesearchTool = tool({
+export const codesearchTool: ToolDefinition = tool({
     description: `Search open source code for patterns and examples.
 
 <usage>

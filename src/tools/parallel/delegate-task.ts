@@ -10,7 +10,7 @@
  * - Resource cleanup on all exit paths
  */
 
-import { tool } from "@opencode-ai/plugin";
+import { tool, type ToolDefinition } from "@opencode-ai/plugin";
 import { ParallelAgentManager, type ParallelTask } from "../../core/agents/index.js";
 import { log } from "../../core/agents/logger.js";
 import { presets } from "../../shared/index.js";
@@ -214,7 +214,7 @@ async function extractSessionResult(
     }
 }
 
-export const createDelegateTaskTool = (manager: ParallelAgentManager, client: unknown) => tool({
+export const createDelegateTaskTool = (manager: ParallelAgentManager, client: unknown): ToolDefinition => tool({
     description: `Delegate a task to an agent.
 
 ${PROMPT_TAGS.MODE.open}

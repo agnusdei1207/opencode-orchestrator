@@ -4,7 +4,7 @@
  * Re-exports LSP diagnostics tool using Rust backend.
  */
 
-import { tool } from "@opencode-ai/plugin";
+import { tool, type ToolDefinition } from "@opencode-ai/plugin";
 import { callRustTool } from "../rust.js";
 import { diagnosticsCache } from "./diagnostics-cache.js";
 
@@ -12,7 +12,7 @@ import { diagnosticsCache } from "./diagnostics-cache.js";
  * LSP Diagnostics Tool
  * Uses Rust backend to run tsc and eslint.
  */
-export const lspDiagnosticsTool = (directory: string) => tool({
+export const lspDiagnosticsTool = (directory: string): ToolDefinition => tool({
     description: `Get LSP diagnostics (errors/warnings) for files.
 
 Use this BEFORE marking a task complete to verify code quality.

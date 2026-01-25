@@ -5,7 +5,7 @@
  * Used by Planner and Worker agents for documentation research
  */
 
-import { tool } from "@opencode-ai/plugin";
+import { tool, type ToolDefinition } from "@opencode-ai/plugin";
 import * as DocumentCache from "../../core/cache/document-cache.js";
 import { PATHS, OUTPUT_LABEL } from "../../shared/index.js";
 
@@ -87,7 +87,7 @@ function extractMainContent(html: string): string {
     return bodyMatch ? bodyMatch[1] : html;
 }
 
-export const webfetchTool = tool({
+export const webfetchTool: ToolDefinition = tool({
     description: `Fetch content from a URL and convert to markdown.
 
 <usage>

@@ -5,7 +5,7 @@
  * Priority: SearXNG (local) > Brave Search > DuckDuckGo (fallback)
  */
 
-import { tool } from "@opencode-ai/plugin";
+import { tool, type ToolDefinition } from "@opencode-ai/plugin";
 import { OUTPUT_LABEL } from "../../shared/index.js";
 import { log } from "../../core/agents/logger.js";
 
@@ -259,7 +259,7 @@ async function searchDuckDuckGoHtml(query: string): Promise<SearchResult[]> {
 // Main Tool
 // ============================================================================
 
-export const websearchTool = tool({
+export const websearchTool: ToolDefinition = tool({
     description: `Search the web for information using multiple search providers.
 
 <usage>

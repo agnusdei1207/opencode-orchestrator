@@ -1,8 +1,8 @@
-import { tool } from "@opencode-ai/plugin";
+import { tool, type ToolDefinition } from "@opencode-ai/plugin";
 import { AGENTS } from "../agents/definitions.js";
 import { AGENT_NAMES, EXECUTION_CYCLE_STEPS, VERIFICATION_SIGNALS, PROMPT_TAGS, PARALLEL_PARAMS } from "../shared/index.js";
 
-export const callAgentTool = tool({
+export const callAgentTool: ToolDefinition = tool({
     description: `Call a specialized agent for parallel execution.
 
 ${PROMPT_TAGS.AGENTS.open}
