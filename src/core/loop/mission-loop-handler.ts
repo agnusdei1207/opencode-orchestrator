@@ -23,7 +23,9 @@ import { ParallelAgentManager } from "../agents/manager.js";
 import { sendNotification } from "../notification/os-notify/notifier.js";
 import { playSound } from "../notification/os-notify/sound-player.js";
 import { detectPlatform, getDefaultSoundPath } from "../notification/os-notify/platform.js";
-import { verifyMissionCompletion, buildVerificationFailurePrompt, buildVerificationSummary } from "./verification.js";
+import { verifyMissionCompletion, verifyMissionCompletionAsync, buildVerificationFailurePrompt, buildVerificationSummary } from "./verification.js";
+import { tryAcquireContinuationLock, releaseContinuationLock } from "./continuation-lock.js";
+import { hasPendingContinuation } from "./todo-continuation.js";
 
 
 type OpencodeClient = PluginInput["client"];
@@ -145,7 +147,7 @@ async function injectContinuation(
     if (isSessionRecovering(sessionID)) return;
 
     // Verify completion one last time
-    const verification = verifyMissionCompletion(directory);
+    const verification = await verifyMissionCompletionAsync(directory);
     if (verification.passed) {
         await handleMissionComplete(client, directory, loopState);
         return;
@@ -161,18 +163,15 @@ async function injectContinuation(
     }
 
     try {
-        // Fire and forget: Do NOT await prompt injection.
-        // This ensures the IDLE event handler returns quickly and doesn't block the plugin process.
-        client.session.prompt({
+        // Await prompt injection to hold lock during network request
+        await client.session.prompt({
             path: { id: sessionID },
             body: {
                 parts: [{ type: PART_TYPES.TEXT, text: prompt }],
             },
-        }).catch(error => {
-            log("[mission-loop-handler] Failed to inject continuation prompt", { sessionID, error });
         });
-    } catch {
-        // Injection failed
+    } catch (error) {
+        log("[mission-loop-handler] Failed to inject continuation prompt", { sessionID, error });
     }
 }
 
@@ -262,7 +261,7 @@ export async function handleMissionIdle(
     }
 
     // VERIFICATION GATE: Check if work is truly done
-    const verification = verifyMissionCompletion(directory);
+    const verification = await verifyMissionCompletionAsync(directory);
 
     if (verification.passed) {
         log(`[${MISSION_CONTROL.LOG_SOURCE}-handler] Verification passed for ${sessionID}. Completion confirmed.`);
@@ -301,9 +300,26 @@ export async function handleMissionIdle(
     // (We'll keep the toast simple but can log the intervention)
 
     // Start countdown timer
+    // Start countdown timer
     handlerState.countdownTimer = setTimeout(async () => {
         cancelCountdown(sessionID);
-        await injectContinuation(client, directory, sessionID, newState, isStagnant ? STAGNATION_INTERVENTION : undefined);
+
+        // Check if Todo Continuation is already pending
+        if (hasPendingContinuation(sessionID)) {
+            log("[mission-loop-handler] Todo continuation pending, deferring");
+            return;
+        }
+
+        // Try to acquire lock
+        if (!tryAcquireContinuationLock(sessionID, "mission-loop")) {
+            return;
+        }
+
+        try {
+            await injectContinuation(client, directory, sessionID, newState, isStagnant ? STAGNATION_INTERVENTION : undefined);
+        } finally {
+            releaseContinuationLock(sessionID);
+        }
     }, MISSION_CONTROL.DEFAULT_COUNTDOWN_SECONDS * 1000);
 }
 

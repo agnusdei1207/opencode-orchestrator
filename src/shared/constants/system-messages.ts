@@ -8,32 +8,32 @@ import { PATHS } from "../core/constants/paths.js";
  */
 
 export const MISSION_MESSAGES = {
-  START_LOG: `[${MISSION_CONTROL.LOG_SOURCE}] Detected /task command. Starting mission...`,
-  CANCEL_LOG: `[${MISSION_CONTROL.LOG_SOURCE}] Detected user cancellation signal.`,
-  COMPLETE_LOG: `[${MISSION_CONTROL.LOG_SOURCE}] Mission Verified! Finishing loop.`,
+   START_LOG: `[${MISSION_CONTROL.LOG_SOURCE}] Detected /task command. Starting mission...`,
+   CANCEL_LOG: `[${MISSION_CONTROL.LOG_SOURCE}] Detected user cancellation signal.`,
+   COMPLETE_LOG: `[${MISSION_CONTROL.LOG_SOURCE}] Mission Verified! Finishing loop.`,
 
-  TOAST_COMPLETE_TITLE: "Mission Complete",
-  TOAST_COMPLETE_MESSAGE: "Mission verified and finished.",
+   TOAST_COMPLETE_TITLE: "Mission Complete",
+   TOAST_COMPLETE_MESSAGE: "Mission verified and finished.",
 
-  STOP_TRIGGER: "STOP MISSION",
-  CANCEL_TRIGGER: "CANCEL MISSION",
+   STOP_TRIGGER: "STOP MISSION",
+   CANCEL_TRIGGER: "CANCEL MISSION",
 
-  // UI Messages
-  AGENT_HEADER_FORMAT: (indicator: string, name: string) => `[${indicator}] [${name}] Working...\n\n`,
+   // UI Messages
+   AGENT_HEADER_FORMAT: (indicator: string, name: string) => `[${indicator}] [${name}] Working...\n\n`,
 
-  // Security Messages
-  BLOCK_REASON_FORK_BOMB: "Fork bomb detected.",
-  BLOCK_REASON_ROOT_DELETE: "Root deletion blocked.",
-  SECRET_REDACTED_MSG: "********** [SECRET REDACTED] **********",
+   // Security Messages
+   BLOCK_REASON_FORK_BOMB: "Fork bomb detected.",
+   BLOCK_REASON_ROOT_DELETE: "Root deletion blocked.",
+   SECRET_REDACTED_MSG: "********** [SECRET REDACTED] **********",
 
-  // Sanity Messages
-  ANOMALY_DETECTED_TITLE: (name: string) => `[${name}] OUTPUT ANOMALY DETECTED`,
-  ANOMALY_DETECTED_BODY: (reason: string, count: number, recoveryText: string) =>
-    `Gibberish/loop detected: ${reason}\n` +
-    `Anomaly count: ${count}\n\n` +
-    `${recoveryText}`,
-  ANOMALY_INJECT_MSG: (count: number, reason: string, recoveryText: string) =>
-    `⚠️ ANOMALY #${count}: ${reason}\n\n${recoveryText}`
+   // Sanity Messages
+   ANOMALY_DETECTED_TITLE: (name: string) => `[${name}] OUTPUT ANOMALY DETECTED`,
+   ANOMALY_DETECTED_BODY: (reason: string, count: number, recoveryText: string) =>
+      `Gibberish/loop detected: ${reason}\n` +
+      `Anomaly count: ${count}\n\n` +
+      `${recoveryText}`,
+   ANOMALY_INJECT_MSG: (count: number, reason: string, recoveryText: string) =>
+      `⚠️ ANOMALY #${count}: ${reason}\n\n${recoveryText}`
 } as const;
 
 export const COMPACTION_PROMPT = `
@@ -84,15 +84,15 @@ export const CONTINUE_INSTRUCTION = `<auto_continue>
 
 export const STAGNATION_INTERVENTION = `
 <system_intervention type="stagnation_detected">
-⚠️ **경고: 진행 정체 감지 (STAGNATION DETECTED)**
-최근 여러 턴 동안 실질적인 진전이 감지되지 않았습니다. 단순 "모니터링"이나 같은 행동을 반복하는 것은 금지됩니다.
+⚠️ **WARNING: STAGNATION DETECTED**
+No substantial progress has been detected for several turns. Simply "monitoring" or repeating the same actions is prohibited.
 
-**자율적 진단 및 해결 지침:**
-1. **실시간 로그 확인**: \`check_background_task\` 또는 \`read_file\`을 사용하여 진행 중인 작업의 출력 로그를 직접 확인하십시오.
-2. **프로세스 생존 진단**: 작업이 좀비 상태이거나 멈춘 것 같다면 과감하게 \`kill\`하고 단계를 세분화하여 다시 실행하십시오.
-3. **전략 전환**: 동일한 접근 방식이 실패하고 있다면, 다른 도구나 방법을 사용하여 목표에 도달하십시오.
+**Self-Diagnosis and Resolution Guidelines:**
+1. **Check Live Logs**: Use \`check_background_task\` or \`read_file\` to directly check the output logs of running tasks.
+2. **Process Health Diagnosis**: If a task appears to be a zombie or stuck, kill it immediately and restart it with more granular steps.
+3. **Strategy Pivot**: If the same approach keeps failing, use different tools or methods to reach the goal.
 
-**지금 바로 능동적으로 개입하십시오. 대기하지 마십시오.**
+**Intervene proactively NOW. Do NOT wait.**
 </system_intervention>`;
 
 export const CLEANUP_INSTRUCTION = `

@@ -14,6 +14,7 @@ import {
     verifyMissionCompletion,
     buildVerificationFailurePrompt,
     buildVerificationSummary,
+    clearVerificationCache,
     type VerificationResult
 } from "../../src/core/loop/verification.js";
 
@@ -22,8 +23,11 @@ describe("Mission Verification", () => {
     let opencodeDir: string;
 
     beforeEach(() => {
+        // Clear global cache
+        clearVerificationCache();
+
         // Create temporary test directory
-        testDir = join(tmpdir(), `test-verification-${Date.now()}`);
+        testDir = join(tmpdir(), `test-verification-${Date.now()}-${Math.random()}`);
         opencodeDir = join(testDir, ".opencode");
         mkdirSync(opencodeDir, { recursive: true });
     });

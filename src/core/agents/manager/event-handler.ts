@@ -11,6 +11,8 @@ import { CONFIG } from "../config.js";
 import { log } from "../logger.js";
 import { formatDuration } from "../format.js";
 import { progressNotifier } from "../../progress/progress-notifier.js";
+import { recordSessionResponse, recordSessionActivity, cleanupSessionHealth } from "../../session/session-health.js";
+import { cleanupContinuationLock } from "../../loop/continuation-lock.js";
 import type { ParallelTask } from "../interfaces/parallel-task.interface.js";
 
 type OpencodeClient = PluginInput["client"];
@@ -38,6 +40,9 @@ export class EventHandler {
         if (event.type === SESSION_EVENTS.IDLE) {
             const sessionID = props?.sessionID;
             if (!sessionID) return;
+
+            // Session Health: Record response/activity
+            recordSessionResponse(sessionID);
 
             const task = this.findBySession(sessionID);
             if (!task || task.status !== TASK_STATUS.RUNNING) return;
@@ -127,6 +132,10 @@ export class EventHandler {
 
         // Log to WAL
         taskWAL.log(WAL_ACTIONS.DELETE, task).catch(() => { });
+
+        // Cleanup health and locks
+        cleanupSessionHealth(task.sessionID);
+        cleanupContinuationLock(task.sessionID);
 
         progressNotifier.update();
         log(`Cleaned up deleted session task: ${task.id}`);
