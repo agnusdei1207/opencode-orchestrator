@@ -20,10 +20,10 @@ interface SessionHealthState {
 
 const sessionHealth = new Map<string, SessionHealthState>();
 
-// Configuration
-const STALE_THRESHOLD_MS = 120000;      // Stale if no response for 2 minutes
-const HEALTH_CHECK_INTERVAL_MS = 30000; // Check every 30 seconds
-const WARNING_THRESHOLD_MS = 60000;     // Warn after 1 minute
+// Configuration - Relaxed for parallel tasks to prevent false positives
+const STALE_THRESHOLD_MS = 600000;      // Stale if no response for 10 minutes (was 2min)
+const HEALTH_CHECK_INTERVAL_MS = 60000; // Check every 60 seconds (was 30s)
+const WARNING_THRESHOLD_MS = 300000;    // Warn after 5 minutes (was 1min)
 
 let healthCheckTimer: NodeJS.Timeout | undefined;
 let client: OpencodeClient | undefined;

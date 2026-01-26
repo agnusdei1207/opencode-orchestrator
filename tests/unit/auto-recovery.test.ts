@@ -141,15 +141,23 @@ describe("AutoRecovery", () => {
         });
 
         it("should throw after max retries", async () => {
+            vi.useFakeTimers();
             const fn = vi.fn().mockRejectedValue(new Error("Always fails"));
 
-            await expect(
-                AutoRecovery.withRecovery("session_1", fn, { maxRetries: 2 })
-            ).rejects.toThrow();
+            const promise = AutoRecovery.withRecovery("session_1", fn, { maxRetries: 2 });
+
+            // Prevent unhandled rejection warning
+            promise.catch(() => {});
+
+            // Advance timers to trigger retries
+            await vi.advanceTimersByTimeAsync(10000);
+
+            await expect(promise).rejects.toThrow();
 
             // maxRetries is the number of retries, so total calls = maxRetries + 1 initially
             // but our implementation might differ
             expect(fn).toHaveBeenCalled();
+            vi.useRealTimers();
         });
     });
 

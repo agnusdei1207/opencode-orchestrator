@@ -140,17 +140,17 @@ describe("ConcurrencyController", () => {
     // ========================================================================
 
     describe("auto-scaling", () => {
-        it("should increase limit after 3 consecutive successes", () => {
+        it("should increase limit after 5 consecutive successes", () => {
             controller.setLimit("agent-a", 2);
             expect(controller.getConcurrencyLimit("agent-a")).toBe(2);
 
-            // 2 successes - no change yet
-            for (let i = 0; i < 2; i++) {
+            // 4 successes - no change yet
+            for (let i = 0; i < 4; i++) {
                 controller.reportResult("agent-a", true);
             }
             expect(controller.getConcurrencyLimit("agent-a")).toBe(2);
 
-            // 3rd success - should increase to 3
+            // 5th success - should increase to 3
             controller.reportResult("agent-a", true);
             expect(controller.getConcurrencyLimit("agent-a")).toBe(3);
         });
