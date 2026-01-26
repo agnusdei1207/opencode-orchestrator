@@ -9,6 +9,7 @@ import { DOCUMENT_EVENTS } from "./document-events.js";
 import { MISSION_EVENTS } from "./mission-events.js";
 import { MESSAGE_EVENTS } from "./message-events.js";
 import { SPECIAL_EVENTS } from "./special-events.js";
+import { HOOK_EVENTS } from "./hook-events.js";
 
 export const EVENT_TYPES = {
     ...TASK_EVENTS,
@@ -18,6 +19,7 @@ export const EVENT_TYPES = {
     ...MISSION_EVENTS,
     ...MESSAGE_EVENTS,
     ...SPECIAL_EVENTS,
+    ...HOOK_EVENTS,
 } as const;
 
 export type EventTypeValue = typeof EVENT_TYPES[keyof typeof EVENT_TYPES];
@@ -29,3 +31,4 @@ export * from "./document-events.js";
 export * from "./mission-events.js";
 export * from "./message-events.js";
 export * from "./special-events.js";
+export * from "./hook-events.js";
