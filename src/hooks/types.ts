@@ -1,16 +1,15 @@
+import { HOOK_ACTIONS } from "./constants.js";
 
 /**
  * Hook System Types
  * Defines the contract for all hooks in the system.
  */
 
-import { HOOK_ACTIONS } from "./constants.js";
-
 export interface HookContext {
     sessionID: string;
     agent?: string;
-    directory: string; // Added
-    sessions: Map<string, unknown>; // Added
+    directory: string;
+    sessions: Map<string, unknown>;
 }
 
 export interface HookMetadata {
@@ -50,7 +49,7 @@ export interface PostToolUseHook {
         tool: string,
         input: Record<string, unknown>,
         output: { title: string; output: string; metadata: Record<string, unknown> }
-    ): Promise<{ output?: string }>; // meaningful valid return modification
+    ): Promise<{ output?: string }>;
 }
 
 /**
