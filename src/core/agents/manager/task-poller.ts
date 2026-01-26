@@ -13,8 +13,11 @@ import type { ParallelTask } from "../interfaces/parallel-task.interface.js";
 import { TASK_STATUS, PART_TYPES, MESSAGE_ROLES, SESSION_STATUS, WAL_ACTIONS } from "../../../shared/index.js";
 import { taskWAL } from "../persistence/task-wal.js";
 import { progressNotifier } from "../../progress/progress-notifier.js";
+import { isSessionStale } from "../../session/session-health.js";
 
 type OpencodeClient = PluginInput["client"];
+
+const MAX_TASK_DURATION_MS = 600000; // 10 minutes max for polling before intervention
 
 export class TaskPoller {
     private pollingInterval?: ReturnType<typeof setInterval>;
@@ -27,7 +30,8 @@ export class TaskPoller {
         private notifyParentIfAllComplete: (parentSessionID: string) => Promise<void>,
         private scheduleCleanup: (taskId: string) => void,
         private pruneExpiredTasks: () => void,
-        private onTaskComplete?: (task: ParallelTask) => void | Promise<void>
+        private onTaskComplete?: (task: ParallelTask) => void | Promise<void>,
+        private onTaskError?: (taskId: string, error: unknown) => void
     ) { }
 
     start(): void {
@@ -60,6 +64,21 @@ export class TaskPoller {
 
             for (const task of running) {
                 try {
+                    // Check for staleness/timeout
+                    const taskDuration = Date.now() - task.startedAt.getTime();
+
+                    if (isSessionStale(task.sessionID)) {
+                        log(`[task-poller] Task ${task.id} session is stale. Marking as error.`);
+                        this.onTaskError?.(task.id, new Error("Session became stale (no response from agent)"));
+                        continue;
+                    }
+
+                    if (taskDuration > MAX_TASK_DURATION_MS) {
+                        log(`[task-poller] Task ${task.id} exceeded max duration (${MAX_TASK_DURATION_MS}ms). Marking as error.`);
+                        this.onTaskError?.(task.id, new Error("Task exceeded maximum execution time"));
+                        continue;
+                    }
+
                     // Skip tasks that haven't actually started running yet
                     if (task.status === TASK_STATUS.PENDING) continue;
 

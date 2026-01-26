@@ -24,6 +24,7 @@ const recoveryState = new Map<string, {
     isRecovering: boolean;
     lastErrorTime: number;
     errorCount: number;
+    recoveryStartTime?: number;
 }>();
 
 /**
@@ -78,10 +79,18 @@ export async function handleSessionError(
 ): Promise<boolean> {
     const state = getState(sessionID);
 
-    // Prevent recovery loops
+    // Prevent recovery loops with timeout check
     if (state.isRecovering) {
-        log("[session-recovery] Already recovering, skipping", { sessionID });
-        return false;
+        const RECOVERY_TIMEOUT_MS = 10000;
+        const elapsed = Date.now() - (state.recoveryStartTime ?? 0);
+
+        if (elapsed > RECOVERY_TIMEOUT_MS) {
+            log("[session-recovery] Forcibly clearing stale recovery state", { sessionID, elapsed });
+            state.isRecovering = false;
+        } else {
+            log("[session-recovery] Already recovering, skipping", { sessionID });
+            return false;
+        }
     }
 
     // Rate limit recovery attempts (use constant for consistency)
@@ -111,6 +120,7 @@ export async function handleSessionError(
     }
 
     state.isRecovering = true;
+    state.recoveryStartTime = Date.now();
 
     try {
         let recoveryPrompt: string | null = null;
@@ -142,23 +152,19 @@ export async function handleSessionError(
                     await new Promise(r => setTimeout(r, action.delay));
                     // Don't inject prompt, just wait and let natural retry happen
                 }
-                state.isRecovering = false;
                 return true;
 
             case ERROR_TYPE.CONTEXT_OVERFLOW:
                 // Suggest compaction (handled elsewhere)
                 toastMessage = "Context Overflow - Consider compaction";
-                state.isRecovering = false;
                 return false;
 
             case ERROR_TYPE.MESSAGE_ABORTED:
                 // User cancelled, don't auto-recover
                 log("[session-recovery] Message aborted by user, not recovering", { sessionID });
-                state.isRecovering = false;
                 return false;
 
             default:
-                state.isRecovering = false;
                 return false;
         }
 
@@ -177,16 +183,16 @@ export async function handleSessionError(
             });
 
             log("[session-recovery] Recovery prompt injected (async)", { sessionID, errorType });
-            state.isRecovering = false;
             return true;
         }
 
-        state.isRecovering = false;
         return false;
-    } catch (injectionError) {
-        log("[session-recovery] Failed to inject recovery prompt", { sessionID, error: injectionError });
-        state.isRecovering = false;
+    } catch (recoveryError) {
+        log("[session-recovery] Recovery failed", { sessionID, error: recoveryError });
         return false;
+    } finally {
+        state.isRecovering = false;
+        state.recoveryStartTime = undefined;
     }
 }
 

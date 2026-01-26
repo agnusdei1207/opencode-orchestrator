@@ -19,6 +19,8 @@ import type { ParallelTask } from "./interfaces/parallel-task.interface.js";
 import type { LaunchInput } from "./interfaces/launch-input.interface.js";
 import type { ResumeInput } from "./interfaces/resume-input.interface.js";
 
+import { startHealthCheck, stopHealthCheck } from "../session/session-health.js";
+
 // Import components
 import { TaskLauncher } from "./manager/task-launcher.js";
 import { TaskResumer } from "./manager/task-resumer.js";
@@ -61,6 +63,9 @@ export class ParallelAgentManager {
         this.client = client;
         this.directory = directory;
 
+        // Initialize Session Health Monitor
+        startHealthCheck(client);
+
         // Initialize Memory System
         const memory = MemoryManager.getInstance();
         memory.add(MemoryLevel.SYSTEM, CORE_PHILOSOPHY, 1.0);
@@ -86,7 +91,8 @@ export class ParallelAgentManager {
             (parentSessionID) => this.cleaner.notifyParentIfAllComplete(parentSessionID),
             (taskId) => this.cleaner.scheduleCleanup(taskId),
             () => this.cleaner.pruneExpiredTasks(),
-            (task) => this.handleTaskComplete(task)
+            (task) => this.handleTaskComplete(task),
+            (taskId, error) => this.handleTaskError(taskId, error)
         );
 
         // Initialize launcher
@@ -241,6 +247,7 @@ export class ParallelAgentManager {
 
     cleanup(): void {
         this.poller.stop();
+        stopHealthCheck();
         this.store.clear();
         MemoryManager.getInstance().clearTaskMemory();
         // TerminalMonitor.getInstance().stop();

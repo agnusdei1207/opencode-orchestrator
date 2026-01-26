@@ -19,7 +19,8 @@ import { generateContinuationPrompt, formatProgress } from "./formatters.js";
 import type { Todo } from "./interfaces.js";
 import { ParallelAgentManager } from "../agents/manager.js";
 import { isSessionRecovering } from "../recovery/session-recovery.js";
-import { verifyMissionCompletion, buildTodoIncompletePrompt } from "./verification.js";
+import { verifyMissionCompletion, verifyMissionCompletionAsync, buildTodoIncompletePrompt } from "./verification.js";
+import { hasContinuationLock, tryAcquireContinuationLock, releaseContinuationLock } from "./continuation-lock.js";
 
 type OpencodeClient = PluginInput["client"];
 
@@ -168,24 +169,21 @@ async function injectContinuation(
     }
 
     try {
-        // Fire and forget: Do NOT await prompt injection.
-        // Prevents blocking the plugin's main event loop during idle-triggered resumptions.
-        client.session.prompt({
+        // Await prompt injection to hold lock during network request
+        await client.session.prompt({
             path: { id: sessionID },
             body: {
                 parts: [{ type: PART_TYPES.TEXT, text: prompt }],
             },
-        }).catch(error => {
-            log("[todo-continuation] Failed to inject continuation", { sessionID, error });
         });
 
-        log("[todo-continuation] Injected continuation prompt (async)", {
+        log("[todo-continuation] Injected continuation prompt", {
             sessionID,
             incompleteCount: getIncompleteCount(todos),
             progress: formatProgress(todos),
         });
     } catch (error) {
-        log("[todo-continuation] Failed to trigger async continuation", { sessionID, error });
+        log("[todo-continuation] Failed to inject continuation", { sessionID, error });
     }
 }
 
@@ -208,7 +206,7 @@ export async function handleSessionIdle(
     }
     state.lastIdleTime = now;
 
-    // Cancel any existing countdown
+    // Correctly cancel any existing countdown at start
     cancelCountdown(sessionID);
 
     // Skip if not the main session (or if we're a background task session)
@@ -240,6 +238,12 @@ export async function handleSessionIdle(
         return;
     }
 
+    // Check if Mission Loop has priority
+    if (hasContinuationLock(sessionID)) {
+        log("[todo-continuation] Mission loop has priority, skipping");
+        return;
+    }
+
     // Fetch todos
     let todos: Todo[] = [];
     try {
@@ -247,6 +251,7 @@ export async function handleSessionIdle(
         todos = parseTodos(response.data ?? response);
     } catch (error) {
         log("[todo-continuation] Failed to fetch todos", { sessionID, error });
+        cancelCountdown(sessionID);
         return;
     }
 
@@ -256,7 +261,7 @@ export async function handleSessionIdle(
     // [Improvement]: Also check for file-based TODOs
     let hasFileWork = false;
     try {
-        const verification = verifyMissionCompletion(directory);
+        const verification = await verifyMissionCompletionAsync(directory);
         hasFileWork = !verification.passed && (verification.todoIncomplete > 0 || (verification.checklistProgress !== "0/0" && !verification.checklistComplete));
     } catch (err) {
         log("[todo-continuation] Failed to check file-based todos", err);
@@ -284,25 +289,35 @@ export async function handleSessionIdle(
     state.countdownTimer = setTimeout(async () => {
         cancelCountdown(sessionID);
 
-        // Re-fetch todos to ensure they're still incomplete
+        // Try to acquire lock - Critical to prevent race with Mission Loop
+        if (!tryAcquireContinuationLock(sessionID, "todo-continuation")) {
+            log("[todo-continuation] Failed to acquire lock, skipping");
+            return;
+        }
+
         try {
-            const freshResponse = await client.session.todo({ path: { id: sessionID } });
-            const freshTodos = parseTodos(freshResponse.data ?? freshResponse);
-
-            // Re-verify file work
-            let freshFileWork = false;
+            // Re-fetch todos to ensure they're still incomplete
             try {
-                const v = verifyMissionCompletion(directory);
-                freshFileWork = !v.passed && (v.todoIncomplete > 0 || (v.checklistProgress !== "0/0" && !v.checklistComplete));
-            } catch { }
+                const freshResponse = await client.session.todo({ path: { id: sessionID } });
+                const freshTodos = parseTodos(freshResponse.data ?? freshResponse);
 
-            if (hasRemainingWork(freshTodos) || freshFileWork) {
-                await injectContinuation(client, directory, sessionID, freshTodos);
-            } else {
-                log("[todo-continuation] All work completed during countdown", { sessionID });
+                // Re-verify file work
+                let freshFileWork = false;
+                try {
+                    const v = await verifyMissionCompletionAsync(directory);
+                    freshFileWork = !v.passed && (v.todoIncomplete > 0 || (v.checklistProgress !== "0/0" && !v.checklistComplete));
+                } catch { }
+
+                if (hasRemainingWork(freshTodos) || freshFileWork) {
+                    await injectContinuation(client, directory, sessionID, freshTodos);
+                } else {
+                    log("[todo-continuation] All work completed during countdown", { sessionID });
+                }
+            } catch {
+                log("[todo-continuation] Failed to re-fetch todos for continuation", { sessionID });
             }
-        } catch {
-            log("[todo-continuation] Failed to re-fetch todos for continuation", { sessionID });
+        } finally {
+            releaseContinuationLock(sessionID);
         }
     }, COUNTDOWN_SECONDS * TIME.SECOND);
 }
