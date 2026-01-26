@@ -129,42 +129,24 @@ export class ConcurrencyController {
     }
 
     /**
-     * Report success/failure to adjust concurrency dynamically
+     * Report success/failure (for metrics only - auto-scaling DISABLED)
+     *
+     * Auto-scaling has been removed for stability. Concurrency is now fixed at 5.
+     * This method is kept for backwards compatibility and metrics tracking.
      */
     reportResult(key: string, success: boolean): void {
         if (success) {
-            // Success: increment streak
             const streak = (this.successStreak.get(key) ?? 0) + 1;
             this.successStreak.set(key, streak);
-            this.failureCount.set(key, 0); // Reset failure on success
-
-            // Increase limit if on a hot streak (every 5 successful tasks)
-            // Balanced approach - not too aggressive
-            if (streak >= 5) {
-                const currentLimit = this.getConcurrencyLimit(key);
-                if (currentLimit < PARALLEL_TASK.MAX_CONCURRENCY) {
-                    this.setLimit(key, currentLimit + 1);
-                    this.successStreak.set(key, 0); // Reset after increase
-                    internalLog(`[concurrency] Auto-scaling UP for ${key}: ${currentLimit + 1}`);
-                }
-            }
+            this.failureCount.set(key, 0);
         } else {
-            // Failure: increment failure count
             const failures = (this.failureCount.get(key) ?? 0) + 1;
             this.failureCount.set(key, failures);
-            this.successStreak.set(key, 0); // Reset streak on failure
-
-            // Decrease limit if failures detected (aggressive detection)
-            if (failures >= 2) {
-                const currentLimit = this.getConcurrencyLimit(key);
-                const minLimit = 1;
-                if (currentLimit > minLimit) {
-                    this.setLimit(key, currentLimit - 1);
-                    this.failureCount.set(key, 0); // Reset after decrease
-                    internalLog(`[concurrency] Auto-scaling DOWN for ${key}: ${currentLimit - 1} (due to ${failures} failures)`);
-                }
-            }
+            this.successStreak.set(key, 0);
         }
+
+        // Auto-scaling DISABLED - metrics tracking only
+        // Concurrency is fixed at PARALLEL_TASK.CONCURRENCY (5)
     }
 
     getQueueLength(key: string): number {

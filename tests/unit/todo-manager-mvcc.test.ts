@@ -41,7 +41,7 @@ describe("TodoManager (MVCC)", () => {
         expect(data.content).toContain("Task 2");
     });
 
-    it("should fail and report conflict if version mismatch", async () => {
+    it("should auto-retry and succeed on version mismatch (exponential backoff)", async () => {
         const manager = TodoManager.getInstance(testDir);
 
         // Concurrent read
@@ -52,11 +52,16 @@ describe("TodoManager (MVCC)", () => {
         await manager.update(data1.version.version, (c) => c + "\nBy Agent 1", "agent-1");
 
         // Agent 2 attempts update with old version
+        // With exponential backoff + retry, this should now SUCCEED
         const result2 = await manager.update(data2.version.version, (c) => c + "\nBy Agent 2", "agent-2");
 
-        expect(result2.success).toBe(false);
-        expect(result2.conflict).toBe(true);
-        expect(result2.currentVersion).toBe(1);
+        expect(result2.success).toBe(true); // Now succeeds due to auto-retry
+        expect(result2.currentVersion).toBeGreaterThanOrEqual(2); // Should be v2 or higher
+
+        // Verify both changes are present
+        const final = await manager.readWithVersion();
+        expect(final.content).toContain("Agent 1");
+        expect(final.content).toContain("Agent 2");
     });
 
     it("should support concurrent updates with retry-like logic in application", async () => {

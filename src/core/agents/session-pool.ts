@@ -72,6 +72,7 @@ export class SessionPool implements ISessionPool {
 
     /**
      * Acquire a session from the pool or create a new one.
+     * Sessions are validated before reuse to ensure health.
      */
     async acquire(
         agentName: string,
@@ -81,21 +82,32 @@ export class SessionPool implements ISessionPool {
         const poolKey = this.getPoolKey(agentName);
         const agentPool = this.pool.get(poolKey) || [];
 
-        // Find an available session
-        const available = agentPool.find(s => !s.inUse && s.reuseCount < this.config.maxReuseCount);
+        // Find available sessions (not in use, not exceeded reuse limit)
+        const candidates = agentPool.filter(s => !s.inUse && s.reuseCount < this.config.maxReuseCount);
 
-        if (available) {
-            // Reuse existing session
-            available.inUse = true;
-            available.lastUsedAt = new Date();
-            available.reuseCount++;
-            this.stats.reuseHits++;
+        // Try candidates until we find a healthy one
+        for (const candidate of candidates) {
+            // Validate session health before reuse
+            const isHealthy = await this.validateSessionHealth(candidate.id);
 
-            log(`[SessionPool] Reusing session ${available.id.slice(0, 8)}... for ${agentName} (reuse #${available.reuseCount})`);
-            return available;
+            if (isHealthy) {
+                // Reuse healthy session
+                candidate.inUse = true;
+                candidate.lastUsedAt = new Date();
+                candidate.reuseCount++;
+                candidate.health = "healthy";
+                this.stats.reuseHits++;
+
+                log(`[SessionPool] Reusing session ${candidate.id.slice(0, 8)}... for ${agentName} (reuse #${candidate.reuseCount})`);
+                return candidate;
+            } else {
+                // Session unhealthy - remove from pool
+                log(`[SessionPool] Session ${candidate.id.slice(0, 8)}... failed health check, removing`);
+                await this.deleteSession(candidate.id);
+            }
         }
 
-        // No available session, create a new one
+        // No available healthy session, create a new one
         this.stats.creationMisses++;
         return this.createSession(agentName, parentSessionID, description);
     }
@@ -331,6 +343,31 @@ export class SessionPool implements ISessionPool {
             await this.client.session.delete({ path: { id: sessionId } });
         } catch {
             // Session might already be gone
+        }
+    }
+
+    /**
+     * Validate session health by checking if it exists on the server.
+     */
+    private async validateSessionHealth(sessionId: string): Promise<boolean> {
+        try {
+            // Check if session exists on server
+            const result = await Promise.race([
+                this.client.session.get({ path: { id: sessionId } }),
+                new Promise<never>((_, reject) =>
+                    setTimeout(() => reject(new Error("Health check timeout")), 5000)
+                ),
+            ]);
+
+            if (result.error || !result.data) {
+                return false;
+            }
+
+            // Session exists and is accessible
+            return true;
+        } catch (error) {
+            log(`[SessionPool] Health check failed for session ${sessionId.slice(0, 8)}: ${error}`);
+            return false;
         }
     }
 

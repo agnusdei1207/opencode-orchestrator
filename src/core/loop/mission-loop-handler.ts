@@ -300,7 +300,6 @@ export async function handleMissionIdle(
     // (We'll keep the toast simple but can log the intervention)
 
     // Start countdown timer
-    // Start countdown timer
     handlerState.countdownTimer = setTimeout(async () => {
         cancelCountdown(sessionID);
 

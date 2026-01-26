@@ -536,13 +536,27 @@ export function verifyMissionCompletionSync(directory: string): VerificationResu
         }
     }
 
-    // Final pass determination:
+    // Final pass determination (STRICT):
     // - If checklist exists: checklist must pass + sync issues must be empty
-    // - If no checklist: TODO must be complete + sync issues must be empty
+    // - If no checklist: TODO must be complete (with items) + sync issues must be empty
+    // - Empty TODO or checklist = FAIL (must have work tracked)
     if (hasChecklist) {
+        // Checklist-based verification (primary)
         result.passed = result.checklistComplete && result.syncIssuesEmpty;
+        if (!result.passed && result.errors.length === 0) {
+            result.errors.push("Checklist verification failed - complete all items");
+        }
     } else {
+        // TODO-based verification (fallback)
         result.passed = result.todoComplete && result.syncIssuesEmpty;
+        if (!result.passed && result.errors.length === 0) {
+            if (!result.todoComplete) {
+                result.errors.push("TODO verification failed - complete all items");
+            }
+            if (!result.syncIssuesEmpty) {
+                result.errors.push("Sync issues must be resolved");
+            }
+        }
     }
 
     log("[verification] Mission verification result", {
@@ -550,10 +564,12 @@ export function verifyMissionCompletionSync(directory: string): VerificationResu
         hasChecklist,
         checklistProgress: result.checklistProgress,
         todoProgress: result.todoProgress,
+        todoComplete: result.todoComplete,
         syncIssuesEmpty: result.syncIssuesEmpty,
+        syncIssuesCount: result.syncIssuesCount,
+        errorCount: result.errors.length,
         errors: result.errors.length > 0 ? result.errors : undefined
     });
-
 
     return result;
 }
@@ -641,11 +657,27 @@ export async function verifyMissionCompletionAsync(directory: string): Promise<V
         }
     }
 
-    // Final pass determination:
+    // Final pass determination (STRICT):
+    // - If checklist exists: checklist must pass + sync issues must be empty
+    // - If no checklist: TODO must be complete (with items) + sync issues must be empty
+    // - Empty TODO or checklist = FAIL (must have work tracked)
     if (hasChecklist) {
+        // Checklist-based verification (primary)
         result.passed = result.checklistComplete && result.syncIssuesEmpty;
+        if (!result.passed && result.errors.length === 0) {
+            result.errors.push("Checklist verification failed - complete all items");
+        }
     } else {
+        // TODO-based verification (fallback)
         result.passed = result.todoComplete && result.syncIssuesEmpty;
+        if (!result.passed && result.errors.length === 0) {
+            if (!result.todoComplete) {
+                result.errors.push("TODO verification failed - complete all items");
+            }
+            if (!result.syncIssuesEmpty) {
+                result.errors.push("Sync issues must be resolved");
+            }
+        }
     }
 
     // Update cache

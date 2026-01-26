@@ -40,18 +40,21 @@ export const PARALLEL_TASK = {
      */
     TERMINAL_DEPTH: 2,
 
-    // Concurrency limits (Aggressive for intense processing)
-    DEFAULT_CONCURRENCY: 3,  // Reduced from 10
-    MAX_CONCURRENCY: 5,      // Reduced from 50
+    // Concurrency limits (FIXED at 5 for stability - no auto-scaling)
+    CONCURRENCY: 5,          // Fixed concurrency (removed DEFAULT/MAX split)
+
+    // Legacy support (deprecated - use CONCURRENCY instead)
+    DEFAULT_CONCURRENCY: 5,
+    MAX_CONCURRENCY: 5,
 
     // Sync polling (for delegate_task sync mode)
-    // Optimized: Reduced polling frequency while relying more on events
-    SYNC_TIMEOUT_MS: 5 * TIME.MINUTE,
-    POLL_INTERVAL_MS: 5000,          // 2000ms → 5000ms (To reduce load)
-    MIN_IDLE_TIME_MS: 5 * TIME.SECOND, // 3s → 5s (Less jittery)
-    MIN_STABILITY_MS: 5 * TIME.SECOND, // 2s → 5s (More stable)
-    STABLE_POLLS_REQUIRED: 2,          // 3 → 2 (Faster completion)
-    MAX_POLL_COUNT: 150,               // 600 → 150 (Adjusted for 2s interval)
+    // Optimized: 3s polling for faster response while maintaining stability
+    SYNC_TIMEOUT_MS: 30 * TIME.MINUTE,  // 5min → 30min (longer tasks)
+    POLL_INTERVAL_MS: 3000,              // 5000ms → 3000ms (faster polling)
+    MIN_IDLE_TIME_MS: 3 * TIME.SECOND,   // 5s → 3s (quicker detection)
+    MIN_STABILITY_MS: 3 * TIME.SECOND,   // 5s → 3s (faster completion)
+    STABLE_POLLS_REQUIRED: 2,            // Keep at 2 for reliability
+    MAX_POLL_COUNT: 600,                 // 150 → 600 (30min = 600 * 3s)
 
     // Session naming
     SESSION_TITLE_PREFIX: "Parallel",
