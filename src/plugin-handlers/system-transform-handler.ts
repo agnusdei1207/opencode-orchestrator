@@ -9,9 +9,12 @@
 
 import type { EventHandlerContext, SystemTransformInput, SystemTransformOutput } from "./interfaces/index.js";
 import { readLoopState, isLoopActive } from "../core/loop/mission-loop.js";
-import { MISSION_CONTROL, STATUS_LABEL } from "../shared/index.js";
+import { MISSION_CONTROL, STATUS_LABEL, PATHS } from "../shared/index.js";
 import { ParallelAgentManager } from "../core/agents/manager.js";
 import { isMissionActive, ensureSessionInitialized } from "../core/orchestrator/session-manager.js";
+import { existsSync, readFileSync } from "node:fs";
+import { join } from "node:path";
+import { parseTodoMd } from "../core/sync/todo-parser.js";
 
 // Re-export interfaces for external use
 export type { SystemTransformInput, SystemTransformOutput } from "./interfaces/index.js";
@@ -66,6 +69,21 @@ export function createSystemTransformHandler(ctx: EventHandlerContext) {
             // Manager not available
         }
 
+        // 4. TODO awareness - inject TODO list into system prompt
+        //    AI will naturally use the built-in 'todowrite' tool to update TODOs
+        const todoPath = join(directory, PATHS.TODO);
+        if (existsSync(todoPath)) {
+            try {
+                const todoContent = readFileSync(todoPath, 'utf-8');
+                const todos = parseTodoMd(todoContent);
+                if (todos.length > 0) {
+                    systemAdditions.push(buildTodoPrompt(todos));
+                }
+            } catch {
+                // Failed to read TODO file
+            }
+        }
+
         // Inject additions
         if (systemAdditions.length > 0) {
             output.system.unshift(...systemAdditions); // unshift to put core instructions first
@@ -115,4 +133,34 @@ function buildBackgroundTasksPrompt(running: number, pending: number): string {
 Use \`get_task_result\` to check completed tasks.
 Use \`delegate_task\` with background=true for parallel work.
 </orchestrator_background_tasks>`;
+}
+
+/**
+ * Build TODO awareness prompt
+ */
+function buildTodoPrompt(todos: Array<{ id: string; content: string; status: string; priority: string }>): string {
+    const incompleteTodos = todos.filter(t => t.status !== 'completed');
+    const totalCount = todos.length;
+    const completeCount = totalCount - incompleteTodos.length;
+
+    if (incompleteTodos.length === 0) {
+        return `<orchestrator_todos>
+✅ All TODOs Complete (${completeCount}/${totalCount})
+
+All tasks in .opencode/todo.md are finished.
+</orchestrator_todos>`;
+    }
+
+    const todoList = incompleteTodos
+        .map(t => `  - [${t.status === 'in_progress' ? '~' : ' '}] ${t.content} (${t.priority})`)
+        .join('\n');
+
+    return `<orchestrator_todos>
+📝 TODO List (${completeCount}/${totalCount} complete):
+
+${todoList}
+
+Use the built-in \`todowrite\` tool to update TODO status as you complete tasks.
+When you finish a task, mark it as completed in the TODO list.
+</orchestrator_todos>`;
 }
