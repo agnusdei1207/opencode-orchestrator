@@ -67,7 +67,7 @@ describe("TodoSyncService", () => {
         expect(service.activeSessions.has("sess-1")).toBe(true);
     });
 
-    it("should sync updates to registered sessions", async () => {
+    it("should sync updates to registered sessions (with batching)", async () => {
         service.registerSession("sess-1");
 
         const task = {
@@ -80,6 +80,9 @@ describe("TodoSyncService", () => {
         };
 
         await service.updateTaskStatus(task);
+
+        // Wait for batch window (100ms + buffer)
+        await new Promise(resolve => setTimeout(resolve, 150));
 
         expect(mockClient.session.todo).toHaveBeenCalledWith(expect.objectContaining({
             path: { id: "sess-1" },

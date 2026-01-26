@@ -26,7 +26,10 @@ export class TodoSyncService {
     private updateTimeout: NodeJS.Timeout | null = null;
     private watcher: fs.FSWatcher | null = null;
 
-
+    // Batching support
+    private pendingUpdates: Set<string> = new Set();
+    private batchTimer: NodeJS.Timeout | null = null;
+    private readonly BATCH_WINDOW_MS = 100; // 100ms batch window
 
     private activeSessions: Set<string> = new Set();
 
@@ -37,8 +40,12 @@ export class TodoSyncService {
     }
 
     async start() {
-        // Initial sync
+        // Initial sync - load file TODOs
         await this.reloadFileTodos();
+
+        // Broadcast initial state to all registered sessions
+        // This ensures existing sessions receive TODO list immediately
+        this.broadcastUpdate();
 
         // Watch for file changes
         if (fs.existsSync(this.todoPath)) {
@@ -57,7 +64,8 @@ export class TodoSyncService {
 
     registerSession(sessionID: string) {
         this.activeSessions.add(sessionID);
-        // Push current state to new session
+        // Immediately push current state to new session
+        // This ensures the session receives TODO list as soon as it's registered
         this.scheduleUpdate(sessionID);
     }
 
@@ -108,10 +116,37 @@ export class TodoSyncService {
     }
 
     private scheduleUpdate(sessionID: string) {
-        // Debounce updates per session (simplified for now)
-        this.sendTodosToSession(sessionID).catch(err => {
-            // Ignore errors (session might be closed)
-        });
+        // Add to pending updates
+        this.pendingUpdates.add(sessionID);
+
+        // Start batch timer if not already running
+        if (!this.batchTimer) {
+            this.batchTimer = setTimeout(() => {
+                this.flushBatchedUpdates();
+            }, this.BATCH_WINDOW_MS);
+        }
+    }
+
+    /**
+     * Flush all pending updates in parallel batches
+     */
+    private async flushBatchedUpdates(): Promise<void> {
+        const sessions = Array.from(this.pendingUpdates);
+        this.pendingUpdates.clear();
+        this.batchTimer = null;
+
+        if (sessions.length === 0) return;
+
+        log(`[TodoSync] Flushing ${sessions.length} batched updates`);
+
+        // Process in chunks of 5 to avoid overloading
+        const CHUNK_SIZE = 5;
+        for (let i = 0; i < sessions.length; i += CHUNK_SIZE) {
+            const chunk = sessions.slice(i, i + CHUNK_SIZE);
+            await Promise.allSettled(
+                chunk.map(sessionID => this.sendTodosToSession(sessionID))
+            );
+        }
     }
 
     private async sendTodosToSession(sessionID: string) {
@@ -162,6 +197,12 @@ export class TodoSyncService {
     stop() {
         if (this.watcher) {
             this.watcher.close();
+        }
+
+        // Flush any pending batched updates before stopping
+        if (this.batchTimer) {
+            clearTimeout(this.batchTimer);
+            this.flushBatchedUpdates().catch(() => {});
         }
     }
 }

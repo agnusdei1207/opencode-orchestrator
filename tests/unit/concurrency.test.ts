@@ -136,60 +136,40 @@ describe("ConcurrencyController", () => {
     // ========================================================================
 
     // ========================================================================
-    // Auto-scaling (reportResult)
+    // Auto-scaling (DISABLED - reportResult for metrics only)
     // ========================================================================
 
-    describe("auto-scaling", () => {
-        it("should increase limit after 5 consecutive successes", () => {
+    describe("auto-scaling (DISABLED)", () => {
+        it("should NOT change limit after successes (auto-scaling disabled)", () => {
             controller.setLimit("agent-a", 2);
             expect(controller.getConcurrencyLimit("agent-a")).toBe(2);
 
-            // 4 successes - no change yet
-            for (let i = 0; i < 4; i++) {
+            // Report 5 successes - should NOT change limit
+            for (let i = 0; i < 5; i++) {
                 controller.reportResult("agent-a", true);
             }
-            expect(controller.getConcurrencyLimit("agent-a")).toBe(2);
-
-            // 5th success - should increase to 3
-            controller.reportResult("agent-a", true);
-            expect(controller.getConcurrencyLimit("agent-a")).toBe(3);
+            expect(controller.getConcurrencyLimit("agent-a")).toBe(2); // Unchanged
         });
 
-        it("should decrease limit after 2 failures", () => {
+        it("should NOT change limit after failures (auto-scaling disabled)", () => {
             controller.setLimit("agent-a", 5);
 
-            // 1 failure - no change yet
+            // Report 2 failures - should NOT change limit
             controller.reportResult("agent-a", false);
-            expect(controller.getConcurrencyLimit("agent-a")).toBe(5);
+            controller.reportResult("agent-a", false);
 
-            // 2nd failure - should decrease to 4
-            controller.reportResult("agent-a", false);
-            expect(controller.getConcurrencyLimit("agent-a")).toBe(4);
+            expect(controller.getConcurrencyLimit("agent-a")).toBe(5); // Unchanged
         });
 
-        it("should not decrease below 1", () => {
-            controller.setLimit("agent-a", 1);
+        it("should still track metrics without changing limits", () => {
+            controller.setLimit("agent-a", 3);
 
-            controller.reportResult("agent-a", false);
-            controller.reportResult("agent-a", false);
-
-            expect(controller.getConcurrencyLimit("agent-a")).toBe(1);
-        });
-
-        it("should reset success streak on failure", () => {
-            controller.setLimit("agent-a", 2);
-
-            // 2 successes - no change
+            // Report success/failure - just for metrics
             controller.reportResult("agent-a", true);
-            controller.reportResult("agent-a", true);
-            expect(controller.getConcurrencyLimit("agent-a")).toBe(2);
-
-            // 1 failure
             controller.reportResult("agent-a", false);
 
-            // 1 more success (should be 1st after reset)
-            controller.reportResult("agent-a", true);
-            expect(controller.getConcurrencyLimit("agent-a")).toBe(2);
+            // Limit should remain unchanged
+            expect(controller.getConcurrencyLimit("agent-a")).toBe(3);
         });
     });
 });

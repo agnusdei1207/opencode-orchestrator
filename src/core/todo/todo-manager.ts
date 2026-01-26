@@ -110,8 +110,8 @@ export class TodoManager {
         updater: (content: string) => string,
         author: string
     ): Promise<{ success: boolean; currentVersion: number; conflict?: boolean }> {
-        const MAX_RETRIES = 3;
-        const RETRY_DELAY = 50;
+        const MAX_RETRIES = 5;  // Increased from 3 to 5
+        const BASE_DELAY_MS = 50;
 
         for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
             try {
@@ -119,6 +119,24 @@ export class TodoManager {
 
                 if (current.version.version !== expectedVersion) {
                     log(`[TodoManager] Conflict: expected v${expectedVersion}, found v${current.version.version}`);
+
+                    // On conflict, retry with exponential backoff + jitter
+                    if (attempt < MAX_RETRIES - 1) {
+                        // Exponential backoff: 50ms, 100ms, 200ms, 400ms, 800ms
+                        const backoffDelay = BASE_DELAY_MS * Math.pow(2, attempt);
+                        // Jitter: random 0-50ms to prevent thundering herd
+                        const jitter = Math.random() * 50;
+                        const totalDelay = backoffDelay + jitter;
+
+                        log(`[TodoManager] Retrying in ${Math.round(totalDelay)}ms (attempt ${attempt + 1}/${MAX_RETRIES})`);
+                        await new Promise(r => setTimeout(r, totalDelay));
+
+                        // Update expected version to current version for next attempt
+                        expectedVersion = current.version.version;
+                        continue;
+                    }
+
+                    // Final attempt failed - return conflict
                     return {
                         success: false,
                         currentVersion: current.version.version,
@@ -145,20 +163,26 @@ export class TodoManager {
 
                 this.logChange(newVersion, newContent, author).catch(() => { });
 
-                log(`[TodoManager] Updated TODO to v${newVersion} by ${author}`);
+                log(`[TodoManager] Updated TODO to v${newVersion} by ${author}${attempt > 0 ? ` (after ${attempt} retries)` : ''}`);
                 return { success: true, currentVersion: newVersion };
 
             } catch (error) {
                 if (attempt === MAX_RETRIES - 1) throw error;
-                await new Promise(r => setTimeout(r, RETRY_DELAY));
+
+                // File system error - exponential backoff
+                const backoffDelay = BASE_DELAY_MS * Math.pow(2, attempt);
+                const jitter = Math.random() * 50;
+                await new Promise(r => setTimeout(r, backoffDelay + jitter));
             }
         }
-        throw new Error("Failed to update TODO");
+        throw new Error("Failed to update TODO after max retries");
     }
 
     public async updateItem(searchText: string, newStatus: string, author: string = "system"): Promise<boolean> {
-        let retries = 5;
-        while (retries-- > 0) {
+        const MAX_RETRIES = 5;
+        const BASE_DELAY_MS = 50;
+
+        for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
             const data = await this.readWithVersion();
             const statusMap: Record<string, string> = {
                 [TODO_CONSTANTS.STATUS.PENDING]: TODO_CONSTANTS.MARKERS.PENDING,
@@ -183,15 +207,22 @@ export class TodoManager {
 
             if (result.success) return true;
             if (!result.conflict) return false;
-            // On conflict, wait a bit and retry from while loop
-            await new Promise(r => setTimeout(r, 50));
+
+            // On conflict, exponential backoff + jitter
+            if (attempt < MAX_RETRIES - 1) {
+                const backoffDelay = BASE_DELAY_MS * Math.pow(2, attempt);
+                const jitter = Math.random() * 50;
+                await new Promise(r => setTimeout(r, backoffDelay + jitter));
+            }
         }
         return false;
     }
 
     public async addSubTask(parentText: string, subTaskText: string, author: string = "system"): Promise<boolean> {
-        let retries = 5;
-        while (retries-- > 0) {
+        const MAX_RETRIES = 5;
+        const BASE_DELAY_MS = 50;
+
+        for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
             const data = await this.readWithVersion();
             const result = await this.update(data.version.version, (content) => {
                 const lines = content.split("\n");
@@ -216,7 +247,13 @@ export class TodoManager {
 
             if (result.success) return true;
             if (!result.conflict) return false;
-            await new Promise(r => setTimeout(r, 50));
+
+            // On conflict, exponential backoff + jitter
+            if (attempt < MAX_RETRIES - 1) {
+                const backoffDelay = BASE_DELAY_MS * Math.pow(2, attempt);
+                const jitter = Math.random() * 50;
+                await new Promise(r => setTimeout(r, backoffDelay + jitter));
+            }
         }
         return false;
     }

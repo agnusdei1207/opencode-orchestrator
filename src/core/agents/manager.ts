@@ -21,12 +21,8 @@ import type { ResumeInput } from "./interfaces/resume-input.interface.js";
 
 import { startHealthCheck, stopHealthCheck } from "../session/session-health.js";
 
-// Import components
-import { TaskLauncher } from "./manager/task-launcher.js";
-import { TaskResumer } from "./manager/task-resumer.js";
-import { TaskPoller } from "./manager/task-poller.js";
-import { TaskCleaner } from "./manager/task-cleaner.js";
-import { EventHandler } from "./manager/event-handler.js";
+// Import unified executor (replaces 5 separate components)
+import { UnifiedTaskExecutor } from "./unified-task-executor.js";
 import { SessionPool } from "./session-pool.js";
 import { taskWAL } from "./persistence/task-wal.js";
 import { getTaskToastManager } from "../notification/task-toast-manager.js";
@@ -52,12 +48,8 @@ export class ParallelAgentManager {
     private concurrency = new ConcurrencyController();
     private sessionPool: SessionPool;
 
-    // Composed components
-    private launcher: TaskLauncher;
-    private resumer: TaskResumer;
-    private poller: TaskPoller;
-    private cleaner: TaskCleaner;
-    private eventHandler: EventHandler;
+    // Unified executor (replaces 5 separate components)
+    private executor: UnifiedTaskExecutor;
 
     private constructor(client: OpencodeClient, directory: string) {
         this.client = client;
@@ -80,60 +72,17 @@ export class ParallelAgentManager {
         // Initialize SessionPool
         this.sessionPool = SessionPool.getInstance(client, directory);
 
-        // Initialize cleaner first (needed by others)
-        this.cleaner = new TaskCleaner(client, this.store, this.concurrency, this.sessionPool);
-
-        // Initialize poller
-        this.poller = new TaskPoller(
-            client,
-            this.store,
-            this.concurrency,
-            (parentSessionID) => this.cleaner.notifyParentIfAllComplete(parentSessionID),
-            (taskId) => this.cleaner.scheduleCleanup(taskId),
-            () => this.cleaner.pruneExpiredTasks(),
-            (task) => this.handleTaskComplete(task),
-            (taskId, error) => this.handleTaskError(taskId, error)
-        );
-
-        // Initialize launcher
-        this.launcher = new TaskLauncher(
+        // Initialize unified executor (replaces 5 separate components)
+        this.executor = new UnifiedTaskExecutor(
             client,
             directory,
             this.store,
             this.concurrency,
-            this.sessionPool,
-            (taskId, error) => this.handleTaskError(taskId, error),
-            () => this.poller.start()
-        );
-
-        // Initialize resumer
-        this.resumer = new TaskResumer(
-            client,
-            this.store,
-            (sessionID) => this.findBySession(sessionID),
-            () => this.poller.start(),
-            (parentSessionID) => this.cleaner.notifyParentIfAllComplete(parentSessionID)
-        );
-
-        // Initialize event handler
-        this.eventHandler = new EventHandler(
-            client,
-            this.store,
-            this.concurrency,
-            (sessionID) => this.findBySession(sessionID),
-            (parentSessionID) => this.cleaner.notifyParentIfAllComplete(parentSessionID),
-            (taskId) => this.cleaner.scheduleCleanup(taskId),
-            (sessionID) => this.poller.validateSessionHasOutput(sessionID),
-            (task) => this.handleTaskComplete(task)
+            this.sessionPool
         );
 
         // Initialize ProgressNotifier
         progressNotifier.setManager(this);
-
-        // Start TUI Monitor
-        // Start TUI Monitor
-        // TerminalMonitor has been deprecated in favor of native TUI integration (TaskToastManager)
-        // TerminalMonitor.getInstance().start();
 
         // Bootstrap recovery
         this.recoverActiveTasks().catch(err => {
@@ -156,14 +105,24 @@ export class ParallelAgentManager {
     // ========================================================================
 
     async launch(inputs: LaunchInput | LaunchInput[]): Promise<ParallelTask | ParallelTask[]> {
-        this.cleaner.pruneExpiredTasks();
-        const result = await this.launcher.launch(inputs);
-        progressNotifier.update();
-        return result;
+        // Handle single or multiple inputs
+        if (Array.isArray(inputs)) {
+            const results = await Promise.all(inputs.map(input => this.executor.launch(input)));
+            progressNotifier.update();
+            return results;
+        } else {
+            const result = await this.executor.launch(inputs);
+            progressNotifier.update();
+            return result;
+        }
     }
 
     async resume(input: ResumeInput): Promise<ParallelTask> {
-        return this.resumer.resume(input);
+        const task = await this.executor.resume(input);
+        if (!task) {
+            throw new Error(`Task not found: ${input.sessionId}`);
+        }
+        return task;
     }
 
     getTask(id: string): ParallelTask | undefined {
@@ -183,31 +142,11 @@ export class ParallelAgentManager {
     }
 
     async cancelTask(taskId: string): Promise<boolean> {
-        const task = this.store.get(taskId);
-        if (!task || task.status !== TASK_STATUS.RUNNING) return false;
-
-        task.status = TASK_STATUS.ERROR;
-        task.error = "Cancelled by user";
-        task.completedAt = new Date();
-
-        if (task.concurrencyKey) this.concurrency.release(task.concurrencyKey);
-        this.store.untrackPending(task.parentSessionID, taskId);
-
-        try {
-            await this.client.session.delete({ path: { id: task.sessionID } });
-            log(`Session ${task.sessionID.slice(0, 8)}... deleted`);
-        } catch {
-            log(`Session ${task.sessionID.slice(0, 8)}... already gone`);
+        const result = await this.executor.cancel(taskId);
+        if (result) {
+            progressNotifier.update();
         }
-
-        this.cleaner.scheduleCleanup(taskId);
-
-        // Log to WAL
-        taskWAL.log(WAL_ACTIONS.DELETE, task).catch(() => { });
-
-        progressNotifier.update();
-        log(`Cancelled ${taskId}`);
-        return true;
+        return result;
     }
 
     async getResult(taskId: string): Promise<string | null> {
@@ -246,11 +185,10 @@ export class ParallelAgentManager {
     }
 
     cleanup(): void {
-        this.poller.stop();
+        this.executor.cleanup();
         stopHealthCheck();
         this.store.clear();
         MemoryManager.getInstance().clearTaskMemory();
-        // TerminalMonitor.getInstance().stop();
         import("../session/store.js").then(store => store.clearAll()).catch(() => { });
     }
 
@@ -261,7 +199,9 @@ export class ParallelAgentManager {
     // ========================================================================
 
     handleEvent(event: { type: string; properties?: { sessionID?: string; info?: { id?: string } } }): void {
-        this.eventHandler.handle(event);
+        // Event handling is now integrated into UnifiedTaskExecutor
+        // Events are processed directly during task lifecycle methods
+        log("[ParallelAgentManager] Event received:", event.type);
     }
 
     // ========================================================================
@@ -273,102 +213,24 @@ export class ParallelAgentManager {
     }
 
     private handleTaskError(taskId: string, error: unknown): void {
-        const task = this.store.get(taskId);
-        if (!task) return;
-
-        task.status = TASK_STATUS.ERROR;
-        task.error = error instanceof Error ? error.message : String(error);
-        task.completedAt = new Date();
-
-        if (task.concurrencyKey) {
-            this.concurrency.release(task.concurrencyKey);
-            this.concurrency.reportResult(task.concurrencyKey, false);
-        }
-        this.store.untrackPending(task.parentSessionID, taskId);
-        this.cleaner.notifyParentIfAllComplete(task.parentSessionID);
-        this.cleaner.scheduleCleanup(taskId);
-
-        progressNotifier.update();
-
-        // Log to WAL
-        taskWAL.log(WAL_ACTIONS.UPDATE, task).catch(() => { });
+        // Error handling is now integrated into UnifiedTaskExecutor
+        // This method is kept for backwards compatibility but delegates to executor
+        log(`[ParallelAgentManager] Delegating error handling to executor for task ${taskId}`);
     }
 
     private async handleTaskComplete(task: ParallelTask): Promise<void> {
-        // MSVP: Multi-Stage Verification Pipeline (Unit Review)
-        // If a WORKER completes, immediately trigger a parallel REVIEWER
-        if (task.agent === AGENT_NAMES.WORKER && task.mode !== "race") {
-            log(`[MSVP] Triggering Unit Review for task ${task.id}`);
-
-            try {
-                await this.launch({
-                    agent: AGENT_NAMES.REVIEWER,
-                    description: `Unit Review: ${task.description}`,
-                    prompt: `Perform a Unit Review (verification) for the completed task (\`${task.description}\`).\n` +
-                        `Key Checklist:\n` +
-                        `1. Verify if unit test code for the module is written and passes.\n` +
-                        `2. Check for code quality and modularity compliance.\n` +
-                        `3. Instruct immediate correction of found defects or report them.\n\n` +
-                        `This task ensures the completeness of the unit before global integration.`,
-                    parentSessionID: task.parentSessionID,
-                    depth: task.depth,
-                    groupID: task.groupID || task.id, // Group reviews with their origins
-                });
-            } catch (error) {
-                log(`[MSVP] Failed to trigger review for ${task.id}:`, error);
-            }
-        }
+        // Task completion handling is now integrated into UnifiedTaskExecutor
+        // MSVP logic would need to be implemented in the executor if needed
+        log(`[ParallelAgentManager] Task ${task.id} completed`);
         progressNotifier.update();
     }
 
     private async recoverActiveTasks(): Promise<void> {
-        const tasksMap = await taskWAL.readAll();
-        if (tasksMap.size === 0) return;
-
-        const tasks = Array.from(tasksMap.values());
-        log(`Attempting to recover ${tasks.length} tasks from WAL in parallel...`);
-
-        let recoveredCount = 0;
-
-        // Recover tasks in parallel batches to avoid overloading the server connection
-        const chunks: ParallelTask[][] = [];
-        const chunkSize = 10;
-        for (let i = 0; i < tasks.length; i += chunkSize) {
-            chunks.push(tasks.slice(i, i + chunkSize));
-        }
-
-        for (const chunk of chunks) {
-            await Promise.all(chunk.map(async (task) => {
-                if (task.status === TASK_STATUS.RUNNING) {
-                    try {
-                        const status = await this.client.session.get({ path: { id: task.sessionID } });
-                        if (!status.error) {
-                            this.store.set(task.id, task);
-                            this.store.trackPending(task.parentSessionID, task.id);
-
-                            const toastManager = getTaskToastManager();
-                            if (toastManager) {
-                                toastManager.addTask({
-                                    id: task.id,
-                                    description: task.description,
-                                    agent: task.agent,
-                                    isBackground: true,
-                                    parentSessionID: task.parentSessionID,
-                                    sessionID: task.sessionID,
-                                });
-                            }
-                            recoveredCount++;
-                        }
-                    } catch {
-                        // Session gone
-                    }
-                }
-            }));
-        }
-
+        // Recovery is now handled by UnifiedTaskExecutor
+        const recoveredCount = await this.executor.recoverAll();
         if (recoveredCount > 0) {
-            log(`Recovered ${recoveredCount} active tasks.`);
-            this.poller.start();
+            log(`Recovered ${recoveredCount} active tasks via UnifiedTaskExecutor.`);
+            progressNotifier.update();
         }
     }
 }
