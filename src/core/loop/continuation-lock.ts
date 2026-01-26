@@ -25,8 +25,8 @@ interface ContinuationLockState {
 
 const locks = new Map<string, ContinuationLockState>();
 
-// Configuration
-const LOCK_TIMEOUT_MS = 30000;  // Auto-release after 30s (Deadlock prevention)
+// Configuration - Increased timeout for parallel operations
+const LOCK_TIMEOUT_MS = 120000;  // Auto-release after 2 minutes (was 30s) - Deadlock prevention
 
 /**
  * Try to acquire the continuation lock

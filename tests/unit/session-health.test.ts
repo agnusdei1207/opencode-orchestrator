@@ -81,8 +81,8 @@ describe("SessionHealth", () => {
         recordSessionActivity(sessionID);
         recordSessionResponse(sessionID);
 
-        // Advance past threshold
-        const future = start + 120000 + 1000;
+        // Advance past threshold (10 minutes + 1 second)
+        const future = start + 600000 + 1000;
         vi.setSystemTime(future);
 
         // Manually trigger check
@@ -101,18 +101,18 @@ describe("SessionHealth", () => {
         recordSessionActivity(sessionID);
         recordSessionResponse(sessionID);
 
-        // Advance 1 minute (safe zone)
-        vi.setSystemTime(start + 60000);
+        // Advance 5 minutes (safe zone)
+        vi.setSystemTime(start + 300000);
         recordSessionResponse(sessionID); // Activity refreshes lastResponseTime
 
-        // Advance another minute
-        vi.setSystemTime(start + 120000);
+        // Advance another 5 minutes (total 10 minutes)
+        vi.setSystemTime(start + 600000);
 
         // Trigger check
         performHealthCheck();
 
-        // Should not be stale because response updated at T+60s. 
-        // Current T+120s. Elapsed = 60s. Threshold = 120s.
+        // Should not be stale because response updated at T+5min.
+        // Current T+10min. Elapsed = 5min. Threshold = 10min.
         expect(isSessionStale(sessionID)).toBe(false);
     });
 

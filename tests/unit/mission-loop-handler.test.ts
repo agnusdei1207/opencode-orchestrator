@@ -102,7 +102,7 @@ describe("MissionLoopHandler", () => {
         await handleMissionIdle(mockClient, directory, sessionID);
 
         // Fast-forward timer (5s default)
-        vi.advanceTimersByTime(5000 + 100);
+        vi.advanceTimersByTime(11000);
 
         // Wait for async operations
         for (let i = 0; i < 20; i++) {

@@ -17,10 +17,10 @@ import { isSessionStale } from "../../session/session-health.js";
 
 type OpencodeClient = PluginInput["client"];
 
-const MAX_TASK_DURATION_MS = 600000; // 10 minutes max for polling before intervention
+const MAX_TASK_DURATION_MS = 1800000; // 30 minutes max for polling before intervention (increased for parallel tasks)
 
 export class TaskPoller {
-    private pollingInterval?: ReturnType<typeof setInterval>;
+    private pollTimeout?: NodeJS.Timeout;
     private messageCache: Map<string, { count: number; lastChecked: Date }> = new Map();
 
     constructor(
@@ -35,44 +35,52 @@ export class TaskPoller {
     ) { }
 
     start(): void {
-        if (this.pollingInterval) return;
+        if (this.pollTimeout) return;
         log("[task-poller.ts] start() - polling started");
-        this.pollingInterval = setInterval(() => this.poll(), CONFIG.POLL_INTERVAL_MS);
-        this.pollingInterval.unref();
+        this.scheduleNextPoll();
     }
 
     stop(): void {
-        if (this.pollingInterval) {
-            clearInterval(this.pollingInterval);
-            this.pollingInterval = undefined;
+        if (this.pollTimeout) {
+            clearTimeout(this.pollTimeout);
+            this.pollTimeout = undefined;
         }
     }
 
     isRunning(): boolean {
-        return !!this.pollingInterval;
+        return !!this.pollTimeout;
+    }
+
+    private scheduleNextPoll(): void {
+        if (this.pollTimeout) clearTimeout(this.pollTimeout);
+        // Use recursive setTimeout to prevent poll stacking
+        this.pollTimeout = setTimeout(() => this.poll(), CONFIG.POLL_INTERVAL_MS);
+        this.pollTimeout.unref();
     }
 
     async poll(): Promise<void> {
         this.pruneExpiredTasks();
         const running = this.store.getRunning();
-        if (running.length === 0) { this.stop(); return; }
+
+        if (running.length === 0) {
+            this.stop();
+            return;
+        }
+
         log("[task-poller.ts] poll() checking", running.length, "running tasks");
 
         try {
+            // SINGLE API CALL: Get status for all sessions
             const statusResult = await this.client.session.status();
-            const allStatuses = (statusResult.data ?? {}) as Record<string, { type: string }>;
+            const allStatuses = (statusResult.data ?? {}) as Record<string, { type: string; messageCount?: number }>;
 
             for (const task of running) {
                 try {
-                    // Check for staleness/timeout
+                    // Check for timeout (relaxed for parallel tasks)
                     const taskDuration = Date.now() - task.startedAt.getTime();
 
-                    if (isSessionStale(task.sessionID)) {
-                        log(`[task-poller] Task ${task.id} session is stale. Marking as error.`);
-                        this.onTaskError?.(task.id, new Error("Session became stale (no response from agent)"));
-                        continue;
-                    }
-
+                    // Only check max duration, skip stale check for now as it's too aggressive for parallel tasks
+                    // The stale check was causing false positives with parallel sessions
                     if (taskDuration > MAX_TASK_DURATION_MS) {
                         log(`[task-poller] Task ${task.id} exceeded max duration (${MAX_TASK_DURATION_MS}ms). Marking as error.`);
                         this.onTaskError?.(task.id, new Error("Task exceeded maximum execution time"));
@@ -96,14 +104,14 @@ export class TaskPoller {
                         continue;
                     }
 
-                    // Update progress tracking
-                    await this.updateTaskProgress(task);
+                    // Update progress tracking - Pass sessionStatus to avoid redundant API call
+                    await this.updateTaskProgress(task, sessionStatus);
 
                     // Stability detection: complete when message count stable for 3 polls
                     const elapsed = Date.now() - task.startedAt.getTime();
-                    if (elapsed >= CONFIG.MIN_STABILITY_MS && task.stablePolls && task.stablePolls >= 3) {
+                    if (elapsed >= CONFIG.MIN_STABILITY_MS && task.stablePolls && task.stablePolls >= CONFIG.STABLE_POLLS_REQUIRED) {
                         if (task.hasStartedOutputting || await this.validateSessionHasOutput(task.sessionID, task)) {
-                            log(`Task ${task.id} stable for 3 polls, completing...`);
+                            log(`Task ${task.id} stable for ${task.stablePolls} polls, completing...`);
                             await this.completeTask(task);
                         }
                     }
@@ -114,6 +122,13 @@ export class TaskPoller {
             progressNotifier.update();
         } catch (error) {
             log("Polling error:", error);
+        } finally {
+            // Schedule next poll regardless of success/failure
+            if (this.store.getRunning().length > 0) {
+                this.scheduleNextPoll();
+            } else {
+                this.stop();
+            }
         }
     }
 
@@ -166,14 +181,18 @@ export class TaskPoller {
         progressNotifier.update();
     }
 
-    private async updateTaskProgress(task: ParallelTask): Promise<void> {
+    private async updateTaskProgress(task: ParallelTask, sessionStatus?: { messageCount?: number }): Promise<void> {
         try {
             const cached = this.messageCache.get(task.sessionID);
 
-            // OPTION C: Check status first (lightweight) before fetching messages (heavy)
-            const statusResult = await this.client.session.status();
-            const sessionInfo = (statusResult.data as Record<string, { messageCount?: number }>)?.[task.sessionID];
-            const currentMsgCount = sessionInfo?.messageCount ?? 0;
+            // Optimization: Use passed sessionStatus OR fetch if missing
+            let currentMsgCount = sessionStatus?.messageCount;
+
+            if (currentMsgCount === undefined) {
+                const statusResult = await this.client.session.status();
+                const sessionInfo = (statusResult.data as Record<string, { messageCount?: number }>)?.[task.sessionID];
+                currentMsgCount = sessionInfo?.messageCount ?? 0;
+            }
 
             if (cached && cached.count === currentMsgCount) {
                 // No change, skip heavy fetch

@@ -91,8 +91,8 @@ describe("ContinuationLock", () => {
 
             tryAcquireContinuationLock(testSessionID, "test");
 
-            // Simulate 31 seconds (timeout is 30s)
-            vi.advanceTimersByTime(31000);
+            // Simulate 121 seconds (timeout is 120s = 2 minutes)
+            vi.advanceTimersByTime(121000);
 
             // Should allow re-acquire
             const acquired = tryAcquireContinuationLock(testSessionID, "new-test");
@@ -106,8 +106,8 @@ describe("ContinuationLock", () => {
 
             tryAcquireContinuationLock(testSessionID, "test");
 
-            // Simulate 29 seconds (timeout is 30s)
-            vi.advanceTimersByTime(29000);
+            // Simulate 119 seconds (timeout is 120s = 2 minutes)
+            vi.advanceTimersByTime(119000);
 
             // Should still reject
             const acquired = tryAcquireContinuationLock(testSessionID, "new-test");

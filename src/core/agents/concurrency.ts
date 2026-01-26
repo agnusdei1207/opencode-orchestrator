@@ -138,9 +138,9 @@ export class ConcurrencyController {
             this.successStreak.set(key, streak);
             this.failureCount.set(key, 0); // Reset failure on success
 
-            // Increase limit if on a hot streak (every 3 successful tasks)
-            // More responsive than the previous 5-streak rule
-            if (streak >= 3) {
+            // Increase limit if on a hot streak (every 5 successful tasks)
+            // Balanced approach - not too aggressive
+            if (streak >= 5) {
                 const currentLimit = this.getConcurrencyLimit(key);
                 if (currentLimit < PARALLEL_TASK.MAX_CONCURRENCY) {
                     this.setLimit(key, currentLimit + 1);
