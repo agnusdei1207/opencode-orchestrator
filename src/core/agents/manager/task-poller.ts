@@ -9,7 +9,7 @@ import { CONFIG } from "../config.js";
 import { log } from "../logger.js";
 import { formatDuration } from "../format.js";
 import { presets } from "../../../shared/index.js";
-import type { ParallelTask } from "../interfaces/parallel-task.interface.js";
+import type { ParallelTask } from "../interfaces/index.js";
 import { TASK_STATUS, PART_TYPES, MESSAGE_ROLES, SESSION_STATUS } from "../../../shared/index.js";
 import { progressNotifier } from "../../progress/progress-notifier.js";
 
@@ -18,6 +18,11 @@ type OpencodeClient = PluginInput["client"];
 export class TaskPoller {
     private pollingInterval?: ReturnType<typeof setInterval>;
     private messageCache: Map<string, { count: number; lastChecked: Date }> = new Map();
+
+    // Adaptive polling
+    private currentPollInterval: number = CONFIG.POLL_INTERVAL_MS; // Start at default (2000ms)
+    private readonly MIN_POLL_INTERVAL = 500;  // 500ms when very busy
+    private readonly MAX_POLL_INTERVAL = 5000; // 5s when idle
 
     constructor(
         private client: OpencodeClient,
@@ -31,9 +36,10 @@ export class TaskPoller {
 
     start(): void {
         if (this.pollingInterval) return;
-        log("[task-poller.ts] start() - polling started");
-        this.pollingInterval = setInterval(() => this.poll(), CONFIG.POLL_INTERVAL_MS);
-        this.pollingInterval.unref();
+        log("[task-poller.ts] start() - polling started (adaptive)");
+
+        // Adaptive polling: adjust interval based on load
+        this.scheduleNextPoll();
     }
 
     stop(): void {
@@ -47,11 +53,36 @@ export class TaskPoller {
         return !!this.pollingInterval;
     }
 
+    /**
+     * Schedule next poll with adaptive interval
+     */
+    private scheduleNextPoll(): void {
+        this.pollingInterval = setTimeout(() => {
+            this.poll().then(() => {
+                if (this.isRunning()) {
+                    this.scheduleNextPoll();
+                }
+            });
+        }, this.currentPollInterval) as ReturnType<typeof setInterval>;
+
+        if (this.pollingInterval?.unref) {
+            this.pollingInterval.unref();
+        }
+    }
+
     async poll(): Promise<void> {
         this.pruneExpiredTasks();
         const running = this.store.getRunning();
-        if (running.length === 0) { this.stop(); return; }
+
+        if (running.length === 0) {
+            this.stop();
+            return;
+        }
+
         log("[task-poller.ts] poll() checking", running.length, "running tasks");
+
+        // Adaptive interval adjustment
+        this.adjustPollInterval(running.length);
 
         try {
             const statusResult = await this.client.session.status();
@@ -212,5 +243,55 @@ export class TaskPoller {
         } catch {
             // Ignore errors in progress tracking
         }
+    }
+
+    /**
+     * Adjust poll interval based on current load
+     * - No tasks: Exponential backoff to MAX_POLL_INTERVAL
+     * - High utilization (>80%): Speed up to MIN_POLL_INTERVAL
+     * - Medium utilization: Proportional adjustment
+     */
+    private adjustPollInterval(runningCount: number): void {
+        if (runningCount === 0) {
+            // Exponential backoff when idle
+            this.currentPollInterval = Math.min(
+                this.currentPollInterval * 1.5,
+                this.MAX_POLL_INTERVAL
+            );
+            return;
+        }
+
+        // Get concurrency limits and active counts
+        let totalActive = 0;
+        let totalLimit = 0;
+
+        // Sample a few concurrency keys to estimate utilization
+        for (const key of ["planner", "worker", "reviewer", "commander"]) {
+            const active = this.concurrency.getActiveCount(key);
+            const limit = this.concurrency.getConcurrencyLimit(key);
+
+            totalActive += active;
+            totalLimit += (limit === Infinity ? 10 : limit); // Assume 10 for infinity
+        }
+
+        const utilization = totalLimit > 0 ? totalActive / totalLimit : 0;
+
+        if (utilization > 0.8) {
+            // High load - poll faster
+            this.currentPollInterval = this.MIN_POLL_INTERVAL;
+        } else if (utilization < 0.2) {
+            // Low load - slow down
+            this.currentPollInterval = Math.min(
+                this.currentPollInterval * 1.2,
+                this.MAX_POLL_INTERVAL
+            );
+        } else {
+            // Medium load - proportional
+            const targetInterval = this.MIN_POLL_INTERVAL +
+                (this.MAX_POLL_INTERVAL - this.MIN_POLL_INTERVAL) * (1 - utilization);
+            this.currentPollInterval = Math.round(targetInterval);
+        }
+
+        log(`[AdaptivePoll] Running: ${runningCount}, Utilization: ${Math.round(utilization * 100)}%, Interval: ${this.currentPollInterval}ms`);
     }
 }

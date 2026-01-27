@@ -95,7 +95,8 @@ export class AgentRegistry {
             }
         } catch (error) {
             // File might not exist, ignore
-            if ((error as any).code !== "ENOENT") {
+            const nodeError = error as NodeJS.ErrnoException;
+            if (nodeError.code !== "ENOENT") {
                 log(`[AgentRegistry] Error loading custom agents: ${error}`);
             }
         }

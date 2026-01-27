@@ -15,7 +15,7 @@ import { ConcurrencyController } from "../concurrency.js";
 import { TaskStore } from "../task-store.js";
 import { presets } from "../../../shared/index.js";
 import { getTaskToastManager } from "../../notification/task-toast-manager.js";
-import type { ParallelTask } from "../interfaces/parallel-task.interface.js";
+import type { ParallelTask } from "../interfaces/index.js";
 import type { LaunchInput } from "../interfaces/launch-input.interface.js";
 
 import { SessionPool } from "../session-pool.js";
@@ -24,10 +24,12 @@ import type { ErrorContext } from "../../recovery/interfaces.js";
 import { log } from "../logger.js";
 import { MemoryManager } from "../../memory/memory-manager.js";
 import { AgentRegistry } from "../agent-registry.js";
+import { taskPool } from "../../pool/task-pool.js";
 
 type OpencodeClient = PluginInput["client"];
 
 export class TaskLauncher {
+
   constructor(
     private client: OpencodeClient,
     private directory: string,
@@ -49,7 +51,9 @@ export class TaskLauncher {
     const isArray = Array.isArray(inputs);
     const taskInputs = isArray ? inputs : [inputs];
 
-    if (taskInputs.length === 0) return isArray ? [] : (null as any);
+    if (taskInputs.length === 0) {
+      throw new Error("Cannot launch tasks: empty input array");
+    }
 
     // EXECUTION STRATEGY:
     // 1. Create and prepare sessions/tasks
@@ -98,20 +102,22 @@ export class TaskLauncher {
     const sessionID = session.id;
     const taskId = `${ID_PREFIX.TASK}${crypto.randomUUID().slice(0, 8)}`;
 
-    const task: ParallelTask = {
-      id: taskId,
-      sessionID,
-      parentSessionID: input.parentSessionID,
-      description: input.description,
-      prompt: input.prompt,
-      agent: input.agent,
-      status: TASK_STATUS.PENDING, // Start as PENDING
-      startedAt: new Date(),
-      concurrencyKey: input.agent,
-      depth: (input.depth ?? 0) + 1,
-      mode: input.mode || "normal",
-      groupID: input.groupID,
-    };
+    // Use task pool for memory efficiency
+    const task = taskPool.acquire();
+
+    // Initialize task fields
+    task.id = taskId;
+    task.sessionID = sessionID;
+    task.parentSessionID = input.parentSessionID;
+    task.description = input.description;
+    task.prompt = input.prompt;
+    task.agent = input.agent;
+    task.status = TASK_STATUS.PENDING;
+    task.startedAt = new Date();
+    task.concurrencyKey = input.agent;
+    task.depth = (input.depth ?? 0) + 1;
+    task.mode = input.mode || "normal";
+    task.groupID = input.groupID;
 
     // State tracking
     this.store.set(taskId, task);
@@ -140,102 +146,103 @@ export class TaskLauncher {
    */
   private async executeBackground(task: ParallelTask): Promise<void> {
     let attempt = 1;
+    const token = await this.concurrency.acquireToken(task.agent);
 
-    while (true) {
-      try {
-        // 1. Wait for concurrency slot
-        await this.concurrency.acquire(task.agent);
+    try {
+      while (true) {
+        try {
+          // 1. Update status to RUNNING
+          task.status = TASK_STATUS.RUNNING;
+          task.startedAt = new Date();
+          this.store.set(task.id, task);
+          // WAL already logged in prepareTask - skip duplicate
 
-        // 2. Update status to RUNNING
-        task.status = TASK_STATUS.RUNNING;
-        task.startedAt = new Date();
-        this.store.set(task.id, task);
-        // WAL already logged in prepareTask - skip duplicate
+          // 2. Fire prompt with timeout
+          const agentDef = AgentRegistry.getInstance().getAgent(task.agent);
+          let finalPrompt = task.prompt;
 
-        // 3. Fire prompt with timeout
-        const agentDef = AgentRegistry.getInstance().getAgent(task.agent);
-        let finalPrompt = task.prompt;
-
-        // If it's a custom agent (or if we want to ensure system prompt is used)
-        if (agentDef) {
-          finalPrompt = `### AGENT ROLE: ${agentDef.id}\n${agentDef.description}\n\n${agentDef.systemPrompt}\n\n${finalPrompt}`;
-        }
-
-        const memory = MemoryManager.getInstance().getContext(finalPrompt);
-        const injectedPrompt = memory
-          ? `${memory}\n\n${finalPrompt}`
-          : finalPrompt;
-
-        // Resolve "wire" agent name for OpenCode server
-        const wireAgent = Object.values(AGENT_NAMES).includes(task.agent as any)
-          ? task.agent
-          : AGENT_NAMES.COMMANDER;
-
-        const promptPromise = this.client.session.prompt({
-          path: { id: task.sessionID },
-          body: {
-            agent: wireAgent,
-            tools: {
-              [TOOL_NAMES.DELEGATE_TASK]: true,
-              [TOOL_NAMES.GET_TASK_RESULT]: true,
-              [TOOL_NAMES.LIST_TASKS]: true,
-              [TOOL_NAMES.CANCEL_TASK]: true,
-              [TOOL_NAMES.SKILL]: true,
-              [TOOL_NAMES.RUN_COMMAND]: true,
-            },
-            parts: [{ type: PART_TYPES.TEXT, text: injectedPrompt }],
-          },
-        });
-
-        await Promise.race([
-          promptPromise,
-          new Promise((_, reject) =>
-            setTimeout(
-              () =>
-                reject(
-                  new Error("Session prompt execution timed out after 600s"),
-                ),
-              600000,
-            ),
-          ),
-        ]);
-
-        // Success! Exit loop
-        return;
-      } catch (error) {
-        // If we acquired but failed to fire, release
-        this.concurrency.release(task.agent);
-
-        // Auto-recovery logic
-        const context: ErrorContext = {
-          sessionId: task.sessionID,
-          taskId: task.id,
-          agent: task.agent,
-          error: error instanceof Error ? error : new Error(String(error)),
-          attempt,
-          timestamp: new Date(),
-        };
-
-        const action = handleError(context);
-
-        if (action.type === "retry") {
-          log(
-            `[AutoRetry] Task ${task.id} failed (attempt ${attempt}). Retrying in ${action.delay}ms...`,
-          );
-
-          // Adjust prompt if strategy suggests it
-          if (action.modifyPrompt) {
-            task.prompt += `\n\n${action.modifyPrompt}`;
+          // If it's a custom agent (or if we want to ensure system prompt is used)
+          if (agentDef) {
+            finalPrompt = `### AGENT ROLE: ${agentDef.id}\n${agentDef.description}\n\n${agentDef.systemPrompt}\n\n${finalPrompt}`;
           }
 
-          await new Promise((r) => setTimeout(r, action.delay));
-          attempt++;
-          continue;
-        }
+          const memory = MemoryManager.getInstance().getContext(finalPrompt);
+          const injectedPrompt = memory
+            ? `${memory}\n\n${finalPrompt}`
+            : finalPrompt;
 
-        // Cannot retry or max attempts reached
-        throw error;
+          // Resolve "wire" agent name for OpenCode server
+          const knownAgents = Object.values(AGENT_NAMES) as string[];
+          const wireAgent = knownAgents.includes(task.agent)
+            ? task.agent
+            : AGENT_NAMES.COMMANDER;
+
+          const promptPromise = this.client.session.prompt({
+            path: { id: task.sessionID },
+            body: {
+              agent: wireAgent,
+              tools: {
+                [TOOL_NAMES.DELEGATE_TASK]: true,
+                [TOOL_NAMES.GET_TASK_RESULT]: true,
+                [TOOL_NAMES.LIST_TASKS]: true,
+                [TOOL_NAMES.CANCEL_TASK]: true,
+                [TOOL_NAMES.SKILL]: true,
+                [TOOL_NAMES.RUN_COMMAND]: true,
+              },
+              parts: [{ type: PART_TYPES.TEXT, text: injectedPrompt }],
+            },
+          });
+
+          await Promise.race([
+            promptPromise,
+            new Promise((_, reject) =>
+              setTimeout(
+                () =>
+                  reject(
+                    new Error("Session prompt execution timed out after 600s"),
+                  ),
+                600000,
+              ),
+            ),
+          ]);
+
+          // Success! Exit loop
+          return;
+        } catch (error) {
+          // Auto-recovery logic
+          const context: ErrorContext = {
+            sessionId: task.sessionID,
+            taskId: task.id,
+            agent: task.agent,
+            error: error instanceof Error ? error : new Error(String(error)),
+            attempt,
+            timestamp: new Date(),
+          };
+
+          const action = handleError(context);
+
+          if (action.type === "retry") {
+            log(
+              `[AutoRetry] Task ${task.id} failed (attempt ${attempt}). Retrying in ${action.delay}ms...`,
+            );
+
+            // Adjust prompt if strategy suggests it
+            if (action.modifyPrompt) {
+              task.prompt += `\n\n${action.modifyPrompt}`;
+            }
+
+            await new Promise((r) => setTimeout(r, action.delay));
+            attempt++;
+            continue;
+          }
+
+          // Cannot retry or max attempts reached
+          throw error;
+        }
       }
+    } finally {
+      // GUARANTEED cleanup: RAII pattern via ConcurrencyToken
+      token.release();
     }
   }
 }

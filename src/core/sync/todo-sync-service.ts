@@ -31,6 +31,7 @@ export class TodoSyncService {
   private taskTodos: Map<string, TrackedTaskTodo> = new Map();
   private updateTimeout: NodeJS.Timeout | null = null;
   private watcher: fs.FSWatcher | null = null;
+  private watcherDebounceTimer: NodeJS.Timeout | null = null;
 
   private activeSessions: Set<string> = new Set();
 
@@ -49,18 +50,27 @@ export class TodoSyncService {
 
     // Watch for file changes
     if (fs.existsSync(this.todoPath)) {
-      // throttle watcher
-      let timer: NodeJS.Timeout;
       this.watcher = fs.watch(this.todoPath, (eventType) => {
         if (eventType === "change" || eventType === "rename") {
-          clearTimeout(timer);
-          timer = setTimeout(() => {
+          if (this.watcherDebounceTimer) {
+            clearTimeout(this.watcherDebounceTimer);
+          }
+          this.watcherDebounceTimer = setTimeout(() => {
             this.reloadFileTodos().catch((err) =>
               log(`[TodoSync] Error reloading: ${err}`),
             );
+            this.watcherDebounceTimer = null;
           }, 500);
         }
       });
+
+      // Handle watcher errors
+      this.watcher.on("error", (err) => {
+        log(`[TodoSync] Watcher error: ${err}`);
+        this.stop();
+      });
+
+      log("[TodoSync] File watcher started");
     }
   }
 
@@ -92,14 +102,21 @@ export class TodoSyncService {
   }
 
   private async reloadFileTodos() {
+    let fileHandle: fs.promises.FileHandle | null = null;
     try {
       if (fs.existsSync(this.todoPath)) {
-        const content = await fs.promises.readFile(this.todoPath, "utf-8");
+        fileHandle = await fs.promises.open(this.todoPath, 'r');
+        const content = await fileHandle.readFile('utf-8');
         this.fileTodos = parseTodoMd(content);
         this.broadcastUpdate();
       }
     } catch (error) {
       log(`[TodoSync] Failed to read todo.md: ${error}`);
+    } finally {
+      // GUARANTEED cleanup: Close file handle
+      if (fileHandle) {
+        await fileHandle.close().catch(() => {});
+      }
     }
   }
 
@@ -149,8 +166,27 @@ export class TodoSyncService {
   }
 
   stop() {
+    // Clean up file watcher
     if (this.watcher) {
       this.watcher.close();
+      this.watcher = null;
+      log("[TodoSync] File watcher closed");
     }
+
+    // Clean up debounce timer
+    if (this.watcherDebounceTimer) {
+      clearTimeout(this.watcherDebounceTimer);
+      this.watcherDebounceTimer = null;
+    }
+
+    // Clean up update timeout
+    if (this.updateTimeout) {
+      clearTimeout(this.updateTimeout);
+      this.updateTimeout = null;
+    }
+
+    // Clear sessions
+    this.activeSessions.clear();
+    log("[TodoSync] Stopped");
   }
 }

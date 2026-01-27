@@ -18,7 +18,11 @@ import type {
     ISessionPool,
 } from "./interfaces/session-pool.interface.js";
 
-type OpencodeClient = PluginInput["client"];
+type OpencodeClient = PluginInput["client"] & {
+    session: {
+        compact?: (opts: { path: { id: string } }) => Promise<void>;
+    };
+};
 
 const DEFAULT_CONFIG: SessionPoolConfig = {
     maxPoolSizePerAgent: 5,
@@ -248,7 +252,9 @@ export class SessionPool implements ISessionPool {
         try {
             // Use compaction to clear context while preserving essential mission state
             // (The session-compacting-handler hook will deal with what to keep)
-            await (this.client.session as any).compact?.({ path: { id: sessionId } });
+            if (this.client.session.compact) {
+                await this.client.session.compact({ path: { id: sessionId } });
+            }
             session.lastResetAt = new Date();
             session.health = "healthy";
         } catch (error) {

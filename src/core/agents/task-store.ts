@@ -9,8 +9,10 @@
 
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
-import type { ParallelTask } from "./interfaces/parallel-task.interface.js";
+import type { ParallelTask } from "./interfaces/index.js";
 import { MEMORY_LIMITS, PATHS, TASK_STATUS } from "../../shared/index.js";
+import { stringPool } from "../pool/string-pool.js";
+import { taskPool } from "../pool/task-pool.js";
 
 export class TaskStore {
     private tasks: Map<string, ParallelTask> = new Map();
@@ -19,6 +21,11 @@ export class TaskStore {
     private archivedCount = 0;
 
     set(id: string, task: ParallelTask): void {
+        // String interning for memory efficiency
+        task.agent = stringPool.intern(task.agent);
+        task.status = stringPool.intern(task.status);
+        if (task.mode) task.mode = stringPool.intern(task.mode);
+
         this.tasks.set(id, task);
 
         // Auto-GC if over limit
@@ -173,9 +180,15 @@ export class TaskStore {
             await this.archiveTasks(toArchive);
         }
 
-        // Remove from memory
+        // Remove from memory and release to pool
         for (const id of toRemove) {
+            const task = this.tasks.get(id);
             this.tasks.delete(id);
+
+            // Release task back to pool for reuse
+            if (task) {
+                taskPool.release(task);
+            }
         }
 
         return toRemove.length;
@@ -222,10 +235,26 @@ export class TaskStore {
         }
 
         for (const id of toRemove) {
+            const task = this.tasks.get(id);
             this.tasks.delete(id);
+
+            // Release to pool
+            if (task) {
+                taskPool.release(task);
+            }
         }
 
         return toRemove.length;
+    }
+
+    /**
+     * Get pooling statistics
+     */
+    getPoolStats() {
+        return {
+            taskPool: taskPool.getStats(),
+            stringPool: stringPool.getStats()
+        };
     }
 }
 
