@@ -35,6 +35,8 @@ export interface SessionPoolConfig {
     maxReuseCount: number;
     /** Health check interval in milliseconds (default: 60000 = 1 minute) */
     healthCheckIntervalMs: number;
+    /** Global maximum number of sessions across all agents (default: 30) */
+    globalMax: number;
 }
 
 export interface SessionPoolStats {
@@ -62,6 +64,12 @@ export interface ISessionPool {
      * Returns a reused session if available, otherwise creates a new one.
      */
     acquire(agentName: string, parentSessionID: string, description: string): Promise<PooledSession>;
+
+    /**
+     * Acquire a session immediately without waiting.
+     * Throws if global limit is reached.
+     */
+    acquireImmediate(agentName: string, parentSessionID: string, description: string): Promise<PooledSession>;
 
     /**
      * Release a session back to the pool for reuse.
