@@ -1,5 +1,5 @@
 import { tool, type ToolDefinition } from "@opencode-ai/plugin";
-import { AGENT_NAMES, PROMPTS } from "../shared/index.js";
+import { AGENT_NAMES, PROMPTS, PATHS } from "../shared/index.js";
 import { commander } from "../agents/commander.js";
 
 // ... (existing content logic)
@@ -26,7 +26,7 @@ $ARGUMENTS
 <execution_rules>
 1. Complete this mission without user intervention.
 2. Use your full capabilities: hierarchical planning, parallel execution, and strict verification.
-3. Conclude ONLY when all items in .opencode/todo.md are verified and marked [x].
+3. Conclude ONLY when all items in ${PATHS.TODO} are verified and marked [x].
 </execution_rules>
 </mission>`;
 
@@ -44,7 +44,7 @@ export const COMMANDS: Record<string, { description: string; template: string; a
     template: `<delegate>
 <agent>${AGENT_NAMES.PLANNER}</agent>
 <objective>Create parallel task plan for: $ARGUMENTS</objective>
-<success>Valid .opencode/todo.md with tasks, each having id, description, agent, size, dependencies</success>
+<success>Valid ${PATHS.TODO} with tasks, each having id, description, agent, size, dependencies</success>
 <must_do>
 - Maximize parallelism by grouping independent tasks
 - Assign correct agent to each task (${AGENT_NAMES.WORKER} or ${AGENT_NAMES.REVIEWER})
@@ -57,7 +57,7 @@ export const COMMANDS: Record<string, { description: string; template: string; a
 </must_not>
 <context>
 - This is planning only, no execution
-- Output to .opencode/todo.md
+- Output to ${PATHS.TODO}
 </context>
 </delegate>`,
     argumentHint: '"complex task to plan"',

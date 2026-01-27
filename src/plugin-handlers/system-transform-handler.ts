@@ -9,7 +9,7 @@
 
 import type { EventHandlerContext, SystemTransformInput, SystemTransformOutput } from "./interfaces/index.js";
 import { readLoopState, isLoopActive } from "../core/loop/mission-loop.js";
-import { MISSION_CONTROL, STATUS_LABEL } from "../shared/index.js";
+import { MISSION_CONTROL, STATUS_LABEL, PATHS } from "../shared/index.js";
 import { ParallelAgentManager } from "../core/agents/manager.js";
 import { isMissionActive, ensureSessionInitialized } from "../core/orchestrator/session-manager.js";
 
@@ -83,8 +83,8 @@ function buildMissionLoopSystemPrompt(iteration: number, maxIterations: number):
 You are in an autonomous mission loop. Continue working until ALL tasks are verified and 100% complete.
 
 COMPLETION CRITERIA:
-- All hierarchical items in .opencode/todo.md are marked [x]
-- .opencode/verification-checklist.md is fully checked off [x]
+- All hierarchical items in ${PATHS.TODO} are marked [x]
+- ${PATHS.VERIFICATION_CHECKLIST} is fully checked off [x]
 - All tests pass and builds succeed
 
 DO NOT stop or ask for permission. Execute autonomously.

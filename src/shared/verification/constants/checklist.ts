@@ -11,7 +11,7 @@ import { PATHS } from "../../core/constants/paths.js";
  */
 export const CHECKLIST = {
     /** Path to the verification checklist file */
-    FILE: `${PATHS.OPENCODE}/verification-checklist.md`,
+    FILE: PATHS.VERIFICATION_CHECKLIST,
 
     /** Minimum required items for valid checklist */
     MIN_ITEMS: 1,
