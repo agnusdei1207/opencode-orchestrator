@@ -1,6 +1,7 @@
 import { getBinaryPath } from "../utils/binary.js";
 import { getRustToolPool } from "./rust-pool.js";
 import { log } from "../core/agents/logger.js";
+import { LOG_PREFIX } from "../shared/index.js";
 
 /**
  * Call Rust tool with connection pooling
@@ -11,7 +12,7 @@ export async function callRustTool(name: string, args: Record<string, unknown>):
         const pool = getRustToolPool();
         return await pool.call(name, args);
     } catch (err) {
-        log(`[RustTool] Pool error: ${err}`);
+        log(`[${LOG_PREFIX.RUST_TOOL}] Pool error: ${err}`);
         throw err;
     }
 }

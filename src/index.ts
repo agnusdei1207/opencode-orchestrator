@@ -20,10 +20,11 @@ import { initializeHooks } from "./hooks/index.js"; // Initialize Hooks
 import { PluginManager } from "./core/plugins/plugin-manager.js";
 import { TodoSyncService } from "./core/sync/todo-sync-service.js";
 import { CleanupScheduler } from "./core/cleanup/cleanup-scheduler.js";
-import { ShutdownManager } from "./core/lifecycle/shutdown-manager.js";
+import { ShutdownManager } from "./shared/lifecycle/index.js";
 import { backgroundTaskManager } from "./core/commands/manager.js";
 import { shutdownRustToolPool } from "./tools/rust-pool.js";
 import { registerAllTools } from "./tools/registry.js"; // Phase 2-C: Unified tool registry
+import { SHUTDOWN_HANDLERS } from "./shared/index.js";
 
 // Import modularized handlers
 import { createToolExecuteBeforeHandler } from "./plugin-handlers/tool-execute-pre-handler.js"; // Added import
@@ -84,15 +85,15 @@ const OrchestratorPlugin: Plugin = async (input) => {
 
     // Initialize Shutdown Manager (Phase 6 - Resource Safety)
     const shutdownManager = new ShutdownManager();
-    shutdownManager.register("TodoSyncService", () => todoSync.stop(), 10);
-    shutdownManager.register("CleanupScheduler", () => cleanupScheduler.stop(), 10);
-    shutdownManager.register("RustToolPool", async () => await shutdownRustToolPool(), 15);
-    shutdownManager.register("BackgroundTaskManager", async () => await backgroundTaskManager.shutdown(), 20);
-    shutdownManager.register("ParallelAgentManager", async () => {
+    shutdownManager.register(SHUTDOWN_HANDLERS.TODO_SYNC_SERVICE, () => todoSync.stop(), 10);
+    shutdownManager.register(SHUTDOWN_HANDLERS.CLEANUP_SCHEDULER, () => cleanupScheduler.stop(), 10);
+    shutdownManager.register(SHUTDOWN_HANDLERS.RUST_TOOL_POOL, async () => await shutdownRustToolPool(), 15);
+    shutdownManager.register(SHUTDOWN_HANDLERS.BACKGROUND_TASK_MANAGER, async () => await backgroundTaskManager.shutdown(), 20);
+    shutdownManager.register(SHUTDOWN_HANDLERS.PARALLEL_AGENT_MANAGER, async () => {
         // Release all sessions
         await parallelAgentManager.shutdown().catch(() => {});
     }, 30);
-    shutdownManager.register("PluginManager", async () => {
+    shutdownManager.register(SHUTDOWN_HANDLERS.PLUGIN_MANAGER, async () => {
         await pluginManager.shutdown().catch(() => {});
     }, 40);
 
