@@ -34,6 +34,11 @@ export interface CustomPlugin {
      * Initialization logic
      */
     init?: (context: PluginContext) => Promise<void>;
+
+    /**
+     * Cleanup logic (called on shutdown)
+     */
+    cleanup?: () => Promise<void>;
 }
 
 export interface PluginContext {

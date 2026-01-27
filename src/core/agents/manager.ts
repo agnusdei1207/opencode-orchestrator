@@ -15,7 +15,7 @@ import { ConcurrencyController } from "./concurrency.js";
 import { TaskStore } from "./task-store.js";
 import { log } from "./logger.js";
 import { formatDuration } from "./format.js";
-import type { ParallelTask } from "./interfaces/parallel-task.interface.js";
+import type { ParallelTask } from "./interfaces/index.js";
 import type { LaunchInput } from "./interfaces/launch-input.interface.js";
 import type { ResumeInput } from "./interfaces/resume-input.interface.js";
 
@@ -73,6 +73,12 @@ export class ParallelAgentManager {
 
         // Initialize SessionPool
         this.sessionPool = SessionPool.getInstance(client, directory);
+
+        // Enable work-stealing for all agent types (Phase 3-B)
+        this.concurrency.enableWorkStealing(AGENT_NAMES.PLANNER, 2);  // 2 workers for planning
+        this.concurrency.enableWorkStealing(AGENT_NAMES.WORKER, 8);   // 8 workers for parallel execution
+        this.concurrency.enableWorkStealing(AGENT_NAMES.REVIEWER, 4); // 4 workers for reviews
+        this.concurrency.enableWorkStealing(AGENT_NAMES.COMMANDER, 1); // 1 worker for command
 
         // Initialize cleaner first (needed by others)
         this.cleaner = new TaskCleaner(client, this.store, this.concurrency, this.sessionPool);
@@ -243,6 +249,15 @@ export class ParallelAgentManager {
         MemoryManager.getInstance().clearTaskMemory();
         // TerminalMonitor.getInstance().stop();
         import("../session/store.js").then(store => store.clearAll()).catch(() => { });
+    }
+
+    /**
+     * Shutdown - alias for cleanup, releases all resources
+     */
+    async shutdown(): Promise<void> {
+        this.cleanup();
+        // Release session pool
+        await this.sessionPool.shutdown().catch(() => {});
     }
 
     formatDuration = formatDuration;

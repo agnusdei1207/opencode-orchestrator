@@ -5,7 +5,10 @@
  */
 export class AsyncQueue<T> implements AsyncIterable<T> {
     private queue: T[] = [];
-    private resolvers: ((value: T) => void)[] = [];
+    private resolvers: Array<{
+        resolve: (value: T) => void;
+        reject: (error: Error) => void;
+    }> = [];
     private closed = false;
 
     /**
@@ -18,7 +21,7 @@ export class AsyncQueue<T> implements AsyncIterable<T> {
 
         const resolver = this.resolvers.shift();
         if (resolver) {
-            resolver(item);
+            resolver.resolve(item);
         } else {
             this.queue.push(item);
         }
@@ -36,7 +39,9 @@ export class AsyncQueue<T> implements AsyncIterable<T> {
             throw new Error("Queue is closed");
         }
 
-        return new Promise(resolve => this.resolvers.push(resolve));
+        return new Promise<T>((resolve, reject) => {
+            this.resolvers.push({ resolve, reject });
+        });
     }
 
     /**
@@ -66,7 +71,7 @@ export class AsyncQueue<T> implements AsyncIterable<T> {
     close(): void {
         this.closed = true;
         for (const resolver of this.resolvers) {
-            resolver(undefined as any);
+            resolver.reject(new Error("Queue is closed"));
         }
         this.resolvers = [];
     }

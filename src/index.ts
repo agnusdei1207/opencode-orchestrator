@@ -13,37 +13,17 @@ const { version: PLUGIN_VERSION } = require("../package.json");
 
 import type { Plugin } from "@opencode-ai/plugin";
 import { state } from "./core/orchestrator/index.js";
-import { callAgentTool } from "./tools/callAgent.js";
-import { createSlashcommandTool } from "./tools/slashCommand.js";
-import {
-    grepSearchTool,
-    globSearchTool,
-    mgrepTool,
-    sedReplaceTool,
-    diffTool,
-    jqTool,
-    httpTool,
-    fileStatsTool,
-    gitDiffTool,
-    gitStatusTool,
-} from "./tools/search.js";
-import {
-    runBackgroundTool,
-    checkBackgroundTool,
-    listBackgroundTool,
-    killBackgroundTool,
-} from "./tools/background-cmd/index.js";
 import { ParallelAgentManager } from "./core/agents/index.js";
 import { createAsyncAgentTools } from "./tools/parallel/index.js";
-import { astSearchTool, astReplaceTool } from "./tools/ast/index.js";
-import { webfetchTool, websearchTool, cacheDocsTool, codesearchTool } from "./tools/web/index.js";
-import { lspDiagnosticsTool } from "./tools/lsp/index.js";
-import { TOOL_NAMES } from "./shared/index.js";
 import * as Toast from "./core/notification/toast.js";
 import { initializeHooks } from "./hooks/index.js"; // Initialize Hooks
 import { PluginManager } from "./core/plugins/plugin-manager.js";
 import { TodoSyncService } from "./core/sync/todo-sync-service.js";
 import { CleanupScheduler } from "./core/cleanup/cleanup-scheduler.js";
+import { ShutdownManager } from "./core/lifecycle/shutdown-manager.js";
+import { backgroundTaskManager } from "./core/commands/manager.js";
+import { shutdownRustToolPool } from "./tools/rust-pool.js";
+import { registerAllTools } from "./tools/registry.js"; // Phase 2-C: Unified tool registry
 
 // Import modularized handlers
 import { createToolExecuteBeforeHandler } from "./plugin-handlers/tool-execute-pre-handler.js"; // Added import
@@ -102,6 +82,20 @@ const OrchestratorPlugin: Plugin = async (input) => {
     const cleanupScheduler = new CleanupScheduler(directory);
     cleanupScheduler.start();
 
+    // Initialize Shutdown Manager (Phase 6 - Resource Safety)
+    const shutdownManager = new ShutdownManager();
+    shutdownManager.register("TodoSyncService", () => todoSync.stop(), 10);
+    shutdownManager.register("CleanupScheduler", () => cleanupScheduler.stop(), 10);
+    shutdownManager.register("RustToolPool", async () => await shutdownRustToolPool(), 15);
+    shutdownManager.register("BackgroundTaskManager", async () => await backgroundTaskManager.shutdown(), 20);
+    shutdownManager.register("ParallelAgentManager", async () => {
+        // Release all sessions
+        await parallelAgentManager.shutdown().catch(() => {});
+    }, 30);
+    shutdownManager.register("PluginManager", async () => {
+        await pluginManager.shutdown().catch(() => {});
+    }, 40);
+
     // =========================================================================
     // Create Handler Contexts
     // =========================================================================
@@ -119,47 +113,9 @@ const OrchestratorPlugin: Plugin = async (input) => {
 
     return {
         // -----------------------------------------------------------------
-        // Tools we expose to the LLM
+        // Tools we expose to the LLM (Phase 2-C: Unified Registry)
         // -----------------------------------------------------------------
-        tool: {
-            [TOOL_NAMES.CALL_AGENT]: callAgentTool,
-            [TOOL_NAMES.SLASHCOMMAND]: createSlashcommandTool(),
-            // Search & Replace tools
-            [TOOL_NAMES.GREP_SEARCH]: grepSearchTool(directory),
-            [TOOL_NAMES.GLOB_SEARCH]: globSearchTool(directory),
-            [TOOL_NAMES.MGREP]: mgrepTool(directory),
-            [TOOL_NAMES.SED_REPLACE]: sedReplaceTool(directory),
-            // Diff & Compare tools
-            [TOOL_NAMES.DIFF]: diffTool(),
-            // JSON tools
-            [TOOL_NAMES.JQ]: jqTool(),
-            // HTTP tools
-            [TOOL_NAMES.HTTP]: httpTool(),
-            // File tools
-            [TOOL_NAMES.FILE_STATS]: fileStatsTool(directory),
-            // Git tools
-            [TOOL_NAMES.GIT_DIFF]: gitDiffTool(directory),
-            [TOOL_NAMES.GIT_STATUS]: gitStatusTool(directory),
-            // Background task tools
-            [TOOL_NAMES.RUN_BACKGROUND]: runBackgroundTool,
-            [TOOL_NAMES.CHECK_BACKGROUND]: checkBackgroundTool,
-            [TOOL_NAMES.LIST_BACKGROUND]: listBackgroundTool,
-            [TOOL_NAMES.KILL_BACKGROUND]: killBackgroundTool,
-            // Web tools
-            [TOOL_NAMES.WEBFETCH]: webfetchTool,
-            [TOOL_NAMES.WEBSEARCH]: websearchTool,
-            [TOOL_NAMES.CACHE_DOCS]: cacheDocsTool,
-            [TOOL_NAMES.CODESEARCH]: codesearchTool,
-            // LSP tools
-            [TOOL_NAMES.LSP_DIAGNOSTICS]: lspDiagnosticsTool(directory),
-            // AST tools
-            [TOOL_NAMES.AST_SEARCH]: astSearchTool(directory),
-            [TOOL_NAMES.AST_REPLACE]: astReplaceTool(directory),
-            // Async agent tools
-            ...asyncAgentTools,
-            // Dynamic tools from plugins
-            ...dynamicTools,
-        },
+        tool: registerAllTools(directory, asyncAgentTools, dynamicTools),
 
         // -----------------------------------------------------------------
         // Config hook - registers our commands and agents with OpenCode
@@ -217,6 +173,13 @@ const OrchestratorPlugin: Plugin = async (input) => {
         // experimental.chat.system.transform hook - dynamic system prompt injection
         // -----------------------------------------------------------------
         "experimental.chat.system.transform": createSystemTransformHandler(handlerContext),
+
+        // -----------------------------------------------------------------
+        // shutdown hook - cleanup resources on plugin unload
+        // -----------------------------------------------------------------
+        shutdown: async () => {
+            await shutdownManager.shutdown();
+        },
     };
 };
 

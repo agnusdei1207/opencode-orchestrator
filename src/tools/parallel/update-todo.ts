@@ -21,7 +21,7 @@ export const createUpdateTodoTool = (): ToolDefinition => tool({
 
         if (args.action === "update") {
             if (!args.status) return `${OUTPUT_LABEL.ERROR} 'status' is required for update action.`;
-            const success = await manager.updateItem(args.task, args.status as any);
+            const success = await manager.updateItem(args.task, args.status);
             return success
                 ? `${OUTPUT_LABEL.DONE} Updated task status: "${args.task}" -> ${args.status}`
                 : `${OUTPUT_LABEL.ERROR} Task not found: "${args.task}"`;
