@@ -20,4 +20,5 @@ export { TASK_STATUS, TODO_STATUS } from "./task/constants/task-status.js";
 export { SESSION_EVENTS } from "./session/index.js";
 export { TOOL_NAMES } from "./tool/index.js";
 export { AGENT_NAMES } from "./agent/index.js";
+export { COMMAND_NAMES } from "./command/index.js";
 export { PROMPT_TAGS } from "./prompt/index.js";

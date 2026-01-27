@@ -8,7 +8,7 @@ import { ResourceTracker } from "./core/resource/resource-tracker.js";
 import { ParallelAgentManager } from "./core/agents/index.js";
 import { log } from "./core/agents/logger.js";
 import { AGENTS } from "./agents/definitions.js";
-import { SESSION_EVENTS, TOOL_NAMES, AGENT_NAMES } from "./shared/index.js";
+import { SESSION_EVENTS, TOOL_NAMES, AGENT_NAMES, COMMAND_NAMES } from "./shared/index.js";
 
 // Tool imports
 import { callAgentTool } from "./tools/callAgent.js";
@@ -62,25 +62,25 @@ const OrchestratorPlugin: Plugin = async (input) => {
 
             config.agent = {
                 ...existingAgents,
-                "Commander": {
+                [AGENT_NAMES.COMMANDER]: {
                     description: "Autonomous orchestrator - executes until mission complete",
                     mode: "primary",
                     prompt: commanderDef?.systemPrompt || "",
                     color: "#ffea98",
                 },
-                "Planner": {
+                [AGENT_NAMES.PLANNER]: {
                     description: "Strategic planning and research specialist",
                     mode: "subagent",
                     hidden: true,
                     prompt: plannerDef?.systemPrompt || "",
                 },
-                "Worker": {
+                [AGENT_NAMES.WORKER]: {
                     description: "Implementation and documentation specialist",
                     mode: "subagent",
                     hidden: true,
                     prompt: workerDef?.systemPrompt || "",
                 },
-                "Reviewer": {
+                [AGENT_NAMES.REVIEWER]: {
                     description: "Module-level verification specialist",
                     mode: "subagent",
                     hidden: true,
@@ -90,14 +90,14 @@ const OrchestratorPlugin: Plugin = async (input) => {
 
             config.command = {
                 ...existingCommands,
-                "task": {
+                [COMMAND_NAMES.TASK]: {
                     description: "Execute task autonomously until complete",
-                    template: "/task \"$ARGUMENTS\"",
+                    template: `/${COMMAND_NAMES.TASK} "$ARGUMENTS"`,
                     argumentHint: "goal"
                 }
             };
 
-            config.default_agent = "Commander";
+            config.default_agent = AGENT_NAMES.COMMANDER;
         },
         // -----------------------------------------------------------------
         // Tools exposure
@@ -139,7 +139,8 @@ const OrchestratorPlugin: Plugin = async (input) => {
             if (!textPart || typeof textPart.text !== 'string') return;
 
             const text = textPart.text;
-            const match = text.match(/^\/task\s+["']?(.+?)["']?$/);
+            const taskPattern = new RegExp(`^\\/${COMMAND_NAMES.TASK}\\s+["']?(.+?)["']?$`);
+            const match = text.match(taskPattern);
 
             if (match) {
                 const prompt = match[1];
