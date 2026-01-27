@@ -10,7 +10,7 @@
  */
 
 import type { PluginInput } from "@opencode-ai/plugin";
-import { TASK_STATUS, PART_TYPES, MESSAGE_ROLES, WAL_ACTIONS, AGENT_NAMES } from "../../shared/index.js";
+import { TASK_STATUS, PART_TYPES, MESSAGE_ROLES, AGENT_NAMES } from "../../shared/index.js";
 import { ConcurrencyController } from "./concurrency.js";
 import { TaskStore } from "./task-store.js";
 import { log } from "./logger.js";
@@ -26,7 +26,6 @@ import { TaskPoller } from "./manager/task-poller.js";
 import { TaskCleaner } from "./manager/task-cleaner.js";
 import { EventHandler } from "./manager/event-handler.js";
 import { SessionPool } from "./session-pool.js";
-import { taskWAL } from "./persistence/task-wal.js";
 import { getTaskToastManager } from "../notification/task-toast-manager.js";
 import { progressNotifier } from "../progress/progress-notifier.js";
 import { MemoryManager } from "../memory/memory-manager.js";
@@ -196,8 +195,7 @@ export class ParallelAgentManager {
 
         this.cleaner.scheduleCleanup(taskId);
 
-        // Log to WAL
-        taskWAL.log(WAL_ACTIONS.DELETE, task).catch(() => { });
+
 
         progressNotifier.update();
         log(`Cancelled ${taskId}`);
@@ -283,8 +281,7 @@ export class ParallelAgentManager {
 
         progressNotifier.update();
 
-        // Log to WAL
-        taskWAL.log(WAL_ACTIONS.UPDATE, task).catch(() => { });
+
     }
 
     private async handleTaskComplete(task: ParallelTask): Promise<void> {
@@ -315,54 +312,8 @@ export class ParallelAgentManager {
     }
 
     private async recoverActiveTasks(): Promise<void> {
-        const tasksMap = await taskWAL.readAll();
-        if (tasksMap.size === 0) return;
-
-        const tasks = Array.from(tasksMap.values());
-        log(`Attempting to recover ${tasks.length} tasks from WAL in parallel...`);
-
-        let recoveredCount = 0;
-
-        // Recover tasks in parallel batches to avoid overloading the server connection
-        const chunks: ParallelTask[][] = [];
-        const chunkSize = 10;
-        for (let i = 0; i < tasks.length; i += chunkSize) {
-            chunks.push(tasks.slice(i, i + chunkSize));
-        }
-
-        for (const chunk of chunks) {
-            await Promise.all(chunk.map(async (task) => {
-                if (task.status === TASK_STATUS.RUNNING) {
-                    try {
-                        const status = await this.client.session.get({ path: { id: task.sessionID } });
-                        if (!status.error) {
-                            this.store.set(task.id, task);
-                            this.store.trackPending(task.parentSessionID, task.id);
-
-                            const toastManager = getTaskToastManager();
-                            if (toastManager) {
-                                toastManager.addTask({
-                                    id: task.id,
-                                    description: task.description,
-                                    agent: task.agent,
-                                    isBackground: true,
-                                    parentSessionID: task.parentSessionID,
-                                    sessionID: task.sessionID,
-                                });
-                            }
-                            recoveredCount++;
-                        }
-                    } catch {
-                        // Session gone
-                    }
-                }
-            }));
-        }
-
-        if (recoveredCount > 0) {
-            log(`Recovered ${recoveredCount} active tasks.`);
-            this.poller.start();
-        }
+        // WAL removed - no recovery needed
+        // Tasks will start fresh on restart
     }
 }
 

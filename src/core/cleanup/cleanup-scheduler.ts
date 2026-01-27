@@ -1,7 +1,7 @@
 
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { parallelAgentManager, taskWAL } from "../agents/index.js";
+import { parallelAgentManager } from "../agents/index.js";
 import * as DocumentCache from "../cache/document-cache.js";
 import { log } from "../agents/logger.js";
 import { TASK_STATUS } from "../../shared/index.js";
@@ -48,20 +48,7 @@ export class CleanupScheduler {
     }
 
     async compactWAL(): Promise<void> {
-        try {
-            const manager = parallelAgentManager.getInstance();
-            // Get all active tasks (RUNNING or PENDING) to preserve
-            // WAL stores transitions, but compacting means "Current Snapshot".
-            // TaskWAL.compact() expects generic active tasks list.
-
-            const activeTasks = manager.getAllTasks()
-                .filter(t => t.status === TASK_STATUS.RUNNING || t.status === TASK_STATUS.PENDING);
-
-            await taskWAL.compact(activeTasks);
-            // log(`[Cleanup] WAL compacted: ${activeTasks.length} active tasks preserved`);
-        } catch (error) {
-            log(`[Cleanup] Failed to compact WAL: ${error}`);
-        }
+        // WAL removed - no compaction needed
     }
 
     async cleanDocs(): Promise<void> {
