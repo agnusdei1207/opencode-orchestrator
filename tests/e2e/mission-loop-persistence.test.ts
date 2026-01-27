@@ -37,7 +37,8 @@ describe("Mission Loop Persistence E2E", () => {
         vi.useFakeTimers();
         cleanupSession(testSessionID);
         testDir = path.join(tmpdir(), `mission-persistence-test-${Date.now()}`);
-        fs.mkdirSync(path.join(testDir, ".opencode/mission"), { recursive: true });
+        fs.mkdirSync(testDir, { recursive: true });
+        fs.mkdirSync(path.join(testDir, ".opencode"), { recursive: true });
     });
 
     afterEach(() => {
@@ -51,7 +52,7 @@ describe("Mission Loop Persistence E2E", () => {
         startMissionLoop(testDir, testSessionID, "Test persistence", { maxIterations: 1 });
 
         // 2. Create an incomplete todo file
-        const todoPath = path.join(testDir, PATHS.TODO);
+        const todoPath = path.join(testDir, ".opencode", "todo.md");
         fs.writeFileSync(todoPath, "- [ ] Incomplete task\n", "utf-8");
 
         // Mock OpenCode client
@@ -102,10 +103,10 @@ describe("Mission Loop Persistence E2E", () => {
         } as any;
 
         // 3. NO incomplete todos, and must have at least one complete todo to "pass"
-        fs.writeFileSync(path.join(testDir, PATHS.TODO), "- [x] Done item\n", "utf-8");
+        fs.writeFileSync(path.join(testDir, ".opencode", "todo.md"), "- [x] Done item\n", "utf-8");
         // Ensure no sync issues
-        if (fs.existsSync(path.join(testDir, PATHS.SYNC_ISSUES))) {
-            fs.unlinkSync(path.join(testDir, PATHS.SYNC_ISSUES));
+        if (fs.existsSync(path.join(testDir, ".opencode", "sync-issues.md"))) {
+            fs.unlinkSync(path.join(testDir, ".opencode", "sync-issues.md"));
         }
 
         // 4. Trigger idle event

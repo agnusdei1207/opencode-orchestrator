@@ -11,7 +11,7 @@ import { readLoopState } from "../core/loop/mission-loop.js";
 import type { MissionLoopState } from "../shared/loop/interfaces/mission-loop.js";
 import type { EventHandlerContext, SessionCompactingInput, SessionCompactingOutput } from "./interfaces/index.js";
 import { ParallelAgentManager } from "../core/agents/manager.js";
-import { STATUS_LABEL, PATHS } from "../shared/index.js";
+import { STATUS_LABEL } from "../shared/index.js";
 
 // Re-export interfaces for external use
 export type { SessionCompactingInput, SessionCompactingOutput } from "./interfaces/index.js";
@@ -78,7 +78,7 @@ ACTIVE MISSION LOOP:
 - Started: ${loopState.startedAt}
 - Original Task: ${loopState.prompt.slice(0, 500)}${loopState.prompt.length > 500 ? "..." : ""}
 
-IMPORTANT: Continue this mission after compaction. Check ${PATHS.TODO} for progress.
+IMPORTANT: Continue this mission after compaction. Check .opencode/todo.md for progress.
 The mission is NOT complete until all hierarchical tasks are verified [x].
 </mission_context>`;
 }

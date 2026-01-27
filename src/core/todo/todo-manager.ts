@@ -5,8 +5,19 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import * as crypto from "node:crypto";
-import { PATHS, TODO_CONSTANTS, type TodoData, type TodoVersion } from "../../shared/index.js";
+import { PATHS, TODO_CONSTANTS } from "../../shared/index.js";
 import { log } from "../agents/logger.js";
+
+export interface TodoVersion {
+    version: number;
+    timestamp: number;
+    author: string;
+}
+
+export interface TodoData {
+    content: string;
+    version: TodoVersion;
+}
 
 export class TodoManager {
     private static _instance: TodoManager;
@@ -31,13 +42,8 @@ export class TodoManager {
     public setDirectory(dir: string): void {
         this.directory = dir;
         this.todoPath = path.join(this.directory, PATHS.TODO);
-        this.versionPath = path.join(this.directory, PATHS.TODO_VERSION);
-        this.historyPath = path.join(this.directory, PATHS.TODO_HISTORY);
-
-        const todoDir = path.dirname(this.todoPath);
-        if (!fs.existsSync(todoDir)) {
-            fs.mkdirSync(todoDir, { recursive: true });
-        }
+        this.versionPath = path.join(this.directory, ".opencode/todo.version.json");
+        this.historyPath = path.join(this.directory, ".opencode/archive/todo_history.jsonl");
 
         const archiveDir = path.dirname(this.historyPath);
         if (!fs.existsSync(archiveDir)) {
