@@ -1,15 +1,15 @@
 /**
  * update_todo Tool
  * 
- * Performs incremental updates to .opencode/todo.md
+ * Performs incremental updates to .opencode/mission/todo.md
  */
 
 import { tool, type ToolDefinition } from "@opencode-ai/plugin";
 import { TodoManager } from "../../core/todo/todo-manager.js";
-import { OUTPUT_LABEL, TODO_CONSTANTS } from "../../shared/index.js";
+import { OUTPUT_LABEL, TODO_CONSTANTS, PATHS } from "../../shared/index.js";
 
 export const createUpdateTodoTool = (): ToolDefinition => tool({
-    description: "Update the status of a task in .opencode/todo.md or add a sub-task. Use this for incremental updates instead of rewriting the whole file.",
+    description: `Update the status of a task in ${PATHS.TODO} or add a sub-task. Use this for incremental updates instead of rewriting the whole file.`,
     args: {
         action: tool.schema.enum(["update", "add"]).describe("Action to perform"),
         task: tool.schema.string().describe("Text content of the task to update or the parent task to add under"),

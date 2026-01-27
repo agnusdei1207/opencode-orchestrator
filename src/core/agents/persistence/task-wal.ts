@@ -22,7 +22,7 @@ export class TaskWAL {
     private initialized = false;
 
     constructor(customPath?: string) {
-        this.walPath = customPath || path.resolve(process.cwd(), ".opencode/archive/tasks/active_tasks.jsonl");
+        this.walPath = customPath || path.resolve(process.cwd(), PATHS.ACTIVE_TASKS_LOG);
     }
 
     async init(): Promise<void> {
