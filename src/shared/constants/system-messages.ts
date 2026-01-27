@@ -1,5 +1,4 @@
-import { MISSION_CONTROL } from "../loop/constants/mission-control.js";
-import { PATHS } from "../core/constants/paths.js";
+import { MISSION_CONTROL, PATHS } from "../index.js";
 
 /**
  * System Messages & Templates
