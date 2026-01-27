@@ -1,18 +1,15 @@
-/**
- * OpenCode Orchestrator Plugin
- *
- * This is the main entry point for the 4-Agent consolidated architecture.
- * Handlers are modularized in src/plugin-handlers/ for maintainability.
- *
- * The agents are: Commander, Planner, Worker, Reviewer
- */
-
 import { createRequire } from "node:module";
 const require = createRequire(import.meta.url);
 const { version: PLUGIN_VERSION } = require("../package.json");
 
-import type { Plugin } from "@opencode-ai/plugin";
-import { state } from "./core/orchestrator/index.js";
+import type { Plugin, Hooks } from "@opencode-ai/plugin";
+import { MissionController } from "./core/mission/mission-controller.js";
+import { ResourceTracker } from "./core/resource/resource-tracker.js";
+import { ParallelAgentManager } from "./core/agents/index.js";
+import { log } from "./core/agents/logger.js";
+import { SESSION_EVENTS, TOOL_NAMES } from "./shared/index.js";
+
+// Tool imports
 import { callAgentTool } from "./tools/callAgent.js";
 import { createSlashcommandTool } from "./tools/slashCommand.js";
 import {
@@ -33,194 +30,123 @@ import {
     listBackgroundTool,
     killBackgroundTool,
 } from "./tools/background-cmd/index.js";
-import { ParallelAgentManager } from "./core/agents/index.js";
 import { createAsyncAgentTools } from "./tools/parallel/index.js";
 import { astSearchTool, astReplaceTool } from "./tools/ast/index.js";
 import { webfetchTool, websearchTool, cacheDocsTool, codesearchTool } from "./tools/web/index.js";
 import { lspDiagnosticsTool } from "./tools/lsp/index.js";
-import { TOOL_NAMES } from "./shared/index.js";
-import * as Toast from "./core/notification/toast.js";
-import { initializeHooks } from "./hooks/index.js"; // Initialize Hooks
-import { PluginManager } from "./core/plugins/plugin-manager.js";
-import { TodoSyncService } from "./core/sync/todo-sync-service.js";
-import { CleanupScheduler } from "./core/cleanup/cleanup-scheduler.js";
-
-// Import modularized handlers
-import { createToolExecuteBeforeHandler } from "./plugin-handlers/tool-execute-pre-handler.js"; // Added import
-import {
-    createEventHandler,
-    createConfigHandler,
-    createChatMessageHandler,
-    createToolExecuteAfterHandler,
-    createAssistantDoneHandler,
-    createSessionCompactingHandler,
-    createSystemTransformHandler,
-    type SessionState,
-} from "./plugin-handlers/index.js";
-
-// ============================================================================
-// Plugin Definition
-// ============================================================================
 
 const OrchestratorPlugin: Plugin = async (input) => {
     const { directory, client } = input;
 
-    // Initialize Hooks System
-    initializeHooks();
-
-    // =========================================================================
-    // Initialize Core Systems
-    // =========================================================================
-
-    // Initialize toast system with OpenCode client for TUI display
-    Toast.initToastClient(client);
-
-    // Initialize task toast manager for consolidated task notifications
-    const taskToastManager = Toast.initTaskToastManager(client);
-
-    // Track active sessions - using event-based continuation (no step limits)
-    const sessions = new Map<string, SessionState>();
-
-    // Initialize parallel agent manager
+    // Initialize systems
+    const resourceTracker = ResourceTracker.getInstance();
     const parallelAgentManager = ParallelAgentManager.getInstance(client, directory);
     const asyncAgentTools = createAsyncAgentTools(parallelAgentManager, client);
 
-    // Initialize Plugin System
-    const pluginManager = PluginManager.getInstance();
-    await pluginManager.initialize(directory);
-    const dynamicTools = pluginManager.getDynamicTools();
+    // Active missions (Main Session ID -> Controller)
+    const missions = new Map<string, MissionController>();
 
-    // Connect task toast manager to concurrency controller for slot info
-    taskToastManager.setConcurrencyController(parallelAgentManager.getConcurrency());
-
-    // Initialize Todo Sync Service (Phase 1 Improvement)
-    const todoSync = new TodoSyncService(client, directory);
-    await todoSync.start();
-    taskToastManager.setTodoSync(todoSync);
-
-    // Initialize Cleanup Scheduler (Phase 1 Improvement)
-    const cleanupScheduler = new CleanupScheduler(directory);
-    cleanupScheduler.start();
-
-    // =========================================================================
-    // Create Handler Contexts
-    // =========================================================================
-
-    const handlerContext = {
-        client,
-        directory,
-        sessions,
-        state,
-    };
-
-    // =========================================================================
-    // Return Plugin Hooks
-    // =========================================================================
-
-    return {
+    const hooks: Hooks = {
         // -----------------------------------------------------------------
-        // Tools we expose to the LLM
+        // Tools exposure
         // -----------------------------------------------------------------
         tool: {
             [TOOL_NAMES.CALL_AGENT]: callAgentTool,
             [TOOL_NAMES.SLASHCOMMAND]: createSlashcommandTool(),
-            // Search & Replace tools
             [TOOL_NAMES.GREP_SEARCH]: grepSearchTool(directory),
             [TOOL_NAMES.GLOB_SEARCH]: globSearchTool(directory),
             [TOOL_NAMES.MGREP]: mgrepTool(directory),
             [TOOL_NAMES.SED_REPLACE]: sedReplaceTool(directory),
-            // Diff & Compare tools
             [TOOL_NAMES.DIFF]: diffTool(),
-            // JSON tools
             [TOOL_NAMES.JQ]: jqTool(),
-            // HTTP tools
             [TOOL_NAMES.HTTP]: httpTool(),
-            // File tools
             [TOOL_NAMES.FILE_STATS]: fileStatsTool(directory),
-            // Git tools
             [TOOL_NAMES.GIT_DIFF]: gitDiffTool(directory),
             [TOOL_NAMES.GIT_STATUS]: gitStatusTool(directory),
-            // Background task tools
             [TOOL_NAMES.RUN_BACKGROUND]: runBackgroundTool,
             [TOOL_NAMES.CHECK_BACKGROUND]: checkBackgroundTool,
             [TOOL_NAMES.LIST_BACKGROUND]: listBackgroundTool,
             [TOOL_NAMES.KILL_BACKGROUND]: killBackgroundTool,
-            // Web tools
             [TOOL_NAMES.WEBFETCH]: webfetchTool,
             [TOOL_NAMES.WEBSEARCH]: websearchTool,
             [TOOL_NAMES.CACHE_DOCS]: cacheDocsTool,
             [TOOL_NAMES.CODESEARCH]: codesearchTool,
-            // LSP tools
             [TOOL_NAMES.LSP_DIAGNOSTICS]: lspDiagnosticsTool(directory),
-            // AST tools
             [TOOL_NAMES.AST_SEARCH]: astSearchTool(directory),
             [TOOL_NAMES.AST_REPLACE]: astReplaceTool(directory),
-            // Async agent tools
             ...asyncAgentTools,
-            // Dynamic tools from plugins
-            ...dynamicTools,
         },
 
         // -----------------------------------------------------------------
-        // Config hook - registers our commands and agents with OpenCode
+        // chat.message hook: Intercept /task command
         // -----------------------------------------------------------------
-        config: createConfigHandler(),
+        "chat.message": async (msgInput, msgOutput) => {
+            const parts = msgOutput.parts;
+            // Find text part safely using any cast since the SDK types are complex
+            const textPart = parts.find(p => p.type === 'text') as any;
+            if (!textPart || typeof textPart.text !== 'string') return;
+
+            const text = textPart.text;
+            const match = text.match(/^\/task\s+"(.+)"$/);
+
+            if (match) {
+                const prompt = match[1];
+                const mission = new MissionController(input);
+                const sessionID = await mission.start(prompt);
+
+                missions.set(sessionID, mission);
+
+                // Transform the original message into the Commander initiation prompt
+                textPart.text = (mission as any).buildCommanderPrompt(prompt);
+                log(`[Orchestrator] Mission started for session ${sessionID.slice(0, 8)}`);
+            }
+        },
 
         // -----------------------------------------------------------------
-        // Event hook - handles OpenCode events
-        // -----------------------------------------------------------------
-        // -----------------------------------------------------------------
-        // Event hook - handles OpenCode events
+        // event hook: Handle loop continuation and cleanup
         // -----------------------------------------------------------------
         event: async (payload) => {
-            // Call the modular event handler
-            const result = await createEventHandler(handlerContext)(payload);
-
-            // Additional logic for Todo Sync
             const { event } = payload;
-            if (event.type === "session.created" && event.properties) {
-                const sessionID = (event.properties as any).sessionID || (event.properties as any).id || (event.properties as any).info?.sessionID;
+
+            // Pass to agent manager for session pool handling
+            parallelAgentManager.handleEvent(event as any);
+
+            // 1. Cleanup on session deletion
+            if (event.type === SESSION_EVENTS.DELETED) {
+                const sessionID = (event.properties as any)?.id || (event.properties as any)?.info?.id;
                 if (sessionID) {
-                    todoSync.registerSession(sessionID);
+                    await resourceTracker.releaseAllForSession(sessionID);
+                    missions.delete(sessionID);
                 }
             }
 
-            return result;
+            // 2. Loop continuation on session idle
+            if (event.type === SESSION_EVENTS.IDLE) {
+                const sessionID = (event.properties as any)?.sessionID || (event.properties as any)?.id;
+                const mission = missions.get(sessionID);
+
+                if (mission) {
+                    // Small delay to ensure all logs/todos are processed by the server
+                    setTimeout(async () => {
+                        const result = await mission.nextIteration();
+                        if (!result.continue) {
+                            missions.delete(sessionID);
+                            log(`[Orchestrator] Mission finished for ${sessionID.slice(0, 8)}: ${result.reason}`);
+                        }
+                    }, 1000);
+                }
+            }
         },
 
         // -----------------------------------------------------------------
-        // chat.message hook - intercepts commands and sets up sessions
+        // Safe tool execution before hook
         // -----------------------------------------------------------------
-        "chat.message": createChatMessageHandler(handlerContext),
-
-        // -----------------------------------------------------------------
-        // tool.execute.before hook - runs before any tool call
-        // -----------------------------------------------------------------
-        "tool.execute.before": createToolExecuteBeforeHandler(handlerContext),
-
-        // -----------------------------------------------------------------
-        // tool.execute.after hook - runs after any tool call completes
-        // -----------------------------------------------------------------
-        "tool.execute.after": createToolExecuteAfterHandler(handlerContext),
-
-        // -----------------------------------------------------------------
-        // assistant.done hook - runs when the LLM finishes responding
-        // -----------------------------------------------------------------
-        "assistant.done": createAssistantDoneHandler(handlerContext),
-
-        // -----------------------------------------------------------------
-        // experimental.session.compacting hook - preserves mission context during compaction
-        // -----------------------------------------------------------------
-        "experimental.session.compacting": createSessionCompactingHandler(handlerContext),
-
-        // -----------------------------------------------------------------
-        // experimental.chat.system.transform hook - dynamic system prompt injection
-        // -----------------------------------------------------------------
-        "experimental.chat.system.transform": createSystemTransformHandler(handlerContext),
+        "tool.execute.before": async (ctx, output) => {
+            // Block dangerous commands here if needed
+        }
     };
+
+    return hooks;
 };
 
-// NOTE: Do NOT export functions from main index.ts!
-// OpenCode treats ALL exports as plugin instances and calls them.
-// Only default export the plugin.
 export default OrchestratorPlugin;

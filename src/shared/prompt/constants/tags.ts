@@ -64,6 +64,7 @@ export const PROMPT_TAGS = {
     OUTPUT_FORMAT: { open: "<output_format>", close: "</output_format>" },
     // === Mission Loop ===
     MISSION_LOOP: { open: "<mission_loop>", close: "</mission_loop>" },
+    MISSION: { open: "<mission>", close: "</mission>" },
     TODO_CONTINUATION: { open: "<todo_continuation>", close: "</todo_continuation>" },
     AUTONOMOUS_MODE: { open: "<autonomous_mode>", close: "</autonomous_mode>" },
 } as const;
