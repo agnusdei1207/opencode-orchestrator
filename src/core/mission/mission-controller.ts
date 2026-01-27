@@ -65,7 +65,7 @@ export class MissionController {
 
         // 2. Build Commander prompt with system definition
         const commanderDef = AGENTS[AGENT_NAMES.COMMANDER];
-        const initialPrompt = this.buildCommanderPrompt(prompt, commanderDef.systemPrompt);
+        const initialPrompt = this.buildCommanderPrompt(prompt);
 
         // 3. Send initial prompt
         await this.client.session.prompt({
@@ -160,10 +160,11 @@ export class MissionController {
         return { continue: true, prompt: nextPrompt };
     }
 
-    private buildCommanderPrompt(objective: string, systemPrompt: string): string {
+    public buildCommanderPrompt(objective: string): string {
+        const commanderDef = AGENTS[AGENT_NAMES.COMMANDER];
         return `
 ${PROMPT_TAGS.SYSTEM.open}
-${systemPrompt}
+${commanderDef.systemPrompt}
 ${PROMPT_TAGS.SYSTEM.close}
 
 ${PROMPT_TAGS.MISSION.open}
@@ -179,7 +180,7 @@ ${PROMPT_TAGS.MISSION.close}
 Proceed with the first step (Analyze & Plan).`;
     }
 
-    private buildContinuationPrompt(pending: NativeTodo[], intervention?: string): string {
+    public buildContinuationPrompt(pending: NativeTodo[], intervention?: string): string {
         const progressHeader = `Iteration ${this.state!.iteration}/${this.state!.maxIterations}`;
 
         let prompt = `## 🔄 Mission Status: ${progressHeader}\n\n`;
