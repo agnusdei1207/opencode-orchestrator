@@ -8,8 +8,6 @@
  * - User cancellation detection
  */
 import type { AssistantDoneHook, ChatMessageHook, HookContext, HookResult } from "../types.js";
-import { rmSync, existsSync } from "node:fs";
-import { join } from "node:path";
 import { log } from "../../core/agents/logger.js";
 import {
     startMissionLoop,
@@ -19,7 +17,7 @@ import {
     readLoopState,
     writeLoopState,
 } from "../../core/loop/mission-loop.js";
-import { PROMPTS, COMMAND_NAMES, TOAST_VARIANTS, MISSION_CONTROL, PATHS } from "../../shared/index.js";
+import { PROMPTS, COMMAND_NAMES, TOAST_VARIANTS, MISSION_CONTROL } from "../../shared/index.js";
 import { STAGNATION_INTERVENTION } from "../../shared/constants/system-messages.js";
 import type { MissionLoopState } from "../../shared/loop/interfaces/mission-loop.js";
 import { HOOK_ACTIONS, HOOK_NAMES } from "../constants.js";
@@ -75,17 +73,6 @@ export class MissionControlHook implements AssistantDoneHook, ChatMessageHook {
         const { sessionID, sessions, directory } = ctx;
 
         log(MISSION_MESSAGES.START_LOG);
-
-        // 0. Cleanup Previous Mission State (Delete .opencode)
-        const opencodeDir = join(directory, PATHS.OPENCODE);
-        if (existsSync(opencodeDir)) {
-            try {
-                rmSync(opencodeDir, { recursive: true, force: true });
-                log(`[MissionLoop] Cleaned up previous state at ${opencodeDir}`);
-            } catch (error) {
-                log(`[MissionLoop] Failed to cleanup ${opencodeDir}: ${error}`);
-            }
-        }
 
         // 1. Initialize Session State (Local)
         ensureSessionInitialized(sessions, sessionID, directory);
@@ -205,19 +192,6 @@ export class MissionControlHook implements AssistantDoneHook, ChatMessageHook {
         log(MISSION_MESSAGES.COMPLETE_LOG + " " + buildVerificationSummary(verification));
         const cleared = clearLoopState(directory);
         parallelAgentManager.cleanup();
-
-        // Cleanup .opencode artifacts on completion
-        if (cleared) {
-            const opencodeDir = join(directory, PATHS.OPENCODE);
-            if (existsSync(opencodeDir)) {
-                try {
-                    rmSync(opencodeDir, { recursive: true, force: true });
-                    log(`[MissionLoop] Cleaned up final state at ${opencodeDir}`);
-                } catch (error) {
-                    log(`[MissionLoop] Failed to cleanup ${opencodeDir}: ${error}`);
-                }
-            }
-        }
 
         // Only show UI and send notification if we are the ones who cleared the state
         // This prevents duplicates if multiple handlers run simultaneously (e.g. Idle and Hook)
