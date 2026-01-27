@@ -18,4 +18,5 @@ export interface BackgroundTask {
     endTime?: number;
     timeout: number;
     process?: ChildProcess;
+    timeoutHandle?: NodeJS.Timeout;
 }

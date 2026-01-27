@@ -1,6 +1,6 @@
 /**
  * Enhanced Concurrency Controller
- * 
+ *
  * Queue-based rate limiting with:
  * - Priority queue (HIGH/NORMAL/LOW)
  * - Circuit breaker pattern
@@ -9,9 +9,12 @@
  */
 
 import { PARALLEL_TASK } from "../../shared/index.js";
-import type { ConcurrencyConfig } from "./interfaces/concurrency-config.interface.js";
+import type { ConcurrencyConfig } from "../../shared/agent/interfaces/concurrency-config.js";
+import { ConcurrencyToken } from "./concurrency-token.js";
+import { WorkStealingWorkerPool } from "../queue/worker-pool.js";
+import type { WorkItem } from "../queue/work-stealing-deque.js";
 
-export type { ConcurrencyConfig } from "./interfaces/concurrency-config.interface.js";
+export type { ConcurrencyConfig } from "../../shared/agent/interfaces/concurrency-config.js";
 
 export enum TaskPriority {
     HIGH = 0,
@@ -58,6 +61,9 @@ export class ConcurrencyController {
 
     // Resource awareness
     private readonly MAX_MEMORY_PERCENT = 80;    // Pause if memory > 80%
+
+    // Work-stealing
+    private workerPools: Map<string, WorkStealingWorkerPool<QueuedTask>> = new Map();
 
     constructor(config?: ConcurrencyConfig) {
         this.config = config ?? {};
@@ -316,6 +322,59 @@ export class ConcurrencyController {
         circuit.state = CircuitState.CLOSED;
         circuit.failureCount = 0;
         circuit.successCount = 0;
+    }
+
+    /**
+     * Acquire slot and return RAII token for automatic cleanup
+     * @param key - Concurrency key
+     * @param priority - Task priority
+     * @param autoReleaseMs - Auto-release timeout (default: 10 minutes)
+     * @returns ConcurrencyToken - Call .release() when done
+     */
+    async acquireToken(
+        key: string,
+        priority: TaskPriority = TaskPriority.NORMAL,
+        autoReleaseMs: number = 600_000
+    ): Promise<ConcurrencyToken> {
+        await this.acquire(key, priority);
+        return new ConcurrencyToken(this, key, autoReleaseMs);
+    }
+
+    /**
+     * Enable work-stealing for a concurrency key
+     * @param key - Concurrency key
+     * @param workerCount - Number of workers (default: 4)
+     */
+    enableWorkStealing(key: string, workerCount: number = 4): void {
+        if (this.workerPools.has(key)) {
+            return; // Already enabled
+        }
+
+        const pool = new WorkStealingWorkerPool<QueuedTask>(workerCount, async (workItem: WorkItem<QueuedTask>) => {
+            // Execute the queued task
+            workItem.task.resolve();
+        });
+
+        pool.start();
+        this.workerPools.set(key, pool);
+    }
+
+    /**
+     * Get work-stealing pool statistics
+     */
+    getWorkStealingStats(key: string) {
+        const pool = this.workerPools.get(key);
+        return pool ? pool.getStats() : null;
+    }
+
+    /**
+     * Shutdown - stops all worker pools
+     */
+    async shutdown(): Promise<void> {
+        for (const [key, pool] of this.workerPools.entries()) {
+            await pool.stop();
+        }
+        this.workerPools.clear();
     }
 }
 

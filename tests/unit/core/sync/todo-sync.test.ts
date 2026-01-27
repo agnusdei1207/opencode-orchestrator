@@ -67,7 +67,9 @@ describe("TodoSyncService", () => {
         expect(service.activeSessions.has("sess-1")).toBe(true);
     });
 
-    it("should sync updates to registered sessions", async () => {
+    it("should track task updates without calling session.todo", async () => {
+        // TodoSyncService now syncs via .opencode/todo.md file watching
+        // instead of calling session.todo() directly (read-only sync)
         service.registerSession("sess-1");
 
         const task = {
@@ -79,18 +81,18 @@ describe("TodoSyncService", () => {
             isBackground: true
         };
 
-        await service.updateTaskStatus(task);
+        service.updateTaskStatus(task);
 
-        expect(mockClient.session.todo).toHaveBeenCalledWith(expect.objectContaining({
-            path: { id: "sess-1" },
-            body: expect.objectContaining({
-                todos: expect.arrayContaining([
-                    expect.objectContaining({
-                        id: "task-task-1",
-                        status: "in_progress"
-                    })
-                ])
-            })
-        }));
+        // Verify task is tracked internally
+        const tasks = Array.from((service as any).taskTodos.values());
+        expect(tasks).toHaveLength(1);
+        expect(tasks[0]).toMatchObject({
+            id: "task-1",
+            description: "Test Task",
+            status: "running"
+        });
+
+        // session.todo() is no longer called (sync via file watch instead)
+        expect(mockClient.session.todo).not.toHaveBeenCalled();
     });
 });

@@ -99,4 +99,22 @@ export class PluginManager {
     public getDynamicTools(): Record<string, any> {
         return this.dynamicTools;
     }
+
+    /**
+     * Shutdown - cleanup all plugins
+     */
+    public async shutdown(): Promise<void> {
+        for (const [name, plugin] of this.plugins.entries()) {
+            try {
+                if (plugin.cleanup) {
+                    await plugin.cleanup();
+                }
+                log(`[PluginManager] Cleaned up plugin: ${name}`);
+            } catch (error) {
+                log(`[PluginManager] Error cleaning up plugin ${name}: ${error}`);
+            }
+        }
+        this.plugins.clear();
+        this.dynamicTools = {};
+    }
 }

@@ -71,6 +71,20 @@ class BackgroundTaskManager {
 
             task.process = proc;
 
+            // Cleanup function to remove all listeners
+            const cleanup = () => {
+                if (task.timeoutHandle) {
+                    clearTimeout(task.timeoutHandle);
+                    task.timeoutHandle = undefined;
+                }
+                proc.stdout?.removeAllListeners();
+                proc.stderr?.removeAllListeners();
+                proc.removeAllListeners();
+                proc.stdout?.unpipe();
+                proc.stderr?.unpipe();
+                task.process = undefined;
+            };
+
             proc.stdout?.on("data", (data: Buffer) => {
                 task.output += data.toString();
             });
@@ -83,7 +97,7 @@ class BackgroundTaskManager {
                 task.exitCode = code;
                 task.endTime = Date.now();
                 task.status = code === 0 ? STATUS_LABEL.DONE : STATUS_LABEL.ERROR;
-                task.process = undefined;
+                cleanup(); // GUARANTEED cleanup
                 this.debug(id, `Done (code=${code})`);
             });
 
@@ -91,14 +105,15 @@ class BackgroundTaskManager {
                 task.status = STATUS_LABEL.ERROR;
                 task.errorOutput += `\nProcess error: ${err.message}`;
                 task.endTime = Date.now();
-                task.process = undefined;
+                cleanup(); // GUARANTEED cleanup
             });
 
-            setTimeout(() => {
+            task.timeoutHandle = setTimeout(() => {
                 if (task.status === STATUS_LABEL.RUNNING && task.process) {
                     task.process.kill("SIGKILL");
                     task.status = STATUS_LABEL.TIMEOUT;
                     task.endTime = Date.now();
+                    cleanup(); // GUARANTEED cleanup
                     this.debug(id, "Timeout");
                 }
             }, timeout);
@@ -156,6 +171,26 @@ class BackgroundTaskManager {
 
     getStatusEmoji(status: BackgroundTaskStatus): string {
         return getStatusIndicator(status);
+    }
+
+    /**
+     * Shutdown - kills all running processes and clears tasks
+     */
+    async shutdown(): Promise<void> {
+        const running = this.getByStatus(STATUS_LABEL.RUNNING);
+        for (const task of running) {
+            if (task.process) {
+                try {
+                    task.process.kill("SIGTERM");
+                } catch (err) {
+                    // Process might already be dead
+                }
+            }
+            if (task.timeoutHandle) {
+                clearTimeout(task.timeoutHandle);
+            }
+        }
+        this.tasks.clear();
     }
 
 }
