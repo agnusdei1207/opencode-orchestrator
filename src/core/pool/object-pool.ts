@@ -5,15 +5,7 @@
  * Target: 80% GC reduction, 60% memory usage reduction
  */
 
-/**
- * Poolable interface - objects that can be pooled must implement this
- */
-export interface Poolable {
-    /**
-     * Reset the object to initial state for reuse
-     */
-    reset(): void;
-}
+import type { Poolable } from "../../shared/core/index.js";
 
 /**
  * Generic Object Pool

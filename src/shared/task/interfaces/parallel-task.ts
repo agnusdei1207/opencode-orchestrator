@@ -4,7 +4,7 @@
  */
 import type { ParallelTaskStatus } from "../types/index.js";
 import type { TaskProgress } from "./task-progress.js";
-import type { Poolable } from "../../../core/pool/object-pool.js";
+import type { Poolable } from "../../core/index.js";
 
 export interface ParallelTask extends Poolable {
     // Core identity

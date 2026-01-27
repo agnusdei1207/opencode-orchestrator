@@ -6,7 +6,6 @@
 
   [![MIT License](https://img.shields.io/badge/license-MIT-red.svg)](LICENSE)
   [![npm](https://img.shields.io/npm/v/opencode-orchestrator.svg)](https://www.npmjs.com/package/opencode-orchestrator)
-  [![Version](https://img.shields.io/badge/version-1.2.45-blue.svg)](https://github.com/agnusdei1207/opencode-orchestrator/releases/tag/v1.2.45)
 </div>
 
 ---

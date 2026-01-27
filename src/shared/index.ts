@@ -17,6 +17,9 @@ export * from "./message/index.js";
 export * from "./os/index.js";
 export * from "./verification/index.js";
 
+// Lifecycle exports
+export * from "./lifecycle/index.js";
+
 // Error handling
 export * from "./errors/index.js";
 

@@ -7,7 +7,7 @@ import * as path from "path";
 import { CustomPlugin, PluginContext } from "./interfaces.js";
 import { log } from "../agents/logger.js";
 import { HookRegistry } from "../../hooks/registry.js";
-import { PATHS } from "../../shared/index.js";
+import { PATHS, LOG_PREFIX } from "../../shared/index.js";
 
 export class PluginManager {
     private static instance: PluginManager;
@@ -46,7 +46,7 @@ export class PluginManager {
                 }
             }
         } catch (error) {
-            log(`[PluginManager] Error reading plugins directory: ${error}`);
+            log(`[${LOG_PREFIX.PLUGIN_MANAGER}] Error reading plugins directory: ${error}`);
         }
     }
 
@@ -57,11 +57,11 @@ export class PluginManager {
             const plugin: CustomPlugin = module.default || module;
 
             if (!plugin.name) {
-                log(`[PluginManager] Plugin at ${pluginPath} missing name, skipping.`);
+                log(`[${LOG_PREFIX.PLUGIN_MANAGER}] Plugin at ${pluginPath} missing name, skipping.`);
                 return;
             }
 
-            log(`[PluginManager] Loading plugin: ${plugin.name} (v${plugin.version})`);
+            log(`[${LOG_PREFIX.PLUGIN_MANAGER}] Loading plugin: ${plugin.name} (v${plugin.version})`);
 
             // Initialize plugin
             const context: PluginContext = { directory: this.directory };
@@ -73,7 +73,7 @@ export class PluginManager {
             if (plugin.tools) {
                 for (const [name, tool] of Object.entries(plugin.tools)) {
                     this.dynamicTools[name] = tool;
-                    log(`[PluginManager] Registered tool: ${name} from plugin ${plugin.name}`);
+                    log(`[${LOG_PREFIX.PLUGIN_MANAGER}] Registered tool: ${name} from plugin ${plugin.name}`);
                 }
             }
 
@@ -84,12 +84,12 @@ export class PluginManager {
                 if (plugin.hooks.postTool) registry.registerPostTool(plugin.hooks.postTool);
                 if (plugin.hooks.chat) registry.registerChat(plugin.hooks.chat);
                 if (plugin.hooks.done) registry.registerDone(plugin.hooks.done);
-                log(`[PluginManager] Registered hooks from plugin ${plugin.name}`);
+                log(`[${LOG_PREFIX.PLUGIN_MANAGER}] Registered hooks from plugin ${plugin.name}`);
             }
 
             this.plugins.set(plugin.name, plugin);
         } catch (error) {
-            log(`[PluginManager] Failed to load plugin ${pluginPath}: ${error}`);
+            log(`[${LOG_PREFIX.PLUGIN_MANAGER}] Failed to load plugin ${pluginPath}: ${error}`);
         }
     }
 
@@ -109,9 +109,9 @@ export class PluginManager {
                 if (plugin.cleanup) {
                     await plugin.cleanup();
                 }
-                log(`[PluginManager] Cleaned up plugin: ${name}`);
+                log(`[${LOG_PREFIX.PLUGIN_MANAGER}] Cleaned up plugin: ${name}`);
             } catch (error) {
-                log(`[PluginManager] Error cleaning up plugin ${name}: ${error}`);
+                log(`[${LOG_PREFIX.PLUGIN_MANAGER}] Error cleaning up plugin ${name}: ${error}`);
             }
         }
         this.plugins.clear();

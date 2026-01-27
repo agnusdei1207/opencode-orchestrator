@@ -10,6 +10,7 @@ import { spawn, ChildProcess } from "child_process";
 import { existsSync } from "fs";
 import { getBinaryPath } from "../utils/binary.js";
 import { log } from "../core/agents/logger.js";
+import { LOG_PREFIX } from "../shared/index.js";
 
 interface PooledProcess {
     proc: ChildProcess;
@@ -239,7 +240,7 @@ export class RustToolPool {
             }
 
             if (toRemove.length > 0) {
-                log(`[RustPool] Cleaned up ${toRemove.length} idle processes`);
+                log(`[${LOG_PREFIX.RUST_POOL}] Cleaned up ${toRemove.length} idle processes`);
             }
         }, 10_000);
 
@@ -247,7 +248,7 @@ export class RustToolPool {
     }
 
     /**
-     * Shutdown the pool
+     * Shutdown pool
      */
     async shutdown(): Promise<void> {
         this.shuttingDown = true;
@@ -266,7 +267,7 @@ export class RustToolPool {
         }
 
         this.processes = [];
-        log("[RustPool] Shutdown complete");
+        log(`[${LOG_PREFIX.RUST_POOL}] Shutdown complete`);
     }
 
     /**

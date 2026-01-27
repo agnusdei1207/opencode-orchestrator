@@ -10,6 +10,8 @@ export { LIMITS } from "./limits.js";
 export { WAL_ACTIONS } from "./wal-actions.js";
 export { PHASES } from "./phases.js";
 export { MEMORY_CONSTANTS, HOOK_NAMES, TODO_CONSTANTS, TUI_CONSTANTS } from "./memory-hooks.js";
+export { SHUTDOWN_HANDLERS } from "./lifecycle.js";
+export { LOG_PREFIX } from "./logging.js";
 export * from "./cli.js";
 
 
