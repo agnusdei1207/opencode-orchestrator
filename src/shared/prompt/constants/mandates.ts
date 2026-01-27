@@ -57,5 +57,5 @@ export const AUTONOMOUS_MANDATE = `
 1. **ZERO TOLERANCE**: Finishing with incomplete \`[ ]\` items is a FAILURE.
 2. **FORCED CONTINUATION**: If you stop prematurely, the system will inject a "CONTINUE" prompt and iteration count.
 3. **HIERARCHICAL PROOF**: You must provide evidence (tool output) for every \`[x]\` mark.
-4. **NO PERMISSION**: Do not ask "Should I continue?". The answer is always YES until \`${PATHS.TODO}\` is 100% checked.
+4. **NO PERMISSION**: Do not ask "Should I continue?". The answer is always YES until \`.opencode/todo.md\` is 100% checked.
 `;

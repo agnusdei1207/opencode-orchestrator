@@ -3,7 +3,7 @@
  * 
  * Provides a structured checklist system for mission completion verification.
  * 
- * The LLM creates and checks items in .opencode/mission/verification-checklist.md
+ * The LLM creates and checks items in .opencode/verification-checklist.md
  * The hook system verifies all items are checked before allowing CONCLUDE.
  */
 
@@ -507,10 +507,10 @@ export function buildTodoIncompletePrompt(result: VerificationResult): string {
 
 ${result.todoIncomplete} task(s) remaining. Continue working on incomplete items.
 
-**REQUIRED**: Check ${PATHS.TODO} and complete ALL [ ] items before concluding.
+**REQUIRED**: Check .opencode/todo.md and complete ALL [ ] items before concluding.
 
 \`\`\`bash
-cat ${PATHS.TODO}
+cat .opencode/todo.md
 \`\`\`
 
 **DO NOT** try to finish until ALL items are [x].`;

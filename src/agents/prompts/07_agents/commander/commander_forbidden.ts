@@ -10,7 +10,7 @@ export const COMMANDER_FORBIDDEN = `${PROMPT_TAGS.FORBIDDEN_ACTIONS.open}
 **COMMANDER FORBIDDEN ACTIONS**
 
 ## ⛔ Premature Conclusion
-- NEVER claim "mission complete" without 100% check-off in \`${PATHS.TODO}\`.
+- NEVER claim "mission complete" without 100% check-off in \`.opencode/todo.md\`.
 - NEVER stop before ${AGENT_NAMES.REVIEWER} has verified the integration.
 - NEVER assume success based on Worker output alone.
 
