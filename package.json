@@ -70,8 +70,8 @@
     "node": ">=24"
   },
   "dependencies": {
-    "@opencode-ai/plugin": "^1.1.35",
-    "@opencode-ai/sdk": "^1.1.35",
+    "@opencode-ai/plugin": "latest",
+    "@opencode-ai/sdk": "latest",
     "zod": "^4.3.6"
   },
   "devDependencies": {

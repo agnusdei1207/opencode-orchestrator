@@ -9,6 +9,7 @@ export * from "./types/index.js";
 export * from "./interfaces/index.js";
 
 // Classes
-export { ConcurrencyController } from "./concurrency.js";
+export { AdaptiveConcurrencyController } from "./adaptive-concurrency.js";
 export { ParallelAgentManager, parallelAgentManager } from "./manager.js";
-export { taskWAL } from "./persistence/task-wal.js";
+export { UnifiedTaskExecutor } from "./unified-task-executor.js";
+export { SessionPool } from "./session-pool.js";

@@ -17,14 +17,16 @@ import type {
     SessionPoolStats,
     ISessionPool,
 } from "./interfaces/session-pool.interface.js";
+import { ResourceTracker, ResourceType } from "../resource/resource-tracker.js";
 
 type OpencodeClient = PluginInput["client"];
 
 const DEFAULT_CONFIG: SessionPoolConfig = {
-    maxPoolSizePerAgent: 5,
-    idleTimeoutMs: 300_000, // 5 minutes
-    maxReuseCount: 10,
-    healthCheckIntervalMs: 60_000, // 1 minute
+    maxPoolSizePerAgent: 10,
+    idleTimeoutMs: 180_000, // 3 minutes
+    maxReuseCount: 20,
+    healthCheckIntervalMs: 30_000, // 30 seconds
+    globalMax: 30,
 };
 
 export class SessionPool implements ISessionPool {
@@ -109,6 +111,36 @@ export class SessionPool implements ISessionPool {
 
         // No available healthy session, create a new one
         this.stats.creationMisses++;
+        return this.createSession(agentName, parentSessionID, description);
+    }
+
+    /**
+     * Acquire a session immediately without waiting.
+     * Throws if global limit is reached.
+     */
+    async acquireImmediate(
+        agentName: string,
+        parentSessionID: string,
+        description: string
+    ): Promise<PooledSession> {
+        // First try pool
+        const poolKey = this.getPoolKey(agentName);
+        const agentPool = this.pool.get(poolKey) || [];
+        const candidate = agentPool.find(s => !s.inUse && s.reuseCount < this.config.maxReuseCount);
+
+        if (candidate) {
+            candidate.inUse = true;
+            candidate.lastUsedAt = new Date();
+            candidate.reuseCount++;
+            this.stats.reuseHits++;
+            return candidate;
+        }
+
+        // Check global limit
+        if (this.sessionsById.size >= this.config.globalMax) {
+            throw new Error(`Global session limit (${this.config.globalMax}) reached`);
+        }
+
         return this.createSession(agentName, parentSessionID, description);
     }
 
@@ -316,6 +348,17 @@ export class SessionPool implements ISessionPool {
         this.pool.set(poolKey, agentPool);
         this.sessionsById.set(session.id, session);
 
+        // Track in ResourceTracker for safety
+        ResourceTracker.getInstance().track({
+            id: session.id,
+            type: ResourceType.SESSION,
+            sessionID: parentSessionID,
+            createdAt: session.createdAt.getTime(),
+            cleanup: async () => {
+                await this.client.session.delete({ path: { id: session.id } }).catch(() => { });
+            }
+        });
+
         return session;
     }
 
@@ -337,6 +380,10 @@ export class SessionPool implements ISessionPool {
                 this.pool.delete(poolKey);
             }
         }
+
+        // Release from ResourceTracker (without triggering recursive cleanup)
+        // We're manually deleting it here
+        ResourceTracker.getInstance().release(sessionId).catch(() => { });
 
         // Delete from server
         try {

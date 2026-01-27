@@ -13,7 +13,6 @@
 import { tool, type ToolDefinition } from "@opencode-ai/plugin";
 import { ParallelAgentManager, type ParallelTask } from "../../core/agents/index.js";
 import { log } from "../../core/agents/logger.js";
-import { presets } from "../../shared/index.js";
 import {
     PARALLEL_TASK,
     PART_TYPES,
@@ -353,7 +352,6 @@ If your task is too complex, please:
                 });
                 const task = (Array.isArray(launchResult) ? launchResult[0] : launchResult) as ParallelTask;
 
-                presets.taskStarted(task.id, agent);
                 return `${OUTPUT_LABEL.SPAWNED} task: \`${task.id}\` (${agent})\n` +
                     `Session: \`${task.sessionID}\` (save for resume)`;
             } catch (error) {
