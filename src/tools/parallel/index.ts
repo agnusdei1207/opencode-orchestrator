@@ -9,7 +9,6 @@ import { createGetTaskResultTool } from "./get-task-result.js";
 import { createListTasksTool } from "./list-tasks.js";
 import { createCancelTaskTool } from "./cancel-task.js";
 import { createListAgentsTool } from "./list-agents.js";
-import { createShowMetricsTool } from "./show-metrics.js";
 import { TOOL_NAMES } from "../../shared/index.js";
 
 export { ParallelAgentManager as AsyncAgentManager } from "../../core/agents/index.js";
@@ -21,7 +20,5 @@ export function createAsyncAgentTools(manager: ParallelAgentManager, client?: un
         [TOOL_NAMES.LIST_TASKS]: createListTasksTool(manager),
         [TOOL_NAMES.CANCEL_TASK]: createCancelTaskTool(manager),
         [TOOL_NAMES.LIST_AGENTS]: createListAgentsTool(),
-        [TOOL_NAMES.SHOW_METRICS]: createShowMetricsTool(),
     };
 }
-

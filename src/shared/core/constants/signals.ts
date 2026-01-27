@@ -1,0 +1,25 @@
+/**
+ * Signals and Shared Constants
+ */
+
+export const VERIFICATION_SIGNALS = {
+    PASS: "PASS",
+    FAIL: "FAIL",
+    FINAL_PASS: "MISSION_COMPLETE_SUCCESS",
+    STAGNATED: "STAGNATED",
+};
+
+export const RECOVERY_LEVEL = {
+    RETRIABLE: "RETRIABLE",
+    FATAL: "FATAL",
+    CONTEXT_RESET: "CONTEXT_RESET",
+    DECOMPOSE: "DECOMPOSE",
+    RE_PLAN: "RE_PLAN",
+    ASK_USER: "ASK_USER",
+};
+
+export const RECOVERY_PRINCIPLE = {
+    FAIL_SAFE: "FAIL_SAFE",
+    FAIL_FAST: "FAIL_FAST",
+    GRACEFUL_DEGRADATION: "GRACEFUL_DEGRADATION",
+};
