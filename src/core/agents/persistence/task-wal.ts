@@ -5,7 +5,7 @@
  * WAL was removed to reduce I/O overhead and simplify architecture.
  */
 
-import type { ParallelTask } from "../interfaces/parallel-task.interface.js";
+import type { ParallelTask } from "../interfaces/index.js";
 
 export interface WALEntry {
     timestamp: string;

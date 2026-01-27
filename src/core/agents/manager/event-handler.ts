@@ -10,7 +10,7 @@ import { CONFIG } from "../config.js";
 import { log } from "../logger.js";
 import { formatDuration } from "../format.js";
 import { progressNotifier } from "../../progress/progress-notifier.js";
-import type { ParallelTask } from "../interfaces/parallel-task.interface.js";
+import type { ParallelTask } from "../interfaces/index.js";
 
 type OpencodeClient = PluginInput["client"];
 

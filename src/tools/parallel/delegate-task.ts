@@ -300,11 +300,11 @@ If your task is too complex, please:
                     sessionId: resume,
                     prompt,
                     parentSessionID: ctx.sessionID,
-                    agent, // Assuming agent is needed for resume context
-                    description, // Assuming description is needed for resume context
-                    mode: mode as any,
+                    agent,
+                    description,
+                    mode: mode as "normal" | "race" | "fractal" | undefined,
                     groupID,
-                    depth: parentDepth, // Preserve depth on resume
+                    depth: parentDepth,
                 };
                 const launchResult = await manager.launch(input);
                 const task = (Array.isArray(launchResult) ? launchResult[0] : launchResult) as ParallelTask;
@@ -347,7 +347,7 @@ If your task is too complex, please:
                 const launchResult = await manager.launch({
                     agent, description, prompt,
                     parentSessionID: ctx.sessionID,
-                    mode: mode as any,
+                    mode: mode as "normal" | "race" | "fractal" | undefined,
                     groupID,
                     depth: parentDepth,
                 });
