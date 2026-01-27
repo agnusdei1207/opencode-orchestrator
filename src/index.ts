@@ -7,7 +7,8 @@ import { MissionController } from "./core/mission/mission-controller.js";
 import { ResourceTracker } from "./core/resource/resource-tracker.js";
 import { ParallelAgentManager } from "./core/agents/index.js";
 import { log } from "./core/agents/logger.js";
-import { SESSION_EVENTS, TOOL_NAMES } from "./shared/index.js";
+import { AGENTS } from "./agents/definitions.js";
+import { SESSION_EVENTS, TOOL_NAMES, AGENT_NAMES } from "./shared/index.js";
 
 // Tool imports
 import { callAgentTool } from "./tools/callAgent.js";
@@ -48,6 +49,57 @@ const OrchestratorPlugin: Plugin = async (input) => {
 
     const hooks: Hooks = {
         // -----------------------------------------------------------------
+        // config hook: Register agents and commands with OpenCode
+        // -----------------------------------------------------------------
+        config: async (config: any) => {
+            const commanderDef = AGENTS[AGENT_NAMES.COMMANDER];
+            const plannerDef = AGENTS[AGENT_NAMES.PLANNER];
+            const workerDef = AGENTS[AGENT_NAMES.WORKER];
+            const reviewerDef = AGENTS[AGENT_NAMES.REVIEWER];
+
+            const existingAgents = config.agent || {};
+            const existingCommands = config.command || {};
+
+            config.agent = {
+                ...existingAgents,
+                "Commander": {
+                    description: "Autonomous orchestrator - executes until mission complete",
+                    mode: "primary",
+                    prompt: commanderDef?.systemPrompt || "",
+                    color: "#ffea98",
+                },
+                "Planner": {
+                    description: "Strategic planning and research specialist",
+                    mode: "subagent",
+                    hidden: true,
+                    prompt: plannerDef?.systemPrompt || "",
+                },
+                "Worker": {
+                    description: "Implementation and documentation specialist",
+                    mode: "subagent",
+                    hidden: true,
+                    prompt: workerDef?.systemPrompt || "",
+                },
+                "Reviewer": {
+                    description: "Module-level verification specialist",
+                    mode: "subagent",
+                    hidden: true,
+                    prompt: reviewerDef?.systemPrompt || "",
+                }
+            };
+
+            config.command = {
+                ...existingCommands,
+                "task": {
+                    description: "Execute task autonomously until complete",
+                    template: "/task \"$ARGUMENTS\"",
+                    argumentHint: "goal"
+                }
+            };
+
+            config.default_agent = "Commander";
+        },
+        // -----------------------------------------------------------------
         // Tools exposure
         // -----------------------------------------------------------------
         tool: {
@@ -87,7 +139,7 @@ const OrchestratorPlugin: Plugin = async (input) => {
             if (!textPart || typeof textPart.text !== 'string') return;
 
             const text = textPart.text;
-            const match = text.match(/^\/task\s+"(.+)"$/);
+            const match = text.match(/^\/task\s+["']?(.+?)["']?$/);
 
             if (match) {
                 const prompt = match[1];

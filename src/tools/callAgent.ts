@@ -23,6 +23,7 @@ ${PROMPT_TAGS.EXECUTION_RULES.close}`,
     args: {
         [PARALLEL_PARAMS.AGENT]: tool.schema
             .enum([
+                AGENT_NAMES.COMMANDER,
                 AGENT_NAMES.PLANNER,
                 AGENT_NAMES.WORKER,
                 AGENT_NAMES.REVIEWER,
