@@ -10,8 +10,7 @@ import { log } from "../logger.js";
 import { formatDuration } from "../format.js";
 import { presets } from "../../../shared/index.js";
 import type { ParallelTask } from "../interfaces/parallel-task.interface.js";
-import { TASK_STATUS, PART_TYPES, MESSAGE_ROLES, SESSION_STATUS, WAL_ACTIONS } from "../../../shared/index.js";
-import { taskWAL } from "../persistence/task-wal.js";
+import { TASK_STATUS, PART_TYPES, MESSAGE_ROLES, SESSION_STATUS } from "../../../shared/index.js";
 import { progressNotifier } from "../../progress/progress-notifier.js";
 
 type OpencodeClient = PluginInput["client"];
@@ -130,8 +129,7 @@ export class TaskPoller {
         await this.notifyParentIfAllComplete(task.parentSessionID);
         this.scheduleCleanup(task.id);
 
-        // Log to WAL
-        taskWAL.log(WAL_ACTIONS.COMPLETE, task).catch(() => { });
+
 
         // HPFA Trigger: Pipelined Review
         if (this.onTaskComplete) {

@@ -7,7 +7,7 @@
  */
 
 import type { PluginInput } from "@opencode-ai/plugin";
-import { TASK_STATUS, PART_TYPES, WAL_ACTIONS } from "../../../shared/index.js";
+import { TASK_STATUS, PART_TYPES } from "../../../shared/index.js";
 import { TaskStore } from "../task-store.js";
 import { ConcurrencyController } from "../concurrency.js";
 import { CONFIG } from "../config.js";
@@ -16,7 +16,6 @@ import { SessionPool } from "../session-pool.js";
 import { buildNotificationMessage, formatDuration } from "../format.js";
 import { getTaskToastManager, type TaskCompletionInfo } from "../../notification/task-toast-manager.js";
 import * as sessionStore from "../../session/store.js";
-import { taskWAL } from "../persistence/task-wal.js";
 
 type OpencodeClient = PluginInput["client"];
 
@@ -59,8 +58,7 @@ export class TaskCleaner {
             sessionStore.clear(task.sessionID);
             this.store.delete(taskId);
 
-            // Log to WAL
-            taskWAL.log(WAL_ACTIONS.DELETE, task).catch(() => { });
+
         }
         this.store.cleanEmptyNotifications();
     }
@@ -78,8 +76,7 @@ export class TaskCleaner {
             }
             this.store.delete(taskId);
 
-            // Log to WAL
-            if (task) taskWAL.log(WAL_ACTIONS.DELETE, task).catch(() => { });
+
 
             log(`Cleaned up ${taskId}`);
         }, CONFIG.CLEANUP_DELAY_MS);

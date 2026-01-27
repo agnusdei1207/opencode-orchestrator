@@ -8,7 +8,6 @@ import {
   TASK_STATUS,
   PART_TYPES,
   PARALLEL_TASK,
-  WAL_ACTIONS,
   TOOL_NAMES,
   AGENT_NAMES,
 } from "../../../shared/index.js";
@@ -18,7 +17,7 @@ import { presets } from "../../../shared/index.js";
 import { getTaskToastManager } from "../../notification/task-toast-manager.js";
 import type { ParallelTask } from "../interfaces/parallel-task.interface.js";
 import type { LaunchInput } from "../interfaces/launch-input.interface.js";
-import { taskWAL } from "../persistence/task-wal.js";
+
 import { SessionPool } from "../session-pool.js";
 import { handleError } from "../../recovery/auto-recovery.js";
 import type { ErrorContext } from "../../recovery/interfaces.js";
@@ -37,7 +36,7 @@ export class TaskLauncher {
     private sessionPool: SessionPool,
     private onTaskError: (taskId: string, error: unknown) => void,
     private startPolling: () => void,
-  ) {}
+  ) { }
 
   /**
    * Unified launch method - handles both single and multiple tasks efficiently.
@@ -117,7 +116,7 @@ export class TaskLauncher {
     // State tracking
     this.store.set(taskId, task);
     this.store.trackPending(input.parentSessionID, taskId);
-    taskWAL.log(WAL_ACTIONS.LAUNCH, task).catch(() => {});
+
 
     // Registry in Toast & UI
     const toastManager = getTaskToastManager();
@@ -151,7 +150,7 @@ export class TaskLauncher {
         task.status = TASK_STATUS.RUNNING;
         task.startedAt = new Date();
         this.store.set(task.id, task);
-        taskWAL.log(WAL_ACTIONS.LAUNCH, task).catch(() => {});
+        // WAL already logged in prepareTask - skip duplicate
 
         // 3. Fire prompt with timeout
         const agentDef = AgentRegistry.getInstance().getAgent(task.agent);

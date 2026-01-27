@@ -3,8 +3,7 @@
  */
 
 import type { PluginInput } from "@opencode-ai/plugin";
-import { TASK_STATUS, SESSION_EVENTS, WAL_ACTIONS } from "../../../shared/index.js";
-import { taskWAL } from "../persistence/task-wal.js";
+import { TASK_STATUS, SESSION_EVENTS } from "../../../shared/index.js";
 import { TaskStore } from "../task-store.js";
 import { ConcurrencyController } from "../concurrency.js";
 import { CONFIG } from "../config.js";
@@ -91,8 +90,7 @@ export class EventHandler {
         await this.notifyParentIfAllComplete(task.parentSessionID);
         this.scheduleCleanup(task.id);
 
-        // Log to WAL
-        taskWAL.log(WAL_ACTIONS.COMPLETE, task).catch(() => { });
+
 
         // HPFA Trigger: Pipelined Review
         if (this.onTaskComplete) {
@@ -125,8 +123,7 @@ export class EventHandler {
         this.store.clearNotificationsForTask(task.id);
         this.store.delete(task.id);
 
-        // Log to WAL
-        taskWAL.log(WAL_ACTIONS.DELETE, task).catch(() => { });
+
 
         progressNotifier.update();
         log(`Cleaned up deleted session task: ${task.id}`);
