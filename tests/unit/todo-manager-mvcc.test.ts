@@ -7,6 +7,7 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import * as os from "node:os";
 import { TodoManager } from "../../src/core/todo/todo-manager";
+import { PATHS } from "../../src/shared";
 
 describe("TodoManager (MVCC)", () => {
     let testDir: string;
@@ -14,8 +15,8 @@ describe("TodoManager (MVCC)", () => {
     beforeEach(() => {
         testDir = fs.mkdtempSync(path.join(os.tmpdir(), "todo-test-"));
         // Create initial todo file
-        fs.mkdirSync(path.join(testDir, ".opencode"), { recursive: true });
-        fs.writeFileSync(path.join(testDir, ".opencode/todo.md"), "# Initial TODO\n- [ ] Task 1");
+        fs.mkdirSync(path.join(testDir, ".opencode/mission"), { recursive: true });
+        fs.writeFileSync(path.join(testDir, PATHS.TODO), "# Initial TODO\n- [ ] Task 1");
     });
 
     afterEach(() => {

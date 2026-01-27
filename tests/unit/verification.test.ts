@@ -16,16 +16,16 @@ import {
     buildVerificationSummary,
     type VerificationResult
 } from "../../src/core/loop/verification.js";
+import { PATHS } from "../../src/shared/index.js";
 
 describe("Mission Verification", () => {
     let testDir: string;
-    let opencodeDir: string;
 
     beforeEach(() => {
         // Create temporary test directory
         testDir = join(tmpdir(), `test-verification-${Date.now()}`);
-        opencodeDir = join(testDir, ".opencode");
-        mkdirSync(opencodeDir, { recursive: true });
+        // Create necessary directories (mission, etc.)
+        mkdirSync(join(testDir, ".opencode/mission"), { recursive: true });
     });
 
     afterEach(() => {
@@ -44,7 +44,7 @@ describe("Mission Verification", () => {
 - [x] Task 2
 - [x] Task 3
 `;
-                writeFileSync(join(opencodeDir, "todo.md"), todoContent);
+                writeFileSync(join(testDir, PATHS.TODO), todoContent);
 
                 const result = verifyMissionCompletion(testDir);
 
@@ -60,7 +60,7 @@ describe("Mission Verification", () => {
 - [ ] Task 2
 - [x] Task 3
 `;
-                writeFileSync(join(opencodeDir, "todo.md"), todoContent);
+                writeFileSync(join(testDir, PATHS.TODO), todoContent);
 
                 const result = verifyMissionCompletion(testDir);
 
@@ -76,7 +76,7 @@ describe("Mission Verification", () => {
 - [X] Task 1
 - [x] Task 2
 `;
-                writeFileSync(join(opencodeDir, "todo.md"), todoContent);
+                writeFileSync(join(testDir, PATHS.TODO), todoContent);
 
                 const result = verifyMissionCompletion(testDir);
 
@@ -94,7 +94,7 @@ describe("Mission Verification", () => {
             });
 
             it("should fail when TODO file is empty", () => {
-                writeFileSync(join(opencodeDir, "todo.md"), "# TODO\n");
+                writeFileSync(join(testDir, PATHS.TODO), "# TODO\n");
 
                 const result = verifyMissionCompletion(testDir);
 
@@ -108,7 +108,7 @@ describe("Mission Verification", () => {
 * [x] Task 1
 * [ ] Task 2
 `;
-                writeFileSync(join(opencodeDir, "todo.md"), todoContent);
+                writeFileSync(join(testDir, PATHS.TODO), todoContent);
 
                 const result = verifyMissionCompletion(testDir);
 
@@ -119,7 +119,7 @@ describe("Mission Verification", () => {
 
         describe("Sync issues verification", () => {
             it("should pass when sync-issues.md doesn't exist", () => {
-                writeFileSync(join(opencodeDir, "todo.md"), "- [x] Done");
+                writeFileSync(join(testDir, PATHS.TODO), "- [x] Done");
 
                 const result = verifyMissionCompletion(testDir);
 
@@ -127,8 +127,8 @@ describe("Mission Verification", () => {
             });
 
             it("should pass when sync-issues.md is empty", () => {
-                writeFileSync(join(opencodeDir, "todo.md"), "- [x] Done");
-                writeFileSync(join(opencodeDir, "sync-issues.md"), "");
+                writeFileSync(join(testDir, PATHS.TODO), "- [x] Done");
+                writeFileSync(join(testDir, PATHS.SYNC_ISSUES), "");
 
                 const result = verifyMissionCompletion(testDir);
 
@@ -136,8 +136,8 @@ describe("Mission Verification", () => {
             });
 
             it("should pass when sync-issues.md only has header", () => {
-                writeFileSync(join(opencodeDir, "todo.md"), "- [x] Done");
-                writeFileSync(join(opencodeDir, "sync-issues.md"), "# Sync Issues\n");
+                writeFileSync(join(testDir, PATHS.TODO), "- [x] Done");
+                writeFileSync(join(testDir, PATHS.SYNC_ISSUES), "# Sync Issues\n");
 
                 const result = verifyMissionCompletion(testDir);
 
@@ -145,8 +145,8 @@ describe("Mission Verification", () => {
             });
 
             it("should fail when sync-issues.md has issues", () => {
-                writeFileSync(join(opencodeDir, "todo.md"), "- [x] Done");
-                writeFileSync(join(opencodeDir, "sync-issues.md"), `# Sync Issues
+                writeFileSync(join(testDir, PATHS.TODO), "- [x] Done");
+                writeFileSync(join(testDir, PATHS.SYNC_ISSUES), `# Sync Issues
 
 - TypeScript error in file.ts
 - Import conflict in module.ts
@@ -160,8 +160,8 @@ describe("Mission Verification", () => {
             });
 
             it("should detect ERROR keyword", () => {
-                writeFileSync(join(opencodeDir, "todo.md"), "- [x] Done");
-                writeFileSync(join(opencodeDir, "sync-issues.md"), "Build ERROR detected");
+                writeFileSync(join(testDir, PATHS.TODO), "- [x] Done");
+                writeFileSync(join(testDir, PATHS.SYNC_ISSUES), "Build ERROR detected");
 
                 const result = verifyMissionCompletion(testDir);
 
@@ -169,8 +169,8 @@ describe("Mission Verification", () => {
             });
 
             it("should detect FAIL keyword", () => {
-                writeFileSync(join(opencodeDir, "todo.md"), "- [x] Done");
-                writeFileSync(join(opencodeDir, "sync-issues.md"), "Tests FAIL");
+                writeFileSync(join(testDir, PATHS.TODO), "- [x] Done");
+                writeFileSync(join(testDir, PATHS.SYNC_ISSUES), "Tests FAIL");
 
                 const result = verifyMissionCompletion(testDir);
 
@@ -180,12 +180,12 @@ describe("Mission Verification", () => {
 
         describe("Overall verification", () => {
             it("should pass when all conditions met", () => {
-                writeFileSync(join(opencodeDir, "todo.md"), `# TODO
+                writeFileSync(join(testDir, PATHS.TODO), `# TODO
 
 - [x] Task 1
 - [x] Task 2
 `);
-                writeFileSync(join(opencodeDir, "sync-issues.md"), "# Sync Issues\n");
+                writeFileSync(join(testDir, PATHS.SYNC_ISSUES), "# Sync Issues\n");
 
                 const result = verifyMissionCompletion(testDir);
 
@@ -196,7 +196,7 @@ describe("Mission Verification", () => {
             });
 
             it("should fail when TODO incomplete even if no sync issues", () => {
-                writeFileSync(join(opencodeDir, "todo.md"), `# TODO
+                writeFileSync(join(testDir, PATHS.TODO), `# TODO
 
 - [x] Task 1
 - [ ] Task 2
@@ -210,8 +210,8 @@ describe("Mission Verification", () => {
             });
 
             it("should fail when sync issues exist even if TODO complete", () => {
-                writeFileSync(join(opencodeDir, "todo.md"), "- [x] Done");
-                writeFileSync(join(opencodeDir, "sync-issues.md"), "- Unresolved conflict");
+                writeFileSync(join(testDir, PATHS.TODO), "- [x] Done");
+                writeFileSync(join(testDir, PATHS.SYNC_ISSUES), "- Unresolved conflict");
 
                 const result = verifyMissionCompletion(testDir);
 
