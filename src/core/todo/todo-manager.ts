@@ -4,7 +4,6 @@
 
 import * as fs from "node:fs";
 import * as path from "node:path";
-import * as crypto from "node:crypto";
 import { PATHS, TODO_CONSTANTS } from "../../shared/index.js";
 import { log } from "../agents/logger.js";
 
@@ -221,14 +220,9 @@ export class TodoManager {
         return false;
     }
 
-    private async logChange(version: number, content: string, author: string) {
-        const entry = {
-            version,
-            timestamp: Date.now(),
-            author,
-            contentHash: crypto.createHash("sha256").update(content).digest("hex"),
-            size: content.length
-        };
-        await fs.promises.appendFile(this.historyPath, JSON.stringify(entry) + "\n", "utf-8");
+    // History logging disabled to reduce I/O
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    private async logChange(_version: number, _content: string, _author: string) {
+        // No-op: History logging disabled for performance
     }
 }

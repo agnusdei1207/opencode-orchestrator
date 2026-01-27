@@ -1,13 +1,13 @@
 /**
- * Task WAL (Write-Ahead Log)
+ * Task WAL (Write-Ahead Log) - Optimized for reduced I/O
  * 
- * Handles append-only logging of task state transitions for crash recovery.
+ * Uses buffered writes to minimize file I/O overhead.
+ * Only flushes on critical events or periodic intervals.
  */
 
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
-import { PATHS, WAL_ACTIONS } from "../../../shared/index.js";
-import { log } from "../logger.js";
+import { WAL_ACTIONS } from "../../../shared/index.js";
 import type { ParallelTask } from "../interfaces/parallel-task.interface.js";
 
 export interface WALEntry {
@@ -20,6 +20,10 @@ export interface WALEntry {
 export class TaskWAL {
     private walPath: string;
     private initialized = false;
+    private buffer: WALEntry[] = [];
+    private flushTimer: ReturnType<typeof setTimeout> | null = null;
+    private readonly FLUSH_INTERVAL = 5000; // Flush every 5 seconds
+    private readonly MAX_BUFFER_SIZE = 20; // Or when buffer exceeds 20 entries
 
     constructor(customPath?: string) {
         this.walPath = customPath || path.resolve(process.cwd(), ".opencode/archive/tasks/active_tasks.jsonl");
@@ -31,8 +35,8 @@ export class TaskWAL {
             const dir = path.dirname(this.walPath);
             await fs.mkdir(dir, { recursive: true });
             this.initialized = true;
-        } catch (error) {
-            log("Failed to initialize Task WAL directory:", error);
+        } catch {
+            // Silent fail - WAL is best effort
         }
     }
 
@@ -52,19 +56,52 @@ export class TaskWAL {
                 status: task.status,
                 startedAt: task.startedAt,
                 depth: task.depth,
-                prompt: action === WAL_ACTIONS.LAUNCH ? task.prompt : undefined, // Only log prompt on launch to save space
+                prompt: action === WAL_ACTIONS.LAUNCH ? task.prompt : undefined,
             },
         };
 
+        this.buffer.push(entry);
+
+        // Flush immediately on critical actions or when buffer is full
+        if (action === WAL_ACTIONS.LAUNCH || action === WAL_ACTIONS.DELETE || this.buffer.length >= this.MAX_BUFFER_SIZE) {
+            await this.flush();
+        } else {
+            this.scheduleFlush();
+        }
+    }
+
+    private scheduleFlush(): void {
+        if (this.flushTimer) return;
+        this.flushTimer = setTimeout(() => {
+            this.flush().catch(() => { });
+        }, this.FLUSH_INTERVAL);
+    }
+
+    async flush(): Promise<void> {
+        if (this.flushTimer) {
+            clearTimeout(this.flushTimer);
+            this.flushTimer = null;
+        }
+
+        if (this.buffer.length === 0) return;
+
+        const entries = this.buffer;
+        this.buffer = [];
+
         try {
-            await fs.appendFile(this.walPath, JSON.stringify(entry) + "\n");
-        } catch (error) {
-            // Best effort logging
+            const content = entries.map(e => JSON.stringify(e)).join("\n") + "\n";
+            await fs.appendFile(this.walPath, content);
+        } catch {
+            // Best effort - re-add to buffer on failure
+            this.buffer = [...entries, ...this.buffer];
         }
     }
 
     async readAll(): Promise<Map<string, ParallelTask>> {
         if (!this.initialized) await this.init();
+
+        // Flush any pending writes before reading
+        await this.flush();
 
         const tasks = new Map<string, ParallelTask>();
         try {
@@ -89,17 +126,27 @@ export class TaskWAL {
                 }
             }
         } catch (error) {
-            if ((error as any).code !== "ENOENT") {
-                log("Error reading Task WAL:", error);
+            if ((error as NodeJS.ErrnoException).code !== "ENOENT") {
+                // Silent fail
             }
         }
         return tasks;
     }
 
-    /**
-     * Compact the WAL by writing only the current active tasks
-     */
     async compact(activeTasks: ParallelTask[]): Promise<void> {
+        // Flush buffer first
+        await this.flush();
+
+        if (activeTasks.length === 0) {
+            // Clear WAL if no active tasks
+            try {
+                await fs.writeFile(this.walPath, "");
+            } catch {
+                // Silent fail
+            }
+            return;
+        }
+
         try {
             const tempPath = `${this.walPath}.tmp`;
             const content = activeTasks.map(task => JSON.stringify({
@@ -111,10 +158,11 @@ export class TaskWAL {
 
             await fs.writeFile(tempPath, content);
             await fs.rename(tempPath, this.walPath);
-        } catch (error) {
-            log("Failed to compact Task WAL:", error);
+        } catch {
+            // Silent fail
         }
     }
 }
 
 export const taskWAL = new TaskWAL();
+
