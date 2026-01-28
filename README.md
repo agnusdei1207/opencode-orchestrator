@@ -62,7 +62,28 @@ OpenCode Orchestrator utilizes a **Hub-and-Spoke Topology** with **Work-Stealing
 
 ---
 
-## 🛠️ Production-Grade Infrastructure (v1.2.45)
+## 🛠️ Core Capabilities
+
+### 🔒 Atomic MVCC State Synchronization
+The engine solves the "Concurrent TODO Update" problem using **Multi-Version Concurrency Control (MVCC) + Mutex**. Agents can safely mark tasks as complete in parallel without data loss or race conditions. Every state change is cryptographically hashed and logged for a complete audit trail.
+
+### 🧩 Advanced Hook Orchestration
+Execution flows are governed by a **Priority-Phase Hook Registry**. Hooks (Safety, UI, Protocol) are grouped into phases (`early`, `normal`, `late`) and executed using a **Topological Sort** to handle complex dependencies automatically, ensuring a predictable and stable environment.
+
+### 🛡️ Autonomous Recovery
+- **Self-healing loops** with adaptive stagnation detection
+- **Proactive Agency**: Smart monitoring that audits logs and plans ahead during background tasks
+- **Auto-retry with backoff**: Exponential backoff for transient failures
+
+### 🎯 State-Level Session Isolation
+Reused sessions in the **SessionPool** are explicitly reset using server-side compaction triggered by health monitors. This ensures that previous task context (old error messages, stale file references) never leaks into new tasks, maintaining 100% implementation integrity.
+
+### 🚀 Zero-Payload Turbo Mode
+Leverages `system.transform` to unshift massive agent instruction sets on the server side. This reduces initial message payloads by **90%+**, slashing latency and preventing context fragmentation during long autonomous loops.
+
+---
+
+## 🛠️ Infrastructure & Reliability
 
 ### 🔒 Resource Safety & Reliability
 - **RAII Pattern (ConcurrencyToken)**: Guaranteed resource cleanup with zero leaks
@@ -94,34 +115,6 @@ OpenCode Orchestrator utilizes a **Hub-and-Spoke Topology** with **Work-Stealing
 - **Resource Pressure Detection**: Rejects low-priority tasks when memory > 80%
 - **Terminal Node Guard**: Prevents infinite recursion (depth limit enforcement)
 - **Auto-Scaling**: Concurrency slots adjust based on success/failure rate
-
-### 📦 Safe Installation
-- **Never Overwrites**: Always merges with existing config
-- **Automatic Backups**: Before every modification (keeps last 5)
-- **Write Verification**: Ensures correctness after every change
-- **Automatic Rollback**: Restores from backup on any failure
-- **Cross-Platform**: Windows (native, Git Bash, WSL), macOS, Linux
-
----
-
-## 🛠️ Core Capabilities
-
-### ️ Atomic MVCC State Synchronization
-The engine solves the "Concurrent TODO Update" problem using **Multi-Version Concurrency Control (MVCC) + Mutex**. Agents can safely mark tasks as complete in parallel without data loss or race conditions. Every state change is cryptographically hashed and logged for a complete audit trail.
-
-### 🧩 Advanced Hook Orchestration
-Execution flows are governed by a **Priority-Phase Hook Registry**. Hooks (Safety, UI, Protocol) are grouped into phases (`early`, `normal`, `late`) and executed using a **Topological Sort** to handle complex dependencies automatically, ensuring a predictable and stable environment.
-
-### ️ Autonomous Recovery
-- **Self-healing loops** with adaptive stagnation detection
-- **Proactive Agency**: Smart monitoring that audits logs and plans ahead during background tasks
-- **Auto-retry with backoff**: Exponential backoff for transient failures
-
-### ️ State-Level Session Isolation
-Reused sessions in the **SessionPool** are explicitly reset using server-side compaction triggered by health monitors. This ensures that previous task context (old error messages, stale file references) never leaks into new tasks, maintaining 100% implementation integrity.
-
-### 🚀 Zero-Payload Turbo Mode
-Leverages `system.transform` to unshift massive agent instruction sets on the server side. This reduces initial message payloads by **90%+**, slashing latency and preventing context fragmentation during long autonomous loops.
 
 ---
 
@@ -209,8 +202,9 @@ Runtime agent configuration is strictly validated using **Zod schemas**, ensurin
 
 ---
 
-## 🔧 Installation Notes
+## 🔧 Installation & Configuration
 
+### Safe Installation
 The installation process is **production-safe** with multiple protection layers:
 
 1. ✅ **Never overwrites** - always merges with existing config
@@ -218,9 +212,11 @@ The installation process is **production-safe** with multiple protection layers:
 3. ✅ **Atomic writes** - temp file + rename (OS-level atomic)
 4. ✅ **Write verification** - ensures correctness after every change
 5. ✅ **Automatic rollback** - restores from backup on any failure
-6. ✅ **Cross-platform** - Windows/macOS/Linux, Git Bash/WSL compatible
+6. ✅ **Cross-platform** - Windows (native, Git Bash, WSL), macOS, Linux
 
-Logs: `/tmp/opencode-orchestrator.log` (Unix) or `%TEMP%\opencode-orchestrator.log` (Windows)
+### Configuration Logs
+- Unix: `/tmp/opencode-orchestrator.log`
+- Windows: `%TEMP%\opencode-orchestrator.log`
 
 ---
 
