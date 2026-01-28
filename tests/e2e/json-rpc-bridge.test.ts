@@ -22,7 +22,6 @@ describe("JSON-RPC Bridge (Rust <-> TS)", () => {
 
     it("should respond to list_agents correctly via JSON-RPC and write logs to stderr", async () => {
         if (!existsSync(binaryPath)) {
-            console.warn(`Skipping bridge test: Binary not found at ${binaryPath}`);
             return;
         }
 

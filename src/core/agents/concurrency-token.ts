@@ -19,7 +19,6 @@ export class ConcurrencyToken {
         // Auto-release after timeout as safety net
         this.autoReleaseTimer = setTimeout(() => {
             if (!this.released) {
-                console.warn(`[ConcurrencyToken] Auto-releasing ${key} after ${autoReleaseMs}ms`);
                 this.release();
             }
         }, autoReleaseMs);
