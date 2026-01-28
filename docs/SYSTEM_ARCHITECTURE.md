@@ -3,7 +3,6 @@
 ## Overview
 OpenCode Orchestrator is a production-grade plugin for OpenCode that implements a **Multi-Agent Architecture** with advanced concurrency control, resource safety, and performance optimizations. The system transforms a single user prompt into a coordinated effort between Commander, Planner, Worker, and Reviewer agents.
 
-**Version**: 1.2.45
 **Status**: Production Ready
 
 ---
@@ -195,7 +194,7 @@ In-memory task state management.
 - String interning for memory efficiency
 
 #### 4.3 WAL (Write-Ahead Log)
-Removed in v1.2.42 for performance (task recovery not critical).
+Removed for performance (task recovery not critical).
 
 ---
 
@@ -535,7 +534,7 @@ DEBUG=opencode-orchestrator npm start
 
 ## Summary
 
-OpenCode Orchestrator v1.2.45 is a **production-ready** multi-agent orchestration engine with:
+OpenCode Orchestrator is a **production-ready** multi-agent orchestration engine with:
 
 - ✅ **Zero Resource Leaks**: RAII pattern + graceful shutdown
 - ✅ **High Performance**: Work-stealing + memory pooling + session reuse

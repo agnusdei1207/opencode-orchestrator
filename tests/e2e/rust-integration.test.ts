@@ -64,7 +64,6 @@ describe("Rust Integration", () => {
     describe("CLI execution", () => {
         it("should execute --help if binary exists", () => {
             if (!binaryPath) {
-                console.log("⚠️ Skipping: Rust binary not built (run 'cargo build' first)");
                 return;
             }
 
@@ -78,7 +77,6 @@ describe("Rust Integration", () => {
 
         it("should execute --version if binary exists", () => {
             if (!binaryPath) {
-                console.log("⚠️ Skipping: Rust binary not built");
                 return;
             }
 
