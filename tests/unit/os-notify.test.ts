@@ -29,6 +29,15 @@ vi.mock("node:child_process", () => ({
     }),
 }));
 
+// Mock node:fs to prevent isWSL() from reading /proc/version in test environment.
+// This ensures notify-send tests pass in both WSL and non-WSL CI environments.
+vi.mock("node:fs", () => ({
+    readFileSync: vi.fn((path: string) => {
+        if (path === "/proc/version") throw new Error("mocked");
+        return "";
+    }),
+}));
+
 // Mock platform-resolver
 const mockResolveCommandPath = vi.fn();
 vi.mock("../../src/core/notification/os-notify/platform-resolver", () => ({
@@ -126,12 +135,34 @@ describe("os-notify/notifier", () => {
         expect(mockExec).toHaveBeenCalledWith(expect.stringContaining('display notification "Message"'));
     });
 
-    it("should use notify-send for Linux", async () => {
+    it("should use notify-send for Linux (non-WSL)", async () => {
+        // WSL env vars must be unset so isWSL() returns false
+        const origWSL_DISTRO = process.env.WSL_DISTRO_NAME;
+        const origWSLENV = process.env.WSLENV;
+        delete process.env.WSL_DISTRO_NAME;
+        delete process.env.WSLENV;
+
         const { sendNotification } = await import("../../src/core/notification/os-notify/notifier");
         mockResolveCommandPath.mockResolvedValue("/usr/bin/notify-send");
 
         await sendNotification(PLATFORM.LINUX, "Title", "Msg");
         expect(mockExec).toHaveBeenCalledWith(expect.stringContaining('/usr/bin/notify-send "Title" "Msg"'));
+
+        // Restore
+        if (origWSL_DISTRO !== undefined) process.env.WSL_DISTRO_NAME = origWSL_DISTRO;
+        if (origWSLENV !== undefined) process.env.WSLENV = origWSLENV;
+    });
+
+    it("should skip notify-send in WSL2 environments", async () => {
+        process.env.WSL_DISTRO_NAME = "Debian";
+        const { sendNotification } = await import("../../src/core/notification/os-notify/notifier");
+        mockResolveCommandPath.mockResolvedValue("/usr/bin/notify-send");
+
+        await sendNotification(PLATFORM.LINUX, "Title", "Msg");
+        // No exec should have been called — WSL2 skips notify-send entirely
+        expect(mockExec).not.toHaveBeenCalled();
+
+        delete process.env.WSL_DISTRO_NAME;
     });
 
     it("should use powershell for Windows Toast", async () => {

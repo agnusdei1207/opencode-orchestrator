@@ -74,7 +74,7 @@ $Toast = [Windows.UI.Notifications.ToastNotification]::new($SerializedXml)
 $Notifier = [Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier('OpenCode Orchestrator')
 $Notifier.Show($Toast)
 `.trim().replace(/\n/g, "; ");
-    await execAsync(`${ps} -Command "${script}"`);
+    await execAsync(`${ps} -Command "${script}" >NUL 2>NUL`);
 }
 
 export async function sendNotification(platform: Platform, title: string, message: string): Promise<void> {
