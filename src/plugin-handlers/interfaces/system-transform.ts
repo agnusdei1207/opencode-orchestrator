@@ -6,8 +6,8 @@
  * Input for system transform hook
  */
 export interface SystemTransformInput {
-    /** Session ID for the chat */
-    sessionID: string;
+    /** Session ID for the chat (optional per opencode Plugin type) */
+    sessionID?: string;
 }
 
 /**

@@ -25,6 +25,9 @@ export function createSystemTransformHandler(ctx: EventHandlerContext) {
     return async (input: SystemTransformInput, output: SystemTransformOutput): Promise<void> => {
         const { sessionID } = input;
 
+        // sessionID may be undefined in some opencode versions — skip safely
+        if (!sessionID) return;
+
         // Check if this is an orchestrated session
         const loopState = readLoopState(directory);
         const isActiveLoop = isMissionActive(sessionID, directory) || (loopState?.active && loopState?.sessionID === sessionID);

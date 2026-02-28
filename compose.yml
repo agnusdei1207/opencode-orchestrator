@@ -3,6 +3,8 @@ services:
     build: .
     image: orchestrator:latest
 
+  # ── Rust binary build (macOS host에 cargo 없을 때) ──────────────────────
+  # Usage: docker compose run --rm dev
   dev:
     image: rust:1.92-bookworm
     working_dir: /app
@@ -13,9 +15,32 @@ services:
     command: >
       sh -c "
         cargo build --release &&
-        echo 'Build complete: target/release/orchestrator'
+        mkdir -p bin &&
+        cp target/release/orchestrator bin/orchestrator-linux-x64 &&
+        echo 'Rust build complete: bin/orchestrator-linux-x64'
       "
 
+  # ── Rust linux-arm64 build ──────────────────────────────────────────────
+  # Usage: docker compose run --rm rust-arm64
+  rust-arm64:
+    image: rust:1.92-bookworm
+    working_dir: /app
+    volumes:
+      - .:/app
+      - cargo-cache:/usr/local/cargo/registry
+      - target-cache:/app/target
+    command: >
+      sh -c "
+        rustup target add aarch64-unknown-linux-gnu &&
+        apt-get update -q && apt-get install -y -q gcc-aarch64-linux-gnu &&
+        CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc
+        cargo build --release --target aarch64-unknown-linux-gnu &&
+        mkdir -p bin &&
+        cp target/aarch64-unknown-linux-gnu/release/orchestrator bin/orchestrator-linux-arm64 &&
+        echo 'arm64 build complete: bin/orchestrator-linux-arm64'
+      "
+
+  # ── Windows cross-compile ───────────────────────────────────────────────
   win-builder:
     build:
       context: .
@@ -24,8 +49,15 @@ services:
       - .:/app
       - cargo-cache:/usr/local/cargo/registry
       - target-cache:/app/target
-    command: cargo build --release --target x86_64-pc-windows-gnu
+    command: >
+      sh -c "
+        cargo build --release --target x86_64-pc-windows-gnu &&
+        mkdir -p bin &&
+        cp target/x86_64-pc-windows-gnu/release/orchestrator.exe bin/orchestrator-windows-x64.exe &&
+        echo 'Windows build complete: bin/orchestrator-windows-x64.exe'
+      "
 
+  # ── Rust unit tests ─────────────────────────────────────────────────────
   test:
     image: rust:1.92-bookworm
     working_dir: /app
@@ -35,6 +67,36 @@ services:
       - target-cache:/app/target
     command: cargo test
 
+  # ── npm release:patch — full pipeline inside Docker ────────────────────
+  # Node build은 이미 호스트에서 성공하므로 버전 범프 + publish만 실행
+  # Usage: NPM_TOKEN=xxx docker compose run --rm npm-release
+  npm-release:
+    image: node:24-bookworm-slim
+    working_dir: /app
+    volumes:
+      - .:/app
+      - npm-cache:/root/.npm
+    environment:
+      - NODE_ENV=development
+      - NPM_TOKEN=${NPM_TOKEN:-}
+      - GIT_AUTHOR_NAME=${GIT_AUTHOR_NAME:-pf}
+      - GIT_AUTHOR_EMAIL=${GIT_AUTHOR_EMAIL:-pf@local}
+      - GIT_COMMITTER_NAME=${GIT_AUTHOR_NAME:-pf}
+      - GIT_COMMITTER_EMAIL=${GIT_AUTHOR_EMAIL:-pf@local}
+    command: >
+      sh -c "
+        apt-get update -q && apt-get install -y -q git &&
+        git config --global --add safe.directory /app &&
+        git config --global user.name \"$${GIT_AUTHOR_NAME:-pf}\" &&
+        git config --global user.email \"$${GIT_AUTHOR_EMAIL:-pf@local}\" &&
+        npm ci &&
+        npm run build &&
+        npm version patch &&
+        git push --follow-tags &&
+        npm publish --access public
+      "
+
 volumes:
   cargo-cache:
   target-cache:
+  npm-cache:
