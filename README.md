@@ -1,8 +1,3 @@
-<div align="center">
-
-> 🔐 **Also by the same author** — [**pentesting**](https://www.npmjs.com/package/pentesting): Autonomous Penetration Testing AI Agent CLI · `npm install -g pentesting` · [Homepage](https://pentesting.agnusdei.kr)
-
-</div>
 
 ---
 
