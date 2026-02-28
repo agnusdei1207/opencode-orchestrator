@@ -23,7 +23,7 @@ async function playDarwin(soundPath: string): Promise<void> {
             NOTIFICATION_COMMAND_KEYS.AFPLAY,
             NOTIFICATION_COMMANDS.AFPLAY
         );
-        if (path) exec(`"${path}" "${soundPath}"`);
+        if (path) exec(`"${path}" "${soundPath}" >/dev/null 2>/dev/null`);
     } catch (err) {
         log(`[session-notify] Error playing sound (Darwin): ${err}`);
     }
@@ -39,7 +39,7 @@ async function playLinux(soundPath: string): Promise<void> {
             NOTIFICATION_COMMANDS.PAPLAY
         );
         if (paplay) {
-            exec(`"${paplay}" "${soundPath}" 2>/dev/null`);
+            exec(`"${paplay}" "${soundPath}" >/dev/null 2>/dev/null`);
             return;
         }
 
@@ -47,7 +47,7 @@ async function playLinux(soundPath: string): Promise<void> {
             NOTIFICATION_COMMAND_KEYS.APLAY,
             NOTIFICATION_COMMANDS.APLAY
         );
-        if (aplay) exec(`"${aplay}" "${soundPath}" 2>/dev/null`);
+        if (aplay) exec(`"${aplay}" "${soundPath}" >/dev/null 2>/dev/null`);
     } catch (err) {
         log(`[session-notify] Error playing sound (Linux): ${err}`);
     }
@@ -63,10 +63,10 @@ async function playWindows(soundPath: string): Promise<void> {
 
         // Use system built-in sound if no path is provided
         if (!soundPath) {
-            exec(`"${ps}" -Command "[System.Media.SystemSounds]::Asterisk.Play()"`);
+            exec(`"${ps}" -Command "[System.Media.SystemSounds]::Asterisk.Play()" >NUL 2>NUL`);
         } else {
             const escaped = soundPath.replace(/'/g, "''");
-            exec(`"${ps}" -Command "(New-Object Media.SoundPlayer '${escaped}').PlaySync()"`);
+            exec(`"${ps}" -Command "(New-Object Media.SoundPlayer '${escaped}').PlaySync()" >NUL 2>NUL`);
         }
     } catch (err) {
         log(`[session-notify] Error playing sound (Windows): ${err}`);

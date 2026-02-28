@@ -6,6 +6,7 @@
 
 import { exec } from "node:child_process";
 import { promisify } from "node:util";
+import { readFileSync } from "node:fs";
 import { log } from "../../agents/logger.js";
 import {
     NOTIFICATION_COMMANDS,
@@ -24,15 +25,33 @@ async function notifyDarwin(title: string, message: string): Promise<void> {
     if (!path) return;
     const escT = title.replace(/"/g, '\\"');
     const escM = message.replace(/"/g, '\\"');
-    await execAsync(`${path} -e 'display notification "${escM}" with title "${escT}" sound name "Glass"'`);
+    // Redirect both stdout and stderr to /dev/null to prevent any TUI output corruption
+    await execAsync(`${path} -e 'display notification "${escM}" with title "${escT}" sound name "Glass"' >/dev/null 2>/dev/null`);
+}
+
+function isWSL(): boolean {
+    try {
+        // Check for WSL via environment variable (set by WSL itself)
+        if (process.env.WSL_DISTRO_NAME || process.env.WSLENV) return true;
+        // Fallback: check /proc/version for Microsoft/WSL kernel string
+        const procVersion = readFileSync("/proc/version", "utf-8");
+        return /microsoft|WSL/i.test(procVersion);
+    } catch {
+        return false;
+    }
 }
 
 async function notifyLinux(title: string, message: string): Promise<void> {
+    // Skip notifications in WSL2: notify-send output leaks into the TUI terminal
+    // causing visual corruption (issue #24)
+    if (isWSL()) return;
+
     const path = await resolveCommandPath(
         NOTIFICATION_COMMAND_KEYS.NOTIFY_SEND,
         NOTIFICATION_COMMANDS.NOTIFY_SEND
     );
-    if (path) await execAsync(`${path} "${title}" "${message}" 2>/dev/null`);
+    // Redirect both stdout and stderr to /dev/null to prevent TUI corruption
+    if (path) await execAsync(`${path} "${title}" "${message}" >/dev/null 2>/dev/null`);
 }
 
 async function notifyWindows(title: string, message: string): Promise<void> {

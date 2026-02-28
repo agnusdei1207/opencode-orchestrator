@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { existsSync, mkdirSync, readFileSync, writeFileSync, appendFileSync, copyFileSync, renameSync, unlinkSync } from "fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync, appendFileSync, copyFileSync, renameSync, unlinkSync, readdirSync } from "fs";
 import { homedir, tmpdir } from "os";
 import { join } from "path";
 
@@ -47,6 +47,62 @@ function formatError(err: unknown, context: string): string {
 const PLUGIN_NAME = "opencode-orchestrator";
 
 /**
+ * Detect if running inside WSL2 (Windows Subsystem for Linux).
+ * In WSL2, opencode typically uses the Windows-side config at %APPDATA%/opencode,
+ * which is accessible via /mnt/c/Users/<user>/AppData/Roaming/opencode.
+ */
+function detectWSLWindowsConfigDir(): string | null {
+  try {
+    // Check if we're in WSL
+    const isWSL = process.env.WSL_DISTRO_NAME || process.env.WSLENV;
+    if (!isWSL) {
+      try {
+        const procVersion = readFileSync("/proc/version", "utf-8");
+        if (!/microsoft|WSL/i.test(procVersion)) return null;
+      } catch {
+        return null;
+      }
+    }
+
+    // In WSL2, Windows drives are mounted under /mnt/<driveletter>
+    // Only /mnt/c is the standard location; avoid duplicates by checking one at a time
+    const windowsUser = process.env.WINDOWS_USERNAME || process.env.USERNAME;
+    const candidates: string[] = [];
+
+    const userDir = "/mnt/c/Users";
+    if (existsSync(userDir)) {
+      try {
+        const users = readdirSync(userDir);
+        for (const user of users) {
+          // Skip system/hidden directories
+          if (["Public", "Default", "Default User", "All Users", "desktop.ini"]
+            .includes(user) || user.startsWith(".")) continue;
+          const candidate = join(userDir, user, "AppData", "Roaming", "opencode");
+          candidates.push(candidate);
+        }
+      } catch { /* ignore */ }
+    }
+
+    // If WINDOWS_USERNAME / USERNAME is known, prefer that user's directory first
+    if (windowsUser) {
+      const preferred = `/mnt/c/Users/${windowsUser}/AppData/Roaming/opencode`;
+      if (candidates.includes(preferred)) {
+        return preferred;
+      }
+    }
+
+    // Return the first existing opencode config dir, or the first candidate
+    for (const c of candidates) {
+      if (existsSync(c)) return c;
+    }
+
+    return candidates[0] || null;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Get all possible config directories for OpenCode.
  * On Windows, OpenCode may use either:
  * - %APPDATA%/opencode (native Windows)
@@ -73,8 +129,15 @@ function getConfigPaths(): string[] {
       paths.push(dotConfigPath);
     }
   } else {
-    // Unix-like systems
+    // Unix-like systems (including WSL2 Linux side)
     paths.push(join(homedir(), ".config", "opencode"));
+
+    // WSL2: also check the Windows-side config directory
+    const wslWindowsConfig = detectWSLWindowsConfigDir();
+    if (wslWindowsConfig && !paths.includes(wslWindowsConfig)) {
+      log("Detected WSL2 - also checking Windows config path", { wslWindowsConfig });
+      paths.push(wslWindowsConfig);
+    }
   }
 
   return paths;
@@ -154,9 +217,14 @@ function atomicWriteJSON(filePath: string, data: any): void {
 }
 
 /**
- * Register plugin in a single config file with rollback support
+ * Register plugin in a single config file with rollback support.
+ *
+ * SAFE MERGE POLICY:
+ * - If the file exists and is valid JSON → only add plugin entry, preserve everything else
+ * - If the file exists but JSON is corrupt → DO NOT overwrite; back up and skip
+ * - If the file does not exist → create minimal config with plugin entry
  */
-function registerInConfig(configDir: string): { success: boolean; backupFile: string | null } {
+function registerInConfig(configDir: string): { success: boolean; backupFile: string | null; skipped?: boolean } {
   const configFile = join(configDir, "opencode.json");
   let backupFile: string | null = null;
 
@@ -167,31 +235,42 @@ function registerInConfig(configDir: string): { success: boolean; backupFile: st
       log("Created config directory", { configDir });
     }
 
-    // Create backup before any modifications
-    backupFile = createBackup(configFile);
-
     let config: Record<string, any> = {};
+    let fileExisted = false;
 
     // Read existing config
     if (existsSync(configFile)) {
-      try {
-        const content = readFileSync(configFile, "utf-8").trim();
-        if (content) {
-          config = JSON.parse(content);
+      fileExisted = true;
+      const rawContent = readFileSync(configFile, "utf-8").trim();
 
-          // Validate config structure
-          if (!validateConfig(config)) {
-            log("Invalid config structure detected, using safe defaults", { config });
-            config = { plugin: [] };
+      if (rawContent) {
+        let parseError: unknown;
+        try {
+          config = JSON.parse(rawContent);
+        } catch (err) {
+          parseError = err;
+        }
+
+        if (parseError) {
+          // ⚠️ JSON is corrupted — do NOT overwrite, just skip this path safely
+          backupFile = createBackup(configFile);
+          log("Corrupted config JSON, skipping this path to avoid data loss", { configFile });
+          console.log(`⚠️  opencode.json at ${configFile} has invalid JSON and was skipped.`);
+          if (backupFile) {
+            console.log(`   Backup saved: ${backupFile}`);
           }
+          console.log(`   Please fix the file manually, then add "${PLUGIN_NAME}" to the "plugin" array.`);
+          return { success: false, backupFile, skipped: true };
         }
-      } catch (error) {
-        log("Failed to parse existing config, creating new one", { error: String(error) });
-        // If JSON is corrupted but backup exists, don't lose it
-        if (backupFile) {
-          console.log(`⚠️  Corrupted config detected. Backup saved: ${backupFile}`);
+
+        // Config parsed successfully — validate structure
+        if (!validateConfig(config)) {
+          // Invalid structure (e.g., plugin is not an array) — preserve file, skip
+          log("Unexpected config structure, skipping to avoid corruption", { config, configFile });
+          console.log(`⚠️  Unexpected config structure in ${configFile}. Skipping to avoid corruption.`);
+          console.log(`   Please manually add "${PLUGIN_NAME}" to the "plugin" array.`);
+          return { success: false, backupFile: null, skipped: true };
         }
-        config = { plugin: [] };
       }
     }
 
@@ -203,13 +282,17 @@ function registerInConfig(configDir: string): { success: boolean; backupFile: st
     // Check if already registered (case-insensitive, exact match)
     const hasPlugin = config.plugin.some((p: string) => {
       if (typeof p !== "string") return false;
-      // Exact match or contains the plugin name
       return p === PLUGIN_NAME || p.includes(PLUGIN_NAME);
     });
 
     if (hasPlugin) {
       log("Plugin already registered", { configFile });
       return { success: false, backupFile };
+    }
+
+    // Create backup before modifying existing file
+    if (fileExisted) {
+      backupFile = createBackup(configFile);
     }
 
     // Add plugin to array
@@ -262,7 +345,7 @@ function registerInConfig(configDir: string): { success: boolean; backupFile: st
 function cleanupOldBackups(configFile: string): void {
   try {
     const configDir = join(configFile, "..");
-    const files = require("fs").readdirSync(configDir);
+    const files = readdirSync(configDir);
     const backupFiles = files
       .filter((f: string) => f.startsWith("opencode.json.backup."))
       .sort()
@@ -288,6 +371,7 @@ try {
 
   let registered = false;
   let alreadyRegistered = false;
+  let skippedCorrupt = false;
   let backupCreated: string | null = null;
 
   for (const configDir of configPaths) {
@@ -312,7 +396,10 @@ try {
     }
 
     const result = registerInConfig(configDir);
-    if (result.success) {
+    if (result.skipped) {
+      skippedCorrupt = true;
+      if (result.backupFile) backupCreated = result.backupFile;
+    } else if (result.success) {
       console.log(`✅ Plugin registered: ${configFile}`);
       if (result.backupFile) {
         console.log(`   Backup created: ${result.backupFile}`);
@@ -327,10 +414,15 @@ try {
     }
   }
 
-  if (!registered && alreadyRegistered) {
-    console.log("✅ Plugin already registered.");
+  if (registered) {
+    // Already printed per-file success above
+  } else if (alreadyRegistered) {
+    console.log("✅ Plugin already registered in all detected config locations.");
     log("Plugin was already registered");
-  } else if (!registered) {
+  } else if (skippedCorrupt) {
+    // Warnings already printed inside registerInConfig — nothing more to do
+    log("Skipped due to corrupted config");
+  } else {
     console.log("⚠️  Could not register plugin in any config location.");
     console.log("   This may be due to permissions or file system issues.");
     console.log(`   Check logs: ${LOG_FILE}`);
@@ -340,7 +432,7 @@ try {
   console.log("");
   console.log("🚀 Ready! Restart OpenCode to use.");
   console.log("");
-  log("Installation completed", { registered, alreadyRegistered, backupCreated });
+  log("Installation completed", { registered, alreadyRegistered, skippedCorrupt, backupCreated });
 } catch (error) {
   log("Installation error", { error: String(error) });
   console.error("❌ " + formatError(error, "register plugin"));

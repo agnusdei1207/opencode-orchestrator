@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { existsSync, readFileSync, writeFileSync, appendFileSync, copyFileSync, renameSync, unlinkSync } from "fs";
+import { existsSync, readFileSync, writeFileSync, appendFileSync, copyFileSync, renameSync, unlinkSync, readdirSync } from "fs";
 import { homedir, tmpdir } from "os";
 import { join } from "path";
 
@@ -272,7 +272,7 @@ function removeFromConfig(configDir: string): { success: boolean; backupFile: st
 function cleanupOldBackups(configFile: string): void {
   try {
     const configDir = join(configFile, "..");
-    const files = require("fs").readdirSync(configDir);
+    const files = readdirSync(configDir);
     const backupFiles = files
       .filter((f: string) => f.startsWith("opencode.json.backup."))
       .sort()
