@@ -8,7 +8,6 @@ services:
   dev:
     image: rust:1.92-bookworm
     working_dir: /app
-    user: "${HOST_UID:-501}:${HOST_GID:-20}"
     volumes:
       - .:/app
       - cargo-cache:/usr/local/cargo/registry
