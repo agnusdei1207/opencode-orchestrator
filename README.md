@@ -1,4 +1,12 @@
 <div align="center">
+
+> 🔐 **같은 제작자의 다른 프로젝트** — [**pentesting**](https://www.npmjs.com/package/pentesting) : 자율 모의해킹 AI 에이전트 CLI · `npm install -g pentesting` · [홈페이지](https://pentesting.agnusdei.kr)
+
+</div>
+
+---
+
+<div align="center">
   <img src="assets/logo.png" alt="logo" width="200" />
   <h1>OpenCode Orchestrator</h1>
 
