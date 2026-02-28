@@ -1,8 +1,4 @@
-<div align="center">
 
-> 🔐 **같은 제작자의 다른 프로젝트** — [**pentesting**](https://www.npmjs.com/package/pentesting) : 자율 모의해킹 AI 에이전트 CLI · `npm install -g pentesting` · [홈페이지](https://pentesting.agnusdei.kr)
-
-</div>
 
 ---
 
@@ -14,6 +10,12 @@
 
   [![MIT License](https://img.shields.io/badge/license-MIT-red.svg)](LICENSE)
   [![npm](https://img.shields.io/npm/v/opencode-orchestrator.svg)](https://www.npmjs.com/package/opencode-orchestrator)
+</div>
+
+<div align="center">
+
+> 🔐 **Also by the same author** — [**pentesting**](https://www.npmjs.com/package/pentesting): Autonomous Penetration Testing AI Agent CLI · `npm install -g pentesting` · [Homepage](https://pentesting.agnusdei.kr)
+
 </div>
 
 ---
