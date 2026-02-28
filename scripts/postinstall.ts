@@ -274,9 +274,13 @@ function registerInConfig(configDir: string): { success: boolean; backupFile: st
       }
     }
 
-    // Ensure plugin array exists
+    // Ensure plugin array exists (and add $schema for new files)
     if (!config.plugin) {
       config.plugin = [];
+      // Set $schema on new files for IDE support and consistency with reset scripts
+      if (!fileExisted && !config["$schema"]) {
+        config["$schema"] = "https://opencode.ai/config.json";
+      }
     }
 
     // Check if already registered (case-insensitive, exact match)

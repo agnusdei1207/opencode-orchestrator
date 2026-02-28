@@ -52,29 +52,78 @@ const PLUGIN_NAME = "opencode-orchestrator";
  * - %APPDATA%/opencode (native Windows)
  * - ~/.config/opencode (Git Bash, WSL, MSYS2)
  */
+/**
+ * Detect if running inside WSL2 and return the Windows-side OpenCode config path.
+ * Mirrors the same logic in postinstall.ts — must stay in sync.
+ */
+function detectWSLWindowsConfigDir(): string | null {
+  try {
+    const isWSL = process.env.WSL_DISTRO_NAME || process.env.WSLENV;
+    if (!isWSL) {
+      try {
+        const procVersion = readFileSync("/proc/version", "utf-8");
+        if (!/microsoft|WSL/i.test(procVersion)) return null;
+      } catch {
+        return null;
+      }
+    }
+
+    const windowsUser = process.env.WINDOWS_USERNAME || process.env.USERNAME;
+    const candidates: string[] = [];
+
+    const userDir = "/mnt/c/Users";
+    if (existsSync(userDir)) {
+      try {
+        const users = readdirSync(userDir);
+        for (const user of users) {
+          if (["Public", "Default", "Default User", "All Users", "desktop.ini"]
+            .includes(user) || user.startsWith(".")) continue;
+          const candidate = join(userDir, user, "AppData", "Roaming", "opencode");
+          candidates.push(candidate);
+        }
+      } catch { /* ignore */ }
+    }
+
+    if (windowsUser) {
+      const preferred = `/mnt/c/Users/${windowsUser}/AppData/Roaming/opencode`;
+      if (candidates.includes(preferred)) return preferred;
+    }
+
+    for (const c of candidates) {
+      if (existsSync(c)) return c;
+    }
+
+    return candidates[0] || null;
+  } catch {
+    return null;
+  }
+}
+
 function getConfigPaths(): string[] {
   const paths: string[] = [];
 
-  // XDG_CONFIG_HOME takes highest priority
   if (process.env.XDG_CONFIG_HOME) {
     paths.push(join(process.env.XDG_CONFIG_HOME, "opencode"));
   }
 
-  // On Windows, check both possible locations
   if (process.platform === "win32") {
-    // Native Windows path
     const appDataPath =
       process.env.APPDATA || join(homedir(), "AppData", "Roaming");
     paths.push(join(appDataPath, "opencode"));
 
-    // Git Bash / WSL / MSYS2 style path
     const dotConfigPath = join(homedir(), ".config", "opencode");
     if (!paths.includes(dotConfigPath)) {
       paths.push(dotConfigPath);
     }
   } else {
-    // Unix-like systems
     paths.push(join(homedir(), ".config", "opencode"));
+
+    // WSL2: also remove from the Windows-side config directory
+    const wslWindowsConfig = detectWSLWindowsConfigDir();
+    if (wslWindowsConfig && !paths.includes(wslWindowsConfig)) {
+      log("Detected WSL2 - also checking Windows config path", { wslWindowsConfig });
+      paths.push(wslWindowsConfig);
+    }
   }
 
   return paths;
