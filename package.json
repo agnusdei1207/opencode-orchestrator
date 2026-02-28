@@ -41,7 +41,7 @@
   "scripts": {
     "docker:build-all": "docker compose run --rm dev && docker compose run --rm win-builder",
     "docker:build-win": "docker compose run --rm win-builder",
-    "docker:rust-dist": "docker compose run --rm dev",
+    "docker:rust-dist": "docker compose run --rm dev && sudo chown -R $(id -u):$(id -g) bin/ 2>/dev/null || true",
     "docker:test": "docker compose run --rm test",
     "docker:clean": "docker compose down -v",
     "build": "rm -rf dist && npx esbuild src/index.ts --bundle --outfile=dist/index.js --platform=node --format=esm && tsc --emitDeclarationOnly && mkdir -p dist/scripts && npx esbuild scripts/postinstall.ts --bundle --outfile=dist/scripts/postinstall.js --platform=node --format=esm && npx esbuild scripts/preuninstall.ts --bundle --outfile=dist/scripts/preuninstall.js --platform=node --format=esm",
