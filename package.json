@@ -48,7 +48,7 @@
     "docker:rust-dist": "docker compose run --rm dev",
     "docker:test": "docker compose run --rm test",
     "docker:clean": "docker compose down -v",
-    "build": "shx rm -rf dist && npx esbuild src/index.ts --bundle --outfile=dist/index.js --platform=node --format=esm && tsc --emitDeclarationOnly && shx mkdir -p dist/scripts && npx esbuild scripts/postinstall.ts --bundle --outfile=dist/scripts/postinstall.js --platform=node --format=esm && npx esbuild scripts/preuninstall.ts --bundle --outfile=dist/scripts/preuninstall.js --platform=node --format=esm",
+    "build": "node -e \"require('fs').rmSync('dist',{recursive:true,force:true})\" && npx esbuild src/index.ts --bundle --outfile=dist/index.js --platform=node --format=esm && tsc --emitDeclarationOnly && node -e \"require('fs').mkdirSync('dist/scripts',{recursive:true})\" && npx esbuild scripts/postinstall.ts --bundle --outfile=dist/scripts/postinstall.js --platform=node --format=esm && npx esbuild scripts/preuninstall.ts --bundle --outfile=dist/scripts/preuninstall.js --platform=node --format=esm",
     "build:all": "npm run build && npm run rust:dist",
     "test": "vitest run --reporter=verbose",
     "test:coverage": "vitest run --coverage",
