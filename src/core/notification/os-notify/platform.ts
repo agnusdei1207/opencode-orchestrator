@@ -3,12 +3,7 @@
  */
 
 import { platform as osPlatform } from "node:os";
-import {
-    NOTIFICATION_COMMANDS,
-    NOTIFICATION_COMMAND_KEYS
-} from "../../../shared/notification/os-notify/index.js";
 import { type Platform, PLATFORM } from "../../../shared/os/index.js";
-import { resolveCommandPath } from "./platform-resolver.js";
 
 export function detectPlatform(): Platform {
     const p = osPlatform();
@@ -24,33 +19,3 @@ export function getDefaultSoundPath(p: Platform): string {
     return "";
 }
 
-export function preloadPlatformCommands(platform: Platform): void {
-    if (platform === PLATFORM.DARWIN) {
-        resolveCommandPath(
-            NOTIFICATION_COMMAND_KEYS.OSASCRIPT,
-            NOTIFICATION_COMMANDS.OSASCRIPT
-        ).catch(() => { });
-        resolveCommandPath(
-            NOTIFICATION_COMMAND_KEYS.AFPLAY,
-            NOTIFICATION_COMMANDS.AFPLAY
-        ).catch(() => { });
-    } else if (platform === PLATFORM.LINUX) {
-        resolveCommandPath(
-            NOTIFICATION_COMMAND_KEYS.NOTIFY_SEND,
-            NOTIFICATION_COMMANDS.NOTIFY_SEND
-        ).catch(() => { });
-        resolveCommandPath(
-            NOTIFICATION_COMMAND_KEYS.PAPLAY,
-            NOTIFICATION_COMMANDS.PAPLAY
-        ).catch(() => { });
-        resolveCommandPath(
-            NOTIFICATION_COMMAND_KEYS.APLAY,
-            NOTIFICATION_COMMANDS.APLAY
-        ).catch(() => { });
-    } else if (platform === PLATFORM.WIN32) {
-        resolveCommandPath(
-            NOTIFICATION_COMMAND_KEYS.POWERSHELL,
-            NOTIFICATION_COMMANDS.POWERSHELL
-        ).catch(() => { });
-    }
-}

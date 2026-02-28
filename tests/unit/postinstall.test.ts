@@ -44,13 +44,12 @@ const PLUGIN_NAME = "opencode-orchestrator";
 
 async function runPostinstall(
     configDir: string,
-    platform: string = "linux",
+    _platform: string = "linux",
     env: Record<string, string | undefined> = {}
-): Promise<{ stdout: string[]; success: boolean }> {
+): Promise<{ stdout: string[]; success: boolean; skipped?: boolean }> {
     const stdout: string[] = [];
     const origLog = console.log;
     const origError = console.error;
-    const origPlatform = process.platform;
     const origEnv = { ...process.env };
 
     // Patch env
@@ -63,8 +62,8 @@ async function runPostinstall(
     console.error = (...args: any[]) => stdout.push("[ERR] " + args.join(" "));
 
     let success = false;
+    let skipped = false;
     try {
-        // Import and exercise the pure logic inline (duplicate of registerInConfig)
         const configFile = path.join(configDir, "opencode.json");
 
         if (!fs.existsSync(configDir)) {
@@ -78,7 +77,25 @@ async function runPostinstall(
             fileExisted = true;
             const rawContent = fs.readFileSync(configFile, "utf-8").trim();
             if (rawContent) {
-                config = JSON.parse(rawContent); // may throw
+                // JSON.parse may throw — propagates to catch → success stays false
+                config = JSON.parse(rawContent);
+
+                // Mirror validateConfig() from postinstall.ts:
+                // plugin field must be an array of strings if present
+                if (config.plugin !== undefined) {
+                    if (!Array.isArray(config.plugin)) {
+                        stdout.push(`⚠️  Unexpected config structure. Skipping to avoid corruption.`);
+                        skipped = true;
+                        return { stdout, success: false, skipped: true };
+                    }
+                    for (const p of config.plugin) {
+                        if (typeof p !== "string") {
+                            stdout.push(`⚠️  Unexpected config structure. Skipping to avoid corruption.`);
+                            skipped = true;
+                            return { stdout, success: false, skipped: true };
+                        }
+                    }
+                }
             }
         }
 
@@ -106,12 +123,11 @@ async function runPostinstall(
     } finally {
         console.log = origLog;
         console.error = origError;
-        // Restore env
         for (const k of Object.keys(env)) delete process.env[k];
         for (const [k, v] of Object.entries(origEnv)) process.env[k] = v;
     }
 
-    return { stdout, success };
+    return { stdout, success, skipped };
 }
 
 // ---------------------------------------------------------------------------
@@ -265,5 +281,44 @@ describe("postinstall — safe merge policy", () => {
             fs.readFileSync(path.join(configDir, "opencode.json"), "utf-8")
         );
         expect(written.plugin).toContain(PLUGIN_NAME);
+    });
+
+    // ── Scenario 9: plugin field is not an array → skip (validateConfig) ───
+
+    it("skips when plugin field exists but is not an array (invalid structure)", async () => {
+        const configDir = path.join(tmpDir, "opencode");
+        fs.mkdirSync(configDir);
+        const configFile = path.join(configDir, "opencode.json");
+
+        // plugin is a string instead of array — invalid
+        const original = JSON.stringify({ plugin: "opencode-orchestrator", theme: "dark" });
+        fs.writeFileSync(configFile, original);
+
+        const { success, skipped, stdout } = await runPostinstall(configDir);
+
+        expect(success).toBe(false);
+        expect(skipped).toBe(true);
+        expect(stdout.some(line => line.includes("Skipping"))).toBe(true);
+        // File content must be unchanged (not overwritten)
+        expect(fs.readFileSync(configFile, "utf-8")).toBe(original);
+    });
+
+    // ── Scenario 10: plugin entries contain non-strings → skip ─────────────
+
+    it("skips when plugin array contains non-string entries (invalid structure)", async () => {
+        const configDir = path.join(tmpDir, "opencode");
+        fs.mkdirSync(configDir);
+        const configFile = path.join(configDir, "opencode.json");
+
+        // plugin array contains non-string (number/object)
+        const original = JSON.stringify({ plugin: [42, { name: "bad" }] });
+        fs.writeFileSync(configFile, original);
+
+        const { success, skipped } = await runPostinstall(configDir);
+
+        expect(success).toBe(false);
+        expect(skipped).toBe(true);
+        // File content must be unchanged
+        expect(fs.readFileSync(configFile, "utf-8")).toBe(original);
     });
 });
