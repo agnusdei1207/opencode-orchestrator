@@ -56,11 +56,6 @@ function formatError(err: unknown, context: string): string {
 }
 
 const PLUGIN_NAME = "opencode-orchestrator";
-// Known plugin names to detect for co-existence checking
-const KNOWN_PLUGINS = [
-  "oh-my-openagent",    // oh-my-openagent plugin
-  "oh-my-opencode",     // legacy oh-my-openagent plugin name
-];
 
 /**
  * Check if a plugin entry matches our PLUGIN_NAME.
@@ -69,14 +64,6 @@ const KNOWN_PLUGINS = [
  */
 function isOurPluginEntry(p: string): boolean {
   return p === PLUGIN_NAME || p.startsWith(`${PLUGIN_NAME}@`);
-}
-
-/**
- * Check if a plugin entry belongs to another known plugin.
- * Used to detect conflicts and co-existence.
- */
-function isOtherKnownPlugin(p: string): boolean {
-  return KNOWN_PLUGINS.some((name) => p === name || p.startsWith(`${name}@`));
 }
 
 /**
@@ -327,15 +314,6 @@ function registerInConfig(configDir: string): { success: boolean; backupFile: st
       return { success: false, backupFile };
     }
 
-    // Check for other known plugins (for co-existence info)
-    const otherPlugins = config.plugin.filter((p: string) => {
-      if (typeof p !== "string") return false;
-      return isOtherKnownPlugin(p);
-    });
-    if (otherPlugins.length > 0) {
-      log("Detected other known plugins", { otherPlugins, configFile });
-    }
-
     // Create backup before modifying existing file
     if (fileExisted) {
       backupFile = createBackup(configFile);
@@ -435,11 +413,7 @@ try {
             log("Plugin already registered in this location", { configFile });
             continue;
           }
-          // Detect other known plugins for co-existence info
-          const otherPlugins = config.plugin?.filter((p: string) => typeof p === "string" && isOtherKnownPlugin(p));
-          if (otherPlugins && otherPlugins.length > 0) {
-            log("Detected other known plugins, co-existence supported", { otherPlugins, configFile });
-          }
+
         }
       } catch (error) {
         log("Error checking existing config", { error: String(error), configFile });

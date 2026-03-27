@@ -160,7 +160,6 @@ export class TodoSyncService {
   }
 
   private async sendTodosToSession(sessionID: string) {
-    // Only read todos from session (API is read-only like oh-my-opencode)
     // OpenCode's TUI displays .opencode/todo.md file directly
     // This method is kept for potential future use
   }

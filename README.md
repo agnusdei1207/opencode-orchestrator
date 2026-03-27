@@ -10,6 +10,7 @@
   [![npm](https://img.shields.io/npm/v/opencode-orchestrator.svg)](https://www.npmjs.com/package/opencode-orchestrator)
 </div>
 
+
 ---
 
 ## ⚡ Quick Start
@@ -23,56 +24,177 @@ Inside an OpenCode environment:
 /task "Implement a new authentication module with JWT and audit logs"
 ```
 
+
 ---
 
 ## 🚀 Engine Workflow
 
-OpenCode Orchestrator utilizes a **Hub-and-Spoke Topology** with **Work-Stealing Queues** to execute complex engineering tasks through parallel, context-isolated sessions.
+**Hub-and-Spoke Architecture** with Work-Stealing Queues for parallel, context-isolated task execution.
+```
+╔══════════════════════════════════════════════════════════════════════════════╗
+║                           USER INPUT /task "..."                              ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+                                         │
+                                         ▼
+╔══════════════════════════════════════════════════════════════════════════════╗
+║  ┌─────────────────────────────────────────────────────────────────────────┐ ║
+║  │                            C O M M A N D E R                           │ ║
+║  │                    [ Mission Analysis & Delegation ]                    │ ║
+║  │                                                                          │ ║
+║  │    • Interprets user intent    • Coordinates multi-agent workflow      │ ║
+║  │    • Monitors progress          • Manages work-stealing queues         │ ║
+║  └─────────────────────────────────────────────────────────────────────────┘ ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+                                         │
+                         ┌───────────────┼───────────────┐
+                         ▼               ▼               ▼
+╔═════════════════╗  ╔═════════════════╗  ╔═════════════════╗
+║   P L A N N E R ║  ║     W O R K E R ║  ║    W O R K E R   ║
+║  [Architect]    ║  ║  [Implementer]  ║  ║  [Implementer]   ║
+║                 ║  ║                 ║  ║                 ║
+║  • Dependency   ║  ║  • File coding ║  ║  • File coding  ║
+║    analysis     ║  ║  • TDD workflow ║  ║  • TDD workflow ║
+║  • Roadmap gen ║  ║  • Documentation║  ║  • Documentation║
+║  • TODO.md      ║  ║                 ║  ║                 ║
+╚═════════════════╝  ╚═════════════════╝  ╚═════════════════╝
+         │                   │                     │
+         │    ┌──────────────┼─────────────────────┘
+         │    │              │
+         ▼    ▼              ▼
+╔══════════════════════════════════════╗
+║         SESSION POOL (MVCC Sync)   ║
+║   ┌─────────────────────────────────┐ ║
+║   │  Object Pool │ Buffer Pool      │ ║
+║   │  String Pool │ Connection Pool  │ ║
+║   └─────────────────────────────────┘ ║
+╚══════════════════════════════════════╝
+         │
+         ▼
+╔══════════════════════════════════════╗
+║       MSVP MONITOR / REVIEWER       ║
+║  ┌─────────────────────────────────┐ ║
+║  │  • Adaptive polling (500ms-5s) │ ║
+║  │  • Stability detection         │ ║
+║  │  • Unit test verification      │ ║
+║  └─────────────────────────────────┘ ║
+╚══════════════════════════════════════╝
+                 │
+                 ▼
+        ┌────────────────┐
+        │  ✨ COMPLETED  │
+        └────────────────┘
+```
 
-```text
-            [ User Task ]
-                    │
-         ┌──────────▼──────────┐
-         │     COMMANDER       │◄───────────┐ (Loop Phase)
-         │  [Work-Stealing]    │            │
-         └────────┬────────────┘            │
-                  │                         │
-         ┌────────▼──────────┐              │
-         │      PLANNER      │ (Todo.md)    │
-         │  [Session Pool]   │              │
-         └────────┬──────────┘              │
-                  │                         │ (MVCC Atomic Sync)
-     ┌─────────────┼──────────────┐          │
-     ▼     (Isolated Session Pool)▼          │
-[ Session A ] [ Session B ] [ Session C ]   │
-[  Worker   ] [  Worker   ] [  Reviewer ]   │
-│ [Memory   ] │ [Memory   ] │ [Memory    │  │
-│  Pooling] │ │  Pooling] │ │  Pooling]  │  │
-     └─────────────┬──────────────┘          │
-                  │                         │
-         ┌────────▼──────────┐              │
-         │   MSVP MONITOR    │──────────────┘
-         │ [Adaptive Poll]   │
-         └────────┬──────────┘
-                  │
-         ┌────────▼──────────┐
-         │ QUALITY ASSURANCE │
-         └────────┬──────────┘
-                  │
-            [ ✨COMPLETED ]
+---
+
+## 🏗️ Architecture Layers
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                           PRESENTATION LAYER                                │
+│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐  ┌─────────────────┐  │
+│  │ Task Toast  │  │ Progress    │  │ Notification│  │ Mission Summary │  │
+│  │ Manager     │  │ Notifier    │  │ Manager     │  │ Display         │  │
+│  └─────────────┘  └─────────────┘  └─────────────┘  └─────────────────┘  │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                           BUSINESS LOGIC LAYER                              │
+│  ┌───────────────────────────────────────────────────────────────────────┐  │
+│  │                    Parallel Agent Orchestration                        │  │
+│  │  ┌────────────┐  ┌────────────┐  ┌────────────┐  ┌────────────────┐  │  │
+│  │  │ Commander  │  │  Planner   │  │  Worker    │  │   Reviewer     │  │  │
+│  │  │   Agent    │  │   Agent    │  │   Agent    │  │     Agent      │  │  │
+│  │  └────────────┘  └────────────┘  └────────────┘  └────────────────┘  │  │
+│  └───────────────────────────────────────────────────────────────────────┘  │
+│  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────────────────┐│
+│  │ Concurrency     │  │   Task Store   │  │    Hook System              ││
+│  │ Controller      │  │   (In-Memory)  │  │  [Early/Normal/Late Phases] ││
+│  └─────────────────┘  └─────────────────┘  └─────────────────────────────┘│
+├─────────────────────────────────────────────────────────────────────────────┤
+│                           INFRASTRUCTURE LAYER                              │
+│  ┌────────────────┐  ┌────────────────┐  ┌────────────────────────────┐  │
+│  │ Session Pool   │  │ Work-Stealing  │  │    Memory Pools           │  │
+│  │ [5 per agent]  │  │ [Chase-Lev]    │  │  ┌──────┐ ┌──────┐ ┌─────┐│  │
+│  │ [10 reuse max] │  │ [LIFO/FIFO]    │  │  │Object│ │String│ │Buffer││  │
+│  └────────────────┘  └────────────────┘  │  │ 200  │ │ intern│ │ 4KB ││  │
+│                                          │  └──────┘ └──────┘ └─────┘│  │
+│  ┌────────────────┐  ┌────────────────┐  └────────────────────────────┘  │
+│  │ MVCC State     │  │ Circuit Breaker │  ┌────────────────────────────┐  │
+│  │ [Atomic Sync]  │  │ [5 failures→open│  │ Rust Connection Pool     │  │
+│  │                │  │  [2 success→close│ │ [4 processes, 30s idle]   │  │
+│  └────────────────┘  └────────────────┘  └────────────────────────────┘  │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                           SAFETY LAYER                                      │
+│  ┌────────────────┐  ┌────────────────┐  ┌─────────────────────────────┐ │
+│  │ RAII Pattern   │  │ Shutdown       │  │ Auto-Recovery               │ │
+│  │ [Zero Leaks]   │  │ Manager        │  │ [Exponential Backoff]       │ │
+│  │                │  │ [5s timeout]   │  │ [Rate limit handling]       │ │
+│  └────────────────┘  └────────────────┘  └─────────────────────────────┘ │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## 🧪 Test Harness System
+
+**Production-grade test infrastructure** inspired by modern testing practices:
+
+```
+tests/harness/
+├── fixture.ts          Disposable tmpdir utilities
+│   ├── tmpdir()        async disposable with cleanup
+│   ├── tmpdirSync()    sync disposable with cleanup  
+│   ├── createMockFs()  In-memory fs mock
+│   └── waitFor()       Async condition waiter
+│
+├── builders.ts         Factory functions for test objects
+│   ├── createParallelTask()    Build ParallelTask instances
+│   ├── createBackgroundTask()  Build BackgroundTask instances
+│   └── createTodo()            Build Todo instances
+│
+├── mocks.ts           Mock utilities
+│   ├── mockConsole()         Spy on console.log/error
+│   ├── mockProcessExit()     Mock process.exit
+│   ├── useFakeTimers()       Time manipulation
+│   └── createMockEmitter()   EventEmitter spy
+│
+└── index.ts           Unified exports
+```
+
+### Usage Example
+
+```typescript
+import { tmpdir, createParallelTask, mockConsole } from "@/tests/harness";
+
+describe("My test", () => {
+  let consoleMock;
+
+  beforeEach(() => {
+    consoleMock = mockConsole();
+    consoleMock.setup();
+  });
+
+  afterEach(() => {
+    consoleMock.restore();
+  });
+
+  it("should work", async () => {
+    await using tmp = await tmpdir({ git: true });
+    const task = createParallelTask({ description: "Test" });
+    expect(task.status).toBe("pending");
+  });
+});
 ```
 
 ---
 
 ## ⚡ Elite Multi-Agent Swarm
 
-| Agent | Expertise | Capability |
-|:------|:----------|:-----------|
-| **Commander** | Mission Hub | Session pooling, parallel thread control, state rehydration, work-stealing coordination |
-| **Planner** | Architect | Symbolic mapping, dependency research, roadmap generation, file-level planning |
+| Agent | Role | Core Responsibilities |
+|:------|:-----|:------------------------|
+| **Commander** | Mission Hub | Task decomposition, agent coordination, work-stealing orchestration, final mission seal |
+| **Planner** | Architect | Dependency analysis, roadmap generation, TODO.md creation via MVCC, file-level planning |
 | **Worker** | Implementer | High-throughput coding, TDD workflow, documentation, isolated file execution |
-| **Reviewer** | Auditor | Rigid verification, LSP/Lint authority, integration testing, final mission seal |
-
+| **Reviewer** | Auditor | Unit test verification, LSP/Lint validation, integration testing, quality gate |
 ---
 
 ## 🛠️ Core Capabilities
@@ -160,17 +282,6 @@ The installation process is **production-safe** with multiple protection layers:
 ### Configuration Logs
 - Unix: `/tmp/opencode-orchestrator.log`
 - Windows: `%TEMP%\opencode-orchestrator.log`
-
-### Plugin Co-existence
-The installer is designed to work alongside other OpenCode plugins, including **oh-my-openagent**:
-
-- ✅ **Distinct plugin names** — `opencode-orchestrator` vs `oh-my-openagent` (or legacy `oh-my-opencode`)
-- ✅ **Non-destructive installation** — only adds our plugin entry, never removes others
-- ✅ **Non-destructive uninstallation** — only removes our plugin entry, preserves others
-- ✅ **Exact matching** — uses exact match + version suffix (`PLUGIN_NAME@version`) to prevent false positives
-- ✅ **Co-existence logging** — detects and logs other known plugins during install
-
-Both plugins can be installed simultaneously without conflicts. Each maintains its own config entries independently.
 
 ---
 

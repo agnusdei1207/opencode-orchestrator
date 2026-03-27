@@ -56,17 +56,9 @@ function formatError(err: unknown, context: string): string {
 }
 
 const PLUGIN_NAME = "opencode-orchestrator";
-const KNOWN_PLUGINS = [
-  "oh-my-openagent",
-  "oh-my-opencode",
-];
 
 function isOurPluginEntry(p: string): boolean {
   return p === PLUGIN_NAME || p.startsWith(`${PLUGIN_NAME}@`);
-}
-
-function isOtherKnownPlugin(p: string): boolean {
-  return KNOWN_PLUGINS.some((name) => p === name || p.startsWith(`${name}@`));
 }
 
 /**
