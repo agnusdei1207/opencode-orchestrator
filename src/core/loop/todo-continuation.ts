@@ -294,7 +294,9 @@ export async function handleSessionIdle(
             try {
                 const v = verifyMissionCompletion(directory);
                 freshFileWork = !v.passed && (v.todoIncomplete > 0 || (v.checklistProgress !== "0/0" && !v.checklistComplete));
-            } catch { }
+            } catch (err) {
+                log("[todo-continuation] Failed to verify file work", { sessionID, error: err });
+            }
 
             if (hasRemainingWork(freshTodos) || freshFileWork) {
                 await injectContinuation(client, directory, sessionID, freshTodos);

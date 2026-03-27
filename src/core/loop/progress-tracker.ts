@@ -28,12 +28,35 @@ interface TrackerState {
     lastSnapshot?: string;
     awaitingPostInjectionProgressCheck: boolean;
     countCompleted?: number;
+    lastAccessedAt: number;
 }
 
 export const DEFAULT_STAGNATION_THRESHOLD = 3;
 export const PROGRESS_GRACE_PERIOD_MS = 5000;
 
+const TRACKER_TTL_MS = 10 * 60 * 1000;
+const PRUNE_INTERVAL_MS = 2 * 60 * 1000;
+
 const sessionStates = new Map<string, TrackerState>();
+let pruneInterval: ReturnType<typeof setInterval> | undefined;
+
+function startPruneTimer(): void {
+    if (pruneInterval) return;
+    
+    pruneInterval = setInterval(() => {
+        const now = Date.now();
+        for (const [sessionID, state] of sessionStates.entries()) {
+            if (now - (state.lastAccessedAt ?? 0) > TRACKER_TTL_MS) {
+                sessionStates.delete(sessionID);
+                log(`[progress-tracker] Pruned stale state`, { sessionID });
+            }
+        }
+    }, PRUNE_INTERVAL_MS);
+    
+    if (pruneInterval && typeof pruneInterval.unref === "function") {
+        pruneInterval.unref();
+    }
+}
 
 export function hashTodos(todos: NormalizedTodo[]): string {
     const normalized = todos
@@ -71,8 +94,11 @@ function getState(sessionID: string): TrackerState {
         state = {
             stagnationCount: 0,
             awaitingPostInjectionProgressCheck: false,
+            lastAccessedAt: Date.now(),
         };
         sessionStates.set(sessionID, state);
+    } else {
+        state.lastAccessedAt = Date.now();
     }
     return state;
 }
@@ -228,3 +254,5 @@ export function createProgressTracker(): ProgressTracker {
         markInjectionPerformed,
     };
 }
+
+startPruneTimer();
