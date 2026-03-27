@@ -442,6 +442,7 @@ export function verifyMissionCompletion(directory: string): VerificationResult {
                 );
             }
         } catch (error) {
+            log(`[verification] Failed to read sync issues file: ${error}`);
             result.syncIssuesEmpty = true;
         }
     }

@@ -9,6 +9,7 @@
 
 import { log } from "../core/agents/logger.js";
 import { state } from "../core/orchestrator/index.js";
+import { recordToolCall } from "../core/loop/circuit-breaker.js";
 import { formatElapsedTime, formatTimestamp } from "../utils/common.js";
 import { TOOL_NAMES } from "../shared/index.js";
 import { HookRegistry } from "../hooks/registry.js"; // Import Registry
@@ -54,6 +55,8 @@ export function createToolExecuteAfterHandler(ctx: ToolExecuteHandlerContext) {
             toolInput.arguments || {},
             toolOutput
         );
+
+        recordToolCall(toolInput.sessionID, toolInput.tool);
 
         log(`[tool.execute.after] Completed ${toolInput.tool}`, {
             sessionID: toolInput.sessionID,
