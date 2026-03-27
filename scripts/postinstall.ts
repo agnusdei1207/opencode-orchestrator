@@ -4,6 +4,17 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync, appendFileSync, cop
 import { homedir, tmpdir } from "os";
 import { join } from "path";
 
+const isCI = process.env.CI === "true" || process.env.CONTINUOUS_INTEGRATION === "true";
+
+const TIMEOUT_MS = 30000;
+const timeoutId = setTimeout(() => {
+  console.log("⚠️  postinstall timeout - exiting gracefully");
+  process.exit(0);
+}, TIMEOUT_MS);
+
+process.on("SIGINT", () => process.exit(0));
+process.on("SIGTERM", () => process.exit(0));
+
 // Log to file for debugging
 const LOG_FILE = join(tmpdir(), "opencode-orchestrator.log");
 function log(message: string, data?: unknown): void {
@@ -367,6 +378,7 @@ function cleanupOldBackups(configFile: string): void {
 }
 
 try {
+  if (isCI) log("Running in CI mode");
   console.log("🎯 OpenCode Orchestrator - Installing...");
   log("Installation started", { platform: process.platform, node: process.version });
 
@@ -433,6 +445,8 @@ try {
     log("Failed to register plugin in any location");
   }
 
+  clearTimeout(timeoutId);
+
   console.log("");
   console.log("🚀 Ready! Restart OpenCode to use.");
   console.log("");
@@ -442,4 +456,6 @@ try {
   console.error("❌ " + formatError(error, "register plugin"));
   console.log(`   Check logs: ${LOG_FILE}`);
   process.exit(0); // Don't fail npm install
+} finally {
+  clearTimeout(timeoutId);
 }

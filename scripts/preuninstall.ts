@@ -4,6 +4,17 @@ import { existsSync, readFileSync, writeFileSync, appendFileSync, copyFileSync, 
 import { homedir, tmpdir } from "os";
 import { join } from "path";
 
+const isCI = process.env.CI === "true" || process.env.CONTINUOUS_INTEGRATION === "true";
+
+const TIMEOUT_MS = 30000;
+const timeoutId = setTimeout(() => {
+  console.log("⚠️  preuninstall timeout - exiting gracefully");
+  process.exit(0);
+}, TIMEOUT_MS);
+
+process.on("SIGINT", () => process.exit(0));
+process.on("SIGTERM", () => process.exit(0));
+
 // Log to file for debugging
 const LOG_FILE = join(tmpdir(), "opencode-orchestrator.log");
 function log(message: string, data?: unknown): void {
@@ -340,6 +351,7 @@ function cleanupOldBackups(configFile: string): void {
 
 try {
   console.log("🧹 OpenCode Orchestrator - Uninstalling...");
+  if (isCI) log("Running in CI mode");
   log("Uninstallation started", { platform: process.platform, node: process.version });
 
   const configPaths = getConfigPaths();
@@ -379,4 +391,6 @@ try {
   console.error("❌ " + formatError(error, "clean up config"));
   console.log(`   Check logs: ${LOG_FILE}`);
   process.exit(0); // Don't fail npm uninstall
+} finally {
+  clearTimeout(timeoutId);
 }

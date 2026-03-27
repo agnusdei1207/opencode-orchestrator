@@ -153,10 +153,44 @@ The installation process is **production-safe** with multiple protection layers:
 3. ✅ **Atomic writes** — temp file + rename (OS-level atomic)
 4. ✅ **Automatic rollback** — restores from backup on any failure
 5. ✅ **Cross-platform** — Windows (native, Git Bash, WSL2), macOS, Linux
+6. ✅ **CI-aware** — skips non-essential operations in CI environments
+7. ✅ **Timeout protection** — 30s timeout prevents hanging
+8. ✅ **Graceful degradation** — exits 0 on non-critical failures
 
 ### Configuration Logs
 - Unix: `/tmp/opencode-orchestrator.log`
 - Windows: `%TEMP%\opencode-orchestrator.log`
+
+---
+
+## 🧪 Testing & Stability
+
+### Test Harness System
+A production-grade test harness (`tests/harness/`) provides:
+- **Disposable tmpdir**: Automatic cleanup with `Symbol.asyncDispose` / `Symbol.dispose`
+- **Test builders**: Factory functions for `ParallelTask`, `BackgroundTask`, `Todo`
+- **Mock utilities**: Console, process, timers, file system, event emitter mocks
+
+```typescript
+import { tmpdir, createParallelTask, mockConsole } from "@/tests/harness";
+
+await using tmp = await tmpdir({ git: true });
+const task = createParallelTask({ description: "Test" });
+```
+
+### TUI Stability
+- **Cleanup guarantees**: `initToastClient()` returns a cleanup function
+- **Timeout protection**: AbortController-based 2-10s timeout for async toast operations
+- **Error isolation**: Try/catch around all toast operations prevents cascade failures
+
+### Cross-Platform Reliability
+- **Windows guard**: Proper handling of WSL2, Git Bash, native Windows paths
+- **Signal handling**: Graceful shutdown on SIGINT/SIGTERM
+- **Process isolation**: Child process cleanup with timeout
+
+---
+
+## 📚 Documentation
 
 ---
 

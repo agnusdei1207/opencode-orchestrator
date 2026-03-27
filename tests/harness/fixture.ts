@@ -144,7 +144,17 @@ export async function tmpdir<T = unknown>(options?: TmpDirOptions<T>): Promise<T
     }
 
     const realpath = sanitizePath(await fs.promises.realpath(dirpath));
-    const extra = (await options?.init?.(realpath)) as T;
+
+    let extra: T;
+    let initFailed = false;
+
+    try {
+        extra = (await options?.init?.(realpath)) as T;
+    } catch (err) {
+        initFailed = true;
+        clean(realpath);
+        throw err;
+    }
 
     let disposed = false;
 
