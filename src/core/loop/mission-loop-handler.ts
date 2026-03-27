@@ -49,8 +49,8 @@ async function showToastSafely(
                 body: { title, message, variant, duration },
             });
         }
-    } catch {
-        // Toast failed silently
+    } catch (err) {
+        log("[mission-loop-handler] Toast failed", { error: err });
     }
 }
 
@@ -59,7 +59,8 @@ function hasRunningBackgroundTasks(parentSessionID: string): boolean {
         const manager = ParallelAgentManager.getInstance();
         const tasks = manager.getTasksByParent(parentSessionID);
         return tasks.some(t => t.status === STATUS_LABEL.RUNNING);
-    } catch {
+    } catch (err) {
+        log("[mission-loop-handler] Failed to check background tasks", { sessionID: parentSessionID, error: err });
         return false;
     }
 }
@@ -129,18 +130,15 @@ async function injectContinuation(
     }
 
     try {
-        client.session.prompt({
+        await client.session.prompt({
             path: { id: sessionID },
             body: {
                 parts: [{ type: PART_TYPES.TEXT, text: prompt }],
             },
-        }).catch(error => {
-            log("[mission-loop-handler] Failed to inject continuation prompt", { sessionID, error });
         });
-
         markInjectionPerformed(sessionID);
-    } catch {
-        // Injection failed
+    } catch (err) {
+        log("[mission-loop-handler] Failed to inject continuation prompt", { sessionID, error: err });
     }
 }
 
@@ -173,8 +171,8 @@ async function sendMissionCompleteNotification(loopState: MissionLoopState): Pro
         if (soundPath) {
             await playSound(platform, soundPath);
         }
-    } catch {
-        // Notification failed
+    } catch (err) {
+        log("[mission-loop-handler] Notification failed", { sessionID: loopState.sessionID, error: err });
     }
 }
 

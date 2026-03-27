@@ -31,6 +31,10 @@ function startPruneTimer(): void {
             }
         }
     }, PRUNE_INTERVAL_MS);
+    
+    if (pruneInterval && typeof pruneInterval.unref === "function") {
+        pruneInterval.unref();
+    }
 }
 
 export function armCompactionGuard(sessionID: string, timestamp: number): number {

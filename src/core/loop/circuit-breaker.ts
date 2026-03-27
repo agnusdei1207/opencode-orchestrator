@@ -110,6 +110,15 @@ export function shouldTripCircuit(sessionID: string): boolean {
     return false;
 }
 
+export function recordToolCall(sessionID: string, toolName: string): void {
+    const state = getState(sessionID);
+    state.toolCallHistory.push(toolName);
+    
+    if (state.toolCallHistory.length > HISTORY_SIZE) {
+        state.toolCallHistory.shift();
+    }
+}
+
 export function clearCircuitState(sessionID: string): void {
     circuitStates.delete(sessionID);
 }
