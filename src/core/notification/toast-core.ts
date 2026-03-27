@@ -5,7 +5,7 @@
 
 import type { ToastMessage, ToastOptions, ToastVariant } from "../../shared/index.js";
 import type { PluginInput } from "@opencode-ai/plugin";
-import { HISTORY, TOAST_DURATION, LIMITS } from "../../shared/index.js";
+import { HISTORY, LIMITS } from "../../shared/index.js";
 
 type OpencodeClient = PluginInput["client"];
 
@@ -15,8 +15,19 @@ let tuiClient: OpencodeClient | null = null;
 /**
  * Initialize the toast system with the OpenCode client
  */
-export function initToastClient(client: OpencodeClient): void {
+// Initialize the toast system with the OpenCode client
+// Returns a cleanup function to detach and purge any in-memory state
+export function initToastClient(client: OpencodeClient): () => void {
     tuiClient = client;
+    // Cleanup function to avoid leaks when the host/application is disposed
+    const cleanup = () => {
+        // detach client and clear in-memory state
+        tuiClient = null;
+        // purge toasts/history and listeners to prevent leaks
+        toasts.length = 0;
+        handlers.length = 0;
+    };
+    return cleanup;
 }
 
 // Toast history
@@ -66,16 +77,43 @@ export function show(options: ToastOptions): ToastMessage {
 
     // Show in OpenCode TUI if available
     if (tuiClient) {
-        const client = tuiClient as unknown as { tui?: { showToast?: (opts: unknown) => Promise<void> } };
+        const client = tuiClient as unknown as { tui?: { showToast?: (opts: any) => Promise<void> } };
         if (client.tui?.showToast) {
-            client.tui.showToast({
-                body: {
-                    title: toast.title,
-                    message: toast.message,
-                    variant: toast.variant,
-                    duration: toast.duration,
-                },
-            }).catch(() => { });
+            try {
+                // AbortController provides a cancel mechanism for async operations
+                const ac = new AbortController();
+                // Timeout based on toast duration to protect against hangs
+                const timeoutMs = Math.max(2000, Math.min(toast.duration, 10000));
+                const timer = setTimeout(() => {
+                    try {
+                        ac.abort();
+                    } catch {
+                        // ignore
+                    }
+                }, timeoutMs);
+
+                const promise = client.tui.showToast?.({
+                    body: {
+                        title: toast.title,
+                        message: toast.message,
+                        variant: toast.variant,
+                        duration: toast.duration,
+                    },
+                    signal: (ac as any).signal,
+                } as any);
+
+                if (promise && typeof promise.then === "function") {
+                    Promise.resolve(promise).finally(() => {
+                        if (timer) {
+                            clearTimeout(timer);
+                        }
+                    }).catch(() => {
+                        // swallow errors from toast display
+                    });
+                }
+            } catch {
+                // Silently ignore errors in the toast pipeline
+            }
         }
     }
 
@@ -112,4 +150,3 @@ export function getHistory(limit: number = LIMITS.DEFAULT_LIST_LIMIT): ToastMess
 export function clear(): void {
     toasts.length = 0;
 }
-
