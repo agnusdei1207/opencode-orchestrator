@@ -3,6 +3,8 @@
  * 
  * Monitors session events and ensures the mission loop continues
  * until all verification requirements are met.
+ * 
+ * Integrates: ProgressTracker, SessionStateStore, CompactionGuard, CircuitBreaker
  */
 
 import type { PluginInput } from "@opencode-ai/plugin";
@@ -23,43 +25,15 @@ import { ParallelAgentManager } from "../agents/manager.js";
 import { sendNotification } from "../notification/os-notify/notifier.js";
 import { playSound } from "../notification/os-notify/sound-player.js";
 import { detectPlatform, getDefaultSoundPath } from "../notification/os-notify/platform.js";
-import { verifyMissionCompletion, buildVerificationFailurePrompt, buildVerificationSummary } from "./verification.js";
-
+import { verifyMissionCompletion, buildVerificationSummary } from "./verification.js";
+import { createSessionStateStore } from "./session-state-store.js";
+import { trackProgress, resetProgress, isStagnant, markInjectionPerformed, DEFAULT_STAGNATION_THRESHOLD } from "./progress-tracker.js";
+import { armCompactionGuard, disarmCompactionGuard, isCompactionSafe, clearCompactionState } from "./compaction-guard.js";
+import { isCircuitOpen, shouldTripCircuit, clearCircuitState } from "./circuit-breaker.js";
 
 type OpencodeClient = PluginInput["client"];
 
-// ============================================================================
-// State
-// ============================================================================
-
-interface HandlerState {
-    countdownTimer?: ReturnType<typeof setTimeout>;
-    lastCheckTime?: number;
-    isAborting?: boolean;
-}
-
-const sessionStates = new Map<string, HandlerState>();
-
-// ============================================================================
-// Helpers
-// ============================================================================
-
-function getState(sessionID: string): HandlerState {
-    let state = sessionStates.get(sessionID);
-    if (!state) {
-        state = {};
-        sessionStates.set(sessionID, state);
-    }
-    return state;
-}
-
-function cancelCountdown(sessionID: string): void {
-    const state = sessionStates.get(sessionID);
-    if (state?.countdownTimer) {
-        clearTimeout(state.countdownTimer);
-        state.countdownTimer = undefined;
-    }
-}
+const sessionStateStore = createSessionStateStore();
 
 function hasRunningBackgroundTasks(parentSessionID: string): boolean {
     try {
@@ -70,10 +44,6 @@ function hasRunningBackgroundTasks(parentSessionID: string): boolean {
         return false;
     }
 }
-
-// ============================================================================
-// Toast Helpers
-// ============================================================================
 
 async function showCountdownToast(
     client: OpencodeClient,
@@ -123,13 +93,6 @@ async function showCompletedToast(
     }
 }
 
-// ============================================================================
-// Core Logic
-// ============================================================================
-
-/**
- * Inject continuation prompt to continue the mission
- */
 async function injectContinuation(
     client: OpencodeClient,
     directory: string,
@@ -137,32 +100,30 @@ async function injectContinuation(
     loopState: MissionLoopState,
     customPrompt?: string
 ): Promise<void> {
-    const handlerState = getState(sessionID);
+    const state = sessionStateStore.getState(sessionID);
 
-    // Double-check conditions
-    if (handlerState.isAborting) return;
+    if (state.isAborting) return;
     if (hasRunningBackgroundTasks(sessionID)) return;
     if (isSessionRecovering(sessionID)) return;
+    if (isCircuitOpen(sessionID)) {
+        log(`[mission-loop-handler] Skipped: circuit breaker open`, { sessionID });
+        return;
+    }
 
-    // Verify completion one last time
     const verification = verifyMissionCompletion(directory);
     if (verification.passed) {
         await handleMissionComplete(client, directory, loopState);
         return;
     }
 
-    // Generate and inject continuation prompt with summary
     const summary = buildVerificationSummary(verification);
     let prompt = generateMissionContinuationPrompt(loopState, summary);
 
-    // If custom prompt (intervention) is provided, prepend it
     if (customPrompt) {
         prompt = `${customPrompt}\n\n${prompt}`;
     }
 
     try {
-        // Fire and forget: Do NOT await prompt injection.
-        // This ensures the IDLE event handler returns quickly and doesn't block the plugin process.
         client.session.prompt({
             path: { id: sessionID },
             body: {
@@ -171,14 +132,13 @@ async function injectContinuation(
         }).catch(error => {
             log("[mission-loop-handler] Failed to inject continuation prompt", { sessionID, error });
         });
+
+        markInjectionPerformed(sessionID);
     } catch {
         // Injection failed
     }
 }
 
-/**
- * Handle mission complete
- */
 async function handleMissionComplete(
     client: OpencodeClient,
     directory: string,
@@ -188,12 +148,12 @@ async function handleMissionComplete(
     if (cleared) {
         await showCompletedToast(client, loopState);
         await sendMissionCompleteNotification(loopState);
+        sessionStateStore.cleanup(loopState.sessionID);
+        clearCompactionState(loopState.sessionID);
+        clearCircuitState(loopState.sessionID);
     }
 }
 
-/**
- * Send OS-level notification when mission is complete
- */
 async function sendMissionCompleteNotification(loopState: MissionLoopState): Promise<void> {
     try {
         const platform = detectPlatform();
@@ -213,55 +173,39 @@ async function sendMissionCompleteNotification(loopState: MissionLoopState): Pro
     }
 }
 
-// ============================================================================
-// Event Handler
-// ============================================================================
-
-/**
- * Handle session.idle event for mission loop
- */
 export async function handleMissionIdle(
     client: OpencodeClient,
     directory: string,
     sessionID: string,
     mainSessionID?: string
 ): Promise<void> {
-    const handlerState = getState(sessionID);
+    const state = sessionStateStore.getState(sessionID);
     const now = Date.now();
 
-    // Rate limit
-    if (handlerState.lastCheckTime &&
-        (now - handlerState.lastCheckTime) < LOOP.MIN_TIME_BETWEEN_CHECKS_MS) {
+    if (state.lastCheckTime &&
+        (now - state.lastCheckTime) < LOOP.MIN_TIME_BETWEEN_CHECKS_MS) {
         return;
     }
-    handlerState.lastCheckTime = now;
+    state.lastCheckTime = now;
 
-    // Cancel any pending countdown
-    cancelCountdown(sessionID);
+    sessionStateStore.cancelCountdown(sessionID);
 
-    // Skip if not main session
     if (mainSessionID && sessionID !== mainSessionID) {
         return;
     }
 
-    // Skip if recovering
     if (isSessionRecovering(sessionID)) return;
-
-    // Skip if background tasks running
     if (hasRunningBackgroundTasks(sessionID)) return;
 
-    // Read loop state
     const loopState = readLoopState(directory);
     if (!loopState || !loopState.active) {
         return;
     }
 
-    // Check if this is the right session
     if (loopState.sessionID !== sessionID) {
         return;
     }
 
-    // VERIFICATION GATE: Check if work is truly done
     const verification = verifyMissionCompletion(directory);
 
     if (verification.passed) {
@@ -270,66 +214,55 @@ export async function handleMissionIdle(
         return;
     }
 
-    // 1. Detect stagnation
-    const currentProgress = verification.todoProgress;
-    let isStagnant = false;
-
-    if (loopState.lastProgress === currentProgress) {
-        loopState.stagnationCount = (loopState.stagnationCount || 0) + 1;
-        // After 2 iterations with no progress, we consider it stagnant
-        if (loopState.stagnationCount >= 2) {
-            isStagnant = true;
-            log(`[${MISSION_CONTROL.LOG_SOURCE}-handler] Stagnation detected for ${sessionID} (${currentProgress}). Intervention ready.`);
-        }
-    } else {
-        loopState.stagnationCount = 0;
+    if (shouldTripCircuit(sessionID)) {
+        log(`[${MISSION_CONTROL.LOG_SOURCE}-handler] Circuit breaker tripped for ${sessionID}`);
+        return;
     }
 
-    // Update state with current progress and stagnation count
-    loopState.lastProgress = currentProgress;
+    const currentProgress = verification.todoProgress;
+    const progressResult = trackProgress(sessionID, verification.todoIncomplete);
+
+    if (progressResult.hasProgressed) {
+        log(`[${MISSION_CONTROL.LOG_SOURCE}-handler] Progress made`, {
+            sessionID,
+            source: progressResult.progressSource,
+        });
+    }
+
+    const stagnant = isStagnant(sessionID, DEFAULT_STAGNATION_THRESHOLD);
+
     const newState = incrementIteration(directory);
     if (!newState) return;
 
-    // Update newly created state with our custom trackers
     newState.lastProgress = currentProgress;
-    newState.stagnationCount = loopState.stagnationCount;
     writeLoopState(directory, newState);
 
-    // Show countdown toast
-    const countdownMsg = isStagnant ? "Stagnation Detected! Intervening..." : `Continuing in ${MISSION_CONTROL.DEFAULT_COUNTDOWN_SECONDS}s... (iteration ${newState.iteration}/${newState.maxIterations})`;
+    await showCountdownToast(client, MISSION_CONTROL.DEFAULT_COUNTDOWN_SECONDS, newState.iteration, newState.maxIterations);
 
-    // (We'll keep the toast simple but can log the intervention)
-
-    // Start countdown timer
-    handlerState.countdownTimer = setTimeout(async () => {
-        cancelCountdown(sessionID);
-        await injectContinuation(client, directory, sessionID, newState, isStagnant ? STAGNATION_INTERVENTION : undefined);
+    state.countdownTimer = setTimeout(async () => {
+        sessionStateStore.cancelCountdown(sessionID);
+        await injectContinuation(client, directory, sessionID, newState, stagnant ? STAGNATION_INTERVENTION : undefined);
     }, MISSION_CONTROL.DEFAULT_COUNTDOWN_SECONDS * 1000);
 }
 
-/**
- * Handle user message - cancel countdown
- */
 export function handleUserMessage(sessionID: string): void {
-    const state = getState(sessionID);
-    if (state.countdownTimer) {
-        cancelCountdown(sessionID);
-    }
+    sessionStateStore.cancelCountdown(sessionID);
 }
 
-/**
- * Handle abort
- */
 export function handleAbort(sessionID: string): void {
-    const state = getState(sessionID);
+    const state = sessionStateStore.getState(sessionID);
     state.isAborting = true;
-    cancelCountdown(sessionID);
+    sessionStateStore.cancelCountdown(sessionID);
 }
 
-/**
- * Clean up session state
- */
 export function cleanupSession(sessionID: string): void {
-    cancelCountdown(sessionID);
-    sessionStates.delete(sessionID);
+    sessionStateStore.cleanup(sessionID);
+    clearCompactionState(sessionID);
+    clearCircuitState(sessionID);
+    resetProgress(sessionID);
+}
+
+export function handleSessionCompacted(sessionID: string): void {
+    armCompactionGuard(sessionID, Date.now());
+    sessionStateStore.cancelCountdown(sessionID);
 }
