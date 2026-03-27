@@ -30,9 +30,14 @@ interface ContinuationState {
     isAborting?: boolean;
     lastIdleTime?: number;
     abortDetectedAt?: number;  // Track when abort was detected
+    lastAccessedAt: number;
 }
 
+const CONTINUATION_TTL_MS = 10 * 60 * 1000;
+const PRUNE_INTERVAL_MS = 2 * 60 * 1000;
+
 const sessionStates = new Map<string, ContinuationState>();
+let pruneInterval: ReturnType<typeof setInterval> | undefined;
 
 // Configuration (from shared constants)
 const COUNTDOWN_SECONDS = 2;  // Slightly shorter than mission-conclude for responsiveness
@@ -41,14 +46,37 @@ const MIN_TIME_BETWEEN_CONTINUATIONS_MS = LOOP.MIN_TIME_BETWEEN_CHECKS_MS;
 const COUNTDOWN_GRACE_PERIOD_MS = LOOP.COUNTDOWN_GRACE_PERIOD_MS;
 const ABORT_WINDOW_MS = LOOP.ABORT_WINDOW_MS;
 
+function startPruneTimer(): void {
+    if (pruneInterval) return;
+    
+    pruneInterval = setInterval(() => {
+        const now = Date.now();
+        for (const [sessionID, state] of sessionStates.entries()) {
+            if (now - state.lastAccessedAt > CONTINUATION_TTL_MS) {
+                if (state.countdownTimer) {
+                    clearTimeout(state.countdownTimer);
+                }
+                sessionStates.delete(sessionID);
+                log(`[todo-continuation] Pruned stale state`, { sessionID });
+            }
+        }
+    }, PRUNE_INTERVAL_MS);
+    
+    if (pruneInterval && typeof pruneInterval.unref === "function") {
+        pruneInterval.unref();
+    }
+}
+
 /**
  * Get or create continuation state for a session
  */
 function getState(sessionID: string): ContinuationState {
     let state = sessionStates.get(sessionID);
     if (!state) {
-        state = {};
+        state = { lastAccessedAt: Date.now() };
         sessionStates.set(sessionID, state);
+    } else {
+        state.lastAccessedAt = Date.now();
     }
     return state;
 }
@@ -89,7 +117,8 @@ function hasRunningBackgroundTasks(parentSessionID: string): boolean {
         const manager = ParallelAgentManager.getInstance();
         const tasks = manager.getTasksByParent(parentSessionID);
         return tasks.some(t => t.status === STATUS_LABEL.RUNNING);
-    } catch {
+    } catch (err) {
+        log("[todo-continuation] Failed to check background tasks", { sessionID: parentSessionID, error: err });
         return false;
     }
 }
@@ -377,3 +406,5 @@ export function cleanupSession(sessionID: string): void {
 export function hasPendingContinuation(sessionID: string): boolean {
     return !!sessionStates.get(sessionID)?.countdownTimer;
 }
+
+startPruneTimer();
