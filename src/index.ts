@@ -24,7 +24,7 @@ import { ShutdownManager } from "./shared/lifecycle/index.js";
 import { backgroundTaskManager } from "./core/commands/manager.js";
 import { shutdownRustToolPool } from "./tools/rust-pool.js";
 import { registerAllTools } from "./tools/registry.js"; // Phase 2-C: Unified tool registry
-import { SHUTDOWN_HANDLERS } from "./shared/index.js";
+import { SHUTDOWN_HANDLERS, SESSION_EVENTS } from "./shared/index.js";
 
 // Import modularized handlers
 import { createToolExecuteBeforeHandler } from "./plugin-handlers/tool-execute-pre-handler.js"; // Added import
@@ -135,7 +135,7 @@ const OrchestratorPlugin: Plugin = async (input) => {
 
             // Additional logic for Todo Sync
             const { event } = payload;
-            if (event.type === "session.created" && event.properties) {
+            if (event.type === SESSION_EVENTS.CREATED && event.properties) {
                 const sessionID = (event.properties as any).sessionID || (event.properties as any).id || (event.properties as any).info?.sessionID;
                 if (sessionID) {
                     todoSync.registerSession(sessionID);

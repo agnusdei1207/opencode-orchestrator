@@ -4,6 +4,7 @@
 
 import * as fs from "fs/promises";
 import * as path from "path";
+import type { ToolDefinition } from "@opencode-ai/plugin";
 import { CustomPlugin, PluginContext } from "./interfaces.js";
 import { log } from "../agents/logger.js";
 import { HookRegistry } from "../../hooks/registry.js";
@@ -13,7 +14,7 @@ export class PluginManager {
     private static instance: PluginManager;
     private plugins: Map<string, CustomPlugin> = new Map();
     private directory: string = "";
-    private dynamicTools: Record<string, any> = {};
+    private dynamicTools: Record<string, ToolDefinition> = {};
 
     private constructor() { }
 
@@ -96,7 +97,7 @@ export class PluginManager {
     /**
      * Get all dynamically registered tools
      */
-    public getDynamicTools(): Record<string, any> {
+    public getDynamicTools(): Record<string, ToolDefinition> {
         return this.dynamicTools;
     }
 
