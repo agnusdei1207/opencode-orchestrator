@@ -107,7 +107,7 @@ async function runPostinstall(
         }
 
         const hasPlugin = config.plugin.some(
-            (p: string) => p === PLUGIN_NAME || p.includes(PLUGIN_NAME)
+            (p: string) => p === PLUGIN_NAME || p.startsWith(`${PLUGIN_NAME}@`)
         );
 
         if (!hasPlugin) {
@@ -320,5 +320,78 @@ describe("postinstall — safe merge policy", () => {
         expect(skipped).toBe(true);
         // File content must be unchanged
         expect(fs.readFileSync(configFile, "utf-8")).toBe(original);
+    });
+
+    it("skips when plugin with version suffix is already registered", async () => {
+        const configDir = path.join(tmpDir, "opencode");
+        fs.mkdirSync(configDir);
+        const configFile = path.join(configDir, "opencode.json");
+
+        const existing = { plugin: [`${PLUGIN_NAME}@1.2.3`] };
+        fs.writeFileSync(configFile, JSON.stringify(existing));
+
+        const mtimeBefore = fs.statSync(configFile).mtimeMs;
+        await new Promise(r => setTimeout(r, 10));
+        const { success } = await runPostinstall(configDir);
+
+        expect(success).toBe(false);
+        expect(fs.statSync(configFile).mtimeMs).toBe(mtimeBefore);
+    });
+
+    it("coexists with oh-my-openagent plugin without removing it", async () => {
+        const configDir = path.join(tmpDir, "opencode");
+        fs.mkdirSync(configDir);
+        const configFile = path.join(configDir, "opencode.json");
+
+        const existing = {
+            plugin: ["oh-my-openagent", "some-other-plugin"]
+        };
+        fs.writeFileSync(configFile, JSON.stringify(existing));
+
+        const { success } = await runPostinstall(configDir);
+
+        expect(success).toBe(true);
+        const written = JSON.parse(fs.readFileSync(configFile, "utf-8"));
+        expect(written.plugin).toContain(PLUGIN_NAME);
+        expect(written.plugin).toContain("oh-my-openagent");
+        expect(written.plugin).toContain("some-other-plugin");
+    });
+
+    it("coexists with legacy oh-my-opencode plugin without removing it", async () => {
+        const configDir = path.join(tmpDir, "opencode");
+        fs.mkdirSync(configDir);
+        const configFile = path.join(configDir, "opencode.json");
+
+        const existing = {
+            plugin: ["oh-my-opencode", `${PLUGIN_NAME}@1.0.0`]
+        };
+        fs.writeFileSync(configFile, JSON.stringify(existing));
+
+        const mtimeBefore = fs.statSync(configFile).mtimeMs;
+        await new Promise(r => setTimeout(r, 10));
+        const { success } = await runPostinstall(configDir);
+
+        expect(success).toBe(false);
+        expect(fs.statSync(configFile).mtimeMs).toBe(mtimeBefore);
+        const written = JSON.parse(fs.readFileSync(configFile, "utf-8"));
+        expect(written.plugin).toContain("oh-my-opencode");
+    });
+
+    it("does not match substring plugins - plugin 'my-opencode-orchestrator-extra' is NOT our plugin", async () => {
+        const configDir = path.join(tmpDir, "opencode");
+        fs.mkdirSync(configDir);
+        const configFile = path.join(configDir, "opencode.json");
+
+        const existing = {
+            plugin: ["my-opencode-orchestrator-extra"]
+        };
+        fs.writeFileSync(configFile, JSON.stringify(existing));
+
+        const { success } = await runPostinstall(configDir);
+
+        expect(success).toBe(true);
+        const written = JSON.parse(fs.readFileSync(configFile, "utf-8"));
+        expect(written.plugin).toContain("my-opencode-orchestrator-extra");
+        expect(written.plugin).toContain(PLUGIN_NAME);
     });
 });

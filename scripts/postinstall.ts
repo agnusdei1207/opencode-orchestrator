@@ -56,6 +56,28 @@ function formatError(err: unknown, context: string): string {
 }
 
 const PLUGIN_NAME = "opencode-orchestrator";
+// Known plugin names to detect for co-existence checking
+const KNOWN_PLUGINS = [
+  "oh-my-openagent",    // oh-my-openagent plugin
+  "oh-my-opencode",     // legacy oh-my-openagent plugin name
+];
+
+/**
+ * Check if a plugin entry matches our PLUGIN_NAME.
+ * Uses exact match or version-suffix match (PLUGIN_NAME + "@version")
+ * to avoid substring matching bugs.
+ */
+function isOurPluginEntry(p: string): boolean {
+  return p === PLUGIN_NAME || p.startsWith(`${PLUGIN_NAME}@`);
+}
+
+/**
+ * Check if a plugin entry belongs to another known plugin.
+ * Used to detect conflicts and co-existence.
+ */
+function isOtherKnownPlugin(p: string): boolean {
+  return KNOWN_PLUGINS.some((name) => p === name || p.startsWith(`${name}@`));
+}
 
 /**
  * Detect if running inside WSL2 (Windows Subsystem for Linux).
@@ -294,15 +316,24 @@ function registerInConfig(configDir: string): { success: boolean; backupFile: st
       }
     }
 
-    // Check if already registered (case-insensitive, exact match)
+    // Check if already registered (exact match or version-suffix match)
     const hasPlugin = config.plugin.some((p: string) => {
       if (typeof p !== "string") return false;
-      return p === PLUGIN_NAME || p.includes(PLUGIN_NAME);
+      return isOurPluginEntry(p);
     });
 
     if (hasPlugin) {
       log("Plugin already registered", { configFile });
       return { success: false, backupFile };
+    }
+
+    // Check for other known plugins (for co-existence info)
+    const otherPlugins = config.plugin.filter((p: string) => {
+      if (typeof p !== "string") return false;
+      return isOtherKnownPlugin(p);
+    });
+    if (otherPlugins.length > 0) {
+      log("Detected other known plugins", { otherPlugins, configFile });
     }
 
     // Create backup before modifying existing file
@@ -321,7 +352,7 @@ function registerInConfig(configDir: string): { success: boolean; backupFile: st
     try {
       const verifyContent = readFileSync(configFile, "utf-8");
       const verifyConfig = JSON.parse(verifyContent);
-      if (!verifyConfig.plugin?.includes(PLUGIN_NAME)) {
+      if (!verifyConfig.plugin?.some((p: string) => isOurPluginEntry(p))) {
         throw new Error("Verification failed: plugin not found after write");
       }
     } catch (verifyError) {
@@ -399,10 +430,15 @@ try {
         const content = readFileSync(configFile, "utf-8").trim();
         if (content) {
           const config = JSON.parse(content);
-          if (config.plugin?.some((p: string) => typeof p === "string" && (p === PLUGIN_NAME || p.includes(PLUGIN_NAME)))) {
+          if (config.plugin?.some((p: string) => typeof p === "string" && isOurPluginEntry(p))) {
             alreadyRegistered = true;
             log("Plugin already registered in this location", { configFile });
             continue;
+          }
+          // Detect other known plugins for co-existence info
+          const otherPlugins = config.plugin?.filter((p: string) => typeof p === "string" && isOtherKnownPlugin(p));
+          if (otherPlugins && otherPlugins.length > 0) {
+            log("Detected other known plugins, co-existence supported", { otherPlugins, configFile });
           }
         }
       } catch (error) {

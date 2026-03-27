@@ -56,6 +56,18 @@ function formatError(err: unknown, context: string): string {
 }
 
 const PLUGIN_NAME = "opencode-orchestrator";
+const KNOWN_PLUGINS = [
+  "oh-my-openagent",
+  "oh-my-opencode",
+];
+
+function isOurPluginEntry(p: string): boolean {
+  return p === PLUGIN_NAME || p.startsWith(`${PLUGIN_NAME}@`);
+}
+
+function isOtherKnownPlugin(p: string): boolean {
+  return KNOWN_PLUGINS.some((name) => p === name || p.startsWith(`${name}@`));
+}
 
 /**
  * Get all possible config directories for OpenCode.
@@ -259,11 +271,9 @@ function removeFromConfig(configDir: string): { success: boolean; backupFile: st
     const originalLength = config.plugin.length;
     const originalPlugins = [...config.plugin];
 
-    // Remove all instances of the plugin (exact match or contains)
     config.plugin = config.plugin.filter((p: string) => {
-      if (typeof p !== "string") return true; // Keep non-string entries (shouldn't happen)
-      // Remove if exact match or contains plugin name
-      return p !== PLUGIN_NAME && !p.includes(PLUGIN_NAME);
+      if (typeof p !== "string") return true;
+      return !isOurPluginEntry(p);
     });
 
     if (config.plugin.length === originalLength) {
@@ -288,9 +298,8 @@ function removeFromConfig(configDir: string): { success: boolean; backupFile: st
       const verifyContent = readFileSync(configFile, "utf-8");
       const verifyConfig = JSON.parse(verifyContent);
 
-      // Check that plugin was actually removed
       const stillHasPlugin = verifyConfig.plugin?.some((p: string) =>
-        typeof p === "string" && (p === PLUGIN_NAME || p.includes(PLUGIN_NAME))
+        typeof p === "string" && isOurPluginEntry(p)
       );
 
       if (stillHasPlugin) {

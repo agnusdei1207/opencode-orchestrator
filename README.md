@@ -161,6 +161,17 @@ The installation process is **production-safe** with multiple protection layers:
 - Unix: `/tmp/opencode-orchestrator.log`
 - Windows: `%TEMP%\opencode-orchestrator.log`
 
+### Plugin Co-existence
+The installer is designed to work alongside other OpenCode plugins, including **oh-my-openagent**:
+
+- ✅ **Distinct plugin names** — `opencode-orchestrator` vs `oh-my-openagent` (or legacy `oh-my-opencode`)
+- ✅ **Non-destructive installation** — only adds our plugin entry, never removes others
+- ✅ **Non-destructive uninstallation** — only removes our plugin entry, preserves others
+- ✅ **Exact matching** — uses exact match + version suffix (`PLUGIN_NAME@version`) to prevent false positives
+- ✅ **Co-existence logging** — detects and logs other known plugins during install
+
+Both plugins can be installed simultaneously without conflicts. Each maintains its own config entries independently.
+
 ---
 
 ## 🧪 Testing & Stability
@@ -192,13 +203,7 @@ const task = createParallelTask({ description: "Test" });
 
 ## 📚 Documentation
 
----
-
-## 📚 Documentation
-
-- [Why We Built a Custom Orchestrator →](docs/WHY_CUSTOM_ORCHESTRATOR.md)
 - [System Architecture Deep-Dive →](docs/SYSTEM_ARCHITECTURE.md)
-- [Windows Configuration Guide →](docs/WINDOWS_CONFIGURATION.md)
 - [Developer Notes →](docs/DEVELOPERS_NOTE.md)
 
 ---
