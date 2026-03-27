@@ -84,6 +84,7 @@ export function resetProgress(sessionID: string): void {
     state.stagnationCount = 0;
     state.lastIncompleteCount = undefined;
     state.lastSnapshot = undefined;
+    state.countCompleted = undefined;
     state.awaitingPostInjectionProgressCheck = false;
 }
 

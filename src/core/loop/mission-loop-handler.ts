@@ -28,12 +28,31 @@ import { detectPlatform, getDefaultSoundPath } from "../notification/os-notify/p
 import { verifyMissionCompletion, buildVerificationSummary } from "./verification.js";
 import { createSessionStateStore } from "./session-state-store.js";
 import { trackProgress, resetProgress, isStagnant, markInjectionPerformed, DEFAULT_STAGNATION_THRESHOLD } from "./progress-tracker.js";
-import { armCompactionGuard, disarmCompactionGuard, isCompactionSafe, clearCompactionState } from "./compaction-guard.js";
+import { armCompactionGuard, isCompactionSafe, clearCompactionState } from "./compaction-guard.js";
 import { isCircuitOpen, shouldTripCircuit, clearCircuitState } from "./circuit-breaker.js";
 
 type OpencodeClient = PluginInput["client"];
 
 const sessionStateStore = createSessionStateStore();
+
+async function showToastSafely(
+    client: OpencodeClient,
+    title: string,
+    message: string,
+    variant: string,
+    duration: number
+): Promise<void> {
+    try {
+        const tui = (client as unknown as { tui?: { showToast?: (opts: unknown) => Promise<unknown> } })?.tui;
+        if (tui?.showToast) {
+            await tui.showToast({
+                body: { title, message, variant, duration },
+            });
+        }
+    } catch {
+        // Toast failed silently
+    }
+}
 
 function hasRunningBackgroundTasks(parentSessionID: string): boolean {
     try {
@@ -51,46 +70,26 @@ async function showCountdownToast(
     iteration: number,
     maxIterations: number
 ): Promise<void> {
-    try {
-        const tuiClient = client as unknown as {
-            tui?: { showToast?: (opts: unknown) => Promise<void> }
-        };
-        if (tuiClient.tui?.showToast) {
-            await tuiClient.tui.showToast({
-                body: {
-                    title: "🔄 Mission Loop",
-                    message: `Continuing in ${seconds}s... (iteration ${iteration}/${maxIterations})`,
-                    variant: TOAST_VARIANTS.WARNING,
-                    duration: TOAST_DURATION.EXTRA_SHORT,
-                },
-            });
-        }
-    } catch {
-        // Toast failed
-    }
+    await showToastSafely(
+        client,
+        "🔄 Mission Loop",
+        `Continuing in ${seconds}s... (iteration ${iteration}/${maxIterations})`,
+        TOAST_VARIANTS.WARNING,
+        TOAST_DURATION.EXTRA_SHORT
+    );
 }
 
 async function showCompletedToast(
     client: OpencodeClient,
     state: MissionLoopState
 ): Promise<void> {
-    try {
-        const tuiClient = client as unknown as {
-            tui?: { showToast?: (opts: unknown) => Promise<void> }
-        };
-        if (tuiClient.tui?.showToast) {
-            await tuiClient.tui.showToast({
-                body: {
-                    title: "🎖️ Mission Complete!",
-                    message: `Verified and finished after ${state.iteration} iteration(s)`,
-                    variant: TOAST_VARIANTS.SUCCESS,
-                    duration: TOAST_DURATION.LONG,
-                },
-            });
-        }
-    } catch {
-        // Toast failed
-    }
+    await showToastSafely(
+        client,
+        "🎖️ Mission Complete!",
+        `Verified and finished after ${state.iteration} iteration(s)`,
+        TOAST_VARIANTS.SUCCESS,
+        TOAST_DURATION.LONG
+    );
 }
 
 async function injectContinuation(
@@ -107,6 +106,12 @@ async function injectContinuation(
     if (isSessionRecovering(sessionID)) return;
     if (isCircuitOpen(sessionID)) {
         log(`[mission-loop-handler] Skipped: circuit breaker open`, { sessionID });
+        return;
+    }
+
+    const currentEpoch = Date.now();
+    if (!isCompactionSafe(sessionID, currentEpoch)) {
+        log(`[mission-loop-handler] Skipped: post-compaction unsafe`, { sessionID, currentEpoch });
         return;
     }
 

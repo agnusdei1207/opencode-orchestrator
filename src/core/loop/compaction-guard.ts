@@ -2,48 +2,57 @@
  * Compaction Guard - Prevents post-compaction Resume Errors
  * 
  * After session compaction, continuation prompts may reference deleted context.
- * This guard ensures continuation only happens after compaction is armed.
+ * This guard ensures continuation only happens after a newer compaction epoch.
  */
 
 import { log } from "../agents/logger.js";
 
 export interface CompactionGuardState {
     compactionEpoch: number;
-    armed: boolean;
+    lastAccessedAt: number;
 }
 
-export const COMPACTION_GRACE_PERIOD_MS = 30 * 1000;
+const COMPACTION_TTL_MS = 10 * 60 * 1000;
+const PRUNE_INTERVAL_MS = 2 * 60 * 1000;
 
 const compactionStates = new Map<string, CompactionGuardState>();
+
+let pruneInterval: ReturnType<typeof setInterval> | undefined;
+
+function startPruneTimer(): void {
+    if (pruneInterval) return;
+    
+    pruneInterval = setInterval(() => {
+        const now = Date.now();
+        for (const [sessionID, state] of compactionStates.entries()) {
+            if (now - state.lastAccessedAt > COMPACTION_TTL_MS) {
+                compactionStates.delete(sessionID);
+                log(`[compaction-guard] Pruned stale state`, { sessionID });
+            }
+        }
+    }, PRUNE_INTERVAL_MS);
+}
 
 export function armCompactionGuard(sessionID: string, timestamp: number): number {
     let state = compactionStates.get(sessionID);
     if (!state) {
-        state = { compactionEpoch: 0, armed: false };
+        state = { compactionEpoch: 0, lastAccessedAt: Date.now() };
         compactionStates.set(sessionID, state);
     }
     
     state.compactionEpoch = timestamp;
-    state.armed = true;
+    state.lastAccessedAt = Date.now();
     
     log(`[compaction-guard] Armed`, { sessionID, epoch: timestamp });
     
     return timestamp;
 }
 
-export function disarmCompactionGuard(sessionID: string): void {
-    const state = compactionStates.get(sessionID);
-    if (!state) return;
-    
-    state.armed = false;
-    log(`[compaction-guard] Disarmed`, { sessionID });
-}
-
 export function isCompactionSafe(sessionID: string, currentEpoch: number): boolean {
     const state = compactionStates.get(sessionID);
     if (!state) return true;
     
-    if (!state.armed) return true;
+    state.lastAccessedAt = Date.now();
     
     if (currentEpoch > state.compactionEpoch) {
         log(`[compaction-guard] Unsafe: newer compaction exists`, {
@@ -64,3 +73,13 @@ export function clearCompactionState(sessionID: string): void {
 export function getCompactionState(sessionID: string): CompactionGuardState | undefined {
     return compactionStates.get(sessionID);
 }
+
+export function shutdownCompactionGuard(): void {
+    if (pruneInterval) {
+        clearInterval(pruneInterval);
+        pruneInterval = undefined;
+    }
+    compactionStates.clear();
+}
+
+startPruneTimer();

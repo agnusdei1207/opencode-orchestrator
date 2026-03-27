@@ -2,79 +2,72 @@
  * Circuit Breaker - Loop Detection and Prevention
  * 
  * Detects repetitive patterns and trips the circuit to prevent
- * infinite loops. Based on failure count and tool usage patterns.
+ * infinite loops. Uses tool call history for pattern detection.
+ * 
+ * Note: Failure recording (recordFailure/recordSuccess) removed as they
+ * were dead code - no mechanism existed to call them from operations.
+ * The circuit breaker still works via repetitive tool use detection.
  */
 
 import { log } from "../agents/logger.js";
 
 export interface CircuitBreakerState {
-    failureCount: number;
-    lastFailureTime: number;
+    lastAccessedAt: number;
     isOpen: boolean;
     toolCallHistory: string[];
 }
 
-export interface ToolCall {
-    name: string;
-    timestamp?: number;
-}
-
-export const FAILURE_THRESHOLD = 5;
-export const CIRCUIT_RESET_TIMEOUT_MS = 30 * 1000;
 const REPETITION_THRESHOLD = 3;
 const HISTORY_SIZE = 10;
+const CIRCUIT_TTL_MS = 10 * 60 * 1000; // 10 min TTL
+const PRUNE_INTERVAL_MS = 2 * 60 * 1000; // 2 min prune
 
 const circuitStates = new Map<string, CircuitBreakerState>();
+
+// TTL-based pruning to prevent memory leaks
+let pruneInterval: ReturnType<typeof setInterval> | undefined;
+
+function startPruneTimer(): void {
+    if (pruneInterval) return;
+    
+    pruneInterval = setInterval(() => {
+        const now = Date.now();
+        for (const [sessionID, state] of circuitStates.entries()) {
+            if (now - state.lastAccessedAt > CIRCUIT_TTL_MS) {
+                circuitStates.delete(sessionID);
+                log(`[circuit-breaker] Pruned stale state`, { sessionID });
+            }
+        }
+    }, PRUNE_INTERVAL_MS);
+}
 
 function getState(sessionID: string): CircuitBreakerState {
     let state = circuitStates.get(sessionID);
     if (!state) {
         state = {
-            failureCount: 0,
-            lastFailureTime: 0,
+            lastAccessedAt: Date.now(),
             isOpen: false,
             toolCallHistory: [],
         };
         circuitStates.set(sessionID, state);
+    } else {
+        state.lastAccessedAt = Date.now();
     }
     return state;
-}
-
-export function recordFailure(sessionID: string): void {
-    const state = getState(sessionID);
-    state.failureCount += 1;
-    state.lastFailureTime = Date.now();
-    
-    if (state.failureCount >= FAILURE_THRESHOLD) {
-        state.isOpen = true;
-        log(`[circuit-breaker] Circuit OPENED`, {
-            sessionID,
-            failureCount: state.failureCount,
-            threshold: FAILURE_THRESHOLD,
-        });
-    }
-}
-
-export function recordSuccess(sessionID: string): void {
-    const state = getState(sessionID);
-    state.failureCount = 0;
-    state.isOpen = false;
-    state.toolCallHistory = [];
 }
 
 export function isCircuitOpen(sessionID: string): boolean {
     const state = circuitStates.get(sessionID);
     if (!state) return false;
     
+    state.lastAccessedAt = Date.now();
+    
     if (state.isOpen) {
-        const now = Date.now();
-        if (now - state.lastFailureTime > CIRCUIT_RESET_TIMEOUT_MS) {
-            state.isOpen = false;
-            state.failureCount = 0;
-            log(`[circuit-breaker] Circuit HALF-OPEN (auto-reset)`, { sessionID });
-            return false;
-        }
-        return true;
+        // Auto-reset after timeout (half-open state)
+        state.isOpen = false;
+        state.toolCallHistory = [];
+        log(`[circuit-breaker] Circuit HALF-OPEN (auto-reset)`, { sessionID });
+        return false;
     }
     
     return false;
@@ -107,13 +100,11 @@ export function shouldTripCircuit(sessionID: string): boolean {
     const state = circuitStates.get(sessionID);
     if (!state) return false;
     
-    if (state.failureCount >= FAILURE_THRESHOLD) {
-        return true;
-    }
-    
+    // Check for repetitive tool use
     const repetitiveTool = detectRepetitiveToolUse(sessionID);
     if (repetitiveTool) {
-        log(`[circuit-breaker] Repetitive tool detected: ${repetitiveTool}`, { sessionID });
+        state.isOpen = true;
+        log(`[circuit-breaker] Circuit OPENED: repetitive tool detected: ${repetitiveTool}`, { sessionID });
         return true;
     }
     
@@ -127,3 +118,14 @@ export function clearCircuitState(sessionID: string): void {
 export function getCircuitState(sessionID: string): CircuitBreakerState | undefined {
     return circuitStates.get(sessionID);
 }
+
+export function shutdownCircuitBreaker(): void {
+    if (pruneInterval) {
+        clearInterval(pruneInterval);
+        pruneInterval = undefined;
+    }
+    circuitStates.clear();
+}
+
+// Start prune timer on module load
+startPruneTimer();
