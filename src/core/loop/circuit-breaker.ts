@@ -3,24 +3,22 @@
  * 
  * Detects repetitive patterns and trips the circuit to prevent
  * infinite loops. Uses tool call history for pattern detection.
- * 
- * Note: Failure recording (recordFailure/recordSuccess) removed as they
- * were dead code - no mechanism existed to call them from operations.
- * The circuit breaker still works via repetitive tool use detection.
  */
 
 import { log } from "../agents/logger.js";
 
 export interface CircuitBreakerState {
     lastAccessedAt: number;
+    lastTrippedAt: number;
     isOpen: boolean;
     toolCallHistory: string[];
 }
 
 const REPETITION_THRESHOLD = 3;
 const HISTORY_SIZE = 10;
-const CIRCUIT_TTL_MS = 10 * 60 * 1000; // 10 min TTL
-const PRUNE_INTERVAL_MS = 2 * 60 * 1000; // 2 min prune
+const CIRCUIT_TTL_MS = 10 * 60 * 1000;
+const CIRCUIT_RESET_TIMEOUT_MS = 30 * 1000;
+const PRUNE_INTERVAL_MS = 2 * 60 * 1000;
 
 const circuitStates = new Map<string, CircuitBreakerState>();
 
@@ -39,6 +37,10 @@ function startPruneTimer(): void {
             }
         }
     }, PRUNE_INTERVAL_MS);
+    
+    if (pruneInterval && typeof pruneInterval.unref === "function") {
+        pruneInterval.unref();
+    }
 }
 
 function getState(sessionID: string): CircuitBreakerState {
@@ -46,6 +48,7 @@ function getState(sessionID: string): CircuitBreakerState {
     if (!state) {
         state = {
             lastAccessedAt: Date.now(),
+            lastTrippedAt: 0,
             isOpen: false,
             toolCallHistory: [],
         };
@@ -63,23 +66,17 @@ export function isCircuitOpen(sessionID: string): boolean {
     state.lastAccessedAt = Date.now();
     
     if (state.isOpen) {
-        // Auto-reset after timeout (half-open state)
-        state.isOpen = false;
-        state.toolCallHistory = [];
-        log(`[circuit-breaker] Circuit HALF-OPEN (auto-reset)`, { sessionID });
-        return false;
+        const now = Date.now();
+        if (now - state.lastTrippedAt > CIRCUIT_RESET_TIMEOUT_MS) {
+            state.isOpen = false;
+            state.toolCallHistory = [];
+            log(`[circuit-breaker] Circuit HALF-OPEN (auto-reset)`, { sessionID });
+            return false;
+        }
+        return true;
     }
     
     return false;
-}
-
-export function recordToolCall(sessionID: string, toolName: string): void {
-    const state = getState(sessionID);
-    state.toolCallHistory.push(toolName);
-    
-    if (state.toolCallHistory.length > HISTORY_SIZE) {
-        state.toolCallHistory.shift();
-    }
 }
 
 export function detectRepetitiveToolUse(sessionID: string): string | null {
@@ -100,10 +97,12 @@ export function shouldTripCircuit(sessionID: string): boolean {
     const state = circuitStates.get(sessionID);
     if (!state) return false;
     
-    // Check for repetitive tool use
+    if (state.isOpen) return false;
+    
     const repetitiveTool = detectRepetitiveToolUse(sessionID);
     if (repetitiveTool) {
         state.isOpen = true;
+        state.lastTrippedAt = Date.now();
         log(`[circuit-breaker] Circuit OPENED: repetitive tool detected: ${repetitiveTool}`, { sessionID });
         return true;
     }
