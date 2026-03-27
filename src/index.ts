@@ -24,7 +24,7 @@ import { ShutdownManager } from "./shared/lifecycle/index.js";
 import { backgroundTaskManager } from "./core/commands/manager.js";
 import { shutdownRustToolPool } from "./tools/rust-pool.js";
 import { registerAllTools } from "./tools/registry.js"; // Phase 2-C: Unified tool registry
-import { SHUTDOWN_HANDLERS, SESSION_EVENTS } from "./shared/index.js";
+import { SHUTDOWN_HANDLERS, SESSION_EVENTS, PLUGIN_HOOKS } from "./shared/index.js";
 
 // Import modularized handlers
 import { createToolExecuteBeforeHandler } from "./plugin-handlers/tool-execute-pre-handler.js"; // Added import
@@ -148,7 +148,7 @@ const OrchestratorPlugin: Plugin = async (input) => {
         // -----------------------------------------------------------------
         // chat.message hook - intercepts commands and sets up sessions
         // -----------------------------------------------------------------
-        "chat.message": createChatMessageHandler(handlerContext),
+        [PLUGIN_HOOKS.CHAT_MESSAGE]: createChatMessageHandler(handlerContext),
 
         // -----------------------------------------------------------------
         // tool.execute.before hook - runs before any tool call
@@ -158,12 +158,12 @@ const OrchestratorPlugin: Plugin = async (input) => {
         // -----------------------------------------------------------------
         // tool.execute.after hook - runs after any tool call completes
         // -----------------------------------------------------------------
-        "tool.execute.after": createToolExecuteAfterHandler(handlerContext),
+        [PLUGIN_HOOKS.TOOL_EXECUTE_AFTER]: createToolExecuteAfterHandler(handlerContext),
 
         // -----------------------------------------------------------------
         // assistant.done hook - runs when the LLM finishes responding
         // -----------------------------------------------------------------
-        "assistant.done": createAssistantDoneHandler(handlerContext),
+        [PLUGIN_HOOKS.ASSISTANT_DONE]: createAssistantDoneHandler(handlerContext),
 
         // -----------------------------------------------------------------
         // experimental.session.compacting hook - preserves mission context during compaction
