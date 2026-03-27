@@ -1,26 +1,2 @@
-/**
- * TASK_STATUS - Task status constants (for parallel tasks)
- */
-
-import { STATUS_LABEL } from "../../../shared/index.js";
-
-export const TASK_STATUS = {
-    PENDING: STATUS_LABEL.PENDING,
-    RUNNING: STATUS_LABEL.RUNNING,
-    COMPLETED: STATUS_LABEL.COMPLETED,
-    FAILED: STATUS_LABEL.FAILED,
-    ERROR: STATUS_LABEL.ERROR,
-    TIMEOUT: STATUS_LABEL.TIMEOUT,
-    CANCELLED: STATUS_LABEL.CANCELLED,
-} as const;
-
-/**
- * TODO_STATUS - Todo item status constants
- */
-export const TODO_STATUS = {
-    PENDING: STATUS_LABEL.PENDING,
-    IN_PROGRESS: STATUS_LABEL.IN_PROGRESS,
-    COMPLETED: STATUS_LABEL.COMPLETED,
-    CANCELLED: STATUS_LABEL.CANCELLED,
-} as const;
-
+export { TASK_STATUS } from "../../../shared/loop/constants/task-status.js";
+export { TODO_STATUS } from "../../../shared/loop/constants/todo-status.js";

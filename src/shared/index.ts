@@ -26,6 +26,3 @@ export * from "./errors/index.js";
 // Prompt constants (tags, status)
 export * from "./prompt/index.js";
 
-// Re-exports from core modules (for compatibility)
-export { TASK_STATUS, TODO_STATUS } from "../core/agents/consts/task-status.const.js";
-
