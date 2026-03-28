@@ -107,3 +107,6 @@ npm run release:patch   # Bug fixes
 npm run release:minor   # New features / Agent upgrades
 ```
 Releases automatically handle binary distribution for multiple architectures (Windows/macOS/Linux).
+
+Installation hooks are bootstrapped through `scripts/run-install-hook.mjs`.
+They prefer built `dist/scripts/*.js`, fall back to source `scripts/*.ts` in a source checkout, prefer `opencode.jsonc` over `opencode.json`, preserve sibling plugin entries/comments, and no-op in CI to avoid mutating runner config.

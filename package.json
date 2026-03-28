@@ -2,7 +2,7 @@
   "name": "opencode-orchestrator",
   "displayName": "OpenCode Orchestrator",
   "description": "Distributed Cognitive Architecture for OpenCode. Turns simple prompts into specialized multi-agent workflows (Planner, Coder, Reviewer).",
-  "version": "1.2.64",
+  "version": "1.2.65",
   "author": "agnusdei1207",
   "license": "MIT",
   "repository": {
@@ -34,6 +34,7 @@
   },
   "files": [
     "dist",
+    "scripts/run-install-hook.mjs",
     "bin",
     "README.md",
     "LICENSE"
@@ -51,13 +52,16 @@
     "test:unit": "vitest run tests/unit --reporter=verbose",
     "test:e2e": "vitest run tests/e2e --reporter=verbose",
     "test:all": "npm run build && vitest run --reporter=verbose && echo '=== ALL TESTS PASSED ==='",
-    "postinstall": "node dist/scripts/postinstall.js",
-    "preuninstall": "node dist/scripts/preuninstall.js",
+    "postinstall": "node scripts/run-install-hook.mjs postinstall",
+    "preuninstall": "node scripts/run-install-hook.mjs preuninstall",
     "prepublishOnly": "npm run build",
     "publish:token": "npm publish --access public",
-    "release:patch": "npm run build && npm run docker:rust-dist && npm version patch && git push --follow-tags && npm run publish:token",
-    "release:minor": "npm run build && npm run docker:rust-dist && npm version minor && git push --follow-tags && npm run publish:token",
-    "release:major": "npm run build && npm run docker:rust-dist && npm version major && git push --follow-tags && npm run publish:token",
+    "releae:patch": "npm run release:patch",
+    "sync:readme-version": "node scripts/sync-readme-version.mjs",
+    "version": "npm run sync:readme-version",
+    "release:patch": "npm version patch && npm run build && npm run docker:rust-dist && npm run publish:token",
+    "release:minor": "npm version minor && npm run build && npm run docker:rust-dist && npm run publish:token",
+    "release:major": "npm version major && npm run build && npm run docker:rust-dist && npm run publish:token",
     "reset:local": "brew uninstall opencode 2>/dev/null; rm -rf ~/.config/opencode ~/.opencode ~/.local/share/opencode ~/.cache/opencode/node_modules/opencode-orchestrator && echo '=== Clean done ===' && brew install opencode && echo '{\"plugin\": [\"opencode-orchestrator\"], \"$schema\": \"https://opencode.ai/config.json\"}' > ~/.config/opencode/opencode.json && echo '=== Reset (Dev) complete. Run: opencode ==='",
     "reset:prod": "brew uninstall opencode 2>/dev/null; rm -rf ~/.config/opencode ~/.opencode ~/.local/share/opencode ~/.cache/opencode/node_modules/opencode-orchestrator && echo '=== Clean done ===' && brew install opencode && echo '{\"plugin\": [\"opencode-orchestrator\"], \"$schema\": \"https://opencode.ai/config.json\"}' > ~/.config/opencode/opencode.json && npm uninstall -g opencode-orchestrator && echo '=== Reset (Prod) complete. Run: opencode ==='",
     "ginstall": "npm install -g opencode-orchestrator",
@@ -69,6 +73,7 @@
   "dependencies": {
     "@opencode-ai/plugin": "^1.1.35",
     "@opencode-ai/sdk": "^1.1.35",
+    "jsonc-parser": "^3.3.1",
     "zod": "^4.3.6"
   },
   "devDependencies": {

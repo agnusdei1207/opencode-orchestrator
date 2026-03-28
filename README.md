@@ -8,6 +8,9 @@
 
   [![MIT License](https://img.shields.io/badge/license-MIT-red.svg)](LICENSE)
   [![npm](https://img.shields.io/npm/v/opencode-orchestrator.svg)](https://www.npmjs.com/package/opencode-orchestrator)
+  <!-- VERSION:START -->
+  **Version:** `1.2.65`
+  <!-- VERSION:END -->
 </div>
 
 
@@ -18,6 +21,8 @@
 ```bash
 npm install -g opencode-orchestrator
 ```
+
+Install hooks are source-checkout safe, prefer `opencode.jsonc` when present, preserve sibling plugin entries, and skip automatic config mutation in CI environments.
 
 Inside an OpenCode environment:
 ```bash

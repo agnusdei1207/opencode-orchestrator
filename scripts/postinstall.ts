@@ -2,7 +2,8 @@
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync, appendFileSync, copyFileSync, renameSync, unlinkSync, readdirSync } from "fs";
 import { homedir, tmpdir } from "os";
-import { join } from "path";
+import { dirname, join, basename } from "path";
+import { applyEdits, modify, parse as parseJsonc, printParseErrorCode, type ParseError } from "jsonc-parser";
 
 const isCI = process.env.CI === "true" || process.env.CONTINUOUS_INTEGRATION === "true";
 
@@ -64,6 +65,44 @@ const PLUGIN_NAME = "opencode-orchestrator";
  */
 function isOurPluginEntry(p: string): boolean {
   return p === PLUGIN_NAME || p.startsWith(`${PLUGIN_NAME}@`);
+}
+
+function getConfigFileCandidates(configDir: string): string[] {
+  return [join(configDir, "opencode.jsonc"), join(configDir, "opencode.json")];
+}
+
+function resolveConfigFile(configDir: string): string {
+  for (const candidate of getConfigFileCandidates(configDir)) {
+    if (existsSync(candidate)) {
+      return candidate;
+    }
+  }
+  return getConfigFileCandidates(configDir)[0];
+}
+
+function parseConfigContent(rawContent: string): { config?: Record<string, any>; parseError?: string } {
+  const errors: ParseError[] = [];
+  const config = parseJsonc(rawContent, errors, {
+    allowTrailingComma: true,
+    disallowComments: false,
+  });
+
+  if (errors.length > 0) {
+    const [firstError] = errors;
+    const line = rawContent.slice(0, firstError.offset).split("\n").length;
+    const column = firstError.offset - rawContent.lastIndexOf("\n", firstError.offset - 1);
+    return {
+      parseError: `${printParseErrorCode(firstError.error)} at line ${line}, column ${column}`,
+    };
+  }
+
+  if (typeof config !== "object" || config === null || Array.isArray(config)) {
+    return {
+      parseError: "Root config must be a JSON object",
+    };
+  }
+
+  return { config: config as Record<string, any> };
 }
 
 /**
@@ -160,7 +199,22 @@ function getConfigPaths(): string[] {
     }
   }
 
-  return paths;
+  return [...new Set(paths)];
+}
+
+function readExistingConfig(configDir: string): { file: string; config: Record<string, any> } | null {
+  for (const configFile of getConfigFileCandidates(configDir)) {
+    if (!existsSync(configFile)) continue;
+    const rawContent = readFileSync(configFile, "utf-8").trim();
+    if (!rawContent) {
+      return { file: configFile, config: {} };
+    }
+    const parsed = parseConfigContent(rawContent);
+    if (parsed.config) {
+      return { file: configFile, config: parsed.config };
+    }
+  }
+  return null;
 }
 
 /**
@@ -216,11 +270,20 @@ function createBackup(configFile: string): string | null {
 /**
  * Atomic file write: write to temp file, then rename
  */
-function atomicWriteJSON(filePath: string, data: any): void {
+function atomicWriteJSON(filePath: string, data: any, originalContent?: string): void {
   const tempFile = `${filePath}.tmp.${Date.now()}`;
   try {
-    // Write to temp file
-    writeFileSync(tempFile, JSON.stringify(data, null, 2) + "\n", { mode: 0o644 });
+    let output = JSON.stringify(data, null, 2) + "\n";
+    if (filePath.endsWith(".jsonc") && originalContent !== undefined) {
+      const source = originalContent.trim() ? originalContent : "{}";
+      const edits = modify(source, ["plugin"], data.plugin, {
+        formattingOptions: { tabSize: 2, insertSpaces: true },
+      });
+      output = applyEdits(source, edits);
+      if (!output.endsWith("\n")) output += "\n";
+    }
+
+    writeFileSync(tempFile, output, { mode: 0o644 });
 
     // Atomic rename (OS-level atomic operation)
     renameSync(tempFile, filePath);
@@ -245,8 +308,9 @@ function atomicWriteJSON(filePath: string, data: any): void {
  * - If the file does not exist → create minimal config with plugin entry
  */
 function registerInConfig(configDir: string): { success: boolean; backupFile: string | null; skipped?: boolean } {
-  const configFile = join(configDir, "opencode.json");
+  const configFile = resolveConfigFile(configDir);
   let backupFile: string | null = null;
+  let originalContent: string | undefined;
 
   try {
     // Create directory if needed
@@ -261,27 +325,26 @@ function registerInConfig(configDir: string): { success: boolean; backupFile: st
     // Read existing config
     if (existsSync(configFile)) {
       fileExisted = true;
-      const rawContent = readFileSync(configFile, "utf-8").trim();
+        const rawContent = readFileSync(configFile, "utf-8");
+        originalContent = rawContent;
+        const trimmedContent = rawContent.trim();
 
-      if (rawContent) {
-        let parseError: unknown;
-        try {
-          config = JSON.parse(rawContent);
-        } catch (err) {
-          parseError = err;
-        }
+      if (trimmedContent) {
+        const parsed = parseConfigContent(trimmedContent);
 
-        if (parseError) {
+        if (parsed.parseError) {
           // ⚠️ JSON is corrupted — do NOT overwrite, just skip this path safely
           backupFile = createBackup(configFile);
-          log("Corrupted config JSON, skipping this path to avoid data loss", { configFile });
-          console.log(`⚠️  opencode.json at ${configFile} has invalid JSON and was skipped.`);
+          log("Corrupted config JSON, skipping this path to avoid data loss", { configFile, parseError: parsed.parseError });
+          console.log(`⚠️  opencode config at ${configFile} has invalid JSON/JSONC and was skipped.`);
           if (backupFile) {
             console.log(`   Backup saved: ${backupFile}`);
           }
           console.log(`   Please fix the file manually, then add "${PLUGIN_NAME}" to the "plugin" array.`);
           return { success: false, backupFile, skipped: true };
         }
+
+        config = parsed.config ?? {};
 
         // Config parsed successfully — validate structure
         if (!validateConfig(config)) {
@@ -324,12 +387,16 @@ function registerInConfig(configDir: string): { success: boolean; backupFile: st
     log("Adding plugin to config", { plugin: PLUGIN_NAME, configFile });
 
     // Atomic write (temp file + rename)
-    atomicWriteJSON(configFile, config);
+    atomicWriteJSON(configFile, config, originalContent);
 
     // Verify write succeeded
     try {
       const verifyContent = readFileSync(configFile, "utf-8");
-      const verifyConfig = JSON.parse(verifyContent);
+      const verifyParsed = parseConfigContent(verifyContent);
+      if (verifyParsed.parseError || !verifyParsed.config) {
+        throw new Error(`Verification parse failed: ${verifyParsed.parseError ?? "unknown parse error"}`);
+      }
+      const verifyConfig = verifyParsed.config;
       if (!verifyConfig.plugin?.some((p: string) => isOurPluginEntry(p))) {
         throw new Error("Verification failed: plugin not found after write");
       }
@@ -368,10 +435,11 @@ function registerInConfig(configDir: string): { success: boolean; backupFile: st
  */
 function cleanupOldBackups(configFile: string): void {
   try {
-    const configDir = join(configFile, "..");
+    const configDir = dirname(configFile);
+    const configBase = basename(configFile);
     const files = readdirSync(configDir);
     const backupFiles = files
-      .filter((f: string) => f.startsWith("opencode.json.backup."))
+      .filter((f: string) => f.startsWith(`${configBase}.backup.`))
       .sort()
       .reverse();
 
@@ -391,6 +459,13 @@ try {
   console.log("🎯 OpenCode Orchestrator - Installing...");
   log("Installation started", { platform: process.platform, node: process.version });
 
+  if (isCI) {
+    console.log("ℹ️  CI environment detected. Skipping automatic plugin registration.");
+    log("Skipping automatic plugin registration in CI");
+    clearTimeout(timeoutId);
+    process.exit(0);
+  }
+
   const configPaths = getConfigPaths();
   log("Config paths to check", configPaths);
 
@@ -399,29 +474,25 @@ try {
   let skippedCorrupt = false;
   let backupCreated: string | null = null;
 
+  let targetConfigDir = configPaths[0];
+
   for (const configDir of configPaths) {
-    const configFile = join(configDir, "opencode.json");
-
-    // Check if already registered
-    if (existsSync(configFile)) {
-      try {
-        const content = readFileSync(configFile, "utf-8").trim();
-        if (content) {
-          const config = JSON.parse(content);
-          if (config.plugin?.some((p: string) => typeof p === "string" && isOurPluginEntry(p))) {
-            alreadyRegistered = true;
-            log("Plugin already registered in this location", { configFile });
-            continue;
-          }
-
-        }
-      } catch (error) {
-        log("Error checking existing config", { error: String(error), configFile });
-        // Continue to attempt registration with backup/rollback safety
-      }
+    const existing = readExistingConfig(configDir);
+    if (!existing) {
+      continue;
     }
 
-    const result = registerInConfig(configDir);
+    targetConfigDir = configDir;
+    if (existing.config.plugin?.some((p: string) => typeof p === "string" && isOurPluginEntry(p))) {
+      alreadyRegistered = true;
+      log("Plugin already registered in this location", { configFile: existing.file });
+      break;
+    }
+  }
+
+  if (!alreadyRegistered && targetConfigDir) {
+    const configFile = resolveConfigFile(targetConfigDir);
+    const result = registerInConfig(targetConfigDir);
     if (result.skipped) {
       skippedCorrupt = true;
       if (result.backupFile) backupCreated = result.backupFile;
@@ -432,8 +503,6 @@ try {
         backupCreated = result.backupFile;
       }
       registered = true;
-
-      // Cleanup old backups
       cleanupOldBackups(configFile);
     } else if (result.backupFile) {
       backupCreated = result.backupFile;
