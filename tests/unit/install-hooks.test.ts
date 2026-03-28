@@ -17,6 +17,25 @@ function runNode(args: string[], cwd: string, env: NodeJS.ProcessEnv = {}) {
     });
 }
 
+function buildHook(entryPath: string, outfile: string) {
+    return spawnSync(
+        path.join(repoRoot, "node_modules", "esbuild", "bin", "esbuild"),
+        [
+            entryPath,
+            "--bundle",
+            "--platform=node",
+            "--format=esm",
+            "--main-fields=module,main",
+            `--outfile=${outfile}`,
+        ],
+        {
+            cwd: repoRoot,
+            env: process.env,
+            encoding: "utf8",
+        }
+    );
+}
+
 describe("install hook bootstrap", () => {
     it("falls back to source TypeScript hook when dist is missing", async () => {
         await using tmp = await tmpdir({ prefix: "install-hook-runner-" });
@@ -89,6 +108,27 @@ describe("install hook bootstrap", () => {
 });
 
 describe("install hook scripts", () => {
+    it("built dist postinstall runs under Node 24 without dynamic require failures", async () => {
+        await using tmp = await tmpdir({ prefix: "postinstall-dist-" });
+        const builtHook = path.join(tmp.path, "postinstall.js");
+        const configRoot = path.join(tmp.path, "xdg");
+
+        const buildResult = buildHook(postinstallPath, builtHook);
+        expect(buildResult.status).toBe(0);
+
+        const result = runNode(
+            [builtHook],
+            repoRoot,
+            { XDG_CONFIG_HOME: configRoot, HOME: tmp.path }
+        );
+
+        const createdConfig = path.join(configRoot, "opencode", "opencode.jsonc");
+        expect(result.status).toBe(0);
+        expect(result.stderr).not.toContain("Dynamic require");
+        expect(existsSync(createdConfig)).toBe(true);
+        expect(readFileSync(createdConfig, "utf8")).toContain('"opencode-orchestrator"');
+    });
+
     it("postinstall creates opencode.jsonc by default for a fresh config", async () => {
         await using tmp = await tmpdir({ prefix: "postinstall-jsonc-" });
         const configRoot = path.join(tmp.path, "xdg");
@@ -220,6 +260,37 @@ describe("install hook scripts", () => {
         expect(updated).toContain("// keep this comment");
         expect(updated).toContain('"oh-my-openagent@latest"');
         expect(updated).not.toContain('"opencode-orchestrator"');
+    });
+
+    it("built dist preuninstall runs under Node 24 and removes only our plugin", async () => {
+        await using tmp = await tmpdir({ prefix: "preuninstall-dist-" });
+        const builtHook = path.join(tmp.path, "preuninstall.js");
+        const configDir = path.join(tmp.path, "xdg", "opencode");
+        const configFile = path.join(configDir, "opencode.jsonc");
+        mkdirSync(configDir, { recursive: true });
+        writeFileSync(
+            configFile,
+            [
+                "{",
+                '  "plugin": ["oh-my-openagent@latest", "opencode-orchestrator"]',
+                "}",
+                "",
+            ].join("\n")
+        );
+
+        const buildResult = buildHook(preuninstallPath, builtHook);
+        expect(buildResult.status).toBe(0);
+
+        const result = runNode(
+            [builtHook],
+            repoRoot,
+            { XDG_CONFIG_HOME: path.join(tmp.path, "xdg"), HOME: tmp.path }
+        );
+
+        expect(result.status).toBe(0);
+        expect(result.stderr).not.toContain("Dynamic require");
+        expect(readFileSync(configFile, "utf8")).toContain('"oh-my-openagent@latest"');
+        expect(readFileSync(configFile, "utf8")).not.toContain('"opencode-orchestrator"');
     });
 
     it("preuninstall cleans duplicate registrations across config roots without touching sibling plugins", async () => {

@@ -24,6 +24,15 @@ npm install -g opencode-orchestrator
 
 Install hooks are source-checkout safe, prefer `opencode.jsonc` when present, preserve sibling plugin entries, and skip automatic config mutation in CI environments.
 
+To remove the plugin safely later, run:
+
+```bash
+npm explore -g opencode-orchestrator -- npm run cleanup:plugin
+npm uninstall -g opencode-orchestrator
+```
+
+`npm uninstall -g` does not run dependency uninstall hooks in the npm 11 flow verified for this repo, so config cleanup is explicit.
+
 Inside an OpenCode environment:
 ```bash
 /task "Implement a new authentication module with JWT and audit logs"
@@ -283,6 +292,18 @@ The installation process is **production-safe** with multiple protection layers:
 6. ✅ **CI-aware** — skips non-essential operations in CI environments
 7. ✅ **Timeout protection** — 30s timeout prevents hanging
 8. ✅ **Graceful degradation** — exits 0 on non-critical failures
+
+### Safe Removal
+OpenCode config cleanup is provided as an explicit command because global package uninstall does not invoke dependency uninstall hooks in the npm flow validated for this package.
+
+```bash
+npm explore -g opencode-orchestrator -- npm run cleanup:plugin
+npm uninstall -g opencode-orchestrator
+```
+
+Manual fallback:
+- Open `~/.config/opencode/opencode.json` or `opencode.jsonc`
+- Remove `"opencode-orchestrator"` from the `plugin` array
 
 ### Configuration Logs
 - Unix: `/tmp/opencode-orchestrator.log`
