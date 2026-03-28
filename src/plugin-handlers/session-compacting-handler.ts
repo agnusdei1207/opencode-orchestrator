@@ -12,6 +12,7 @@ import type { MissionLoopState } from "../shared/loop/interfaces/mission-loop.js
 import type { EventHandlerContext, SessionCompactingInput, SessionCompactingOutput } from "./interfaces/index.js";
 import { ParallelAgentManager } from "../core/agents/manager.js";
 import { STATUS_LABEL } from "../shared/index.js";
+import { handleSessionCompacted } from "../core/loop/mission-loop-handler.js";
 
 // Re-export interfaces for external use
 export type { SessionCompactingInput, SessionCompactingOutput } from "./interfaces/index.js";
@@ -65,6 +66,9 @@ export function createSessionCompactingHandler(ctx: EventHandlerContext) {
         if (contextItems.length > 0) {
             output.context.push(...contextItems);
         }
+
+        // Re-arm compaction guard and cleanup after compaction
+        handleSessionCompacted(sessionID);
     };
 }
 
