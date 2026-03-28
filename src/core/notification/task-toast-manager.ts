@@ -15,6 +15,7 @@ import type { PluginInput } from "@opencode-ai/plugin";
 import type { ConcurrencyController } from "../agents/concurrency.js";
 import { TASK_STATUS, STATUS_LABEL, TUI_ICONS, TUI_BLOCKS, TUI_TAGS, TUI_MESSAGES, type TaskStatus, type TrackedTask, type TaskCompletionInfo } from "../../shared/index.js";
 import type { TodoSyncService } from "../sync/todo-sync-service.js";
+import { sanitizeToastInline, sanitizeToastMessage, sanitizeToastTitle } from "./toast-sanitizer.js";
 
 // ============================================================
 // Types
@@ -34,6 +35,27 @@ export class TaskToastManager {
     private client: OpencodeClient | null = null;
     private concurrency: ConcurrencyController | null = null;
     private todoSync: TodoSyncService | null = null;
+
+    private getSafeTaskDescription(task: Pick<TrackedTask, "description">): string {
+        return sanitizeToastInline(task.description, 100) || "Untitled task";
+    }
+
+    private getSafeAgent(agent: string): string {
+        return sanitizeToastInline(agent, 32) || "unknown";
+    }
+
+    private showToast(title: string, message: string, variant: "success" | "error" | "warning" | "info", duration: number): void {
+        if (!this.client || !this.client.tui) return;
+
+        this.client.tui.showToast({
+            body: {
+                title: sanitizeToastTitle(title) || "Notification",
+                message: sanitizeToastMessage(message),
+                variant,
+                duration,
+            },
+        }).catch(() => { });
+    }
 
     /**
      * Initialize the manager with OpenCode client
@@ -183,7 +205,7 @@ export class TaskToastManager {
                 const duration = this.formatDuration(task.startedAt);
                 const bgTag = task.isBackground ? TUI_TAGS.BACKGROUND : TUI_TAGS.FOREGROUND;
                 const isNew = newTask && task.id === newTask.id ? TUI_ICONS.NEW : "";
-                lines.push(`${bgTag} ${task.description} (${task.agent}) - ${duration}${isNew}`);
+                lines.push(`${bgTag} ${this.getSafeTaskDescription(task)} (${this.getSafeAgent(task.agent)}) - ${duration}${isNew}`);
             }
         }
 
@@ -193,7 +215,7 @@ export class TaskToastManager {
             lines.push(`${TUI_ICONS.QUEUED} Queued (${queued.length}):`);
             for (const task of queued) {
                 const bgTag = task.isBackground ? TUI_TAGS.WAITING : TUI_TAGS.PENDING;
-                lines.push(`${bgTag} ${task.description} (${task.agent})`);
+                lines.push(`${bgTag} ${this.getSafeTaskDescription(task)} (${this.getSafeAgent(task.agent)})`);
             }
         }
 
@@ -204,8 +226,6 @@ export class TaskToastManager {
      * Show consolidated toast with all running/queued tasks
      */
     private showTaskListToast(newTask: TrackedTask): void {
-        if (!this.client || !this.client.tui) return;
-
         const message = this.buildTaskListMessage(newTask);
         const running = this.getRunningTasks();
         const queued = this.getQueuedTasks();
@@ -214,22 +234,18 @@ export class TaskToastManager {
             ? `Background Task Started`
             : `Task Started`;
 
-        this.client.tui.showToast({
-            body: {
-                title,
-                message: message || `${newTask.description} (${newTask.agent})`,
-                variant: STATUS_LABEL.INFO,
-                duration: running.length + queued.length > 2 ? 5000 : 3000,
-            },
-        }).catch(() => { });
+        this.showToast(
+            title,
+            message || `${this.getSafeTaskDescription(newTask)} (${this.getSafeAgent(newTask.agent)})`,
+            STATUS_LABEL.INFO,
+            running.length + queued.length > 2 ? 5000 : 3000
+        );
     }
 
     /**
      * Show task completion toast
      */
     showCompletionToast(info: TaskCompletionInfo): void {
-        if (!this.client || !this.client.tui) return;
-
         // Remove the completed task
         this.removeTask(info.id);
 
@@ -239,14 +255,16 @@ export class TaskToastManager {
         let message: string;
         let title: string;
         let variant: "success" | "error" | "warning";
+        const safeDescription = sanitizeToastInline(info.description, 100) || "Untitled task";
+        const safeError = info.error ? sanitizeToastMessage(info.error, 240, 4) : "";
 
         if (info.status === STATUS_LABEL.ERROR || info.status === STATUS_LABEL.CANCELLED || info.status === STATUS_LABEL.FAILED) {
             title = info.status === STATUS_LABEL.ERROR ? "Task Failed" : "Task Cancelled";
-            message = `[FAIL] "${info.description}" ${info.status}\n${info.error || ""}`;
+            message = `[FAIL] "${safeDescription}" ${info.status}\n${safeError}`;
             variant = STATUS_LABEL.ERROR;
         } else {
             title = "Task Completed";
-            message = `[DONE] "${info.description}" finished in ${info.duration}`;
+            message = `[DONE] "${safeDescription}" finished in ${info.duration}`;
             variant = STATUS_LABEL.SUCCESS;
         }
 
@@ -254,45 +272,32 @@ export class TaskToastManager {
             message += `\n\nStill running: ${remaining.length} | Queued: ${queued.length}`;
         }
 
-        this.client.tui.showToast({
-            body: {
-                title,
-                message,
-                variant,
-                duration: 5000,
-            },
-        }).catch(() => { });
+        this.showToast(title, message, variant, 5000);
     }
 
     /**
      * Show all-tasks-complete summary toast
      */
     showAllCompleteToast(parentSessionID: string, completedTasks: TaskCompletionInfo[]): void {
-        if (!this.client || !this.client.tui) return;
-
         const successCount = completedTasks.filter(t => t.status === STATUS_LABEL.COMPLETED).length;
         const failCount = completedTasks.filter(t => t.status === STATUS_LABEL.ERROR || t.status === STATUS_LABEL.CANCELLED || t.status === STATUS_LABEL.FAILED).length;
 
         const taskList = completedTasks
-            .map(t => `- [${t.status === STATUS_LABEL.COMPLETED ? "OK" : "FAIL"}] ${t.description} (${t.duration})`)
+            .map(t => `- [${t.status === STATUS_LABEL.COMPLETED ? "OK" : "FAIL"}] ${sanitizeToastInline(t.description, 80) || "Untitled task"} (${t.duration})`)
             .join("\n");
 
-        this.client.tui.showToast({
-            body: {
-                title: "All Tasks Completed",
-                message: `${successCount} succeeded, ${failCount} failed\n\n${taskList}`,
-                variant: failCount > 0 ? STATUS_LABEL.WARNING : STATUS_LABEL.SUCCESS,
-                duration: 7000,
-            },
-        }).catch(() => { });
+        this.showToast(
+            "All Tasks Completed",
+            `${successCount} succeeded, ${failCount} failed\n\n${taskList}`,
+            failCount > 0 ? STATUS_LABEL.WARNING : STATUS_LABEL.SUCCESS,
+            7000
+        );
     }
 
     /**
      * Show Mission Complete toast (Grand Finale)
      */
     showMissionCompleteToast(title: string = "Mission Complete", message: string = "All tasks completed successfully."): void {
-        if (!this.client || !this.client.tui) return;
-
         // Visual flourish for completion
         const decoratedMessage = `
 ${TUI_ICONS.MISSION_COMPLETE} ${TUI_MESSAGES.MISSION_COMPLETE_TITLE} ${TUI_ICONS.MISSION_COMPLETE}
@@ -302,36 +307,25 @@ ${message}
 ${TUI_MESSAGES.MISSION_COMPLETE_SUBTITLE}
 `.trim();
 
-        this.client.tui.showToast({
-            body: {
-                title: `${TUI_ICONS.SHIELD} ${title}`,
-                message: decoratedMessage,
-                variant: STATUS_LABEL.SUCCESS,
-                duration: 10000, // Longer duration for the finale
-            },
-        }).catch(() => { });
+        this.showToast(`${TUI_ICONS.SHIELD} ${title}`, decoratedMessage, STATUS_LABEL.SUCCESS, 10000);
     }
 
     /**
      * Show progress toast (for long-running tasks)
      */
     showProgressToast(taskId: string, progress: { current: number; total: number; message?: string }): void {
-        if (!this.client || !this.client.tui) return;
-
         const task = this.tasks.get(taskId);
         if (!task) return;
 
         const percentage = Math.round((progress.current / progress.total) * 100);
         const progressBar = `[${"#".repeat(Math.floor(percentage / 10))}${"-".repeat(10 - Math.floor(percentage / 10))}]`;
 
-        this.client.tui.showToast({
-            body: {
-                title: `Task Progress: ${task.description}`,
-                message: `${progressBar} ${percentage}%\n${progress.message || ""}`,
-                variant: STATUS_LABEL.INFO,
-                duration: 2000,
-            },
-        }).catch(() => { });
+        this.showToast(
+            `Task Progress: ${this.getSafeTaskDescription(task)}`,
+            `${progressBar} ${percentage}%\n${progress.message || ""}`,
+            STATUS_LABEL.INFO,
+            2000
+        );
     }
 
 

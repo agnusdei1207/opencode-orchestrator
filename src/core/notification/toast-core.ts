@@ -6,6 +6,7 @@
 import type { ToastMessage, ToastOptions, ToastVariant } from "../../shared/index.js";
 import type { PluginInput } from "@opencode-ai/plugin";
 import { HISTORY, LIMITS } from "../../shared/index.js";
+import { sanitizeToastMessage, sanitizeToastTitle } from "./toast-sanitizer.js";
 
 type OpencodeClient = PluginInput["client"];
 
@@ -51,10 +52,12 @@ export function onToast(handler: (toast: ToastMessage) => void): () => void {
  * Show a toast notification (both in TUI and internal storage)
  */
 export function show(options: ToastOptions): ToastMessage {
+    const title = sanitizeToastTitle(options.title);
+    const message = sanitizeToastMessage(options.message);
     const toast: ToastMessage = {
         id: `toast_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
-        title: options.title,
-        message: options.message,
+        title,
+        message,
         variant: options.variant || "info",
         timestamp: new Date(),
         duration: options.duration ?? 5000,

@@ -2,42 +2,41 @@
 
 ## Current Task
 
-Monitor the published `opencode-orchestrator@1.2.68` release and confirm downstream global installs and explicit cleanup usage behave as documented.
+Fix `/task` TUI corruption caused by unsafe toast payloads, publish a patch release, and confirm the patched build is pushed.
 
 ## Last Completed Step
 
-Fixed Node 24 install-hook packaging, documented explicit global cleanup, verified tarball install plus `npm explore -g ... -- npm run cleanup:plugin`, and published `opencode-orchestrator@1.2.68`.
+Added a shared toast sanitization layer, wired it into `toast-core` and `task-toast-manager`, and verified the affected unit/build paths locally.
 
 ## Next Exact Step
 
-From a clean machine or shell, run `npm install -g opencode-orchestrator@1.2.68` and confirm the published postinstall registers the plugin without the former dynamic-require failure.
+Create the fix commit, run `npm run release:patch`, then push the resulting release commit and tag to `origin/main`.
 
 ## Incomplete Items And Why
 
-- Automatic cleanup on `npm uninstall -g` is still not possible because npm 11 does not invoke dependency uninstall hooks in the validated global flow.
+- Published patch verification is still pending because the release command and remote push have not been executed yet.
 
 ## Key Decisions
 
-- Keep the lifecycle bootstrap approach so installs still work before `dist/` exists.
-- Force esbuild hook bundles to prefer `module` over `main` so `jsonc-parser` resolves to its ESM entry under Node 24.
-- Keep the uninstall logic as an explicit `cleanup:plugin` command and document it instead of pretending `preuninstall` runs automatically in global npm flows.
-- Revert the temporary local OpenCode config mutation caused during diagnosis after verification finished.
+- Treat the root cause as a rendering-safety bug in the toast pipeline rather than a mission-loop bug.
+- Sanitize toast titles, inline labels, and multiline bodies separately so task context remains visible without letting control sequences or oversized payloads reach the TUI.
+- Keep raw task metadata untouched in storage and sanitize only at the UI boundary.
 
 ## Rejected Alternatives
 
-- Leaving hook bundling on the default esbuild entry resolution and accepting the Node 24 dynamic-require crash.
-- Continuing to advertise automatic uninstall cleanup when observed npm behavior and local npm docs show that dependency uninstall hooks are not run in this flow.
-- Externalizing `jsonc-parser` from the hook bundle, which broke temp-file execution during validation.
+- Sanitizing only `/task` user input, because delegated task descriptions and error payloads can also inject unsafe content.
+- Truncating task descriptions without stripping terminal control sequences, because escape bytes would still reach the TUI.
+- Refactoring mission/task execution flow, because the evidence pointed to unsafe rendering payloads rather than broken orchestration state.
 
 ## Known Risks
 
-- Release packaging still depends on Docker being available for the Rust binary build.
-- The older helper-level `postinstall`/`preuninstall` unit tests still duplicate some script behavior and may drift if the scripts evolve further.
+- The patch is validated by targeted unit tests and local build, not by an interactive OpenCode TUI session in this workspace.
+- `npm run release:patch` still depends on Docker and publish credentials being available in the environment.
 
 ## Open These Files First Next Session
 
 1. `AGENT_MEMORY.md`
-2. `package.json`
-3. `README.md`
-4. `tests/unit/install-hooks.test.ts`
-5. `scripts/postinstall.ts`
+2. `src/core/notification/toast-sanitizer.ts`
+3. `src/core/notification/task-toast-manager.ts`
+4. `src/core/notification/toast-core.ts`
+5. `tests/unit/toast-sanitizer.test.ts`

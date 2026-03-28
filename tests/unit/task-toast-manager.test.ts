@@ -3,6 +3,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { TaskToastManager } from "../../src/core/notification/task-toast-manager";
 
 describe("TaskToastManager", () => {
     describe("task tracking", () => {
@@ -167,6 +168,34 @@ describe("TaskToastManager", () => {
 
             const info = ` [${current}/${max}]`;
             expect(info).toBe(" [3/5]");
+        });
+    });
+
+    describe("toast safety", () => {
+        it("sanitizes task descriptions before sending them to the TUI", async () => {
+            const showToast = vi.fn().mockResolvedValue(undefined);
+            const manager = new TaskToastManager();
+            const client = {
+                tui: { showToast },
+            } as Parameters<TaskToastManager["init"]>[0];
+
+            manager.init(client);
+
+            manager.addTask({
+                id: "task-unsafe",
+                description: "Build\n\u001b[31mfeature\u001b[0m\u0007 with logs",
+                agent: "Worker",
+                isBackground: true,
+                parentSessionID: "parent-1",
+                sessionID: "session-1",
+            });
+
+            expect(showToast).toHaveBeenCalledTimes(1);
+            const payload = showToast.mock.calls[0][0];
+            expect(payload.body.title).toBe("Background Task Started");
+            expect(payload.body.message).toContain("Build feature with logs");
+            expect(payload.body.message).not.toContain("\u001b");
+            expect(payload.body.message).not.toContain("\u0007");
         });
     });
 });
