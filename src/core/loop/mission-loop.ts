@@ -211,23 +211,10 @@ export function generateCompletionNotification(state: MissionLoopState): string 
 
     return `🎖️ **MISSION COMPLETE**
 
-- Iterations: ${state.iteration}/${state.maxIterations}
-- Duration: ${minutes}m ${seconds}s
-- Status: Verified`;
+ - Iterations: ${state.iteration}/${state.maxIterations}
+ - Duration: ${minutes}m ${seconds}s
+ - Status: Verified`;
 }
-
-/**
- * Generate max iterations reached notification
- */
-export function generateMaxIterationsNotification(state: MissionLoopState): string {
-    return `⚠️ **Mission Loop Stopped**
-
-- Iterations: ${state.iteration}/${state.maxIterations} (max reached)
-- Status: Incomplete
-
-Maximum iteration limit reached. Review the work done and decide how to proceed.`;
-}
-
 
 
 
