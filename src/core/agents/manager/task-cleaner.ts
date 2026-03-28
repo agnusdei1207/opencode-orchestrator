@@ -72,7 +72,9 @@ export class TaskCleaner {
                 try {
                     await this.sessionPool.release(sessionID);
                     sessionStore.clear(sessionID);
-                } catch { }
+                } catch (error) {
+                    log(`Session cleanup error for ${sessionID}:`, error);
+                }
             }
             this.store.delete(taskId);
 
