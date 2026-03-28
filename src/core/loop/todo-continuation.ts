@@ -143,8 +143,8 @@ async function showCountdownToast(
                 },
             });
         }
-    } catch {
-        // Toast failed, continue anyway
+    } catch (error) {
+        log(`[todo-continuation] Toast failed:`, error);
     }
 }
 
