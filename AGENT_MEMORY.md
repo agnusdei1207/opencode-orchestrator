@@ -2,15 +2,15 @@
 
 ## Current Task
 
-Complete install/uninstall hardening for multi-plugin OpenCode setups and finish the patch release flow.
+Verify README rendering, harden multi-plugin install/uninstall behavior, and complete the patch release flow.
 
 ## Last Completed Step
 
-Published `opencode-orchestrator@1.2.66`, pushed `v1.2.66`, and synced the README version marker.
+Published `opencode-orchestrator@1.2.67`, updated README wording/rendering, and added uninstall regression coverage for no-op and multi-config-root cleanup.
 
 ## Next Exact Step
 
-Monitor the npm/GitHub release pipeline for `v1.2.66` and verify downstream install paths use the new graceful hook bootstrap.
+Monitor the npm/GitHub pipeline for `v1.2.67` and confirm downstream installs pick up the quieter uninstall cleanup behavior.
 
 ## Incomplete Items And Why
 
@@ -18,27 +18,26 @@ Monitor the npm/GitHub release pipeline for `v1.2.66` and verify downstream inst
 
 ## Key Decisions
 
-- Use `scripts/run-install-hook.mjs` as the lifecycle entrypoint so source checkouts work before `dist/` exists.
-- Skip automatic config mutation in CI.
-- Prefer `opencode.jsonc` and preserve comments/sibling plugin entries via `jsonc-parser`.
-- Install into one resolved config target to avoid duplicate registrations across multiple config roots.
-- Uninstall still scans all known config roots so older duplicate registrations can be cleaned safely.
+- Keep the lifecycle bootstrap approach so installs still work before `dist/` exists.
+- Delay uninstall backup creation until an actual plugin removal is about to happen.
+- Keep `.jsonc` as the preferred config format and preserve sibling plugin entries/comments.
+- Clean up README wording so the test utility section reads like this project, not borrowed marketing copy.
 
 ## Rejected Alternatives
 
-- Direct `dist/scripts/*.js` lifecycle hooks without bootstrap fallback.
-- Multi-path install writes that register the same plugin in every discovered config directory.
-- Plain JSON-only config handling that ignores official `opencode.jsonc` support.
+- Creating uninstall backups even when no config mutation happens.
+- Leaving the garbled README heading and “Test Harness System” wording in place.
+- Pushing the release tag before README and session memory were brought back into sync.
 
 ## Known Risks
 
-- Future release runs still depend on Docker availability for native binary packaging.
-- Older inline unit tests for install/uninstall logic still exist alongside the new direct process-level scenario tests.
+- Release packaging still depends on Docker being available for the Rust binary build.
+- The older helper-level `postinstall`/`preuninstall` unit tests still duplicate some script behavior and may drift if the scripts evolve further.
 
 ## Open These Files First Next Session
 
-1. `package.json`
-2. `scripts/postinstall.ts`
-3. `scripts/preuninstall.ts`
-4. `scripts/run-install-hook.mjs`
+1. `AGENT_MEMORY.md`
+2. `package.json`
+3. `README.md`
+4. `scripts/preuninstall.ts`
 5. `tests/unit/install-hooks.test.ts`
