@@ -279,9 +279,6 @@ function removeFromConfig(configDir: string): { success: boolean; backupFile: st
       return { success: false, backupFile: null };
     }
 
-    // Create backup before any modifications
-    backupFile = createBackup(configFile);
-
     // Read existing config
     const content = readFileSync(configFile, "utf-8");
     originalContent = content;
@@ -322,6 +319,9 @@ function removeFromConfig(configDir: string): { success: boolean; backupFile: st
       log("Plugin not found in config", { configFile });
       return { success: false, backupFile };
     }
+
+    // Back up only when a real mutation is about to happen.
+    backupFile = createBackup(configFile);
 
     const removedCount = originalLength - config.plugin.length;
     log("Removing plugin from config", {

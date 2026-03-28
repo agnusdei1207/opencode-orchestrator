@@ -139,9 +139,9 @@ Inside an OpenCode environment:
 
 ---
 
-## 🧪 Test Harness System
+## 🧪 Test Utilities
 
-**Production-grade test infrastructure** inspired by modern testing practices:
+Reusable test helpers keep filesystem, task, and process-heavy flows deterministic:
 
 ```
 tests/harness/
@@ -231,7 +231,7 @@ Maintains focus across thousands of conversation turns using a 4-tier memory str
 
 ---
 
-## � Performance Benchmarks
+## ⚙️ Performance Benchmarks
 
 | Metric | Improvement |
 |:-------|:------------|
@@ -292,8 +292,8 @@ The installation process is **production-safe** with multiple protection layers:
 
 ## 🧪 Testing & Stability
 
-### Test Harness System
-A production-grade test harness (`tests/harness/`) provides:
+### Test Utilities
+Reusable helpers under `tests/harness/` provide:
 - **Disposable tmpdir**: Automatic cleanup with `Symbol.asyncDispose` / `Symbol.dispose`
 - **Test builders**: Factory functions for `ParallelTask`, `BackgroundTask`, `Todo`
 - **Mock utilities**: Console, process, timers, file system, event emitter mocks

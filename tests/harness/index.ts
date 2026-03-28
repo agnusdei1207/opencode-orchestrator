@@ -1,5 +1,5 @@
 /**
- * Test Harness - Main Entry Point
+ * Test Utilities - Main Entry Point
  *
  * This module exports all test utilities for easy importing.
  *

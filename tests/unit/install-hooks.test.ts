@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { mkdirSync, readFileSync, writeFileSync, existsSync } from "node:fs";
+import { mkdirSync, readFileSync, writeFileSync, readdirSync, existsSync } from "node:fs";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
 import { tmpdir } from "../harness";
@@ -168,6 +168,31 @@ describe("install hook scripts", () => {
         expect(readFileSync(configFile, "utf8")).toBe(before);
     });
 
+    it("preuninstall does not create backups when our plugin is absent", async () => {
+        await using tmp = await tmpdir({ prefix: "preuninstall-noop-" });
+        const configDir = path.join(tmp.path, "xdg", "opencode");
+        const configFile = path.join(configDir, "opencode.jsonc");
+        mkdirSync(configDir, { recursive: true });
+        writeFileSync(
+            configFile,
+            JSON.stringify({ plugin: ["oh-my-openagent@latest"] }, null, 2)
+        );
+
+        const result = runNode(
+            ["--experimental-strip-types", preuninstallPath],
+            repoRoot,
+            { XDG_CONFIG_HOME: path.join(tmp.path, "xdg"), HOME: tmp.path }
+        );
+
+        expect(result.status).toBe(0);
+        expect(result.stdout).toContain("Nothing to clean up");
+        expect(readFileSync(configFile, "utf8")).toContain("oh-my-openagent@latest");
+        expect(readFileSync(configFile, "utf8")).not.toContain("opencode-orchestrator");
+        const backupFiles = readdirSync(configDir).filter((entry) => entry.includes(".backup."));
+        expect(backupFiles).toHaveLength(0);
+        expect(result.stdout).not.toContain("Backup created:");
+    });
+
     it("preuninstall removes only our plugin from jsonc config and preserves comments", async () => {
         await using tmp = await tmpdir({ prefix: "preuninstall-jsonc-" });
         const configDir = path.join(tmp.path, "xdg", "opencode");
@@ -195,5 +220,43 @@ describe("install hook scripts", () => {
         expect(updated).toContain("// keep this comment");
         expect(updated).toContain('"oh-my-openagent@latest"');
         expect(updated).not.toContain('"opencode-orchestrator"');
+    });
+
+    it("preuninstall cleans duplicate registrations across config roots without touching sibling plugins", async () => {
+        await using tmp = await tmpdir({ prefix: "preuninstall-multi-root-" });
+        const xdgConfigDir = path.join(tmp.path, "xdg", "opencode");
+        const homeConfigDir = path.join(tmp.path, ".config", "opencode");
+        const xdgConfigFile = path.join(xdgConfigDir, "opencode.jsonc");
+        const homeConfigFile = path.join(homeConfigDir, "opencode.json");
+        mkdirSync(xdgConfigDir, { recursive: true });
+        mkdirSync(homeConfigDir, { recursive: true });
+
+        writeFileSync(
+            xdgConfigFile,
+            [
+                "{",
+                '  "plugin": ["oh-my-openagent@latest", "opencode-orchestrator"]',
+                "}",
+                "",
+            ].join("\n")
+        );
+        writeFileSync(
+            homeConfigFile,
+            JSON.stringify({ plugin: ["opencode-orchestrator@1.2.66", "other-plugin"] }, null, 2)
+        );
+
+        const result = runNode(
+            ["--experimental-strip-types", preuninstallPath],
+            repoRoot,
+            { XDG_CONFIG_HOME: path.join(tmp.path, "xdg"), HOME: tmp.path }
+        );
+
+        expect(result.status).toBe(0);
+        expect(readFileSync(xdgConfigFile, "utf8")).toContain('"oh-my-openagent@latest"');
+        expect(readFileSync(xdgConfigFile, "utf8")).not.toContain('"opencode-orchestrator"');
+        expect(readFileSync(homeConfigFile, "utf8")).toContain('"other-plugin"');
+        expect(readFileSync(homeConfigFile, "utf8")).not.toContain('"opencode-orchestrator@1.2.66"');
+        expect(result.stdout).toContain(`Plugin removed: ${xdgConfigFile}`);
+        expect(result.stdout).toContain(`Plugin removed: ${homeConfigFile}`);
     });
 });
