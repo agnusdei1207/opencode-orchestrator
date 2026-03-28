@@ -2,19 +2,19 @@
 
 ## Current Task
 
-Fix `/task` TUI corruption caused by unsafe toast payloads, publish a patch release, and confirm the patched build is pushed.
+Confirm the published `opencode-orchestrator@1.2.69` patch is available downstream and watch for any remaining `/task` TUI corruption reports.
 
 ## Last Completed Step
 
-Added a shared toast sanitization layer, wired it into `toast-core` and `task-toast-manager`, and verified the affected unit/build paths locally.
+Fixed the unsafe toast rendering path, published `opencode-orchestrator@1.2.69`, and prepared the post-release metadata sync commit for push.
 
 ## Next Exact Step
 
-Create the fix commit, run `npm run release:patch`, then push the resulting release commit and tag to `origin/main`.
+Push the release commit, the follow-up metadata sync commit, and tag `v1.2.69`, then verify the remote branch is clean.
 
 ## Incomplete Items And Why
 
-- Published patch verification is still pending because the release command and remote push have not been executed yet.
+- Downstream install verification from a clean shell is still pending because only local build/test and npm publish have been completed in this session.
 
 ## Key Decisions
 
@@ -31,12 +31,13 @@ Create the fix commit, run `npm run release:patch`, then push the resulting rele
 ## Known Risks
 
 - The patch is validated by targeted unit tests and local build, not by an interactive OpenCode TUI session in this workspace.
-- `npm run release:patch` still depends on Docker and publish credentials being available in the environment.
+- The tagged release commit does not include the README version-line sync, so the repository history keeps that as a follow-up commit after the published tag.
 
 ## Open These Files First Next Session
 
 1. `AGENT_MEMORY.md`
-2. `src/core/notification/toast-sanitizer.ts`
-3. `src/core/notification/task-toast-manager.ts`
-4. `src/core/notification/toast-core.ts`
-5. `tests/unit/toast-sanitizer.test.ts`
+2. `README.md`
+3. `src/core/notification/toast-sanitizer.ts`
+4. `src/core/notification/task-toast-manager.ts`
+5. `src/core/notification/toast-core.ts`
+6. `tests/unit/toast-sanitizer.test.ts`
