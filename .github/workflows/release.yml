@@ -63,6 +63,18 @@ jobs:
         run: |
           cp target/${{ matrix.target }}/release/orchestrator.exe ${{ matrix.binary }}
 
+      - name: Validate Linux x64 artifact architecture
+        if: matrix.target == 'x86_64-unknown-linux-gnu'
+        run: |
+          file ${{ matrix.binary }}
+          file ${{ matrix.binary }} | grep -F "x86-64"
+
+      - name: Validate Linux arm64 artifact architecture
+        if: matrix.target == 'aarch64-unknown-linux-gnu'
+        run: |
+          file ${{ matrix.binary }}
+          file ${{ matrix.binary }} | grep -F "ARM aarch64"
+
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
@@ -138,6 +150,13 @@ jobs:
           cp binaries/orchestrator-macos-arm64/orchestrator-macos-arm64 bin/
           cp binaries/orchestrator-windows-x64.exe/orchestrator-windows-x64.exe bin/
           chmod +x bin/*
+
+      - name: Validate NPM Linux binary architectures
+        run: |
+          file bin/orchestrator-linux-x64
+          file bin/orchestrator-linux-x64 | grep -F "x86-64"
+          file bin/orchestrator-linux-arm64
+          file bin/orchestrator-linux-arm64 | grep -F "ARM aarch64"
 
       - name: Publish to GitHub Registry
         run: |
