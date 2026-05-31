@@ -7,6 +7,7 @@ services:
   # Usage: docker compose run --rm dev
   dev:
     image: rust:1.92-bookworm
+    platform: linux/amd64
     working_dir: /app
     volumes:
       - .:/app
@@ -14,9 +15,10 @@ services:
       - target-cache:/app/target
     command: >
       sh -c "
-        cargo build --release &&
+        rustup target add x86_64-unknown-linux-gnu &&
+        cargo build --release --target x86_64-unknown-linux-gnu &&
         mkdir -p bin &&
-        cp target/release/orchestrator bin/orchestrator-linux-x64 &&
+        cp target/x86_64-unknown-linux-gnu/release/orchestrator bin/orchestrator-linux-x64 &&
         echo 'Rust build complete: bin/orchestrator-linux-x64'
       "
 
@@ -24,6 +26,7 @@ services:
   # Usage: docker compose run --rm rust-arm64
   rust-arm64:
     image: rust:1.92-bookworm
+    platform: linux/amd64
     working_dir: /app
     volumes:
       - .:/app
@@ -33,7 +36,7 @@ services:
       sh -c "
         rustup target add aarch64-unknown-linux-gnu &&
         apt-get update -q && apt-get install -y -q gcc-aarch64-linux-gnu &&
-        CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc
+        export CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc &&
         cargo build --release --target aarch64-unknown-linux-gnu &&
         mkdir -p bin &&
         cp target/aarch64-unknown-linux-gnu/release/orchestrator bin/orchestrator-linux-arm64 &&
