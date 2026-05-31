@@ -9,7 +9,7 @@
   [![MIT License](https://img.shields.io/badge/license-MIT-red.svg)](LICENSE)
   [![npm](https://img.shields.io/npm/v/opencode-orchestrator.svg)](https://www.npmjs.com/package/opencode-orchestrator)
   <!-- VERSION:START -->
-  **Version:** `1.3.0`
+  **Version:** `1.3.1`
   <!-- VERSION:END -->
 </div>
 
@@ -238,6 +238,40 @@ Maintains focus across thousands of conversation turns using a 4-tier memory str
 - **Diagnostic Intervention**: Forces "Diagnostic Mode" mandating log audits and strategy pivots
 - **Proactive Agency**: Mandates Speculative Planning during background task execution
 
+### 🧬 Knowledge Graph RAG (Second Brain)
+An autonomous **Obsidian-style evolutionary memory system** that gives agents persistent, searchable knowledge across sessions.
+
+```
+  ┌──────────────┐     ┌──────────────┐     ┌──────────────┐
+  │  📝 Ingest   │────▶│  🔍 Search   │────▶│  🧠 Recall   │
+  │  ──────────  │     │  ──────────  │     │  ──────────  │
+  │  YAML Parser │     │  BM25 Lexical│     │  RRF-Ranked  │
+  │  Tag HashMap │     │  Tag Index   │     │  Top-K Notes │
+  │  Wiki-Links  │     │  2-Hop Graph │     │  → Context   │
+  └──────┬───────┘     └──────────────┘     └──────────────┘
+         │
+         ▼
+  ┌──────────────┐     ┌──────────────┐     ┌──────────────┐
+  │  🔄 Evolve   │────▶│  🛡️ Guard    │────▶│  📦 Archive  │
+  │  ──────────  │     │  ──────────  │     │  ──────────  │
+  │  Fission     │     │  Cycle DFS   │     │  Orphan GC   │
+  │  Fusion      │     │  Write FIFO  │     │  MOC Hubs    │
+  │  (Auto-Split │     │  Keep-Pin    │     │  MD Export   │
+  │   & Merge)   │     │  Shield      │     │              │
+  └──────────────┘     └──────────────┘     └──────────────┘
+```
+
+**Six integrated modules** power the knowledge pipeline:
+
+| Module | Purpose |
+|:-------|:--------|
+| **TagIndexer** | O(1) YAML frontmatter parsing → tag-to-file HashMap |
+| **GraphParser** | `[[wiki-link]]` extraction, bi-directional adjacency graph |
+| **HybridSearch** | BM25 + Tag + 2-Hop Graph → **Reciprocal Rank Fusion** (k=60) |
+| **Scratchpad** | LRU register cache (64 slots, 4KB max) with markdown persistence |
+| **SafetyGuards** | Circular link DFS, async FIFO write queue, keep-pin shield |
+| **MemoryConsolidation** | Fission/Fusion/GC/MOC — pure functional analysis |
+
 ---
 
 ## ⚙️ Performance Benchmarks
@@ -276,6 +310,7 @@ Maintains focus across thousands of conversation turns using a 4-tier memory str
 - **Memory**: Object pooling + string interning + buffer pooling
 - **State Management**: MVCC + Mutex
 - **Safety**: RAII + circuit breaker + resource pressure detection
+- **Knowledge**: In-memory graph RAG with BM25/Tag/Graph search fusion
 
 ---
 
@@ -342,6 +377,7 @@ const task = createParallelTask({ description: "Test" });
 
 - [System Architecture Deep-Dive →](docs/SYSTEM_ARCHITECTURE.md)
 - [Developer Notes →](docs/DEVELOPERS_NOTE.md)
+- [Knowledge RAG Roadmap →](docs/histories/2026/05/31/PLAN_SecondBrainOrchestration_2026-05-31.md)
 
 ---
 

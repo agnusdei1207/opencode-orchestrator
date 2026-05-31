@@ -3,6 +3,9 @@
  */
 
 export class GraphParser {
+    /** Heading marker used for the auto-generated backlinks section */
+    static readonly BACKLINKS_HEADING = "## 🔗 Backlinks";
+
     // Maps note name -> set of target note names it links to
     private forwardLinks: Map<string, Set<string>> = new Map();
     // Maps note name -> set of source note names that link to it
@@ -108,7 +111,7 @@ export class GraphParser {
      * Synchronize the ## 🔗 Backlinks section in a file's content.
      */
     public syncBacklinksSection(content: string, backlinksList: string[]): string {
-        const backlinksHeading = "## 🔗 Backlinks";
+        const backlinksHeading = GraphParser.BACKLINKS_HEADING;
         const headingRegex = new RegExp(`(?:\\r?\\n|^)${backlinksHeading}\\b[\\s\\S]*$`);
 
         // Generate the new backlinks section
