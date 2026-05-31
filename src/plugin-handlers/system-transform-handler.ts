@@ -8,8 +8,8 @@
  */
 
 import type { EventHandlerContext, SystemTransformInput, SystemTransformOutput } from "./interfaces/index.js";
-import { readLoopState, isLoopActive } from "../core/loop/mission-loop.js";
-import { MISSION_CONTROL, STATUS_LABEL } from "../shared/index.js";
+import { readLoopState } from "../core/loop/mission-loop.js";
+import { STATUS_LABEL } from "../shared/index.js";
 import { ParallelAgentManager } from "../core/agents/manager.js";
 import { isMissionActive, ensureSessionInitialized } from "../core/orchestrator/session-manager.js";
 

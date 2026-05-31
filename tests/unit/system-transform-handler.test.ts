@@ -27,6 +27,12 @@ vi.mock("../../src/core/agents/manager", () => ({
     },
 }));
 
+vi.mock("../../src/agents/commander", () => ({
+    commander: {
+        systemPrompt: "[COMMANDER_SYSTEM_PROMPT_MOCK]",
+    },
+}));
+
 describe("System Transform Handler", () => {
     let mockContext: EventHandlerContext;
     let handler: ReturnType<typeof createSystemTransformHandler>;
