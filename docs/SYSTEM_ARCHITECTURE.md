@@ -513,14 +513,99 @@ DEBUG=opencode-orchestrator npm start
 
 ---
 
+### Layer 7: Knowledge Graph RAG & Evolutionary Memory
+
+A production-ready in-memory knowledge graph system inspired by Obsidian's Second Brain methodology, providing autonomous memory management for long-lived agent sessions.
+
+#### 7.1 Architecture Overview
+
+```
+┌──────────────────────────────────────────────────────────────────────┐
+│                    KNOWLEDGE GRAPH RAG PIPELINE                       │
+│                                                                      │
+│  ┌───────────────────────────────────────────────────────────────┐   │
+│  │                   docs/knowledge/ (Vault)                     │   │
+│  │           Markdown files with YAML frontmatter                │   │
+│  └────────────────────────┬──────────────────────────────────────┘   │
+│                           │                                          │
+│            ┌──────────────┼──────────────┐                          │
+│            ▼              ▼              ▼                          │
+│  ┌──────────────┐ ┌──────────────┐ ┌──────────────┐               │
+│  │ TagIndexer   │ │ GraphParser  │ │ Scratchpad   │               │
+│  │ ───────────  │ │ ───────────  │ │ ───────────  │               │
+│  │ O(1) HashMap │ │ Bi-Dir Adj.  │ │ LRU Cache    │               │
+│  │ Tag → Files  │ │ Wiki-Links   │ │ 64 Registers │               │
+│  │ YAML Parse   │ │ Backlinks    │ │ 4KB per entry│               │
+│  └──────┬───────┘ └──────┬───────┘ └──────────────┘               │
+│         │                │                                          │
+│         └────────┬───────┘                                          │
+│                  ▼                                                   │
+│  ┌───────────────────────────────────────────────────────────────┐  │
+│  │              HybridSearch (RRF Fusion Engine)                  │  │
+│  │  ┌─────────────┐  ┌─────────────┐  ┌──────────────────────┐  │  │
+│  │  │ BM25 Lexical│  │ Tag Matching│  │ 2-Hop Graph Traverse │  │  │
+│  │  │ TF-IDF Score│  │ Direct Hit  │  │ Neighbor Discovery   │  │  │
+│  │  └──────┬──────┘  └──────┬──────┘  └──────────┬───────────┘  │  │
+│  │         └────────────────┼────────────────────┘               │  │
+│  │                          ▼                                     │  │
+│  │           Reciprocal Rank Fusion (k=60)                       │  │
+│  │           score(d) = Σ 1/(k + rank_i)                         │  │
+│  └───────────────────────────────────────────────────────────────┘  │
+│                                                                      │
+│  ┌──────────────────────────┐  ┌─────────────────────────────────┐  │
+│  │   SafetyGuards            │  │  MemoryConsolidation            │  │
+│  │  ┌──────────────────────┐ │  │  ┌───────────────────────────┐ │  │
+│  │  │ DFS Cycle Detection  │ │  │  │ Fission: Split oversized  │ │  │
+│  │  │ FIFO Write Queue     │ │  │  │ Fusion: Merge by tags     │ │  │
+│  │  │ Keep-Pin Shield      │ │  │  │ GC: Orphan detection      │ │  │
+│  │  └──────────────────────┘ │  │  │ MOC: Hub generation       │ │  │
+│  └──────────────────────────┘  └─────────────────────────────────┘  │
+└──────────────────────────────────────────────────────────────────────┘
+```
+
+#### 7.2 Module Details
+
+| Module | Purpose | Key Metrics |
+|--------|---------|-------------|
+| **TagIndexer** | YAML frontmatter parsing + O(1) tag-to-file HashMap | Sub-ms queries |
+| **GraphParser** | `[[wiki-link]]` + markdown link extraction, bi-directional adjacency list | O(n) indexing |
+| **HybridSearch** | BM25 + Tag + 2-Hop Graph → RRF fusion ranking | 3 engines, k=60 |
+| **Scratchpad** | Agent-exclusive volatile register cache with LRU eviction | 64 slots, 4KB max |
+| **SafetyGuards** | Circular link DFS, FIFO write queue, keep-pin shield | Configurable depth |
+| **MemoryConsolidation** | Fission/Fusion/GC/MOC — pure analysis, zero side-effects | Functional purity |
+
+#### 7.3 Evolutionary Memory Lifecycle
+
+```
+  ┌──────────────┐     ┌──────────────┐     ┌──────────────┐
+  │  📝 Ingest   │────▶│  🔍 Search   │────▶│  🧠 Recall   │
+  │              │     │              │     │              │
+  │  Index file  │     │  BM25 + Tag  │     │  RRF-ranked  │
+  │  Parse tags  │     │  + Graph hop │     │  results     │
+  │  Build links │     │  = RRF fuse  │     │  to context  │
+  └──────┬───────┘     └──────────────┘     └──────────────┘
+         │
+         ▼
+  ┌──────────────┐     ┌──────────────┐     ┌──────────────┐
+  │  🔄 Evolve   │────▶│  🛡️ Guard    │────▶│  📦 Archive  │
+  │              │     │              │     │              │
+  │  Fission:    │     │  Cycle DFS   │     │  Orphan GC   │
+  │   >500 lines │     │  Write FIFO  │     │  MOC hubs    │
+  │  Fusion:     │     │  Keep pin    │     │  MD export   │
+  │   3+ shared  │     │              │     │              │
+  └──────────────┘     └──────────────┘     └──────────────┘
+```
+
+---
+
 ## Future Enhancements
 
-### Phase 4: Dependency Injection (Optional)
-- Constructor injection
-- Service registry
-- Event bus for decoupling
+### Knowledge RAG Phase 5: Context Injection (Next)
+- Dynamic injection via `system-transform-handler.ts`
+- Per-turn RAG context from knowledge graph
+- Agent scratchpad injection
 
-### Phase 5: Distributed Scaling (Optional)
+### Distributed Scaling (Optional)
 - Redis for distributed task store
 - RPC for inter-process calls
 - Service discovery
@@ -541,5 +626,7 @@ OpenCode Orchestrator is a **production-ready** multi-agent orchestration engine
 - ✅ **Reliability**: MVCC + circuit breaker + auto-recovery
 - ✅ **Safety**: Atomic writes + auto-backup + rollback
 - ✅ **Scalability**: 50+ concurrent sessions with 90%+ CPU utilization
+- ✅ **Knowledge Graph RAG**: Autonomous evolutionary memory with BM25/Tag/Graph fusion
 
 **Grade**: A+ (Production Ready)
+

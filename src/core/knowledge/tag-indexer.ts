@@ -32,48 +32,48 @@ export class TagIndexer {
 
         const rawYaml = match[1];
         const body = content.replace(frontmatterRegex, "").trim();
-
-        // Safe line-by-line parsing to prevent parser crash on bad indentation
         const lines = rawYaml.split(/\r?\n/);
-        let activeKey: keyof FrontmatterData | null = null;
+        let activeKey: string | null = null;
 
         for (const line of lines) {
-            const trimmed = line.trim();
-            if (!trimmed || trimmed.startsWith("#")) continue;
-
-            const colonIdx = trimmed.indexOf(":");
-            if (colonIdx !== -1) {
-                const key = trimmed.slice(0, colonIdx).trim() as keyof FrontmatterData;
-                const val = trimmed.slice(colonIdx + 1).trim();
-                activeKey = key;
-
-                if (val.startsWith("[") && val.endsWith("]")) {
-                    // Match array format e.g., tags: [tag1, tag2]
-                    data[key] = val
-                        .slice(1, -1)
-                        .split(",")
-                        .map(s => s.trim())
-                        .filter(Boolean);
-                } else if (val) {
-                    // Match scalar values
-                    data[key] = this.parseScalar(val);
-                } else {
-                    data[key] = [];
-                }
-            } else if (trimmed.startsWith("-") && activeKey) {
-                // Match block list format e.g.,
-                // tags:
-                //   - tag1
-                const listVal = trimmed.slice(1).trim();
-                if (listVal) {
-                    const currentList = (data[activeKey] as unknown[]) || [];
-                    currentList.push(listVal);
-                    data[activeKey] = currentList as any;
-                }
-            }
+            activeKey = this.parseYamlLine(line, data, activeKey);
         }
 
         return { data, body };
+    }
+
+    /**
+     * Parse a single YAML line and update data object in-place.
+     * Returns the currently active key for block list continuation.
+     */
+    private parseYamlLine(line: string, data: FrontmatterData, activeKey: string | null): string | null {
+        const trimmed = line.trim();
+        if (!trimmed || trimmed.startsWith("#")) return activeKey;
+
+        const colonIdx = trimmed.indexOf(":");
+        if (colonIdx !== -1) {
+            const key = trimmed.slice(0, colonIdx).trim();
+            const val = trimmed.slice(colonIdx + 1).trim();
+
+            if (val.startsWith("[") && val.endsWith("]")) {
+                data[key] = val.slice(1, -1).split(",").map(s => s.trim()).filter(Boolean);
+            } else if (val) {
+                data[key] = this.parseScalar(val);
+            } else {
+                data[key] = [];
+            }
+            return key;
+        }
+
+        if (trimmed.startsWith("-") && activeKey) {
+            const listVal = trimmed.slice(1).trim();
+            if (listVal) {
+                const currentList = Array.isArray(data[activeKey]) ? data[activeKey] as string[] : [];
+                currentList.push(listVal);
+                data[activeKey] = currentList;
+            }
+        }
+        return activeKey;
     }
 
     /**
@@ -147,6 +147,20 @@ export class TagIndexer {
      */
     public getMetadata(filePath: string): FrontmatterData | undefined {
         return this.fileCache.get(filePath);
+    }
+
+    /**
+     * Return all file paths that have been indexed.
+     */
+    public getIndexedFiles(): string[] {
+        return Array.from(this.fileCache.keys());
+    }
+
+    /**
+     * Return all distinct tags currently present across all indexed files.
+     */
+    public getAllTags(): string[] {
+        return Array.from(this.tagMap.keys());
     }
 
     /**
