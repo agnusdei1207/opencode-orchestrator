@@ -13,7 +13,7 @@ const readme = readFileSync(readmePath, "utf8");
 const versionLine = `  <!-- VERSION:START -->
   **Version:** \`${packageJson.version}\`
   <!-- VERSION:END -->`;
-const versionBlockPattern = /  <!-- VERSION:START -->(?:\\n|\n)[\s\S]*?(?:\\n|\n)  <!-- VERSION:END -->/;
+const versionBlockPattern = /  <!-- VERSION:START -->(?:\r?\n|\\n|\n)[\s\S]*?(?:\r?\n|\\n|\n)  <!-- VERSION:END -->/;
 
 if (!versionBlockPattern.test(readme)) {
   throw new Error("README.md is missing the VERSION marker block.");
