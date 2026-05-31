@@ -2,37 +2,42 @@
 
 ## Current Task
 
-Monitor downstream consumption of the published `opencode-orchestrator@1.2.71` patch and verify next manual/CI trigger on future releases.
+Complete v1.3.0 minor release: Phase 2 (GraphParser) completion, test timeout fix, dead import cleanup, barrel export creation.
 
 ## Last Completed Step
 
-Successfully published `opencode-orchestrator@1.2.71` to the official NPM registry, verified live propagation, added NPM deployment stage directly to `.github/workflows/release.yml`, configured new release helper scripts in `package.json`, cleaned up credentials safely, and pushed all commits and tag `v1.2.71` to remote origin.
+1. Fixed pre-existing test timeout in `system-transform-handler.test.ts` by adding `vi.mock` for the commander dynamic import.
+2. Removed dead imports (`isLoopActive`, `MISSION_CONTROL`) from `system-transform-handler.ts`.
+3. Created `src/core/knowledge/index.ts` barrel export for TagIndexer + GraphParser.
+4. Updated PLAN document: Phase 2 status → `[x]` Completed.
+5. Ran 3 consecutive full test suites: 614/614 passing (56/56 files).
+6. Verified build succeeds (dist/index.js 1.4MB).
 
 ## Next Exact Step
 
-Monitor the repository issues for any feedback on the newly published Linux x64 binary execution and prepare for the next minor/major release cycle using the enhanced automated pipeline.
+Commit all changes, run `npm run release:minor` (1.2.71 → 1.3.0), then `release:push-tags`.
 
 ## Incomplete Items And Why
 
-- None. All tasks for this milestone (including baseline tests, multi-platform build, manual NPM release, and Git remote push) have been 100% completed.
+- None. All verification steps are complete.
 
 ## Key Decisions
 
-- Handled the Windows compatibility error by modifying the regex in `scripts/sync-readme-version.mjs` to actively support carriage return line endings (`\r?\n`).
-- Added utility helper scripts (`release:dry-run`, `release:push-tags`, `release:clean`) into `package.json` to keep release cycles transparent and robust for developers returning after a long time.
-- Integrated official NPM Registry publishing directly into GitHub Actions (`release.yml`) so future tags run completely hands-free on the server while securing credentials.
+- Removed unused imports (`isLoopActive`, `MISSION_CONTROL`) from `system-transform-handler.ts` to comply with dead code rules. Verified both symbols are still exported and used by other consumers.
+- Created knowledge barrel export (`src/core/knowledge/index.ts`) to prepare for Phase 5 integration.
+- Fixed pre-existing commander mock timeout — this was a latent defect, not caused by current changes.
 
 ## Rejected Alternatives
 
-- Forcing manual push of local credentials, because that introduces security hazards. Classic Token environment binding was used instead, and temporary auth files were immediately deleted.
-- Removing `"releae:patch"` legacy script, because downstream terminals or other devs might still have hardcoded references. Kept it as an alias for safety.
+- Considered wiring knowledge module into system-transform-handler.ts for Phase 5, but deferred since the plan marks it as a future phase.
 
 ## Known Risks
 
-- None. The live package version `1.2.70` has been queried, verified, and is fully active on npmjs.org.
+- None.
 
 ## Open These Files First Next Session
 
 1. `AGENT_MEMORY.md`
-2. `package.json`
-3. `.github/workflows/release.yml`
+2. `src/core/knowledge/index.ts`
+3. `src/plugin-handlers/system-transform-handler.ts`
+4. `docs/histories/2026/05/31/PLAN_SecondBrainOrchestration_2026-05-31.md`
