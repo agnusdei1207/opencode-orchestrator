@@ -2,65 +2,51 @@
 
 ## Current Task
 
-v1.3.2 patch release — Full plumbing audit complete. All modules verified.
+Fix `lsp_diagnostics` timeout recovery and diagnostics robustness, then open corrective PR.
 
 ## Last Completed Step
 
-1. Full code state re-verification (2026-06-01)
-2. TypeScript `tsc --noEmit` — 0 errors
-3. Full test suite — 60/60 files, 647/647 tests passing (3 consecutive rounds)
-4. Build — esbuild + tsc emitDeclarationOnly success
-5. npm version patch → v1.3.2
-6. git push origin main + git push origin v1.3.2
+1. Confirmed root cause evidence: active OpenCode `lsp_diagnostics` wrapper timed out while fresh Rust JSON-RPC diagnostics succeeded.
+2. Updated `src/tools/rust-pool.ts` so timed-out requests detach stdout listeners, kill/remove the poisoned process, and are not released back to the idle pool.
+3. Added `tests/unit/rust-pool-timeout.test.ts` for timeout kill/removal and fresh-process recovery.
+4. Updated `crates/orchestrator-core/src/tools/lsp.rs` so diagnostics commands use local executables, enforce configured timeouts, kill/wait timed-out subprocesses, and return explicit `command-failed` diagnostics for failed/unparseable TypeScript or ESLint output.
+5. Added colocated Rust tests for TypeScript/ESLint command failures, timeout behavior, local executable behavior, optional no-config ESLint, and TypeScript diagnostic parsing.
+6. Verification passed:
+   - `npx vitest run tests/unit/rust-pool-timeout.test.ts --reporter=verbose` → 2/2 passed.
+   - `npm run test:unit -- tests/unit/rust-pool-timeout.test.ts tests/unit/rust-tools-wrapper.test.ts` → 53 files / 591 tests passed.
+   - `cargo test -p orchestrator-core tools::lsp -- --nocapture` → focused LSP tests passed.
+   - `cargo test` → 3 CLI tests and 28 core tests passed.
+   - `npm run build` → passed.
+   - `npx vitest run tests/e2e/json-rpc-bridge.test.ts --reporter=verbose` → 2/2 passed.
+   - Direct `target/debug/orchestrator serve` JSON-RPC `lsp_diagnostics` → clean for `src/utils/binary.ts` and `*`.
 
-## Verification Summary
+## Incomplete Items and Why
 
-### Source Files (7 files in src/core/knowledge/)
-- tag-indexer.ts: ✅ 208 lines, 0 as-any, 0 console, all functions <40 lines
-- graph-parser.ts: ✅ 161 lines, BACKLINKS_HEADING constant, getNoteName/getForwardLinks/getBacklinks all present
-- hybrid-search.ts: ✅ 230 lines, BM25+Tag+Graph+RRF fusion, 0 external deps
-- scratchpad.ts: ✅ 109 lines, LRU 64-slot, 4KB max, MD serialize
-- safety-guards.ts: ✅ 102 lines, DFS cycle, FIFO WriteQueue, isPinned
-- memory-consolidation.ts: ✅ 148 lines, pure functional, fission/fusion/GC/MOC
-- index.ts: ✅ 17 lines, barrel exports all 6 modules + types
-
-### Test Files (6 files in tests/unit/knowledge/)
-- tag-indexer.test.ts: ✅ 6 tests
-- graph-parser.test.ts: ✅ 7 tests
-- hybrid-search.test.ts: ✅ 7 tests
-- scratchpad.test.ts: ✅ 10 tests
-- safety-guards.test.ts: ✅ 8 tests (cycle depth fix verified)
-- memory-consolidation.test.ts: ✅ 8 tests
-
-### Code Quality
-- as any: 0
-- console calls: 0
-- circular imports: 0
-- ReDoS risk: 0
-- functions >40 lines: 0
-- external knowledge imports from src/: 0 (intentional — Phase 5 deferred)
-
-### Phase Status
-- Phase 1 (TagIndexer): ✅ Complete
-- Phase 2 (GraphParser): ✅ Complete
-- Phase 3 (HybridSearch): ✅ Complete
-- Phase 4 (Scratchpad): ✅ Complete
-- Phase 5 (Context Injection): 🔜 Deferred — requires runtime integration
-- Phase 6 (SafetyGuards): ✅ Complete
-- Phase 7 (MemoryConsolidation): ✅ Complete
-
-## Next Exact Step
-
-Phase 5: Wire knowledge RAG into system-transform-handler.ts for per-turn context injection.
+- Active in-process OpenCode `lsp_diagnostics` still returns `Request timeout`; this is documented as stale/poisoned runtime state from before the fix. Fresh rebuilt Rust JSON-RPC verifies the corrected path.
+- PR delivery remains until commit/push/PR creation completes.
 
 ## Key Decisions
 
-- Phase 5 is NOT a bug or missing code — it's a future runtime integration step
-- All standalone module implementations are complete and tested
-- v1.3.2 released with full audit verification
+- Timeout recovery belongs in the TypeScript Rust process pool: a timed-out request poisons its child process and must remove/kill it.
+- Diagnostics robustness belongs in Rust core: failed or timed-out TypeScript/ESLint subprocesses must return explicit error diagnostics instead of clean results.
+- Use local `node_modules/.bin` executables instead of `npx -y` to avoid diagnostics-triggered installs or network delays.
+- Keep ESLint optional when no ESLint config exists.
 
-## Open These Files First Next Session
+## Rejected Alternatives
 
-1. AGENT_MEMORY.md
-2. src/plugin-handlers/system-transform-handler.ts
-3. src/core/knowledge/index.ts
+- Did not keep timed-out Rust processes in the pool because stale stdout listeners and late responses can poison later calls.
+- Did not rely on `npx -y` for diagnostics because it can install/hang and obscures configured command timeout behavior.
+- Did not commit rebuilt binary artifacts; the LSP fix is source/test only.
+
+## Known Risks
+
+- Existing OpenCode runtime must be restarted/reloaded to use the rebuilt TypeScript/Rust pool fix.
+- The timeout-aware Rust command loop does not stream stdout/stderr while the child runs; very large diagnostics output could still hit timeout if the child blocks on a full pipe.
+
+## First Files to Open Next Session
+
+1. `.opencode/todo.md`
+2. `.opencode/sync-issues.md`
+3. `src/tools/rust-pool.ts`
+4. `tests/unit/rust-pool-timeout.test.ts`
+5. `crates/orchestrator-core/src/tools/lsp.rs`
