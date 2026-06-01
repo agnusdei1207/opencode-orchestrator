@@ -68,17 +68,9 @@ export class RustToolPool {
             return JSON.stringify({ error: `Binary not found: ${binary}` });
         }
 
-        // Try to get an available process
         let pooled = this.getAvailable();
-
-        // If none available and under limit, create new one
-        if (!pooled && this.processes.length < this.maxSize) {
-            pooled = await this.createProcess(binary);
-        }
-
-        // If still none, wait for one to become available
         if (!pooled) {
-            pooled = await this.waitForAvailable();
+            pooled = await this.createOrWaitForProcess(binary);
         }
 
         // Use the process
@@ -97,15 +89,32 @@ export class RustToolPool {
     }
 
     /**
-     * Wait for a process to become available
+     * Create a process immediately, or wait until one is available/capacity opens.
      */
-    private async waitForAvailable(): Promise<PooledProcess> {
-        return new Promise((resolve) => {
+    private async createOrWaitForProcess(binary: string): Promise<PooledProcess> {
+        if (this.processes.length < this.maxSize) {
+            return this.createProcess(binary);
+        }
+
+        return this.waitForAvailable(binary);
+    }
+
+    /**
+     * Wait for a process to become available, or create one if capacity opens.
+     */
+    private async waitForAvailable(binary: string): Promise<PooledProcess> {
+        return new Promise((resolve, reject) => {
             const interval = setInterval(() => {
                 const available = this.getAvailable();
                 if (available) {
                     clearInterval(interval);
                     resolve(available);
+                    return;
+                }
+
+                if (this.processes.length < this.maxSize) {
+                    clearInterval(interval);
+                    this.createProcess(binary).then(resolve, reject);
                 }
             }, 10);
         });
@@ -124,7 +133,7 @@ export class RustToolPool {
             let started = false;
             const pooled: PooledProcess = {
                 proc,
-                busy: false,
+                busy: true,
                 destroyed: false,
                 lastUsed: Date.now(),
                 requestId: 0,
