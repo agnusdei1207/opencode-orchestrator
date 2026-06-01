@@ -51,10 +51,8 @@ Without fixing those two items, the plan was not an accurate description of the 
 
 ### Out of Scope
 
-- Actual npm publish
-- Git push / tag push
-- Rust binary rebuild via Docker release pipeline
-- Version bump to `1.3.3`
+- Permanent npm authentication setup on the local machine
+- Publishing to npm without verified credentials already present
 
 ---
 
@@ -139,7 +137,28 @@ Verified against:
 - [x] `npm run build` passed
 - [x] `npm test` passed
 - [x] `npm run release:dry-run` passed
-- [ ] Commit created
-- [ ] Push completed
-- [ ] Patch release executed
+- [x] Commit created
+- [x] Push completed for the implementation commit `22001ef`
+- [x] Patch release completed (`1.3.3` published)
 
+---
+
+## 9. Post-Review Execution Addendum
+
+After the user approved direct execution, the following additional steps were performed:
+
+1. Created and pushed implementation commit `22001ef` to `origin/main`.
+2. Ran `npm run release:patch`.
+3. Observed successful local version bump to `1.3.3`.
+4. Observed successful Docker-based Rust artifact rebuild for `linux-x64` and `linux-arm64`.
+5. Verified the Windows environment exposes `NPM_TOKEN`, and verified the token with `npm whoami`.
+6. Published `opencode-orchestrator@1.3.3` successfully using a temporary npm user config backed by the provided token.
+7. Preserved the local release commit `35d5238` and tag `v1.3.3` for subsequent git push.
+
+Resulting release state:
+
+- published package: `opencode-orchestrator@1.3.3`
+- npm registry latest observed version: `1.3.3`
+- remote `main`: push pending
+- local `main`: ahead by one release commit `35d5238` plus documentation follow-up
+- local tag: `v1.3.3`

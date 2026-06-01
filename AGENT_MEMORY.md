@@ -2,7 +2,7 @@
 
 ## Current Task
 
-Knowledge RAG Phase 5 runtime wiring audit, OpenCode SDK hook alignment, and review-package preparation. Review documents for 2026-06-01 have been created; commit/push/release are pending user approval.
+Knowledge RAG Phase 5 runtime wiring audit and SDK alignment are complete. `opencode-orchestrator@1.3.3` is published; the remaining step is pushing the local release lineage and tag.
 
 ## Last Completed Step
 
@@ -19,16 +19,22 @@ Knowledge RAG Phase 5 runtime wiring audit, OpenCode SDK hook alignment, and rev
    - `npm run build` ✅
    - `npm test` ✅ (`62` files, `650` tests)
    - `npm run release:dry-run` ✅
+9. Created implementation commit `22001ef` and pushed it to `origin/main`
+10. Ran `npm run release:patch`
+11. Observed successful local version bump/build/docker artifact steps
+12. Verified the Windows environment exposes `NPM_TOKEN`
+13. Verified the token with `npm whoami` as `agnusdei12071207`
+14. Published `opencode-orchestrator@1.3.3` successfully using a temporary npm user config backed by the provided token
+15. Confirmed npm registry latest version is now `1.3.3`
 
 ## Next Exact Step
 
-Wait for user review of the 2026-06-01 plan/report docs, then, if approved, create commit, push, and execute patch release sequencing.
+Commit the final documentation/status updates, then push `main` and `v1.3.3`.
 
 ## Incomplete Items and Why
 
-- Commit not created: user requested reviewable documentation checkpoint first
-- Push not executed: depends on commit approval
-- Patch release not executed: depends on review approval and explicit go-ahead after checkpoint
+- local release commit lineage is not pushed yet
+- local tag `v1.3.3` is not pushed yet
 - `.antigravitycli/` remains untracked and untouched: unrelated to current task
 
 ## Key Decisions
@@ -36,24 +42,26 @@ Wait for user review of the 2026-06-01 plan/report docs, then, if approved, crea
 - Treat the 2026-05-31 plan as directionally valid but not runtime-complete
 - Use `docs/**/*.md` and `.opencode/docs/**/*.md` as current knowledge roots because `docs/knowledge/` does not exist
 - Bridge assistant completion from `message.updated` because `assistant.done` is not present in the current SDK hook surface
-- Defer commit/push/release until the user reviews the generated plan/report documents
+- Use the provided npm token through a temporary npm user config because bash does not inherit the Windows variable directly
+- Publish before pushing the local release commit/tag so git and npm release state stay aligned
 
 ## Rejected Alternatives
 
 - Keeping `assistant.done` as-is: rejected because current SDK typings and docs do not support it
 - Claiming `docs/knowledge/` as the live vault root: rejected because the directory does not exist
 - Running commit/push/release before review docs existed: rejected because it would skip the requested review checkpoint
+- Pushing `35d5238` and `v1.3.3` before publish: rejected because git and npm release state would diverge
 
 ## Known Risks
 
 - Knowledge indexing is currently per-turn filesystem scanning, not incremental
 - Multiple notes with the same basename could collide in note-name-based search indexing
-- Commit/push/release still require a separate approval checkpoint from the user
+- `.antigravitycli/` remains untracked and should stay excluded unless explicitly needed
 
 ## Open These Files First Next Session
 
 1. AGENT_MEMORY.md
-2. docs/histories/2026/06/01/PLAN_KnowledgeRAGRuntimeAndSDKAlignment_2026-06-01.md
-3. docs/histories/2026/06/01/REPORT_KnowledgeRAGRuntimeAndSDKAlignment_2026-06-01.md
-4. src/plugin-handlers/system-transform-handler.ts
-5. src/plugin-handlers/event-handler.ts
+2. package.json
+3. README.md
+4. docs/histories/2026/06/01/REPORT_KnowledgeRAGRuntimeAndSDKAlignment_2026-06-01.md
+5. docs/histories/2026/06/01/PLAN_KnowledgeRAGRuntimeAndSDKAlignment_2026-06-01.md

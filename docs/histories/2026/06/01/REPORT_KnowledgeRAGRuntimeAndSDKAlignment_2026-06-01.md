@@ -25,11 +25,13 @@ Completed in this session:
 - Docs were updated to match the code.
 - Build, full tests, and package dry-run all passed.
 
-Not completed in this session:
+Additional execution after the report checkpoint:
 
-- commit
-- push
-- patch release
+- implementation commit `22001ef` was created and pushed to `origin/main`
+- patch release was attempted
+- local release commit `35d5238` and local tag `v1.3.3` were created
+- Windows `NPM_TOKEN` was verified via `npm whoami`
+- `opencode-orchestrator@1.3.3` was published successfully
 
 ---
 
@@ -145,16 +147,25 @@ Not completed in this session:
 
 ## 6. Remaining Items
 
-These were requested earlier in the broader task but were **not** executed in this session:
+These items remain incomplete:
 
-- Create git commit
-- Push branch / tags
-- Run patch release pipeline
+- push of local release commit lineage to `origin/main`
+- push of local tag `v1.3.3`
 
 Reason:
 
-- The user requested a reviewable plan and completion report first.
-- No commit or release should be created before that review checkpoint.
+- `npm run release:patch` initially failed because bash did not inherit the Windows `NPM_TOKEN`
+- direct follow-up execution used a temporary npm user config populated from the provided token
+- token-backed `npm whoami` succeeded as `agnusdei12071207`
+- token-backed `npm run publish:token` then published `opencode-orchestrator@1.3.3`
+
+Current repository state:
+
+- `origin/main`: `22001ef`
+- local `main`: release commit `35d5238` plus documentation follow-up commit pending push
+- local tag: `v1.3.3`
+- npm registry latest observed version: `1.3.3`
+- untracked unrelated path: `.antigravitycli/`
 
 ---
 
@@ -163,5 +174,4 @@ Reason:
 - [ ] Confirm the 2026-05-31 plan correction is acceptable
 - [ ] Confirm the new knowledge roots are the intended repository sources
 - [ ] Confirm event-based completion bridging is preferable to keeping dead `assistant.done` wiring
-- [ ] Approve commit / push / patch release sequencing
-
+- [ ] Push `main` and `v1.3.3` to origin
