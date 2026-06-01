@@ -2,60 +2,65 @@
 
 ## Current Task
 
-v1.3.1 patch release — Phase 3-7 knowledge graph RAG modules complete, committed, pushed, tagged.
+v1.3.2 patch release — Full plumbing audit complete. All modules verified.
 
 ## Last Completed Step
 
-1. Implemented Phase 3: HybridSearch (BM25 + Tag + 2-Hop Graph + RRF fusion, k=60)
-2. Implemented Phase 4: Scratchpad (LRU 64 slots, 4KB max, markdown serialize/deserialize)
-3. Implemented Phase 6: SafetyGuards (circular DFS, FIFO write queue, keep-pin)
-4. Implemented Phase 7: MemoryConsolidation (fission/fusion/GC/MOC — pure functional)
-5. Refactored tag-indexer: extracted `parseYamlLine` helper (40-line compliance), removed `as any`
-6. Refactored graph-parser: extracted `BACKLINKS_HEADING` constant
-7. Updated barrel export `src/core/knowledge/index.ts` with all 6 modules
-8. Added `getAllTags()` and `getIndexedFiles()` accessors to TagIndexer
-9. Created 4 new test files (33 new tests, 647 total across 60 files)
-10. Updated README.md: Knowledge Graph RAG section with ASCII art pipeline
-11. Updated SYSTEM_ARCHITECTURE.md: Layer 7 + module table + lifecycle diagram
-12. Updated PLAN document: all phases marked complete
-13. Version bumped to 1.3.1 (patch)
-14. Git commit `12c35e0`, pushed to main, tag v1.3.1 pushed
-15. Ran 4 full test suites: 647/647 passing (60/60 files) — all passed
+1. Full code state re-verification (2026-06-01)
+2. TypeScript `tsc --noEmit` — 0 errors
+3. Full test suite — 60/60 files, 647/647 tests passing (3 consecutive rounds)
+4. Build — esbuild + tsc emitDeclarationOnly success
+5. npm version patch → v1.3.2
+6. git push origin main + git push origin v1.3.2
+
+## Verification Summary
+
+### Source Files (7 files in src/core/knowledge/)
+- tag-indexer.ts: ✅ 208 lines, 0 as-any, 0 console, all functions <40 lines
+- graph-parser.ts: ✅ 161 lines, BACKLINKS_HEADING constant, getNoteName/getForwardLinks/getBacklinks all present
+- hybrid-search.ts: ✅ 230 lines, BM25+Tag+Graph+RRF fusion, 0 external deps
+- scratchpad.ts: ✅ 109 lines, LRU 64-slot, 4KB max, MD serialize
+- safety-guards.ts: ✅ 102 lines, DFS cycle, FIFO WriteQueue, isPinned
+- memory-consolidation.ts: ✅ 148 lines, pure functional, fission/fusion/GC/MOC
+- index.ts: ✅ 17 lines, barrel exports all 6 modules + types
+
+### Test Files (6 files in tests/unit/knowledge/)
+- tag-indexer.test.ts: ✅ 6 tests
+- graph-parser.test.ts: ✅ 7 tests
+- hybrid-search.test.ts: ✅ 7 tests
+- scratchpad.test.ts: ✅ 10 tests
+- safety-guards.test.ts: ✅ 8 tests (cycle depth fix verified)
+- memory-consolidation.test.ts: ✅ 8 tests
+
+### Code Quality
+- as any: 0
+- console calls: 0
+- circular imports: 0
+- ReDoS risk: 0
+- functions >40 lines: 0
+- external knowledge imports from src/: 0 (intentional — Phase 5 deferred)
+
+### Phase Status
+- Phase 1 (TagIndexer): ✅ Complete
+- Phase 2 (GraphParser): ✅ Complete
+- Phase 3 (HybridSearch): ✅ Complete
+- Phase 4 (Scratchpad): ✅ Complete
+- Phase 5 (Context Injection): 🔜 Deferred — requires runtime integration
+- Phase 6 (SafetyGuards): ✅ Complete
+- Phase 7 (MemoryConsolidation): ✅ Complete
 
 ## Next Exact Step
 
-Phase 5 (Multi-Agent Context Injection) — inject knowledge RAG plane into system-transform-handler.ts at each thinking loop turn. Deferred because it requires runtime integration testing with live agent sessions.
-
-## Incomplete Items And Why
-
-- Phase 5: Context Injection — deferred, requires runtime integration testing
-- NPM publish: ENEEDAUTH — requires ~/.npmrc auth token
+Phase 5: Wire knowledge RAG into system-transform-handler.ts for per-turn context injection.
 
 ## Key Decisions
 
-- Extracted parseYamlLine helper to comply with 40-line function limit
-- Eliminated `as any` with proper `Array.isArray()` guard
-- Added `BACKLINKS_HEADING` static constant to GraphParser
-- Used RRF k=60 (standard from original RRF paper)
-- Scratchpad uses Map insertion-order for LRU (delete + re-insert pattern)
-- All MemoryConsolidation methods are pure/functional — zero side effects
-- Safety DFS uses remainingDepth countdown for bounded traversal
-
-## Rejected Alternatives
-
-- Considered full BM25 with document length normalization — kept simplified version
-- Considered external dependency for YAML parsing — stayed pure TypeScript
-- Considered wiring knowledge into system-transform-handler for Phase 5 — deferred
-
-## Known Risks
-
-- NPM publish blocked by missing auth token
-- Phase 5 integration untested with live agent loops
+- Phase 5 is NOT a bug or missing code — it's a future runtime integration step
+- All standalone module implementations are complete and tested
+- v1.3.2 released with full audit verification
 
 ## Open These Files First Next Session
 
 1. AGENT_MEMORY.md
-2. src/core/knowledge/index.ts
-3. src/plugin-handlers/system-transform-handler.ts
-4. docs/histories/2026/05/31/PLAN_SecondBrainOrchestration_2026-05-31.md
-5. src/core/knowledge/hybrid-search.ts
+2. src/plugin-handlers/system-transform-handler.ts
+3. src/core/knowledge/index.ts
