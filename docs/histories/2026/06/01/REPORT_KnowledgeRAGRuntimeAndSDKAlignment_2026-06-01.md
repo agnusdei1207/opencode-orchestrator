@@ -1,0 +1,167 @@
+---
+title: "REPORT: Knowledge RAG Runtime Wiring and OpenCode SDK Alignment"
+tags: [report, knowledge-rag, system-transform, opencode-sdk, verification]
+created: 2026-06-01
+version: 1.3.2
+status: completed
+---
+
+# REPORT: Knowledge RAG Runtime Wiring and OpenCode SDK Alignment
+
+This report summarizes the work completed on 2026-06-01 so the repository owner can review the exact scope, evidence, and remaining release actions.
+
+---
+
+## 1. Executive Summary
+
+The existing Second Brain plan was **partially correct but not fully implemented** at runtime.
+
+Completed in this session:
+
+- Knowledge RAG Phase 5 was wired into `experimental.chat.system.transform`.
+- Repository knowledge now comes from `docs/**/*.md` and `.opencode/docs/**/*.md`.
+- `assistant.done` usage was removed and replaced with a supported `message.updated` completion bridge.
+- OpenCode dependency ranges were aligned with the verified latest package version `1.15.13`.
+- Docs were updated to match the code.
+- Build, full tests, and package dry-run all passed.
+
+Not completed in this session:
+
+- commit
+- push
+- patch release
+
+---
+
+## 2. Tasks Completed
+
+### 2-1. Plan Audit
+
+- Re-read `docs/histories/2026/05/31/PLAN_SecondBrainOrchestration_2026-05-31.md`
+- Verified that Phase 5 was still documented as deferred while code had no runtime injection
+- Verified that the planned vault root `docs/knowledge/` did not exist in the repository
+
+### 2-2. SDK Alignment
+
+- Verified current package versions:
+  - `@opencode-ai/plugin` `1.15.13`
+  - `@opencode-ai/sdk` `1.15.13`
+- Verified official hook typings
+- Confirmed that `assistant.done` is not part of the current hook surface
+
+### 2-3. Runtime Refactor
+
+- Added `src/core/knowledge/context-provider.ts`
+- Connected knowledge retrieval to `src/plugin-handlers/system-transform-handler.ts`
+- Switched assistant-turn completion handling to `message.updated` completion events
+- Added `lastCompletedMessageID` tracking to prevent duplicate completion processing
+- Replaced hardcoded plugin hook names with expanded constants where used
+
+### 2-4. Test Coverage Added
+
+- `tests/unit/assistant-done-handler.test.ts`
+- `tests/unit/event-handler.test.ts`
+- Expanded `tests/unit/system-transform-handler.test.ts`
+
+### 2-5. Documentation Updated
+
+- `README.md`
+- `docs/SYSTEM_ARCHITECTURE.md`
+- `docs/histories/2026/05/31/PLAN_SecondBrainOrchestration_2026-05-31.md`
+
+---
+
+## 3. Files Changed
+
+### Source
+
+- `src/core/knowledge/context-provider.ts`
+- `src/core/orchestrator/session-manager.ts`
+- `src/index.ts`
+- `src/plugin-handlers/assistant-done-handler.ts`
+- `src/plugin-handlers/event-handler.ts`
+- `src/plugin-handlers/index.ts`
+- `src/plugin-handlers/interfaces/session-state.ts`
+- `src/plugin-handlers/interfaces/system-transform.ts`
+- `src/plugin-handlers/system-transform-handler.ts`
+- `src/shared/message/constants/plugin-hooks.ts`
+
+### Tests
+
+- `tests/unit/assistant-done-handler.test.ts`
+- `tests/unit/event-handler.test.ts`
+- `tests/unit/system-transform-handler.test.ts`
+
+### Docs / Metadata
+
+- `README.md`
+- `docs/SYSTEM_ARCHITECTURE.md`
+- `docs/histories/2026/05/31/PLAN_SecondBrainOrchestration_2026-05-31.md`
+- `package.json`
+- `package-lock.json`
+
+---
+
+## 4. Verification Results
+
+### Build
+
+- Command: `npm run build`
+- Result: passed
+
+### Full Test Suite
+
+- Command: `npm test`
+- Result: passed
+- Observed result: `62` test files, `650` tests passed
+
+### Packaging Dry Run
+
+- Command: `npm run release:dry-run`
+- Result: passed
+- Observed output:
+  - tarball name: `opencode-orchestrator-1.3.2.tgz`
+  - package size: `11.0 MB`
+  - unpacked size: `30.8 MB`
+  - total files: `535`
+
+---
+
+## 5. Findings
+
+### Confirmed Before Fix
+
+1. Knowledge RAG modules existed but were not wired into the runtime prompt path.
+2. The repository plan assumed a dedicated `docs/knowledge/` vault, but the actual repository only had `docs/` and `.opencode/docs/`.
+3. The plugin referenced `assistant.done`, which is incompatible with the currently installed OpenCode SDK surface.
+
+### Confirmed After Fix
+
+1. Orchestrated sessions now receive knowledge matches through `experimental.chat.system.transform`.
+2. Assistant completion processing now runs through supported `message.updated` events.
+3. Documentation and package metadata now reflect the verified code state more closely.
+
+---
+
+## 6. Remaining Items
+
+These were requested earlier in the broader task but were **not** executed in this session:
+
+- Create git commit
+- Push branch / tags
+- Run patch release pipeline
+
+Reason:
+
+- The user requested a reviewable plan and completion report first.
+- No commit or release should be created before that review checkpoint.
+
+---
+
+## 7. Reviewer Checklist
+
+- [ ] Confirm the 2026-05-31 plan correction is acceptable
+- [ ] Confirm the new knowledge roots are the intended repository sources
+- [ ] Confirm event-based completion bridging is preferable to keeping dead `assistant.done` wiring
+- [ ] Approve commit / push / patch release sequencing
+

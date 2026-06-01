@@ -9,7 +9,7 @@
   [![MIT License](https://img.shields.io/badge/license-MIT-red.svg)](LICENSE)
   [![npm](https://img.shields.io/npm/v/opencode-orchestrator.svg)](https://www.npmjs.com/package/opencode-orchestrator)
   <!-- VERSION:START -->
-  **Version:** `1.3.1`
+  **Version:** `1.3.2`
   <!-- VERSION:END -->
 </div>
 
@@ -240,6 +240,8 @@ Maintains focus across thousands of conversation turns using a 4-tier memory str
 
 ### 🧬 Knowledge Graph RAG (Second Brain)
 An autonomous **Obsidian-style evolutionary memory system** that gives agents persistent, searchable knowledge across sessions.
+
+Runtime context injection is active for orchestrated sessions through `experimental.chat.system.transform`, indexing `docs/**/*.md` and `.opencode/docs/**/*.md` with BM25/tag/graph fusion before prompt injection.
 
 ```
   ┌──────────────┐     ┌──────────────┐     ┌──────────────┐

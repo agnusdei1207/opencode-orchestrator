@@ -2,6 +2,9 @@
  * System Transform Handler Tests
  */
 
+import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import path from "node:path";
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { createSystemTransformHandler } from "../../src/plugin-handlers/system-transform-handler";
 import type { EventHandlerContext, SystemTransformInput, SystemTransformOutput } from "../../src/plugin-handlers/interfaces";
@@ -154,5 +157,39 @@ describe("System Transform Handler", () => {
 
         expect(output.system.some(s => s.includes("MISSION LOOP ACTIVE"))).toBe(true);
         expect(output.system.some(s => s.includes("Iteration 5/10"))).toBe(true);
+    });
+
+    it("should inject knowledge RAG context from markdown sources", async () => {
+        const testDir = mkdtempSync(path.join(tmpdir(), "oco-system-transform-"));
+        mkdirSync(path.join(testDir, "docs"), { recursive: true });
+        writeFileSync(
+            path.join(testDir, "docs", "knowledge-memory.md"),
+            "---\ntags: [planner, memory]\n---\nPlanner context injection uses a knowledge graph memory layer.",
+            "utf8",
+        );
+
+        try {
+            mockContext.directory = testDir;
+            handler = createSystemTransformHandler(mockContext);
+
+            vi.mocked(readLoopState).mockReturnValue({
+                active: true,
+                iteration: 1,
+                maxIterations: 10,
+                prompt: "planner memory context",
+                sessionID: "test-session",
+                startedAt: new Date().toISOString(),
+            });
+
+            const input: SystemTransformInput = { sessionID: "test-session" };
+            const output: SystemTransformOutput = { system: [] };
+
+            await handler(input, output);
+
+            expect(output.system.some(s => s.includes("<knowledge_rag_context>"))).toBe(true);
+            expect(output.system.some(s => s.includes("knowledge-memory"))).toBe(true);
+        } finally {
+            rmSync(testDir, { recursive: true, force: true });
+        }
     });
 });

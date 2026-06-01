@@ -2,8 +2,8 @@
 title: "PLAN: OpenCode Second Brain & Autonomous Knowledge Graph RAG Integration"
 tags: [knowledge-rag, second-brain, memory-consolidation, multi-agent]
 created: 2026-05-31
-version: 1.3.1
-status: completed
+version: 1.3.2
+status: verified
 ---
 
 # PLAN: OpenCode Second Brain & Autonomous Knowledge Graph RAG Integration
@@ -12,9 +12,20 @@ This document serves as the **architectural roadmap and history plan** for integ
 
 ---
 
+## 0. Audit Correction (Verified on 2026-06-01)
+
+The original plan was directionally correct, but the live code diverged in two important places and has now been re-aligned:
+
+- **Phase 5 is now wired** in `src/plugin-handlers/system-transform-handler.ts` and injects repository knowledge for orchestrated sessions.
+- **Runtime knowledge roots are not limited to `docs/knowledge/`**. The current implementation indexes `docs/**/*.md` and `.opencode/docs/**/*.md`.
+- **OpenCode SDK alignment was verified against 2026-06-01 package state**: `@opencode-ai/plugin` `1.15.13`, `@opencode-ai/sdk` `1.15.13`.
+- **`assistant.done` was removed** because it is not part of the current official SDK hook surface. Completed assistant turns are now bridged from `message.updated` completion events.
+
+---
+
 ## 🔗 Related Documents and Wiki-Links (Obsidian Wiki-Links)
 * **Parent Milestone**: [[Core-Architecture-MOC]]
-* **Recent Release Notes**: [[1.3.1-Release-Notes]]
+* **Recent Release Notes**: [[1.3.2-Release-Notes]]
 * **Implementation Details**: `src/core/knowledge/tag-indexer.ts` ➡️ [[TagIndexer-Implementation]]
 * **Graph Engine**: `src/core/knowledge/graph-parser.ts` ➡️ [[GraphParser-Design]]
 * **Search Fusion**: `src/core/knowledge/hybrid-search.ts` ➡️ [[HybridSearch-RRF]]
@@ -40,7 +51,8 @@ Design a high-speed knowledge graph traversal plane operating on top of a TypeSc
 
 ```text
                +-------------------------------------------+
-               |     docs/knowledge/ (Structured Vault)    |
+               | docs/**/*.md + .opencode/docs/**/*.md     |
+               |        (Structured Vault)                 |
                +---------------------┬---------------------+
                                      |
                                      ▼ (O(1) Tag HashMap)
@@ -64,7 +76,7 @@ Design a high-speed knowledge graph traversal plane operating on top of a TypeSc
   │ [Phase 4]    │ │ [Phase 5]    │   │ [Phase 6]    │  │ [Phase 7]    │
   │ scratchpad   │ │ Context      │   │ Safety       │  │ Memory       │
   │ ✅ Completed │ │ Injection    │   │ Guards       │  │ Consolidation│
-  │              │ │ 🔜 Next      │   │ ✅ Completed │  │ ✅ Completed │
+  │              │ │ ✅ Completed │   │ ✅ Completed │  │ ✅ Completed │
   └──────────────┘ └──────────────┘   └──────────────┘  └──────────────┘
 ```
 
@@ -73,7 +85,7 @@ Design a high-speed knowledge graph traversal plane operating on top of a TypeSc
 2. **[x] Phase 2: Wiki-Links & Backlinks**: Extract `[[Note]]` and `[Note](./file.md)` relationships within markdown to construct a bi-directional adjacency-list knowledge graph. Dynamically inject an automatically synchronized `## 🔗 Backlinks` section at the bottom of target files.
 3. **[x] Phase 3: Triple-Engine Hybrid Search & RRF**: Implement a ranking engine that fuses lexical BM25 term-frequency + tag index matching + graph 2-hop traversal search using the Reciprocal Rank Fusion (RRF) formula (`score = Σ 1/(k + rank_i)`, k=60).
 4. **[x] Phase 4: Scratchpad Registers**: Embed an agent-exclusive high-speed register cache with LRU eviction (max 64 entries, 4KB per entry), markdown serialization/deserialization for persistence.
-5. **[ ] Phase 5: Multi-Agent Context Injection**: Dynamically inject the knowledge RAG plane into the agent via `system-transform-handler.ts` at the beginning of each thinking loop turn. *(Deferred — requires runtime integration testing.)*
+5. **[x] Phase 5: Multi-Agent Context Injection**: Dynamically inject the knowledge RAG plane into orchestrated sessions via `system-transform-handler.ts`, using the mission prompt and current task as the query seed for hybrid markdown retrieval.
 6. **[x] Phase 6: 3 High-Power Stability Guards**:
    - DFS/BFS circular link stack overflow prevention (configurable max depth)
    - Simultaneous asynchronous write collision prevention (FIFO write queue with drain)
@@ -102,7 +114,7 @@ All knowledge module source files comply with the following quality standards:
 
 ## 🔗 Backlinks
 
-- [[1.3.1-Release-Notes]]
+- [[1.3.2-Release-Notes]]
 - [[TagIndexer-Implementation]]
 - [[GraphParser-Design]]
 - [[HybridSearch-RRF]]

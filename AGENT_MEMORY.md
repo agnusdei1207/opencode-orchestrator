@@ -2,65 +2,58 @@
 
 ## Current Task
 
-v1.3.2 patch release — Full plumbing audit complete. All modules verified.
+Knowledge RAG Phase 5 runtime wiring audit, OpenCode SDK hook alignment, and review-package preparation. Review documents for 2026-06-01 have been created; commit/push/release are pending user approval.
 
 ## Last Completed Step
 
-1. Full code state re-verification (2026-06-01)
-2. TypeScript `tsc --noEmit` — 0 errors
-3. Full test suite — 60/60 files, 647/647 tests passing (3 consecutive rounds)
-4. Build — esbuild + tsc emitDeclarationOnly success
-5. npm version patch → v1.3.2
-6. git push origin main + git push origin v1.3.2
-
-## Verification Summary
-
-### Source Files (7 files in src/core/knowledge/)
-- tag-indexer.ts: ✅ 208 lines, 0 as-any, 0 console, all functions <40 lines
-- graph-parser.ts: ✅ 161 lines, BACKLINKS_HEADING constant, getNoteName/getForwardLinks/getBacklinks all present
-- hybrid-search.ts: ✅ 230 lines, BM25+Tag+Graph+RRF fusion, 0 external deps
-- scratchpad.ts: ✅ 109 lines, LRU 64-slot, 4KB max, MD serialize
-- safety-guards.ts: ✅ 102 lines, DFS cycle, FIFO WriteQueue, isPinned
-- memory-consolidation.ts: ✅ 148 lines, pure functional, fission/fusion/GC/MOC
-- index.ts: ✅ 17 lines, barrel exports all 6 modules + types
-
-### Test Files (6 files in tests/unit/knowledge/)
-- tag-indexer.test.ts: ✅ 6 tests
-- graph-parser.test.ts: ✅ 7 tests
-- hybrid-search.test.ts: ✅ 7 tests
-- scratchpad.test.ts: ✅ 10 tests
-- safety-guards.test.ts: ✅ 8 tests (cycle depth fix verified)
-- memory-consolidation.test.ts: ✅ 8 tests
-
-### Code Quality
-- as any: 0
-- console calls: 0
-- circular imports: 0
-- ReDoS risk: 0
-- functions >40 lines: 0
-- external knowledge imports from src/: 0 (intentional — Phase 5 deferred)
-
-### Phase Status
-- Phase 1 (TagIndexer): ✅ Complete
-- Phase 2 (GraphParser): ✅ Complete
-- Phase 3 (HybridSearch): ✅ Complete
-- Phase 4 (Scratchpad): ✅ Complete
-- Phase 5 (Context Injection): 🔜 Deferred — requires runtime integration
-- Phase 6 (SafetyGuards): ✅ Complete
-- Phase 7 (MemoryConsolidation): ✅ Complete
+1. Re-audited `docs/histories/2026/05/31/PLAN_SecondBrainOrchestration_2026-05-31.md` against live code
+2. Verified official/current OpenCode package state: `@opencode-ai/plugin` `1.15.13`, `@opencode-ai/sdk` `1.15.13`
+3. Implemented Knowledge RAG runtime injection in `src/plugin-handlers/system-transform-handler.ts`
+4. Replaced dead `assistant.done` wiring with `message.updated` completion bridging
+5. Added regression tests for system transform, event bridge, and assistant completion
+6. Updated `README.md`, `docs/SYSTEM_ARCHITECTURE.md`, and the 2026-05-31 plan document
+7. Created review docs:
+   - `docs/histories/2026/06/01/PLAN_KnowledgeRAGRuntimeAndSDKAlignment_2026-06-01.md`
+   - `docs/histories/2026/06/01/REPORT_KnowledgeRAGRuntimeAndSDKAlignment_2026-06-01.md`
+8. Verification complete:
+   - `npm run build` ✅
+   - `npm test` ✅ (`62` files, `650` tests)
+   - `npm run release:dry-run` ✅
 
 ## Next Exact Step
 
-Phase 5: Wire knowledge RAG into system-transform-handler.ts for per-turn context injection.
+Wait for user review of the 2026-06-01 plan/report docs, then, if approved, create commit, push, and execute patch release sequencing.
+
+## Incomplete Items and Why
+
+- Commit not created: user requested reviewable documentation checkpoint first
+- Push not executed: depends on commit approval
+- Patch release not executed: depends on review approval and explicit go-ahead after checkpoint
+- `.antigravitycli/` remains untracked and untouched: unrelated to current task
 
 ## Key Decisions
 
-- Phase 5 is NOT a bug or missing code — it's a future runtime integration step
-- All standalone module implementations are complete and tested
-- v1.3.2 released with full audit verification
+- Treat the 2026-05-31 plan as directionally valid but not runtime-complete
+- Use `docs/**/*.md` and `.opencode/docs/**/*.md` as current knowledge roots because `docs/knowledge/` does not exist
+- Bridge assistant completion from `message.updated` because `assistant.done` is not present in the current SDK hook surface
+- Defer commit/push/release until the user reviews the generated plan/report documents
+
+## Rejected Alternatives
+
+- Keeping `assistant.done` as-is: rejected because current SDK typings and docs do not support it
+- Claiming `docs/knowledge/` as the live vault root: rejected because the directory does not exist
+- Running commit/push/release before review docs existed: rejected because it would skip the requested review checkpoint
+
+## Known Risks
+
+- Knowledge indexing is currently per-turn filesystem scanning, not incremental
+- Multiple notes with the same basename could collide in note-name-based search indexing
+- Commit/push/release still require a separate approval checkpoint from the user
 
 ## Open These Files First Next Session
 
 1. AGENT_MEMORY.md
-2. src/plugin-handlers/system-transform-handler.ts
-3. src/core/knowledge/index.ts
+2. docs/histories/2026/06/01/PLAN_KnowledgeRAGRuntimeAndSDKAlignment_2026-06-01.md
+3. docs/histories/2026/06/01/REPORT_KnowledgeRAGRuntimeAndSDKAlignment_2026-06-01.md
+4. src/plugin-handlers/system-transform-handler.ts
+5. src/plugin-handlers/event-handler.ts

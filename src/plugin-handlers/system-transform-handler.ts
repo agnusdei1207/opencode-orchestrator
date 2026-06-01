@@ -12,9 +12,12 @@ import { readLoopState } from "../core/loop/mission-loop.js";
 import { STATUS_LABEL } from "../shared/index.js";
 import { ParallelAgentManager } from "../core/agents/manager.js";
 import { isMissionActive, ensureSessionInitialized } from "../core/orchestrator/session-manager.js";
+import { KnowledgeContextProvider } from "../core/knowledge/context-provider.js";
 
 // Re-export interfaces for external use
 export type { SystemTransformInput, SystemTransformOutput } from "./interfaces/index.js";
+
+const knowledgeContextProvider = new KnowledgeContextProvider();
 
 /**
  * Create system transform handler for dynamic prompt injection
@@ -55,6 +58,16 @@ export function createSystemTransformHandler(ctx: EventHandlerContext) {
             systemAdditions.push(buildActiveSessionPrompt(session.step));
         }
 
+        // 3. Knowledge graph RAG context for orchestrated sessions
+        const knowledgePrompt = buildKnowledgeContextPrompt(
+            directory,
+            loopState?.prompt,
+            state.sessions.get(sessionID)?.currentTask,
+        );
+        if (knowledgePrompt) {
+            systemAdditions.push(knowledgePrompt);
+        }
+
         // 3. Background task awareness
         try {
             const manager = ParallelAgentManager.getInstance();
@@ -74,6 +87,15 @@ export function createSystemTransformHandler(ctx: EventHandlerContext) {
             output.system.unshift(...systemAdditions); // unshift to put core instructions first
         }
     };
+}
+
+function buildKnowledgeContextPrompt(
+    directory: string,
+    missionPrompt?: string,
+    currentTask?: string,
+): string | null {
+    const queryParts = [missionPrompt ?? "", currentTask ?? ""].filter(Boolean);
+    return knowledgeContextProvider.buildPrompt(directory, queryParts.join(" ").trim());
 }
 
 /**

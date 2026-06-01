@@ -33,7 +33,6 @@ import {
     createConfigHandler,
     createChatMessageHandler,
     createToolExecuteAfterHandler,
-    createAssistantDoneHandler,
     createSessionCompactingHandler,
     createSystemTransformHandler,
     type SessionState,
@@ -153,7 +152,7 @@ const OrchestratorPlugin: Plugin = async (input) => {
         // -----------------------------------------------------------------
         // tool.execute.before hook - runs before any tool call
         // -----------------------------------------------------------------
-        "tool.execute.before": createToolExecuteBeforeHandler(handlerContext),
+        [PLUGIN_HOOKS.TOOL_EXECUTE_BEFORE]: createToolExecuteBeforeHandler(handlerContext),
 
         // -----------------------------------------------------------------
         // tool.execute.after hook - runs after any tool call completes
@@ -161,19 +160,14 @@ const OrchestratorPlugin: Plugin = async (input) => {
         [PLUGIN_HOOKS.TOOL_EXECUTE_AFTER]: createToolExecuteAfterHandler(handlerContext),
 
         // -----------------------------------------------------------------
-        // assistant.done hook - runs when the LLM finishes responding
-        // -----------------------------------------------------------------
-        [PLUGIN_HOOKS.ASSISTANT_DONE]: createAssistantDoneHandler(handlerContext),
-
-        // -----------------------------------------------------------------
         // experimental.session.compacting hook - preserves mission context during compaction
         // -----------------------------------------------------------------
-        "experimental.session.compacting": createSessionCompactingHandler(handlerContext),
+        [PLUGIN_HOOKS.EXPERIMENTAL_SESSION_COMPACTING]: createSessionCompactingHandler(handlerContext),
 
         // -----------------------------------------------------------------
         // experimental.chat.system.transform hook - dynamic system prompt injection
         // -----------------------------------------------------------------
-        "experimental.chat.system.transform": createSystemTransformHandler(handlerContext),
+        [PLUGIN_HOOKS.EXPERIMENTAL_CHAT_SYSTEM_TRANSFORM]: createSystemTransformHandler(handlerContext),
 
         // -----------------------------------------------------------------
         // shutdown hook - cleanup resources on plugin unload

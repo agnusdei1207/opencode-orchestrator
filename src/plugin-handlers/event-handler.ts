@@ -16,6 +16,7 @@ import { isLoopActive } from "../core/loop/mission-loop.js";
 import * as ContextMonitor from "../core/context/index.js";
 import { SESSION_EVENTS, MESSAGE_EVENTS, MESSAGE_ROLES } from "../shared/index.js";
 import type { EventHandlerContext } from "./interfaces/index.js";
+import { handleCompletedAssistantMessage } from "./assistant-done-handler.js";
 
 // Re-export interfaces for backward compatibility
 export type { SessionState, OrchestratorState, EventHandlerContext } from "./interfaces/index.js";
@@ -89,12 +90,18 @@ export function createEventHandler(ctx: EventHandlerContext) {
         // message.updated
         if (event.type === MESSAGE_EVENTS.UPDATED) {
             const messageProperties = event.properties as {
-                info?: { sessionID?: string; role?: string };
+                sessionID?: string;
+                info?: {
+                    id?: string;
+                    sessionID?: string;
+                    role?: string;
+                    time?: { completed?: number };
+                };
                 usage?: { totalTokens?: number; inputTokens?: number; outputTokens?: number };
             };
 
             const messageInfo = messageProperties?.info;
-            const sessionID = messageInfo?.sessionID;
+            const sessionID = messageProperties.sessionID || messageInfo?.sessionID;
             const role = messageInfo?.role;
 
             // Context Window Monitoring integration
@@ -111,6 +118,9 @@ export function createEventHandler(ctx: EventHandlerContext) {
 
             if (sessionID && role === MESSAGE_ROLES.ASSISTANT) {
                 SessionRecovery.markRecoveryComplete(sessionID);
+                if (messageInfo?.id && messageInfo.time?.completed) {
+                    await handleCompletedAssistantMessage(ctx, sessionID, messageInfo.id);
+                }
             }
 
             if (sessionID && role === MESSAGE_ROLES.USER) {

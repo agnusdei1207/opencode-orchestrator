@@ -32,6 +32,7 @@ export function ensureSessionInitialized(
             timestamp: now,
             startTime: now,
             lastStepTime: now,
+            lastCompletedMessageID: undefined,
             tokens: { totalInput: 0, totalOutput: 0, estimatedCost: 0 },
         };
 

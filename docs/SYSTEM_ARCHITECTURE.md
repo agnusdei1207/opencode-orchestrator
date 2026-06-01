@@ -517,6 +517,8 @@ DEBUG=opencode-orchestrator npm start
 
 A production-ready in-memory knowledge graph system inspired by Obsidian's Second Brain methodology, providing autonomous memory management for long-lived agent sessions.
 
+Current runtime wiring indexes repository markdown from `docs/**/*.md` and `.opencode/docs/**/*.md` and injects the top matches through `experimental.chat.system.transform` for orchestrated sessions.
+
 #### 7.1 Architecture Overview
 
 ```
@@ -524,7 +526,7 @@ A production-ready in-memory knowledge graph system inspired by Obsidian's Secon
 │                    KNOWLEDGE GRAPH RAG PIPELINE                       │
 │                                                                      │
 │  ┌───────────────────────────────────────────────────────────────┐   │
-│  │                   docs/knowledge/ (Vault)                     │   │
+│  │         docs/**/*.md + .opencode/docs/**/*.md (Vault)         │   │
 │  │           Markdown files with YAML frontmatter                │   │
 │  └────────────────────────┬──────────────────────────────────────┘   │
 │                           │                                          │
@@ -600,10 +602,10 @@ A production-ready in-memory knowledge graph system inspired by Obsidian's Secon
 
 ## Future Enhancements
 
-### Knowledge RAG Phase 5: Context Injection (Next)
-- Dynamic injection via `system-transform-handler.ts`
-- Per-turn RAG context from knowledge graph
-- Agent scratchpad injection
+### Knowledge RAG Next Steps
+- Incremental indexing instead of per-turn filesystem scans
+- Agent scratchpad injection alongside repository knowledge matches
+- Dedicated vault segmentation if `docs/knowledge/` becomes a real content root
 
 ### Distributed Scaling (Optional)
 - Redis for distributed task store
