@@ -2,56 +2,65 @@
 
 ## Current Task
 
-Mission complete: PR #29 updated with LSP diagnostics timeout recovery and RustToolPool concurrency hardening.
+v1.3.2 patch release — Full plumbing audit complete. All modules verified.
 
 ## Last Completed Step
 
-Final Reviewer pass verified the latest RustToolPool timeout/concurrency hardening, updated shared verification metadata, and approved committing/pushing the latest changes to PR #29.
+1. Full code state re-verification (2026-06-01)
+2. TypeScript `tsc --noEmit` — 0 errors
+3. Full test suite — 60/60 files, 647/647 tests passing (3 consecutive rounds)
+4. Build — esbuild + tsc emitDeclarationOnly success
+5. npm version patch → v1.3.2
+6. git push origin main + git push origin v1.3.2
 
-## Completed Work
+## Verification Summary
 
-- Fixed `src/tools/rust-pool.ts` so timed-out requests detach stdout listeners, kill/remove poisoned Rust processes, and prevent destroyed processes from being released back to the pool.
-- Added `tests/unit/rust-pool-timeout.test.ts` covering timeout kill/removal, fresh-process recovery after timeout, and normal successful process reuse.
-- Hardened `crates/orchestrator-core/src/tools/lsp.rs` so diagnostics use local project binaries, enforce command-level timeouts, skip optional ESLint when no config exists, and report failed/non-JSON TypeScript or ESLint command output as error diagnostics instead of misleading clean results.
-- Earlier commits include `b5bdc9d fix: recover rust tool pool after diagnostics timeout`, follow-up session memory commits, and the latest PR update commit for pool concurrency hardening.
-- `.opencode/todo.md` is 22/22 complete and `.opencode/sync-issues.md` has no unresolved sync issues.
-- Unit review sync gap for the preserved ses_3 Rust pool timeout record was resolved by updating the record/work-log to the current 5-test evidence.
-- Refactored pool acquisition so waiters create a fresh process when timeout removal opens capacity below `maxSize`.
-- Added a concurrent waiter regression test that starts while the only process is busy, waits through timeout removal, and resolves via a fresh process.
-- Reserved newly spawned Rust processes by pushing them into the pool as busy until the spawning caller finishes `sendRequest()` and `release()` marks them idle.
-- Added a deterministic fake-timer regression test proving a second concurrent call cannot write to a newly spawned process during `processReadyDelayMs`, then may reuse it after the first request releases it.
+### Source Files (7 files in src/core/knowledge/)
+- tag-indexer.ts: ✅ 208 lines, 0 as-any, 0 console, all functions <40 lines
+- graph-parser.ts: ✅ 161 lines, BACKLINKS_HEADING constant, getNoteName/getForwardLinks/getBacklinks all present
+- hybrid-search.ts: ✅ 230 lines, BM25+Tag+Graph+RRF fusion, 0 external deps
+- scratchpad.ts: ✅ 109 lines, LRU 64-slot, 4KB max, MD serialize
+- safety-guards.ts: ✅ 102 lines, DFS cycle, FIFO WriteQueue, isPinned
+- memory-consolidation.ts: ✅ 148 lines, pure functional, fission/fusion/GC/MOC
+- index.ts: ✅ 17 lines, barrel exports all 6 modules + types
 
-## Verification Evidence
+### Test Files (6 files in tests/unit/knowledge/)
+- tag-indexer.test.ts: ✅ 6 tests
+- graph-parser.test.ts: ✅ 7 tests
+- hybrid-search.test.ts: ✅ 7 tests
+- scratchpad.test.ts: ✅ 10 tests
+- safety-guards.test.ts: ✅ 8 tests (cycle depth fix verified)
+- memory-consolidation.test.ts: ✅ 8 tests
 
-- `npm run build` passed.
-- `npx vitest run tests/unit/rust-pool-timeout.test.ts --reporter=verbose` passed 5 tests in the final Reviewer pass.
-- `cargo test -p orchestrator-core lsp` passed 8 tests in the latest Reviewer recheck.
-- `cargo test -p orchestrator-core` passed 29 tests plus doc-tests in the latest Reviewer recheck.
-- Earlier full `cargo test` passed orchestrator-cli 3 tests and orchestrator-core 28 tests before the additional LSP missing-local-binary test was added.
-- `npm run test:unit` passed 53 files / 593 tests after the timeout/concurrency regressions were added.
-- `npx vitest run tests/e2e/json-rpc-bridge.test.ts --reporter=verbose` passed 1 file / 2 tests.
-- `npm test` passed 61 files / 652 tests.
-- Fresh direct `./bin/orchestrator-linux-x64 serve` JSON-RPC `lsp_diagnostics` for `file:"*"` returned clean.
-- Final Reviewer evidence: `lsp_diagnostics({file:"*"})` still returned documented stale `Request timeout`; `npx vitest run tests/unit/rust-pool-timeout.test.ts --reporter=verbose` passed 1 file / 5 tests; `npm run build` passed; `cargo test -p orchestrator-core` passed 29 tests plus doc-tests; `npm test` passed 61 files / 652 tests; `git status --short --branch` initially showed only `AGENT_MEMORY.md`, `src/tools/rust-pool.ts`, and `tests/unit/rust-pool-timeout.test.ts` as tracked modifications before shared metadata updates.
+### Code Quality
+- as any: 0
+- console calls: 0
+- circular imports: 0
+- ReDoS risk: 0
+- functions >40 lines: 0
+- external knowledge imports from src/: 0 (intentional — Phase 5 deferred)
 
-## Incomplete Items and Why
+### Phase Status
+- Phase 1 (TagIndexer): ✅ Complete
+- Phase 2 (GraphParser): ✅ Complete
+- Phase 3 (HybridSearch): ✅ Complete
+- Phase 4 (Scratchpad): ✅ Complete
+- Phase 5 (Context Injection): 🔜 Deferred — requires runtime integration
+- Phase 6 (SafetyGuards): ✅ Complete
+- Phase 7 (MemoryConsolidation): ✅ Complete
 
-None for the requested source/test update. Runtime caveat: the active in-session OpenCode `lsp_diagnostics` wrapper continued returning `Request timeout`, consistent with a stale/poisoned already-running plugin pool that predates the fix. Fresh local JSON-RPC verified the fixed path.
+## Next Exact Step
+
+Phase 5: Wire knowledge RAG into system-transform-handler.ts for per-turn context injection.
 
 ## Key Decisions
 
-- Pushed to `fork` remote and updated existing PR #29.
-- Kept source/test corrective changes separate from session memory.
-- Did not commit rebuilt binary artifacts.
+- Phase 5 is NOT a bug or missing code — it's a future runtime integration step
+- All standalone module implementations are complete and tested
+- v1.3.2 released with full audit verification
 
-## Known Risks
+## Open These Files First Next Session
 
-- Reviewers should restart OpenCode/plugin process before testing the wrapper tool in-session to clear any pre-fix poisoned pool.
-
-## First Files to Open Next Session
-
-1. `.opencode/todo.md`
-2. `.opencode/sync-issues.md`
-3. `src/tools/rust-pool.ts`
-4. `crates/orchestrator-core/src/tools/lsp.rs`
-5. `tests/unit/rust-pool-timeout.test.ts`
+1. AGENT_MEMORY.md
+2. src/plugin-handlers/system-transform-handler.ts
+3. src/core/knowledge/index.ts

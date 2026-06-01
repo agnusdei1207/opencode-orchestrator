@@ -18,6 +18,15 @@ class FakeRustProcess extends EventEmitter {
     onWrite?: (chunk: string) => void;
 }
 
+function emitTextResponse(process: FakeRustProcess, request: string, text: string): void {
+    const { id } = JSON.parse(request) as { id: number };
+    process.stdout.emit("data", Buffer.from(JSON.stringify({
+        jsonrpc: "2.0",
+        id,
+        result: { content: [{ type: "text", text }] },
+    }) + "\n"));
+}
+
 function createPool(
     processes: FakeRustProcess[],
     requestTimeoutMs = 5,
@@ -61,12 +70,7 @@ describe("RustToolPool timeout recovery", () => {
         const timedOutProcess = new FakeRustProcess();
         const freshProcess = new FakeRustProcess();
         freshProcess.onWrite = (request) => {
-            const { id } = JSON.parse(request) as { id: number };
-            freshProcess.stdout.emit("data", Buffer.from(JSON.stringify({
-                jsonrpc: "2.0",
-                id,
-                result: { content: [{ type: "text", text: "fresh response" }] },
-            }) + "\n"));
+            emitTextResponse(freshProcess, request, "fresh response");
         };
         const pool = createPool([timedOutProcess, freshProcess]);
 
@@ -95,12 +99,7 @@ describe("RustToolPool timeout recovery", () => {
             markFirstRequestStarted();
         };
         freshProcess.onWrite = (request) => {
-            const { id } = JSON.parse(request) as { id: number };
-            freshProcess.stdout.emit("data", Buffer.from(JSON.stringify({
-                jsonrpc: "2.0",
-                id,
-                result: { content: [{ type: "text", text: "waiter response" }] },
-            }) + "\n"));
+            emitTextResponse(freshProcess, request, "waiter response");
         };
         const pool = createPool([timedOutProcess, freshProcess], 25);
 
@@ -123,11 +122,7 @@ describe("RustToolPool timeout recovery", () => {
         const process = new FakeRustProcess();
         process.onWrite = (request) => {
             const { id } = JSON.parse(request) as { id: number };
-            process.stdout.emit("data", Buffer.from(JSON.stringify({
-                jsonrpc: "2.0",
-                id,
-                result: { content: [{ type: "text", text: `response ${id}` }] },
-            }) + "\n"));
+            emitTextResponse(process, request, `response ${id}`);
         };
         const pool = createPool([process]);
 
@@ -137,6 +132,109 @@ describe("RustToolPool timeout recovery", () => {
         expect(process.kill).not.toHaveBeenCalled();
         expect(process.stdin.write).toHaveBeenCalledTimes(2);
         expect(process.stdout.listenerCount("data")).toBe(0);
+        expect(pool.getStats()).toEqual({ total: 1, busy: 0, idle: 1 });
+
+        await pool.shutdown();
+    });
+
+    it("rejects promptly on child close, cleans listeners, removes the process, and recovers fresh", async () => {
+        const closedProcess = new FakeRustProcess();
+        const freshProcess = new FakeRustProcess();
+        closedProcess.onWrite = () => {
+            closedProcess.emit("close", 1, null);
+        };
+        freshProcess.onWrite = (request) => {
+            emitTextResponse(freshProcess, request, "fresh after close");
+        };
+        const pool = createPool([closedProcess, freshProcess], 1_000);
+
+        const started = Date.now();
+        await expect(pool.call("lsp_diagnostics", { file: "src/index.ts" }))
+            .rejects.toThrow("Rust tool process closed");
+        const elapsed = Date.now() - started;
+        const result = await pool.call("git_status", {});
+
+        expect(elapsed).toBeLessThan(250);
+        expect(result).toBe("fresh after close");
+        expect(closedProcess.kill).not.toHaveBeenCalled();
+        expect(closedProcess.stdout.listenerCount("data")).toBe(0);
+        expect(freshProcess.stdin.write).toHaveBeenCalledTimes(1);
+        expect(pool.getStats()).toEqual({ total: 1, busy: 0, idle: 1 });
+
+        await pool.shutdown();
+    });
+
+    it("rejects promptly when a process closes before it becomes ready", async () => {
+        const closedProcess = new FakeRustProcess();
+        const pool = createPool([closedProcess], 1_000, 1_000);
+
+        const started = Date.now();
+        const call = pool.call("lsp_diagnostics", { file: "src/index.ts" });
+        closedProcess.emit("close", 1, null);
+
+        await expect(call).rejects.toThrow("Rust tool process closed");
+        const elapsed = Date.now() - started;
+
+        expect(elapsed).toBeLessThan(250);
+        expect(closedProcess.kill).not.toHaveBeenCalled();
+        expect(closedProcess.stdout.listenerCount("data")).toBe(0);
+        expect(pool.getStats()).toEqual({ total: 0, busy: 0, idle: 0 });
+
+        await pool.shutdown();
+    });
+
+    it("rejects promptly with the child error while an active request is pending", async () => {
+        const failedProcess = new FakeRustProcess();
+        const childError = new Error("child transport failed");
+        failedProcess.onWrite = () => {
+            failedProcess.emit("error", childError);
+        };
+        const pool = createPool([failedProcess], 1_000);
+
+        const started = Date.now();
+        await expect(pool.call("lsp_diagnostics", { file: "src/index.ts" }))
+            .rejects.toThrow("child transport failed");
+        const elapsed = Date.now() - started;
+
+        expect(elapsed).toBeLessThan(250);
+        expect(failedProcess.kill).not.toHaveBeenCalled();
+        expect(failedProcess.stdout.listenerCount("data")).toBe(0);
+        expect(pool.getStats()).toEqual({ total: 0, busy: 0, idle: 0 });
+
+        await pool.shutdown();
+    });
+
+    it("rejects promptly on stdin write failure, kills the unsafe process, and recovers fresh", async () => {
+        const writeThrowProcess = new FakeRustProcess();
+        const writeFalseProcess = new FakeRustProcess();
+        const freshProcess = new FakeRustProcess();
+        writeThrowProcess.stdin.write.mockImplementation(() => {
+            throw new Error("stdin is closed");
+        });
+        writeFalseProcess.stdin.write.mockReturnValue(false);
+        freshProcess.onWrite = (request) => {
+            emitTextResponse(freshProcess, request, "fresh after write failure");
+        };
+        const pool = createPool([writeThrowProcess, writeFalseProcess, freshProcess], 1_000);
+
+        const throwStarted = Date.now();
+        await expect(pool.call("lsp_diagnostics", { file: "src/index.ts" }))
+            .rejects.toThrow("stdin is closed");
+        const throwElapsed = Date.now() - throwStarted;
+        const falseStarted = Date.now();
+        await expect(pool.call("lsp_diagnostics", { file: "src/index.ts" }))
+            .rejects.toThrow("Failed to write request");
+        const falseElapsed = Date.now() - falseStarted;
+        const result = await pool.call("git_status", {});
+
+        expect(throwElapsed).toBeLessThan(250);
+        expect(falseElapsed).toBeLessThan(250);
+        expect(result).toBe("fresh after write failure");
+        expect(writeThrowProcess.kill).toHaveBeenCalledTimes(1);
+        expect(writeFalseProcess.kill).toHaveBeenCalledTimes(1);
+        expect(writeThrowProcess.stdout.listenerCount("data")).toBe(0);
+        expect(writeFalseProcess.stdout.listenerCount("data")).toBe(0);
+        expect(freshProcess.stdin.write).toHaveBeenCalledTimes(1);
         expect(pool.getStats()).toEqual({ total: 1, busy: 0, idle: 1 });
 
         await pool.shutdown();
