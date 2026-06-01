@@ -147,23 +147,22 @@ Additional execution after the report checkpoint:
 
 ## 6. Remaining Items
 
-These items remain incomplete:
+No release execution items remain incomplete.
 
-- push of local release commit lineage to `origin/main`
-- push of local tag `v1.3.3`
-
-Reason:
+Final release execution sequence:
 
 - `npm run release:patch` initially failed because bash did not inherit the Windows `NPM_TOKEN`
 - direct follow-up execution used a temporary npm user config populated from the provided token
 - token-backed `npm whoami` succeeded as `agnusdei12071207`
 - token-backed `npm run publish:token` then published `opencode-orchestrator@1.3.3`
+- `git push origin main` pushed the release lineage
+- `git push origin --tags` pushed `v1.3.3`
 
 Current repository state:
 
-- `origin/main`: `22001ef`
-- local `main`: release commit `35d5238` plus documentation follow-up commit pending push
-- local tag: `v1.3.3`
+- `origin/main`: `4d45caa`
+- local `main`: aligned with `origin/main`
+- remote/local tag: `v1.3.3`
 - npm registry latest observed version: `1.3.3`
 - untracked unrelated path: `.antigravitycli/`
 
@@ -174,4 +173,4 @@ Current repository state:
 - [ ] Confirm the 2026-05-31 plan correction is acceptable
 - [ ] Confirm the new knowledge roots are the intended repository sources
 - [ ] Confirm event-based completion bridging is preferable to keeping dead `assistant.done` wiring
-- [ ] Push `main` and `v1.3.3` to origin
+- [x] Push `main` and `v1.3.3` to origin

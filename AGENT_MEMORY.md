@@ -2,7 +2,7 @@
 
 ## Current Task
 
-Knowledge RAG Phase 5 runtime wiring audit and SDK alignment are complete. `opencode-orchestrator@1.3.3` is published; the remaining step is pushing the local release lineage and tag.
+Knowledge RAG Phase 5 runtime wiring audit, SDK alignment, release publication, and git publication are complete.
 
 ## Last Completed Step
 
@@ -26,15 +26,15 @@ Knowledge RAG Phase 5 runtime wiring audit and SDK alignment are complete. `open
 13. Verified the token with `npm whoami` as `agnusdei12071207`
 14. Published `opencode-orchestrator@1.3.3` successfully using a temporary npm user config backed by the provided token
 15. Confirmed npm registry latest version is now `1.3.3`
+16. Pushed `main` to origin at `4d45caa`
+17. Pushed tag `v1.3.3` to origin
 
 ## Next Exact Step
 
-Commit the final documentation/status updates, then push `main` and `v1.3.3`.
+No pending release step. Reopen from `AGENT_MEMORY.md` and inspect current user request.
 
 ## Incomplete Items and Why
 
-- local release commit lineage is not pushed yet
-- local tag `v1.3.3` is not pushed yet
 - `.antigravitycli/` remains untracked and untouched: unrelated to current task
 
 ## Key Decisions
@@ -44,6 +44,7 @@ Commit the final documentation/status updates, then push `main` and `v1.3.3`.
 - Bridge assistant completion from `message.updated` because `assistant.done` is not present in the current SDK hook surface
 - Use the provided npm token through a temporary npm user config because bash does not inherit the Windows variable directly
 - Publish before pushing the local release commit/tag so git and npm release state stay aligned
+- Keep `v1.3.3` on the release commit `35d5238`, with publication records tracked by later `main` commits
 
 ## Rejected Alternatives
 

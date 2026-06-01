@@ -153,12 +153,12 @@ After the user approved direct execution, the following additional steps were pe
 4. Observed successful Docker-based Rust artifact rebuild for `linux-x64` and `linux-arm64`.
 5. Verified the Windows environment exposes `NPM_TOKEN`, and verified the token with `npm whoami`.
 6. Published `opencode-orchestrator@1.3.3` successfully using a temporary npm user config backed by the provided token.
-7. Preserved the local release commit `35d5238` and tag `v1.3.3` for subsequent git push.
+7. Pushed the release lineage to `origin/main` and pushed tag `v1.3.3` to origin.
 
 Resulting release state:
 
 - published package: `opencode-orchestrator@1.3.3`
 - npm registry latest observed version: `1.3.3`
-- remote `main`: push pending
-- local `main`: ahead by one release commit `35d5238` plus documentation follow-up
-- local tag: `v1.3.3`
+- remote `main`: includes the release lineage and publication records
+- local `main`: aligned with `origin/main`
+- remote/local tag: `v1.3.3`
