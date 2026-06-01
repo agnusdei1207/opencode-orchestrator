@@ -6,7 +6,7 @@ Mission complete: fixed `lsp_diagnostics` timeout recovery and opened corrective
 
 ## Last Completed Step
 
-Opened PR https://github.com/agnusdei1207/opencode-orchestrator/pull/29 from branch `fix/lsp-diagnostics-timeout-recovery` to `main`.
+Reviewer re-verified Worker `ses_4` diagnostics robustness leaves after PR creation and updated the four relevant TODO evidence lines.
 
 ## Completed Work
 
@@ -20,8 +20,9 @@ Opened PR https://github.com/agnusdei1207/opencode-orchestrator/pull/29 from bra
 
 - `npm run build` passed.
 - `npx vitest run tests/unit/rust-pool-timeout.test.ts --reporter=verbose` passed 3 tests.
-- `cargo test -p orchestrator-core lsp` passed 7 tests.
-- `cargo test` passed orchestrator-cli 3 tests and orchestrator-core 28 tests.
+- `cargo test -p orchestrator-core lsp` passed 8 tests in the latest Reviewer recheck.
+- `cargo test -p orchestrator-core` passed 29 tests plus doc-tests in the latest Reviewer recheck.
+- Earlier full `cargo test` passed orchestrator-cli 3 tests and orchestrator-core 28 tests before the additional LSP missing-local-binary test was added.
 - `npm run test:unit` passed 53 files / 591 tests.
 - `npm run test:e2e -- tests/e2e/json-rpc-bridge.test.ts` passed 8 files / 59 tests.
 - `npm run test:all` passed 61 files / 650 tests.
