@@ -160,7 +160,7 @@ Final release execution sequence:
 
 Current repository state:
 
-- `origin/main`: `4d45caa`
+- `origin/main`: includes the release lineage and publication record commits
 - local `main`: aligned with `origin/main`
 - remote/local tag: `v1.3.3`
 - npm registry latest observed version: `1.3.3`

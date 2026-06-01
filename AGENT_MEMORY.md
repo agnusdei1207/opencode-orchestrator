@@ -26,7 +26,7 @@ Knowledge RAG Phase 5 runtime wiring audit, SDK alignment, release publication, 
 13. Verified the token with `npm whoami` as `agnusdei12071207`
 14. Published `opencode-orchestrator@1.3.3` successfully using a temporary npm user config backed by the provided token
 15. Confirmed npm registry latest version is now `1.3.3`
-16. Pushed `main` to origin at `4d45caa`
+16. Pushed `main` to origin with the release lineage and publication record commits
 17. Pushed tag `v1.3.3` to origin
 
 ## Next Exact Step
