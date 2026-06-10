@@ -8,11 +8,12 @@
 
 import { existsSync, readFileSync, writeFileSync, unlinkSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
-import type { PluginInput } from "@opencode-ai/plugin";
 import { log } from "../agents/logger.js";
 import { PATHS, MISSION_CONTROL } from "../../shared/index.js";
-import { CONTINUE_INSTRUCTION, CLEANUP_INSTRUCTION, STAGNATION_INTERVENTION } from "../../shared/constants/system-messages.js";
+import { CONTINUE_INSTRUCTION, CLEANUP_INSTRUCTION } from "../../shared/constants/system-messages.js";
 import type { MissionLoopState, MissionLoopOptions } from "../../shared/loop/interfaces/mission-loop.js";
+import { syncMissionMemory } from "../knowledge/mission-memory.js";
+import { appendMissionLedgerEvent } from "./mission-ledger.js";
 
 // ============================================================================
 // Constants
@@ -23,6 +24,15 @@ const STATE_FILE = MISSION_CONTROL.STATE_FILE;
 
 /** Default max iterations before giving up */
 const DEFAULT_MAX_ITERATIONS = MISSION_CONTROL.DEFAULT_MAX_ITERATIONS;
+
+type MissionContinuationContext = {
+    verificationSummary?: string;
+    continuationReason?: string;
+};
+
+type MissionContinuationInput = string | MissionContinuationContext;
+
+const UNKNOWN_STATUS = "unknown";
 
 // ============================================================================
 // State Management
@@ -109,6 +119,11 @@ export function incrementIteration(directory: string): MissionLoopState | null {
     return null;
 }
 
+function deriveObjective(prompt: string): string {
+    const firstLine = prompt.split(/\r?\n/).find(line => line.trim().length > 0);
+    return firstLine?.trim() || prompt.trim() || "Continue the active mission";
+}
+
 // ============================================================================
 // Loop Control
 // ============================================================================
@@ -127,6 +142,7 @@ export function startMissionLoop(
         iteration: 1,
         maxIterations: options.maxIterations ?? DEFAULT_MAX_ITERATIONS,
         prompt,
+        objective: deriveObjective(prompt),
         sessionID,
         startedAt: new Date().toISOString(),
     };
@@ -134,6 +150,14 @@ export function startMissionLoop(
     const success = writeLoopState(directory, state);
 
     if (success) {
+        appendMissionLedgerEvent(directory, {
+            type: "mission_started",
+            sessionID,
+            iteration: state.iteration,
+            objective: state.objective,
+            summary: "Mission loop started",
+        });
+        syncMissionMemory(directory, state);
         // TerminalMonitor.getInstance().start();
         log(`[${MISSION_CONTROL.LOG_SOURCE}] Loop started`, {
             sessionID,
@@ -157,6 +181,19 @@ export function cancelMissionLoop(directory: string, sessionID: string): boolean
     const success = clearLoopState(directory);
 
     if (success) {
+        const cancelledState = {
+            ...state,
+            active: false,
+            lastContinuationReason: "cancelled",
+        };
+        appendMissionLedgerEvent(directory, {
+            type: "mission_cancelled",
+            sessionID,
+            iteration: state.iteration,
+            objective: state.objective,
+            reason: "cancelled",
+        });
+        syncMissionMemory(directory, cancelledState);
         log(`[${MISSION_CONTROL.LOG_SOURCE}] Loop cancelled`, { sessionID, iteration: state.iteration });
     }
 
@@ -178,19 +215,31 @@ export function isLoopActive(directory: string, sessionID: string): boolean {
 /**
  * Generate continuation prompt for mission loop
  */
-export function generateMissionContinuationPrompt(state: MissionLoopState, verificationSummary?: string): string {
-    const summaryHeader = verificationSummary ? `\n[Verification Status]: ${verificationSummary}\n` : "";
+export function generateMissionContinuationPrompt(state: MissionLoopState, input?: MissionContinuationInput): string {
+    const context = normalizeContinuationContext(state, input);
 
     let prompt = `${CONTINUE_INSTRUCTION}
 
 <mission_loop iteration="${state.iteration}" max="${state.maxIterations}">
-⚠️ **MISSION NOT COMPLETE** - Iteration ${state.iteration}/${state.maxIterations}
-${summaryHeader}
+MISSION NOT COMPLETE
 
-**Your Original Task**:
-${state.prompt}
+Objective:
+${context.objective}
 
-**NOW**: Continue executing!
+Runtime status:
+- todo progress: ${context.progress}
+- verification: ${context.verification}
+- stagnation: ${context.stagnation}
+- continuation reason: ${context.reason}
+
+Next action:
+1. Read the current TODO, checklist, and sync issue state.
+2. Execute or delegate only the next unblocked work.
+3. Verify the result with real file reads, build commands, tests, or tool output.
+4. Finish only when mission verification passes.
+
+Completion rule:
+Do not declare success while TODO/checklist/sync verification is still failing.
 </mission_loop>`;
 
     // Inject Maintenance Instruction based on iteration
@@ -199,6 +248,22 @@ ${state.prompt}
     }
 
     return prompt;
+}
+
+function normalizeContinuationContext(
+    state: MissionLoopState,
+    input?: MissionContinuationInput,
+) {
+    const verificationSummary = typeof input === "string" ? input : input?.verificationSummary;
+    const continuationReason = typeof input === "string" ? undefined : input?.continuationReason;
+    const stagnationCount = state.stagnationCount ?? 0;
+    return {
+        objective: state.objective || deriveObjective(state.prompt),
+        progress: state.lastProgress ?? UNKNOWN_STATUS,
+        verification: verificationSummary ?? state.lastVerificationSummary ?? UNKNOWN_STATUS,
+        reason: continuationReason ?? state.lastContinuationReason ?? "verification_failed",
+        stagnation: stagnationCount > 0 ? `${stagnationCount} unchanged check(s)` : "not detected",
+    };
 }
 
 /**
@@ -215,7 +280,3 @@ export function generateCompletionNotification(state: MissionLoopState): string 
  - Duration: ${minutes}m ${seconds}s
  - Status: Verified`;
 }
-
-
-
-

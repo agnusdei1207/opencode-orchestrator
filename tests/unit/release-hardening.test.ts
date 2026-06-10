@@ -50,8 +50,28 @@ describe("issue #27 release hardening", () => {
 
         expect(packageJson.scripts["docker:rust-dist"]).toContain("docker compose run --rm dev");
         expect(packageJson.scripts["docker:rust-dist"]).toContain("docker compose run --rm rust-arm64");
+        expect(packageJson.scripts["release:preflight"]).toContain("scripts/release-preflight.mjs");
         expect(packageJson.scripts["release:patch"]).toContain("npm run docker:rust-dist");
         expect(packageJson.scripts["release:minor"]).toContain("npm run docker:rust-dist");
         expect(packageJson.scripts["release:major"]).toContain("npm run docker:rust-dist");
+        expect(packageJson.scripts["release:patch"]).toContain("scripts/release-auth-check.mjs");
+        expect(packageJson.scripts["release:minor"]).toContain("scripts/release-auth-check.mjs");
+        expect(packageJson.scripts["release:major"]).toContain("scripts/release-auth-check.mjs");
+        expect(packageJson.scripts["release:patch"]).toContain("npm run release:preflight");
+        expect(packageJson.scripts["release:minor"]).toContain("npm run release:preflight");
+        expect(packageJson.scripts["release:major"]).toContain("npm run release:preflight");
+        expect(packageJson.scripts["release:dry-run"]).toContain("--allow-dirty");
+        expect(packageJson.scripts["release:dry-run"]).toContain("--skip-version-check");
+    });
+
+    it("uses cross-platform Node build and clean scripts for local packaging", () => {
+        const packageJson = JSON.parse(readRepoFile("package.json")) as {
+            scripts: Record<string, string>;
+        };
+
+        expect(packageJson.scripts.build).toBe("node scripts/build.mjs");
+        expect(packageJson.scripts.build).not.toContain("rm -rf");
+        expect(packageJson.scripts.build).not.toContain("mkdir -p");
+        expect(packageJson.scripts["release:clean"]).toContain("shx rm -rf dist bin");
     });
 });

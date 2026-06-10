@@ -33,6 +33,50 @@ npm uninstall -g opencode-orchestrator
 
 `npm uninstall -g` does not run dependency uninstall hooks in the npm 11 flow verified for this repo, so config cleanup is explicit.
 
+### Model, Permissions, and Concurrency
+
+The plugin does not force a model by default. OpenCode's model rules apply: primary agents use the global `model` unless the agent has its own `model`, and subagents use the invoking primary agent's model unless the subagent has its own `model`.
+
+Recommended `opencode.jsonc` configuration:
+
+```jsonc
+{
+  "$schema": "https://opencode.ai/config.json",
+  "model": "opencode/gpt-5.1-codex",
+  "permission": {
+    "question": "allow"
+  },
+  "agent": {
+    "commander": {
+      "model": "opencode/gpt-5.1-codex"
+    },
+    "worker": {
+      "model": "anthropic/claude-opus-4-5-20251101"
+    }
+  },
+  "plugin": [
+    [
+      "opencode-orchestrator",
+      {
+        "agentConcurrency": {
+          "commander": 1,
+          "planner": 10,
+          "worker": 10,
+          "reviewer": 10
+        },
+        "missionLoop": {
+          "ledger": true,
+          "markdownMemory": true,
+          "maxEvidenceEvents": 20
+        }
+      }
+    ]
+  ]
+}
+```
+
+Global permissions are copied into the generated Commander, Planner, Worker, and Reviewer agents. Same-name agent config keeps user model/options and can override permission keys per agent. When `permission.question` is `allow`, orchestrator agents can still ask concise clarification questions if they are truly blocked.
+
 Inside an OpenCode environment:
 ```bash
 /task "Implement a new authentication module with JWT and audit logs"
@@ -219,6 +263,11 @@ Solves the "Concurrent TODO Update" problem using **MVCC + Mutex**. Agents safel
 ### 🧩 Advanced Hook Orchestration
 Execution flows governed by a **Priority-Phase Hook Registry**. Hooks are grouped into phases (`early`, `normal`, `late`) and executed via **Topological Sort** for predictable, dependency-aware ordering.
 
+### 🎛️ Mission Loop Control
+`/task` starts a persisted mission loop under `.opencode/`. The loop watches TODO/checklist verification, background task state, compaction safety, recovery state, and stagnation signals before injecting compact continuation prompts that keep Commander aligned with the active objective.
+
+The mission loop also writes a bounded runtime evidence trail to `.opencode/mission-ledger.jsonl` and a generated Markdown memory surface under `.opencode/docs/brain/`. Disable those artifacts with the `missionLoop.ledger` and `missionLoop.markdownMemory` plugin options when a project needs a quieter workspace.
+
 ### 🛡️ Autonomous Recovery
 - **Self-healing loops** with adaptive stagnation detection
 - **Proactive Agency**: Smart monitoring that audits logs and plans ahead during background tasks
@@ -242,6 +291,8 @@ Maintains focus across thousands of conversation turns using a 4-tier memory str
 An autonomous **Obsidian-style evolutionary memory system** that gives agents persistent, searchable knowledge across sessions.
 
 Runtime context injection is active for orchestrated sessions through `experimental.chat.system.transform`, indexing `docs/**/*.md` and `.opencode/docs/**/*.md` with BM25/tag/graph fusion before prompt injection.
+
+During active missions, generated runtime memory is available at `.opencode/docs/brain/scratchpad.md`; `.opencode/docs/brain/knowledge-map.canvas` provides an Obsidian-compatible visual map of objective, runtime, verification, and recent evidence nodes.
 
 ```
   ┌──────────────┐     ┌──────────────┐     ┌──────────────┐
@@ -306,7 +357,7 @@ Runtime context injection is active for orchestrated sessions through `experimen
 - **Auto-Scaling**: Concurrency slots adjust based on success/failure rate
 
 ### Technical Stack
-- **Runtime**: Node.js 18+ (TypeScript)
+- **Runtime**: Node.js 24+ (TypeScript)
 - **Tools**: Rust-based CLI tools (grep, glob, ast) via connection pool
 - **Concurrency**: Chase-Lev work-stealing deque + priority queues
 - **Memory**: Object pooling + string interning + buffer pooling

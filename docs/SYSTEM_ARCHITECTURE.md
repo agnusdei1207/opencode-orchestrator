@@ -106,6 +106,30 @@ Reusable session pool to reduce creation overhead.
 
 ### Layer 3: Memory & Performance Optimizations
 
+#### 3.0 Mission Memory Plane
+The `/task` mission loop publishes bounded runtime memory without adding a new database or retrieval service.
+
+**Runtime Artifacts**:
+- `.opencode/mission-ledger.jsonl`: append-only mission evidence events
+- `.opencode/docs/brain/scratchpad.md`: generated Markdown mission scratchpad
+- `.opencode/docs/brain/knowledge-map.canvas`: Obsidian-compatible mission graph
+
+**Data Flow**:
+```
+MissionLoopState
+  -> MissionLedger JSONL
+  -> Markdown Scratchpad
+  -> Existing .opencode/docs RAG indexing
+  -> System transform prompt context
+```
+
+**Configuration**:
+- `missionLoop.ledger`: enables or disables JSONL event output
+- `missionLoop.markdownMemory`: enables or disables generated Markdown/Canvas output
+- `missionLoop.maxEvidenceEvents`: bounds recent evidence reads
+
+The Canvas file is a visualization artifact. Prompt retrieval remains Markdown-based through the existing `KnowledgeContextProvider`, which already indexes `docs/**/*.md` and `.opencode/docs/**/*.md`.
+
 #### 3.1 Object Pool
 Generic object pooling for ParallelTask instances.
 
@@ -413,7 +437,7 @@ Mission COMPLETED
 ## Technology Stack
 
 ### Runtime
-- **Platform**: Node.js 18+
+- **Platform**: Node.js 24+
 - **Language**: TypeScript (strict mode)
 - **Build**: esbuild + tsc
 
@@ -438,17 +462,53 @@ Mission COMPLETED
 ## Configuration
 
 ### Agent Limits
-Configure via concurrency settings:
-```json
+Configure orchestrator concurrency in the plugin options section of `opencode.jsonc`:
+
+```jsonc
 {
-  "agentConcurrency": {
-    "commander": 1,
-    "planner": 10,
-    "worker": 10,
-    "reviewer": 10
-  }
+  "$schema": "https://opencode.ai/config.json",
+  "plugin": [
+    [
+      "opencode-orchestrator",
+      {
+        "agentConcurrency": {
+          "commander": 1,
+          "planner": 10,
+          "worker": 10,
+          "reviewer": 10
+        },
+        "missionLoop": {
+          "ledger": true,
+          "markdownMemory": true,
+          "maxEvidenceEvents": 20
+        }
+      }
+    ]
+  ]
 }
 ```
+
+For compatibility with older documentation, the plugin also reads top-level `agentConcurrency`, `providerConcurrency`, `modelConcurrency`, and `defaultConcurrency` if present, but plugin options are the preferred location because they are scoped to `opencode-orchestrator`.
+
+### Model Selection
+The orchestrator does not force a model in its generated agents. OpenCode model inheritance applies:
+- Commander is a primary agent and uses the global `model` unless `agent.commander.model` is set.
+- Planner, Worker, and Reviewer are subagents and use the invoking primary agent's model unless their own `agent.<name>.model` is set.
+- Same-name user agent config is preserved for model/options/temperature and merged with generated orchestrator prompts.
+
+### Permissions
+Global OpenCode `permission` config is copied into each generated orchestrator agent so permission-gated tools such as `question` remain available when users explicitly allow them. Same-name agent permission config overrides individual permission keys, so agents can ask concise clarification questions when blocked without losing user-defined per-agent policy.
+
+### Mission Loop Control Plane
+`/task` activates a persisted mission loop in `.opencode/`. The loop state records the active session, original prompt, compact objective, iteration count, last progress, last verification summary, and last continuation reason.
+
+Continuation is guarded before any prompt is injected:
+- Skip while the session is aborting, recovering, or within the post-compaction guard window.
+- Skip while child/background tasks are still running.
+- Skip when the session circuit breaker is open.
+- Re-run TODO/checklist/sync verification before continuing.
+
+When verification still fails, Commander receives a compact continuation prompt with the objective, runtime status, stagnation signal, continuation reason, next action, and completion rule. This keeps autonomous execution focused without treating model self-reporting as completion authority.
 
 ### Work-Stealing
 Enabled automatically for all agent types:
@@ -631,4 +691,3 @@ OpenCode Orchestrator is a **production-ready** multi-agent orchestration engine
 - ✅ **Knowledge Graph RAG**: Autonomous evolutionary memory with BM25/Tag/Graph fusion
 
 **Grade**: A+ (Production Ready)
-

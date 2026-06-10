@@ -50,7 +50,7 @@ export function createSystemTransformHandler(ctx: EventHandlerContext) {
             // This prevents massive prompt injection in user messages.
             const { commander } = await import("../agents/commander.js");
             systemAdditions.push(commander.systemPrompt);
-            systemAdditions.push(buildMissionLoopSystemPrompt(loopState.iteration, loopState.maxIterations));
+            systemAdditions.push(buildMissionLoopSystemPrompt(loopState));
         }
 
         // 2. Active session context
@@ -101,18 +101,31 @@ function buildKnowledgeContextPrompt(
 /**
  * Build mission loop system prompt
  */
-function buildMissionLoopSystemPrompt(iteration: number, maxIterations: number): string {
+function buildMissionLoopSystemPrompt(loopState: {
+    iteration: number;
+    maxIterations: number;
+    objective?: string;
+    lastProgress?: string;
+    lastVerificationSummary?: string;
+}): string {
     return `<orchestrator_mission_loop>
-🎯 MISSION LOOP ACTIVE: Iteration ${iteration}/${maxIterations}
+🎯 MISSION LOOP ACTIVE: Iteration ${loopState.iteration}/${loopState.maxIterations}
 
 You are in an autonomous mission loop. Continue working until ALL tasks are verified and 100% complete.
+
+ACTIVE OBJECTIVE:
+${loopState.objective ?? "Continue the active mission"}
+
+RUNTIME MEMORY:
+- Last progress: ${loopState.lastProgress ?? "unknown"}
+- Last verification: ${loopState.lastVerificationSummary ?? "unknown"}
 
 COMPLETION CRITERIA:
 - All hierarchical items in .opencode/todo.md are marked [x]
 - .opencode/verification-checklist.md is fully checked off [x]
 - All tests pass and builds succeed
 
-DO NOT stop or ask for permission. Execute autonomously.
+Do not stop for routine permission or preference checks. Execute autonomously, and ask a concise clarification only when truly blocked and the OpenCode question permission allows it.
 </orchestrator_mission_loop>`;
 }
 

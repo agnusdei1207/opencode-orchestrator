@@ -26,6 +26,8 @@ import { sendNotification } from "../notification/os-notify/notifier.js";
 import { playSound } from "../notification/os-notify/sound-player.js";
 import { detectPlatform, getDefaultSoundPath } from "../notification/os-notify/platform.js";
 import { verifyMissionCompletion, buildVerificationSummary } from "./verification.js";
+import { syncMissionMemory } from "../knowledge/mission-memory.js";
+import { appendMissionLedgerEvent } from "./mission-ledger.js";
 import { createSessionStateStore } from "./session-state-store.js";
 import { trackProgress, resetProgress, isStagnant, markInjectionPerformed, DEFAULT_STAGNATION_THRESHOLD } from "./progress-tracker.js";
 import { armCompactionGuard, isCompactionSafe, clearCompactionState } from "./compaction-guard.js";
@@ -123,7 +125,11 @@ async function injectContinuation(
     }
 
     const summary = buildVerificationSummary(verification);
-    let prompt = generateMissionContinuationPrompt(loopState, summary);
+    const continuationReason = customPrompt ? "stagnation_intervention" : loopState.lastContinuationReason;
+    let prompt = generateMissionContinuationPrompt(loopState, {
+        verificationSummary: summary,
+        continuationReason,
+    });
 
     if (customPrompt) {
         prompt = `${customPrompt}\n\n${prompt}`;
@@ -136,6 +142,15 @@ async function injectContinuation(
                 parts: [{ type: PART_TYPES.TEXT, text: prompt }],
             },
         });
+        appendMissionLedgerEvent(directory, {
+            type: "prompt_injected",
+            sessionID,
+            iteration: loopState.iteration,
+            objective: loopState.objective,
+            summary,
+            reason: continuationReason,
+        });
+        syncMissionMemory(directory, loopState);
         markInjectionPerformed(sessionID);
     } catch (err) {
         log("[mission-loop-handler] Failed to inject continuation prompt", { sessionID, error: err });
@@ -147,6 +162,20 @@ async function handleMissionComplete(
     directory: string,
     loopState: MissionLoopState
 ): Promise<void> {
+    const completedState = {
+        ...loopState,
+        active: false,
+        lastVerificationSummary: "Mission verification passed",
+        lastContinuationReason: "mission_completed",
+    };
+    appendMissionLedgerEvent(directory, {
+        type: "mission_completed",
+        sessionID: loopState.sessionID,
+        iteration: loopState.iteration,
+        objective: loopState.objective,
+        summary: "Mission verification passed",
+    });
+    syncMissionMemory(directory, completedState);
     const cleared = clearLoopState(directory);
     if (cleared) {
         await showCompletedToast(client, loopState);
@@ -218,6 +247,20 @@ export async function handleMissionIdle(
     }
 
     if (shouldTripCircuit(sessionID)) {
+        const verificationSummary = buildVerificationSummary(verification);
+        appendMissionLedgerEvent(directory, {
+            type: "circuit_open",
+            sessionID,
+            iteration: loopState.iteration,
+            objective: loopState.objective,
+            summary: verificationSummary,
+            reason: "stagnation_threshold",
+        });
+        syncMissionMemory(directory, {
+            ...loopState,
+            lastVerificationSummary: verificationSummary,
+            lastContinuationReason: "circuit_open",
+        });
         log(`[${MISSION_CONTROL.LOG_SOURCE}-handler] Circuit breaker tripped for ${sessionID}`);
         return;
     }
@@ -237,8 +280,29 @@ export async function handleMissionIdle(
     const newState = incrementIteration(directory);
     if (!newState) return;
 
+    const verificationSummary = buildVerificationSummary(verification);
     newState.lastProgress = currentProgress;
+    newState.stagnationCount = stagnant ? (newState.stagnationCount ?? 0) + 1 : 0;
+    newState.lastVerificationSummary = verificationSummary;
+    newState.lastContinuationReason = stagnant ? "stagnation_intervention" : "verification_failed";
+    newState.lastContinuationAt = new Date().toISOString();
     writeLoopState(directory, newState);
+    appendMissionLedgerEvent(directory, {
+        type: "verification_failed",
+        sessionID,
+        iteration: newState.iteration,
+        objective: newState.objective,
+        summary: verificationSummary,
+    });
+    appendMissionLedgerEvent(directory, {
+        type: "continuation_scheduled",
+        sessionID,
+        iteration: newState.iteration,
+        objective: newState.objective,
+        summary: verificationSummary,
+        reason: newState.lastContinuationReason,
+    });
+    syncMissionMemory(directory, newState);
 
     await showCountdownToast(client, MISSION_CONTROL.DEFAULT_COUNTDOWN_SECONDS, newState.iteration, newState.maxIterations);
 

@@ -23,11 +23,16 @@ import { CleanupScheduler } from "./core/cleanup/cleanup-scheduler.js";
 import { ShutdownManager } from "./shared/lifecycle/index.js";
 import { backgroundTaskManager } from "./core/commands/manager.js";
 import { shutdownRustToolPool } from "./tools/rust-pool.js";
-import { registerAllTools } from "./tools/registry.js"; // Phase 2-C: Unified tool registry
+import { registerAllTools } from "./tools/registry.js";
 import { SHUTDOWN_HANDLERS, SESSION_EVENTS, PLUGIN_HOOKS } from "./shared/index.js";
+import {
+    mergeConcurrencyConfig,
+} from "./core/agents/concurrency-config.js";
+import { parseOrchestratorPluginOptions } from "./core/config/plugin-options.js";
+import { configureMissionRuntimeOptions } from "./core/loop/mission-runtime-options.js";
 
 // Import modularized handlers
-import { createToolExecuteBeforeHandler } from "./plugin-handlers/tool-execute-pre-handler.js"; // Added import
+import { createToolExecuteBeforeHandler } from "./plugin-handlers/tool-execute-pre-handler.js";
 import {
     createEventHandler,
     createConfigHandler,
@@ -42,8 +47,11 @@ import {
 // Plugin Definition
 // ============================================================================
 
-const OrchestratorPlugin: Plugin = async (input) => {
+const OrchestratorPlugin: Plugin = async (input, options) => {
     const { directory, client } = input;
+    const orchestratorOptions = parseOrchestratorPluginOptions(options);
+    let concurrencyConfig = orchestratorOptions.concurrency;
+    configureMissionRuntimeOptions(orchestratorOptions.missionLoop);
 
     // Initialize Hooks System
     initializeHooks();
@@ -62,7 +70,7 @@ const OrchestratorPlugin: Plugin = async (input) => {
     const sessions = new Map<string, SessionState>();
 
     // Initialize parallel agent manager
-    const parallelAgentManager = ParallelAgentManager.getInstance(client, directory);
+    const parallelAgentManager = ParallelAgentManager.getInstance(client, directory, concurrencyConfig);
     const asyncAgentTools = createAsyncAgentTools(parallelAgentManager, client);
 
     // Initialize Plugin System
@@ -120,11 +128,13 @@ const OrchestratorPlugin: Plugin = async (input) => {
         // -----------------------------------------------------------------
         // Config hook - registers our commands and agents with OpenCode
         // -----------------------------------------------------------------
-        config: createConfigHandler(),
+        config: createConfigHandler({
+            onConcurrencyConfig: (config) => {
+                concurrencyConfig = mergeConcurrencyConfig(concurrencyConfig, config);
+                parallelAgentManager.configureConcurrency(concurrencyConfig);
+            },
+        }),
 
-        // -----------------------------------------------------------------
-        // Event hook - handles OpenCode events
-        // -----------------------------------------------------------------
         // -----------------------------------------------------------------
         // Event hook - handles OpenCode events
         // -----------------------------------------------------------------
@@ -170,9 +180,9 @@ const OrchestratorPlugin: Plugin = async (input) => {
         [PLUGIN_HOOKS.EXPERIMENTAL_CHAT_SYSTEM_TRANSFORM]: createSystemTransformHandler(handlerContext),
 
         // -----------------------------------------------------------------
-        // shutdown hook - cleanup resources on plugin unload
+        // dispose hook - cleanup resources on plugin unload
         // -----------------------------------------------------------------
-        shutdown: async () => {
+        dispose: async () => {
             await shutdownManager.shutdown();
         },
     };

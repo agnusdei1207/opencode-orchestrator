@@ -4,20 +4,92 @@
  * Registers commands and agents with OpenCode
  */
 
+import type { Config } from "@opencode-ai/plugin";
 import { AGENTS } from "../agents/definitions.js";
 import { COMMANDS } from "../tools/slashCommand.js";
-import { AGENT_NAMES, AGENT_TOKENS } from "../shared/index.js";
+import { AGENT_NAMES } from "../shared/index.js";
+import type { ConcurrencyConfig } from "../core/agents/concurrency.js";
+import {
+    extractConcurrencyConfig,
+    hasConcurrencyConfig,
+} from "../core/agents/concurrency-config.js";
 
 /**
  * Create config handler for OpenCode
  */
 import { findClaudeRules } from "../utils/compatibility/claude.js";
 
+type UnknownRecord = Record<string, unknown>;
+type PermissionAction = "ask" | "allow" | "deny";
+type AgentConfig = UnknownRecord & {
+    mode?: "subagent" | "primary" | "all" | string;
+    hidden?: boolean;
+    permission?: unknown;
+};
+type MutableConfig = Omit<Config, "command" | "agent" | "permission" | "default_agent"> & UnknownRecord & {
+    command?: Record<string, unknown>;
+    agent?: Record<string, AgentConfig>;
+    default_agent?: string;
+    permission?: unknown;
+};
+
+interface ConfigHandlerOptions {
+    onConcurrencyConfig?: (config: ConcurrencyConfig) => void;
+}
+
+function isRecord(value: unknown): value is UnknownRecord {
+    return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function isPermissionAction(value: unknown): value is PermissionAction {
+    return value === "ask" || value === "allow" || value === "deny";
+}
+
+function mergePermission(globalPermission: unknown, agentPermission: unknown): unknown {
+    if (agentPermission === undefined) {
+        return globalPermission;
+    }
+
+    if (isRecord(globalPermission) && isRecord(agentPermission)) {
+        return { ...globalPermission, ...agentPermission };
+    }
+
+    if (isPermissionAction(globalPermission) && isRecord(agentPermission)) {
+        return { "*": globalPermission, ...agentPermission };
+    }
+
+    return agentPermission;
+}
+
+function defineAgent(
+    existing: AgentConfig | undefined,
+    defaults: AgentConfig,
+    globalPermission: unknown,
+): AgentConfig {
+    const permission = mergePermission(globalPermission, existing?.permission);
+    const agent = {
+        ...existing,
+        ...defaults,
+    };
+
+    if (permission !== undefined) {
+        agent.permission = permission;
+    }
+
+    return agent;
+}
+
 /**
  * Create config handler for OpenCode
  */
-export function createConfigHandler() {
-    return async (config: Record<string, unknown>) => {
+export function createConfigHandler(options: ConfigHandlerOptions = {}) {
+    return async (config: Config & UnknownRecord) => {
+        const mutableConfig = config as MutableConfig;
+
+        if (hasConcurrencyConfig(config)) {
+            options.onConcurrencyConfig?.(extractConcurrencyConfig(config));
+        }
+
         // Load Claude Code compatibility rules
         const claudeRules = findClaudeRules();
         const injectRules = (prompt: string) => {
@@ -30,8 +102,9 @@ export function createConfigHandler() {
         const workerPrompt = injectRules(AGENTS[AGENT_NAMES.WORKER]?.systemPrompt || "");
         const reviewerPrompt = injectRules(AGENTS[AGENT_NAMES.REVIEWER]?.systemPrompt || "");
 
-        const existingCommands = (config.command as Record<string, unknown>) ?? {};
-        const existingAgents = (config.agent as Record<string, { mode?: string; hidden?: boolean }>) ?? {};
+        const existingCommands = mutableConfig.command ?? {};
+        const existingAgents = mutableConfig.agent ?? {};
+        const globalPermission = mutableConfig.permission;
 
         // Register all our slash commands 
         const orchestratorCommands: Record<string, unknown> = {};
@@ -44,41 +117,36 @@ export function createConfigHandler() {
         }
 
         // Register Commander (primary) and consolidated subagents (4 agents)
-        const orchestratorAgents: Record<string, unknown> = {
+        const orchestratorAgents: Record<string, AgentConfig> = {
             // Primary agent - the main orchestrator
-            [AGENT_NAMES.COMMANDER]: {
+            [AGENT_NAMES.COMMANDER]: defineAgent(existingAgents[AGENT_NAMES.COMMANDER], {
                 description: "Autonomous orchestrator - executes until mission complete",
                 mode: "primary",
                 prompt: commanderPrompt,
-                maxTokens: AGENT_TOKENS.PRIMARY_MAX_TOKENS,
-                thinking: { type: "enabled", budgetTokens: AGENT_TOKENS.PRIMARY_THINKING_BUDGET },
                 color: "#ffea98",
-            },
-            // Subagents (5 total)
-            [AGENT_NAMES.PLANNER]: {
+            }, globalPermission),
+            // Subagents
+            [AGENT_NAMES.PLANNER]: defineAgent(existingAgents[AGENT_NAMES.PLANNER], {
                 description: "Strategic planning and research specialist",
                 mode: "subagent",
                 hidden: true,
                 prompt: plannerPrompt,
-                maxTokens: AGENT_TOKENS.SUBAGENT_MAX_TOKENS,
                 color: "#9B59B6",
-            },
-            [AGENT_NAMES.WORKER]: {
+            }, globalPermission),
+            [AGENT_NAMES.WORKER]: defineAgent(existingAgents[AGENT_NAMES.WORKER], {
                 description: "Implementation and documentation specialist",
                 mode: "subagent",
                 hidden: true,
                 prompt: workerPrompt,
-                maxTokens: AGENT_TOKENS.SUBAGENT_MAX_TOKENS,
                 color: "#E67E22",
-            },
-            [AGENT_NAMES.REVIEWER]: {
+            }, globalPermission),
+            [AGENT_NAMES.REVIEWER]: defineAgent(existingAgents[AGENT_NAMES.REVIEWER], {
                 description: "Module-level verification specialist",
                 mode: "subagent",
                 hidden: true,
                 prompt: reviewerPrompt,
-                maxTokens: AGENT_TOKENS.SUBAGENT_MAX_TOKENS,
                 color: "#27AE60",
-            },
+            }, globalPermission),
         };
 
         // Demote existing build/plan agents to subagents to avoid conflicts
@@ -98,13 +166,12 @@ export function createConfigHandler() {
         }
 
         // Merge: our agents OVERRIDE existing ones (put ours LAST in spread)
-        config.command = { ...existingCommands, ...orchestratorCommands };
-        config.agent = { ...processedExistingAgents, ...orchestratorAgents };
+        mutableConfig.command = { ...existingCommands, ...orchestratorCommands };
+        mutableConfig.agent = { ...processedExistingAgents, ...orchestratorAgents };
 
         // Set Commander as the default agent
-        (config as { default_agent?: string }).default_agent = AGENT_NAMES.COMMANDER;
+        mutableConfig.default_agent = AGENT_NAMES.COMMANDER;
 
         // Note: console.log removed to prevent TUI corruption
     };
 }
-

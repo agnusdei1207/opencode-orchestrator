@@ -69,6 +69,14 @@ export class ConcurrencyController {
         this.config = config ?? {};
     }
 
+    configure(config: ConcurrencyConfig): void {
+        this.config = config;
+    }
+
+    getConfig(): ConcurrencyConfig {
+        return this.config;
+    }
+
     setLimit(key: string, limit: number): void {
         this.limits.set(key, limit);
     }
@@ -377,4 +385,3 @@ export class ConcurrencyController {
         this.workerPools.clear();
     }
 }
-

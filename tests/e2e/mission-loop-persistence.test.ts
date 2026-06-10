@@ -82,6 +82,9 @@ describe("Mission Loop Persistence E2E", () => {
         expect(mockClient.session.prompt).toHaveBeenCalled();
         const promptCall = mockClient.session.prompt.mock.calls[0][0];
         expect(promptCall.body.parts[0].text).toContain("MISSION NOT COMPLETE");
+        expect(promptCall.body.parts[0].text).toContain("Runtime status:");
+        expect(promptCall.body.parts[0].text).toContain("continuation reason: verification_failed");
+        expect(promptCall.body.parts[0].text).toContain("Completion rule:");
     });
 
     it("should clear loop state only if verification passes", async () => {

@@ -20,7 +20,6 @@ import {
     incrementIteration,
     clearLoopState,
     generateMissionContinuationPrompt,
-    type MissionLoopState,
 } from "../../src/core/loop/mission-loop";
 import { MISSION_CONTROL } from "../../src/shared";
 import * as fs from "fs";
@@ -61,6 +60,7 @@ describe("Mission Loop Lifecycle E2E", () => {
             expect(state?.active).toBe(true);
             expect(state?.iteration).toBe(1);
             expect(state?.prompt).toBe(prompt);
+            expect(state?.objective).toBe(prompt);
         });
 
         it("should set default max iterations", () => {
@@ -146,9 +146,12 @@ describe("Mission Loop Lifecycle E2E", () => {
             const state = readLoopState(testDir);
 
             if (state) {
-                const prompt = generateMissionContinuationPrompt(state, testDir);
+                const prompt = generateMissionContinuationPrompt(state);
                 expect(prompt).toContain("mission_loop");
                 expect(prompt).toContain("Build API");
+                expect(prompt).toContain("Runtime status:");
+                expect(prompt).toContain("Next action:");
+                expect(prompt).toContain("Completion rule:");
             }
         });
 
@@ -159,8 +162,27 @@ describe("Mission Loop Lifecycle E2E", () => {
 
             const state = readLoopState(testDir);
             if (state) {
-                const prompt = generateMissionContinuationPrompt(state, testDir);
+                const prompt = generateMissionContinuationPrompt(state);
                 expect(prompt).toContain("3"); // iteration 3
+            }
+        });
+
+        it("should include persisted verification and continuation reason", () => {
+            startMissionLoop(testDir, testSessionID, "Implement observability\nwith tests");
+            const state = readLoopState(testDir);
+
+            if (state) {
+                state.lastProgress = "2/5";
+                state.lastVerificationSummary = "TODO incomplete: 3 remaining";
+                state.lastContinuationReason = "stagnation_intervention";
+                state.stagnationCount = 2;
+                const prompt = generateMissionContinuationPrompt(state);
+
+                expect(prompt).toContain("Implement observability");
+                expect(prompt).toContain("todo progress: 2/5");
+                expect(prompt).toContain("verification: TODO incomplete: 3 remaining");
+                expect(prompt).toContain("continuation reason: stagnation_intervention");
+                expect(prompt).toContain("stagnation: 2 unchanged check(s)");
             }
         });
     });

@@ -11,6 +11,11 @@ export { GraphParser } from "./graph-parser.js";
 export { HybridSearch } from "./hybrid-search.js";
 export type { SearchResult } from "./hybrid-search.js";
 export { Scratchpad } from "./scratchpad.js";
+export {
+    getMissionCanvasPath,
+    getMissionScratchpadPath,
+    syncMissionMemory,
+} from "./mission-memory.js";
 export { SafetyGuards } from "./safety-guards.js";
 export type { WriteQueue } from "./safety-guards.js";
 export { MemoryConsolidation } from "./memory-consolidation.js";

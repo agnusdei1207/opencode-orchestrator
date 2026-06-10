@@ -79,6 +79,9 @@ function buildMissionContext(loopState: MissionLoopState): string {
     return `<mission_context>
 ACTIVE MISSION LOOP:
 - Status: Active (Iteration ${loopState.iteration}/${loopState.maxIterations})
+- Objective: ${loopState.objective ?? "Continue the active mission"}
+- Last Progress: ${loopState.lastProgress ?? "unknown"}
+- Last Verification: ${loopState.lastVerificationSummary ?? "unknown"}
 - Started: ${loopState.startedAt}
 - Original Task: ${loopState.prompt.slice(0, 500)}${loopState.prompt.length > 500 ? "..." : ""}
 

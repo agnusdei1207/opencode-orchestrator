@@ -33,6 +33,7 @@ import { MemoryLevel } from "../memory/interfaces.js";
 import { CORE_PHILOSOPHY } from "../../agents/prompts/01_philosophy/core.js";
 import { AgentRegistry } from "./agent-registry.js";
 import { TodoManager } from "../todo/todo-manager.js";
+import type { ConcurrencyConfig } from "./concurrency.js";
 
 // Re-export
 export type { ParallelTask };
@@ -46,7 +47,7 @@ export class ParallelAgentManager {
     private store = new TaskStore();
     private client: OpencodeClient;
     private directory: string;
-    private concurrency = new ConcurrencyController();
+    private concurrency: ConcurrencyController;
     private sessionPool: SessionPool;
 
     // Composed components
@@ -56,9 +57,10 @@ export class ParallelAgentManager {
     private cleaner: TaskCleaner;
     private eventHandler: EventHandler;
 
-    private constructor(client: OpencodeClient, directory: string) {
+    private constructor(client: OpencodeClient, directory: string, concurrencyConfig?: ConcurrencyConfig) {
         this.client = client;
         this.directory = directory;
+        this.concurrency = new ConcurrencyController(concurrencyConfig);
 
         // Initialize Memory System
         const memory = MemoryManager.getInstance();
@@ -140,12 +142,16 @@ export class ParallelAgentManager {
         });
     }
 
-    static getInstance(client?: OpencodeClient, directory?: string): ParallelAgentManager {
+    static getInstance(
+        client?: OpencodeClient,
+        directory?: string,
+        concurrencyConfig?: ConcurrencyConfig,
+    ): ParallelAgentManager {
         if (!ParallelAgentManager._instance) {
             if (!client || !directory) {
                 throw new Error("ParallelAgentManager requires client and directory on first call");
             }
-            ParallelAgentManager._instance = new ParallelAgentManager(client, directory);
+            ParallelAgentManager._instance = new ParallelAgentManager(client, directory, concurrencyConfig);
         }
         return ParallelAgentManager._instance;
     }
@@ -233,6 +239,10 @@ export class ParallelAgentManager {
 
     setConcurrencyLimit(agentType: string, limit: number): void {
         this.concurrency.setLimit(agentType, limit);
+    }
+
+    configureConcurrency(config: ConcurrencyConfig): void {
+        this.concurrency.configure(config);
     }
 
     getPendingCount(parentSessionID: string): number {

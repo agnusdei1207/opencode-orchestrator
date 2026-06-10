@@ -11,6 +11,8 @@ export interface MissionLoopState {
     maxIterations: number;
     /** Original task prompt */
     prompt: string;
+    /** Compact objective title shown in continuation prompts */
+    objective?: string;
     /** Session ID */
     sessionID: string;
     /** When loop started */
@@ -21,6 +23,12 @@ export interface MissionLoopState {
     lastProgress?: string;
     /** Number of iterations without progress */
     stagnationCount?: number;
+    /** Last verification summary observed before continuation */
+    lastVerificationSummary?: string;
+    /** Last reason the loop decided to continue */
+    lastContinuationReason?: string;
+    /** Last continuation timestamp */
+    lastContinuationAt?: string;
 }
 
 export interface MissionLoopOptions {

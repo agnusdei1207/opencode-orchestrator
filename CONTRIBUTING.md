@@ -30,9 +30,8 @@ The system is built on a **4-Agent Cognitive Architecture**:
 # Install dependencies
 npm install
 
-# Build everything (TS + Rust) and link locally
+# Build TypeScript and Docker-based Rust distribution artifacts
 npm run build:all
-npm run dev:link
 
 # Start OpenCode and see the "Orchestrator" in action!
 ```
@@ -43,12 +42,12 @@ npm run dev:link
 
 | Command | Description |
 |---------|-------------|
-| `npm run build:all` | **Recommended**: Complete build of TS and Rust components |
-| `npm run rust:build` | Build Rust binary only |
-| `npm run rust:test` | Run Rust unit and integration tests |
-| `npm run test:all` | **Full Suite**: Runs Rust tests + TS tests + E2E Bridge tests |
-| `npm run dev:link` | Link current build to OpenCode for development |
-| `npm run dev:unlink`| Remove local link |
+| `npm run build` | Build the TypeScript plugin and install hook bundles |
+| `npm run build:all` | Build TypeScript and Docker-based Rust distribution artifacts |
+| `cargo test --workspace --all-targets` | Run Rust tests |
+| `npm run test:all` | Run TypeScript build and Vitest suite |
+| `npm run release:dry-run` | Run local release preflight and package dry-run |
+| `npm run release:patch` | Verify npm auth, bump patch version, rebuild release artifacts, and publish |
 | `npm run log` | Follow real-time logs of the orchestrator |
 
 ---
@@ -60,7 +59,7 @@ We maintain strict verification across the entire stack.
 ### 1. Rust Core Tests
 Located in `crates/orchestrator-core` and `crates/orchestrator-cli`.
 ```bash
-npm run rust:test
+cargo test --workspace --all-targets
 ```
 
 ### 2. TypeScript Unit Tests
@@ -107,6 +106,8 @@ npm run release:patch   # Bug fixes
 npm run release:minor   # New features / Agent upgrades
 ```
 Releases automatically handle binary distribution for multiple architectures (Windows/macOS/Linux).
+Patch/minor/major release scripts verify npm authentication before `npm version` so a missing token cannot leave behind a local version commit or tag.
+Use `npm run release:dry-run` first to run build, tests, Rust tests, audit, and package dry-run without publishing.
 
 Installation hooks are bootstrapped through `scripts/run-install-hook.mjs`.
 They prefer built `dist/scripts/*.js`, fall back to source `scripts/*.ts` in a source checkout, prefer `opencode.jsonc` over `opencode.json`, preserve sibling plugin entries/comments, and no-op in CI to avoid mutating runner config.

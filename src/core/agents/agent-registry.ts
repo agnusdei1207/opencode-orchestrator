@@ -19,9 +19,6 @@ const AgentDefinitionSchema = z.object({
     mode: z.enum(["primary", "subagent"]).optional(),
     color: z.string().optional(),
     hidden: z.boolean().optional(),
-    thinking: z.boolean().optional(),
-    maxTokens: z.number().optional(),
-    budgetTokens: z.number().optional(),
     canWrite: z.boolean(), // Required per interface
     canBash: z.boolean(), // Required per interface
 });
@@ -87,7 +84,7 @@ export class AgentRegistry {
                 for (const [name, def] of Object.entries(customAgents)) {
                     const result = AgentDefinitionSchema.safeParse(def);
                     if (result.success) {
-                        this.registerAgent(name, def as AgentDefinition);
+                        this.registerAgent(name, result.data);
                     } else {
                         log(`[AgentRegistry] Invalid custom agent definition for: ${name}. Errors: ${result.error.message}`);
                     }
