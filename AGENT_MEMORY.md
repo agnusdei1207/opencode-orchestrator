@@ -2,100 +2,101 @@
 
 ## Current Task
 
-Patch release `opencode-orchestrator` `1.3.5` has been implemented, published to npm, pushed to `origin/main`, tagged as `v1.3.5`, and released through GitHub Actions.
+Patch release `opencode-orchestrator` `1.3.6` has been implemented, published to npm, pushed to `origin/main`, tagged as `v1.3.6`, and released through GitHub Actions.
 
 ## Last Completed Step
 
-1. Implemented and pushed feature commit:
-   - `234e2d8 Harden mission control and release docs`
+1. Implemented and pushed audit hardening commit:
+   - `3da8ed3 Harden prompt exports and metadata`
 2. Published and pushed release commit:
-   - `b4927d1 1.3.5`
-   - `origin/main`, local `main`, and tag `v1.3.5` all point to `b4927d1a68ffa9ab8d488a6b82c0e2a7bfa8d8fc`.
+   - `0e9010a 1.3.6`
+   - `origin/main`, local `main`, and tag `v1.3.6` all point to `0e9010a9fb7d482e5b18f2be21b08a11d14fbce0`.
 3. Released npm package:
-   - `opencode-orchestrator@1.3.5`
-   - `latest = 1.3.5`
-   - tarball: `https://registry.npmjs.org/opencode-orchestrator/-/opencode-orchestrator-1.3.5.tgz`
+   - `opencode-orchestrator@1.3.6`
+   - `latest = 1.3.6`
+   - tarball: `https://registry.npmjs.org/opencode-orchestrator/-/opencode-orchestrator-1.3.6.tgz`
 4. GitHub Release and Actions:
-   - Release URL: `https://github.com/agnusdei1207/opencode-orchestrator/releases/tag/v1.3.5`
-   - Actions run `27287582854` completed successfully.
-   - Linux x64, Linux arm64, macOS x64, macOS arm64, and Windows x64 build jobs all completed successfully.
+   - Release URL: `https://github.com/agnusdei1207/opencode-orchestrator/releases/tag/v1.3.6`
+   - Actions run `27313928882` completed successfully.
+   - Linux x64, Linux arm64, macOS x64, macOS arm64, and Windows x64 build jobs completed successfully.
    - GitHub Packages publish completed.
-   - Actions public npm publish step skipped because repository `NPM_TOKEN` secret is still absent, but local `npm publish` already completed successfully.
-5. README cleanup:
-   - Replaced the long duplicated README with a concise install/config/run/architecture/developer note structure.
-   - Removed unverified benchmark claims and large duplicate ASCII diagrams.
-   - Documented plugin tuple configuration for `agentConcurrency` and `missionLoop`.
-   - Documented model routing as normal OpenCode config; no hardcoded model is implied.
-   - Linked project issues at `https://github.com/agnusdei1207/opencode-orchestrator/issues`.
-6. OpenCode docs and compatibility evidence checked:
-   - Installed `@opencode-ai/plugin` type exposes `plugin?: Array<string | [string, PluginOptions]>`.
-   - Official OpenCode plugin/config/keybind docs were reviewed for plugin tuple options, events, config, and ESC interrupt behavior.
-7. Runtime/control fixes:
-   - Added guarded idle continuation using assistant-completion timestamps to avoid re-continuing immediately after user interrupt/ESC.
-   - Added handling for `session.status` idle events through the same guard.
-   - Added `lastUserMessageAt`, `lastAssistantCompletedAt`, and `lastAbortAt` session fields.
-   - Cleared intercepted chat output parts so `/cancel` and `/stop` do not leak through.
-   - Added `/cancel` and `/stop` mission deactivation path.
-   - Reset mission abort state on new user messages.
-   - Set default mission max iterations to `1_000_000_000`.
-8. Install/uninstall hook fixes:
-   - `postinstall` validates and preserves both bare plugin names and `[name, options]` tuples.
-   - `preuninstall` removes both bare orchestrator entries and tuple registrations while preserving sibling plugin tuples.
-9. Release hardening:
-   - Added `scripts/release-sync-artifacts.mjs`.
-   - Local release scripts now rebuild Docker Linux artifacts, restrict dirty artifact sync to expected Linux binaries, amend the release commit if needed, and retag.
-   - GitHub Actions public npm publish is skip-safe and idempotent when `NPM_TOKEN` is missing or the version is already published.
-10. Issue triage:
-   - `#26` was commented and closed via REST API as fixed in `v1.3.5`.
-   - `#25` was commented with the package/README metadata fix and the remaining repository-sidebar admin requirement; it remains open because the repository homepage/sidebar update API returned `HTTP 404`.
+   - Actions public npm publish step skipped because repository `NPM_TOKEN` secret is still absent; local `npm publish` already completed successfully.
+5. Audit hardening:
+   - Replaced public prompt export placeholders under `src/agents/prompts/**` with concrete concise guidance.
+   - Added a prompt source regression test that fails on generated placeholder text.
+   - Corrected package description from the obsolete `Planner, Coder, Reviewer` wording to Commander, Planner, Worker, and Reviewer.
+   - Added package metadata regression tests for actual agent names and GitHub Issues support links.
+   - Replaced the `src/index.ts` `session.created` property `any` casts with a small type guard and string reader.
+   - Updated lockfile to `@opencode-ai/plugin@1.17.3`, `@opencode-ai/sdk@1.17.3`, and `@types/node@24.13.2`.
+6. Issue triage:
+   - `#26` remains closed.
+   - `#25` remains open because GitHub repository sidebar homepage still reads `https://rdot.agnusdei.kr/`; `gh repo edit --homepage https://github.com/agnusdei1207/opencode-orchestrator/issues` still returns `HTTP 404` with the current `WRITE` token.
 
 ## Verification Observed
 
-1. `npx tsc --noEmit` passed.
-2. `npm run build` passed.
-3. Targeted Vitest passed: 5 files, 42 tests.
-4. Full Vitest passed before release: 69 files, 693 tests.
-5. Full Vitest passed again during `release:preflight`: 69 files, 693 tests.
-6. `cargo test --workspace --all-targets` passed before release: 32 tests.
-7. Rust tests passed again during `release:preflight`: 32 tests.
-8. `npm audit --json` passed with 0 vulnerabilities.
-9. `npm pack --dry-run` passed for `1.3.5`.
-10. `git diff --check` passed.
-11. `npm view opencode-ai version`, `@opencode-ai/plugin version`, and `@opencode-ai/sdk version` all returned `1.17.1`.
-12. `npm outdated --json` only reported major-line updates for `@types/node` 25.x and `typescript` 6.x; they were intentionally not adopted for this Node 24 / TypeScript 5 release.
+1. Baseline before edits:
+   - `npx tsc --noEmit` passed.
+   - Targeted Vitest passed: 3 files, 47 tests.
+2. After code/test edits:
+   - `npx tsc --noEmit` passed.
+   - Targeted Vitest passed: 3 files, 24 tests.
+   - `npm run build` passed.
+   - Full Vitest passed: 70 files, 696 tests.
+   - `cargo test --workspace --all-targets` passed: 32 tests.
+   - `npm audit --json` passed with 0 vulnerabilities.
+   - `npm pack --dry-run` passed.
+   - `git diff --check` passed.
+3. After OpenCode patch dependency update:
+   - Installed `@opencode-ai/plugin`, `@opencode-ai/sdk` are `1.17.3`.
+   - Installed plugin type still exposes `plugin?: Array<string | [string, PluginOptions]>`.
+   - `npx tsc --noEmit` passed.
+   - `npm run build` passed.
+   - Full Vitest passed again: 70 files, 696 tests.
+   - `cargo test --workspace --all-targets` passed again: 32 tests.
+   - `npm audit --json` passed with 0 vulnerabilities.
+   - `npm pack --dry-run` passed.
+4. Release preflight for `1.3.6`:
+   - Build passed.
+   - Full Vitest passed.
+   - Rust tests passed.
+   - `npm audit --json` passed.
+   - `npm pack --dry-run` passed.
+   - Docker Linux x64 and Linux arm64 artifacts rebuilt; no artifact changes were detected.
+5. Post-release:
+   - `npm view opencode-orchestrator version dist-tags.latest dist.tarball` returned `1.3.6`.
+   - `gh release view v1.3.6` returned the published release URL.
+   - `gh run view 27313928882` returned `conclusion: success`.
+   - `git status --short --branch` returned `## main...origin/main`.
 
 ## Next Exact Step
 
 1. If repository settings access is available, update the GitHub repository sidebar Homepage field from `https://rdot.agnusdei.kr/` to `https://github.com/agnusdei1207/opencode-orchestrator/issues`.
-2. After the sidebar homepage is updated, close `#25`.
-3. Configure the repository `NPM_TOKEN` Actions secret if public npm publish should also run from GitHub Actions instead of being local-only.
+2. After the sidebar homepage is updated and verified with `gh repo view --json homepageUrl`, close `#25`.
+3. Configure the repository `NPM_TOKEN` Actions secret if public npm publish should also run from GitHub Actions instead of local-only.
 
 ## Incomplete Items and Why
 
-- `#25` remains open because the actual GitHub repository sidebar homepage is repository settings/admin state. The REST repository update API returned `HTTP 404` with the current token.
+- `#25` remains open because the actual GitHub repository sidebar homepage is repository settings/admin state. The current token has `WRITE` permission but the repository update endpoint still returns `HTTP 404`.
+- Actions public npm publish remains skipped until the repository `NPM_TOKEN` secret is configured. Local npm publish succeeded.
 - Native Windows local execution was not performed in this Linux workspace. Windows coverage came from source code path handling, tests, and the successful GitHub Actions Windows x64 build.
 
 ## Key Decisions
 
-- Do not hardcode any orchestrator model; OpenCode global and agent-specific model routing remains the source of truth.
-- Use OpenCode plugin tuple options for orchestrator-specific settings.
-- Keep older top-level concurrency parsing for compatibility.
-- Treat ESC/interrupt as an idle-without-current-assistant-completion case at the plugin boundary because plugins do not receive raw TUI key events.
-- Keep README concise and evidence-backed; remove claims that were not re-measured in this session.
-- Do not close `#25` until the actual sidebar homepage is updated.
+- Keep OpenCode SDK/plugin on the latest compatible patch line `1.17.3`; do not adopt TypeScript 6 or `@types/node` 25.x in this Node 24 / TypeScript 5 release.
+- Keep prompt placeholder removal behavior-neutral: exported prompt fragments now contain real guidance, but active agent prompt composition was not rewired.
+- Keep #25 open until the actual GitHub sidebar homepage changes.
 
 ## Rejected Alternatives
 
-- Closing `#25` after only package metadata and README changes: rejected because the issue specifically reports the GitHub sidebar link.
-- Upgrading `@types/node` to 25.x or TypeScript to 6.x in this patch: rejected as unnecessary major-line churn for a Node 24 package.
-- Adding a new `/start` command: rejected because `/task`, `/cancel`, and `/stop` cover the current mission lifecycle.
-- Rewriting all legacy hook `any` usage in this patch: rejected as broader refactor risk outside the release objective.
+- Closing `#25` after package metadata and README fixes only: rejected because `gh repo view` still reports the old sidebar homepage.
+- Upgrading TypeScript to 6.x or `@types/node` to 25.x: rejected as unnecessary major-line churn.
+- Broadly rewriting every legacy `any` in the repository: rejected as separate refactor risk; this patch removed the newly audited `src/index.ts` event-boundary `any`.
 
 ## Known Risks
 
 - GitHub repository sidebar may still show `https://rdot.agnusdei.kr/` until a repository admin updates settings.
-- Actions public npm publish remains skipped until the repository `NPM_TOKEN` secret is configured; local npm publish succeeded.
-- Some older hook modules still contain loose `any` types and should be handled as a separate focused refactor.
+- Repository Actions public npm publish remains skipped until `NPM_TOKEN` is configured.
+- Some older hook/test modules still contain loose `any` casts and should be handled as a separate focused refactor.
 - `reset:local` and `reset:prod` still contain platform-specific Homebrew assumptions outside the primary release path.
 
 ## Open These Files First Next Session
@@ -103,13 +104,10 @@ Patch release `opencode-orchestrator` `1.3.5` has been implemented, published to
 1. AGENT_MEMORY.md
 2. README.md
 3. package.json
-4. .github/workflows/release.yml
-5. scripts/release-sync-artifacts.mjs
-6. scripts/postinstall.ts
-7. scripts/preuninstall.ts
-8. src/plugin-handlers/event-handler.ts
-9. src/plugin-handlers/chat-message-handler.ts
-10. src/hooks/features/mission-loop.ts
-11. tests/unit/event-handler.test.ts
-12. tests/unit/chat-message-handler.test.ts
-13. tests/unit/install-hooks.test.ts
+4. package-lock.json
+5. src/index.ts
+6. src/agents/prompts/index.ts
+7. tests/unit/prompt-system.test.ts
+8. tests/unit/package-metadata.test.ts
+9. .github/workflows/release.yml
+10. scripts/release-sync-artifacts.mjs
