@@ -313,6 +313,8 @@ export async function handleMissionIdle(
 }
 
 export function handleUserMessage(sessionID: string): void {
+    const state = sessionStateStore.getState(sessionID);
+    state.isAborting = false;
     sessionStateStore.cancelCountdown(sessionID);
 }
 

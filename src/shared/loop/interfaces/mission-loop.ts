@@ -32,7 +32,7 @@ export interface MissionLoopState {
 }
 
 export interface MissionLoopOptions {
-    /** Maximum iterations before stopping (default: 1000) */
+    /** Maximum iterations before stopping (default: 1,000,000,000) */
     maxIterations?: number;
     /** Countdown seconds before auto-continue (default: 3) */
     countdownSeconds?: number;

@@ -54,6 +54,9 @@ describe("issue #27 release hardening", () => {
         expect(packageJson.scripts["release:patch"]).toContain("npm run docker:rust-dist");
         expect(packageJson.scripts["release:minor"]).toContain("npm run docker:rust-dist");
         expect(packageJson.scripts["release:major"]).toContain("npm run docker:rust-dist");
+        expect(packageJson.scripts["release:patch"]).toContain("scripts/release-sync-artifacts.mjs");
+        expect(packageJson.scripts["release:minor"]).toContain("scripts/release-sync-artifacts.mjs");
+        expect(packageJson.scripts["release:major"]).toContain("scripts/release-sync-artifacts.mjs");
         expect(packageJson.scripts["release:patch"]).toContain("scripts/release-auth-check.mjs");
         expect(packageJson.scripts["release:minor"]).toContain("scripts/release-auth-check.mjs");
         expect(packageJson.scripts["release:major"]).toContain("scripts/release-auth-check.mjs");
@@ -67,6 +70,27 @@ describe("issue #27 release hardening", () => {
         expect(packageJson.scripts["release:major"]).toContain("npm run release:preflight");
         expect(packageJson.scripts["release:dry-run"]).toContain("--allow-dirty");
         expect(packageJson.scripts["release:dry-run"]).toContain("--skip-version-check");
+    });
+
+    it("makes GitHub Actions npm publishing skip-safe and idempotent", () => {
+        const workflow = readRepoFile(".github/workflows/release.yml");
+
+        expect(workflow).toContain("NPM_TOKEN: ${{ secrets.NPM_TOKEN }}");
+        expect(workflow).toContain("if: env.NPM_TOKEN != ''");
+        expect(workflow).toContain("npm view \"${PACKAGE_NAME}@${PACKAGE_VERSION}\" version");
+        expect(workflow).toContain("is already published to npm. Skipping.");
+        expect(workflow).toContain("if: env.NPM_TOKEN == ''");
+        expect(workflow).toContain("NPM_TOKEN secret is not configured; skipping public npm publish.");
+    });
+
+    it("keeps local release artifact sync restricted to generated Linux binaries", () => {
+        const script = readRepoFile("scripts/release-sync-artifacts.mjs");
+
+        expect(script).toContain("bin/orchestrator-linux-arm64");
+        expect(script).toContain("bin/orchestrator-linux-x64");
+        expect(script).toContain("Unexpected dirty release paths");
+        expect(script).toContain("git\", [\"commit\", \"--amend\", \"--no-edit\"]");
+        expect(script).toContain("git\", [\"tag\", \"-f\", `v${readVersion()}`]");
     });
 
     it("uses cross-platform Node build and clean scripts for local packaging", () => {

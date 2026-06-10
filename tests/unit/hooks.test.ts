@@ -55,6 +55,15 @@ vi.mock("../../src/core/loop/verification", () => ({
     buildVerificationFailurePrompt: vi.fn().mockReturnValue("Verification failed"),
     buildVerificationSummary: vi.fn().mockReturnValue("[Verification ✅ PASSED]")
 }));
+vi.mock("../../src/core/orchestrator/session-manager", async () => {
+    const actual = await vi.importActual<typeof import("../../src/core/orchestrator/session-manager")>(
+        "../../src/core/orchestrator/session-manager"
+    );
+    return {
+        ...actual,
+        deactivateMissionState: vi.fn(actual.deactivateMissionState),
+    };
+});
 vi.mock("../../src/utils/sanity/index", () => ({
     checkOutputSanity: vi.fn().mockReturnValue({ isHealthy: true }),
     RECOVERY_PROMPT: "Recover",
@@ -95,6 +104,22 @@ describe("Hook System", () => {
             const result = await hook.execute(mockContext, `/task "build"`);
             expect(result.action).toBe(HOOK_ACTIONS.PROCESS);
             expect(state.missionActive).toBe(true);
+        });
+
+        it("should intercept /cancel and deactivate mission state", async () => {
+            state.missionActive = true;
+            state.sessions.set("test-session", { enabled: true } as any);
+            mockContext.sessions.set("test-session", { active: true });
+
+            const { cancelMissionLoop } = await import("../../src/core/loop/mission-loop");
+            const { deactivateMissionState } = await import("../../src/core/orchestrator/session-manager");
+
+            const result = await hook.execute(mockContext, "/cancel");
+
+            expect(result.action).toBe(HOOK_ACTIONS.INTERCEPT);
+            expect(cancelMissionLoop).toHaveBeenCalledWith("/tmp/test", "test-session");
+            expect(deactivateMissionState).toHaveBeenCalledWith("test-session");
+            expect(mockContext.sessions.get("test-session").active).toBe(false);
         });
 
         it("should stop if verification passes", async () => {

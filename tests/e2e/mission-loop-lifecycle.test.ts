@@ -68,6 +68,7 @@ describe("Mission Loop Lifecycle E2E", () => {
 
             const state = readLoopState(testDir);
             expect(state?.maxIterations).toBe(MISSION_CONTROL.DEFAULT_MAX_ITERATIONS);
+            expect(state?.maxIterations).toBe(1_000_000_000);
         });
 
         it("should allow custom max iterations", () => {

@@ -84,6 +84,8 @@ jobs:
   release:
     needs: build
     runs-on: ubuntu-latest
+    env:
+      NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
     steps:
       - uses: actions/checkout@v4
 
@@ -172,8 +174,19 @@ jobs:
           registry-url: "https://registry.npmjs.org"
 
       - name: Publish to NPM Registry
+        if: env.NPM_TOKEN != ''
         run: |
           git checkout package.json
+          PACKAGE_NAME="$(node -p "require('./package.json').name")"
+          PACKAGE_VERSION="$(node -p "require('./package.json').version")"
+          if npm view "${PACKAGE_NAME}@${PACKAGE_VERSION}" version >/dev/null 2>&1; then
+            echo "${PACKAGE_NAME}@${PACKAGE_VERSION} is already published to npm. Skipping."
+            exit 0
+          fi
           npm publish --access public
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          NODE_AUTH_TOKEN: ${{ env.NPM_TOKEN }}
+
+      - name: Skip NPM Registry publish
+        if: env.NPM_TOKEN == ''
+        run: echo "NPM_TOKEN secret is not configured; skipping public npm publish."

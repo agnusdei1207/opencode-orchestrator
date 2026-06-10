@@ -17,6 +17,28 @@ import * as path from "path";
 import * as os from "os";
 
 const PLUGIN_NAME = "opencode-orchestrator";
+type PluginOptions = Record<string, unknown>;
+type PluginTuple = [string, PluginOptions];
+type PluginEntry = string | PluginTuple;
+
+function isPluginTuple(value: unknown): value is PluginTuple {
+    return Array.isArray(value)
+        && value.length === 2
+        && typeof value[0] === "string"
+        && typeof value[1] === "object"
+        && value[1] !== null
+        && !Array.isArray(value[1]);
+}
+
+function isPluginEntry(value: unknown): value is PluginEntry {
+    return typeof value === "string" || isPluginTuple(value);
+}
+
+function isOurPluginEntry(value: unknown): boolean {
+    if (!isPluginEntry(value)) return false;
+    const name = typeof value === "string" ? value : value[0];
+    return name === PLUGIN_NAME || name.startsWith(`${PLUGIN_NAME}@`);
+}
 
 // ---------------------------------------------------------------------------
 // Minimal re-implementation of removeFromConfig for isolated testing.
@@ -57,9 +79,7 @@ function removeFromConfig(configDir: string): {
     }
 
     const originalLength = config.plugin.length;
-    config.plugin = config.plugin.filter(
-        (p: string) => typeof p !== "string" || (p !== PLUGIN_NAME && !p.includes(PLUGIN_NAME))
-    );
+    config.plugin = config.plugin.filter((entry: unknown) => !isOurPluginEntry(entry));
 
     if (config.plugin.length === originalLength) {
         return { success: false, message: "plugin not found", backupFile };
@@ -197,6 +217,28 @@ describe("preuninstall — safe removal policy", () => {
         const written = JSON.parse(fs.readFileSync(configFile, "utf-8"));
         expect(written.plugin.filter((p: string) => p === PLUGIN_NAME)).toHaveLength(0);
         expect(written.plugin).toContain("other");
+    });
+
+    it("removes tuple registrations and preserves sibling tuple options", () => {
+        const configDir = path.join(tmpDir, "opencode");
+        fs.mkdirSync(configDir);
+        const configFile = path.join(configDir, "opencode.json");
+
+        fs.writeFileSync(configFile, JSON.stringify({
+            plugin: [
+                ["oh-my-openagent@latest", { enabled: true }],
+                [PLUGIN_NAME, { missionLoop: { ledger: true } }],
+                [`${PLUGIN_NAME}@1.2.3`, { legacy: true }],
+            ],
+        }));
+
+        const result = removeFromConfig(configDir);
+
+        expect(result.success).toBe(true);
+        const written = JSON.parse(fs.readFileSync(configFile, "utf-8"));
+        expect(written.plugin).toEqual([
+            ["oh-my-openagent@latest", { enabled: true }],
+        ]);
     });
 
     // ── Scenario 7: Result JSON is valid after removal ─────────────────────

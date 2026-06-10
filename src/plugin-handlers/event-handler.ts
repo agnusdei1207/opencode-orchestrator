@@ -15,7 +15,7 @@ import * as MissionLoopHandler from "../core/loop/mission-loop-handler.js";
 import { isLoopActive } from "../core/loop/mission-loop.js";
 import * as ContextMonitor from "../core/context/index.js";
 import { SESSION_EVENTS, MESSAGE_EVENTS, MESSAGE_ROLES } from "../shared/index.js";
-import type { EventHandlerContext } from "./interfaces/index.js";
+import type { EventHandlerContext, SessionState } from "./interfaces/index.js";
 import { handleCompletedAssistantMessage } from "./assistant-done-handler.js";
 
 // Re-export interfaces for backward compatibility
@@ -119,6 +119,7 @@ export function createEventHandler(ctx: EventHandlerContext) {
             if (sessionID && role === MESSAGE_ROLES.ASSISTANT) {
                 SessionRecovery.markRecoveryComplete(sessionID);
                 if (messageInfo?.id && messageInfo.time?.completed) {
+                    markAssistantCompleted(sessions, sessionID);
                     await handleCompletedAssistantMessage(ctx, sessionID, messageInfo.id);
                 }
             }
@@ -133,24 +134,80 @@ export function createEventHandler(ctx: EventHandlerContext) {
         if (event.type === SESSION_EVENTS.IDLE) {
             const sessionID = event.properties?.sessionID as string || "";
             if (sessionID) {
-                const isMainSession = sessions.has(sessionID);
-                if (isMainSession) {
-                    setTimeout(async () => {
-                        const session = sessions.get(sessionID);
-                        if (session?.active) {
-                            if (isLoopActive(directory, sessionID)) {
-                                await MissionLoopHandler.handleMissionIdle(
-                                    client, directory, sessionID, sessionID
-                                ).catch(() => { });
-                            } else {
-                                await TodoContinuation.handleSessionIdle(
-                                    client, directory, sessionID, sessionID
-                                ).catch(() => { });
-                            }
-                        }
-                    }, 500);
-                }
+                scheduleIdleContinuation(ctx, sessionID);
+            }
+        }
+
+        if (event.type === SESSION_EVENTS.STATUS) {
+            const properties = event.properties as { sessionID?: string; status?: { type?: string } } | undefined;
+            const sessionID = properties?.sessionID ?? "";
+            if (sessionID && properties?.status?.type === "idle") {
+                scheduleIdleContinuation(ctx, sessionID);
             }
         }
     };
+}
+
+function markAssistantCompleted(sessions: Map<string, SessionState>, sessionID: string): void {
+    const session = sessions.get(sessionID);
+    if (!session) return;
+
+    session.lastAssistantCompletedAt = Date.now();
+}
+
+function shouldContinueAfterIdle(session: SessionState | undefined): boolean {
+    if (!session?.active || !session.lastAssistantCompletedAt) {
+        return false;
+    }
+
+    if (session.lastUserMessageAt && session.lastAssistantCompletedAt < session.lastUserMessageAt) {
+        return false;
+    }
+
+    if (session.lastAbortAt && session.lastAssistantCompletedAt < session.lastAbortAt) {
+        return false;
+    }
+
+    return true;
+}
+
+function markAbort(sessions: Map<string, SessionState>, sessionID: string): void {
+    const session = sessions.get(sessionID);
+    if (session) {
+        session.lastAbortAt = Date.now();
+    }
+    TodoContinuation.handleAbort(sessionID);
+    MissionLoopHandler.handleAbort(sessionID);
+}
+
+function scheduleIdleContinuation(ctx: EventHandlerContext, sessionID: string): void {
+    const { client, directory, sessions } = ctx;
+    if (!sessions.has(sessionID)) return;
+
+    setTimeout(async () => {
+        const session = sessions.get(sessionID);
+        if (!shouldContinueAfterIdle(session)) {
+            markAbort(sessions, sessionID);
+            return;
+        }
+
+        if (isLoopActive(directory, sessionID)) {
+            try {
+                await MissionLoopHandler.handleMissionIdle(
+                    client, directory, sessionID, sessionID
+                );
+            } catch {
+                // Continuation failures must not break the OpenCode event pipeline.
+            }
+            return;
+        }
+
+        try {
+            await TodoContinuation.handleSessionIdle(
+                client, directory, sessionID, sessionID
+            );
+        } catch {
+            // Continuation failures must not break the OpenCode event pipeline.
+        }
+    }, 500);
 }

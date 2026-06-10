@@ -9,6 +9,9 @@ export interface SessionState {
     startTime: number;
     lastStepTime: number;
     lastCompletedMessageID?: string;
+    lastUserMessageAt?: number;
+    lastAssistantCompletedAt?: number;
+    lastAbortAt?: number;
     tokens: {
         totalInput: number;
         totalOutput: number;

@@ -19,7 +19,7 @@ import * as TodoContinuation from "../core/loop/todo-continuation.js";
 import { startMissionLoop } from "../core/loop/mission-loop.js";
 import { HookRegistry } from "../hooks/registry.js"; // Added import
 import { HOOK_ACTIONS } from "../hooks/constants.js";
-import type { ChatMessageHandlerContext } from "./interfaces/index.js";
+import type { ChatMessageHandlerContext, SessionState } from "./interfaces/index.js";
 
 export type { ChatMessageHandlerContext } from "./interfaces/index.js";
 
@@ -53,6 +53,7 @@ export function createChatMessageHandler(ctx: ChatMessageHandlerContext) {
         const agentName = (msgInput.agent || "").toLowerCase();
 
         log("[chat-message-handler] hook triggered", { sessionID, agent: agentName, textLength: originalText.length });
+        markUserMessage(sessions, sessionID);
 
         if (sessionID && !sessions.has(sessionID)) {
             // Fallback: Ensure session exists even if not /task (e.g. normal chat)
@@ -80,6 +81,7 @@ export function createChatMessageHandler(ctx: ChatMessageHandlerContext) {
         const hookResult = await hooks.executeChat(hookContext, originalText);
 
         if (hookResult.action === HOOK_ACTIONS.INTERCEPT) {
+            parts.splice(0, parts.length);
             return;
         }
 
@@ -87,4 +89,11 @@ export function createChatMessageHandler(ctx: ChatMessageHandlerContext) {
             parts[textPartIndex].text = hookResult.modifiedMessage;
         }
     };
+}
+
+function markUserMessage(sessions: Map<string, SessionState>, sessionID: string): void {
+    const session = sessions.get(sessionID);
+    if (!session) return;
+
+    session.lastUserMessageAt = Date.now();
 }

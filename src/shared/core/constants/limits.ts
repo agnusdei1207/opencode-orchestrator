@@ -4,7 +4,7 @@
 
 export const LIMITS = {
     /** Maximum mission loop iterations */
-    MAX_ITERATIONS: 10000,
+    MAX_ITERATIONS: 1_000_000_000,
     /** Default scan limit for file listing */
     DEFAULT_SCAN_LIMIT: 20,
     /** Max message history to check for conclusion */
@@ -19,4 +19,3 @@ export const LIMITS = {
     /** Maximum time for atomic task (minutes) */
     TASK_TIME_LIMIT_MIN: 10,
 } as const;
-

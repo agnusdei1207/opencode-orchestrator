@@ -174,6 +174,56 @@ describe("install hook scripts", () => {
         expect(updated).toContain('"opencode-orchestrator"');
     });
 
+    it("postinstall preserves plugin option tuples and detects existing orchestrator tuples", async () => {
+        await using tmp = await tmpdir({ prefix: "postinstall-jsonc-tuple-" });
+        const configDir = path.join(tmp.path, "xdg", "opencode");
+        const configFile = path.join(configDir, "opencode.jsonc");
+        mkdirSync(configDir, { recursive: true });
+        writeFileSync(
+            configFile,
+            [
+                "{",
+                "  // keep tuple options",
+                '  "plugin": [["oh-my-openagent@latest", {"enabled": true}]]',
+                "}",
+                "",
+            ].join("\n")
+        );
+
+        const addResult = runNode(
+            ["--experimental-strip-types", postinstallPath],
+            repoRoot,
+            { XDG_CONFIG_HOME: path.join(tmp.path, "xdg"), HOME: tmp.path }
+        );
+
+        const added = readFileSync(configFile, "utf8");
+        expect(addResult.status).toBe(0);
+        expect(added).toContain("// keep tuple options");
+        expect(added).toContain('"oh-my-openagent@latest"');
+        expect(added).toContain('"enabled": true');
+        expect(added).toContain('"opencode-orchestrator"');
+
+        writeFileSync(
+            configFile,
+            [
+                "{",
+                '  "plugin": [["opencode-orchestrator", {"missionLoop": {"ledger": true}}]]',
+                "}",
+                "",
+            ].join("\n")
+        );
+        const before = readFileSync(configFile, "utf8");
+        const skipResult = runNode(
+            ["--experimental-strip-types", postinstallPath],
+            repoRoot,
+            { XDG_CONFIG_HOME: path.join(tmp.path, "xdg"), HOME: tmp.path }
+        );
+
+        expect(skipResult.status).toBe(0);
+        expect(skipResult.stdout).toContain("Plugin already registered");
+        expect(readFileSync(configFile, "utf8")).toBe(before);
+    });
+
     it("postinstall exits cleanly in CI without writing config", async () => {
         await using tmp = await tmpdir({ prefix: "postinstall-ci-" });
         const configRoot = path.join(tmp.path, "xdg");
@@ -259,6 +309,36 @@ describe("install hook scripts", () => {
         expect(result.status).toBe(0);
         expect(updated).toContain("// keep this comment");
         expect(updated).toContain('"oh-my-openagent@latest"');
+        expect(updated).not.toContain('"opencode-orchestrator"');
+    });
+
+    it("preuninstall removes orchestrator tuples and preserves sibling tuple options", async () => {
+        await using tmp = await tmpdir({ prefix: "preuninstall-jsonc-tuple-" });
+        const configDir = path.join(tmp.path, "xdg", "opencode");
+        const configFile = path.join(configDir, "opencode.jsonc");
+        mkdirSync(configDir, { recursive: true });
+        writeFileSync(
+            configFile,
+            [
+                "{",
+                "  // keep tuple sibling",
+                '  "plugin": [["oh-my-openagent@latest", {"enabled": true}], ["opencode-orchestrator", {"missionLoop": {"ledger": true}}]]',
+                "}",
+                "",
+            ].join("\n")
+        );
+
+        const result = runNode(
+            ["--experimental-strip-types", preuninstallPath],
+            repoRoot,
+            { XDG_CONFIG_HOME: path.join(tmp.path, "xdg"), HOME: tmp.path }
+        );
+
+        const updated = readFileSync(configFile, "utf8");
+        expect(result.status).toBe(0);
+        expect(updated).toContain("// keep tuple sibling");
+        expect(updated).toContain('"oh-my-openagent@latest"');
+        expect(updated).toContain('"enabled": true');
         expect(updated).not.toContain('"opencode-orchestrator"');
     });
 

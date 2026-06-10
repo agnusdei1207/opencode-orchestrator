@@ -11,7 +11,8 @@
  *   7. WSL2 environment → Windows path also checked
  *   8. XDG_CONFIG_HOME overrides default path
  *   9. $schema preserved when existing config already has it
- *  10. Backup cleanup keeps only last 5
+ *  10. Tuple plugin entries are preserved and recognized
+ *  11. Backup cleanup keeps only last 5
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
@@ -36,6 +37,28 @@ import * as os from "os";
 // This avoids any side-effects on the real ~/.config/opencode.
 
 const PLUGIN_NAME = "opencode-orchestrator";
+type PluginOptions = Record<string, unknown>;
+type PluginTuple = [string, PluginOptions];
+type PluginEntry = string | PluginTuple;
+
+function isPluginTuple(value: unknown): value is PluginTuple {
+    return Array.isArray(value)
+        && value.length === 2
+        && typeof value[0] === "string"
+        && typeof value[1] === "object"
+        && value[1] !== null
+        && !Array.isArray(value[1]);
+}
+
+function isPluginEntry(value: unknown): value is PluginEntry {
+    return typeof value === "string" || isPluginTuple(value);
+}
+
+function isOurPluginEntry(value: unknown): boolean {
+    if (!isPluginEntry(value)) return false;
+    const name = typeof value === "string" ? value : value[0];
+    return name === PLUGIN_NAME || name.startsWith(`${PLUGIN_NAME}@`);
+}
 
 // ---------------------------------------------------------------------------
 // Utility: run registerInConfig-equivalent logic directly
@@ -81,7 +104,7 @@ async function runPostinstall(
                 config = JSON.parse(rawContent);
 
                 // Mirror validateConfig() from postinstall.ts:
-                // plugin field must be an array of strings if present
+                // plugin field must be an array of strings or [name, options] tuples if present
                 if (config.plugin !== undefined) {
                     if (!Array.isArray(config.plugin)) {
                         stdout.push(`⚠️  Unexpected config structure. Skipping to avoid corruption.`);
@@ -89,7 +112,7 @@ async function runPostinstall(
                         return { stdout, success: false, skipped: true };
                     }
                     for (const p of config.plugin) {
-                        if (typeof p !== "string") {
+                        if (!isPluginEntry(p)) {
                             stdout.push(`⚠️  Unexpected config structure. Skipping to avoid corruption.`);
                             skipped = true;
                             return { stdout, success: false, skipped: true };
@@ -106,9 +129,7 @@ async function runPostinstall(
             }
         }
 
-        const hasPlugin = config.plugin.some(
-            (p: string) => p === PLUGIN_NAME || p.startsWith(`${PLUGIN_NAME}@`)
-        );
+        const hasPlugin = config.plugin.some((entry: unknown) => isOurPluginEntry(entry));
 
         if (!hasPlugin) {
             config.plugin.push(PLUGIN_NAME);
@@ -303,15 +324,14 @@ describe("postinstall — safe merge policy", () => {
         expect(fs.readFileSync(configFile, "utf-8")).toBe(original);
     });
 
-    // ── Scenario 10: plugin entries contain non-strings → skip ─────────────
+    // ── Scenario 10: plugin entries contain invalid shapes → skip ──────────
 
-    it("skips when plugin array contains non-string entries (invalid structure)", async () => {
+    it("skips when plugin array contains invalid entries", async () => {
         const configDir = path.join(tmpDir, "opencode");
         fs.mkdirSync(configDir);
         const configFile = path.join(configDir, "opencode.json");
 
-        // plugin array contains non-string (number/object)
-        const original = JSON.stringify({ plugin: [42, { name: "bad" }] });
+        const original = JSON.stringify({ plugin: [42, { name: "bad" }, ["bad-plugin", null]] });
         fs.writeFileSync(configFile, original);
 
         const { success, skipped } = await runPostinstall(configDir);
@@ -320,6 +340,44 @@ describe("postinstall — safe merge policy", () => {
         expect(skipped).toBe(true);
         // File content must be unchanged
         expect(fs.readFileSync(configFile, "utf-8")).toBe(original);
+    });
+
+    it("preserves sibling plugin option tuples while adding the orchestrator", async () => {
+        const configDir = path.join(tmpDir, "opencode");
+        fs.mkdirSync(configDir);
+        const configFile = path.join(configDir, "opencode.json");
+
+        fs.writeFileSync(configFile, JSON.stringify({
+            plugin: [
+                ["oh-my-openagent@latest", { enabled: true }],
+            ],
+        }));
+
+        const { success } = await runPostinstall(configDir);
+
+        expect(success).toBe(true);
+        const written = JSON.parse(fs.readFileSync(configFile, "utf-8"));
+        expect(written.plugin).toContainEqual(["oh-my-openagent@latest", { enabled: true }]);
+        expect(written.plugin).toContain(PLUGIN_NAME);
+    });
+
+    it("skips write when the orchestrator is already registered as a tuple", async () => {
+        const configDir = path.join(tmpDir, "opencode");
+        fs.mkdirSync(configDir);
+        const configFile = path.join(configDir, "opencode.json");
+
+        fs.writeFileSync(configFile, JSON.stringify({
+            plugin: [
+                [PLUGIN_NAME, { missionLoop: { ledger: true } }],
+            ],
+        }));
+
+        const mtimeBefore = fs.statSync(configFile).mtimeMs;
+        await new Promise(r => setTimeout(r, 10));
+        const { success } = await runPostinstall(configDir);
+
+        expect(success).toBe(false);
+        expect(fs.statSync(configFile).mtimeMs).toBe(mtimeBefore);
     });
 
     it("skips when plugin with version suffix is already registered", async () => {

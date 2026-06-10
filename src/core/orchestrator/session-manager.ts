@@ -33,6 +33,9 @@ export function ensureSessionInitialized(
             startTime: now,
             lastStepTime: now,
             lastCompletedMessageID: undefined,
+            lastUserMessageAt: undefined,
+            lastAssistantCompletedAt: undefined,
+            lastAbortAt: undefined,
             tokens: { totalInput: 0, totalOutput: 0, estimatedCost: 0 },
         };
 

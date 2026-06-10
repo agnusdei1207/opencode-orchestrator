@@ -57,9 +57,33 @@ function formatError(err: unknown, context: string): string {
 }
 
 const PLUGIN_NAME = "opencode-orchestrator";
+type PluginOptions = Record<string, unknown>;
+type PluginTuple = [string, PluginOptions];
+type PluginEntry = string | PluginTuple;
 
-function isOurPluginEntry(p: string): boolean {
-  return p === PLUGIN_NAME || p.startsWith(`${PLUGIN_NAME}@`);
+function isRecord(value: unknown): value is PluginOptions {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function isPluginTuple(value: unknown): value is PluginTuple {
+  return Array.isArray(value)
+    && value.length === 2
+    && typeof value[0] === "string"
+    && isRecord(value[1]);
+}
+
+function isPluginEntry(value: unknown): value is PluginEntry {
+  return typeof value === "string" || isPluginTuple(value);
+}
+
+function getPluginName(entry: PluginEntry): string {
+  return typeof entry === "string" ? entry : entry[0];
+}
+
+function isOurPluginEntry(entry: unknown): boolean {
+  if (!isPluginEntry(entry)) return false;
+  const pluginName = getPluginName(entry);
+  return pluginName === PLUGIN_NAME || pluginName.startsWith(`${PLUGIN_NAME}@`);
 }
 
 function getConfigFileCandidates(configDir: string): string[] {
@@ -198,10 +222,10 @@ function validateConfig(config: any): boolean {
       return false;
     }
 
-    // All plugin entries must be strings
+    // Plugin entries may be bare names or [name, options] tuples.
     if (config.plugin) {
-      for (const p of config.plugin) {
-        if (typeof p !== "string") {
+      for (const entry of config.plugin) {
+        if (!isPluginEntry(entry)) {
           return false;
         }
       }
@@ -310,10 +334,7 @@ function removeFromConfig(configDir: string): { success: boolean; backupFile: st
     const originalLength = config.plugin.length;
     const originalPlugins = [...config.plugin];
 
-    config.plugin = config.plugin.filter((p: string) => {
-      if (typeof p !== "string") return true;
-      return !isOurPluginEntry(p);
-    });
+    config.plugin = config.plugin.filter((entry: unknown) => !isOurPluginEntry(entry));
 
     if (config.plugin.length === originalLength) {
       log("Plugin not found in config", { configFile });
@@ -344,9 +365,7 @@ function removeFromConfig(configDir: string): { success: boolean; backupFile: st
       }
       const verifyConfig = verifyParsed.config;
 
-      const stillHasPlugin = verifyConfig.plugin?.some((p: string) =>
-        typeof p === "string" && isOurPluginEntry(p)
-      );
+      const stillHasPlugin = verifyConfig.plugin?.some((entry: unknown) => isOurPluginEntry(entry));
 
       if (stillHasPlugin) {
         throw new Error("Verification failed: plugin still present after removal");

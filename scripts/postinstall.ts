@@ -57,14 +57,38 @@ function formatError(err: unknown, context: string): string {
 }
 
 const PLUGIN_NAME = "opencode-orchestrator";
+type PluginOptions = Record<string, unknown>;
+type PluginTuple = [string, PluginOptions];
+type PluginEntry = string | PluginTuple;
+
+function isRecord(value: unknown): value is PluginOptions {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function isPluginTuple(value: unknown): value is PluginTuple {
+  return Array.isArray(value)
+    && value.length === 2
+    && typeof value[0] === "string"
+    && isRecord(value[1]);
+}
+
+function isPluginEntry(value: unknown): value is PluginEntry {
+  return typeof value === "string" || isPluginTuple(value);
+}
+
+function getPluginName(entry: PluginEntry): string {
+  return typeof entry === "string" ? entry : entry[0];
+}
 
 /**
  * Check if a plugin entry matches our PLUGIN_NAME.
  * Uses exact match or version-suffix match (PLUGIN_NAME + "@version")
  * to avoid substring matching bugs.
  */
-function isOurPluginEntry(p: string): boolean {
-  return p === PLUGIN_NAME || p.startsWith(`${PLUGIN_NAME}@`);
+function isOurPluginEntry(entry: unknown): boolean {
+  if (!isPluginEntry(entry)) return false;
+  const pluginName = getPluginName(entry);
+  return pluginName === PLUGIN_NAME || pluginName.startsWith(`${PLUGIN_NAME}@`);
 }
 
 function getConfigFileCandidates(configDir: string): string[] {
@@ -232,10 +256,10 @@ function validateConfig(config: any): boolean {
       return false;
     }
 
-    // All plugin entries must be strings
+    // Plugin entries may be bare names or [name, options] tuples.
     if (config.plugin) {
-      for (const p of config.plugin) {
-        if (typeof p !== "string") {
+      for (const entry of config.plugin) {
+        if (!isPluginEntry(entry)) {
           return false;
         }
       }
@@ -325,9 +349,9 @@ function registerInConfig(configDir: string): { success: boolean; backupFile: st
     // Read existing config
     if (existsSync(configFile)) {
       fileExisted = true;
-        const rawContent = readFileSync(configFile, "utf-8");
-        originalContent = rawContent;
-        const trimmedContent = rawContent.trim();
+      const rawContent = readFileSync(configFile, "utf-8");
+      originalContent = rawContent;
+      const trimmedContent = rawContent.trim();
 
       if (trimmedContent) {
         const parsed = parseConfigContent(trimmedContent);
@@ -367,10 +391,7 @@ function registerInConfig(configDir: string): { success: boolean; backupFile: st
     }
 
     // Check if already registered (exact match or version-suffix match)
-    const hasPlugin = config.plugin.some((p: string) => {
-      if (typeof p !== "string") return false;
-      return isOurPluginEntry(p);
-    });
+    const hasPlugin = config.plugin.some((entry: unknown) => isOurPluginEntry(entry));
 
     if (hasPlugin) {
       log("Plugin already registered", { configFile });
@@ -397,7 +418,7 @@ function registerInConfig(configDir: string): { success: boolean; backupFile: st
         throw new Error(`Verification parse failed: ${verifyParsed.parseError ?? "unknown parse error"}`);
       }
       const verifyConfig = verifyParsed.config;
-      if (!verifyConfig.plugin?.some((p: string) => isOurPluginEntry(p))) {
+      if (!verifyConfig.plugin?.some((entry: unknown) => isOurPluginEntry(entry))) {
         throw new Error("Verification failed: plugin not found after write");
       }
     } catch (verifyError) {
@@ -483,7 +504,7 @@ try {
     }
 
     targetConfigDir = configDir;
-    if (existing.config.plugin?.some((p: string) => typeof p === "string" && isOurPluginEntry(p))) {
+    if (existing.config.plugin?.some((entry: unknown) => isOurPluginEntry(entry))) {
       alreadyRegistered = true;
       log("Plugin already registered in this location", { configFile: existing.file });
       break;

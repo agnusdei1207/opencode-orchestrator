@@ -30,7 +30,8 @@ import { COMMANDS } from "../../tools/slashCommand.js";
 import {
     ensureSessionInitialized,
     activateMissionState,
-    isMissionActive
+    isMissionActive,
+    deactivateMissionState
 } from "../../core/orchestrator/session-manager.js";
 import {
     MISSION_MESSAGES,
@@ -50,6 +51,12 @@ import { sendNotification } from "../../core/notification/os-notify/notifier.js"
 import { playSound } from "../../core/notification/os-notify/sound-player.js";
 import { detectPlatform, getDefaultSoundPath } from "../../core/notification/os-notify/platform.js";
 
+interface MissionSessionState {
+    step: number;
+    startTime: number;
+    lastStepTime: number;
+}
+
 export class MissionControlHook implements AssistantDoneHook, ChatMessageHook {
     name = HOOK_NAMES.MISSION_LOOP;
 
@@ -67,7 +74,14 @@ export class MissionControlHook implements AssistantDoneHook, ChatMessageHook {
     // -------------------------------------------------------------------------------
     private async handleChatCommand(ctx: HookContext, message: string): Promise<any | null> {
         const parsed = detectSlashCommand(message);
-        if (!parsed || parsed.command !== COMMAND_NAMES.TASK) return null;
+        if (!parsed) return null;
+
+        if (parsed.command === COMMAND_NAMES.CANCEL || parsed.command === COMMAND_NAMES.STOP) {
+            await this.cancelMission(ctx);
+            return { action: HOOK_ACTIONS.INTERCEPT };
+        }
+
+        if (parsed.command !== COMMAND_NAMES.TASK) return null;
 
         const command = COMMANDS[parsed.command];
         const { sessionID, sessions, directory } = ctx;
@@ -95,6 +109,19 @@ export class MissionControlHook implements AssistantDoneHook, ChatMessageHook {
         }
 
         return { action: HOOK_ACTIONS.PROCESS };
+    }
+
+    private async cancelMission(ctx: HookContext): Promise<void> {
+        const { sessionID, sessions, directory } = ctx;
+        log(MISSION_MESSAGES.CANCEL_LOG);
+        await cancelMissionLoop(directory, sessionID);
+        deactivateMissionState(sessionID);
+        ProgressTracker.clearSession(sessionID);
+
+        const session = sessions.get(sessionID);
+        if (isRecord(session)) {
+            session.active = false;
+        }
     }
 
     // -------------------------------------------------------------------------------
@@ -169,7 +196,11 @@ export class MissionControlHook implements AssistantDoneHook, ChatMessageHook {
     // -------------------------------------------------------------------------------
     // 4. Helper: Build Continuation Response
     // -------------------------------------------------------------------------------
-    private buildContinuationResponse(session: any, sessionID: string): HookResult {
+    private buildContinuationResponse(session: unknown, sessionID: string): HookResult {
+        if (!isMissionSessionState(session)) {
+            return { action: HOOK_ACTIONS.CONTINUE };
+        }
+
         const now = Date.now();
         const stepDuration = formatElapsedTime(session.lastStepTime, now);
         const totalElapsed = formatElapsedTime(session.startTime, now);
@@ -241,4 +272,15 @@ export class MissionControlHook implements AssistantDoneHook, ChatMessageHook {
             // OS notification failed, TUI toast was already shown
         }
     }
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+    return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function isMissionSessionState(value: unknown): value is MissionSessionState {
+    return isRecord(value)
+        && typeof value.step === "number"
+        && typeof value.startTime === "number"
+        && typeof value.lastStepTime === "number";
 }
