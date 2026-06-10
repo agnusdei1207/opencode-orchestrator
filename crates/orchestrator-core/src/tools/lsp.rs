@@ -455,9 +455,9 @@ mod tests {
     #[test]
     fn local_tsc_uses_timeout_without_npx_install() {
         let directory = tempdir().expect("create temp diagnostics directory");
-        write_local_bin(directory.path(), "tsc", "#!/bin/sh\nsleep 1\n");
+        write_local_bin(directory.path(), "tsc", long_running_script());
         let tool = DiagnosticsTool::new(DiagnosticsConfig {
-            timeout: Duration::from_millis(25),
+            timeout: Duration::from_millis(100),
             include_warnings: true,
             max_results: 100,
         });
@@ -500,6 +500,14 @@ mod tests {
             let mut permissions = fs::metadata(&bin).unwrap().permissions();
             permissions.set_mode(0o755);
             fs::set_permissions(bin, permissions).unwrap();
+        }
+    }
+
+    fn long_running_script() -> &'static str {
+        if cfg!(windows) {
+            "@echo off\r\nping -n 60 127.0.0.1 >NUL\r\n"
+        } else {
+            "#!/bin/sh\nwhile true; do :; done\n"
         }
     }
 }

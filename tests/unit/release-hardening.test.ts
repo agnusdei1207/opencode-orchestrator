@@ -57,6 +57,11 @@ describe("issue #27 release hardening", () => {
         expect(packageJson.scripts["release:patch"]).toContain("scripts/release-auth-check.mjs");
         expect(packageJson.scripts["release:minor"]).toContain("scripts/release-auth-check.mjs");
         expect(packageJson.scripts["release:major"]).toContain("scripts/release-auth-check.mjs");
+        expect(packageJson.scripts["release:patch"]).toContain("scripts/release-version.mjs patch");
+        expect(packageJson.scripts["release:minor"]).toContain("scripts/release-version.mjs minor");
+        expect(packageJson.scripts["release:major"]).toContain("scripts/release-version.mjs major");
+        expect(packageJson.scripts["release:patch"]).not.toContain("npm version patch");
+        expect(packageJson.scripts.version).toContain("sync-readme-version.mjs --stage");
         expect(packageJson.scripts["release:patch"]).toContain("npm run release:preflight");
         expect(packageJson.scripts["release:minor"]).toContain("npm run release:preflight");
         expect(packageJson.scripts["release:major"]).toContain("npm run release:preflight");
