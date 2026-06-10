@@ -15,22 +15,44 @@ import { LOG_PREFIX } from "../shared/index.js";
 interface PooledProcess {
     proc: ChildProcess;
     busy: boolean;
+    destroyed: boolean;
     lastUsed: number;
     requestId: number;
     pendingResolve?: (value: string) => void;
     pendingReject?: (error: Error) => void;
+    pendingCleanup?: () => void;
     stdout: string;
+}
+
+interface RustToolPoolOptions {
+    binaryPath?: () => string;
+    exists?: (path: string) => boolean;
+    idleTimeoutMs?: number;
+    processReadyDelayMs?: number;
+    requestTimeoutMs?: number;
+    spawnProcess?: typeof spawn;
 }
 
 export class RustToolPool {
     private processes: PooledProcess[] = [];
     private maxSize = 4;
     private idleTimeout = 30_000; // 30 seconds
+    private processReadyDelay = 100;
+    private requestTimeout = 60_000;
     private cleanupInterval: NodeJS.Timeout | null = null;
+    private readonly binaryPath: () => string;
+    private readonly exists: (path: string) => boolean;
+    private readonly spawnProcess: typeof spawn;
     private shuttingDown = false;
 
-    constructor(maxSize: number = 4) {
+    constructor(maxSize: number = 4, options: RustToolPoolOptions = {}) {
         this.maxSize = maxSize;
+        this.binaryPath = options.binaryPath ?? getBinaryPath;
+        this.exists = options.exists ?? existsSync;
+        this.idleTimeout = options.idleTimeoutMs ?? this.idleTimeout;
+        this.processReadyDelay = options.processReadyDelayMs ?? this.processReadyDelay;
+        this.requestTimeout = options.requestTimeoutMs ?? this.requestTimeout;
+        this.spawnProcess = options.spawnProcess ?? spawn;
         this.startCleanupTimer();
     }
 
@@ -42,22 +64,14 @@ export class RustToolPool {
             throw new Error("Pool is shutting down");
         }
 
-        const binary = getBinaryPath();
-        if (!existsSync(binary)) {
+        const binary = this.binaryPath();
+        if (!this.exists(binary)) {
             return JSON.stringify({ error: `Binary not found: ${binary}` });
         }
 
-        // Try to get an available process
         let pooled = this.getAvailable();
-
-        // If none available and under limit, create new one
-        if (!pooled && this.processes.length < this.maxSize) {
-            pooled = await this.createProcess(binary);
-        }
-
-        // If still none, wait for one to become available
         if (!pooled) {
-            pooled = await this.waitForAvailable();
+            pooled = await this.createOrWaitForProcess(binary);
         }
 
         // Use the process
@@ -76,15 +90,32 @@ export class RustToolPool {
     }
 
     /**
-     * Wait for a process to become available
+     * Create a process immediately, or wait until one is available/capacity opens.
      */
-    private async waitForAvailable(): Promise<PooledProcess> {
-        return new Promise((resolve) => {
+    private async createOrWaitForProcess(binary: string): Promise<PooledProcess> {
+        if (this.processes.length < this.maxSize) {
+            return this.createProcess(binary);
+        }
+
+        return this.waitForAvailable(binary);
+    }
+
+    /**
+     * Wait for a process to become available, or create one if capacity opens.
+     */
+    private async waitForAvailable(binary: string): Promise<PooledProcess> {
+        return new Promise((resolve, reject) => {
             const interval = setInterval(() => {
                 const available = this.getAvailable();
                 if (available) {
                     clearInterval(interval);
                     resolve(available);
+                    return;
+                }
+
+                if (this.processes.length < this.maxSize) {
+                    clearInterval(interval);
+                    this.createProcess(binary).then(resolve, reject);
                 }
             }, 10);
         });
@@ -95,50 +126,56 @@ export class RustToolPool {
      */
     private async createProcess(binary: string): Promise<PooledProcess> {
         return new Promise((resolve, reject) => {
-            const proc = spawn(binary, ["serve"], {
+            const proc = this.spawnProcess(binary, ["serve"], {
                 stdio: ["pipe", "pipe", "pipe"],
                 detached: false
             });
 
-            let started = false;
+            let startupSettled = false;
+            let readyTimer: NodeJS.Timeout | null = null;
             const pooled: PooledProcess = {
                 proc,
-                busy: false,
+                busy: true,
+                destroyed: false,
                 lastUsed: Date.now(),
                 requestId: 0,
                 stdout: ""
             };
 
-            // Setup stderr logging
-            proc.stderr?.on("data", (data) => {
-                const msg = data.toString().trim();
-                if (msg && msg.includes("Listening")) {
-                    started = true;
+            const settleStartup = (callback: () => void): void => {
+                if (startupSettled) {
+                    return;
                 }
-            });
+
+                startupSettled = true;
+                if (readyTimer) {
+                    clearTimeout(readyTimer);
+                    readyTimer = null;
+                }
+                callback();
+            };
 
             // Handle process death
             proc.on("close", () => {
-                const index = this.processes.indexOf(pooled);
-                if (index !== -1) {
-                    this.processes.splice(index, 1);
-                }
+                const error = new Error("Rust tool process closed before completing request");
+                settleStartup(() => reject(error));
+                pooled.pendingReject?.(error);
+                this.removeProcess(pooled, false);
             });
 
             proc.on("error", (err) => {
-                const index = this.processes.indexOf(pooled);
-                if (index !== -1) {
-                    this.processes.splice(index, 1);
-                }
-                if (!started) {
-                    reject(err);
-                }
+                const error = err instanceof Error ? err : new Error(String(err));
+                settleStartup(() => reject(error));
+                pooled.pendingReject?.(error);
+                this.removeProcess(pooled, false);
             });
 
             this.processes.push(pooled);
 
             // Wait a bit for the process to be ready
-            setTimeout(() => resolve(pooled), 100);
+            readyTimer = setTimeout(() => {
+                settleStartup(() => resolve(pooled));
+            }, this.processReadyDelay);
         });
     }
 
@@ -154,13 +191,42 @@ export class RustToolPool {
         pooled.lastUsed = Date.now();
         pooled.stdout = "";
 
+        if (pooled.destroyed || !this.processes.includes(pooled)) {
+            throw new Error("Rust tool process is unavailable");
+        }
+
         return new Promise((resolve, reject) => {
             const requestId = ++pooled.requestId;
+            let settled = false;
+            const fail = (error: Error, kill: boolean) => {
+                if (settled) {
+                    return;
+                }
+
+                settled = true;
+                cleanup();
+                this.removeProcess(pooled, kill);
+                reject(error);
+            };
+            const succeed = (text: string) => {
+                if (settled) {
+                    return;
+                }
+
+                settled = true;
+                cleanup();
+                resolve(text);
+            };
             const timeout = setTimeout(() => {
+                fail(new Error("Request timeout"), true);
+            }, this.requestTimeout);
+            const cleanup = () => {
+                clearTimeout(timeout);
                 pooled.pendingResolve = undefined;
                 pooled.pendingReject = undefined;
-                reject(new Error("Request timeout"));
-            }, 60_000);
+                pooled.pendingCleanup = undefined;
+                pooled.proc.stdout?.removeListener("data", onData);
+            };
 
             // Setup response handler
             const onData = (data: Buffer) => {
@@ -172,11 +238,8 @@ export class RustToolPool {
                     try {
                         const response = JSON.parse(lines[i]);
                         if (response.id === requestId && (response.result || response.error)) {
-                            clearTimeout(timeout);
-                            pooled.proc.stdout?.removeListener("data", onData);
-
                             const text = response?.result?.content?.[0]?.text;
-                            resolve(text || JSON.stringify(response.result));
+                            succeed(text || JSON.stringify(response.result));
                             return;
                         }
                     } catch {
@@ -185,6 +248,8 @@ export class RustToolPool {
                 }
             };
 
+            pooled.pendingReject = (error: Error) => fail(error, false);
+            pooled.pendingCleanup = cleanup;
             pooled.proc.stdout?.on("data", onData);
 
             // Send request
@@ -196,11 +261,13 @@ export class RustToolPool {
             });
 
             try {
-                pooled.proc.stdin?.write(request + "\n");
+                const written = pooled.proc.stdin?.write(request + "\n");
+                if (written === false || written === undefined) {
+                    fail(new Error("Failed to write request to Rust tool process"), true);
+                }
             } catch (err) {
-                clearTimeout(timeout);
-                pooled.proc.stdout?.removeListener("data", onData);
-                reject(err);
+                const error = err instanceof Error ? err : new Error(String(err));
+                fail(error, true);
             }
         });
     }
@@ -209,8 +276,33 @@ export class RustToolPool {
      * Release a process back to the pool
      */
     private release(pooled: PooledProcess): void {
+        if (pooled.destroyed || !this.processes.includes(pooled)) {
+            return;
+        }
+
         pooled.busy = false;
         pooled.lastUsed = Date.now();
+    }
+
+    /**
+     * Remove a process from the pool, optionally terminating it first.
+     */
+    private removeProcess(pooled: PooledProcess, kill: boolean): void {
+        pooled.destroyed = true;
+        pooled.pendingCleanup?.();
+
+        if (kill) {
+            try {
+                pooled.proc.kill();
+            } catch {
+                // Ignore
+            }
+        }
+
+        const index = this.processes.indexOf(pooled);
+        if (index !== -1) {
+            this.processes.splice(index, 1);
+        }
     }
 
     /**
@@ -228,15 +320,7 @@ export class RustToolPool {
             }
 
             for (const pooled of toRemove) {
-                try {
-                    pooled.proc.kill();
-                } catch {
-                    // Ignore
-                }
-                const index = this.processes.indexOf(pooled);
-                if (index !== -1) {
-                    this.processes.splice(index, 1);
-                }
+                this.removeProcess(pooled, true);
             }
 
             if (toRemove.length > 0) {
@@ -258,12 +342,8 @@ export class RustToolPool {
             this.cleanupInterval = null;
         }
 
-        for (const pooled of this.processes) {
-            try {
-                pooled.proc.kill();
-            } catch {
-                // Ignore
-            }
+        for (const pooled of [...this.processes]) {
+            this.removeProcess(pooled, true);
         }
 
         this.processes = [];
@@ -285,6 +365,7 @@ export class RustToolPool {
 
 // Global pool instance
 let globalPool: RustToolPool | null = null;
+let resetInFlight: Promise<void> | null = null;
 
 /**
  * Get or create the global pool
@@ -297,11 +378,45 @@ export function getRustToolPool(): RustToolPool {
 }
 
 /**
+ * Reset the global pool, optionally only if it still matches the expected pool.
+ *
+ * The expected-pool guard prevents an older failing caller from shutting down a
+ * newer singleton that was created while the older pool was being reset.
+ */
+export async function resetRustToolPool(
+    reason = "manual reset",
+    expectedPool?: RustToolPool
+): Promise<void> {
+    while (resetInFlight) {
+        await resetInFlight;
+    }
+
+    const poolToReset = globalPool;
+    if (!poolToReset) {
+        return;
+    }
+
+    if (expectedPool && poolToReset !== expectedPool) {
+        log(`[${LOG_PREFIX.RUST_POOL}] Skipped reset for stale pool: ${reason}`);
+        return;
+    }
+
+    resetInFlight = (async () => {
+        globalPool = null;
+        log(`[${LOG_PREFIX.RUST_POOL}] Resetting global pool: ${reason}`);
+        await poolToReset.shutdown();
+    })();
+
+    try {
+        await resetInFlight;
+    } finally {
+        resetInFlight = null;
+    }
+}
+
+/**
  * Shutdown the global pool
  */
 export async function shutdownRustToolPool(): Promise<void> {
-    if (globalPool) {
-        await globalPool.shutdown();
-        globalPool = null;
-    }
+    await resetRustToolPool("shutdown");
 }
