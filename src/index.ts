@@ -47,6 +47,27 @@ import {
 // Plugin Definition
 // ============================================================================
 
+type UnknownRecord = Record<string, unknown>;
+
+function isRecord(value: unknown): value is UnknownRecord {
+    return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function readStringField(source: UnknownRecord, key: string): string | undefined {
+    const value = source[key];
+    return typeof value === "string" ? value : undefined;
+}
+
+function readCreatedSessionID(properties: unknown): string | undefined {
+    if (!isRecord(properties)) return undefined;
+
+    const directID = readStringField(properties, "sessionID") ?? readStringField(properties, "id");
+    if (directID) return directID;
+
+    const info = properties.info;
+    return isRecord(info) ? readStringField(info, "sessionID") : undefined;
+}
+
 const OrchestratorPlugin: Plugin = async (input, options) => {
     const { directory, client } = input;
     const orchestratorOptions = parseOrchestratorPluginOptions(options);
@@ -144,8 +165,8 @@ const OrchestratorPlugin: Plugin = async (input, options) => {
 
             // Additional logic for Todo Sync
             const { event } = payload;
-            if (event.type === SESSION_EVENTS.CREATED && event.properties) {
-                const sessionID = (event.properties as any).sessionID || (event.properties as any).id || (event.properties as any).info?.sessionID;
+            if (event.type === SESSION_EVENTS.CREATED) {
+                const sessionID = readCreatedSessionID(event.properties);
                 if (sessionID) {
                     todoSync.registerSession(sessionID);
                 }

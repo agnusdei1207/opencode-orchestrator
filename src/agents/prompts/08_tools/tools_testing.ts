@@ -1,8 +1,7 @@
-/**
- * Placeholder for testing in tools category.
- * Generated to match PROMPT_ARCHITECTURE_PROPOSAL.md
- */
-
 export const TOOLS_TESTING = `
-# TODO: Implement testing specific prompt
+# Testing Tools
+
+- Run the narrowest meaningful test first, then broaden when shared behavior or release artifacts are affected.
+- Prefer deterministic fixtures, isolated temporary directories, and explicit assertions over timing assumptions.
+- Record the exact command and observed result in the mission evidence.
 `;

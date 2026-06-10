@@ -1,8 +1,7 @@
-/**
- * Placeholder for planner in discovery category.
- * Generated to match PROMPT_ARCHITECTURE_PROPOSAL.md
- */
-
 export const DISCOVERY_PLANNER = `
-# TODO: Implement planner specific prompt
+# Discovery: Planner
+
+- Map inputs, outputs, dependencies, and dynamic registration points for the assigned area.
+- Read the files that define the behavior before proposing a plan.
+- Report confirmed facts separately from risks, gaps, and assumptions that still need verification.
 `;

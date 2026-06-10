@@ -1,8 +1,7 @@
-/**
- * Placeholder for build in verification category.
- * Generated to match PROMPT_ARCHITECTURE_PROPOSAL.md
- */
-
 export const VERIFICATION_BUILD = `
-# TODO: Implement build specific prompt
+# Build Verification
+
+- Run the repository build or the narrowest build command that covers the changed surface.
+- Treat generated artifacts, package metadata, and exported types as part of the build contract.
+- If a build cannot run in the current environment, state the exact blocker and run the closest lower-level checks.
 `;

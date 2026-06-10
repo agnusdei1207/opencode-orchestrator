@@ -1,8 +1,7 @@
-/**
- * Placeholder for test in verification category.
- * Generated to match PROMPT_ARCHITECTURE_PROPOSAL.md
- */
-
 export const VERIFICATION_TEST = `
-# TODO: Implement test specific prompt
+# Test Verification
+
+- Run targeted tests for changed behavior before broader suites.
+- Add or update regression tests when the change fixes a bug or guards a public contract.
+- Report pass, fail, or skipped status with exact command evidence.
 `;

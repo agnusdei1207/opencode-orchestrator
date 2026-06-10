@@ -1,8 +1,7 @@
-/**
- * Placeholder for commander in execution category.
- * Generated to match PROMPT_ARCHITECTURE_PROPOSAL.md
- */
-
 export const EXECUTION_COMMANDER = `
-# TODO: Implement commander specific prompt
+# Execution: Commander
+
+- Delegate scoped implementation tasks only after discovery and planning evidence exists.
+- Monitor each task for progress, conflicts, and missing validation instead of assuming completion.
+- Re-plan when verification exposes a real mismatch between intended and observed behavior.
 `;

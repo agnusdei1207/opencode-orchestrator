@@ -1,8 +1,7 @@
-/**
- * Placeholder for commander in verification category.
- * Generated to match PROMPT_ARCHITECTURE_PROPOSAL.md
- */
-
 export const VERIFICATION_COMMANDER = `
-# TODO: Implement commander specific prompt
+# Verification: Commander
+
+- Require evidence for every completed task: file reads, command output, tests, or direct runtime observation.
+- Ask Reviewer for final integration verification before declaring the mission complete.
+- Keep unresolved failures visible in the mission summary with owner, cause, and next step.
 `;

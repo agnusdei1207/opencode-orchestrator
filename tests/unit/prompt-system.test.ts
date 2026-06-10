@@ -9,6 +9,9 @@
  */
 
 import { describe, it, expect } from "vitest";
+import { readdirSync, readFileSync } from "node:fs";
+import { extname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 
 import {
     PROMPT_TAGS,
@@ -22,6 +25,21 @@ import {
     AGENT_NAMES,
     PATHS,
 } from "../../src/shared";
+
+const PROMPT_ROOT = fileURLToPath(new URL("../../src/agents/prompts", import.meta.url));
+
+function listPromptFiles(directory: string): string[] {
+    const files: string[] = [];
+    for (const entry of readdirSync(directory, { withFileTypes: true })) {
+        const fullPath = join(directory, entry.name);
+        if (entry.isDirectory()) {
+            files.push(...listPromptFiles(fullPath));
+        } else if (entry.isFile() && extname(entry.name) === ".ts") {
+            files.push(fullPath);
+        }
+    }
+    return files;
+}
 
 describe("Prompt System", () => {
     // ========================================================================
@@ -186,6 +204,16 @@ describe("Prompt System", () => {
             expect(PHASE_1_THINK_ANALYSIS.length).toBeLessThan(2000);
             expect(PHASE_5_MSVP.length).toBeLessThan(1000);
             expect(HPFA_RULES.length).toBeLessThan(1000);
+        });
+    });
+
+    describe("prompt source quality", () => {
+        it("should not expose generated placeholder prompts", () => {
+            for (const file of listPromptFiles(PROMPT_ROOT)) {
+                const content = readFileSync(file, "utf8");
+                expect(content, file).not.toContain("TODO: Implement");
+                expect(content, file).not.toContain("Placeholder for");
+            }
         });
     });
 });
