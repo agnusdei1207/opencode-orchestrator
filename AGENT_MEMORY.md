@@ -2,95 +2,85 @@
 
 ## Current Task
 
-Commit, push, and publish the next patch release for `opencode-orchestrator` after issue-driven fixes, OpenCode SDK/plugin alignment, cross-platform release hardening, and Builder-inspired mission memory work.
+Patch release `opencode-orchestrator` `1.3.4` has been implemented, published to npm, pushed to `origin/main`, and tagged as `v1.3.4`.
 
 ## Last Completed Step
 
 1. Pulled and incorporated upstream work after merged PR `#29`.
-2. Surveyed and addressed the open issue set:
+2. Surveyed and addressed the open issue set observed during this session:
    - `#30`: generated Commander, Planner, Worker, and Reviewer agents inherit global `permission`; same-name user agent permission overrides still win per key.
    - `#26`: model inheritance and concurrency configuration are documented; plugin-option concurrency is parsed at startup and legacy top-level concurrency keys are still accepted.
    - `#25`: package `homepage` and `bugs.url` now point to GitHub Issues; remote GitHub sidebar still requires repository settings/admin permission.
-3. Aligned OpenCode package dependencies with the currently observed npm versions:
+3. Aligned OpenCode package dependencies with the npm versions observed during the session:
    - `@opencode-ai/plugin` `^1.17.1`
    - `@opencode-ai/sdk` `^1.17.1`
    - `@types/node` `^24.13.1`
    - `esbuild` `^0.28.0`
-4. Fixed plugin API compatibility findings from local installed typings:
-   - `src/index.ts` now exposes `dispose` instead of unsupported `shutdown`.
+4. Fixed OpenCode plugin API compatibility findings from local installed typings:
+   - `src/index.ts` exposes `dispose` instead of unsupported `shutdown`.
    - generated agent configs no longer emit unsupported `maxTokens` or `thinking` keys.
    - unused `src/shared/agent/constants/agent-tokens.ts` was removed.
-   - Commander/system-transform prompt wording now allows concise clarification only when truly blocked and `permission.question` allows it.
-5. Added cross-platform release/build hardening:
-   - `scripts/build.mjs`
-   - `scripts/release-preflight.mjs`
-   - `scripts/release-auth-check.mjs`
-   - `release:dry-run` validates build, tests, Rust tests, audit, and package dry-run without publishing.
-   - patch/minor/major release scripts verify npm authentication before `npm version` to avoid orphan version commits/tags.
-6. Created dated English plans:
-   - `docs/histories/2026/06/10/PLAN_NextGenerationOpenCodeOrchestratorModernization_2026-06-10.md`
-   - `docs/histories/2026/06/10/PLAN_OpenCodeSDKPluginAlignmentAndAutonomousMissionLoop_2026-06-10.md`
-   - `docs/histories/2026/06/10/PLAN_GraphicalMarkdownMissionMemoryFusion_2026-06-10.md`
-7. Surveyed Builder private graphical memory patterns:
-   - `/home/user/builder-private/README.md`
-   - `/home/user/builder-private/ARCHITECTURE.md`
-   - `/home/user/builder-private/crates/builder_knowledge/src/scratchpad.rs`
-   - `/home/user/builder-private/crates/builder_knowledge/src/memory_note_adapter.rs`
-   - `/home/user/builder-private/crates/builder_knowledge/src/unified_retrieval.rs`
-   - `/home/user/builder-private/crates/builder_knowledge/src/knowledge_plane.rs`
-8. Implemented Builder-inspired mission memory without importing Builder's full runtime:
+   - Commander/system-transform prompt wording allows concise clarification only when truly blocked and `permission.question` allows it.
+5. Implemented Builder-inspired mission memory without importing Builder's full runtime:
    - `.opencode/mission-ledger.jsonl`
    - `.opencode/docs/brain/scratchpad.md`
    - `.opencode/docs/brain/knowledge-map.canvas`
-9. Added runtime option wiring:
+6. Added runtime option wiring:
    - `parseOrchestratorPluginOptions()`
    - `configureMissionRuntimeOptions()`
    - `missionLoop.ledger`
    - `missionLoop.markdownMemory`
    - `missionLoop.maxEvidenceEvents`
-10. Strengthened `/task` mission loop state and continuation prompts:
-    - compact objective
-    - last progress
-    - last verification summary
-    - last continuation reason
-    - last continuation timestamp
-    - state-aware system transform and compaction context
-11. Added or updated tests for:
-    - permission inheritance, string permission expansion, and agent-specific permission overrides
-    - blocked-clarification prompt guidance compatibility with `permission.question`
-    - plugin/concurrency option parsing
-    - mission runtime ledger and Markdown/Canvas memory output, including corrupt ledger line handling
-    - mission-loop continuation prompt context
-    - release hardening scripts
+7. Strengthened `/task` mission loop state and continuation prompts:
+   - compact objective
+   - last progress
+   - last verification summary
+   - last continuation reason
+   - last continuation timestamp
+   - state-aware system transform and compaction context
+8. Added cross-platform release/build hardening:
+   - `scripts/build.mjs`
+   - `scripts/release-preflight.mjs`
+   - `scripts/release-auth-check.mjs`
+   - `scripts/release-version.mjs`
+   - release scripts now authenticate before versioning, run preflight, build Linux Rust artifacts, publish, and avoid orphan version commits on auth failure.
+9. Created dated English plans:
+   - `docs/histories/2026/06/10/PLAN_NextGenerationOpenCodeOrchestratorModernization_2026-06-10.md`
+   - `docs/histories/2026/06/10/PLAN_OpenCodeSDKPluginAlignmentAndAutonomousMissionLoop_2026-06-10.md`
+   - `docs/histories/2026/06/10/PLAN_GraphicalMarkdownMissionMemoryFusion_2026-06-10.md`
+10. Committed and pushed implementation commit:
+    - `4c9a0b5 Prepare next-generation orchestrator patch`
+11. Published and pushed release:
+    - release commit `fcaa53f 1.3.4`
+    - tag `v1.3.4`
+    - `origin/main` and `refs/tags/v1.3.4` both verified at `fcaa53fa0d8659460c5ae6ad5ff0fdbd625efd43`
+    - npm `opencode-orchestrator@1.3.4` published with `latest` dist-tag
 12. Verification observed:
     - `npm run build` passed.
     - `npx tsc --noEmit` passed.
-    - `npx vitest run tests/unit/config-handler.test.ts tests/unit/mission-runtime-memory.test.ts tests/unit/release-hardening.test.ts tests/e2e/mission-loop-lifecycle.test.ts tests/e2e/mission-loop-persistence.test.ts` passed: 5 files, 29 tests.
-    - `npm test` passed during `npm run release:dry-run`.
-    - `cargo test --workspace --all-targets` passed during `npm run release:dry-run`: 32 Rust tests.
-    - `npm audit --json` passed with 0 vulnerabilities.
-    - `git diff --check` passed.
-    - `npm run release:dry-run` passed after the final prompt/test/doc updates, including build, full tests, Rust tests, audit, and npm package dry-run.
-    - `npm run release:patch` was executed before authentication and failed safely at `scripts/release-auth-check.mjs` before any version bump.
-    - npm authentication was then configured in the user npm config and `npm whoami` returned the expected account.
-    - Exact npm token string search in the repository returned no files.
+    - focused Vitest command passed: 5 files, 29 tests.
+    - full Vitest suite passed during release preflight: 68 files, 680 tests.
+    - `cargo test --workspace --all-targets` passed after stabilizing the local TSC timeout test: 32 Rust tests.
+    - `npm audit --json` passed with 0 vulnerabilities during preflight.
+    - `npm pack --dry-run` passed during preflight.
+    - `npm run docker:rust-dist` passed and produced `bin/orchestrator-linux-x64` and `bin/orchestrator-linux-arm64`.
+    - `npm run publish:token` passed and published `opencode-orchestrator@1.3.4`.
+    - `npm view opencode-orchestrator version dist-tags.latest time.modified` returned `version = '1.3.4'`, `latest = '1.3.4'`, and `time.modified = '2026-06-10T15:08:38.780Z'`.
+    - `git status -sb` was clean immediately after release push.
+    - exact npm token string search in the repository returned no files.
 
 ## Next Exact Step
 
-1. Review the final diff and changed-file contents once more.
-2. Commit all implementation, test, docs, dependency, release-script, and memory changes.
-3. Push `main` to `origin/main`.
-4. Run `npm run release:patch` from a clean worktree.
-5. Push the generated release commit and tag with `npm run release:push-tags`.
-6. If the release succeeds, update this file with the published version and final verification evidence, commit that memory update, and push again.
+1. If GitHub issue triage is still desired, authenticate `gh` with an account that can comment/close issues and has repository settings permission.
+2. Update repository sidebar homepage to `https://github.com/agnusdei1207/opencode-orchestrator/issues` from GitHub repository settings, or with an admin-scoped token.
+3. Comment/close `#30` and `#26` as fixed in `v1.3.4`.
+4. Comment on `#25` that package metadata was fixed in `v1.3.4`, and close only after the remote sidebar homepage is updated.
 
 ## Incomplete Items and Why
 
-- The code/docs/test changes are not committed or pushed yet.
-- The patch release is not published yet; npm auth now works, but release still needs a clean committed worktree.
-- GitHub issues are not closed/commented yet because the fixes have not been pushed.
-- `#25` remote GitHub sidebar homepage is not fixed locally because repository metadata edits require repo settings/admin permission.
-- Native Windows was not executed in this Linux workspace; Windows compatibility is covered by Node path/process APIs, script tests, Docker/release workflow checks, and package preflight, but not by a real Windows runner in this session.
+- GitHub issue comments/closing were not completed because `gh issue close/comment` returned `401 Unauthorized`.
+- GitHub repository sidebar homepage was not updated because the repository update API returned `HTTP 404`, consistent with missing admin/repository-settings permission for the current credential.
+- Native Windows execution was not performed in this Linux workspace; Windows compatibility is covered by Node path/process APIs, script tests, Docker/release workflow checks, and package preflight, but not by a real Windows runner in this session.
 
 ## Key Decisions
 
@@ -128,17 +118,17 @@ Commit, push, and publish the next patch release for `opencode-orchestrator` aft
 1. AGENT_MEMORY.md
 2. git status/diff
 3. package.json
-4. scripts/release-auth-check.mjs
-5. scripts/release-preflight.mjs
-6. src/index.ts
-7. src/plugin-handlers/config-handler.ts
-8. src/core/config/plugin-options.ts
-9. src/core/agents/concurrency-config.ts
-10. src/core/loop/mission-ledger.ts
-11. src/core/knowledge/mission-memory.ts
-12. src/core/loop/mission-runtime-options.ts
-13. src/core/loop/mission-loop.ts
-14. src/core/loop/mission-loop-handler.ts
-15. README.md
-16. docs/SYSTEM_ARCHITECTURE.md
-17. CONTRIBUTING.md
+4. scripts/release-version.mjs
+5. scripts/release-auth-check.mjs
+6. scripts/release-preflight.mjs
+7. src/index.ts
+8. src/plugin-handlers/config-handler.ts
+9. src/core/config/plugin-options.ts
+10. src/core/agents/concurrency-config.ts
+11. src/core/loop/mission-ledger.ts
+12. src/core/knowledge/mission-memory.ts
+13. src/core/loop/mission-runtime-options.ts
+14. src/core/loop/mission-loop.ts
+15. src/core/loop/mission-loop-handler.ts
+16. README.md
+17. docs/SYSTEM_ARCHITECTURE.md
