@@ -2,85 +2,80 @@
 
 ## Current Task
 
-OpenCode official contract alignment and release-plumbing hardening are in progress on top of the shipped `1.3.7` baseline.
+Patch release `1.3.8` has been prepared and published to npm locally, and the remaining work is to push commits/tags and verify the GitHub release side.
 
 ## Last Completed Step
 
-1. Re-verified current implementation against the local OpenCode package types:
-   - `node_modules/@opencode-ai/plugin/dist/index.d.ts`
-   - `node_modules/@opencode-ai/sdk/dist/gen/types.gen.d.ts`
-2. Re-verified runtime wiring in:
-   - `src/index.ts`
-   - `src/plugin-handlers/config-handler.ts`
-   - `src/plugin-handlers/event-handler.ts`
-   - `src/plugin-handlers/chat-message-handler.ts`
-   - `src/core/config/plugin-options.ts`
-   - `src/core/agents/concurrency-config.ts`
-   - `src/core/loop/mission-loop.ts`
-   - `src/core/loop/mission-loop-handler.ts`
-   - `src/core/loop/todo-continuation.ts`
-3. Re-checked `../builder-private` for borrowable patterns and kept only:
-   - local-first markdown scratchpad
-   - `.canvas` graph output
-   - interrupt-aware continuation guards
-4. Updated documentation and release plumbing:
-   - `README.md`
-   - `docs/SYSTEM_ARCHITECTURE.md`
-   - `.github/workflows/release.yml`
-   - `package.json`
-   - `package-lock.json`
-5. Added verification coverage:
-   - `tests/unit/dependency-compatibility.test.ts`
-6. Added dated English plan:
-   - `docs/histories/2026/06/11/PLAN_OfficialOpenCodeAlignmentAndReleaseHardening_2026-06-11.md`
+1. Completed the OpenCode alignment pass:
+   - `README.md` now answers model selection, permission inheritance, compatibility, and concurrency placement directly.
+   - `docs/SYSTEM_ARCHITECTURE.md` was replaced with a shorter source-backed architecture map.
+   - `.github/workflows/release.yml` now uses `softprops/action-gh-release@v2` and `oven-sh/setup-bun@v2`, and the default release body no longer advertises stale features.
+   - `package.json` and `package-lock.json` pin `@opencode-ai/plugin` and `@opencode-ai/sdk` to `1.17.3`.
+   - `tests/unit/dependency-compatibility.test.ts` guards that compatibility baseline.
+   - `docs/histories/2026/06/11/PLAN_OfficialOpenCodeAlignmentAndReleaseHardening_2026-06-11.md` records the detailed English plan.
+2. Committed the non-version work:
+   - `8cceb27 Align OpenCode docs and release plumbing`
+3. Ran patch release automation:
+   - `c0d1cab 1.3.8`
+   - tag `v1.3.8`
+   - npm publish succeeded for `opencode-orchestrator@1.3.8`
 
 ## Verification Observed
 
-1. Baseline before edits:
-   - `npx tsc --noEmit` passed.
-   - Focused tests passed: 6 files, 31 tests.
-2. Post-change focused verification:
+1. Before release:
    - `npx tsc --noEmit` passed.
    - `npm run build` passed.
    - Focused Vitest passed: 7 files, 33 tests.
-   - `git diff --check` passed.
-3. Post-change wide verification:
    - `npm test` passed: 74 files, 708 tests.
    - `npm audit --json` passed with 0 vulnerabilities.
-   - `npm pack --dry-run --json` passed and included updated `README.md`, `dist`, and platform binaries.
+   - `npm pack --dry-run --json` passed.
+   - `git diff --check` passed.
+2. Release preflight during `npm run release:patch`:
+   - build passed
+   - full Vitest passed again
+   - Rust workspace tests passed (executed inside the release preflight)
+   - `npm audit --json` passed
+   - `npm pack --dry-run` passed for `1.3.8`
+   - Docker Linux x64 and Linux arm64 artifact rebuild completed
+   - `node scripts/release-sync-artifacts.mjs` reported no artifact changes
+   - `npm publish --access public` succeeded
+3. Registry verification:
+   - `npm view opencode-orchestrator version dist-tags.latest dist.tarball` returned `1.3.8`, `latest = 1.3.8`
 4. Repository/admin state:
-   - `gh repo view --json homepageUrl,nameWithOwner,url` still reports `homepageUrl: https://rdot.agnusdei.kr/`.
-   - `gh issue list --state open` still shows only `#25`.
+   - `git log --oneline --decorate -n 4` shows `c0d1cab (HEAD -> main, tag: v1.3.8) 1.3.8`
+   - `git status --short --branch` shows `main...origin/main [ahead 2]`
+   - `gh repo view --json homepageUrl,nameWithOwner,url` still reports `homepageUrl: https://rdot.agnusdei.kr/`
+   - `gh issue list --state open` still shows only `#25`
 
 ## Next Exact Step
 
-1. Commit the current alignment and release-hardening changes.
-2. Push the commit to `origin/main`.
-3. If repository settings access becomes available, change the GitHub repository sidebar homepage to `https://github.com/agnusdei1207/opencode-orchestrator/issues`, verify it, then close `#25`.
+1. Push `main` and tags to `origin`.
+2. Verify that the `v1.3.8` GitHub Actions release workflow completes.
+3. If repository settings access becomes available, change the repository sidebar homepage to GitHub issues and then close `#25`.
 
 ## Incomplete Items and Why
 
-- `#25` remains open because the actual broken link is the GitHub repository sidebar Homepage setting, which still points to `https://rdot.agnusdei.kr/` and requires repository settings/admin access.
-- The repository still needs a higher-privilege GitHub token before that sidebar link can be changed from this workspace.
+- `#25` remains open because the broken link is still the GitHub repository sidebar Homepage setting, which requires repository settings/admin access.
+- GitHub release verification for `v1.3.8` cannot happen until the tag is pushed.
 
 ## Key Decisions
 
-- Keep the README example centered on the plugin tuple because the installed OpenCode plugin type explicitly supports `plugin?: Array<string | [string, PluginOptions]>`.
+- Keep the README centered on the plugin tuple because the installed OpenCode plugin type explicitly supports `plugin?: Array<string | [string, PluginOptions]>`.
 - Pin `@opencode-ai/plugin` and `@opencode-ai/sdk` to the same tested `1.17.3` release to reduce plugin-surface drift.
-- Replace the oversized architecture memo with a shorter source-backed map instead of continuing to maintain stale performance marketing text.
-- Keep Builder-derived ideas only where they fit the OpenCode plugin boundary and current implementation.
+- Replace the oversized architecture memo with a concise source-backed version instead of maintaining stale performance claims.
+- Treat Builder-inspired memory features as optional workspace-local artifacts only.
 
 ## Rejected Alternatives
 
 - Closing `#25` without verifying the GitHub sidebar homepage: rejected because the public broken link would remain live.
-- Importing Builder-specific permission defaults or runtime policy: rejected because OpenCode remains the authority for permissions and model/config behavior.
-- Preserving the previous architecture document with only spot fixes: rejected because too much of it was stale or unverifiable.
+- Importing Builder-specific permission defaults or control policy: rejected because OpenCode remains the authority for permissions and config behavior.
+- Skipping a patch release after changing user-facing docs and release plumbing: rejected because the user has repeatedly asked for release patch completion.
 
 ## Known Risks
 
-- GitHub Actions release workflow changes were verified by file read and repository conventions, but not by a live tag-triggered workflow run in this session.
-- Upstream OpenCode docs may evolve beyond the pinned `1.17.3` surface; the new dependency test only guards the local package baseline.
 - The repository sidebar homepage still exposes the dead external URL until admin access is provided.
+- GitHub Actions release workflow for `v1.3.8` still needs post-push verification.
+- Upstream OpenCode docs may evolve beyond the pinned `1.17.3` surface; the new compatibility test only guards the current baseline.
 
 ## Open These Files First Next Session
 
@@ -91,6 +86,6 @@ OpenCode official contract alignment and release-plumbing hardening are in progr
 5. package.json
 6. package-lock.json
 7. tests/unit/dependency-compatibility.test.ts
-8. node_modules/@opencode-ai/plugin/dist/index.d.ts
-9. src/plugin-handlers/config-handler.ts
-10. gh repo view output for homepage verification
+8. `git log --oneline --decorate -n 4`
+9. `gh repo view --json homepageUrl,nameWithOwner,url`
+10. `gh run list --limit 10`
