@@ -2,98 +2,84 @@
 
 ## Current Task
 
-Patch release `1.3.9` has been completed and published. The repository is now aligned to the updated release workflow baseline, and the remaining unresolved work is limited to repository-admin-only homepage cleanup and the Windows runner redirect notice.
+Patch release `1.3.11` has been completed, published to npm, pushed to GitHub, and verified through the tag-triggered release workflow. The only remaining unresolved item is repository issue `#25`, which still depends on admin-only GitHub repository homepage access.
 
 ## Last Completed Step
 
-1. Re-ran the evidence-based audit against current source, installed OpenCode plugin types, official OpenCode docs, npm registry metadata, and GitHub Action releases.
-2. Expanded the dated English plan document:
-   - `docs/histories/2026/06/11/PLAN_OfficialOpenCodeAlignmentAndReleaseHardening_2026-06-11.md`
-3. Simplified and hardened `.github/workflows/release.yml`:
-   - upgraded `actions/checkout` to `v6`
-   - upgraded `actions/setup-node` to `v6`
-   - upgraded `actions/upload-artifact` to `v7`
-   - upgraded `actions/download-artifact` to `v8`
-   - upgraded `softprops/action-gh-release` to `v3`
-   - removed the unused `oven-sh/setup-bun` step
-   - replaced action registry inputs with explicit `.npmrc` auth steps
-4. Added regression coverage for the workflow contract:
-   - `tests/unit/release-workflow.test.ts`
-5. Verified the change set locally:
-   - `npx tsc --noEmit`
-   - focused Vitest: 7 files, 33 tests
-   - `npm run build`
-   - full Vitest: 75 files, 710 tests
-   - `npm audit --json`
-   - `npm pack --dry-run --json`
-   - YAML parse check of `.github/workflows/release.yml`
-6. Released and pushed:
-   - commit `0aae2b5` `Refine release workflow and audit plan`
-   - release commit `4b97e74` `1.3.9`
-   - tag `v1.3.9`
-   - npm publish succeeded for `opencode-orchestrator@1.3.9`
-   - GitHub Actions run `27318294800` succeeded
-   - GitHub Release published at `https://github.com/agnusdei1207/opencode-orchestrator/releases/tag/v1.3.9`
+1. Re-read the release workflow, workflow regression tests, release hardening tests, and prior memory snapshot.
+2. Verified local release state after the Windows runner pin update:
+   - `git log --oneline --decorate -n 8`
+   - `git status --short --branch`
+   - `npm view opencode-orchestrator version dist-tags.latest`
+3. Confirmed the local patch release finished successfully:
+   - version commit `eaa7a89` `1.3.11`
+   - tag `v1.3.11`
+   - npm publish succeeded for `opencode-orchestrator@1.3.11`
+4. Pushed `main` and then explicitly pushed lightweight tag `v1.3.11`.
+5. Verified the tag-triggered GitHub Actions workflow:
+   - run `27318931814`
+   - all 5 build jobs succeeded
+   - release job succeeded
+   - GitHub Release published at `https://github.com/agnusdei1207/opencode-orchestrator/releases/tag/v1.3.11`
+6. Re-verified current blockers:
+   - `gh repo view agnusdei1207/opencode-orchestrator --json homepageUrl,viewerPermission,url`
+   - homepage still `https://rdot.agnusdei.kr/`
+   - current token still reports `viewerPermission: WRITE`
+   - issue `#25` therefore remains open
 
 ## Verification Observed
 
-1. Current registry state:
-   - `npm view @opencode-ai/plugin version` -> `1.17.3`
-   - `npm view @opencode-ai/sdk version` -> `1.17.3`
-   - `npm view opencode-orchestrator version dist-tags.latest` -> `1.3.9`
-2. Current GitHub release action baselines verified through `gh release list`:
-   - `actions/checkout` latest `v6.0.3`
-   - `actions/setup-node` latest `v6.4.0`
-   - `actions/upload-artifact` latest `v7.0.1`
-   - `actions/download-artifact` latest `v8.0.1`
-   - `softprops/action-gh-release` latest `v3.0.0`
-3. Current repository state after push:
+1. Repository state after push:
    - `git status --short --branch` -> `## main...origin/main`
-4. GitHub workflow verification:
-   - run `27318294800` succeeded
-   - release job published GitHub release assets and GitHub Packages
+2. Remote tag state:
+   - `git ls-remote --tags origin v1.3.11` -> `refs/tags/v1.3.11`
+3. npm registry state:
+   - `npm view opencode-orchestrator version dist-tags.latest` -> `1.3.11`
+4. GitHub release state:
+   - `gh release view v1.3.11 --json name,tagName,isDraft,isPrerelease,url`
+   - release exists and is not draft/prerelease
+5. GitHub workflow state:
+   - `gh run view 27318931814 --json status,conclusion,url,jobs` -> `completed/success`
+   - `gh run view 27318931814` showed successful jobs and artifacts with no redirect notice in the observed output
+6. Open issues:
+   - `gh issue list --state open --limit 10 --json number,title,url` -> only `#25`
 
 ## Next Exact Step
 
-1. If repository admin credentials become available, change the GitHub repository sidebar homepage from `https://rdot.agnusdei.kr/` to `https://github.com/agnusdei1207/opencode-orchestrator/issues`.
-2. Re-verify `gh repo view --json homepageUrl`.
-3. Only then comment on and close issue `#25`.
-4. Separately, decide whether to pin the Windows runner label explicitly once GitHub documents the redirect target that replaces `windows-latest`.
+1. Obtain repository-admin credentials for `agnusdei1207/opencode-orchestrator`.
+2. Run:
+   - `gh repo edit agnusdei1207/opencode-orchestrator --homepage https://github.com/agnusdei1207/opencode-orchestrator/issues`
+3. Re-verify:
+   - `gh repo view agnusdei1207/opencode-orchestrator --json homepageUrl,viewerPermission,url`
+4. Comment on and close issue `#25`.
 
 ## Incomplete Items and Why
 
-- Issue `#25` remains open because the broken link lives in the GitHub repository sidebar homepage setting, and the current token only has `viewerPermission: WRITE`; `gh repo edit --homepage ...` returned `HTTP 404`, so repository-admin settings access is still missing.
-- The `v1.3.9` workflow still reports one GitHub notice:
-  - `windows-latest requests are being redirected to windows-2025-vs2026 by June 15, 2026`
-  This is only a notice, not a failure, and was left unchanged because the repository currently uses the documented stable `-latest` alias and no official runner-label migration decision has been verified yet from source.
+- Issue `#25` remains open because the broken link lives in the GitHub repository sidebar homepage setting, and the current token still lacks the repository-admin capability needed to edit that field. Direct verification still shows `viewerPermission: WRITE` and the stale homepage URL.
 
 ## Key Decisions
 
-1. Keep OpenCode as the contract authority; use installed plugin types plus official docs to justify the configuration guidance.
-2. Reduce release workflow complexity rather than layering more tooling onto it.
-3. Guard workflow drift with a direct test file instead of relying only on manual release inspection.
-4. Do not close support-link issue `#25` until the public broken link is actually removed.
+1. Treat the Windows runner redirect as resolved only after a fresh tagged workflow run no longer surfaced the prior notice in observed output.
+2. Push the lightweight release tag explicitly instead of assuming `git push --follow-tags` would include it.
+3. Keep issue `#25` open until the public broken link is actually removed from repository settings.
 
 ## Rejected Alternatives
 
-1. Closing `#25` based only on package metadata and README cleanup: rejected because the public broken link still exists in repository settings.
-2. Keeping `setup-bun` in the release workflow: rejected because the workflow does not use Bun there.
-3. Replacing `windows-latest` immediately with an unverified label: rejected until GitHub publishes or the repository owner explicitly chooses a fixed Windows image target.
+1. Declaring `#25` fixed based on README or package metadata alone: rejected because the public GitHub sidebar homepage still points to the dead site.
+2. Assuming the release workflow had run for `v1.3.11` after pushing `main` only: rejected because the remote tag check showed the tag had not been pushed yet.
+3. Calling the Windows notice fixed before observing a fresh `v1.3.11` workflow run: rejected because earlier evidence from `v1.3.10` showed the notice persisted after an incomplete pin.
 
 ## Known Risks
 
-1. Repository homepage cleanup still needs admin-level settings access.
-2. GitHub may require a future Windows runner label update if `windows-latest` redirect policy changes beyond the current notice.
-3. The workflow regression test pins current action majors, so future upstream major upgrades will require an intentional test update.
+1. Repository homepage cleanup still requires admin-level GitHub settings access.
+2. The workflow publishes to npm from local release tooling and skips npm in GitHub Actions when `NPM_TOKEN` is absent there; this is intentional today but should remain documented.
+3. Future GitHub Actions major upgrades will require deliberate workflow and regression-test updates.
 
 ## Open These Files First Next Session
 
 1. `AGENT_MEMORY.md`
 2. `.github/workflows/release.yml`
 3. `tests/unit/release-workflow.test.ts`
-4. `README.md`
-5. `docs/SYSTEM_ARCHITECTURE.md`
-6. `docs/histories/2026/06/11/PLAN_OfficialOpenCodeAlignmentAndReleaseHardening_2026-06-11.md`
-7. `gh repo view --json homepageUrl,viewerPermission,url`
-8. `gh issue view 25 --json number,title,state,url`
-9. `gh run view 27318294800`
+4. `gh repo view agnusdei1207/opencode-orchestrator --json homepageUrl,viewerPermission,url`
+5. `gh issue view 25 --json number,title,state,url,body`
+6. `gh run view 27318931814`
