@@ -7,11 +7,12 @@ Deploy a standalone static landing page in `docs/` and configure GitHub Pages fo
 ## Last Completed Step
 
 1. Located Zola templates and static logo inside `/home/user/brainscience`.
-2. Verified that `docs/index.html` (the standalone landing page with all Zola template syntax removed) and its corresponding logo asset `docs/assets/img/opencode-logo.png` exist locally.
+2. Verified that `docs/index.html` (the standalone landing page with Zola template syntax removed) and its corresponding logo asset `docs/assets/img/opencode-logo.png` exist.
 3. Edited [README.md](file:///home/user/opencode-orchestrator/README.md) to add a direct link to the new GitHub Pages website.
 4. Confirmed `package.json` has `"homepage": "https://agnusdei1207.github.io/opencode-orchestrator/"` and verified tests pass.
 5. Staged and pushed all changes, including `docs/index.html` and `docs/assets/img/opencode-logo.png`, to remote `main`.
-6. Attempted to configure GitHub Pages and edit repo homepage using `gh` CLI and GitHub API, which returned `404` because the current fine-grained PAT has `WRITE` access (not `ADMIN`) and lacks authorization for Pages configuration.
+6. Discovered that configuring Pages at the repository root (`/`) causes compile errors (`errored`) due to large build directories (`crates`, `node_modules`, `target`).
+7. Cleaned up root static files (`index.html`, `.nojekyll`) and pushed changes to enforce serving solely from the `/docs` subdirectory.
 
 ## Verification Observed
 
@@ -19,35 +20,35 @@ Deploy a standalone static landing page in `docs/` and configure GitHub Pages fo
    - `npm run build` -> Success.
    - `npm run test` -> 713/713 Tests passed.
 2. Git state:
-   - All files staged and pushed successfully: `main -> main`.
+   - Cleaned up root files, pushed successfully.
 3. GitHub Token permissions:
    - `gh repo view agnusdei1207/opencode-orchestrator --json viewerPermission` -> Returned `WRITE`.
    - Admin settings changes and Pages provisioning APIs block with HTTP `404`.
 
 ## Next Exact Step
 
-1. The repository administrator (agnusdei1207) needs to manually enable GitHub Pages via the GitHub web interface:
+1. The repository administrator (agnusdei1207) must manually update the GitHub Pages settings via the web interface:
    - Go to **Settings -> Pages**.
-   - Set **Build and deployment -> Source** to `Deploy from a branch`.
-   - Select the `main` branch and folder `/docs`.
-2. Update the repository sidebar Homepage URL to `https://agnusdei1207.github.io/opencode-orchestrator/` on GitHub.
+   - Under **Build and deployment -> Branch**, select `main` and change the folder from `/` (root) to `/docs`.
+   - Save the settings.
+2. Once the build succeeds, update the repository sidebar Homepage URL to `https://agnusdei1207.github.io/opencode-orchestrator/` on GitHub.
 
 ## Incomplete Items and Why
 
-- Automated GitHub Pages provisioning and sidebar homepage editing could not be completed via the CLI because the PAT only has `WRITE` access. It requires a token with administrative (settings/repo) permissions or manual action by the repository owner.
+- Changing the Pages source folder from `/` to `/docs` and setting the repository sidebar homepage must be performed by the repository administrator due to token permission constraints (current PAT has `WRITE` access, not `ADMIN`).
 
 ## Key Decisions
 
-1. Rely on the `/docs` directory for GitHub Pages instead of maintaining a separate `gh-pages` branch, as it simplifies local testing and deployment workflow.
+1. Rely on the `/docs` directory for GitHub Pages instead of the root `/` directory to prevent GitHub's build system from indexing project sources (`crates`, `node_modules`, `target`), which results in build timeouts/errors.
 2. Strip Zola dependencies (like `{{ get_url(...) }}`) completely from the file so it is entirely self-contained, allowing direct browser viewing and static serving.
 
 ## Rejected Alternatives
 
-1. Setting up GitHub Actions for Pages deployment: rejected because serving from the `/docs` directory is simpler and does not require provisioning CI pipeline permissions for Pages.
+1. Keeping static files at both root and `/docs`: rejected because it duplicates assets and root Pages configuration triggers full project compilation errors.
 
 ## Known Risks
 
-1. The GitHub Pages site will return a 404 until the repository administrator enables Pages from the GitHub settings UI.
+1. The site will continue returning a build error/404 until the Pages source path is switched to `/docs` in GitHub repository settings.
 
 ## Open These Files First Next Session
 
