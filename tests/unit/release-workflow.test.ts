@@ -30,7 +30,8 @@ describe("release workflow", () => {
     it("pins the Windows runner to an explicit supported image", () => {
         const workflow = readReleaseWorkflow();
 
-        expect(workflow).toContain("os: windows-2025");
+        expect(workflow).toContain("os: windows-2025-vs2026");
         expect(workflow).not.toContain("os: windows-latest");
+        expect(workflow).not.toContain("os: windows-2025\n");
     });
 });
