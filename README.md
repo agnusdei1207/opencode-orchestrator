@@ -2,7 +2,6 @@
   <img src="assets/logo.png" alt="OpenCode Orchestrator logo" width="160" />
   <h1>OpenCode Orchestrator</h1>
   <p>Multi-agent mission control for OpenCode.</p>
-  <p><strong><a href="https://agnusdei1207.github.io/opencode-orchestrator/">Interactive Demo & Documentation</a></strong></p>
 
   [![MIT License](https://img.shields.io/badge/license-MIT-red.svg)](LICENSE)
   [![npm](https://img.shields.io/npm/v/opencode-orchestrator.svg)](https://www.npmjs.com/package/opencode-orchestrator)
@@ -10,7 +9,6 @@
   **Version:** `1.3.12`
   <!-- VERSION:END -->
 </div>
-
 
 ---
 
@@ -123,6 +121,15 @@ flowchart LR
 | Worker | Implements scoped file changes with isolated context. |
 | Reviewer | Checks completion evidence, tests, and integration risk. |
 
+Runtime evidence is written only when enabled:
+
+| Artifact | Purpose |
+| --- | --- |
+| `.opencode/mission-ledger.jsonl` | Bounded event trail for mission decisions. |
+| `.opencode/docs/brain/scratchpad.md` | Generated Markdown memory surface for active missions. |
+| `.opencode/docs/brain/knowledge-map.canvas` | Obsidian-compatible visual map of objective, evidence, and verification nodes. |
+| `.opencode/docs/brain/memories/*.md` | Generated mission-relevant memory notes indexed by the knowledge retriever. |
+
 ## 5. Developer Notes
 
 ```bash
@@ -131,6 +138,15 @@ npx tsc --noEmit
 npm test
 cargo test --workspace --all-targets
 ```
+
+Useful references:
+
+1. OpenCode plugins: https://opencode.ai/docs/plugins/
+2. OpenCode config: https://opencode.ai/docs/config/
+3. OpenCode keybinds: https://opencode.ai/docs/keybinds/
+4. Project issues: https://github.com/agnusdei1207/opencode-orchestrator/issues
+
+Contributions are welcome: open an issue or pull request when you find a bug, compatibility gap, or focused improvement.
 
 Config logs:
 
