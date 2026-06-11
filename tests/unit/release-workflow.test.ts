@@ -26,4 +26,11 @@ describe("release workflow", () => {
         expect(workflow).toContain("Configure GitHub Packages auth");
         expect(workflow).toContain("Configure npm auth");
     });
+
+    it("pins the Windows runner to an explicit supported image", () => {
+        const workflow = readReleaseWorkflow();
+
+        expect(workflow).toContain("os: windows-2025");
+        expect(workflow).not.toContain("os: windows-latest");
+    });
 });
