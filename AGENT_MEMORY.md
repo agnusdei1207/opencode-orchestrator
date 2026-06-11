@@ -2,88 +2,56 @@
 
 ## Current Task
 
-Patch release `1.3.12` remains synchronized across code, tests, npm, tag, and GitHub Release. The repository sidebar homepage has now been corrected to the GitHub issues page. The only remaining unresolved item is issue `#25`, which cannot be commented on or closed with the current fine-grained token because it lacks issue-write capability.
+Deploy a standalone static landing page in `docs/` and configure GitHub Pages for `https://agnusdei1207.github.io/opencode-orchestrator/` as the primary project homepage, replacing references to old external sites and syncing npm configuration.
 
 ## Last Completed Step
 
-1. Verified the supplied fine-grained token against GitHub:
-   - `gh repo view agnusdei1207/opencode-orchestrator --json homepageUrl,viewerPermission,url`
-   - confirmed `viewerPermission: ADMIN`
-2. Verified the broken-link issue state:
-   - `gh issue view 25 --repo agnusdei1207/opencode-orchestrator --json number,title,state,url,body`
-   - confirmed `#25` was still `OPEN`
-3. Searched the repository for remaining references to `rdot.agnusdei.kr`:
-   - only historical references remained in `AGENT_MEMORY.md` and the dated plan document
-4. Updated the repository sidebar homepage:
-   - `gh repo edit agnusdei1207/opencode-orchestrator --homepage https://github.com/agnusdei1207/opencode-orchestrator/issues`
-5. Re-verified the homepage:
-   - `gh repo view agnusdei1207/opencode-orchestrator --json homepageUrl,viewerPermission,url`
-   - confirmed homepage now points to the GitHub issues page
-6. Checked issue `#26`:
-   - `gh issue view 26 --repo agnusdei1207/opencode-orchestrator --json number,title,state,url`
-   - confirmed it is already `CLOSED`
-7. Attempted to comment on and close `#25`:
-   - `gh issue comment 25 ...`
-   - `gh api repos/agnusdei1207/opencode-orchestrator/issues/25/comments -X POST ...`
-   - `gh api repos/agnusdei1207/opencode-orchestrator/issues/25 -X PATCH -f state=closed`
-   - all failed with `Resource not accessible by personal access token`
+1. Located Zola templates and static logo inside `/home/user/brainscience`.
+2. Verified that `docs/index.html` (the standalone landing page with all Zola template syntax removed) and its corresponding logo asset `docs/assets/img/opencode-logo.png` exist locally.
+3. Edited [README.md](file:///home/user/opencode-orchestrator/README.md) to add a direct link to the new GitHub Pages website.
+4. Confirmed `package.json` has `"homepage": "https://agnusdei1207.github.io/opencode-orchestrator/"` and verified tests pass.
+5. Staged and pushed all changes, including `docs/index.html` and `docs/assets/img/opencode-logo.png`, to remote `main`.
+6. Attempted to configure GitHub Pages and edit repo homepage using `gh` CLI and GitHub API, which returned `404` because the current fine-grained PAT has `WRITE` access (not `ADMIN`) and lacks authorization for Pages configuration.
 
 ## Verification Observed
 
-1. Repository state:
-   - `git status --short --branch` -> `## main...origin/main`
-2. GitHub repository settings:
-   - before update: homepage `https://rdot.agnusdei.kr/`, permission `ADMIN`
-   - after update: homepage `https://github.com/agnusdei1207/opencode-orchestrator/issues`
-3. GitHub issue state:
-   - `#25` remained `OPEN` before closure attempts
-   - `#26` is `CLOSED`
-4. Token capability boundary:
-   - repository settings edit succeeded
-   - issue comment and issue close calls failed with `HTTP 403` / `Resource not accessible by personal access token`
+1. Local files and build status:
+   - `npm run build` -> Success.
+   - `npm run test` -> 713/713 Tests passed.
+2. Git state:
+   - All files staged and pushed successfully: `main -> main`.
+3. GitHub Token permissions:
+   - `gh repo view agnusdei1207/opencode-orchestrator --json viewerPermission` -> Returned `WRITE`.
+   - Admin settings changes and Pages provisioning APIs block with HTTP `404`.
 
 ## Next Exact Step
 
-1. Obtain a token for `agnusdei1207/opencode-orchestrator` with issue-write access in addition to repo-admin/settings access.
-2. Re-run:
-   - `gh issue comment 25 --repo agnusdei1207/opencode-orchestrator --body 'Updated the repository sidebar homepage to the GitHub issues page and removed the broken external link target. Verified the sidebar homepage now points to https://github.com/agnusdei1207/opencode-orchestrator/issues. Closing this issue.'`
-   - `gh issue close 25 --repo agnusdei1207/opencode-orchestrator`
-3. Re-verify:
-   - `gh issue view 25 --repo agnusdei1207/opencode-orchestrator --json number,title,state,url`
+1. The repository administrator (agnusdei1207) needs to manually enable GitHub Pages via the GitHub web interface:
+   - Go to **Settings -> Pages**.
+   - Set **Build and deployment -> Source** to `Deploy from a branch`.
+   - Select the `main` branch and folder `/docs`.
+2. Update the repository sidebar Homepage URL to `https://agnusdei1207.github.io/opencode-orchestrator/` on GitHub.
 
 ## Incomplete Items and Why
 
-- Issue `#25` remains open because the current fine-grained token can edit repository settings but cannot comment on or close issues.
-- The `.canvas` artifact remains a derived visualization surface rather than a retrieval input. This is intentional in the current design to preserve markdown and file-backed mission state as the source of truth.
+- Automated GitHub Pages provisioning and sidebar homepage editing could not be completed via the CLI because the PAT only has `WRITE` access. It requires a token with administrative (settings/repo) permissions or manual action by the repository owner.
 
 ## Key Decisions
 
-1. Keep the `.canvas` file as a derived visualization, not a second source of truth.
-2. Improve real prompt utility by:
-   - projecting selected runtime memories into markdown notes
-   - injecting the mission scratchpad directly into orchestrated prompt context
-3. Avoid duplicate context by removing the generated scratchpad from the general markdown retriever once it is directly injected.
-4. Treat the broken homepage link as resolved once the sidebar homepage points to GitHub issues, even if the current token cannot perform the final issue-management action.
+1. Rely on the `/docs` directory for GitHub Pages instead of maintaining a separate `gh-pages` branch, as it simplifies local testing and deployment workflow.
+2. Strip Zola dependencies (like `{{ get_url(...) }}`) completely from the file so it is entirely self-contained, allowing direct browser viewing and static serving.
 
 ## Rejected Alternatives
 
-1. Indexing the `.canvas` file directly for retrieval: rejected because the retriever is markdown-based and the canvas remains a derived navigation artifact.
-2. Dumping the entire `MemoryManager` snapshot into markdown without filtering: rejected because it would flood the workspace knowledge plane with low-value noise.
-3. Keeping scratchpad retrieval and direct scratchpad injection active together: rejected because it duplicates the same context in the prompt path.
+1. Setting up GitHub Actions for Pages deployment: rejected because serving from the `/docs` directory is simpler and does not require provisioning CI pipeline permissions for Pages.
 
 ## Known Risks
 
-1. `MemoryManager` is still process-global and not fully session-partitioned.
-2. Repository issue `#25` still requires a token with issue-write permission for final closure.
-3. Future GitHub Actions major changes will still require deliberate workflow/test updates.
+1. The GitHub Pages site will return a 404 until the repository administrator enables Pages from the GitHub settings UI.
 
 ## Open These Files First Next Session
 
 1. `AGENT_MEMORY.md`
-2. `gh repo view agnusdei1207/opencode-orchestrator --json homepageUrl,viewerPermission,url`
-3. `gh issue view 25 --repo agnusdei1207/opencode-orchestrator --json number,title,state,url,body`
-4. `src/core/knowledge/mission-memory.ts`
-5. `src/core/knowledge/context-provider.ts`
-6. `src/plugin-handlers/system-transform-handler.ts`
-7. `tests/unit/mission-memory-knowledge.test.ts`
-8. `tests/unit/system-transform-handler.test.ts`
+2. `docs/index.html`
+3. `package.json`
+4. `README.md`
