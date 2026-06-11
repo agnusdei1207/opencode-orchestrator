@@ -6,43 +6,79 @@ Status: In progress
 
 ## 1. Objective
 
-Bring the plugin to a cleaner next-stage baseline by aligning documented behavior, runtime wiring, release plumbing, and tested compatibility with the current OpenCode SDK/plugin contract.
+Move the plugin to a cleaner patch-release baseline that is easier to operate, easier to verify, and harder to misconfigure.
+
+This plan targets four outcomes:
+
+1. documented behavior matches the current OpenCode contract
+2. release plumbing is simpler and less warning-prone
+3. compatibility expectations are explicit and test-guarded
+4. Builder-inspired ideas are kept only where they strengthen the plugin without exceeding the plugin boundary
 
 ## 2. Verified Starting Facts
 
-1. The plugin currently generates Commander, Planner, Worker, and Reviewer inside `src/plugin-handlers/config-handler.ts`.
-2. Global permissions are merged into generated agents and same-name agent overrides are preserved.
-3. Concurrency settings are read from both plugin tuple options and legacy top-level config keys.
-4. Mission loop state, ledger output, markdown memory, and `.canvas` output are already implemented.
-5. The current npm package metadata already routes `homepage` and `bugs.url` to GitHub issues.
-6. The GitHub repository sidebar homepage still points to a dead external URL and requires repository settings access to change.
+The following facts were re-verified from source, tests, and current registry metadata on 2026-06-11:
 
-## 3. Why This Work Matters
+1. `src/plugin-handlers/config-handler.ts` generates Commander, Planner, Worker, and Reviewer at config-hook time.
+2. Generated agents inherit global `permission` and then merge same-name user agent overrides on top.
+3. Concurrency is accepted from both:
+   - plugin tuple options
+   - legacy top-level config keys
+4. Mission-loop runtime options currently include:
+   - `ledger`
+   - `markdownMemory`
+   - `maxEvidenceEvents`
+5. Mission loop default iteration ceiling is `1_000_000_000`.
+6. `package.json` already routes `homepage` and `bugs.url` to GitHub issues.
+7. The GitHub repository sidebar homepage still points to `https://rdot.agnusdei.kr/`.
+8. The installed and latest published OpenCode packages both resolve to:
+   - `@opencode-ai/plugin` `1.17.3`
+   - `@opencode-ai/sdk` `1.17.3`
+9. The release workflow still contains older action majors and an unnecessary Bun setup step.
 
-1. Users need one unambiguous answer for where concurrency belongs and how models are selected.
-2. Release notes and workflow dependencies should not lag behind the actual architecture.
-3. Evidence-based docs reduce support churn and prevent configuration folklore.
-4. Version drift between `@opencode-ai/plugin` and `@opencode-ai/sdk` is a real compatibility risk for plugin surfaces.
-5. Builder-inspired memory concepts are useful here only when they remain local-first, optional, and subordinate to OpenCode contracts.
+## 3. Evidence Sources
 
-## 4. Scope Boundary
+Primary sources used for this plan:
+
+1. local source files under `src/`, `tests/`, `.github/workflows/`, and `package.json`
+2. installed type definitions under:
+   - `node_modules/@opencode-ai/plugin/dist/index.d.ts`
+   - `node_modules/@opencode-ai/sdk/dist/gen/types.gen.d.ts`
+3. official OpenCode documentation:
+   - `https://opencode.ai/docs/config/`
+   - `https://opencode.ai/docs/plugins/`
+   - `https://opencode.ai/docs/keybinds/`
+4. current registry and release metadata:
+   - `npm view @opencode-ai/plugin version`
+   - `npm view @opencode-ai/sdk version`
+   - `gh release list` for workflow actions used by this repository
+
+## 4. Problem Statement
+
+The project is functionally healthier than its older README and release plumbing suggest, but three sources of drift remain:
+
+1. users still need a sharper answer for model inheritance, concurrency placement, and interrupt behavior
+2. GitHub Actions release plumbing still carries stale or unnecessary setup that increases warning noise
+3. repository-level support routing is split between correct package metadata and an incorrect GitHub sidebar homepage
+
+## 5. Scope Boundary
 
 Included:
 
-1. README clarification for model routing, permission inheritance, and concurrency placement
-2. Architecture documentation rewrite to match current source
-3. Release workflow hardening
-4. Dependency compatibility pinning and tests
-5. Evidence-based comparison notes for Builder-derived memory patterns
+1. README and architecture alignment to current verified code paths
+2. release workflow simplification and action-major refresh
+3. workflow- and compatibility-focused tests
+4. issue/support-link cleanup where repository permissions allow it
+5. detailed planning artifact for this exact date
 
 Excluded:
 
-1. Repository admin-only settings changes without a valid GitHub token
-2. Major runtime redesign of the orchestration core
-3. Upstream OpenCode TUI internals outside the plugin boundary
-4. Unverified performance marketing claims
+1. unverified performance claims
+2. major orchestration-core redesign
+3. OpenCode application internals outside the plugin contract
+4. Builder-private runtime policy that conflicts with OpenCode authority
 
-## 5. Target Files
+## 6. Target Files
 
 1. `README.md`
 2. `docs/SYSTEM_ARCHITECTURE.md`
@@ -50,113 +86,146 @@ Excluded:
 4. `package.json`
 5. `package-lock.json`
 6. `tests/unit/dependency-compatibility.test.ts`
-7. `AGENT_MEMORY.md`
+7. `tests/unit/package-metadata.test.ts`
+8. `tests/unit/release-workflow.test.ts`
+9. `AGENT_MEMORY.md`
 
-## 6. Design Principles
+## 7. Design Principles
 
-1. Keep OpenCode as the contract authority.
-2. Prefer current source over old architectural prose.
-3. Reduce documentation volume where it repeats or exaggerates.
-4. Keep Builder learnings only when they fit a plugin-first design:
-   - local markdown scratchpad
-   - visual `.canvas` artifact
-   - continuation guards around interrupts and idle events
-5. Do not import Builder-only runtime policy or permission defaults.
+1. OpenCode remains the contract authority.
+2. Source and installed types override historical prose.
+3. Remove complexity when it does not buy verified capability.
+4. Keep Builder-derived concepts only when they are:
+   - local-first
+   - optional
+   - inspectable in plain files
+   - subordinate to OpenCode runtime behavior
+5. Prefer tests that catch drift at the file-contract boundary.
 
-## 7. Phased Execution
+## 8. Workstreams
 
-### Phase 1: Contract Audit
+### Workstream A: Contract and Compatibility Audit
 
-1. Re-open the OpenCode plugin and SDK type definitions.
-2. Confirm plugin tuple support, config shape, and hook names.
-3. Confirm the current dependency versions installed in the workspace.
-4. Re-check issue state and public metadata links.
+Tasks:
 
-Done when:
+1. re-open plugin and SDK type definitions
+2. confirm plugin tuple support and hook shapes
+3. confirm latest published SDK/plugin versions
+4. verify the current node baseline and package metadata
 
-1. Every README claim used in the new version is backed by a file read or type definition.
-2. Unsupported or ambiguous claims are removed.
+Definition of done:
 
-### Phase 2: Documentation Consolidation
+1. every compatibility claim maps to a file read or command output
+2. no README statement depends on memory or guesswork
 
-1. Rewrite README configuration guidance around the actual supported config tuple.
-2. Add a direct explanation for model selection:
-   - framework model equals Commander model by default
-   - subagents inherit the invoking primary model unless overridden
-3. Replace the oversized architecture memo with a shorter, source-backed map.
-4. Keep the issue tracker as the public support destination.
+### Workstream B: Documentation Consolidation
 
-Done when:
+Tasks:
 
-1. A new user can answer issue `#26` from README alone.
-2. There is no dead external support link in package metadata or docs.
+1. keep README focused on install, configure, run, and support
+2. keep architecture notes short and source-backed
+3. preserve the validated sample config shape using the plugin tuple
+4. keep contribution guidance visible but compact
 
-### Phase 3: Release Plumbing Hardening
+Definition of done:
 
-1. Remove stale release-note copy that no longer matches the product.
-2. Update Node-runtime-sensitive GitHub Actions where the workflow still uses older majors.
-3. Keep the artifact matrix unchanged unless source evidence requires otherwise.
+1. issue `#26` can be answered directly from README
+2. dead support links are removed from repo-controlled docs and metadata
 
-Done when:
+### Workstream C: Release Workflow Simplification
 
-1. Workflow YAML reflects current release behavior.
-2. The release body no longer advertises removed or unverified features.
+Tasks:
 
-### Phase 4: Dependency Compatibility Lock
+1. replace outdated GitHub Action majors with current stable majors verified today
+2. remove the unused Bun setup from the release job
+3. remove deprecated registry/scope action inputs when a plain `.npmrc` step is clearer
+4. keep the existing build matrix unless source evidence requires a matrix change
 
-1. Pin `@opencode-ai/plugin` and `@opencode-ai/sdk` to the same tested version.
-2. Refresh lockfile state.
-3. Add a test that fails on version drift.
+Definition of done:
 
-Done when:
+1. workflow YAML is shorter and clearer
+2. warning-prone or unnecessary setup has been removed
+3. publish steps still cover:
+   - GitHub Release assets
+   - GitHub Packages
+   - public npm
 
-1. `package.json` and `package-lock.json` are synchronized.
-2. The new test catches accidental SDK/plugin skew.
+### Workstream D: Test Hardening
 
-### Phase 5: Verification
+Tasks:
 
-1. Run TypeScript typecheck.
-2. Run focused tests covering config, events, chat hooks, package metadata, dependency compatibility, and mission loop lifecycle.
-3. Re-open every changed file and re-read it.
-4. Review `git diff` for accidental behavior changes.
+1. retain compatibility tests for SDK/plugin version lock
+2. retain metadata tests for issue routing
+3. add workflow-file tests that catch action-version and deprecated-input regressions
+4. keep interrupt/idle continuation tests in the verification set
 
-Done when:
+Definition of done:
 
-1. All targeted verification commands pass.
-2. Documentation and tests agree with code.
+1. workflow regressions fail in CI before release
+2. docs and packaging assumptions remain executable expectations
 
-## 8. Builder-Derived Learnings To Keep
+### Workstream E: Repository Support Routing
+
+Tasks:
+
+1. verify the current GitHub auth and repository permission level
+2. if permissions allow it, change the repository homepage to the GitHub issues page
+3. comment on and close issue `#25` only after the public broken link is actually gone
+
+Definition of done:
+
+1. public support link path is internally consistent
+2. issue `#25` is not closed on assumption
+
+## 9. Builder-Derived Learnings To Keep
 
 Keep:
 
-1. A local-first markdown scratchpad
-2. Optional `.canvas` graph output
-3. Interrupt-aware continuation guards
-4. Concise architecture visualizations instead of dense prose
+1. generated markdown scratchpad for active mission memory
+2. optional `.canvas` visualization artifact
+3. interrupt-aware continuation guards around idle resumption
+4. concise visual explanation instead of inflated architecture prose
 
 Reject:
 
 1. Builder-specific permission defaults
-2. Builder runtime policy replacing OpenCode policy
-3. Large product-neutral platform layers that do not fit a plugin
-4. Unbounded memory systems or unverifiable autonomy claims
+2. Builder-specific model policy
+3. autonomous claims that exceed current code evidence
+4. large generalized platform layers that are not justified inside a plugin
 
-## 9. Risks
+## 10. Verification Matrix
 
-1. GitHub repository sidebar homepage cannot be fixed without repository settings access.
-2. Upstream OpenCode behavior may change faster than repo documentation unless version checks stay pinned.
-3. README examples can drift again if config parsing changes without tests.
+Required verification after edits:
 
-## 10. Rollback Plan
+1. `npx tsc --noEmit`
+2. focused Vitest covering:
+   - config handler
+   - concurrency config
+   - event handler
+   - package metadata
+   - dependency compatibility
+   - release workflow
+   - mission loop lifecycle
+3. `npm test`
+4. changed-file re-read
+5. release/publish verification after the patch cut
 
-1. Revert workflow changes if release automation regresses.
-2. Revert dependency pinning if upstream requires a wider semver range.
-3. Restore the previous docs only if a verified code path contradicts the rewrite.
+## 11. Risks
 
-## 11. Expected Outcome
+1. GitHub repository settings may still block sidebar homepage updates even with write-level repository access.
+2. Action-major upgrades can introduce workflow syntax drift if not validated by a real tag release.
+3. README examples can drift again if config parsing changes and tests do not cover the affected contract.
 
-1. Cleaner public documentation
-2. Explicit version compatibility baseline
-3. Lower release drift risk
-4. Easier triage for configuration and model-selection questions
-5. A more defensible next patch release
+## 12. Rollback Plan
+
+1. revert workflow-only changes if release automation regresses
+2. revert doc-only changes if a verified code path contradicts the new wording
+3. revert action-major upgrades independently from package/runtime changes if the workflow surface is the only failing layer
+
+## 13. Expected Outcome
+
+1. cleaner documentation with fewer repeated claims
+2. explicit compatibility baseline pinned to the current official package versions
+3. lower GitHub Actions drift and less release warning noise
+4. stronger issue-routing hygiene
+5. a defensible patch release with evidence-backed notes

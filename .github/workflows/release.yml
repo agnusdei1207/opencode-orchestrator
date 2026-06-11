@@ -34,7 +34,7 @@ jobs:
             binary: orchestrator-windows-x64.exe
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
@@ -76,7 +76,7 @@ jobs:
           file ${{ matrix.binary }} | grep -F "ARM aarch64"
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ${{ matrix.binary }}
           path: ${{ matrix.binary }}
@@ -87,10 +87,10 @@ jobs:
     env:
       NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Download all artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           path: binaries
 
@@ -99,7 +99,7 @@ jobs:
 
       - name: Create GitHub Release
         if: startsWith(github.ref, 'refs/tags/')
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           files: binaries/**/*
           body: |
@@ -120,19 +120,10 @@ jobs:
           generate_release_notes: true
           fail_on_unmatched_files: false
 
-      - name: Publish to GitHub Packages
-        uses: actions/setup-node@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
         with:
           node-version: "24"
-          registry-url: "https://npm.pkg.github.com"
-          scope: "@agnusdei1207"
-
-      - name: Install Bun
-        uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: latest
-          registry-url: "https://npm.pkg.github.com"
-          scope: "@agnusdei1207"
 
       - name: Install dependencies
         run: npm install --force
@@ -154,18 +145,33 @@ jobs:
           file bin/orchestrator-linux-arm64
           file bin/orchestrator-linux-arm64 | grep -F "ARM aarch64"
 
+      - name: Configure GitHub Packages auth
+        run: |
+          cat <<EOF > ~/.npmrc
+          @agnusdei1207:registry=https://npm.pkg.github.com
+          //npm.pkg.github.com/:_authToken=${NODE_AUTH_TOKEN}
+          always-auth=true
+          EOF
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Publish to GitHub Registry
         run: |
+          cp package.json package.json.bak
+          trap 'mv package.json.bak package.json' EXIT
           node -e "let pkg=require('./package.json'); pkg.name='@agnusdei1207/opencode-orchestrator'; pkg.publishConfig={registry:'https://npm.pkg.github.com'}; require('fs').writeFileSync('package.json', JSON.stringify(pkg, null, 2));"
           npm publish
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Setup Node for NPM Registry
-        uses: actions/setup-node@v4
-        with:
-          node-version: "24"
-          registry-url: "https://registry.npmjs.org"
+      - name: Configure npm auth
+        if: env.NPM_TOKEN != ''
+        run: |
+          cat <<EOF > ~/.npmrc
+          //registry.npmjs.org/:_authToken=${NODE_AUTH_TOKEN}
+          EOF
+        env:
+          NODE_AUTH_TOKEN: ${{ env.NPM_TOKEN }}
 
       - name: Publish to NPM Registry
         if: env.NPM_TOKEN != ''
