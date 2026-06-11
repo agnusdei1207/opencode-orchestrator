@@ -2,84 +2,104 @@
 
 ## Current Task
 
-Patch release `1.3.11` has been completed, published to npm, pushed to GitHub, and verified through the tag-triggered release workflow. The only remaining unresolved item is repository issue `#25`, which still depends on admin-only GitHub repository homepage access.
+Tighten the Builder-inspired graphical mission memory path so it is not just a generated artifact. The current work integrates mission-relevant runtime memories into the markdown knowledge plane, injects the mission scratchpad directly into orchestrated system prompts, and prevents duplicate scratchpad retrieval through the general markdown search path.
 
 ## Last Completed Step
 
-1. Re-read the release workflow, workflow regression tests, release hardening tests, and prior memory snapshot.
-2. Verified local release state after the Windows runner pin update:
-   - `git log --oneline --decorate -n 8`
-   - `git status --short --branch`
-   - `npm view opencode-orchestrator version dist-tags.latest`
-3. Confirmed the local patch release finished successfully:
-   - version commit `eaa7a89` `1.3.11`
-   - tag `v1.3.11`
-   - npm publish succeeded for `opencode-orchestrator@1.3.11`
-4. Pushed `main` and then explicitly pushed lightweight tag `v1.3.11`.
-5. Verified the tag-triggered GitHub Actions workflow:
-   - run `27318931814`
-   - all 5 build jobs succeeded
-   - release job succeeded
-   - GitHub Release published at `https://github.com/agnusdei1207/opencode-orchestrator/releases/tag/v1.3.11`
-6. Re-verified current blockers:
-   - `gh repo view agnusdei1207/opencode-orchestrator --json homepageUrl,viewerPermission,url`
-   - homepage still `https://rdot.agnusdei.kr/`
-   - current token still reports `viewerPermission: WRITE`
-   - issue `#25` therefore remains open
+1. Re-audited the current memory path in:
+   - `src/core/knowledge/mission-memory.ts`
+   - `src/core/knowledge/context-provider.ts`
+   - `src/plugin-handlers/system-transform-handler.ts`
+   - `tests/unit/system-transform-handler.test.ts`
+2. Re-read the comparable Builder-private implementation in:
+   - `../builder-private/crates/builder_knowledge/src/scratchpad.rs`
+   - `../builder-private/crates/builder_knowledge/src/memory_note_adapter.rs`
+   - `../builder-private/crates/builder_knowledge/src/unified_retrieval.rs`
+   - `../builder-private/crates/builder_app/src/system_prompt.rs`
+3. Implemented runtime-memory projection into workspace-local markdown notes:
+   - `src/core/knowledge/mission-memory.ts`
+   - generated path: `.opencode/docs/brain/memories/*.md`
+4. Added direct mission scratchpad prompt injection and stronger retrieval query composition:
+   - `src/plugin-handlers/system-transform-handler.ts`
+5. Prevented duplicate scratchpad context by excluding `.opencode/docs/brain/scratchpad.md` from the general markdown retriever:
+   - `src/core/knowledge/context-provider.ts`
+6. Added and updated tests:
+   - `tests/unit/mission-memory-knowledge.test.ts`
+   - `tests/unit/system-transform-handler.test.ts`
+7. Synced public docs:
+   - `README.md`
+   - `docs/SYSTEM_ARCHITECTURE.md`
+8. Verified the full change set:
+   - focused Vitest: mission memory + system transform tests passed
+   - `npx tsc --noEmit` passed
+   - full `npm test` passed: `76 files`, `713 tests`
+   - `npm run build` passed
 
 ## Verification Observed
 
-1. Repository state after push:
-   - `git status --short --branch` -> `## main...origin/main`
-2. Remote tag state:
-   - `git ls-remote --tags origin v1.3.11` -> `refs/tags/v1.3.11`
-3. npm registry state:
-   - `npm view opencode-orchestrator version dist-tags.latest` -> `1.3.11`
-4. GitHub release state:
-   - `gh release view v1.3.11 --json name,tagName,isDraft,isPrerelease,url`
-   - release exists and is not draft/prerelease
-5. GitHub workflow state:
-   - `gh run view 27318931814 --json status,conclusion,url,jobs` -> `completed/success`
-   - `gh run view 27318931814` showed successful jobs and artifacts with no redirect notice in the observed output
-6. Open issues:
-   - `gh issue list --state open --limit 10 --json number,title,url` -> only `#25`
+1. Current worktree state:
+   - `git status --short --branch`
+   - modified files are limited to the intended memory/retrieval/docs/test set
+2. Focused verification:
+   - `npx vitest run tests/unit/mission-memory-knowledge.test.ts tests/unit/system-transform-handler.test.ts --reporter=verbose`
+   - passed: `2 files`, `8 tests`
+3. Broader memory verification:
+   - `npx vitest run tests/unit/system-transform-handler.test.ts tests/unit/mission-memory-knowledge.test.ts tests/unit/mission-runtime-memory.test.ts --reporter=verbose`
+   - passed: `3 files`, `12 tests`
+4. Type safety:
+   - `npx tsc --noEmit` passed after the final scratchpad de-dup change
+5. Full regression:
+   - `npm test` passed: `76 files`, `713 tests`
+6. Build:
+   - `npm run build` passed
 
 ## Next Exact Step
 
-1. Obtain repository-admin credentials for `agnusdei1207/opencode-orchestrator`.
-2. Run:
-   - `gh repo edit agnusdei1207/opencode-orchestrator --homepage https://github.com/agnusdei1207/opencode-orchestrator/issues`
-3. Re-verify:
-   - `gh repo view agnusdei1207/opencode-orchestrator --json homepageUrl,viewerPermission,url`
-4. Comment on and close issue `#25`.
+1. Review the final diff for the memory-path change set:
+   - `src/core/knowledge/mission-memory.ts`
+   - `src/core/knowledge/context-provider.ts`
+   - `src/plugin-handlers/system-transform-handler.ts`
+   - `tests/unit/mission-memory-knowledge.test.ts`
+   - `tests/unit/system-transform-handler.test.ts`
+   - `README.md`
+   - `docs/SYSTEM_ARCHITECTURE.md`
+2. If the user wants this improvement shipped, create a commit and cut the next patch release.
+3. Separately, repository issue `#25` still requires admin-level GitHub homepage access and remains unresolved outside the codebase.
 
 ## Incomplete Items and Why
 
-- Issue `#25` remains open because the broken link lives in the GitHub repository sidebar homepage setting, and the current token still lacks the repository-admin capability needed to edit that field. Direct verification still shows `viewerPermission: WRITE` and the stale homepage URL.
+- The `.canvas` artifact is still a visualization surface, not a retrieval input. This is intentional in the current design because the source of truth remains markdown and file-backed mission state.
+- Issue `#25` is still blocked by GitHub repository settings access. Current verification still shows the stale homepage URL and only `viewerPermission: WRITE`.
+- The current memory projection does not yet convert every runtime memory into a richer typed note graph the way Builder-private does for all conversation memories and skills; this turn narrowed the highest-value gap first.
 
 ## Key Decisions
 
-1. Treat the Windows runner redirect as resolved only after a fresh tagged workflow run no longer surfaced the prior notice in observed output.
-2. Push the lightweight release tag explicitly instead of assuming `git push --follow-tags` would include it.
-3. Keep issue `#25` open until the public broken link is actually removed from repository settings.
+1. Keep the `.canvas` file as a derived visualization instead of promoting it into a second source of truth.
+2. Improve real prompt utility first by:
+   - injecting the scratchpad directly
+   - projecting selected runtime memories into markdown notes
+3. Avoid duplicate context by excluding the generated scratchpad from the general markdown retriever once it is injected explicitly.
+4. Filter projected memory notes by level, importance, and mission-query relevance so the workspace knowledge plane is not flooded with low-value task noise.
 
 ## Rejected Alternatives
 
-1. Declaring `#25` fixed based on README or package metadata alone: rejected because the public GitHub sidebar homepage still points to the dead site.
-2. Assuming the release workflow had run for `v1.3.11` after pushing `main` only: rejected because the remote tag check showed the tag had not been pushed yet.
-3. Calling the Windows notice fixed before observing a fresh `v1.3.11` workflow run: rejected because earlier evidence from `v1.3.10` showed the notice persisted after an incomplete pin.
+1. Indexing the `.canvas` file directly as retrieval input: rejected because the current retriever is markdown-based and the canvas is meant to remain a derived navigation artifact.
+2. Dumping the entire `MemoryManager` snapshot into markdown without filtering: rejected because it would amplify low-value task output and cross-mission noise.
+3. Keeping scratchpad retrieval and direct scratchpad injection active at the same time: rejected because it duplicates the same context in the prompt path.
 
 ## Known Risks
 
-1. Repository homepage cleanup still requires admin-level GitHub settings access.
-2. The workflow publishes to npm from local release tooling and skips npm in GitHub Actions when `NPM_TOKEN` is absent there; this is intentional today but should remain documented.
-3. Future GitHub Actions major upgrades will require deliberate workflow and regression-test updates.
+1. `MemoryManager` is still process-global; projected mission memory is filtered, but not fully session-partitioned the way a richer typed memory store would be.
+2. The graphical `.canvas` remains helpful for humans and vault tooling, but it still does not influence retrieval ranking directly.
+3. Repository issue `#25` still needs admin-level GitHub settings access to finish the public broken-link cleanup.
 
 ## Open These Files First Next Session
 
 1. `AGENT_MEMORY.md`
-2. `.github/workflows/release.yml`
-3. `tests/unit/release-workflow.test.ts`
-4. `gh repo view agnusdei1207/opencode-orchestrator --json homepageUrl,viewerPermission,url`
-5. `gh issue view 25 --json number,title,state,url,body`
-6. `gh run view 27318931814`
+2. `src/core/knowledge/mission-memory.ts`
+3. `src/core/knowledge/context-provider.ts`
+4. `src/plugin-handlers/system-transform-handler.ts`
+5. `tests/unit/mission-memory-knowledge.test.ts`
+6. `tests/unit/system-transform-handler.test.ts`
+7. `README.md`
+8. `docs/SYSTEM_ARCHITECTURE.md`

@@ -128,6 +128,7 @@ Runtime evidence is written only when enabled:
 | `.opencode/mission-ledger.jsonl` | Bounded event trail for mission decisions. |
 | `.opencode/docs/brain/scratchpad.md` | Generated Markdown memory surface for active missions. |
 | `.opencode/docs/brain/knowledge-map.canvas` | Obsidian-compatible visual map of objective, evidence, and verification nodes. |
+| `.opencode/docs/brain/memories/*.md` | Generated mission-relevant memory notes indexed by the knowledge retriever. |
 
 ## 5. Developer Notes
 

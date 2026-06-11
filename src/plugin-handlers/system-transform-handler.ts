@@ -9,10 +9,11 @@
 
 import type { EventHandlerContext, SystemTransformInput, SystemTransformOutput } from "./interfaces/index.js";
 import { readLoopState } from "../core/loop/mission-loop.js";
-import { STATUS_LABEL } from "../shared/index.js";
+import { PATHS, STATUS_LABEL } from "../shared/index.js";
 import { ParallelAgentManager } from "../core/agents/manager.js";
 import { isMissionActive, ensureSessionInitialized } from "../core/orchestrator/session-manager.js";
 import { KnowledgeContextProvider } from "../core/knowledge/context-provider.js";
+import { readMissionScratchpadSnapshot } from "../core/knowledge/mission-memory.js";
 
 // Re-export interfaces for external use
 export type { SystemTransformInput, SystemTransformOutput } from "./interfaces/index.js";
@@ -51,6 +52,10 @@ export function createSystemTransformHandler(ctx: EventHandlerContext) {
             const { commander } = await import("../agents/commander.js");
             systemAdditions.push(commander.systemPrompt);
             systemAdditions.push(buildMissionLoopSystemPrompt(loopState));
+            const scratchpadPrompt = buildMissionScratchpadPrompt(directory);
+            if (scratchpadPrompt) {
+                systemAdditions.push(scratchpadPrompt);
+            }
         }
 
         // 2. Active session context
@@ -61,7 +66,7 @@ export function createSystemTransformHandler(ctx: EventHandlerContext) {
         // 3. Knowledge graph RAG context for orchestrated sessions
         const knowledgePrompt = buildKnowledgeContextPrompt(
             directory,
-            loopState?.prompt,
+            loopState,
             state.sessions.get(sessionID)?.currentTask,
         );
         if (knowledgePrompt) {
@@ -91,11 +96,33 @@ export function createSystemTransformHandler(ctx: EventHandlerContext) {
 
 function buildKnowledgeContextPrompt(
     directory: string,
-    missionPrompt?: string,
+    loopState?: {
+        objective?: string;
+        prompt: string;
+        lastProgress?: string;
+        lastVerificationSummary?: string;
+        lastContinuationReason?: string;
+    } | null,
     currentTask?: string,
 ): string | null {
-    const queryParts = [missionPrompt ?? "", currentTask ?? ""].filter(Boolean);
+    const queryParts = [
+        loopState?.objective ?? "",
+        loopState?.prompt ?? "",
+        currentTask ?? "",
+        loopState?.lastProgress ?? "",
+        loopState?.lastVerificationSummary ?? "",
+        loopState?.lastContinuationReason ?? "",
+    ].filter(Boolean);
     return knowledgeContextProvider.buildPrompt(directory, queryParts.join(" ").trim());
+}
+
+function buildMissionScratchpadPrompt(directory: string): string | null {
+    const snapshot = readMissionScratchpadSnapshot(directory);
+    if (!snapshot) return null;
+
+    return `<mission_scratchpad path="${PATHS.DOCS}/brain/scratchpad.md">
+${snapshot}
+</mission_scratchpad>`;
 }
 
 /**

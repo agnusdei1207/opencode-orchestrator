@@ -192,4 +192,46 @@ describe("System Transform Handler", () => {
             rmSync(testDir, { recursive: true, force: true });
         }
     });
+
+    it("should inject mission scratchpad snapshot when present", async () => {
+        const testDir = mkdtempSync(path.join(tmpdir(), "oco-system-transform-scratchpad-"));
+        mkdirSync(path.join(testDir, ".opencode", "docs", "brain"), { recursive: true });
+        writeFileSync(
+            path.join(testDir, ".opencode", "docs", "brain", "scratchpad.md"),
+            [
+                "---",
+                "tags: [scratchpad, mission, orchestrator]",
+                "---",
+                "# Orchestrator Mission Scratchpad",
+                "",
+                "## Focus",
+                "- Objective: tighten graphical memory integration",
+            ].join("\n"),
+            "utf8",
+        );
+
+        try {
+            mockContext.directory = testDir;
+            handler = createSystemTransformHandler(mockContext);
+
+            vi.mocked(readLoopState).mockReturnValue({
+                active: true,
+                iteration: 2,
+                maxIterations: 10,
+                prompt: "tighten graphical memory integration",
+                sessionID: "test-session",
+                startedAt: new Date().toISOString(),
+            });
+
+            const input: SystemTransformInput = { sessionID: "test-session" };
+            const output: SystemTransformOutput = { system: [] };
+
+            await handler(input, output);
+
+            expect(output.system.some(s => s.includes("<mission_scratchpad"))).toBe(true);
+            expect(output.system.some(s => s.includes("tighten graphical memory integration"))).toBe(true);
+        } finally {
+            rmSync(testDir, { recursive: true, force: true });
+        }
+    });
 });

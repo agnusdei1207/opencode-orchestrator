@@ -8,6 +8,7 @@ const MAX_RESULTS = 3;
 const MAX_SNIPPET_CHARS = 220;
 const KNOWLEDGE_ROOTS = ["docs", path.join(".opencode", "docs")];
 const SKIP_SEGMENTS = new Set(["node_modules", "dist", "bin", ".git", "archive"]);
+const GENERATED_SCRATCHPAD_PATH = path.join(".opencode", "docs", "brain", "scratchpad.md");
 
 interface IndexedKnowledge {
     search: HybridSearch;
@@ -37,7 +38,9 @@ export class KnowledgeContextProvider {
             if (!existsSync(fullRoot)) continue;
             files.push(...this.walkDirectory(fullRoot));
         }
-        return files.sort();
+        return files
+            .filter(filePath => !this.isDirectInjectedScratchpad(directory, filePath))
+            .sort();
     }
 
     private walkDirectory(directory: string): string[] {
@@ -88,6 +91,10 @@ export class KnowledgeContextProvider {
         const normalized = content.replace(/\s+/g, " ").trim();
         if (normalized.length <= MAX_SNIPPET_CHARS) return normalized;
         return `${normalized.slice(0, MAX_SNIPPET_CHARS)}...`;
+    }
+
+    private isDirectInjectedScratchpad(directory: string, filePath: string): boolean {
+        return path.relative(directory, filePath) === GENERATED_SCRATCHPAD_PATH;
     }
 
     private formatPrompt(

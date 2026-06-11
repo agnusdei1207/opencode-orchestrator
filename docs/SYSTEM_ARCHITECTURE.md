@@ -81,6 +81,7 @@ Mission loop state is file-backed under `.opencode/`:
 | `.opencode/mission-ledger.jsonl` | `src/core/loop/mission-ledger.ts` | Bounded event trail when ledger output is enabled. |
 | `.opencode/docs/brain/scratchpad.md` | `src/core/knowledge/mission-memory.ts` | Generated markdown memory surface. |
 | `.opencode/docs/brain/knowledge-map.canvas` | `src/core/knowledge/mission-memory.ts` | Obsidian-compatible mission graph. |
+| `.opencode/docs/brain/memories/*.md` | `src/core/knowledge/mission-memory.ts` | Generated mission-relevant memory notes for prompt-time retrieval. |
 
 `startMissionLoop()` persists the mission state. `handleMissionIdle()` re-verifies completion before scheduling a continuation. `generateMissionContinuationPrompt()` injects a compact prompt containing objective, progress, verification summary, stagnation signal, and completion rule.
 
@@ -103,7 +104,7 @@ The generated markdown scratchpad and `.canvas` graph are the main Builder-deriv
 2. Generate a readable markdown scratchpad instead of introducing a separate database.
 3. Treat the graph as a visualization and navigation artifact, not as a second source of truth.
 
-The current implementation writes these artifacts through `src/core/knowledge/mission-memory.ts` and indexes them through the existing prompt-context path.
+The current implementation writes these artifacts through `src/core/knowledge/mission-memory.ts`, injects the scratchpad directly through `src/plugin-handlers/system-transform-handler.ts`, and indexes the generated markdown notes through the existing prompt-context path.
 
 ## 8. Release and Platform Baseline
 
