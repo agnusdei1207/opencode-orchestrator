@@ -2,90 +2,98 @@
 
 ## Current Task
 
-Patch release `1.3.8` has been prepared and published to npm locally, and the remaining work is to push commits/tags and verify the GitHub release side.
+Patch release `1.3.9` has been completed and published. The repository is now aligned to the updated release workflow baseline, and the remaining unresolved work is limited to repository-admin-only homepage cleanup and the Windows runner redirect notice.
 
 ## Last Completed Step
 
-1. Completed the OpenCode alignment pass:
-   - `README.md` now answers model selection, permission inheritance, compatibility, and concurrency placement directly.
-   - `docs/SYSTEM_ARCHITECTURE.md` was replaced with a shorter source-backed architecture map.
-   - `.github/workflows/release.yml` now uses `softprops/action-gh-release@v2` and `oven-sh/setup-bun@v2`, and the default release body no longer advertises stale features.
-   - `package.json` and `package-lock.json` pin `@opencode-ai/plugin` and `@opencode-ai/sdk` to `1.17.3`.
-   - `tests/unit/dependency-compatibility.test.ts` guards that compatibility baseline.
-   - `docs/histories/2026/06/11/PLAN_OfficialOpenCodeAlignmentAndReleaseHardening_2026-06-11.md` records the detailed English plan.
-2. Committed the non-version work:
-   - `8cceb27 Align OpenCode docs and release plumbing`
-3. Ran patch release automation:
-   - `c0d1cab 1.3.8`
-   - tag `v1.3.8`
-   - npm publish succeeded for `opencode-orchestrator@1.3.8`
+1. Re-ran the evidence-based audit against current source, installed OpenCode plugin types, official OpenCode docs, npm registry metadata, and GitHub Action releases.
+2. Expanded the dated English plan document:
+   - `docs/histories/2026/06/11/PLAN_OfficialOpenCodeAlignmentAndReleaseHardening_2026-06-11.md`
+3. Simplified and hardened `.github/workflows/release.yml`:
+   - upgraded `actions/checkout` to `v6`
+   - upgraded `actions/setup-node` to `v6`
+   - upgraded `actions/upload-artifact` to `v7`
+   - upgraded `actions/download-artifact` to `v8`
+   - upgraded `softprops/action-gh-release` to `v3`
+   - removed the unused `oven-sh/setup-bun` step
+   - replaced action registry inputs with explicit `.npmrc` auth steps
+4. Added regression coverage for the workflow contract:
+   - `tests/unit/release-workflow.test.ts`
+5. Verified the change set locally:
+   - `npx tsc --noEmit`
+   - focused Vitest: 7 files, 33 tests
+   - `npm run build`
+   - full Vitest: 75 files, 710 tests
+   - `npm audit --json`
+   - `npm pack --dry-run --json`
+   - YAML parse check of `.github/workflows/release.yml`
+6. Released and pushed:
+   - commit `0aae2b5` `Refine release workflow and audit plan`
+   - release commit `4b97e74` `1.3.9`
+   - tag `v1.3.9`
+   - npm publish succeeded for `opencode-orchestrator@1.3.9`
+   - GitHub Actions run `27318294800` succeeded
+   - GitHub Release published at `https://github.com/agnusdei1207/opencode-orchestrator/releases/tag/v1.3.9`
 
 ## Verification Observed
 
-1. Before release:
-   - `npx tsc --noEmit` passed.
-   - `npm run build` passed.
-   - Focused Vitest passed: 7 files, 33 tests.
-   - `npm test` passed: 74 files, 708 tests.
-   - `npm audit --json` passed with 0 vulnerabilities.
-   - `npm pack --dry-run --json` passed.
-   - `git diff --check` passed.
-2. Release preflight during `npm run release:patch`:
-   - build passed
-   - full Vitest passed again
-   - Rust workspace tests passed (executed inside the release preflight)
-   - `npm audit --json` passed
-   - `npm pack --dry-run` passed for `1.3.8`
-   - Docker Linux x64 and Linux arm64 artifact rebuild completed
-   - `node scripts/release-sync-artifacts.mjs` reported no artifact changes
-   - `npm publish --access public` succeeded
-3. Registry verification:
-   - `npm view opencode-orchestrator version dist-tags.latest dist.tarball` returned `1.3.8`, `latest = 1.3.8`
-4. Repository/admin state:
-   - `git log --oneline --decorate -n 4` shows `c0d1cab (HEAD -> main, tag: v1.3.8) 1.3.8`
-   - `git status --short --branch` shows `main...origin/main [ahead 2]`
-   - `gh repo view --json homepageUrl,nameWithOwner,url` still reports `homepageUrl: https://rdot.agnusdei.kr/`
-   - `gh issue list --state open` still shows only `#25`
+1. Current registry state:
+   - `npm view @opencode-ai/plugin version` -> `1.17.3`
+   - `npm view @opencode-ai/sdk version` -> `1.17.3`
+   - `npm view opencode-orchestrator version dist-tags.latest` -> `1.3.9`
+2. Current GitHub release action baselines verified through `gh release list`:
+   - `actions/checkout` latest `v6.0.3`
+   - `actions/setup-node` latest `v6.4.0`
+   - `actions/upload-artifact` latest `v7.0.1`
+   - `actions/download-artifact` latest `v8.0.1`
+   - `softprops/action-gh-release` latest `v3.0.0`
+3. Current repository state after push:
+   - `git status --short --branch` -> `## main...origin/main`
+4. GitHub workflow verification:
+   - run `27318294800` succeeded
+   - release job published GitHub release assets and GitHub Packages
 
 ## Next Exact Step
 
-1. Push `main` and tags to `origin`.
-2. Verify that the `v1.3.8` GitHub Actions release workflow completes.
-3. If repository settings access becomes available, change the repository sidebar homepage to GitHub issues and then close `#25`.
+1. If repository admin credentials become available, change the GitHub repository sidebar homepage from `https://rdot.agnusdei.kr/` to `https://github.com/agnusdei1207/opencode-orchestrator/issues`.
+2. Re-verify `gh repo view --json homepageUrl`.
+3. Only then comment on and close issue `#25`.
+4. Separately, decide whether to pin the Windows runner label explicitly once GitHub documents the redirect target that replaces `windows-latest`.
 
 ## Incomplete Items and Why
 
-- `#25` remains open because the broken link is still the GitHub repository sidebar Homepage setting, which requires repository settings/admin access.
-- GitHub release verification for `v1.3.8` cannot happen until the tag is pushed.
+- Issue `#25` remains open because the broken link lives in the GitHub repository sidebar homepage setting, and the current token only has `viewerPermission: WRITE`; `gh repo edit --homepage ...` returned `HTTP 404`, so repository-admin settings access is still missing.
+- The `v1.3.9` workflow still reports one GitHub notice:
+  - `windows-latest requests are being redirected to windows-2025-vs2026 by June 15, 2026`
+  This is only a notice, not a failure, and was left unchanged because the repository currently uses the documented stable `-latest` alias and no official runner-label migration decision has been verified yet from source.
 
 ## Key Decisions
 
-- Keep the README centered on the plugin tuple because the installed OpenCode plugin type explicitly supports `plugin?: Array<string | [string, PluginOptions]>`.
-- Pin `@opencode-ai/plugin` and `@opencode-ai/sdk` to the same tested `1.17.3` release to reduce plugin-surface drift.
-- Replace the oversized architecture memo with a concise source-backed version instead of maintaining stale performance claims.
-- Treat Builder-inspired memory features as optional workspace-local artifacts only.
+1. Keep OpenCode as the contract authority; use installed plugin types plus official docs to justify the configuration guidance.
+2. Reduce release workflow complexity rather than layering more tooling onto it.
+3. Guard workflow drift with a direct test file instead of relying only on manual release inspection.
+4. Do not close support-link issue `#25` until the public broken link is actually removed.
 
 ## Rejected Alternatives
 
-- Closing `#25` without verifying the GitHub sidebar homepage: rejected because the public broken link would remain live.
-- Importing Builder-specific permission defaults or control policy: rejected because OpenCode remains the authority for permissions and config behavior.
-- Skipping a patch release after changing user-facing docs and release plumbing: rejected because the user has repeatedly asked for release patch completion.
+1. Closing `#25` based only on package metadata and README cleanup: rejected because the public broken link still exists in repository settings.
+2. Keeping `setup-bun` in the release workflow: rejected because the workflow does not use Bun there.
+3. Replacing `windows-latest` immediately with an unverified label: rejected until GitHub publishes or the repository owner explicitly chooses a fixed Windows image target.
 
 ## Known Risks
 
-- The repository sidebar homepage still exposes the dead external URL until admin access is provided.
-- GitHub Actions release workflow for `v1.3.8` still needs post-push verification.
-- Upstream OpenCode docs may evolve beyond the pinned `1.17.3` surface; the new compatibility test only guards the current baseline.
+1. Repository homepage cleanup still needs admin-level settings access.
+2. GitHub may require a future Windows runner label update if `windows-latest` redirect policy changes beyond the current notice.
+3. The workflow regression test pins current action majors, so future upstream major upgrades will require an intentional test update.
 
 ## Open These Files First Next Session
 
-1. AGENT_MEMORY.md
-2. README.md
-3. docs/SYSTEM_ARCHITECTURE.md
-4. .github/workflows/release.yml
-5. package.json
-6. package-lock.json
-7. tests/unit/dependency-compatibility.test.ts
-8. `git log --oneline --decorate -n 4`
-9. `gh repo view --json homepageUrl,nameWithOwner,url`
-10. `gh run list --limit 10`
+1. `AGENT_MEMORY.md`
+2. `.github/workflows/release.yml`
+3. `tests/unit/release-workflow.test.ts`
+4. `README.md`
+5. `docs/SYSTEM_ARCHITECTURE.md`
+6. `docs/histories/2026/06/11/PLAN_OfficialOpenCodeAlignmentAndReleaseHardening_2026-06-11.md`
+7. `gh repo view --json homepageUrl,viewerPermission,url`
+8. `gh issue view 25 --json number,title,state,url`
+9. `gh run view 27318294800`
