@@ -8,34 +8,36 @@
 
 ---
 
-## ⚡ AGENT MANDATORY CONSTRAINTS — 작업 전 반드시 숙지
+## ⚡ AGENT MANDATORY CONSTRAINTS — Must read and understand before starting work
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│  이 문서의 모든 지시는 MANDATORY(필수)입니다. 선택 사항 없음.      │
+│  All instructions in this document are MANDATORY. No exceptions. │
 │                                                                 │
-│  ❌ NEVER:  grep/패턴 매칭으로 "확인했다" 판단                    │
-│  ❌ NEVER:  가정(assumption) 기반 코드 수정                      │
-│  ❌ NEVER:  할루시네이션 — 소스코드를 직접 열어 1줄씩 확인만 인정  │
-│  ❌ NEVER:  리팩토링+기능추가 동일 커밋                           │
-│  ❌ NEVER:  범위 선언 없이 수정                                  │
-│  ❌ NEVER:  과거 코드 구조를 사용 안 하면서 삭제 안 함             │
-│  ❌ NEVER:  소스 변경 후 관련 싱크(테스트/문서/타입/상수 등) 누락  │
+│  ❌ NEVER:  Assume "verified" based on grep/pattern matching      │
+│  ❌ NEVER:  Modify code based on assumptions                    │
+│  ❌ NEVER:  Hallucinate — only direct line-by-line verification   │
+│             of source code is accepted.                         │
+│  ❌ NEVER:  Mix refactoring and feature additions in same commit │
+│  ❌ NEVER:  Modify without declaring the scope                   │
+│  ❌ NEVER:  Keep legacy code structure active if unused         │
+│  ❌ NEVER:  Miss sync of related items (test, doc, types, etc.)  │
+│             after source modification.                           │
 │                                                                 │
-│  ✅ ALWAYS: 작업 전 전체 프로젝트 전수조사 (§0-0)                 │
-│  ✅ ALWAYS: 실제 코드 파일 열어 마이크로 추적                     │
-│  ✅ ALWAYS: 작업 후 전체 시스템 안전성·연결성·일관성 검증 (§POST)  │
-│  ✅ ALWAYS: Zero Backward Compatibility — 구코드 반드시 삭제      │
-│  ✅ ALWAYS: Zero Behavioral Change — 100% 동작 보존              │
-│  ✅ ALWAYS: 작업 완료 후 §REPORT 작성 (보고서)                  │
-│  ✅ ALWAYS: 작업 완료 후 §REVIEW 실행 (10개 관점 코드 리뷰)      │
-│  ✅ ALWAYS: 작업 완료 후 전체 싱크 — 아래 항목 빠짐없이 동기화    │
-│            · 테스트 코드 (시그니처·임포트·어설션·fixture)         │
-│            · 타입 정의 (인터페이스·enum·branded type)            │
-│            · 상수/설정 (이동·이름 변경 시 모든 참조 업데이트)      │
-│            · 문서 (README·ARCHITECTURE·CHANGELOG·ADR)           │
-│            · 임포트/익스포트 경로 (barrel 포함)                   │
-│            · 환경 변수·설정 파일 참조                            │
+│  ✅ ALWAYS: Survey entire project before starting (§0-0)        │
+│  ✅ ALWAYS: Open actual code files and perform micro-tracing     │
+│  ✅ ALWAYS: Verify system safety/connectivity/consistency (§POST)│
+│  ✅ ALWAYS: Zero Backward Compatibility — must delete old code   │
+│  ✅ ALWAYS: Zero Behavioral Change — 100% preserve behavior      │
+│  ✅ ALWAYS: Write §REPORT after completing work (Report)         │
+│  ✅ ALWAYS: Run §REVIEW after completing work (10-point review)  │
+│  ✅ ALWAYS: Full Sync — synchronize all of the following:        │
+│            · Test code (signatures, imports, assertions, fixture)│
+│            · Type definitions (interface, enum, branded type)    │
+│            · Constants/Config (update all references on rename)  │
+│            · Documentation (README, ARCHITECTURE, CHANGELOG, ADR)│
+│            · Import/export paths (including barrels)             │
+│            · Environment variable and config file references     │
 └─────────────────────────────────────────────────────────────────┘
 ```
 

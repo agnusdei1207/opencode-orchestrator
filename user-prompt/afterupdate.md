@@ -1,55 +1,55 @@
 # ╔══════════════════════════════════════════════════════════╗
-# ║  POST-WORK MANDATORY AUDIT — 작업 완료 후 필수 전수조사    ║
+# ║  POST-WORK MANDATORY AUDIT — Post-work Mandatory Audit    ║
 # ╚══════════════════════════════════════════════════════════╝
 
-> ⛔ **모든 작업 완료 후 반드시 실행. 생략 또는 피상적 수행 불가.**
-> 변경사항이 많을수록 이 단계가 더 중요하다.
-> **grep/패턴 매칭으로 "확인했다" 판단 ❌ — 전수조사를 직접 수행하라.**
+> ⛔ **Must be executed after all work is completed. Cannot be skipped or performed superficially.**
+> The more changes there are, the more critical this step becomes.
+> **"Verified" using grep/pattern matching is ❌ — perform the audit directly.**
 
 ---
 
-## 전체 시스템 안전성·연결성·일관성 전수조사 (MANDATORY)
+## Full System Safety, Connectivity, and Consistency Audit (MANDATORY)
 
-### ▸ 안전성 (Safety)
+### ▸ Safety
 ```
-☑ 삭제된 코드를 참조하는 지점 0 (Dead reference 0)
-☑ 새 구조로의 이주가 누락된 소비자 0
-☑ 빌드 0에러 · 정적 분석 0에러
-☑ 전체 테스트 100% pass (regression 0)
-```
-
-### ▸ 연결성 (Connectivity) — 실제 코드 열어 1줄씩 추적. grep 금지.
-```
-☑ 모든 import/export 경로 추적 완료
-☑ 동적 연결(Registry/이벤트/DI/문자열 디스패치) 추적 완료
-☑ Barrel/Entry point 공개 API 일관성 확인
-☑ Producer→Consumer 필드 1:1 매칭 재검증
-☑ 고아 코드(와이어업 누락) 0
+☑ 0 references to deleted code (Dead references: 0)
+☑ 0 consumers missing migration to the new structure
+☑ 0 build errors · 0 static analysis errors
+☑ 100% test pass (Regressions: 0)
 ```
 
-### ▸ 일관성 (Consistency)
+### ▸ Connectivity — Open the actual code and trace line-by-line. No grep.
 ```
-☑ 새 모듈·파일 명명 규칙 전체 통일
-☑ 계층 구조 일관성 유지 (Presentation/Business/Infrastructure)
-☑ 상수·타입 참조가 모두 현행 정의를 가리킴
-☑ 문서(README/ARCHITECTURE/CHANGELOG) 현행 구조 반영
-```
-
-### ▸ 전체 싱크 (Full Sync)
-```
-☑ 테스트 코드: 시그니처·임포트·어설션·fixture 현행 소스 반영
-☑ 고아 테스트 0 / 누락 테스트 0
-☑ 타입 정의 변경 시 모든 참조 업데이트 완료
-☑ 상수/설정 이동·이름 변경 시 모든 소비자 경로 업데이트 완료
-☑ Mock/Stub 현행 계약 반영
-☑ 문서(README·ARCHITECTURE·CHANGELOG·ADR) 현행 구조 완전 반영
+☑ All import/export paths traced and verified
+☑ Dynamic connections (Registry/Events/DI/String dispatch) traced and verified
+☑ Checked consistency of Barrel/Entry point public APIs
+☑ Re-validated 1:1 matching of Producer→Consumer fields
+☑ 0 orphaned code (missing wire-up)
 ```
 
-### ▸ 프로젝트 영향도 분석
+### ▸ Consistency
 ```
-☑ 변경된 모듈의 상위·하위 의존성 전수조사 완료
-☑ 작은 의존관계부터 구조적·마이크로 플로우까지 끝까지 확인 — thoroughly
-☑ 문제 없음 확인. 문제 발견 시 즉시 보고 후 수정.
+☑ Naming conventions for new modules/files fully unified
+☑ Hierarchical structure consistency maintained (Presentation/Business/Infrastructure)
+☑ Constant/type references all point to current definitions
+☑ Documentation (README/ARCHITECTURE/CHANGELOG) reflects current structure
 ```
 
-> ✅ 위 체크리스트를 **전부** 통과한 뒤에만 작업을 완료로 선언할 수 있다.
+### ▸ Full Sync
+```
+☑ Test code: Signatures, imports, assertions, and fixtures reflect current source
+☑ 0 orphaned tests / 0 missing tests
+☑ All references updated when type definitions change
+☑ All consumer paths updated when constants/configs are moved or renamed
+☑ Mocks/Stubs reflect current contract
+☑ Documentation (README, ARCHITECTURE, CHANGELOG, ADR) fully reflects current structure
+```
+
+### ▸ Project Impact Analysis
+```
+☑ Full survey of upstream and downstream dependencies for modified modules
+☑ Followed through from smallest dependencies to structural and micro flows — thoroughly
+☑ Confirmed no issues. If issues are found, report and fix immediately.
+```
+
+> ✅ Mark the work as complete ONLY after passing **all** items on this checklist.

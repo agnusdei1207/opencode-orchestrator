@@ -1,23 +1,23 @@
 # ╔══════════════════════════════════════════════════════╗
-# ║  PRE-WORK MANDATORY SURVEY — 작업 시작 전 필수 전수조사  ║
+# ║  PRE-WORK MANDATORY SURVEY — Pre-work Mandatory Survey ║
 # ╚══════════════════════════════════════════════════════╝
 
-> ⛔ **이 단계를 건너뛰거나 피상적으로 수행하면 작업 자체를 시작할 수 없다.**
-> grep/패턴 매칭으로 "확인했다" 판단 ❌ — 파일을 직접 열어 1줄씩 읽고 추적만 인정.
+> ⛔ **This step cannot be skipped or performed superficially; doing so blocks starting the work itself.**
+> "Verified" using grep/pattern matching is ❌ — only opening the files directly and reading line-by-line is accepted.
 
 ---
 
-## 작업 전 전체 프로젝트 전수조사 (MANDATORY)
+## Pre-Work Full Project Survey (MANDATORY)
 
 ```
-□ 진입점(Entry Point) 전부 열거 — API / Event / Cron / CLI / DI 등
-□ 데이터 흐름 추적 — 진입점부터 종료점까지 모든 분기 끝까지 추적
-□ 모듈 간 의존 관계 파악 — 가장 작은 의존관계부터 구조적 플로우까지
-□ 동적 등록 파악 — Tool Registry / Event Emitter / DI / 문자열 디스패치
-□ Barrel / Entry Point 파악 — 외부로 공개된 API 목록 확인
-□ 세대별 흐름 파악 — v1/v2 공존 시 각 흐름 분리하여 추적
-□ 마이크로 플로우 추적 — 함수 단위까지 내려가 실제 호출 체인 확인
-□ 모든 흐름 상세 파악 완료 — thoroughly
+□ Enumerate all Entry Points — API / Event / Cron / CLI / DI etc.
+□ Trace Data Flow — Trace from entry point to end point through all branches
+□ Understand Module Dependencies — From the smallest dependency to structural flow
+□ Identify Dynamic Registration — Tool Registry / Event Emitter / DI / String dispatch
+□ Identify Barrel / Entry Point — Check the list of APIs exposed to the outside
+□ Understand Generational Flow — If v1/v2 coexist, trace each flow separately
+□ Trace Micro Flow — Go down to the function level to verify the actual call chain
+□ Thoroughly understand all flows — thoroughly
 ```
 
-> ✅ 위 항목을 **모두** 완료한 뒤에만 본 작업을 시작하라.
+> ✅ Begin the work ONLY after completing **all** of the items above.

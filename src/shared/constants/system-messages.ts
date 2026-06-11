@@ -84,15 +84,15 @@ export const CONTINUE_INSTRUCTION = `<auto_continue>
 
 export const STAGNATION_INTERVENTION = `
 <system_intervention type="stagnation_detected">
-⚠️ **경고: 진행 정체 감지 (STAGNATION DETECTED)**
-최근 여러 턴 동안 실질적인 진전이 감지되지 않았습니다. 단순 "모니터링"이나 같은 행동을 반복하는 것은 금지됩니다.
+⚠️ **WARNING: STAGNATION DETECTED**
+No substantive progress has been detected for the past several turns. Repeating the same action or merely "monitoring" is prohibited.
 
-**자율적 진단 및 해결 지침:**
-1. **실시간 로그 확인**: \`check_background_task\` 또는 \`read_file\`을 사용하여 진행 중인 작업의 출력 로그를 직접 확인하십시오.
-2. **프로세스 생존 진단**: 작업이 좀비 상태이거나 멈춘 것 같다면 과감하게 \`kill\`하고 단계를 세분화하여 다시 실행하십시오.
-3. **전략 전환**: 동일한 접근 방식이 실패하고 있다면, 다른 도구나 방법을 사용하여 목표에 도달하십시오.
+**Guidelines for Autonomous Diagnosis and Resolution:**
+1. **Check Real-time Logs**: Use \`check_background_task\` or \`read_file\` to directly check the output logs of the running task.
+2. **Process Liveness Diagnosis**: If the task appears to be in a zombie state or hung, proactively \`kill\` it, break down the steps, and run it again.
+3. **Strategy Pivot**: If the same approach keeps failing, use alternative tools or methods to reach the goal.
 
-**지금 바로 능동적으로 개입하십시오. 대기하지 마십시오.**
+**Intervene proactively right now. Do not wait.**
 </system_intervention>`;
 
 export const CLEANUP_INSTRUCTION = `

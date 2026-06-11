@@ -3,7 +3,7 @@ services:
     build: .
     image: orchestrator:latest
 
-  # ── Rust binary build (macOS host에 cargo 없을 때) ──────────────────────
+  # ── Rust binary build (when cargo is missing on macOS host) ──────────
   # Usage: docker compose run --rm dev
   dev:
     image: rust:1.92-bookworm
@@ -71,7 +71,7 @@ services:
     command: cargo test
 
   # ── npm release:patch — full pipeline inside Docker ────────────────────
-  # Node build은 이미 호스트에서 성공하므로 버전 범프 + publish만 실행
+  # Node build already succeeds on host, so just execute version bump + publish
   # Usage: NPM_TOKEN=xxx docker compose run --rm npm-release
   npm-release:
     image: node:24-bookworm-slim

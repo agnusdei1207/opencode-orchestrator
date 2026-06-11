@@ -29,7 +29,7 @@ describe("package metadata", () => {
         const metadata = readPackageMetadata();
         const issueURL = "https://github.com/agnusdei1207/opencode-orchestrator/issues";
 
-        expect(metadata.homepage).toBe(issueURL);
+        expect(metadata.homepage).toBe("https://agnusdei1207.github.io/opencode-orchestrator/");
         expect(metadata.bugs?.url).toBe(issueURL);
     });
 });
