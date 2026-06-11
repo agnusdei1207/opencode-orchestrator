@@ -6,7 +6,15 @@
  * Replaces separate ResourceUsageHook and MemoryCompactionHook.
  */
 
-import type { PostToolUseHook, AssistantDoneHook, HookContext, HookResult } from "../types.js";
+import type {
+    PostToolUseHook,
+    AssistantDoneHook,
+    HookContext,
+    HookResult,
+    PostToolResult,
+    ToolInput,
+    ToolOutput,
+} from "../types.js";
 import { log } from "../../core/agents/logger.js";
 import { HOOK_ACTIONS, HOOK_NAMES } from "../constants.js";
 import {
@@ -23,31 +31,39 @@ import { COMPACTION_PROMPT } from "../../shared/constants/system-messages.js";
 const COMPACTION_THRESHOLD = CONTEXT_THRESHOLDS.WARNING;
 const COOLDOWN_MS = 10 * 60 * 1000; // 10 minutes
 
+interface TokenTrackedSession {
+    tokens?: {
+        totalInput: number;
+        totalOutput: number;
+    };
+}
+
 export class ResourceControlHook implements PostToolUseHook, AssistantDoneHook {
     name = HOOK_NAMES.RESOURCE_CONTROL;
 
     private lastCompactionTime: Map<string, number> = new Map();
 
-    async execute(ctx: HookContext, toolOrText: string, input?: any, output?: any): Promise<any> {
+    async execute(
+        ctx: HookContext,
+        tool: string,
+        input: ToolInput,
+        output: ToolOutput
+    ): Promise<PostToolResult>;
+    async execute(
+        ctx: HookContext,
+        finalText: string
+    ): Promise<HookResult>;
+    async execute(ctx: HookContext, toolOrText: string, input?: unknown, output?: unknown): Promise<PostToolResult | HookResult> {
         // --------------------------------------------------------
         // 1. Resource Tracking (Usage & Cost)
         // --------------------------------------------------------
 
-        let inputLen = 0;
-        let outputLen = 0;
-
-        // Estimate based on input/output length
-        if (input) {
-            const inputStr = typeof input === "string" ? input : JSON.stringify(input);
-            inputLen = inputStr.length;
-        }
-        if (output) {
-            const outputStr = typeof output === "string" ? output : JSON.stringify(output);
-            outputLen = outputStr.length;
-        }
+        const isAssistantDone = input === undefined && output === undefined;
+        const inputLen = isAssistantDone ? 0 : getSerializedLength(input);
+        let outputLen = getSerializedLength(output);
 
         // For 'AssistantDone', toolOrText is the final text
-        if (arguments.length === 2 && typeof toolOrText === 'string') {
+        if (isAssistantDone) {
             outputLen = toolOrText.length;
         }
 
@@ -57,12 +73,16 @@ export class ResourceControlHook implements PostToolUseHook, AssistantDoneHook {
         // --------------------------------------------------------
         // 2. Memory Analysis & Compaction Trigger
         // --------------------------------------------------------
+        if (!isAssistantDone) {
+            return {};
+        }
+
         const session = ctx.sessions.get(ctx.sessionID); // Updated by ensureSessionInitialized inside updateTokens
         return this.checkMemoryHealth(ctx, session);
     }
 
-    private async checkMemoryHealth(ctx: HookContext, session: any): Promise<HookResult> {
-        if (!session?.tokens) return { action: HOOK_ACTIONS.CONTINUE };
+    private async checkMemoryHealth(ctx: HookContext, session: unknown): Promise<HookResult> {
+        if (!hasTokenUsage(session)) return { action: HOOK_ACTIONS.CONTINUE };
 
         const totalUsed = session.tokens.totalInput + session.tokens.totalOutput;
         const maxTokens = CONTEXT_MONITOR_CONFIG.DEFAULT_MAX_TOKENS;
@@ -93,4 +113,25 @@ export class ResourceControlHook implements PostToolUseHook, AssistantDoneHook {
             prompts: [prompt]
         };
     }
+}
+
+function getSerializedLength(value: unknown): number {
+    if (value === undefined || value === null) return 0;
+    if (typeof value === "string") return value.length;
+
+    try {
+        return JSON.stringify(value)?.length ?? 0;
+    } catch {
+        return String(value).length;
+    }
+}
+
+function hasTokenUsage(session: unknown): session is TokenTrackedSession & Required<Pick<TokenTrackedSession, "tokens">> {
+    if (typeof session !== "object" || session === null || Array.isArray(session)) return false;
+
+    const tokens = (session as { tokens?: unknown }).tokens;
+    if (typeof tokens !== "object" || tokens === null || Array.isArray(tokens)) return false;
+
+    const candidate = tokens as { totalInput?: unknown; totalOutput?: unknown };
+    return typeof candidate.totalInput === "number" && typeof candidate.totalOutput === "number";
 }

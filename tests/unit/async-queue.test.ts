@@ -9,7 +9,8 @@ import {
     workPoolWithResults,
     processBatches,
     retryWithBackoff,
-    withTimeout
+    withTimeout,
+    debounceAsync
 } from "../../src/core/queue/index";
 
 describe("AsyncQueue", () => {
@@ -204,5 +205,34 @@ describe("withTimeout", () => {
         await expect(
             withTimeout(promise, 50, "Custom timeout message")
         ).rejects.toThrow("Custom timeout message");
+    });
+});
+
+describe("debounceAsync", () => {
+    it("should call the wrapped function only for the latest invocation", async () => {
+        vi.useFakeTimers();
+        try {
+            const fn = vi.fn(async (value: string) => value.toUpperCase());
+            const debounced = debounceAsync(fn, 100);
+
+            const first = debounced("first");
+            const second = debounced("second");
+            let firstSettled = false;
+            first.finally(() => {
+                firstSettled = true;
+            });
+
+            await vi.advanceTimersByTimeAsync(100);
+
+            await expect(second).resolves.toBe("SECOND");
+            expect(fn).toHaveBeenCalledTimes(1);
+            expect(fn).toHaveBeenCalledWith("second");
+
+            // Superseded calls are not invoked by this debounce helper.
+            await Promise.resolve();
+            expect(firstSettled).toBe(false);
+        } finally {
+            vi.useRealTimers();
+        }
     });
 });

@@ -18,7 +18,7 @@ export interface MemoryEntry {
     level: MemoryLevel;
     content: string;
     timestamp: number;
-    metadata?: Record<string, any>;
+    metadata?: Record<string, unknown>;
     importance: number; // 0 to 1
 }
 

@@ -139,6 +139,8 @@ Useful references:
 3. OpenCode keybinds: https://opencode.ai/docs/keybinds/
 4. Project issues: https://github.com/agnusdei1207/opencode-orchestrator/issues
 
+Contributions are welcome: open an issue or pull request when you find a bug, compatibility gap, or focused improvement.
+
 Config logs:
 
 | Platform | Path |

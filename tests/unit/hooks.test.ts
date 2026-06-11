@@ -21,6 +21,9 @@ import { TOOL_NAMES } from "../../src/shared";
 import { state } from "../../src/core/orchestrator/state";
 import { updateSessionTokens, recordAnomaly } from "../../src/core/orchestrator/session-manager";
 import { MISSION_MESSAGES } from "../../src/shared/constants/system-messages.js";
+import type { HookContext } from "../../src/hooks/types";
+import type { SessionState } from "../../src/core/orchestrator/interfaces/session-state";
+import type { VerificationResult } from "../../src/core/loop/verification";
 
 // Mock dependencies
 vi.mock("../../src/core/agents/logger", () => ({ log: vi.fn() }));
@@ -71,7 +74,7 @@ vi.mock("../../src/utils/sanity/index", () => ({
 }));
 
 describe("Hook System", () => {
-    let mockContext: any;
+    let mockContext: HookContext;
 
     beforeEach(() => {
         mockContext = {
@@ -108,7 +111,7 @@ describe("Hook System", () => {
 
         it("should intercept /cancel and deactivate mission state", async () => {
             state.missionActive = true;
-            state.sessions.set("test-session", { enabled: true } as any);
+            state.sessions.set("test-session", createSessionState());
             mockContext.sessions.set("test-session", { active: true });
 
             const { cancelMissionLoop } = await import("../../src/core/loop/mission-loop");
@@ -119,15 +122,16 @@ describe("Hook System", () => {
             expect(result.action).toBe(HOOK_ACTIONS.INTERCEPT);
             expect(cancelMissionLoop).toHaveBeenCalledWith("/tmp/test", "test-session");
             expect(deactivateMissionState).toHaveBeenCalledWith("test-session");
-            expect(mockContext.sessions.get("test-session").active).toBe(false);
+            const session = mockContext.sessions.get("test-session") as { active: boolean };
+            expect(session.active).toBe(false);
         });
 
         it("should stop if verification passes", async () => {
             state.missionActive = true;
-            state.sessions.set("test-session", { enabled: true } as any);
+            state.sessions.set("test-session", createSessionState());
 
             const { verifyMissionCompletion } = await import("../../src/core/loop/verification");
-            vi.mocked(verifyMissionCompletion).mockReturnValue({ passed: true } as any);
+            vi.mocked(verifyMissionCompletion).mockReturnValue(createVerificationResult());
 
             const result = await hook.execute(mockContext, "All done");
             expect(result.action).toBe(HOOK_ACTIONS.STOP);
@@ -138,10 +142,35 @@ describe("Hook System", () => {
         const hook = new ResourceControlHook();
 
         it("should track tokens", async () => {
-            await hook.execute(mockContext, "tool", "input", "output");
-            const session = mockContext.sessions.get("test-session");
+            const result = await hook.execute(
+                mockContext,
+                "tool",
+                { prompt: "input" },
+                { title: "tool", output: "output", metadata: {} }
+            );
+            const session = mockContext.sessions.get("test-session") as {
+                tokens: { totalInput: number; active?: unknown };
+            };
+            expect(result).toEqual({});
             expect(session.tokens.totalInput).toBeGreaterThan(0);
             expect(session.tokens.active).not.toBeDefined(); // should be session root
+        });
+
+        it("should inject compaction prompt only on assistant completion", async () => {
+            mockContext.sessions.set("test-session", {
+                tokens: { totalInput: 180000, totalOutput: 0, estimatedCost: 0 },
+            });
+
+            const postResult = await hook.execute(
+                mockContext,
+                "tool",
+                { prompt: "input" },
+                { title: "tool", output: "output", metadata: {} }
+            );
+            const doneResult = await hook.execute(mockContext, "final response");
+
+            expect(postResult).toEqual({});
+            expect(doneResult.action).toBe(HOOK_ACTIONS.INJECT);
         });
     });
 
@@ -182,3 +211,29 @@ describe("Hook System", () => {
         });
     });
 });
+
+function createSessionState(overrides: Partial<SessionState> = {}): SessionState {
+    return {
+        enabled: true,
+        iterations: 0,
+        taskRetries: new Map(),
+        currentTask: "",
+        anomalyCount: 0,
+        ...overrides,
+    };
+}
+
+function createVerificationResult(overrides: Partial<VerificationResult> = {}): VerificationResult {
+    return {
+        passed: true,
+        todoComplete: true,
+        todoProgress: "3/3",
+        todoIncomplete: 0,
+        syncIssuesEmpty: true,
+        syncIssuesCount: 0,
+        checklistComplete: true,
+        checklistProgress: "1/1",
+        errors: [],
+        ...overrides,
+    };
+}

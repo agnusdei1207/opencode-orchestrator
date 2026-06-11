@@ -26,7 +26,7 @@ export function createToolExecuteBeforeHandler(ctx: ToolExecuteHandlerContext) {
             {
                 sessionID: toolInput.sessionID,
                 directory,
-                sessions: sessions as Map<string, any>,
+                sessions,
                 // In future, try to resolve 'agent' from session state if possible
             },
             toolInput.tool,

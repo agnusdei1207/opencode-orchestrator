@@ -3,7 +3,7 @@ import path from "path";
 import { log } from "../../core/agents/logger.js";
 
 export interface CachedDiagnostics {
-    diagnostics: any;
+    diagnostics: string;
     timestamp: number;
     filesMtime: number;
 }
@@ -12,7 +12,7 @@ export class DiagnosticsCache {
     private cache = new Map<string, CachedDiagnostics>();
     private defaultTTL = 30_000; // 30 seconds
 
-    async get(directory: string, file?: string): Promise<any | null> {
+    async get(directory: string, file?: string): Promise<string | null> {
         const key = this.getCacheKey(directory, file);
         const cached = this.cache.get(key);
 
@@ -44,8 +44,8 @@ export class DiagnosticsCache {
     async set(
         directory: string,
         file: string | undefined,
-        diagnostics: any
-    ) {
+        diagnostics: string
+    ): Promise<void> {
         try {
             const key = this.getCacheKey(directory, file);
             const filesMtime = await this.getFilesMtime(directory, file);

@@ -7,7 +7,7 @@
  * - Task ID tracking
  */
 
-import type { PostToolUseHook, HookContext } from "../types.js";
+import type { PostToolUseHook, HookContext, PostToolResult, ToolInput, ToolOutput } from "../types.js";
 import { TOOL_NAMES } from "../../shared/index.js";
 import { HOOK_NAMES } from "../constants.js";
 import { updateCurrentTask } from "../../core/orchestrator/session-manager.js";
@@ -17,20 +17,21 @@ import { MISSION_MESSAGES } from "../../shared/constants/system-messages.js";
 export class AgentUIHook implements PostToolUseHook {
     name = HOOK_NAMES.AGENT_UI;
 
-    async execute(ctx: HookContext, tool: string, input: any, output: { title: string; output: string; metadata: any }) {
+    async execute(ctx: HookContext, tool: string, input: ToolInput, output: ToolOutput): Promise<PostToolResult> {
         if (tool !== TOOL_NAMES.CALL_AGENT) return {};
 
         // 1. Task ID Tracking
-        if (input?.task) {
-            const taskIdMatch = input.task.match(UI_PATTERNS.TASK_ID);
+        const task = typeof input.task === "string" ? input.task : undefined;
+        if (task) {
+            const taskIdMatch = task.match(UI_PATTERNS.TASK_ID);
             if (taskIdMatch) {
                 updateCurrentTask(ctx.sessionID, taskIdMatch[1].toUpperCase());
             }
         }
 
         // 2. Agent Header Decoration
-        if (input?.agent) {
-            const agentName = input.agent as string;
+        const agentName = typeof input.agent === "string" ? input.agent : undefined;
+        if (agentName) {
             const indicator = agentName[0].toUpperCase();
             const header = MISSION_MESSAGES.AGENT_HEADER_FORMAT(indicator, agentName.toUpperCase());
 

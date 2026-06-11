@@ -2,12 +2,19 @@
  * MemoryGate Hook - Intercepts tool usage and turn completion to maintain memory.
  */
 
-import { PostToolUseHook, AssistantDoneHook, HookContext, HookResult } from "../types.js";
+import type {
+    PostToolUseHook,
+    AssistantDoneHook,
+    HookContext,
+    HookResult,
+    PostToolResult,
+    ToolInput,
+    ToolOutput,
+} from "../types.js";
 import { MemoryManager } from "../../core/memory/memory-manager.js";
 import { MemoryLevel } from "../../core/memory/interfaces.js";
 import { HOOK_ACTIONS } from "../constants.js";
 import { MEMORY_CONSTANTS, HOOK_NAMES } from "../../shared/index.js";
-import { log } from "../../core/agents/logger.js";
 
 export class MemoryGateHook implements PostToolUseHook, AssistantDoneHook {
     name = HOOK_NAMES.MEMORY_GATE;
@@ -15,10 +22,20 @@ export class MemoryGateHook implements PostToolUseHook, AssistantDoneHook {
 
     async execute(
         context: HookContext,
+        tool: string,
+        input: ToolInput,
+        output: ToolOutput
+    ): Promise<PostToolResult>;
+    async execute(
+        context: HookContext,
+        finalText: string
+    ): Promise<HookResult>;
+    async execute(
+        context: HookContext,
         toolOrText: string,
-        input?: any,
-        output?: { title: string; output: string; metadata: any }
-    ): Promise<any> {
+        input?: ToolInput,
+        output?: ToolOutput
+    ): Promise<PostToolResult | HookResult> {
         // Handle PostToolUse
         if (output) {
             return this.handlePostTool(context, toolOrText, input, output);
@@ -35,11 +52,11 @@ export class MemoryGateHook implements PostToolUseHook, AssistantDoneHook {
     private async handlePostTool(
         context: HookContext,
         tool: string,
-        input: any,
-        output: { title: string; output: string; metadata: any }
-    ): Promise<{ output?: string }> {
+        input: ToolInput | undefined,
+        output: ToolOutput
+    ): Promise<PostToolResult> {
         // Skip noisy or irrelevant tools
-        if (MEMORY_CONSTANTS.NOISY_TOOLS.includes(tool as any)) return {};
+        if (MEMORY_CONSTANTS.NOISY_TOOLS.includes(tool)) return {};
 
         const maxContentLength = MEMORY_CONSTANTS.MAX_CONTENT_LENGTH;
         let content = output.output;

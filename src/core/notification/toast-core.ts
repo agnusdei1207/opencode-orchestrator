@@ -9,6 +9,20 @@ import { HISTORY, LIMITS } from "../../shared/index.js";
 import { sanitizeToastMessage, sanitizeToastTitle } from "./toast-sanitizer.js";
 
 type OpencodeClient = PluginInput["client"];
+type ToastTuiClient = {
+    tui?: {
+        showToast?: (opts: unknown) => Promise<unknown> | unknown;
+    };
+};
+type ToastShowPayload = {
+    body: {
+        title: string;
+        message: string;
+        variant: ToastVariant;
+        duration: number;
+    };
+    signal?: AbortSignal;
+};
 
 // Store the OpenCode client for TUI access
 let tuiClient: OpencodeClient | null = null;
@@ -80,7 +94,7 @@ export function show(options: ToastOptions): ToastMessage {
 
     // Show in OpenCode TUI if available
     if (tuiClient) {
-        const client = tuiClient as unknown as { tui?: { showToast?: (opts: any) => Promise<void> } };
+        const client = tuiClient as unknown as ToastTuiClient;
         if (client.tui?.showToast) {
             try {
                 // AbortController provides a cancel mechanism for async operations
@@ -95,25 +109,21 @@ export function show(options: ToastOptions): ToastMessage {
                     }
                 }, timeoutMs);
 
-                const promise = client.tui.showToast?.({
+                const payload: ToastShowPayload = {
                     body: {
                         title: toast.title,
                         message: toast.message,
                         variant: toast.variant,
                         duration: toast.duration,
                     },
-                    signal: (ac as any).signal,
-                } as any);
+                    signal: ac.signal,
+                };
 
-                if (promise && typeof promise.then === "function") {
-                    Promise.resolve(promise).finally(() => {
-                        if (timer) {
-                            clearTimeout(timer);
-                        }
-                    }).catch(() => {
-                        // swallow errors from toast display
-                    });
-                }
+                Promise.resolve(client.tui.showToast(payload)).finally(() => {
+                    clearTimeout(timer);
+                }).catch(() => {
+                    // swallow errors from toast display
+                });
             } catch {
                 // Silently ignore errors in the toast pipeline
             }

@@ -3,7 +3,15 @@
  * Sanity Check Hook
  * Implements output anomaly detection.
  */
-import type { PostToolUseHook, AssistantDoneHook, HookContext, HookResult } from "../types.js";
+import type {
+    PostToolUseHook,
+    AssistantDoneHook,
+    HookContext,
+    HookResult,
+    PostToolResult,
+    ToolInput,
+    ToolOutput,
+} from "../types.js";
 import { checkOutputSanity, RECOVERY_PROMPT, ESCALATION_PROMPT } from "../../utils/sanity/index.js";
 import { TOOL_NAMES } from "../../shared/index.js";
 import { HOOK_ACTIONS, HOOK_NAMES } from "../constants.js";
@@ -15,15 +23,27 @@ export class SanityCheckHook implements PostToolUseHook, AssistantDoneHook {
 
     async execute(
         ctx: HookContext,
+        tool: string,
+        input: ToolInput,
+        output: ToolOutput
+    ): Promise<PostToolResult>;
+    async execute(
+        ctx: HookContext,
+        finalText: string
+    ): Promise<HookResult>;
+    async execute(
+        ctx: HookContext,
         toolOrText: string,
-        input?: any,
-        output?: { title: string; output: string; metadata: any }
-    ): Promise<any> {
+        input?: ToolInput,
+        output?: ToolOutput
+    ): Promise<PostToolResult | HookResult> {
         // Handle PostToolUse (checks CallAgent output)
         if (output) {
             if (toolOrText === TOOL_NAMES.CALL_AGENT) {
                 return this.checkToolOutput(ctx, input, output);
             }
+
+            return {};
         }
         // Handle AssistantDone (checks final text)
         else {
@@ -31,11 +51,11 @@ export class SanityCheckHook implements PostToolUseHook, AssistantDoneHook {
         }
     }
 
-    private async checkToolOutput(ctx: HookContext, toolInput: any, toolOutput: { output: string }) {
+    private async checkToolOutput(ctx: HookContext, toolInput: ToolInput | undefined, toolOutput: ToolOutput): Promise<PostToolResult> {
         const sanityResult = checkOutputSanity(toolOutput.output);
         if (!sanityResult.isHealthy) {
             const count = recordAnomaly(ctx.sessionID);
-            const agentName = toolInput?.agent as string || "unknown";
+            const agentName = typeof toolInput?.agent === "string" ? toolInput.agent : "unknown";
             const recoveryText = count >= 2 ? ESCALATION_PROMPT : RECOVERY_PROMPT;
 
             const errorMsg = MISSION_MESSAGES.ANOMALY_DETECTED_TITLE(agentName.toUpperCase()) + "\n\n" +

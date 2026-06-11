@@ -26,6 +26,27 @@ export type HookResult =
     | { action: typeof HOOK_ACTIONS.STOP; reason?: string }
     | { action: typeof HOOK_ACTIONS.INJECT; prompts: string[] };
 
+export type ToolInput = Record<string, unknown>;
+
+export interface ToolOutput {
+    title: string;
+    output: string;
+    metadata: Record<string, unknown>;
+}
+
+export type PreToolResult = {
+    action: typeof HOOK_ACTIONS.ALLOW | typeof HOOK_ACTIONS.BLOCK | typeof HOOK_ACTIONS.MODIFY;
+    modifiedArgs?: ToolInput;
+    reason?: string;
+};
+
+export type PostToolResult = { output?: string };
+
+export type ChatMessageResult = {
+    action: typeof HOOK_ACTIONS.PROCESS | typeof HOOK_ACTIONS.INTERCEPT;
+    modifiedMessage?: string;
+};
+
 /**
  * Pre-Tool Execution Hook
  * Runs before a tool is executed. Can block execution or modify arguments.
@@ -35,8 +56,8 @@ export interface PreToolUseHook {
     execute(
         context: HookContext,
         tool: string,
-        args: Record<string, unknown>
-    ): Promise<{ action: typeof HOOK_ACTIONS.ALLOW | typeof HOOK_ACTIONS.BLOCK | typeof HOOK_ACTIONS.MODIFY; modifiedArgs?: Record<string, unknown>; reason?: string }>;
+        args: ToolInput
+    ): Promise<PreToolResult>;
 }
 
 /**
@@ -48,9 +69,9 @@ export interface PostToolUseHook {
     execute(
         context: HookContext,
         tool: string,
-        input: Record<string, unknown>,
-        output: { title: string; output: string; metadata: Record<string, unknown> }
-    ): Promise<{ output?: string }>; // meaningful valid return modification
+        input: ToolInput,
+        output: ToolOutput
+    ): Promise<PostToolResult>; // meaningful valid return modification
 }
 
 /**
@@ -62,7 +83,7 @@ export interface ChatMessageHook {
     execute(
         context: HookContext,
         message: string
-    ): Promise<{ action: typeof HOOK_ACTIONS.PROCESS | typeof HOOK_ACTIONS.INTERCEPT; modifiedMessage?: string }>;
+    ): Promise<ChatMessageResult>;
 }
 
 /**

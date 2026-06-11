@@ -49,7 +49,7 @@ export function createToolExecuteAfterHandler(ctx: ToolExecuteHandlerContext) {
             {
                 sessionID: toolInput.sessionID,
                 directory,
-                sessions: sessions as Map<string, any>
+                sessions
             },
             toolInput.tool,
             toolInput.arguments || {},

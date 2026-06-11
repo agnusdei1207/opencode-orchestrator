@@ -7,7 +7,7 @@
  * - Auto-continuation injection (Loop)
  * - User cancellation detection
  */
-import type { AssistantDoneHook, ChatMessageHook, HookContext, HookResult } from "../types.js";
+import type { AssistantDoneHook, ChatMessageHook, ChatMessageResult, HookContext, HookResult } from "../types.js";
 import { log } from "../../core/agents/logger.js";
 import {
     startMissionLoop,
@@ -60,7 +60,9 @@ interface MissionSessionState {
 export class MissionControlHook implements AssistantDoneHook, ChatMessageHook {
     name = HOOK_NAMES.MISSION_LOOP;
 
-    async execute(ctx: HookContext, text: string): Promise<any> {
+    async execute(ctx: HookContext, text: string): Promise<ChatMessageResult>;
+    async execute(ctx: HookContext, text: string): Promise<HookResult>;
+    async execute(ctx: HookContext, text: string): Promise<ChatMessageResult | HookResult> {
         // 1. Try to handle as a Chat Command (/task)
         const chatResult = await this.handleChatCommand(ctx, text);
         if (chatResult) return chatResult;
@@ -72,7 +74,7 @@ export class MissionControlHook implements AssistantDoneHook, ChatMessageHook {
     // -------------------------------------------------------------------------------
     // 1. Chat Logic: Detect /task & Initialize
     // -------------------------------------------------------------------------------
-    private async handleChatCommand(ctx: HookContext, message: string): Promise<any | null> {
+    private async handleChatCommand(ctx: HookContext, message: string): Promise<ChatMessageResult | null> {
         const parsed = detectSlashCommand(message);
         if (!parsed) return null;
 
@@ -127,7 +129,7 @@ export class MissionControlHook implements AssistantDoneHook, ChatMessageHook {
     // -------------------------------------------------------------------------------
     // 2. Done Logic: Check Completion & Auto-Continue
     // -------------------------------------------------------------------------------
-    private async handleMissionProgress(ctx: HookContext, agentText: string): Promise<any> {
+    private async handleMissionProgress(ctx: HookContext, agentText: string): Promise<HookResult> {
         const { sessionID, directory, sessions } = ctx;
         const session = sessions.get(sessionID);
         const finalText = agentText || "";

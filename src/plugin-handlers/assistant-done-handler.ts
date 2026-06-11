@@ -34,7 +34,7 @@ export async function handleCompletedAssistantMessage(
     session.lastCompletedMessageID = messageID;
 
     const result = await hooks.executeDone(
-        { sessionID, directory, sessions: sessions as Map<string, any> },
+        { sessionID, directory, sessions },
         textContent,
     );
 

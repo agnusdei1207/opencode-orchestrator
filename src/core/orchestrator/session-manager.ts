@@ -15,29 +15,34 @@ import { SessionState } from "./interfaces/session-state.js";
  */
 import { readLoopState } from "../loop/mission-loop.js";
 
+interface ManagedSessionState {
+    active: boolean;
+    step: number;
+    timestamp: number;
+    startTime: number;
+    lastStepTime: number;
+    lastCompletedMessageID?: string;
+    lastUserMessageAt?: number;
+    lastAssistantCompletedAt?: number;
+    lastAbortAt?: number;
+    tokens: {
+        totalInput: number;
+        totalOutput: number;
+        estimatedCost: number;
+    };
+}
+
 /**
  * Ensures a local session object exists in the plugin context map.
  * Now WITH disk-based rehydration for robustness.
  */
 export function ensureSessionInitialized(
-    sessions: Map<string, any>,
+    sessions: Map<string, unknown>,
     sessionID: string,
     directory?: string
-): any {
+): ManagedSessionState {
     if (!sessions.has(sessionID)) {
-        const now = Date.now();
-        const newSession = {
-            active: true,
-            step: 0,
-            timestamp: now,
-            startTime: now,
-            lastStepTime: now,
-            lastCompletedMessageID: undefined,
-            lastUserMessageAt: undefined,
-            lastAssistantCompletedAt: undefined,
-            lastAbortAt: undefined,
-            tokens: { totalInput: 0, totalOutput: 0, estimatedCost: 0 },
-        };
+        const newSession = createManagedSession();
 
         // Rehydration attempt: If directory is provided, check mission loop state
         if (directory) {
@@ -50,8 +55,19 @@ export function ensureSessionInitialized(
         }
 
         sessions.set(sessionID, newSession);
+        return newSession;
     }
-    return sessions.get(sessionID);
+
+    const session = sessions.get(sessionID);
+    if (isManagedSessionState(session)) return session;
+
+    if (isRecord(session)) {
+        return normalizeManagedSession(session);
+    }
+
+    const newSession = createManagedSession();
+    sessions.set(sessionID, newSession);
+    return newSession;
 }
 
 /**
@@ -136,7 +152,7 @@ const COST_PER_1K_OUTPUT = 0.015;
  * Updates token usage and estimated cost for a session.
  */
 export function updateSessionTokens(
-    sessions: Map<string, any>,
+    sessions: Map<string, unknown>,
     sessionID: string,
     inputLen: number,
     outputLen: number
@@ -158,6 +174,56 @@ export function updateSessionTokens(
         (session.tokens.totalOutput / 1000 * COST_PER_1K_OUTPUT);
 
     session.tokens.estimatedCost = Number(cost.toFixed(4));
+}
+
+function createManagedSession(): ManagedSessionState {
+    const now = Date.now();
+    return {
+        active: true,
+        step: 0,
+        timestamp: now,
+        startTime: now,
+        lastStepTime: now,
+        lastCompletedMessageID: undefined,
+        lastUserMessageAt: undefined,
+        lastAssistantCompletedAt: undefined,
+        lastAbortAt: undefined,
+        tokens: { totalInput: 0, totalOutput: 0, estimatedCost: 0 },
+    };
+}
+
+function normalizeManagedSession(session: Record<string, unknown>): ManagedSessionState {
+    const now = Date.now();
+    if (typeof session.active !== "boolean") session.active = true;
+    if (typeof session.step !== "number") session.step = 0;
+    if (typeof session.timestamp !== "number") session.timestamp = now;
+    if (typeof session.startTime !== "number") session.startTime = now;
+    if (typeof session.lastStepTime !== "number") session.lastStepTime = now;
+    if (!isTokenUsage(session.tokens)) {
+        session.tokens = { totalInput: 0, totalOutput: 0, estimatedCost: 0 };
+    }
+    return session as unknown as ManagedSessionState;
+}
+
+function isManagedSessionState(value: unknown): value is ManagedSessionState {
+    return isRecord(value)
+        && typeof value.active === "boolean"
+        && typeof value.step === "number"
+        && typeof value.timestamp === "number"
+        && typeof value.startTime === "number"
+        && typeof value.lastStepTime === "number"
+        && isTokenUsage(value.tokens);
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+    return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function isTokenUsage(value: unknown): value is ManagedSessionState["tokens"] {
+    if (!isRecord(value)) return false;
+    return typeof value.totalInput === "number"
+        && typeof value.totalOutput === "number"
+        && typeof value.estimatedCost === "number";
 }
 
 /**

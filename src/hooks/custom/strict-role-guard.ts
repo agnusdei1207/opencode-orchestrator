@@ -7,7 +7,7 @@
  * - Reviewer: Cannot write code (only review).
  */
 
-import type { PreToolUseHook, HookContext } from "../types.js";
+import type { PreToolUseHook, HookContext, PreToolResult, ToolInput } from "../types.js";
 import { TOOL_NAMES } from "../../shared/index.js";
 import { HOOK_ACTIONS, HOOK_NAMES } from "../constants.js";
 import { SECURITY_PATTERNS } from "../../shared/constants/security-patterns.js";
@@ -16,12 +16,12 @@ import { MISSION_MESSAGES } from "../../shared/constants/system-messages.js";
 export class StrictRoleGuardHook implements PreToolUseHook {
     name = HOOK_NAMES.STRICT_ROLE_GUARD;
 
-    async execute(ctx: HookContext, tool: string, args: any) {
+    async execute(ctx: HookContext, tool: string, args: ToolInput): Promise<PreToolResult> {
         // "Prevent 'rm -rf /' or dangerous commands" globally for now.
 
         // Check for both background and standard command execution
         if (tool === TOOL_NAMES.RUN_COMMAND || tool === TOOL_NAMES.RUN_BACKGROUND) {
-            const cmd = args?.command as string;
+            const cmd = typeof args.command === "string" ? args.command : undefined;
             if (cmd) {
                 // Prevent Fork Bomb
                 if (cmd.includes(SECURITY_PATTERNS.FORK_BOMB)) {

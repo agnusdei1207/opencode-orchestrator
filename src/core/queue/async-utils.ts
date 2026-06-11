@@ -58,18 +58,18 @@ export async function withTimeout<T>(
 /**
  * Debounce async function
  */
-export function debounceAsync<T extends (...args: any[]) => Promise<any>>(
-    fn: T,
+export function debounceAsync<TArgs extends unknown[], TResult>(
+    fn: (...args: TArgs) => Promise<TResult>,
     delayMs: number
-): T {
+): (...args: TArgs) => Promise<TResult> {
     let timeoutId: ReturnType<typeof setTimeout> | undefined;
 
-    return ((...args: Parameters<T>) => {
+    return (...args: TArgs): Promise<TResult> => {
         if (timeoutId) {
             clearTimeout(timeoutId);
         }
 
-        return new Promise((resolve, reject) => {
+        return new Promise<TResult>((resolve, reject) => {
             timeoutId = setTimeout(async () => {
                 try {
                     const result = await fn(...args);
@@ -79,5 +79,5 @@ export function debounceAsync<T extends (...args: any[]) => Promise<any>>(
                 }
             }, delayMs);
         });
-    }) as T;
+    };
 }

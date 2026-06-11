@@ -2,7 +2,17 @@
  * MetricsHook - Collects telemetry during mission execution
  */
 
-import { PreToolUseHook, PostToolUseHook, AssistantDoneHook, HookContext } from "../types.js";
+import type {
+    PreToolUseHook,
+    PostToolUseHook,
+    AssistantDoneHook,
+    HookContext,
+    HookResult,
+    PostToolResult,
+    PreToolResult,
+    ToolInput,
+    ToolOutput,
+} from "../types.js";
 import { MetricsCollector } from "../../core/metrics/collector.js";
 import { HOOK_ACTIONS } from "../constants.js";
 import { HOOK_NAMES } from "../../shared/index.js";
@@ -14,10 +24,25 @@ export class MetricsHook implements PreToolUseHook, PostToolUseHook, AssistantDo
 
     async execute(
         context: HookContext,
+        tool: string,
+        input: ToolInput
+    ): Promise<PreToolResult>;
+    async execute(
+        context: HookContext,
+        tool: string,
+        input: ToolInput,
+        output: ToolOutput
+    ): Promise<PostToolResult>;
+    async execute(
+        context: HookContext,
+        finalText: string
+    ): Promise<HookResult>;
+    async execute(
+        context: HookContext,
         toolOrText: string,
-        input?: any,
-        output?: { title: string; output: string; metadata: any }
-    ): Promise<any> {
+        input?: ToolInput,
+        output?: ToolOutput
+    ): Promise<PreToolResult | PostToolResult | HookResult> {
         // Pre-Tool
         if (!output && input) {
             this.startTimes.set(`tool_${toolOrText}_${context.sessionID}`, Date.now());

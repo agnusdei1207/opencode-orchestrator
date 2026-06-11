@@ -38,7 +38,7 @@ export class MemoryManager {
     /**
      * Add a memory entry
      */
-    public add(level: MemoryLevel, content: string, importance: number = MEMORY_CONSTANTS.IMPORTANCE.NORMAL, metadata?: Record<string, any>): string {
+    public add(level: MemoryLevel, content: string, importance: number = MEMORY_CONSTANTS.IMPORTANCE.NORMAL, metadata?: Record<string, unknown>): string {
         const id = `${MEMORY_CONSTANTS.ID_PREFIX}${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
         const entry: MemoryEntry = {
             id,
