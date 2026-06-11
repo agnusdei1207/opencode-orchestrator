@@ -99,27 +99,21 @@ jobs:
 
       - name: Create GitHub Release
         if: startsWith(github.ref, 'refs/tags/')
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         with:
           files: binaries/**/*
           body: |
             # OpenCode Orchestrator ${{ github.ref_name }}
 
-            This release focuses on enhancing autonomous orchestration stability and parallel execution efficiency through HPFA and MSVP.
+            Patch release for OpenCode Orchestrator.
 
-            ### Core Updates
-            *   **HPFA (Hyper-Parallel Fractal Architecture)**: Optimized recursive task delegation and concurrency management (up to 50 parallel sessions).
-            *   **MSVP (Multi-Stage Verification Pipeline)**: Improved integration of unit-level shadow reviews and master sync verification.
-            *   **Autonomous Discovery**: Enhanced Phase 0 parallel scouting for faster project environment ingestion.
+            ### Included
+            * Four-agent OpenCode orchestration
+            * Mission-loop continuation guards
+            * Config and permission compatibility fixes
+            * Cross-platform release binaries
 
-            ### Key Features
-            *   Parallel Multi-Agent Orchestration
-            *   Recursive Task Decomposition (Fractal Spawning)
-            *   Multi-Stage Integrity Verification
-            *   Write-Ahead Logging (WAL) for Session Recovery
-
-            ---
-            ## Installation
+            ## Install
             ```bash
             npm install -g opencode-orchestrator
             ```
@@ -134,7 +128,7 @@ jobs:
           scope: "@agnusdei1207"
 
       - name: Install Bun
-        uses: oven-sh/setup-bun@v1
+        uses: oven-sh/setup-bun@v2
         with:
           bun-version: latest
           registry-url: "https://npm.pkg.github.com"

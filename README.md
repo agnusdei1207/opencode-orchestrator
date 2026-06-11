@@ -31,13 +31,28 @@ Manual fallback: remove `"opencode-orchestrator"` or `["opencode-orchestrator", 
 
 ## 2. Configure
 
-OpenCode supports plugin options as `["plugin-name", {...}]` tuples. Use that form for orchestrator-specific settings:
+Tested compatibility:
+
+1. Node.js `24+`
+2. `@opencode-ai/plugin` `1.17.3`
+3. `@opencode-ai/sdk` `1.17.3`
+
+OpenCode plugin options belong inside the `plugin` array as `["plugin-name", {...}]` tuples. Configure `agentConcurrency` and `missionLoop` there:
 
 ```jsonc
 {
   "$schema": "https://opencode.ai/config.json",
+  "model": "opencode/gpt-5.1-codex",
   "permission": {
     "question": "allow"
+  },
+  "agent": {
+    "commander": {
+      "model": "opencode/gpt-5.1-codex"
+    },
+    "worker": {
+      "model": "anthropic/claude-opus-4-5-20251101"
+    }
   },
   "plugin": [
     [
@@ -60,23 +75,14 @@ OpenCode supports plugin options as `["plugin-name", {...}]` tuples. Use that fo
 }
 ```
 
-Optional model routing stays in normal OpenCode config. The plugin does not force a model:
+Model selection follows normal OpenCode inheritance. The plugin does not force a model:
 
-```jsonc
-{
-  "model": "provider/model-id",
-  "agent": {
-    "commander": {
-      "model": "provider/model-id"
-    },
-    "worker": {
-      "model": "provider/stronger-model-id"
-    }
-  }
-}
-```
+1. Commander uses the global `model` unless `agent.commander.model` is set.
+2. Planner, Worker, and Reviewer inherit the invoking primary agent model unless `agent.<name>.model` is set.
+3. Generated Commander, Planner, Worker, and Reviewer agents inherit global permissions.
+4. Same-name user agent config can still override model, temperature, and specific permission keys.
 
-Generated Commander, Planner, Worker, and Reviewer agents inherit global permissions. Same-name user agent config can still override specific model or permission keys.
+Legacy top-level concurrency keys (`agentConcurrency`, `providerConcurrency`, `modelConcurrency`, `defaultConcurrency`) are still accepted for backward compatibility, but the plugin tuple is the preferred location.
 
 ## 3. Run
 

@@ -1,472 +1,39 @@
 # System Architecture
 
-## Overview
-OpenCode Orchestrator is a production-grade plugin for OpenCode that implements a **Multi-Agent Architecture** with advanced concurrency control, resource safety, and performance optimizations. The system transforms a single user prompt into a coordinated effort between Commander, Planner, Worker, and Reviewer agents.
+This document describes the current architecture that is directly verifiable from the repository source. It intentionally avoids speculative performance claims.
 
-**Status**: Production Ready
+## 1. Entry Points
 
----
+| Surface | File | Responsibility |
+| --- | --- | --- |
+| Plugin bootstrap | `src/index.ts` | Parses plugin options, initializes subsystems, registers hooks, tools, and cleanup. |
+| Config hook | `src/plugin-handlers/config-handler.ts` | Registers commands and the four generated agents, merges user agent overrides, copies global permissions, and forwards concurrency config. |
+| Event hook | `src/plugin-handlers/event-handler.ts` | Bridges OpenCode session/message events into mission continuation, recovery, and cleanup paths. |
+| Chat hook | `src/plugin-handlers/chat-message-handler.ts` | Tracks user activity and routes slash-command text through the local hook registry. |
 
-## Core Architecture Layers
+## 2. Runtime Shape
 
-### Layer 1: Agent Management & Orchestration
-The central coordination layer that manages multi-agent workflows.
+OpenCode Orchestrator is an OpenCode plugin with four generated agents:
 
-#### 1.1 Parallel Agent Manager
-- **Role**: Central coordinator for agent session lifecycle
-- **Responsibilities**:
-  - Session creation via SessionPool (90% faster with reuse)
-  - Concurrency management via ConcurrencyController
-  - Task state transitions (PENDING → RUNNING → COMPLETED)
-  - Resource cleanup and shutdown coordination
-  - MSVP (Multi-Stage Verification Pipeline) triggering
+| Agent | Mode | Role |
+| --- | --- | --- |
+| Commander | `primary` | Owns the mission loop and top-level coordination. |
+| Planner | `subagent` | Breaks work into ordered steps and research tasks. |
+| Worker | `subagent` | Implements scoped changes. |
+| Reviewer | `subagent` | Verifies completion evidence and integration risk. |
 
-#### 1.2 Task Launcher
-- **Role**: Spawns and executes parallel tasks
-- **Features**:
-  - RAII pattern via ConcurrencyToken (zero resource leaks)
-  - Auto-retry with exponential backoff
-  - Agent system prompt injection
-  - Memory context injection
-  - Guaranteed cleanup via finally blocks
+The plugin does not force a model. Model routing follows OpenCode inheritance:
 
-#### 1.3 Task Poller
-- **Role**: Monitors task completion and progress
-- **Features**:
-  - Adaptive polling (500ms-5s based on load)
-  - Message count caching (avoids heavy fetches)
-  - Stability detection (3 stable polls required)
-  - Progress tracking (tool calls, last message)
+1. Commander uses the global `model` unless `agent.commander.model` is set.
+2. Planner, Worker, and Reviewer inherit the invoking primary agent model unless their own `agent.<name>.model` is set.
+3. Same-name user agent config is merged back into the generated agent definition.
 
-#### 1.4 Event Handler
-- **Role**: Real-time event processing
-- **Events**: `session.idle`, `session.deleted`, `message.updated`
-- **Features**: Immediate state transitions, completion detection
+## 3. Configuration Contract
 
----
-
-### Layer 2: Concurrency & Resource Management
-
-#### 2.1 ConcurrencyController
-Advanced concurrency control with auto-scaling and circuit breaker.
-
-**Features**:
-- **Priority Queues**: HIGH/NORMAL/LOW priority tasks
-- **Circuit Breaker**: Opens after 5 failures, 30s recovery window
-- **Auto-Scaling**:
-  - Scale up: +1 slot after 3 successes
-  - Scale down: -1 slot after 2 failures
-- **Resource Pressure Detection**: Rejects LOW priority when memory > 80%
-- **RAII Pattern**: ConcurrencyToken for guaranteed slot release
-
-**Default Limits**:
-- Commander: 1 (single orchestrator)
-- Planner: 10 (strategic planning)
-- Worker: 10 (parallel implementation)
-- Reviewer: 10 (verification)
-
-#### 2.2 Work-Stealing Queues
-Chase-Lev deque implementation for maximum CPU utilization.
-
-**Architecture**:
-```
-Worker 1: [Task A, Task B, Task C] ← pop (LIFO, cache locality)
-Worker 2: [Task D, Task E]         ← steal from Worker 1 (FIFO, fairness)
-Worker 3: [Task F]                 ← steal from Worker 1
-```
-
-**Configuration**:
-- Planner: 2 workers
-- Worker: 8 workers (high parallelism)
-- Reviewer: 4 workers
-- Commander: 1 worker
-
-**Benefits**:
-- 90%+ CPU utilization (up from 50-70%)
-- Dynamic load balancing
-- Cache locality optimization
-- Fairness for thieves
-
-#### 2.3 Session Pool
-Reusable session pool to reduce creation overhead.
-
-**Strategy**:
-- Max 5 sessions per agent type
-- Max 10 reuses per session
-- 5-minute idle timeout
-- Health check every 60 seconds
-- Session compaction for context reset
-
-**Performance**:
-- Session creation: 90% faster (50ms vs 500ms)
-- Reduced OpenCode server load
-- Automatic invalidation of degraded sessions
-
----
-
-### Layer 3: Memory & Performance Optimizations
-
-#### 3.0 Mission Memory Plane
-The `/task` mission loop publishes bounded runtime memory without adding a new database or retrieval service.
-
-**Runtime Artifacts**:
-- `.opencode/mission-ledger.jsonl`: append-only mission evidence events
-- `.opencode/docs/brain/scratchpad.md`: generated Markdown mission scratchpad
-- `.opencode/docs/brain/knowledge-map.canvas`: Obsidian-compatible mission graph
-
-**Data Flow**:
-```
-MissionLoopState
-  -> MissionLedger JSONL
-  -> Markdown Scratchpad
-  -> Existing .opencode/docs RAG indexing
-  -> System transform prompt context
-```
-
-**Configuration**:
-- `missionLoop.ledger`: enables or disables JSONL event output
-- `missionLoop.markdownMemory`: enables or disables generated Markdown/Canvas output
-- `missionLoop.maxEvidenceEvents`: bounds recent evidence reads
-
-The Canvas file is a visualization artifact. Prompt retrieval remains Markdown-based through the existing `KnowledgeContextProvider`, which already indexes `docs/**/*.md` and `.opencode/docs/**/*.md`.
-
-#### 3.1 Object Pool
-Generic object pooling for ParallelTask instances.
-
-**Configuration**:
-- Pool size: 200 instances
-- Prewarm: 50 instances
-- Hit rate: ~80%
-
-**Benefits**:
-- Zero GC for task objects
-- 60% memory reduction
-- Predictable allocation patterns
-
-#### 3.2 String Pool (Interning)
-Deduplication for frequently used strings.
-
-**Interned Strings**:
-- Agent names (commander, planner, worker, reviewer)
-- Task status (pending, running, completed, error)
-- Task modes (normal, race, fractal)
-
-**Benefits**:
-- Memory deduplication
-- Faster string comparison (pointer equality)
-- Reduced GC pressure
-
-#### 3.3 Buffer Pool
-Reusable ArrayBuffer pool for I/O operations.
-
-**Pool Sizes**:
-- 1KB, 4KB, 16KB, 64KB buffers
-- Multiple buffers per size
-
-**Benefits**:
-- Zero allocation for I/O
-- Reduced GC pressure
-
-#### 3.4 Rust Connection Pool
-Persistent Rust tool process pool.
-
-**Configuration**:
-- Max 4 processes
-- 30-second idle timeout
-- JSON-RPC protocol
-
-**Performance**:
-- First call: 50-100ms (spawn process)
-- Subsequent: 5-10ms (reuse connection) - **10x faster**
-
----
-
-### Layer 4: State Management & Synchronization
-
-#### 4.1 MVCC (Multi-Version Concurrency Control)
-Atomic TODO state synchronization with version control.
-
-**Mechanism**:
-```typescript
-// Read version
-const version = readVersion(); // e.g., 5
-
-// Modify TODO
-const newContent = modifyTodo(content);
-
-// Atomic write (CAS-like)
-if (currentVersion === version) {
-  writeFile(newContent);
-  writeVersion(version + 1);
-} else {
-  throw new ConflictError(); // Retry
-}
-```
-
-**Benefits**:
-- Zero data loss in parallel writes
-- Automatic conflict detection
-- Optimistic concurrency
-
-#### 4.2 Task Store
-In-memory task state management.
-
-**Features**:
-- Pending task tracking per parent session
-- Batched notifications
-- Automatic GC (cleanup after 30 minutes)
-- String interning for memory efficiency
-
-#### 4.3 WAL (Write-Ahead Log)
-Removed for performance (task recovery not critical).
-
----
-
-### Layer 5: Safety & Reliability
-
-#### 5.1 Resource Safety
-RAII pattern ensures zero resource leaks.
-
-**Components**:
-- **ConcurrencyToken**: Guaranteed slot release
-- **ShutdownManager**: Priority-based cleanup (5s timeout per handler)
-- **File Watcher Cleanup**: TodoSyncService.stop()
-- **Listener Cleanup**: BackgroundTaskManager cleanup
-- **Finally Blocks**: All critical paths
-
-**Guarantees**:
-- Zero file handle leaks
-- Zero event listener leaks
-- Zero concurrency slot leaks
-- Graceful shutdown
-
-#### 5.2 Circuit Breaker
-Automatic recovery from API failures.
-
-**States**:
-- CLOSED: Normal operation
-- OPEN: Blocking requests (after 5 failures)
-- HALF_OPEN: Testing recovery (2 successes to close)
-
-**Timeouts**:
-- Failure window: 30 seconds
-- Recovery test: 2 successful calls
-
-#### 5.3 Auto-Recovery
-Automatic retry with exponential backoff.
-
-**Strategy**:
-```typescript
-attempt 1: immediate
-attempt 2: 1s delay
-attempt 3: 2s delay
-attempt 4: 4s delay
-max: 5 attempts
-```
-
-**Error Handling**:
-- Rate limits: Retry with delay
-- Network errors: Retry
-- Session errors: Abort
-- Parse errors: Skip after 2 attempts
-
-#### 5.4 Safe Installation
-Atomic config writes with automatic backup and rollback.
-
-**Process**:
-1. Create timestamped backup
-2. Read existing config
-3. Validate config structure
-4. Merge plugin (never overwrite)
-5. Write to temp file
-6. Atomic rename (OS-level atomic)
-7. Verify write succeeded
-8. Rollback from backup if failed
-
-**Guarantees**:
-- Never overwrites existing config
-- All settings preserved
-- Automatic rollback on failure
-- Last 5 backups kept
-
----
-
-### Layer 6: UI & Monitoring
-
-#### 6.1 Task Toast Manager
-Native TUI integration for user feedback.
-
-**Features**:
-- Task start/completion notifications
-- Real-time progress tracking
-- Concurrency wait-times
-- Mission success/failure summaries
-
-**Protocol**:
-- Uses `client.tui.showToast` (protocol-safe)
-- Non-intrusive, dismissible toasts
-- Technical metrics display
-
-#### 6.2 Progress Notifier
-Aggregates and displays progress metrics.
-
-**Metrics**:
-- Active sessions count
-- Tool call counts
-- Task completion rate
-- Concurrency utilization
-
-#### 6.3 Logging
-Structured logging to temp directory.
-
-**Log Files**:
-- `/tmp/opencode-orchestrator.log` (Unix)
-- `%TEMP%\opencode-orchestrator.log` (Windows)
-
-**Contents**:
-- Timestamps
-- Platform info
-- Operation logs
-- Error details
-
----
-
-## Data Flow
-
-### 1. Task Initiation
-```
-User: /task "Implement feature X"
-  ↓
-ChatMessageHandler (detects /task)
-  ↓
-Commander Agent (analyzes task)
-  ↓
-Delegates to Planner
-```
-
-### 2. Planning Phase
-```
-Planner Agent
-  ↓
-Research dependencies
-  ↓
-Create file-level TODO.md (MVCC write)
-  ↓
-Return to Commander
-```
-
-### 3. Execution Phase
-```
-Commander reads TODO.md
-  ↓
-TaskLauncher.launch() (batch)
-  ↓
-SessionPool.acquire() (reuse sessions)
-  ↓
-ConcurrencyController.acquireToken() (RAII)
-  ↓
-Fire prompts to Worker sessions
-  ↓
-Work-stealing queue distributes tasks
-```
-
-### 4. Monitoring Phase
-```
-TaskPoller (adaptive 500ms-5s)
-  ↓
-Check session.status (IDLE?)
-  ↓
-validateSessionHasOutput()
-  ↓
-Stability detection (3 stable polls)
-  ↓
-Mark COMPLETED
-```
-
-### 5. Verification Phase
-```
-Worker completes
-  ↓
-MSVP trigger (Multi-Stage Verification Pipeline)
-  ↓
-Launch Reviewer (Unit Review)
-  ↓
-Verify tests pass
-  ↓
-Report to Commander
-```
-
-### 6. Completion
-```
-All tasks COMPLETED
-  ↓
-Commander verifies TODO.md (all [x])
-  ↓
-Integration testing (optional)
-  ↓
-Mission COMPLETED
-```
-
----
-
-## Performance Characteristics
-
-### Throughput
-- **Concurrent Sessions**: 50+ parallel sessions
-- **CPU Utilization**: 90%+ (work-stealing)
-- **Processing Speed**: 3-5x baseline
-
-### Latency
-- **Tool Calls**: 5-10ms (Rust connection pool)
-- **Session Creation**: 50ms (session pool)
-- **State Sync**: <1ms (MVCC atomic write)
-
-### Resource Usage
-- **Memory**: 40% of baseline (pooling)
-- **GC Pressure**: 20% of baseline (pooling)
-- **File Handles**: Zero leaks (RAII)
-
-### Reliability
-- **Sync Accuracy**: 99.95% (MVCC)
-- **Uptime**: 100% (graceful shutdown)
-- **Resource Leaks**: Zero (RAII + finally blocks)
-- **Config Safety**: 100% (atomic writes + rollback)
-
----
-
-## Technology Stack
-
-### Runtime
-- **Platform**: Node.js 24+
-- **Language**: TypeScript (strict mode)
-- **Build**: esbuild + tsc
-
-### Core Libraries
-- **Validation**: Zod (schema validation)
-- **IPC**: JSON-RPC (Rust communication)
-- **Concurrency**: Custom work-stealing implementation
-
-### Tools
-- **Rust CLI**: grep, glob, ast (via connection pool)
-- **LSP**: TypeScript, Python, Go (native tools)
-
-### Infrastructure
-- **Session Pool**: Custom implementation (5 per agent)
-- **Work-Stealing**: Chase-Lev deque
-- **Memory Pools**: Object, String, Buffer pools
-- **Circuit Breaker**: Custom implementation
-- **MVCC**: File-based versioning
-
----
-
-## Configuration
-
-### Agent Limits
-Configure orchestrator concurrency in the plugin options section of `opencode.jsonc`:
+The plugin accepts scoped options through the OpenCode plugin tuple:
 
 ```jsonc
 {
-  "$schema": "https://opencode.ai/config.json",
   "plugin": [
     [
       "opencode-orchestrator",
@@ -488,206 +55,80 @@ Configure orchestrator concurrency in the plugin options section of `opencode.js
 }
 ```
 
-For compatibility with older documentation, the plugin also reads top-level `agentConcurrency`, `providerConcurrency`, `modelConcurrency`, and `defaultConcurrency` if present, but plugin options are the preferred location because they are scoped to `opencode-orchestrator`.
+Current option readers:
 
-### Model Selection
-The orchestrator does not force a model in its generated agents. OpenCode model inheritance applies:
-- Commander is a primary agent and uses the global `model` unless `agent.commander.model` is set.
-- Planner, Worker, and Reviewer are subagents and use the invoking primary agent's model unless their own `agent.<name>.model` is set.
-- Same-name user agent config is preserved for model/options/temperature and merged with generated orchestrator prompts.
+| Option | File | Effect |
+| --- | --- | --- |
+| `agentConcurrency` | `src/core/agents/concurrency-config.ts` | Per-agent concurrency overrides. |
+| `providerConcurrency` | `src/core/agents/concurrency-config.ts` | Provider-level concurrency overrides. |
+| `modelConcurrency` | `src/core/agents/concurrency-config.ts` | Model-level concurrency overrides. |
+| `defaultConcurrency` | `src/core/agents/concurrency-config.ts` | Default fallback concurrency. |
+| `missionLoop.*` | `src/core/config/plugin-options.ts` | Runtime mission memory and evidence controls. |
 
-### Permissions
-Global OpenCode `permission` config is copied into each generated orchestrator agent so permission-gated tools such as `question` remain available when users explicitly allow them. Same-name agent permission config overrides individual permission keys, so agents can ask concise clarification questions when blocked without losing user-defined per-agent policy.
+Backward compatibility remains for top-level concurrency keys, but the plugin tuple is the preferred location.
 
-### Mission Loop Control Plane
-`/task` activates a persisted mission loop in `.opencode/`. The loop state records the active session, original prompt, compact objective, iteration count, last progress, last verification summary, and last continuation reason.
+## 4. Permission Model
 
-Continuation is guarded before any prompt is injected:
-- Skip while the session is aborting, recovering, or within the post-compaction guard window.
-- Skip while child/background tasks are still running.
-- Skip when the session circuit breaker is open.
-- Re-run TODO/checklist/sync verification before continuing.
+`src/plugin-handlers/config-handler.ts` copies the global OpenCode `permission` block into each generated agent and then merges same-name agent overrides on top. That keeps permission-gated tools such as `question` available when the user explicitly allows them, while still letting `agent.commander.permission` or similar narrow policy for a single agent.
 
-When verification still fails, Commander receives a compact continuation prompt with the objective, runtime status, stagnation signal, continuation reason, next action, and completion rule. This keeps autonomous execution focused without treating model self-reporting as completion authority.
+## 5. Mission Loop Control Plane
 
-### Work-Stealing
-Enabled automatically for all agent types:
-- Planner: 2 workers
-- Worker: 8 workers
-- Reviewer: 4 workers
-- Commander: 1 worker
+Mission loop state is file-backed under `.opencode/`:
 
-### Session Pool
-- maxPoolSizePerAgent: 5
-- maxReuseCount: 10
-- idleTimeoutMs: 300000 (5 min)
-- healthCheckIntervalMs: 60000 (1 min)
+| Artifact | Producer | Purpose |
+| --- | --- | --- |
+| `.opencode/mission-loop.json` | `src/core/loop/mission-loop.ts` | Active mission state and iteration counters. |
+| `.opencode/mission-ledger.jsonl` | `src/core/loop/mission-ledger.ts` | Bounded event trail when ledger output is enabled. |
+| `.opencode/docs/brain/scratchpad.md` | `src/core/knowledge/mission-memory.ts` | Generated markdown memory surface. |
+| `.opencode/docs/brain/knowledge-map.canvas` | `src/core/knowledge/mission-memory.ts` | Obsidian-compatible mission graph. |
 
-### Memory Pools
-- Task pool size: 200 (50 prewarmed)
-- Buffer pool sizes: [1KB, 4KB, 16KB, 64KB]
-- String interning: agent/status/mode
+`startMissionLoop()` persists the mission state. `handleMissionIdle()` re-verifies completion before scheduling a continuation. `generateMissionContinuationPrompt()` injects a compact prompt containing objective, progress, verification summary, stagnation signal, and completion rule.
 
----
+## 6. Continuation Guards
 
-## Security & Safety
+The plugin avoids immediate self-resume after interruption or unstable state. Current guard paths:
 
-### Input Validation
-- **Zod Schemas**: All agent configs validated
-- **Type Safety**: Strict TypeScript compilation
-- **Sanitization**: Command injection prevention
+1. `src/plugin-handlers/event-handler.ts` requires an assistant completion for the current user turn before idle continuation is allowed.
+2. `src/core/loop/todo-continuation.ts` cancels pending countdowns on user interaction, recent aborts, or recovery state.
+3. `src/core/loop/mission-loop-handler.ts` skips prompt injection while the session is aborting, recovering, compacting, or holding running background tasks.
+4. Mission continuation is blocked when the local circuit breaker is open.
 
-### Resource Limits
-- **Depth Guard**: Max task depth (prevent infinite recursion)
-- **Terminal Node Guard**: Workers/Reviewers cannot spawn sub-agents
-- **Timeout Guard**: 600s per session prompt
-- **Memory Guard**: Reject LOW priority when memory > 80%
+This is the main protection against `/task` immediately restarting after `Esc` or other interrupt paths.
 
-### Error Handling
-- **Circuit Breaker**: Automatic failure detection
-- **Auto-Recovery**: Exponential backoff retry
-- **Graceful Degradation**: Partial success handling
-- **Automatic Rollback**: Config write failures
+## 7. Builder-Inspired Memory Surface
 
----
+The generated markdown scratchpad and `.canvas` graph are the main Builder-derived ideas retained here:
 
-## Monitoring & Debugging
+1. Keep runtime memory local-first under the workspace.
+2. Generate a readable markdown scratchpad instead of introducing a separate database.
+3. Treat the graph as a visualization and navigation artifact, not as a second source of truth.
 
-### Logs
-- Location: `/tmp/opencode-orchestrator.log`
-- Format: `[timestamp] [component] message {data}`
-- Retention: Manual cleanup
+The current implementation writes these artifacts through `src/core/knowledge/mission-memory.ts` and indexes them through the existing prompt-context path.
 
-### Metrics
-- Active sessions
-- Concurrency utilization
-- Work-stealing stats
-- Circuit breaker state
-- Pool hit rates
+## 8. Release and Platform Baseline
 
-### Debug Mode
-Enable via environment variable:
-```bash
-DEBUG=opencode-orchestrator npm start
-```
+Current verified release baseline:
 
----
+1. Node.js `24+`
+2. `@opencode-ai/plugin` `1.17.3`
+3. `@opencode-ai/sdk` `1.17.3`
+4. GitHub Actions build matrix for Linux x64/arm64, macOS x64/arm64, and Windows x64 in `.github/workflows/release.yml`
 
-### Layer 7: Knowledge Graph RAG & Evolutionary Memory
+Public support links should point to GitHub issues. Package metadata already uses:
 
-A production-ready in-memory knowledge graph system inspired by Obsidian's Second Brain methodology, providing autonomous memory management for long-lived agent sessions.
+- `homepage`: `https://github.com/agnusdei1207/opencode-orchestrator/issues`
+- `bugs.url`: `https://github.com/agnusdei1207/opencode-orchestrator/issues`
 
-Current runtime wiring indexes repository markdown from `docs/**/*.md` and `.opencode/docs/**/*.md` and injects the top matches through `experimental.chat.system.transform` for orchestrated sessions.
+## 9. Verification Pointers
 
-#### 7.1 Architecture Overview
+When verifying architecture-sensitive changes, open these files first:
 
-```
-┌──────────────────────────────────────────────────────────────────────┐
-│                    KNOWLEDGE GRAPH RAG PIPELINE                       │
-│                                                                      │
-│  ┌───────────────────────────────────────────────────────────────┐   │
-│  │         docs/**/*.md + .opencode/docs/**/*.md (Vault)         │   │
-│  │           Markdown files with YAML frontmatter                │   │
-│  └────────────────────────┬──────────────────────────────────────┘   │
-│                           │                                          │
-│            ┌──────────────┼──────────────┐                          │
-│            ▼              ▼              ▼                          │
-│  ┌──────────────┐ ┌──────────────┐ ┌──────────────┐               │
-│  │ TagIndexer   │ │ GraphParser  │ │ Scratchpad   │               │
-│  │ ───────────  │ │ ───────────  │ │ ───────────  │               │
-│  │ O(1) HashMap │ │ Bi-Dir Adj.  │ │ LRU Cache    │               │
-│  │ Tag → Files  │ │ Wiki-Links   │ │ 64 Registers │               │
-│  │ YAML Parse   │ │ Backlinks    │ │ 4KB per entry│               │
-│  └──────┬───────┘ └──────┬───────┘ └──────────────┘               │
-│         │                │                                          │
-│         └────────┬───────┘                                          │
-│                  ▼                                                   │
-│  ┌───────────────────────────────────────────────────────────────┐  │
-│  │              HybridSearch (RRF Fusion Engine)                  │  │
-│  │  ┌─────────────┐  ┌─────────────┐  ┌──────────────────────┐  │  │
-│  │  │ BM25 Lexical│  │ Tag Matching│  │ 2-Hop Graph Traverse │  │  │
-│  │  │ TF-IDF Score│  │ Direct Hit  │  │ Neighbor Discovery   │  │  │
-│  │  └──────┬──────┘  └──────┬──────┘  └──────────┬───────────┘  │  │
-│  │         └────────────────┼────────────────────┘               │  │
-│  │                          ▼                                     │  │
-│  │           Reciprocal Rank Fusion (k=60)                       │  │
-│  │           score(d) = Σ 1/(k + rank_i)                         │  │
-│  └───────────────────────────────────────────────────────────────┘  │
-│                                                                      │
-│  ┌──────────────────────────┐  ┌─────────────────────────────────┐  │
-│  │   SafetyGuards            │  │  MemoryConsolidation            │  │
-│  │  ┌──────────────────────┐ │  │  ┌───────────────────────────┐ │  │
-│  │  │ DFS Cycle Detection  │ │  │  │ Fission: Split oversized  │ │  │
-│  │  │ FIFO Write Queue     │ │  │  │ Fusion: Merge by tags     │ │  │
-│  │  │ Keep-Pin Shield      │ │  │  │ GC: Orphan detection      │ │  │
-│  │  └──────────────────────┘ │  │  │ MOC: Hub generation       │ │  │
-│  └──────────────────────────┘  └─────────────────────────────────┘  │
-└──────────────────────────────────────────────────────────────────────┘
-```
-
-#### 7.2 Module Details
-
-| Module | Purpose | Key Metrics |
-|--------|---------|-------------|
-| **TagIndexer** | YAML frontmatter parsing + O(1) tag-to-file HashMap | Sub-ms queries |
-| **GraphParser** | `[[wiki-link]]` + markdown link extraction, bi-directional adjacency list | O(n) indexing |
-| **HybridSearch** | BM25 + Tag + 2-Hop Graph → RRF fusion ranking | 3 engines, k=60 |
-| **Scratchpad** | Agent-exclusive volatile register cache with LRU eviction | 64 slots, 4KB max |
-| **SafetyGuards** | Circular link DFS, FIFO write queue, keep-pin shield | Configurable depth |
-| **MemoryConsolidation** | Fission/Fusion/GC/MOC — pure analysis, zero side-effects | Functional purity |
-
-#### 7.3 Evolutionary Memory Lifecycle
-
-```
-  ┌──────────────┐     ┌──────────────┐     ┌──────────────┐
-  │  📝 Ingest   │────▶│  🔍 Search   │────▶│  🧠 Recall   │
-  │              │     │              │     │              │
-  │  Index file  │     │  BM25 + Tag  │     │  RRF-ranked  │
-  │  Parse tags  │     │  + Graph hop │     │  results     │
-  │  Build links │     │  = RRF fuse  │     │  to context  │
-  └──────┬───────┘     └──────────────┘     └──────────────┘
-         │
-         ▼
-  ┌──────────────┐     ┌──────────────┐     ┌──────────────┐
-  │  🔄 Evolve   │────▶│  🛡️ Guard    │────▶│  📦 Archive  │
-  │              │     │              │     │              │
-  │  Fission:    │     │  Cycle DFS   │     │  Orphan GC   │
-  │   >500 lines │     │  Write FIFO  │     │  MOC hubs    │
-  │  Fusion:     │     │  Keep pin    │     │  MD export   │
-  │   3+ shared  │     │              │     │              │
-  └──────────────┘     └──────────────┘     └──────────────┘
-```
-
----
-
-## Future Enhancements
-
-### Knowledge RAG Next Steps
-- Incremental indexing instead of per-turn filesystem scans
-- Agent scratchpad injection alongside repository knowledge matches
-- Dedicated vault segmentation if `docs/knowledge/` becomes a real content root
-
-### Distributed Scaling (Optional)
-- Redis for distributed task store
-- RPC for inter-process calls
-- Service discovery
-
-### Observability (Recommended)
-- Metrics endpoint
-- Prometheus integration
-- Grafana dashboards
-
----
-
-## Summary
-
-OpenCode Orchestrator is a **production-ready** multi-agent orchestration engine with:
-
-- ✅ **Zero Resource Leaks**: RAII pattern + graceful shutdown
-- ✅ **High Performance**: Work-stealing + memory pooling + session reuse
-- ✅ **Reliability**: MVCC + circuit breaker + auto-recovery
-- ✅ **Safety**: Atomic writes + auto-backup + rollback
-- ✅ **Scalability**: 50+ concurrent sessions with 90%+ CPU utilization
-- ✅ **Knowledge Graph RAG**: Autonomous evolutionary memory with BM25/Tag/Graph fusion
-
-**Grade**: A+ (Production Ready)
+1. `src/index.ts`
+2. `src/plugin-handlers/config-handler.ts`
+3. `src/plugin-handlers/event-handler.ts`
+4. `src/plugin-handlers/chat-message-handler.ts`
+5. `src/core/config/plugin-options.ts`
+6. `src/core/agents/concurrency-config.ts`
+7. `src/core/loop/mission-loop.ts`
+8. `src/core/loop/mission-loop-handler.ts`
+9. `src/core/loop/todo-continuation.ts`
