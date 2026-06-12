@@ -99,6 +99,8 @@ Mission controls:
 3. `/cancel` and `/stop` deactivate the current mission loop.
 4. The default mission iteration ceiling is `1,000,000,000`.
 
+Role-aware agent sessions are created or reused on demand: Commander delegates Planner, Worker, and Reviewer tasks into a per-role session pool, then releases or cleans those sessions automatically after completion.
+
 ### Authorized Shell Listener TUI
 
 For owned lab machines or explicitly authorized test environments, the bundled Rust CLI can run a multi-session TCP shell listener:
