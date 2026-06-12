@@ -40,9 +40,9 @@ function changedPaths() {
   const result = run("git", ["status", "--porcelain"], { capture: true });
   return result.stdout
     .split(/\r?\n/)
-    .map(line => line.trim())
+    .filter(line => line.trim())
+    .map(line => line.slice(3).trim())
     .filter(Boolean)
-    .map(line => line.slice(3).trim());
 }
 
 const paths = changedPaths();
