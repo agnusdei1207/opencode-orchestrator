@@ -4,9 +4,9 @@
 //!
 //! ## Philosophy
 //!
-//! This binary is pre-built and included in the package to enable immediate use of the 
-//! high-performance engine without requiring a separate Rust environment. While this 
-//! increases the package footprint, it aligns with our core philosophy: providing 
+//! This binary is pre-built and included in the package to enable immediate use of the
+//! high-performance engine without requiring a separate Rust environment. While this
+//! increases the package footprint, it aligns with our core philosophy: providing
 //! maximum performance and out-of-the-box convenience for every user.
 //!
 //! ## Usage
@@ -26,8 +26,8 @@
 //! ```
 
 use anyhow::{Context, Result};
+use orchestrator_core::constants::{agent, field, rpc, tool};
 use orchestrator_core::hooks::Hook;
-use orchestrator_core::constants::{rpc, tool, agent, field};
 use serde_json::{Value, json};
 use std::env;
 use std::fs;
@@ -36,6 +36,7 @@ use std::path::PathBuf;
 use tracing::{debug, error, info};
 use tracing_subscriber::EnvFilter;
 
+mod shell_listener;
 mod tools;
 
 #[tokio::main]
@@ -46,8 +47,13 @@ async fn main() -> Result<()> {
         Some("serve") => serve().await,
         Some("hooks") => list_hooks(),
         Some("agents") => list_agents(),
+        Some("shell-listener") => shell_listener::run(&args[2..]),
         Some("install") => install().await,
         Some("uninstall") => uninstall().await,
+        Some("--version") | Some("-V") => {
+            println!("{}", env!("CARGO_PKG_VERSION"));
+            Ok(())
+        }
         Some("--help") | Some("-h") | None => {
             print_help();
             Ok(())
@@ -68,9 +74,11 @@ fn print_help() {
     eprintln!("Commands:");
     eprintln!("  hooks      List available hooks");
     eprintln!("  agents     List available agents");
+    eprintln!("  shell-listener  Run authorized lab TCP session TUI");
     eprintln!("  serve      Run tool server (called by OpenCode)");
     eprintln!("  install    Register plugin with OpenCode");
     eprintln!("  uninstall  Remove plugin from OpenCode");
+    eprintln!("  --version  Show version");
     eprintln!("  --help     Show this help");
 }
 
@@ -95,23 +103,23 @@ fn list_agents() -> Result<()> {
     println!("🤖 Available Agents (4-Agent Architecture)");
     println!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
     println!();
-    println!("  {:15} {}", "ID", "Role");
+    println!("  {:15} Role", "ID");
     println!("  {:15} {}", "─".repeat(15), "─".repeat(45));
     println!(
-        "  {:15} {}",
-        agent::COMMANDER, "Autonomous orchestrator - executes until mission complete"
+        "  {:15} Autonomous orchestrator - executes until mission complete",
+        agent::COMMANDER
     );
     println!(
-        "  {:15} {}",
-        agent::PLANNER, "Strategic planning and research specialist"
+        "  {:15} Strategic planning and research specialist",
+        agent::PLANNER
     );
     println!(
-        "  {:15} {}",
-        agent::WORKER, "Implementation and documentation specialist"
+        "  {:15} Implementation and documentation specialist",
+        agent::WORKER
     );
     println!(
-        "  {:15} {}",
-        agent::REVIEWER, "Verification and context management specialist"
+        "  {:15} Verification and context management specialist",
+        agent::REVIEWER
     );
     println!();
     println!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
@@ -162,6 +170,7 @@ async fn install() -> Result<()> {
     println!("Available commands:");
     println!("  orchestrator hooks   - List hooks");
     println!("  orchestrator agents  - List agents");
+    println!("  orchestrator shell-listener --help");
 
     Ok(())
 }
@@ -490,6 +499,11 @@ mod tests {
             }
         });
         let resp = handle_request(&req).await.unwrap();
-        assert!(resp[field::RESULT][field::CONTENT][0][field::TEXT].as_str().unwrap().contains("Unknown tool"));
+        assert!(
+            resp[field::RESULT][field::CONTENT][0][field::TEXT]
+                .as_str()
+                .unwrap()
+                .contains("Unknown tool")
+        );
     }
 }

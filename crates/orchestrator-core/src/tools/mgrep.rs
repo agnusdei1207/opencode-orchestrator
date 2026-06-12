@@ -1,5 +1,5 @@
 //! Multi-pattern grep tool (mgrep)
-//! 
+//!
 //! Searches for multiple patterns in parallel using rayon.
 
 use crate::Result;
@@ -37,7 +37,6 @@ impl Default for MgrepConfig {
     }
 }
 
-
 /// A single match result
 #[derive(Debug, Clone)]
 pub struct MgrepMatch {
@@ -66,7 +65,7 @@ impl MgrepTool {
     /// Search for multiple patterns in parallel
     pub fn search(&self, patterns: &[String], directory: &Path) -> Result<MgrepResult> {
         let start = Instant::now();
-        
+
         // Compile all patterns
         let regexes: Vec<(String, Regex)> = patterns
             .iter()
@@ -93,7 +92,7 @@ impl MgrepTool {
             .par_iter()
             .map(|(pattern, regex)| {
                 let mut matches = Vec::new();
-                
+
                 for file_path in &files {
                     if start.elapsed() > self.config.timeout {
                         break;
@@ -129,14 +128,13 @@ impl MgrepTool {
 
     fn should_include(&self, path: &Path) -> bool {
         let path_str = path.to_string_lossy();
-        
+
         // Check hidden files
-        if !self.config.include_hidden {
-            if let Some(name) = path.file_name() {
-                if name.to_string_lossy().starts_with('.') {
-                    return false;
-                }
-            }
+        if !self.config.include_hidden
+            && let Some(name) = path.file_name()
+            && name.to_string_lossy().starts_with('.')
+        {
+            return false;
         }
 
         // Check exclude patterns
@@ -151,7 +149,6 @@ impl MgrepTool {
 
         true
     }
-
 }
 
 impl Default for MgrepTool {
@@ -180,10 +177,9 @@ mod tests {
         };
 
         let tool = MgrepTool::new(config);
-        let result = tool.search(
-            &["const".to_string(), "let".to_string()],
-            dir.path(),
-        ).unwrap();
+        let result = tool
+            .search(&["const".to_string(), "let".to_string()], dir.path())
+            .unwrap();
 
         assert!(result.results.contains_key("const"));
         assert!(result.results.contains_key("let"));
@@ -191,4 +187,3 @@ mod tests {
         assert_eq!(result.results["let"].len(), 1);
     }
 }
-

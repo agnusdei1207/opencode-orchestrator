@@ -146,12 +146,11 @@ impl GlobTool {
         let path_str = path.to_string_lossy();
 
         // Check hidden files
-        if !self.config.include_hidden {
-            if let Some(name) = path.file_name() {
-                if name.to_string_lossy().starts_with('.') {
-                    return false;
-                }
-            }
+        if !self.config.include_hidden
+            && let Some(name) = path.file_name()
+            && name.to_string_lossy().starts_with('.')
+        {
+            return false;
         }
 
         // Check exclude patterns

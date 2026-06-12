@@ -1,6 +1,7 @@
 //! File statistics tool
 
 use crate::Result;
+use std::cmp::Reverse;
 use std::path::Path;
 use walkdir::WalkDir;
 
@@ -38,7 +39,8 @@ impl FileStatsTool {
         let mut total_dirs = 0;
         let mut total_size = 0u64;
         let mut total_lines = 0;
-        let mut file_types: std::collections::HashMap<String, FileTypeStats> = std::collections::HashMap::new();
+        let mut file_types: std::collections::HashMap<String, FileTypeStats> =
+            std::collections::HashMap::new();
         let mut files_with_sizes: Vec<(String, u64)> = Vec::new();
 
         let walker = if let Some(depth) = max_depth {
@@ -49,7 +51,7 @@ impl FileStatsTool {
 
         for entry in walker.into_iter().filter_map(|e| e.ok()) {
             let path = entry.path();
-            
+
             if path.is_dir() {
                 total_dirs += 1;
                 continue;
@@ -90,12 +92,12 @@ impl FileStatsTool {
         }
 
         // Sort files by size and get top 10
-        files_with_sizes.sort_by(|a, b| b.1.cmp(&a.1));
+        files_with_sizes.sort_by_key(|entry| Reverse(entry.1));
         let largest_files: Vec<(String, u64)> = files_with_sizes.into_iter().take(10).collect();
 
         // Convert file_types to sorted vec
         let mut file_types_vec: Vec<FileTypeStats> = file_types.into_values().collect();
-        file_types_vec.sort_by(|a, b| b.count.cmp(&a.count));
+        file_types_vec.sort_by_key(|stats| Reverse(stats.count));
 
         Ok(DirStats {
             total_files,
@@ -111,11 +113,11 @@ impl FileStatsTool {
     pub fn file_info(&self, file_path: &Path) -> Result<(u64, usize)> {
         let metadata = std::fs::metadata(file_path)?;
         let size = metadata.len();
-        
+
         let lines = std::fs::read_to_string(file_path)
             .map(|c| c.lines().count())
             .unwrap_or(0);
-        
+
         Ok((size, lines))
     }
 }
@@ -137,10 +139,10 @@ mod tests {
         let dir = tempdir().unwrap();
         let file = dir.path().join("test.txt");
         fs::write(&file, "line1\nline2\nline3").unwrap();
-        
+
         let tool = FileStatsTool::new();
         let (size, lines) = tool.file_info(&file).unwrap();
-        
+
         assert_eq!(size, 17);
         assert_eq!(lines, 3);
     }
@@ -150,10 +152,10 @@ mod tests {
         let dir = tempdir().unwrap();
         fs::write(dir.path().join("a.ts"), "const a = 1;").unwrap();
         fs::write(dir.path().join("b.ts"), "const b = 2;").unwrap();
-        
+
         let tool = FileStatsTool::new();
         let stats = tool.analyze(dir.path(), None).unwrap();
-        
+
         assert_eq!(stats.total_files, 2);
         assert!(stats.file_types.iter().any(|t| t.extension == "ts"));
     }

@@ -2,7 +2,7 @@
   "name": "opencode-orchestrator",
   "displayName": "OpenCode Orchestrator",
   "description": "Multi-agent mission control for OpenCode with Commander, Planner, Worker, and Reviewer workflows.",
-  "version": "1.3.12",
+  "version": "1.4.1",
   "author": "agnusdei1207",
   "license": "MIT",
   "repository": {
@@ -74,8 +74,8 @@
     "node": ">=24"
   },
   "dependencies": {
-    "@opencode-ai/plugin": "1.17.3",
-    "@opencode-ai/sdk": "1.17.3",
+    "@opencode-ai/plugin": "1.17.4",
+    "@opencode-ai/sdk": "1.17.4",
     "jsonc-parser": "^3.3.1",
     "zod": "^4.3.6"
   },

@@ -66,7 +66,11 @@ impl DiagnosticsTool {
     }
 
     /// Get diagnostics for a directory
-    pub fn get_diagnostics(&self, directory: &Path, file_filter: Option<&str>) -> Result<Vec<Diagnostic>> {
+    pub fn get_diagnostics(
+        &self,
+        directory: &Path,
+        file_filter: Option<&str>,
+    ) -> Result<Vec<Diagnostic>> {
         let mut all_diagnostics = Vec::new();
 
         // Run TypeScript type checking
@@ -80,10 +84,14 @@ impl DiagnosticsTool {
         }
 
         // Filter by file if specified
-        if let Some(filter) = file_filter {
-            if filter != "*" {
-                all_diagnostics.retain(|d| d.file.contains(filter) || d.file.ends_with(filter) || d.code.as_deref() == Some("command-failed"));
-            }
+        if let Some(filter) = file_filter
+            && filter != "*"
+        {
+            all_diagnostics.retain(|d| {
+                d.file.contains(filter)
+                    || d.file.ends_with(filter)
+                    || d.code.as_deref() == Some("command-failed")
+            });
         }
 
         // Filter warnings if disabled
@@ -111,11 +119,17 @@ impl DiagnosticsTool {
         };
 
         let mut command = Command::new(tsc);
-        command.args(["--noEmit", "--pretty", "false"]).current_dir(directory);
+        command
+            .args(["--noEmit", "--pretty", "false"])
+            .current_dir(directory);
 
         let result = match self.run_command(&mut command) {
             Ok(result) => result,
-            Err(err) => return Ok(vec![self.command_failure_diagnostic("typescript", &err.to_string())]),
+            Err(err) => {
+                return Ok(vec![
+                    self.command_failure_diagnostic("typescript", &err.to_string()),
+                ]);
+            }
         };
 
         Ok(self.build_tsc_diagnostics(&result))
@@ -134,9 +148,10 @@ impl DiagnosticsTool {
     /// Parse TypeScript compiler output
     fn parse_tsc_output(&self, output: &str) -> Vec<Diagnostic> {
         let mut diagnostics = Vec::new();
-        
+
         // TSC format: file(line,col): error TS1234: message
-        let re = Regex::new(r"^(.+?)\((\d+),(\d+)\):\s*(error|warning)\s+(TS\d+):\s*(.+)$").unwrap();
+        let re =
+            Regex::new(r"^(.+?)\((\d+),(\d+)\):\s*(error|warning)\s+(TS\d+):\s*(.+)$").unwrap();
 
         for line in output.lines() {
             if let Some(caps) = re.captures(line.trim()) {
@@ -147,11 +162,23 @@ impl DiagnosticsTool {
                 };
 
                 diagnostics.push(Diagnostic {
-                    file: caps.get(1).map(|m| m.as_str().to_string()).unwrap_or_default(),
-                    line: caps.get(2).and_then(|m| m.as_str().parse().ok()).unwrap_or(0),
-                    column: caps.get(3).and_then(|m| m.as_str().parse().ok()).unwrap_or(0),
+                    file: caps
+                        .get(1)
+                        .map(|m| m.as_str().to_string())
+                        .unwrap_or_default(),
+                    line: caps
+                        .get(2)
+                        .and_then(|m| m.as_str().parse().ok())
+                        .unwrap_or(0),
+                    column: caps
+                        .get(3)
+                        .and_then(|m| m.as_str().parse().ok())
+                        .unwrap_or(0),
                     severity,
-                    message: caps.get(6).map(|m| m.as_str().to_string()).unwrap_or_default(),
+                    message: caps
+                        .get(6)
+                        .map(|m| m.as_str().to_string())
+                        .unwrap_or_default(),
                     source: Some("typescript".to_string()),
                     code: caps.get(5).map(|m| m.as_str().to_string()),
                 });
@@ -178,12 +205,21 @@ impl DiagnosticsTool {
 
         let mut command = Command::new(eslint);
         command
-            .args([target, "--format", "json", "--no-error-on-unmatched-pattern"])
+            .args([
+                target,
+                "--format",
+                "json",
+                "--no-error-on-unmatched-pattern",
+            ])
             .current_dir(directory);
 
         let result = match self.run_command(&mut command) {
             Ok(result) => result,
-            Err(err) => return Ok(vec![self.command_failure_diagnostic("eslint", &err.to_string())]),
+            Err(err) => {
+                return Ok(vec![
+                    self.command_failure_diagnostic("eslint", &err.to_string()),
+                ]);
+            }
         };
 
         Ok(self.build_eslint_diagnostics(&result))
@@ -200,7 +236,10 @@ impl DiagnosticsTool {
     }
 
     fn run_command(&self, command: &mut Command) -> Result<CommandResult> {
-        let mut child = command.stdout(Stdio::piped()).stderr(Stdio::piped()).spawn()?;
+        let mut child = command
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .spawn()?;
 
         let start = Instant::now();
         loop {
@@ -227,7 +266,11 @@ impl DiagnosticsTool {
             line: 0,
             column: 0,
             severity: DiagnosticSeverity::Error,
-            message: format!("{} diagnostics command failed: {}", source, Self::summarize(details)),
+            message: format!(
+                "{} diagnostics command failed: {}",
+                source,
+                Self::summarize(details)
+            ),
             source: Some(source.to_string()),
             code: Some("command-failed".to_string()),
         }
@@ -306,7 +349,11 @@ fn command_result_from_output(output: std::io::Result<Output>) -> Result<Command
 }
 
 fn local_node_bin(directory: &Path, name: &str) -> Option<std::path::PathBuf> {
-    let executable = if cfg!(windows) { format!("{}.cmd", name) } else { name.to_string() };
+    let executable = if cfg!(windows) {
+        format!("{}.cmd", name)
+    } else {
+        name.to_string()
+    };
     let path = directory.join("node_modules").join(".bin").join(executable);
 
     path.is_file().then_some(path)
@@ -332,7 +379,10 @@ fn has_eslint_config(directory: &Path) -> bool {
         ".eslintrc.yml",
     ];
 
-    CONFIG_FILES.iter().any(|file| directory.join(file).is_file()) || package_json_has_eslint_config(directory)
+    CONFIG_FILES
+        .iter()
+        .any(|file| directory.join(file).is_file())
+        || package_json_has_eslint_config(directory)
 }
 
 fn package_json_has_eslint_config(directory: &Path) -> bool {
@@ -369,7 +419,11 @@ mod tests {
         assert_eq!(diagnostics[0].severity, DiagnosticSeverity::Error);
         assert_eq!(diagnostics[0].source.as_deref(), Some("eslint"));
         assert_eq!(diagnostics[0].code.as_deref(), Some("command-failed"));
-        assert!(diagnostics[0].message.contains("eslint diagnostics command failed"));
+        assert!(
+            diagnostics[0]
+                .message
+                .contains("eslint diagnostics command failed")
+        );
         assert!(diagnostics[0].message.contains("eslint.config.js"));
     }
 
@@ -388,7 +442,11 @@ mod tests {
         assert_eq!(diagnostics[0].severity, DiagnosticSeverity::Error);
         assert_eq!(diagnostics[0].source.as_deref(), Some("typescript"));
         assert_eq!(diagnostics[0].code.as_deref(), Some("command-failed"));
-        assert!(diagnostics[0].message.contains("TypeScript compiler crashed"));
+        assert!(
+            diagnostics[0]
+                .message
+                .contains("TypeScript compiler crashed")
+        );
     }
 
     #[test]
@@ -403,7 +461,11 @@ mod tests {
         assert_eq!(diagnostics[0].severity, DiagnosticSeverity::Error);
         assert_eq!(diagnostics[0].source.as_deref(), Some("typescript"));
         assert_eq!(diagnostics[0].code.as_deref(), Some("command-failed"));
-        assert!(diagnostics[0].message.contains("local TypeScript executable"));
+        assert!(
+            diagnostics[0]
+                .message
+                .contains("local TypeScript executable")
+        );
     }
 
     #[test]
@@ -417,7 +479,9 @@ mod tests {
 
         let started = Instant::now();
         let mut command = Command::new("sh");
-        command.args(["-c", "sleep 1"]).current_dir(directory.path());
+        command
+            .args(["-c", "sleep 1"])
+            .current_dir(directory.path());
         let result = tool.run_command(&mut command);
 
         assert!(result.is_err());
@@ -428,7 +492,11 @@ mod tests {
     #[test]
     fn eslint_without_local_config_is_optional() {
         let directory = tempdir().expect("create temp diagnostics directory");
-        write_local_bin(directory.path(), "eslint", "#!/bin/sh\necho 'eslint should not run without config' >&2\nexit 2\n");
+        write_local_bin(
+            directory.path(),
+            "eslint",
+            "#!/bin/sh\necho 'eslint should not run without config' >&2\nexit 2\n",
+        );
         let tool = DiagnosticsTool::default();
 
         let diagnostics = tool.run_eslint(directory.path(), Some(".")).unwrap();
@@ -439,8 +507,16 @@ mod tests {
     #[test]
     fn eslint_with_config_and_failed_output_returns_error_diagnostic() {
         let directory = tempdir().expect("create temp diagnostics directory");
-        fs::write(directory.path().join("eslint.config.js"), "export default [];").unwrap();
-        write_local_bin(directory.path(), "eslint", "#!/bin/sh\necho 'ESLint config failed' >&2\nexit 2\n");
+        fs::write(
+            directory.path().join("eslint.config.js"),
+            "export default [];",
+        )
+        .unwrap();
+        write_local_bin(
+            directory.path(),
+            "eslint",
+            "#!/bin/sh\necho 'ESLint config failed' >&2\nexit 2\n",
+        );
         let tool = DiagnosticsTool::default();
 
         let diagnostics = tool.run_eslint(directory.path(), Some(".")).unwrap();
@@ -492,7 +568,11 @@ mod tests {
     fn write_local_bin(directory: &Path, name: &str, contents: &str) {
         let bin_dir = directory.join("node_modules").join(".bin");
         fs::create_dir_all(&bin_dir).unwrap();
-        let executable = if cfg!(windows) { format!("{}.cmd", name) } else { name.to_string() };
+        let executable = if cfg!(windows) {
+            format!("{}.cmd", name)
+        } else {
+            name.to_string()
+        };
         let bin = bin_dir.join(executable);
         fs::write(&bin, contents).unwrap();
         #[cfg(unix)]

@@ -7,6 +7,8 @@ This document describes the current architecture that is directly verifiable fro
 | Surface | File | Responsibility |
 | --- | --- | --- |
 | Plugin bootstrap | `src/index.ts` | Parses plugin options, initializes subsystems, registers hooks, tools, and cleanup. |
+| Rust CLI | `crates/orchestrator-cli/src/main.rs` | Dispatches local commands including `serve`, metadata commands, install/uninstall, and explicit terminal utilities. |
+| Shell listener CLI | `crates/orchestrator-cli/src/shell_listener.rs` | Runs the authorized-lab TCP session listener and line-mode TUI outside OpenCode RPC. |
 | Config hook | `src/plugin-handlers/config-handler.ts` | Registers commands and the four generated agents, merges user agent overrides, copies global permissions, and forwards concurrency config. |
 | Event hook | `src/plugin-handlers/event-handler.ts` | Bridges OpenCode session/message events into mission continuation, recovery, and cleanup paths. |
 | Chat hook | `src/plugin-handlers/chat-message-handler.ts` | Tracks user activity and routes slash-command text through the local hook registry. |
@@ -96,7 +98,30 @@ The plugin avoids immediate self-resume after interruption or unstable state. Cu
 
 This is the main protection against `/task` immediately restarting after `Esc` or other interrupt paths.
 
-## 7. Builder-Inspired Memory Surface
+## 7. Authorized Shell Listener Control Plane
+
+`orchestrator shell-listener` is a Rust CLI-only control plane for owned lab machines or explicitly authorized test environments. It is deliberately not registered in `src/tools/registry.ts`, so OpenCode model tool calls cannot start or drive an interactive shell session through the plugin JSON-RPC path.
+
+Runtime flow:
+
+1. `main.rs` dispatches the explicit `shell-listener` command.
+2. `shell_listener.rs` binds a TCP listener with `127.0.0.1:4444` as the default address.
+3. Non-loopback binds are rejected unless the operator passes `--allow-remote`.
+4. Each accepted TCP stream receives a stable session id, peer metadata, a writer handle, an in-memory preview buffer, and a raw log path.
+5. Reader threads append raw bytes to `.opencode-orchestrator/shell-listener/` and send sanitized preview events to the line-mode TUI.
+6. Operator commands select sessions, send prompt responses, run sentinel-marked one-shot commands, request a manual PTY helper, or close sessions.
+
+The design separates three concerns:
+
+| Concern | Owner | Boundary |
+| --- | --- | --- |
+| Connection acceptance | Listener thread | TCP socket accept and session registration. |
+| Session I/O | Per-session reader plus writer handle | Raw bytes are logged; preview bytes are sanitized for display. |
+| Human operation | Line-mode TUI | The operator decides what to send and when to send it. |
+
+Completion detection remains heuristic because shells do not emit a universal "command finished" event. The `run <cmd>` path appends a unique sentinel marker. Long-running or interactive programs should stay in `send <text>` mode so the operator can answer prompts directly.
+
+## 8. Builder-Inspired Memory Surface
 
 The generated markdown scratchpad and `.canvas` graph are the main Builder-derived ideas retained here:
 
@@ -106,13 +131,13 @@ The generated markdown scratchpad and `.canvas` graph are the main Builder-deriv
 
 The current implementation writes these artifacts through `src/core/knowledge/mission-memory.ts`, injects the scratchpad directly through `src/plugin-handlers/system-transform-handler.ts`, and indexes the generated markdown notes through the existing prompt-context path.
 
-## 8. Release and Platform Baseline
+## 9. Release and Platform Baseline
 
 Current verified release baseline:
 
 1. Node.js `24+`
-2. `@opencode-ai/plugin` `1.17.3`
-3. `@opencode-ai/sdk` `1.17.3`
+2. `@opencode-ai/plugin` `1.17.4`
+3. `@opencode-ai/sdk` `1.17.4`
 4. GitHub Actions build matrix for Linux x64/arm64, macOS x64/arm64, and Windows x64 in `.github/workflows/release.yml`
 
 Public support links should point to GitHub issues. Package metadata already uses:
@@ -120,7 +145,7 @@ Public support links should point to GitHub issues. Package metadata already use
 - `homepage`: `https://github.com/agnusdei1207/opencode-orchestrator/issues`
 - `bugs.url`: `https://github.com/agnusdei1207/opencode-orchestrator/issues`
 
-## 9. Verification Pointers
+## 10. Verification Pointers
 
 When verifying architecture-sensitive changes, open these files first:
 
@@ -133,3 +158,4 @@ When verifying architecture-sensitive changes, open these files first:
 7. `src/core/loop/mission-loop.ts`
 8. `src/core/loop/mission-loop-handler.ts`
 9. `src/core/loop/todo-continuation.ts`
+10. `crates/orchestrator-cli/src/shell_listener.rs`

@@ -2,49 +2,55 @@
 
 ## Current Task
 
-Deploy a standalone static landing page in `public/` and configure GitHub Pages for `https://agnusdei1207.github.io/opencode-orchestrator/` using GitHub Actions, exposing the developer notes/ 어록 section at the top of the landing page.
+Prepare and push the `1.4.1` patch release after adding the authorized shell-listener CLI, updating OpenCode SDK/plugin dependencies, refactoring clippy warnings, and completing five-pass release review.
 
 ## Last Completed Step
 
-1. Created [public/index.html](file:///home/user/opencode-orchestrator/public/index.html) with all Zola template tags removed and paths adjusted to `public/assets/logo.png` and `public/assets/image.png`.
-2. Incorporated the "Developer's Words" quote block and custom styling on top of the landing page, rendering the Chopin Ballade piano image from [public/assets/image.png](file:///home/user/opencode-orchestrator/public/assets/image.png).
-3. Created a GitHub Actions workflow at [.github/workflows/deploy-pages.yml](file:///home/user/opencode-orchestrator/.github/workflows/deploy-pages.yml) to automatically deploy the `public/` folder using the modern GitHub Actions Pages runner.
-4. Staged, committed, and pushed the new `public` codebase and workflow to the remote `main` branch.
+1. Added `orchestrator shell-listener` as an explicit Rust CLI command.
+2. Kept shell-listener outside the OpenCode JSON-RPC tool registry.
+3. Updated `@opencode-ai/plugin` and `@opencode-ai/sdk` to `1.17.4`.
+4. Bumped package metadata to `1.4.1`.
+5. Removed Rust clippy warnings across touched CLI/core paths.
+6. Added release audit notes at `docs/release/2026-06-12-1.4.1-audit.md`.
 
 ## Verification Observed
 
-1. Local files and build status:
-   - `npm run build` -> Success.
-   - `npm run test` -> 713/713 Tests passed.
-2. Git state:
-   - Staged and pushed the `public/` directory and `.github/workflows/deploy-pages.yml` successfully.
-3. Live deployment workflow:
-   - GitHub Actions will now trigger a run on the `main` push event to compile and upload the `public/` static folder content to Pages.
+1. `npx tsc --noEmit` -> success.
+2. `cargo clippy --workspace --all-targets -- -D warnings` -> success.
+3. `cargo test --workspace --all-targets` -> success, 41 Rust tests passed.
+4. `npm run build` -> success.
+5. `npm test` -> success, 713 Vitest tests passed.
+6. `git diff --check` -> success.
+7. `npm run release:dry-run` -> success for `opencode-orchestrator@1.4.1`.
 
 ## Next Exact Step
 
-1. The repository administrator (agnusdei1207) needs to manually change the GitHub Pages build source from **Deploy from a branch** to **GitHub Actions** (if not already set) in **Settings -> Pages**.
-2. Once the action run completes successfully, verify that the developer notes and piano image are displayed at the top of `https://agnusdei1207.github.io/opencode-orchestrator/`.
+1. If continuing release operations, run the real publish flow only with confirmed npm credentials and an intentional publish window.
+2. Rotate any exposed GitHub credential and prefer a credential manager instead of embedding credentials in the remote URL.
 
 ## Incomplete Items and Why
 
-- None. Both codebase restructuring (`public` directory setup, styling, assets copy) and workflow integration are completed.
+- npm publish was not run; only dry-run release validation was executed in this session before commit/push.
 
 ## Key Decisions
 
-1. Use GitHub Actions for deployment: By using the modern Actions-based Pages deployment, we avoid the 404/errored state caused by legacy branch deployment attempting to compile massive build/Rust directories (`target`, `node_modules`).
-2. Move all static assets into `public/assets/` to ensure absolute path isolation during Pages deployment.
+1. Shell-listener remains CLI-only, not LLM tool-callable.
+2. Remote binds require `--allow-remote`.
+3. `1.4.1` is the patch release target after the prepared `1.4.0` minor integration.
+4. SDK/plugin dependencies are exact-pinned to `1.17.4`.
 
 ## Rejected Alternatives
 
-1. Deploying from root (`/`): rejected because the project size and source files trigger Jekyll compilation timeouts/errors on GitHub Pages build servers.
+1. Registering shell-listener as an OpenCode tool was rejected because interactive network sessions should not be model-callable through JSON-RPC.
+2. Running `release:minor` or `release:patch` directly was rejected during validation because those scripts include publish behavior.
 
 ## Known Risks
 
-- None. The Actions-based setup is clean and fully isolated inside the `public/` workspace.
+- A local remote URL had an embedded credential during the session. Treat that credential as exposed and rotate it.
 
 ## Open These Files First Next Session
 
 1. `AGENT_MEMORY.md`
-2. `public/index.html`
-3. `.github/workflows/deploy-pages.yml`
+2. `docs/release/2026-06-12-1.4.1-audit.md`
+3. `crates/orchestrator-cli/src/shell_listener.rs`
+4. `package.json`

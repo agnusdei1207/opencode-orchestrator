@@ -6,7 +6,7 @@
   [![MIT License](https://img.shields.io/badge/license-MIT-red.svg)](LICENSE)
   [![npm](https://img.shields.io/npm/v/opencode-orchestrator.svg)](https://www.npmjs.com/package/opencode-orchestrator)
   <!-- VERSION:START -->
-  **Version:** `1.3.12`
+  **Version:** `1.4.1`
   <!-- VERSION:END -->
 </div>
 
@@ -34,8 +34,8 @@ Manual fallback: remove `"opencode-orchestrator"` or `["opencode-orchestrator", 
 Tested compatibility:
 
 1. Node.js `24+`
-2. `@opencode-ai/plugin` `1.17.3`
-3. `@opencode-ai/sdk` `1.17.3`
+2. `@opencode-ai/plugin` `1.17.4`
+3. `@opencode-ai/sdk` `1.17.4`
 
 OpenCode plugin options belong inside the `plugin` array as `["plugin-name", {...}]` tuples. Configure `agentConcurrency` and `missionLoop` there:
 
@@ -98,6 +98,35 @@ Mission controls:
 2. `Esc`/OpenCode interrupt is respected by idle guards so the plugin does not immediately re-continue an interrupted turn.
 3. `/cancel` and `/stop` deactivate the current mission loop.
 4. The default mission iteration ceiling is `1,000,000,000`.
+
+### Authorized Shell Listener TUI
+
+For owned lab machines or explicitly authorized test environments, the bundled Rust CLI can run a multi-session TCP shell listener:
+
+```bash
+orchestrator shell-listener --bind 127.0.0.1 --port 4444
+```
+
+The listener is intentionally outside the OpenCode JSON-RPC tool surface. It is an operator-driven terminal workflow, not an LLM-callable tool.
+
+Safety defaults:
+
+1. Loopback-only bind by default.
+2. Non-loopback bind addresses require `--allow-remote`.
+3. Raw stream logs are stored under `.opencode-orchestrator/shell-listener/`.
+4. The CLI does not generate payloads, exploit targets, or bypass authentication.
+
+TUI commands:
+
+| Command | Purpose |
+| --- | --- |
+| `sessions` | Show connected sessions, peer addresses, status, and raw log paths. |
+| `use <id>` | Select the active session. |
+| `send <text>` | Send one input line to the active session. Use this for login, registry, CDK, or reverse-proxy prompts that need human input. |
+| `run <cmd>` | Send a command followed by a unique sentinel marker so completion can be recognized in output. |
+| `pty` | Send a manual PTY helper to the active session when the remote environment supports Python. |
+| `close [id]` | Close a session. |
+| `quit` | Stop the listener UI. |
 
 ## 4. How It Works
 

@@ -54,9 +54,10 @@ pub enum HookTiming {
 }
 
 /// Hook execution result
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub enum HookResult {
     /// Continue execution
+    #[default]
     Continue,
     /// Block execution
     Block(String),
@@ -64,12 +65,6 @@ pub enum HookResult {
     Modify(serde_json::Value),
     /// Warning message
     Warn(String),
-}
-
-impl Default for HookResult {
-    fn default() -> Self {
-        Self::Continue
-    }
 }
 
 /// Tool execution context

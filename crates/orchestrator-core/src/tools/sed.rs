@@ -69,15 +69,15 @@ impl SedTool {
         file_path: &Path,
     ) -> Result<Option<SedResult>> {
         // Check file size
-        if let Ok(metadata) = fs::metadata(file_path) {
-            if metadata.len() > self.config.max_file_size {
-                return Ok(None);
-            }
+        if let Ok(metadata) = fs::metadata(file_path)
+            && metadata.len() > self.config.max_file_size
+        {
+            return Ok(None);
         }
 
         let content = fs::read_to_string(file_path)?;
         let regex = Regex::new(pattern)?;
-        
+
         let mut replacements = 0;
         let original_lines: Vec<String> = content.lines().map(|s| s.to_string()).collect();
         let mut modified_lines = Vec::new();
@@ -210,10 +210,10 @@ mod tests {
             exclude_patterns: vec![],
             ..Default::default()
         });
-        
+
         let result = tool.replace_in_file("hello", "hi", &file).unwrap();
         assert!(result.is_some());
-        
+
         let result = result.unwrap();
         assert_eq!(result.replacements, 2);
 
@@ -233,7 +233,7 @@ mod tests {
             exclude_patterns: vec![],
             ..Default::default()
         });
-        
+
         let result = tool.replace_in_file("hello", "hi", &file).unwrap();
         assert!(result.is_some());
 
@@ -246,14 +246,20 @@ mod tests {
     fn test_sed_regex() {
         let dir = tempdir().unwrap();
         let file = dir.path().join("test.rs");
-        fs::write(&file, "Color::rgb(1.0, 0.0, 0.0)\nColor::rgb(0.5, 0.5, 0.5)").unwrap();
+        fs::write(
+            &file,
+            "Color::rgb(1.0, 0.0, 0.0)\nColor::rgb(0.5, 0.5, 0.5)",
+        )
+        .unwrap();
 
         let tool = SedTool::new(SedConfig {
             exclude_patterns: vec![],
             ..Default::default()
         });
-        
-        let result = tool.replace_in_file(r"Color::rgb", "Color::srgb", &file).unwrap();
+
+        let result = tool
+            .replace_in_file(r"Color::rgb", "Color::srgb", &file)
+            .unwrap();
         assert!(result.is_some());
         assert_eq!(result.unwrap().replacements, 2);
 

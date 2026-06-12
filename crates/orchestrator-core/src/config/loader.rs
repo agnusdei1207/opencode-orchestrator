@@ -109,35 +109,34 @@ impl ConfigLoader {
                 continue;
             }
 
-            if !in_string && c == '/' {
-                if let Some(&next) = chars.peek() {
-                    if next == '/' {
-                        // Line comment - skip until newline
+            if !in_string
+                && c == '/'
+                && let Some(&next) = chars.peek()
+            {
+                if next == '/' {
+                    // Line comment - skip until newline
+                    chars.next();
+                    while let Some(&ch) = chars.peek() {
+                        if ch == '\n' {
+                            break;
+                        }
                         chars.next();
-                        while let Some(&ch) = chars.peek() {
-                            if ch == '\n' {
+                    }
+                    continue;
+                } else if next == '*' {
+                    // Block comment - skip until */
+                    chars.next();
+                    loop {
+                        match chars.next() {
+                            Some('*') if chars.peek() == Some(&'/') => {
+                                chars.next();
                                 break;
                             }
-                            chars.next();
+                            None => break,
+                            _ => {}
                         }
-                        continue;
-                    } else if next == '*' {
-                        // Block comment - skip until */
-                        chars.next();
-                        loop {
-                            match chars.next() {
-                                Some('*') => {
-                                    if chars.peek() == Some(&'/') {
-                                        chars.next();
-                                        break;
-                                    }
-                                }
-                                None => break,
-                                _ => {}
-                            }
-                        }
-                        continue;
                     }
+                    continue;
                 }
             }
 
