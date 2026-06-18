@@ -132,14 +132,8 @@ export class ParallelAgentManager {
         progressNotifier.setManager(this);
 
         // Start TUI Monitor
-        // Start TUI Monitor
         // TerminalMonitor has been deprecated in favor of native TUI integration (TaskToastManager)
         // TerminalMonitor.getInstance().start();
-
-        // Bootstrap recovery
-        this.recoverActiveTasks().catch(err => {
-            log("Recovery error:", err);
-        });
     }
 
     static getInstance(
@@ -336,10 +330,7 @@ export class ParallelAgentManager {
         progressNotifier.update();
     }
 
-    private async recoverActiveTasks(): Promise<void> {
-        // WAL removed - no recovery needed
-        // Tasks will start fresh on restart
-    }
+
 }
 
 export const parallelAgentManager = {
