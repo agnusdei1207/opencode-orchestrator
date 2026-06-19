@@ -28,6 +28,8 @@ const DEFAULT_MAX_ITERATIONS = MISSION_CONTROL.DEFAULT_MAX_ITERATIONS;
 type MissionContinuationContext = {
     verificationSummary?: string;
     continuationReason?: string;
+    /** Files changed this mission with no verification recorded afterward. */
+    unverifiedChanges?: number;
 };
 
 type MissionContinuationInput = string | MissionContinuationContext;
@@ -242,6 +244,13 @@ Completion rule:
 Do not declare success while TODO/checklist/sync verification is still failing.
 </mission_loop>`;
 
+    if (context.unverifiedChanges > 0) {
+        prompt += `\n\n<wiring_gate>
+${context.unverifiedChanges} changed file(s) this mission have no verification evidence yet.
+Run the project's tests/build/lint over the changed surface and cite the result before declaring done.
+</wiring_gate>`;
+    }
+
     // Inject Maintenance Instruction based on iteration
     if (state.iteration > 1) {
         prompt += "\n" + CLEANUP_INSTRUCTION.replace("%ITER%", state.iteration.toString());
@@ -256,6 +265,7 @@ function normalizeContinuationContext(
 ) {
     const verificationSummary = typeof input === "string" ? input : input?.verificationSummary;
     const continuationReason = typeof input === "string" ? undefined : input?.continuationReason;
+    const unverifiedChanges = typeof input === "string" ? 0 : input?.unverifiedChanges ?? 0;
     const stagnationCount = state.stagnationCount ?? 0;
     return {
         objective: state.objective || deriveObjective(state.prompt),
@@ -263,6 +273,7 @@ function normalizeContinuationContext(
         verification: verificationSummary ?? state.lastVerificationSummary ?? UNKNOWN_STATUS,
         reason: continuationReason ?? state.lastContinuationReason ?? "verification_failed",
         stagnation: stagnationCount > 0 ? `${stagnationCount} unchanged check(s)` : "not detected",
+        unverifiedChanges,
     };
 }
 

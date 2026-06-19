@@ -29,6 +29,7 @@ import { verifyMissionCompletion, buildVerificationSummary } from "./verificatio
 import { syncMissionMemory } from "../knowledge/mission-memory.js";
 import { appendMissionLedgerEvent } from "./mission-ledger.js";
 import { createSessionStateStore } from "./session-state-store.js";
+import { getUnverifiedChangeCount, clearEvidence } from "./evidence.js";
 import { trackProgress, resetProgress, isStagnant, markInjectionPerformed, DEFAULT_STAGNATION_THRESHOLD } from "./progress-tracker.js";
 import { armCompactionGuard, isCompactionSafe, clearCompactionState } from "./compaction-guard.js";
 import { isCircuitOpen, shouldTripCircuit, clearCircuitState } from "./circuit-breaker.js";
@@ -129,6 +130,7 @@ async function injectContinuation(
     let prompt = generateMissionContinuationPrompt(loopState, {
         verificationSummary: summary,
         continuationReason,
+        unverifiedChanges: getUnverifiedChangeCount(sessionID),
     });
 
     if (customPrompt) {
@@ -329,6 +331,7 @@ export function cleanupSession(sessionID: string): void {
     clearCompactionState(sessionID);
     clearCircuitState(sessionID);
     resetProgress(sessionID);
+    clearEvidence(sessionID);
 }
 
 export function handleSessionCompacted(sessionID: string): void {
