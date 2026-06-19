@@ -1963,7 +1963,7 @@ Phase E (8~12주): 제안 13 — 로컬 메모리 OS + 장기 평가 하네스
 |:--|:--|:--|
 | [FadeMem, arXiv:2601.18642](https://arxiv.org/abs/2601.18642) | 에빙하우스 기반 적응형 지수 감쇄, access frequency/semantic relevance/temporal pattern 반영, 45% storage reduction 보고 | `strength`, `access_count`, `last_accessed`, `decay_lambda`를 frontmatter에 저장하고 검색 점수에 곱한다 |
 | [FSFM, arXiv:2604.20300](https://arxiv.org/abs/2604.20300) | passive decay, active deletion, safety-triggered, adaptive reinforcement 분류 | 감쇄를 단일 cron이 아니라 policy engine으로 분리한다 |
-| [Zep/Graphiti, arXiv:2501.13956](https://arxiv.org/abs/2501.13956) | 시간 인식 knowledge graph와 historical relationship 유지 | `valid_from`, `valid_to`, `supersedes`를 노트 메타데이터로 둔다 |
+| [Zep/Graphiti, arXiv:2501.13956](https://arxiv.org/abs/2501.13956) | 시간 인식 knowledge graph와 historical relationship 유지 | `event_time`, `ingestion_time`, `valid_from`, `valid_to`, `supersedes`를 노트 메타데이터로 둔다 |
 | [Mem0, arXiv:2504.19413](https://arxiv.org/abs/2504.19413) | 대화에서 salient information을 추출·통합·검색하고 graph memory variant 제공 | raw log를 그대로 쌓지 않고 fact/event/preference 단위로 추출한다 |
 | [LiCoMemory, arXiv:2511.01448](https://arxiv.org/abs/2511.01448) | hierarchical graph + temporal/hierarchy-aware search | 태그/링크 그래프를 layer-aware reranking에 사용한다 |
 | [LongMemEval-V2, arXiv:2605.12493](https://arxiv.org/abs/2605.12493) | web agent 장기 기억 평가를 static state, dynamic state, workflow, gotchas, premise awareness로 분해 | 구현 완료 기준을 "저장됨"이 아니라 환경 경험 질의 정확도로 둔다 |
@@ -1978,8 +1978,9 @@ tags: [memory, sop]
 memory_id: mem_20260619_001
 memory_kind: sop              # sop | fact | preference | episode | gotcha | workflow
 memory_layer: warm            # hot | warm | cold | archive
-created_at: 2026-06-19T09:00:00Z
-updated_at: 2026-06-19T09:00:00Z
+event_time: 2026-06-18T00:00:00Z       # 사실이 세상에서 참이 된 시점
+ingestion_time: 2026-06-19T09:00:00Z   # 에이전트가 이 사실을 배운 시점
+record_updated_at: 2026-06-19T09:00:00Z
 last_accessed: 2026-06-19T09:00:00Z
 access_count: 3
 access_ema: 1.42              # 최근 접근을 더 크게 보는 지수 이동 평균
@@ -1995,13 +1996,25 @@ keep: false
 ---
 ```
 
+### Bi-temporal 시간 모델
+
+| 필드 | 의미 | 사용 위치 |
+|:--|:--|:--|
+| `event_time` | 사실/사건이 실제 세계에서 발생했거나 참이 된 시점 | "그때는 참이었나?" 질의, temporal conflict, `valid_from` 기본값 |
+| `ingestion_time` | 에이전트가 그 사실을 관측·학습·저장한 시점 | 감쇄 기준 fallback, 소스 최신성, 재현 가능한 감사 추적 |
+| `valid_from` / `valid_to` | 사실이 유효한 구간 | 오래된 CVE, 만료 IOC, 교체된 자격증명 판단 |
+| `last_accessed` | 검색 결과로 사용된 마지막 시점 | Ebbinghaus 강화/감쇄 계산 |
+
+타임스탬프를 하나만 두면 "사실이 언제 참이었는지"와 "에이전트가 언제 배웠는지"가 섞인다. 로컬 기억 레이어는 이 둘을 분리해야 `CVE-2024-1234는 2024-03-15에는 위험했지만 2024-04-01 패치 이후 현재는 낮은 우선순위` 같은 판단을 할 수 있다.
+
 ### 감쇄 함수
 
 ```typescript
 type MemoryMeta = {
   memory_kind?: string;
   memory_layer?: 'hot' | 'warm' | 'cold' | 'archive';
-  created_at?: string;
+  event_time?: string;
+  ingestion_time?: string;
   last_accessed?: string;
   access_count?: number;
   access_ema?: number;
@@ -2023,7 +2036,7 @@ const KIND_DECAY: Record<string, number> = {
 function memoryStrength(meta: MemoryMeta, now = Date.now()): number {
   if (meta.keep) return 1.0;
 
-  const last = Date.parse(meta.last_accessed ?? meta.created_at ?? new Date(now).toISOString());
+  const last = Date.parse(meta.last_accessed ?? meta.ingestion_time ?? new Date(now).toISOString());
   const ageDays = Math.max(0, (now - last) / 86_400_000);
   const lambda = meta.decay_lambda ?? KIND_DECAY[meta.memory_kind ?? 'fact'] ?? 0.03;
   const access = meta.access_ema ?? meta.access_count ?? 0;
@@ -2040,6 +2053,7 @@ function memoryStrength(meta: MemoryMeta, now = Date.now()): number {
 Write path:
   session/event/raw note
     → salient fact extraction
+    → event_time과 ingestion_time 분리 저장
     → duplicate/source_hash check
     → temporal conflict check
     → memory_kind/layer assignment
@@ -2064,7 +2078,7 @@ Maintenance path:
 
 | 단계 | 파일 | 변경 |
 |:--|:--|:--|
-| 메타데이터 확장 | `tag-indexer.ts` | `memory_*`, `access_ema`, `valid_*`, `supersedes` frontmatter 파싱 |
+| 메타데이터 확장 | `tag-indexer.ts` | `memory_*`, `event_time`, `ingestion_time`, `access_ema`, `valid_*`, `supersedes` frontmatter 파싱 |
 | 강도 계산 | `retrieval-weights.ts` | `memoryStrength()`와 kind별 lambda 정의 |
 | 검색 통합 | `hybrid-search.ts` | fused score에 `strength` 곱셈, archive layer 제외 |
 | 접근 강화 | `context-provider.ts` | 검색 결과 반환 후 `recordAccess()` 호출 |
@@ -2076,7 +2090,7 @@ Maintenance path:
 | 게이트 | 기준 |
 |:--|:--|
 | Recall | static state, workflow, gotcha 질의에서 baseline 대비 MRR@10 비회귀 |
-| Temporal | 최신 정보가 과거 정보보다 먼저 검색되고, 과거 정보는 `valid_to`로 설명 가능 |
+| Temporal | `event_time` 기준 과거 사실과 `ingestion_time` 기준 학습 시점이 분리되고, 최신 정보가 과거 정보보다 먼저 검색되며 과거 정보는 `valid_to`로 설명 가능 |
 | Storage | raw memory 대비 active layer 토큰 수 30% 이상 감소 |
 | Latency | 검색 p95가 baseline 대비 20% 이상 악화되지 않음 |
 | Safety | `privacy_class=sensitive` 또는 malicious marker는 검색 프롬프트에 포함되지 않음 |
