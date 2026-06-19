@@ -1,5 +1,5 @@
 import { spawnSync } from "node:child_process";
-import { readFileSync } from "node:fs";
+import { readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -52,7 +52,26 @@ run(npmCommand, ["version", bump, "--no-git-tag-version", "--ignore-scripts"]);
 run(npmCommand, ["run", "sync:readme-version"]);
 
 const version = readVersion();
-run("git", ["add", "package.json", "package-lock.json", "README.md"]);
+
+// Keep the Cargo workspace version in lockstep with the npm package version.
+// The package-metadata test asserts they match, so bump Cargo.toml here too.
+function bumpCargoVersion(nextVersion) {
+  const cargoPath = path.join(repoRoot, "Cargo.toml");
+  const cargo = readFileSync(cargoPath, "utf8");
+  const updated = cargo.replace(
+    /^version = "\d+\.\d+\.\d+"/m,
+    `version = "${nextVersion}"`,
+  );
+  if (updated === cargo) {
+    throw new Error(`Could not update Cargo workspace version to ${nextVersion}.`);
+  }
+  writeFileSync(cargoPath, updated);
+}
+
+bumpCargoVersion(version);
+run("cargo", ["update", "-w"]);
+
+run("git", ["add", "package.json", "package-lock.json", "README.md", "Cargo.toml", "Cargo.lock"]);
 
 const diff = run("git", ["diff", "--cached", "--quiet"], {
   allowFailure: true,
