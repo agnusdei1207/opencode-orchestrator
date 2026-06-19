@@ -1939,6 +1939,7 @@ async function autoLink(note: ParsedNote): Promise<void> {
 | **3** | ⑩ 계층적 압축 | ⭐⭐⭐⭐⭐ | 🟡 중간 | 없음 | 제안 8, 9 |
 | **4** | ⑪ 충돌 기반 망각 | ⭐⭐⭐ | 🟠 중간-높음 | 없음 | 없음 |
 | **5** | ⑫ A-Mem 자율 링킹 | ⭐⭐⭐⭐ | 🔴 높음 | 없음 | 제안 8 |
+| **6** | ⑬ 로컬 에빙하우스 메모리 OS | ⭐⭐⭐⭐⭐ | 🟠 중간-높음 | 없음 | 제안 8, 9, 11 |
 
 ## 기억 감쇄 구현 로드맵
 
@@ -1947,8 +1948,144 @@ Phase A (1-2주):  제안 8 — frontmatter 확장 + 접근 카운터
 Phase B (2-4주):  제안 9 — 감쇄 함수 + RRF 점수 반영
 Phase C (4-8주):  제안 10 — 4-Tier 구조 + 컴팩션 파이프라인
 Phase D (8주+):   제안 11, 12 — 충돌 감지 + 자율 링킹
+Phase E (8~12주): 제안 13 — 로컬 메모리 OS + 장기 평가 하네스
 ```
 
 ---
 
-*작성: AI Agent · 2026-06-19 · opencode-orchestrator 검색 시스템 고도화 제안 (Part 1: 검색 고도화 제안 1~7, Part 2: 기억 감쇄 제안 8~12)*
+# Part 3: 로컬 에빙하우스 기반 메모리 OS 제안
+
+> **목표**: 외부 API 없이 Markdown vault + 로컬 인덱스만으로 장기 에이전트 기억을 구축한다. 핵심은 "무조건 보관"이 아니라 **강도(strength)를 가진 기억**을 만들고, 검색·사용·충돌·시간 경과에 따라 기억을 강화, 압축, 대체, 아카이브하는 것이다.
+
+## 최신 연구 근거
+
+| 연구 | 핵심 근거 | 로컬 설계 반영 |
+|:--|:--|:--|
+| [FadeMem, arXiv:2601.18642](https://arxiv.org/abs/2601.18642) | 에빙하우스 기반 적응형 지수 감쇄, access frequency/semantic relevance/temporal pattern 반영, 45% storage reduction 보고 | `strength`, `access_count`, `last_accessed`, `decay_lambda`를 frontmatter에 저장하고 검색 점수에 곱한다 |
+| [FSFM, arXiv:2604.20300](https://arxiv.org/abs/2604.20300) | passive decay, active deletion, safety-triggered, adaptive reinforcement 분류 | 감쇄를 단일 cron이 아니라 policy engine으로 분리한다 |
+| [Zep/Graphiti, arXiv:2501.13956](https://arxiv.org/abs/2501.13956) | 시간 인식 knowledge graph와 historical relationship 유지 | `valid_from`, `valid_to`, `supersedes`를 노트 메타데이터로 둔다 |
+| [Mem0, arXiv:2504.19413](https://arxiv.org/abs/2504.19413) | 대화에서 salient information을 추출·통합·검색하고 graph memory variant 제공 | raw log를 그대로 쌓지 않고 fact/event/preference 단위로 추출한다 |
+| [LiCoMemory, arXiv:2511.01448](https://arxiv.org/abs/2511.01448) | hierarchical graph + temporal/hierarchy-aware search | 태그/링크 그래프를 layer-aware reranking에 사용한다 |
+| [LongMemEval-V2, arXiv:2605.12493](https://arxiv.org/abs/2605.12493) | web agent 장기 기억 평가를 static state, dynamic state, workflow, gotchas, premise awareness로 분해 | 구현 완료 기준을 "저장됨"이 아니라 환경 경험 질의 정확도로 둔다 |
+
+## 제안 13: Local Ebbinghaus Memory OS
+
+### 메모리 레코드 형식
+
+```yaml
+---
+tags: [memory, sop]
+memory_id: mem_20260619_001
+memory_kind: sop              # sop | fact | preference | episode | gotcha | workflow
+memory_layer: warm            # hot | warm | cold | archive
+created_at: 2026-06-19T09:00:00Z
+updated_at: 2026-06-19T09:00:00Z
+last_accessed: 2026-06-19T09:00:00Z
+access_count: 3
+access_ema: 1.42              # 최근 접근을 더 크게 보는 지수 이동 평균
+importance: 0.82              # agent/role/task 기반 중요도
+confidence: 0.91              # 추출 신뢰도
+decay_lambda: 0.02
+strength: 0.78
+valid_from: 2026-06-19T00:00:00Z
+valid_to: null
+supersedes: []
+source_hash: sha256:...
+keep: false
+---
+```
+
+### 감쇄 함수
+
+```typescript
+type MemoryMeta = {
+  memory_kind?: string;
+  memory_layer?: 'hot' | 'warm' | 'cold' | 'archive';
+  created_at?: string;
+  last_accessed?: string;
+  access_count?: number;
+  access_ema?: number;
+  importance?: number;
+  confidence?: number;
+  decay_lambda?: number;
+  keep?: boolean;
+};
+
+const KIND_DECAY: Record<string, number> = {
+  sop: 0.006,       // 절차는 느리게 감쇄
+  workflow: 0.010,
+  fact: 0.018,
+  preference: 0.020,
+  gotcha: 0.030,
+  episode: 0.070,
+};
+
+function memoryStrength(meta: MemoryMeta, now = Date.now()): number {
+  if (meta.keep) return 1.0;
+
+  const last = Date.parse(meta.last_accessed ?? meta.created_at ?? new Date(now).toISOString());
+  const ageDays = Math.max(0, (now - last) / 86_400_000);
+  const lambda = meta.decay_lambda ?? KIND_DECAY[meta.memory_kind ?? 'fact'] ?? 0.03;
+  const access = meta.access_ema ?? meta.access_count ?? 0;
+  const reinforcement = 1 + Math.log1p(access) / 4;
+  const quality = Math.max(0.1, (meta.importance ?? 0.5) * (meta.confidence ?? 0.8));
+
+  return Math.max(0.03, Math.min(1.0, quality * reinforcement * Math.exp(-lambda * ageDays)));
+}
+```
+
+### 로컬 파이프라인
+
+```
+Write path:
+  session/event/raw note
+    → salient fact extraction
+    → duplicate/source_hash check
+    → temporal conflict check
+    → memory_kind/layer assignment
+    → markdown note + graph index update
+
+Read path:
+  query
+    → lexical + semantic + graph candidates
+    → strength 계산
+    → role/context weight와 fuse
+    → 반환된 노트 recordAccess()로 강화
+
+Maintenance path:
+  daily or N writes
+    → strength 재계산
+    → hot↔warm↔cold 이동
+    → cold 요약본 생성
+    → obsolete/sensitive/malicious 노트 archive 또는 tombstone
+```
+
+### 구현 단위
+
+| 단계 | 파일 | 변경 |
+|:--|:--|:--|
+| 메타데이터 확장 | `tag-indexer.ts` | `memory_*`, `access_ema`, `valid_*`, `supersedes` frontmatter 파싱 |
+| 강도 계산 | `retrieval-weights.ts` | `memoryStrength()`와 kind별 lambda 정의 |
+| 검색 통합 | `hybrid-search.ts` | fused score에 `strength` 곱셈, archive layer 제외 |
+| 접근 강화 | `context-provider.ts` | 검색 결과 반환 후 `recordAccess()` 호출 |
+| 충돌/대체 | `memory-consolidation.ts` | `valid_to`, `supersedes`, tombstone 처리 |
+| 평가 | `tests/knowledge-memory-decay.test.ts` | LongMemEval-V2식 로컬 fixture로 recall/latency/storage 측정 |
+
+### 로컬 평가 게이트
+
+| 게이트 | 기준 |
+|:--|:--|
+| Recall | static state, workflow, gotcha 질의에서 baseline 대비 MRR@10 비회귀 |
+| Temporal | 최신 정보가 과거 정보보다 먼저 검색되고, 과거 정보는 `valid_to`로 설명 가능 |
+| Storage | raw memory 대비 active layer 토큰 수 30% 이상 감소 |
+| Latency | 검색 p95가 baseline 대비 20% 이상 악화되지 않음 |
+| Safety | `privacy_class=sensitive` 또는 malicious marker는 검색 프롬프트에 포함되지 않음 |
+| Recoverability | archive/tombstone된 노트는 수동 복구 경로가 존재 |
+
+### 핵심 판단
+
+로컬 기반 에빙하우스 메모리는 가능하다. 단, 단순히 `last_accessed`로 오래된 노트를 삭제하면 위험하다. 안전한 구현은 **감쇄 점수로 검색 노출을 줄이고, 압축/아카이브는 별도 dry-run과 tombstone을 거친 뒤 실행**하는 구조다. 이렇게 하면 외부 벡터 DB나 클라우드 메모리 서비스 없이도 장기 기억의 정확도, 비용, 보안성을 함께 관리할 수 있다.
+
+---
+
+*작성: AI Agent · 2026-06-19 · opencode-orchestrator 검색 시스템 고도화 제안 (Part 1: 검색 고도화 제안 1~7, Part 2: 기억 감쇄 제안 8~12, Part 3: 로컬 에빙하우스 메모리 OS 제안 13)*
