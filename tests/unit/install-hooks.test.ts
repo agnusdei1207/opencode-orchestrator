@@ -12,7 +12,10 @@ const preuninstallPath = path.join(repoRoot, "scripts", "preuninstall.ts");
 function runNode(args: string[], cwd: string, env: NodeJS.ProcessEnv = {}) {
     return spawnSync(process.execPath, args, {
         cwd,
-        env: { ...process.env, ...env },
+        // Neutralize any inherited CI flag so config-writing tests are deterministic
+        // whether or not they run inside CI. Tests that exercise CI no-op behavior
+        // re-enable it explicitly via the `env` argument (which wins here).
+        env: { ...process.env, CI: "", CONTINUOUS_INTEGRATION: "", ...env },
         encoding: "utf8",
     });
 }
