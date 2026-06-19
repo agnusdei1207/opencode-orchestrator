@@ -163,11 +163,18 @@ Runtime evidence is written only when enabled:
 
 ## 5. Developer Notes
 
+Local checks that mirror CI (`.github/workflows/ci.yml`), which gates every push and PR:
+
 ```bash
+# TypeScript
 npm run build
 npx tsc --noEmit
 npm test
-cargo test --workspace --all-targets
+
+# Rust (same gates CI enforces)
+cargo fmt --all --check
+cargo clippy --workspace --all-targets -- -D warnings
+cargo test --workspace
 ```
 
 Useful references:
