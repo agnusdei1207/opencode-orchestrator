@@ -62,6 +62,7 @@ describe("MemoryLifecycle - local Ebbinghaus memory operations", () => {
         expect(changed).toEqual([hot, stale]);
         expect(existsSync(stale)).toBe(true);
         expect(readFileSync(stale, "utf8")).toContain("memory_layer: archive");
+        expect(readFileSync(stale, "utf8")).toContain("tombstone: true");
     });
 
     it("resolves temporal supersession with valid_to and supersedes metadata", () => {
@@ -98,6 +99,7 @@ describe("MemoryLifecycle - local Ebbinghaus memory operations", () => {
         }]);
         expect(readFileSync(oldPath, "utf8")).toContain("valid_to: 2024-04-01T00:00:00Z");
         expect(readFileSync(oldPath, "utf8")).toContain("memory_layer: archive");
+        expect(readFileSync(oldPath, "utf8")).toContain("tombstone: true");
         expect(readFileSync(newPath, "utf8")).toContain("supersedes: [cve-1234]");
     });
 

@@ -21,6 +21,7 @@ export interface FrontmatterData {
     memory_id?: string;
     source_hash?: string;
     privacy_class?: string;
+    tombstone?: boolean;
     valid_from?: string;
     valid_to?: string | null;
     supersedes?: string[];

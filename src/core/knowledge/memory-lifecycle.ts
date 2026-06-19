@@ -110,12 +110,13 @@ export class MemoryLifecycle {
         for (const decision of plan.tierChanges) {
             const record = this.loadRecord(decision.filePath);
             if (!record) continue;
-            const timestamp = now.toISOString();
-            this.writeRecord(decision.filePath, {
-                ...record.metadata,
-                memory_layer: decision.to,
-                record_updated_at: timestamp,
-            }, record.body);
+                const timestamp = now.toISOString();
+                this.writeRecord(decision.filePath, {
+                    ...record.metadata,
+                    memory_layer: decision.to,
+                    tombstone: decision.to === "archive" ? true : record.metadata.tombstone,
+                    record_updated_at: timestamp,
+                }, record.body);
             changed.push(decision.filePath);
         }
 
@@ -159,6 +160,7 @@ export class MemoryLifecycle {
                     ...oldRecord.metadata,
                     valid_to: validTo,
                     memory_layer: "archive",
+                    tombstone: true,
                     record_updated_at: now.toISOString(),
                 }, oldRecord.body);
                 const nextSupersedes = new Set([...(newRecord.metadata.supersedes ?? []), supersedesId]);

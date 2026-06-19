@@ -286,7 +286,9 @@ function memoryStrength(metadata: FrontmatterData | undefined, now = Date.now())
 
 function isPromptSafeMemory(metadata: FrontmatterData | undefined): boolean {
     if (!metadata) return true;
-    return metadata.privacy_class !== "sensitive" && metadata.memory_layer !== "malicious";
+    return metadata.privacy_class !== "sensitive"
+        && metadata.memory_layer !== "malicious"
+        && metadata.tombstone !== true;
 }
 
 function numberOr(value: unknown, fallback: number): number {
