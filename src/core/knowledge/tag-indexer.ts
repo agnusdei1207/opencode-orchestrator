@@ -18,6 +18,9 @@ export interface FrontmatterData {
     decay_lambda?: number;
     memory_kind?: string;
     memory_layer?: string;
+    memory_id?: string;
+    source_hash?: string;
+    privacy_class?: string;
     valid_from?: string;
     valid_to?: string | null;
     supersedes?: string[];

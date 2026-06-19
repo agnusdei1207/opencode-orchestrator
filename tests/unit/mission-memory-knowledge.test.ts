@@ -79,5 +79,9 @@ describe("mission memory knowledge integration", () => {
         expect(prompt).toContain("brain/memories/");
         expect(prompt).not.toContain("brain/scratchpad.md");
         expect(prompt).toContain("Graphical memory timing");
+
+        const accessedNote = fs.readFileSync(path.join(notesDir, noteFiles[0]), "utf8");
+        expect(accessedNote).toContain("access_count: 2");
+        expect(accessedNote).toContain("last_accessed:");
     });
 });

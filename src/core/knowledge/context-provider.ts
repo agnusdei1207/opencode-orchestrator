@@ -2,6 +2,7 @@ import { existsSync, readFileSync, readdirSync } from "node:fs";
 import path from "node:path";
 import { GraphParser } from "./graph-parser.js";
 import { HybridSearch } from "./hybrid-search.js";
+import { MemoryLifecycle } from "./memory-lifecycle.js";
 import { TagIndexer } from "./tag-indexer.js";
 import { weightsForRole } from "./retrieval-weights.js";
 
@@ -14,6 +15,7 @@ const GENERATED_SCRATCHPAD_PATH = path.join(".opencode", "docs", "brain", "scrat
 interface IndexedKnowledge {
     search: HybridSearch;
     noteToPath: Map<string, string>;
+    noteToAbsolutePath: Map<string, string>;
     noteToSnippet: Map<string, string>;
 }
 
@@ -30,6 +32,7 @@ export class KnowledgeContextProvider {
         const results = indexed.search.search(normalizedQuery, MAX_RESULTS, weightsForRole(role));
         if (results.length === 0) return null;
 
+        this.recordResultAccess(results.map(result => indexed.noteToAbsolutePath.get(result.noteName)));
         return this.formatPrompt(normalizedQuery, results, indexed);
     }
 
@@ -67,6 +70,7 @@ export class KnowledgeContextProvider {
         const graphParser = new GraphParser();
         const search = new HybridSearch(tagIndexer, graphParser);
         const noteToPath = new Map<string, string>();
+        const noteToAbsolutePath = new Map<string, string>();
         const noteToSnippet = new Map<string, string>();
 
         for (const filePath of files) {
@@ -80,13 +84,26 @@ export class KnowledgeContextProvider {
                 graphParser.indexFile(filePath, content);
                 search.indexContent(noteName, normalizedBody, data);
                 noteToPath.set(noteName, path.relative(directory, filePath) || filePath);
+                noteToAbsolutePath.set(noteName, filePath);
                 noteToSnippet.set(noteName, this.buildSnippet(normalizedBody));
             } catch {
                 continue;
             }
         }
 
-        return { search, noteToPath, noteToSnippet };
+        return { search, noteToPath, noteToAbsolutePath, noteToSnippet };
+    }
+
+    private recordResultAccess(filePaths: Array<string | undefined>): void {
+        const lifecycle = new MemoryLifecycle();
+        for (const filePath of filePaths) {
+            if (!filePath) continue;
+            try {
+                lifecycle.recordAccess(filePath);
+            } catch {
+                continue;
+            }
+        }
     }
 
     private buildSnippet(content: string): string {

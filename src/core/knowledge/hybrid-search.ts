@@ -184,7 +184,7 @@ export class HybridSearch {
                 score: score * memoryStrength(this.metadataMap.get(noteName)),
                 matchType,
             }))
-            .filter(result => result.score > 0)
+            .filter(result => result.score > 0 && isPromptSafeMemory(this.metadataMap.get(result.noteName)))
             .sort((a, b) => b.score - a.score)
             .slice(0, limit);
     }
@@ -282,6 +282,11 @@ function memoryStrength(metadata: FrontmatterData | undefined, now = Date.now())
     const expiry = isExpired(metadata.valid_to, now) ? EXPIRED_MEMORY_MULTIPLIER : 1;
 
     return clamp(quality * reinforcement * Math.exp(-lambda * ageDays) * expiry, MIN_MEMORY_STRENGTH, 1);
+}
+
+function isPromptSafeMemory(metadata: FrontmatterData | undefined): boolean {
+    if (!metadata) return true;
+    return metadata.privacy_class !== "sensitive" && metadata.memory_layer !== "malicious";
 }
 
 function numberOr(value: unknown, fallback: number): number {

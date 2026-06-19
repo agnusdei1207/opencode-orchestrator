@@ -127,4 +127,25 @@ describe("HybridSearch - BM25 + Tag + Graph Fusion RAG", () => {
         expect(results.findIndex(result => result.noteName === "expired-memory"))
             .toBeGreaterThan(results.findIndex(result => result.noteName === "neutral-note"));
     });
+
+    it("should exclude sensitive memory notes from prompt retrieval", () => {
+        search.indexContent("safe-memory", "VPN rotation SOP uses ticket approval.", {
+            event_time: "2026-06-19T00:00:00Z",
+            ingestion_time: "2026-06-19T01:00:00Z",
+            memory_kind: "sop",
+            memory_layer: "warm",
+        });
+        search.indexContent("sensitive-memory", "VPN rotation SOP secret token is abc123.", {
+            event_time: "2026-06-19T00:00:00Z",
+            ingestion_time: "2026-06-19T01:00:00Z",
+            memory_kind: "fact",
+            memory_layer: "warm",
+            privacy_class: "sensitive",
+        });
+
+        const results = search.search("VPN rotation SOP", 5);
+
+        expect(results.map(result => result.noteName)).toContain("safe-memory");
+        expect(results.map(result => result.noteName)).not.toContain("sensitive-memory");
+    });
 });
