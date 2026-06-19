@@ -351,6 +351,31 @@ Required after every phase:
 
 ## 12. This-Session Execution Record
 
-The following subset of this plan is executed and shipped in the same pass that produced
-this document (Phase 0 + the Rust portion of Phase 1), with full verification. See the
-companion report dated 2026-06-19 for exact commands, outputs, and the released version.
+Executed and shipped in the same pass that produced this document, with full verification:
+
+- **Phase 0** (version sync + guard test) and **Rust Phase 1** (dead `config` module removed)
+  shipped as `1.5.2`.
+- **Phase 4** (hygiene: `.gitattributes`, `tsconfig` strictness, `build.mjs`, CI gates,
+  `.gitignore`) and **Phase 5** (Rust subprocess timeouts + `http` exit-status fix + 11 tests)
+  shipped as `1.5.3`.
+
+See the companion `REPORT_*` for exact commands, outputs, and released versions.
+
+## 13. Addendum (2026-06-19): Corrections from Direct Verification
+
+Two phases in this plan were written from audit leads that direct source verification later
+refuted. Per `AGENTS.md`, evidence overrides the audit summary, so they are withdrawn:
+
+1. **Phase 2 (unify continuation) — WITHDRAWN.** `event-handler.ts:194` already dispatches
+   idle continuation mutually exclusively (`isLoopActive` → mission handler only and return;
+   otherwise todo continuation only). There is no double-injection; the two modules
+   intentionally serve file-backed mission loops vs in-memory todo continuation. Merging them
+   would add behavioral risk with no correctness gain.
+2. **Phase 6 (de-destructive release pipeline) — WITHDRAWN.** The `git commit --amend` +
+   `git tag -f` flow is an intentional, test-locked design
+   (`tests/unit/release-hardening.test.ts:92-93`), and the local artifact whitelist correctly
+   matches what `docker:rust-dist` produces. The only real gap — npm↔Cargo version drift — is
+   now closed by the Phase 0 version-sync test.
+
+Net remaining work after this session: **Phase 3 only** (over-modularization consolidation),
+to be done as the staged per-domain series described in Section 7.

@@ -10,6 +10,7 @@ pub mod http;
 pub mod jq;
 pub mod lsp;
 pub mod mgrep;
+pub mod process;
 pub mod sed;
 
 pub use ast::AstTool;
@@ -23,5 +24,3 @@ pub use jq::JqTool;
 pub use lsp::DiagnosticsTool;
 pub use mgrep::MgrepTool;
 pub use sed::SedTool;
-
-

@@ -1,6 +1,7 @@
 //! AST tools - structural search and replace using ast-grep
 
 use crate::Result;
+use crate::tools::process::run_with_timeout;
 use serde::{Deserialize, Serialize};
 use std::path::Path;
 use std::process::Command;
@@ -51,7 +52,7 @@ impl AstTool {
         include: Option<&str>,
     ) -> Result<Vec<AstMatch>> {
         let lang = lang.unwrap_or("typescript");
-        
+
         let mut args = vec![
             "-y".to_string(),
             "ast-grep".to_string(),
@@ -68,13 +69,12 @@ impl AstTool {
             args.push(inc.to_string());
         }
 
-        let output = Command::new("npx")
-            .args(&args)
-            .current_dir(directory)
-            .output()?;
+        let mut cmd = Command::new("npx");
+        cmd.args(&args).current_dir(directory);
+        let output = run_with_timeout(cmd, self.config.timeout, None)?;
 
         let stdout = String::from_utf8_lossy(&output.stdout);
-        
+
         Ok(self.parse_ast_grep_output(&stdout))
     }
 
@@ -88,7 +88,7 @@ impl AstTool {
         include: Option<&str>,
     ) -> Result<AstReplaceResult> {
         let lang = lang.unwrap_or("typescript");
-        
+
         let mut args = vec![
             "-y".to_string(),
             "ast-grep".to_string(),
@@ -107,10 +107,9 @@ impl AstTool {
             args.push(inc.to_string());
         }
 
-        let output = Command::new("npx")
-            .args(&args)
-            .current_dir(directory)
-            .output()?;
+        let mut cmd = Command::new("npx");
+        cmd.args(&args).current_dir(directory);
+        let output = run_with_timeout(cmd, self.config.timeout, None)?;
 
         let success = output.status.success();
         let stdout = String::from_utf8_lossy(&output.stdout).to_string();
@@ -119,7 +118,10 @@ impl AstTool {
         Ok(AstReplaceResult {
             success,
             message: if success {
-                format!("AST replace completed. Pattern: `{}` -> `{}`", pattern, rewrite)
+                format!(
+                    "AST replace completed. Pattern: `{}` -> `{}`",
+                    pattern, rewrite
+                )
             } else {
                 stderr.clone()
             },

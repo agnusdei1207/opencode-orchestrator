@@ -3,19 +3,18 @@
 use anyhow::Result;
 use orchestrator_core::hooks::Hook;
 use orchestrator_core::tools::{
-    GlobTool, GrepTool, MgrepTool, SedTool, DiffTool, JqTool, HttpTool, FileStatsTool, GitTool,
-    DiagnosticsTool, AstTool,
-    glob::GlobConfig, grep::GrepConfig, mgrep::MgrepConfig, sed::SedConfig,
-    diff::DiffConfig, jq::JqConfig, http::HttpConfig,
-    lsp::DiagnosticsConfig, ast::AstConfig,
+    AstTool, DiagnosticsTool, DiffTool, FileStatsTool, GitTool, GlobTool, GrepTool, HttpTool,
+    JqTool, MgrepTool, SedTool, ast::AstConfig, diff::DiffConfig, glob::GlobConfig,
+    grep::GrepConfig, http::HttpConfig, jq::JqConfig, lsp::DiagnosticsConfig, mgrep::MgrepConfig,
+    sed::SedConfig,
 };
 
-use orchestrator_core::constants::{tool, status};
+use orchestrator_core::constants::{status, tool};
 use serde::Deserialize;
 use serde_json::{Value, json};
+use std::collections::HashMap;
 use std::path::PathBuf;
 use std::time::Duration;
-use std::collections::HashMap;
 
 /// Execute a tool by name
 pub async fn execute_tool(name: &str, arguments: Value) -> Result<String> {
@@ -38,7 +37,6 @@ pub async fn execute_tool(name: &str, arguments: Value) -> Result<String> {
         _ => Err(anyhow::anyhow!("Unknown tool: {}", name)),
     }
 }
-
 
 #[derive(Deserialize)]
 struct GrepArgs {
@@ -249,28 +247,22 @@ async fn sed_replace(arguments: Value) -> Result<String> {
     if let Some(file_path) = args.file {
         let path = PathBuf::from(&file_path);
         match tool.replace_in_file(&args.pattern, &args.replacement, &path) {
-            Ok(Some(result)) => {
-                Ok(serde_json::to_string_pretty(&json!({
-                    "success": true,
-                    "file": result.file,
-                    "replacements": result.replacements,
-                    "dry_run": args.dry_run.unwrap_or(false)
-                }))?)
-            }
-            Ok(None) => {
-                Ok(serde_json::to_string_pretty(&json!({
-                    "success": true,
-                    "file": file_path,
-                    "replacements": 0,
-                    "message": "No matches found"
-                }))?)
-            }
-            Err(e) => {
-                Ok(serde_json::to_string_pretty(&json!({
-                    "success": false,
-                    "error": e.to_string()
-                }))?)
-            }
+            Ok(Some(result)) => Ok(serde_json::to_string_pretty(&json!({
+                "success": true,
+                "file": result.file,
+                "replacements": result.replacements,
+                "dry_run": args.dry_run.unwrap_or(false)
+            }))?),
+            Ok(None) => Ok(serde_json::to_string_pretty(&json!({
+                "success": true,
+                "file": file_path,
+                "replacements": 0,
+                "message": "No matches found"
+            }))?),
+            Err(e) => Ok(serde_json::to_string_pretty(&json!({
+                "success": false,
+                "error": e.to_string()
+            }))?),
         }
     }
     // Directory mode
@@ -297,12 +289,10 @@ async fn sed_replace(arguments: Value) -> Result<String> {
                     "dry_run": args.dry_run.unwrap_or(false)
                 }))?)
             }
-            Err(e) => {
-                Ok(serde_json::to_string_pretty(&json!({
-                    "success": false,
-                    "error": e.to_string()
-                }))?)
-            }
+            Err(e) => Ok(serde_json::to_string_pretty(&json!({
+                "success": false,
+                "error": e.to_string()
+            }))?),
         }
     } else {
         Ok(serde_json::to_string_pretty(&json!({
@@ -325,14 +315,14 @@ struct DiffArgs {
 
 async fn diff_files(arguments: Value) -> Result<String> {
     let args: DiffArgs = serde_json::from_value(arguments)?;
-    
+
     let mut config = DiffConfig::default();
     if let Some(ignore_ws) = args.ignore_whitespace {
         config.ignore_whitespace = ignore_ws;
     }
-    
+
     let tool = DiffTool::new(config);
-    
+
     let result = if let (Some(f1), Some(f2)) = (&args.file1, &args.file2) {
         tool.diff_files(&PathBuf::from(f1), &PathBuf::from(f2))?
     } else if let (Some(c1), Some(c2)) = (&args.content1, &args.content2) {
@@ -340,7 +330,7 @@ async fn diff_files(arguments: Value) -> Result<String> {
     } else {
         return Ok(json!({"error": "Provide file1+file2 or content1+content2"}).to_string());
     };
-    
+
     Ok(serde_json::to_string_pretty(&json!({
         "has_differences": result.has_differences,
         "additions": result.additions,
@@ -361,14 +351,14 @@ struct JqArgs {
 
 async fn jq_query(arguments: Value) -> Result<String> {
     let args: JqArgs = serde_json::from_value(arguments)?;
-    
+
     let mut config = JqConfig::default();
     if let Some(raw) = args.raw_output {
         config.raw_output = raw;
     }
-    
+
     let tool = JqTool::new(config);
-    
+
     let result = if let Some(input) = args.json_input {
         tool.query(&input, &args.expression)?
     } else if let Some(file_path) = args.file {
@@ -376,7 +366,7 @@ async fn jq_query(arguments: Value) -> Result<String> {
     } else {
         return Ok(json!({"error": "Provide json_input or file"}).to_string());
     };
-    
+
     Ok(serde_json::to_string_pretty(&json!({
         "result": result
     }))?)
@@ -395,16 +385,22 @@ struct HttpArgs {
 
 async fn http_request(arguments: Value) -> Result<String> {
     let args: HttpArgs = serde_json::from_value(arguments)?;
-    
+
     let mut config = HttpConfig::default();
     if let Some(ms) = args.timeout_ms {
         config.timeout = Duration::from_millis(ms);
     }
-    
+
     let tool = HttpTool::new(config);
-    
+
     use orchestrator_core::tools::http::HttpMethod;
-    let method = match args.method.as_deref().unwrap_or("GET").to_uppercase().as_str() {
+    let method = match args
+        .method
+        .as_deref()
+        .unwrap_or("GET")
+        .to_uppercase()
+        .as_str()
+    {
         "POST" => HttpMethod::POST,
         "PUT" => HttpMethod::PUT,
         "DELETE" => HttpMethod::DELETE,
@@ -412,9 +408,14 @@ async fn http_request(arguments: Value) -> Result<String> {
         "HEAD" => HttpMethod::HEAD,
         _ => HttpMethod::GET,
     };
-    
-    let result = tool.request(method, &args.url, args.headers.as_ref(), args.body.as_deref())?;
-    
+
+    let result = tool.request(
+        method,
+        &args.url,
+        args.headers.as_ref(),
+        args.body.as_deref(),
+    )?;
+
     Ok(serde_json::to_string_pretty(&json!({
         "status_code": result.status_code,
         "headers": result.headers,
@@ -432,18 +433,23 @@ struct FileStatsArgs {
 
 async fn file_stats(arguments: Value) -> Result<String> {
     let args: FileStatsArgs = serde_json::from_value(arguments)?;
-    
+
     let tool = FileStatsTool::new();
     let stats = tool.analyze(&PathBuf::from(&args.directory), args.max_depth)?;
-    
-    let file_types: Vec<Value> = stats.file_types.iter().take(10).map(|ft| {
-        json!({
-            "extension": ft.extension,
-            "count": ft.count,
-            "total_lines": ft.total_lines
+
+    let file_types: Vec<Value> = stats
+        .file_types
+        .iter()
+        .take(10)
+        .map(|ft| {
+            json!({
+                "extension": ft.extension,
+                "count": ft.count,
+                "total_lines": ft.total_lines
+            })
         })
-    }).collect();
-    
+        .collect();
+
     Ok(serde_json::to_string_pretty(&json!({
         "total_files": stats.total_files,
         "total_dirs": stats.total_dirs,
@@ -464,14 +470,15 @@ struct GitDiffArgs {
 
 async fn git_diff(arguments: Value) -> Result<String> {
     let args: GitDiffArgs = serde_json::from_value(arguments)?;
-    
+
     let tool = GitTool::new();
-    let repo_path = args.directory
+    let repo_path = args
+        .directory
         .map(PathBuf::from)
         .unwrap_or_else(|| std::env::current_dir().unwrap_or_default());
-    
+
     let stats = tool.diff(&repo_path, args.staged_only.unwrap_or(false))?;
-    
+
     Ok(serde_json::to_string_pretty(&json!({
         "files_changed": stats.files_changed,
         "insertions": stats.insertions,
@@ -487,22 +494,28 @@ struct GitStatusArgs {
 
 async fn git_status(arguments: Value) -> Result<String> {
     let args: GitStatusArgs = serde_json::from_value(arguments)?;
-    
+
     let tool = GitTool::new();
-    let repo_path = args.directory
+    let repo_path = args
+        .directory
         .map(PathBuf::from)
         .unwrap_or_else(|| std::env::current_dir().unwrap_or_default());
-    
+
     let files = tool.status(&repo_path)?;
-    let branch = tool.current_branch(&repo_path).unwrap_or_else(|_| "unknown".to_string());
-    
-    let file_list: Vec<Value> = files.iter().map(|f| {
-        json!({
-            "file": f.file,
-            "status": f.status
+    let branch = tool
+        .current_branch(&repo_path)
+        .unwrap_or_else(|_| "unknown".to_string());
+
+    let file_list: Vec<Value> = files
+        .iter()
+        .map(|f| {
+            json!({
+                "file": f.file,
+                "status": f.status
+            })
         })
-    }).collect();
-    
+        .collect();
+
     Ok(serde_json::to_string_pretty(&json!({
         "branch": branch,
         "files": file_list,
@@ -521,39 +534,62 @@ struct LspDiagnosticsArgs {
 
 async fn lsp_diagnostics(arguments: Value) -> Result<String> {
     let args: LspDiagnosticsArgs = serde_json::from_value(arguments)?;
-    
+
     let mut config = DiagnosticsConfig::default();
     if let Some(include_warnings) = args.include_warnings {
         config.include_warnings = include_warnings;
     }
-    
-    let directory = args.directory
+
+    let directory = args
+        .directory
         .map(PathBuf::from)
         .unwrap_or_else(|| std::env::current_dir().unwrap_or_default());
-    
+
     let tool = DiagnosticsTool::new(config);
     let diagnostics = tool.get_diagnostics(&directory, args.file.as_deref())?;
-    
-    if diagnostics.is_empty() {
-        return Ok(json!({"status": status::CLEAN, "message": "No diagnostics found. All clean!"}).to_string());
-    }
-    
-    let errors: Vec<&_> = diagnostics.iter().filter(|d| matches!(d.severity, orchestrator_core::tools::lsp::DiagnosticSeverity::Error)).collect();
-    let warnings: Vec<&_> = diagnostics.iter().filter(|d| matches!(d.severity, orchestrator_core::tools::lsp::DiagnosticSeverity::Warning)).collect();
 
-    
-    let diag_list: Vec<Value> = diagnostics.iter().take(50).map(|d| {
-        json!({
-            "file": d.file,
-            "line": d.line,
-            "column": d.column,
-            "severity": format!("{:?}", d.severity).to_lowercase(),
-            "message": d.message,
-            "source": d.source,
-            "code": d.code
+    if diagnostics.is_empty() {
+        return Ok(
+            json!({"status": status::CLEAN, "message": "No diagnostics found. All clean!"})
+                .to_string(),
+        );
+    }
+
+    let errors: Vec<&_> = diagnostics
+        .iter()
+        .filter(|d| {
+            matches!(
+                d.severity,
+                orchestrator_core::tools::lsp::DiagnosticSeverity::Error
+            )
         })
-    }).collect();
-    
+        .collect();
+    let warnings: Vec<&_> = diagnostics
+        .iter()
+        .filter(|d| {
+            matches!(
+                d.severity,
+                orchestrator_core::tools::lsp::DiagnosticSeverity::Warning
+            )
+        })
+        .collect();
+
+    let diag_list: Vec<Value> = diagnostics
+        .iter()
+        .take(50)
+        .map(|d| {
+            json!({
+                "file": d.file,
+                "line": d.line,
+                "column": d.column,
+                "severity": format!("{:?}", d.severity).to_lowercase(),
+                "message": d.message,
+                "source": d.source,
+                "code": d.code
+            })
+        })
+        .collect();
+
     Ok(serde_json::to_string_pretty(&json!({
         "status": if !errors.is_empty() { status::ERROR } else if !warnings.is_empty() { status::WARNING } else { status::CLEAN },
         "summary": format!("{} error(s), {} warning(s)", errors.len(), warnings.len()),
@@ -574,28 +610,41 @@ struct AstSearchArgs {
 
 async fn ast_search(arguments: Value) -> Result<String> {
     let args: AstSearchArgs = serde_json::from_value(arguments)?;
-    
-    let directory = args.directory
+
+    let directory = args
+        .directory
         .map(PathBuf::from)
         .unwrap_or_else(|| std::env::current_dir().unwrap_or_default());
-    
+
     let tool = AstTool::new(AstConfig::default());
-    let matches = tool.search(&args.pattern, &directory, args.lang.as_deref(), args.include.as_deref())?;
-    
+    let matches = tool.search(
+        &args.pattern,
+        &directory,
+        args.lang.as_deref(),
+        args.include.as_deref(),
+    )?;
+
     if matches.is_empty() {
-        return Ok(json!({"matches": [], "total": 0, "message": "No structural matches found."}).to_string());
+        return Ok(
+            json!({"matches": [], "total": 0, "message": "No structural matches found."})
+                .to_string(),
+        );
     }
-    
-    let match_list: Vec<Value> = matches.iter().take(50).map(|m| {
-        json!({
-            "file": m.file,
-            "line": m.line,
-            "column": m.column,
-            "content": m.content,
-            "matched_text": m.matched_text
+
+    let match_list: Vec<Value> = matches
+        .iter()
+        .take(50)
+        .map(|m| {
+            json!({
+                "file": m.file,
+                "line": m.line,
+                "column": m.column,
+                "content": m.content,
+                "matched_text": m.matched_text
+            })
         })
-    }).collect();
-    
+        .collect();
+
     Ok(serde_json::to_string_pretty(&json!({
         "matches": match_list,
         "total": matches.len()
@@ -615,14 +664,21 @@ struct AstReplaceArgs {
 
 async fn ast_replace(arguments: Value) -> Result<String> {
     let args: AstReplaceArgs = serde_json::from_value(arguments)?;
-    
-    let directory = args.directory
+
+    let directory = args
+        .directory
         .map(PathBuf::from)
         .unwrap_or_else(|| std::env::current_dir().unwrap_or_default());
-    
+
     let tool = AstTool::new(AstConfig::default());
-    let result = tool.replace(&args.pattern, &args.rewrite, &directory, args.lang.as_deref(), args.include.as_deref())?;
-    
+    let result = tool.replace(
+        &args.pattern,
+        &args.rewrite,
+        &directory,
+        args.lang.as_deref(),
+        args.include.as_deref(),
+    )?;
+
     Ok(serde_json::to_string_pretty(&json!({
         "success": result.success,
         "message": result.message,

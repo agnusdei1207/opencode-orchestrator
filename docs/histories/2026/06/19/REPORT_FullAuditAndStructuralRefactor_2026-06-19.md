@@ -3,84 +3,133 @@
 Date: 2026-06-19
 Scope: `opencode-orchestrator`
 Companion plan: `PLAN_FullAuditAndStructuralRefactor_2026-06-19.md`
-Status: Phase 0 + Rust portion of Phase 1 shipped; Phases 2–6 planned
+Status: Phases 0, 1, 4, 5 shipped; Phases 2 and 6 resolved by verification (no change
+needed); Phase 3 staged as follow-up.
 
 ## 1. What This Session Did
 
 1. Ran a complete, evidence-based audit of the repository (TypeScript plugin + Rust crates).
 2. Wrote the phased refactor plan (companion document).
-3. Executed and verified the safe subset (Phase 0 + the Rust portion of Phase 1).
-4. Cut the `1.5.2` patch.
+3. Executed and verified the safe, high-value phases.
+4. Used direct verification to refute three audit claims, including two whole phases.
+5. Cut the `1.5.2` patch (Phase 0 + Rust Phase 1) and then the `1.5.3` patch (Phases 4–5).
 
 ## 2. Audit Outcome (Headline Numbers)
 
 | Area | Finding |
 | --- | --- |
 | Fragmentation | 525 TS files / 25,477 LOC; 267 files (51%) < 20 lines; 117 barrel `index.ts` (22%) |
-| Duplication | Two continuation subsystems both invoked per event from `event-handler.ts` |
 | Dead code (Rust) | `orchestrator-core::config` (~532 LOC) re-exported but consumed by nothing |
 | Hygiene | npm `1.5.1` vs Cargo `0.1.0`; `bin/` tracked against `.gitignore`; no lint gate |
-| Type safety | `strict: true` but `noImplicitAny: false`; 254 `as` casts; 4 `as unknown` |
+| Type safety | `strict: true` but `noImplicitAny: false`; 254 `as` casts |
+| Rust robustness | `http.rs` never checked curl exit status; `ast`/`git` had no subprocess timeout |
 
-Full detail and the prioritized phase list are in the companion plan.
+## 3. Claims Refuted by Direct Verification
 
-## 3. Claims Corrected by Direct Verification
+The audit summaries were treated as leads, not facts. Three were wrong:
 
-1. `edition = "2024"` is valid (Rust 2024 stabilized in 1.85; local `cargo 1.94.1`
-   accepts it). No change made.
-2. `src/shared` is a definitions layer, not duplicated logic. The fix is consolidation,
-   filed under Phase 3.
+1. **"`edition = \"2024\"` is invalid."** False. Rust 2024 stabilized in 1.85; local
+   `cargo 1.94.1` accepts it. No change.
+2. **"Remove the destructive `git commit --amend` + `git tag -f` (Phase 6)."** Rejected.
+   `tests/unit/release-hardening.test.ts:92-93` *asserts* this exact behavior — it is an
+   intentional, test-locked design (amend the release commit to embed freshly Docker-built
+   Linux binaries, then move the tag to the final commit). The local artifact whitelist
+   (Linux x64/arm64 only) also correctly matches what `docker:rust-dist` produces. No change.
+3. **"Unify the two continuation subsystems (Phase 2)."** Rejected. `event-handler.ts:194`
+   dispatches idle continuation **mutually exclusively**: `if (isLoopActive(...))` runs only
+   `MissionLoopHandler.handleMissionIdle` and returns; otherwise only
+   `TodoContinuation.handleSessionIdle` runs. There is no double-injection. The paired
+   `handleUserMessage`/`handleAbort`/`cleanupSession` calls are idempotent cancel/cleanup on
+   whichever module holds session state. The split (file-backed mission loop vs in-memory
+   todo continuation) is intentional. No change.
 
-## 4. Changes Shipped (Phase 0 + Rust Phase 1)
+`src/shared` was also confirmed to be a definitions layer, not duplicated logic; the real
+issue is fragmentation (Phase 3), not duplication.
 
-1. Synced the Cargo workspace version to the npm package version: `0.1.0` → `1.5.2`
-   (`Cargo.toml`, propagated to `Cargo.lock`).
-2. Bumped the patch release: `package.json` and `README.md` `1.5.1` → `1.5.2`.
-3. Removed the verified-dead Rust `config` module:
-   - deleted `crates/orchestrator-core/src/config/{mod.rs,loader.rs,schema.rs}`
-   - removed `pub mod config;` and `pub use config::OrchestratorConfig;` from `lib.rs`
-   - updated the crate doc comment to drop the `config/` line
-4. Added a regression test (`tests/unit/package-metadata.test.ts`) asserting the Cargo
-   workspace version equals the npm package version, so this drift cannot return silently.
+## 4. Changes Shipped
 
-Net diff: 6 files changed (+28 / −9) plus 3 deleted Rust files. No behavioral change.
+### Patch `1.5.2` — Phase 0 + Rust Phase 1
+
+1. Synced the Cargo workspace version to the npm package version (`0.1.0` → `1.5.2`).
+2. Removed the verified-dead Rust `config` module (`config/{mod,loader,schema}.rs`) and its
+   `lib.rs` exports.
+3. Added a regression test asserting Cargo workspace version == npm package version.
+
+### Patch `1.5.3` — Phase 4 (hygiene) + Phase 5 (Rust robustness)
+
+Phase 4 — repository, build, and type hygiene:
+
+1. Added `.gitattributes` (`* text=auto eol=lf`, binaries marked `binary`) to end the
+   whole-tree CRLF↔LF churn on Windows/WSL checkouts.
+2. Removed `noImplicitAny: false` from `tsconfig.json`; `tsc --noEmit` stays green, so the
+   `strict` hole is closed at no cost.
+3. Hardened `scripts/build.mjs`: resolve the TypeScript compiler via `require.resolve`
+   instead of a hardcoded `node_modules` path, and emit source maps (`sourcemap: true`).
+4. Bumped `actions/checkout@v4` → `@v6` in `deploy-pages.yml` to match `release.yml`.
+5. Added `.github/workflows/ci.yml` enforcing `tsc --noEmit`, `npm test`,
+   `cargo fmt --check`, `cargo clippy -D warnings`, and `cargo test` on push/PR.
+6. Aligned `.gitignore` with reality: `bin/` and `package-lock.json` are tracked on purpose
+   (npm tarball payload and `npm ci`), so they no longer appear as ignored.
+7. Ran `cargo fmt` across the workspace (import ordering in 5 files).
+
+Phase 5 — Rust subprocess robustness and coverage:
+
+1. Added `tools/process.rs::run_with_timeout`, a shared helper that pipes stdin, drains
+   stdout/stderr on threads (no pipe deadlock), and kills + reaps any child that exceeds a
+   hard deadline.
+2. Routed `ast` (`npx`), `git` (6 call sites), `jq`, and `http` (`curl`) through it so no
+   tool subprocess can hang indefinitely.
+3. Fixed a real `http.rs` bug: curl's exit status was never checked, so transport failures
+   (DNS/refused/TLS) returned a fake `200`-shaped success with `status_code = 0`. It now
+   errors on non-zero curl exit and parses the final redirect block's status robustly,
+   erroring on a missing/unparseable status line.
+4. Added 11 unit tests (`process`, `jq`, `http` parser), raising Rust tests 24 → 35.
 
 ## 5. Verification (all green)
 
-Baseline captured before edits, re-run after edits:
+| Check | Result |
+| --- | --- |
+| `npx tsc --noEmit` | exit 0 |
+| `npm run build` | exit 0 (source map emitted) |
+| `cargo fmt --check` | clean |
+| `cargo clippy --workspace --all-targets -- -D warnings` | exit 0 |
+| `cargo test --workspace` | 35 passed, 0 failed |
+| `npm test` | 75 files / 713 tests passed |
 
-| Check | Before | After |
-| --- | --- | --- |
-| `npx tsc --noEmit` | exit 0 | exit 0 |
-| `cargo check --workspace` | exit 0 | exit 0 (crates now `1.5.2`) |
-| `cargo test --workspace` | — | 24 passed, 0 failed |
-| `tests/unit/package-metadata.test.ts` | 2 tests | 3 tests passed (incl. new version-sync) |
-| `npm test` | exit 0 | exit 0 |
+## 6. Environment Note
 
-## 6. Environment Note (Important for Reviewers)
-
-The working tree on this `/mnt/c` (WSL) checkout shows ~674 files as modified purely due to
-CRLF↔LF line-ending differences (`--ignore-all-space` diff is empty). These were **not**
-committed. Each file touched in this release was first restored to its LF form and then
-edited, so the release commit contains only the logical changes above and no line-ending
-churn. A future hygiene task (Phase 4) should add a `.gitattributes` `eol=lf` policy to stop
-this recurring.
+This `/mnt/c` (WSL) checkout shows ~674 files as modified purely from CRLF↔LF differences
+(`--ignore-all-space` diff is empty). These were never committed: each touched file is
+normalized to LF on `git add` (now backed by the new `.gitattributes`), so every release
+commit contains only logical changes.
 
 ## 7. Release Status
 
-1. Version bumped to `1.5.2`, committed, and pushed with tag `v1.5.2`.
-2. `npm publish` was **not** performed: the environment has no npm authentication
-   (`npm whoami` → `ENEEDAUTH`). Publishing requires running `npm run release:patch` (or
-   `npm run publish:token`) from an authenticated environment with Docker for the Rust
-   artifact rebuild. The committed/pushed state is ready for that final publish step.
+1. `1.5.2` committed, tagged `v1.5.2`, pushed.
+2. `1.5.3` committed, tagged `v1.5.3`, pushed.
+3. `npm publish` was **not** performed: the environment has no npm authentication
+   (`npm whoami` → `ENEEDAUTH`). The pushed state is ready for the final publish via
+   `npm run release:patch` (or `npm run publish:token`) from an authenticated environment
+   with Docker for the Rust artifact rebuild.
 
-## 8. Next Steps (Deferred Phases)
+## 8. Remaining Work — Phase 3 Only
 
-1. Phase 2 — unify the two continuation subsystems behind one state machine.
-2. Phase 3 — consolidate the `src/shared` definitions layer and the 95 prompt modules
-   (~150–200 fewer files, no export renames).
-3. Phase 4 — `.gitattributes` eol policy, stop tracking `bin/`, add lint/format CI gates,
-   close the `noImplicitAny` hole.
-4. Phase 5 — Rust subprocess timeouts and `http`/`jq` tests.
-5. Phase 6 — non-destructive release pipeline (drop `--amend`/`tag -f`, reconcile artifact
-   whitelist).
+The single open phase is the over-modularization consolidation (Phase 3). It is deliberately
+left as a staged, reviewable series rather than a single autonomous big-bang, because:
+
+1. it spans ~150–200 files with import rewrites across all 525 source files;
+2. the plan itself prescribes "one domain per commit" with prompt-output snapshots;
+3. a rushed, unreviewed mass rewrite would contradict the "clean" requirement and the
+   AGENTS.md rule against unverified wide changes.
+
+Recommended order when resumed (each its own commit, `tsc` + `npm test` after each):
+
+1. collapse the deepest chains first: `shared/notification/os-notify/*`,
+   `shared/tool/constants/{common,lsp,parallel}`;
+2. fold each domain's `constants/`+`interfaces/`+`types/` split into one `constants.ts` +
+   one `types.ts` + one `index.ts`;
+3. group the 95 prompt string modules per numbered stage with a byte-identical snapshot test;
+4. drop now-redundant single-line barrels (e.g. `core/agents/consts/task-status.const.ts`)
+   by re-pointing their `index.ts` at the real source.
+
+Phases 0, 1, 4, 5 are complete; Phases 2 and 6 require no change.

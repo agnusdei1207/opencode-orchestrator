@@ -1,7 +1,12 @@
 //! JSON Query tool (jq-like)
 
 use crate::Result;
+use crate::tools::process::run_with_timeout;
 use std::process::Command;
+use std::time::Duration;
+
+/// Hard ceiling for a single `jq` invocation.
+const JQ_TIMEOUT: Duration = Duration::from_secs(30);
 
 /// Configuration for jq operations
 #[derive(Debug, Clone, Default)]
@@ -40,20 +45,7 @@ impl JqTool {
 
         cmd.arg(expression);
 
-        use std::io::Write;
-        use std::process::Stdio;
-
-        let mut child = cmd
-            .stdin(Stdio::piped())
-            .stdout(Stdio::piped())
-            .stderr(Stdio::piped())
-            .spawn()?;
-
-        if let Some(mut stdin) = child.stdin.take() {
-            stdin.write_all(json_input.as_bytes())?;
-        }
-
-        let output = child.wait_with_output()?;
+        let output = run_with_timeout(cmd, JQ_TIMEOUT, Some(json_input.as_bytes()))?;
 
         if output.status.success() {
             Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
@@ -91,5 +83,46 @@ impl JqTool {
 impl Default for JqTool {
     fn default() -> Self {
         Self::new(JqConfig::default())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn jq_available() -> bool {
+        Command::new("jq").arg("--version").output().is_ok()
+    }
+
+    #[test]
+    fn extracts_a_nested_value() {
+        if !jq_available() {
+            return;
+        }
+        let tool = JqTool::default();
+        let result = tool.query(r#"{"foo": {"bar": 42}}"#, ".foo.bar").unwrap();
+        assert_eq!(result, "42");
+    }
+
+    #[test]
+    fn raw_output_drops_string_quotes() {
+        if !jq_available() {
+            return;
+        }
+        let tool = JqTool::new(JqConfig {
+            raw_output: true,
+            ..JqConfig::default()
+        });
+        let result = tool.query(r#"{"name": "opencode"}"#, ".name").unwrap();
+        assert_eq!(result, "opencode");
+    }
+
+    #[test]
+    fn invalid_expression_returns_error() {
+        if !jq_available() {
+            return;
+        }
+        let tool = JqTool::default();
+        assert!(tool.query("{}", ".[").is_err());
     }
 }

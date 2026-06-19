@@ -2,20 +2,24 @@
 
 ## Current Task
 
-Completed a full evidence-based audit (TS plugin + Rust crates), wrote a phased refactor plan
-and report dated 2026-06-19, and shipped the `1.5.2` patch covering the safe subset
-(Phase 0 + Rust Phase 1). Phases 2–6 are planned, not yet executed.
+Completed a full evidence-based audit (TS plugin + Rust crates) with a phased plan/report
+dated 2026-06-19, and shipped Phases 0, 1, 4, 5 across patches `1.5.2` and `1.5.3`. Phases 2
+and 6 were withdrawn after direct verification showed they are intentional designs, not bugs.
+Phase 3 (over-modularization consolidation) is the only remaining work, left as a staged
+per-domain series.
 
 ## Last Completed Step
 
-1. Wrote `docs/histories/2026/06/19/PLAN_FullAuditAndStructuralRefactor_2026-06-19.md` and the
-   companion `REPORT_*` file.
-2. Synced the Cargo workspace version to the npm package version (`0.1.0` → `1.5.2`) and added
-   a regression test in `tests/unit/package-metadata.test.ts` to guard it.
-3. Removed the verified-dead Rust `config` module (`config/{mod,loader,schema}.rs`) and its
-   `lib.rs` exports.
-4. Bumped `package.json`/`README.md` to `1.5.2`; committed and pushed `v1.5.2`.
-5. Verified green: `tsc --noEmit`, `cargo check`/`cargo test` (24), `npm test` (713).
+1. `1.5.2`: synced Cargo workspace version to npm (`0.1.0`→`1.5.2`) + guard test; removed the
+   verified-dead Rust `config` module.
+2. `1.5.3`: Phase 4 hygiene (`.gitattributes` eol=lf, removed `noImplicitAny:false`, resilient
+   `build.mjs` + source maps, `ci.yml` with fmt/clippy/tsc/test gates, `.gitignore` aligned,
+   `cargo fmt`) and Phase 5 Rust robustness (`tools/process.rs::run_with_timeout` applied to
+   ast/git/jq/http; fixed `http.rs` curl exit-status bug; Rust tests 24→35).
+3. Withdrew Phase 2 (`event-handler.ts:194` already dispatches idle continuation mutually
+   exclusively) and Phase 6 (`release-hardening.test.ts:92-93` locks the amend/tag-f design).
+4. Verified green: `tsc`, `npm run build`, `cargo fmt --check`, `cargo clippy -D warnings`,
+   `cargo test` (35), `npm test` (713). Committed and pushed `v1.5.2` and `v1.5.3`.
 5. Ran `npm run release:minor`, which created release commit `afe616e` and tag `v1.5.0`.
 6. Fixed `scripts/release-sync-artifacts.mjs` path parsing and amended the `1.5.0` release commit before publish.
 7. Published `opencode-orchestrator@1.5.0` to npm with the `latest` tag.

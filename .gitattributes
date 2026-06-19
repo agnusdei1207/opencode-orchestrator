@@ -1,0 +1,26 @@
+# Normalize line endings to LF in the repository for all text files.
+# This prevents the whole-tree CRLF<->LF churn seen on Windows/WSL checkouts.
+* text=auto eol=lf
+
+# Explicit text types (kept LF in the repo, regardless of platform).
+*.ts   text eol=lf
+*.mjs  text eol=lf
+*.js   text eol=lf
+*.rs   text eol=lf
+*.json text eol=lf
+*.toml text eol=lf
+*.md   text eol=lf
+*.yml  text eol=lf
+*.yaml text eol=lf
+*.html text eol=lf
+
+# Binary assets must never be normalized.
+bin/**          binary
+*.exe           binary
+*.png           binary
+*.jpg           binary
+*.jpeg          binary
+*.gif           binary
+*.ico           binary
+*.woff          binary
+*.woff2         binary
