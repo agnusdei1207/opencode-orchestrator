@@ -134,17 +134,32 @@ TUI commands:
 
 ## 4. How It Works
 
-```mermaid
-flowchart LR
-  U["/task input"] --> C["Commander"]
-  C --> P["Planner"]
-  C --> W["Worker pool"]
-  W --> R["Reviewer"]
-  P --> S["Mission state"]
-  W --> S
-  R --> V{"Verified?"}
-  V -- "no" --> C
-  V -- "yes" --> D["Done"]
+```text
+                    /task input
+                         |
+                         v
+                  +-------------+
+           +----->|  Commander  |
+           |      +------+------+
+           |             | delegates
+           |       +-----+------+
+           |       v            v
+           |  +---------+  +-------------+
+           |  | Planner |  | Worker pool |
+           |  +----+----+  +--+-------+--+
+           |       | writes   | impl  |
+           |       v          v       v
+           |  +------------------+  +----------+
+           |  |  Mission state   |  | Reviewer |
+           |  |   (.opencode/)   |  +----+-----+
+           |  +------------------+       |
+           |                             v
+           |  no (keep working)    +-----------+
+           +-----------------------+ Verified? |
+                                   +-----+-----+
+                                         | yes
+                                         v
+                                       Done
 ```
 
 | Agent | Purpose |

@@ -4,9 +4,9 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>OpenCode Orchestrator — Production-Grade Multi-Agent Engine</title>
+    <title>OpenCode Orchestrator — Multi-Agent Mission Control for OpenCode</title>
     <meta name="description"
-        content="Hub-and-Spoke multi-agent orchestration for high-integrity software engineering. Open source, MIT licensed.">
+        content="Commander, Planner, Worker, and Reviewer agents driving a runtime-verified mission loop with local-first memory. An OpenCode plugin. Open source, MIT licensed.">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link
@@ -1111,7 +1111,7 @@
         </h1>
 
         <p class="hero-sub">
-            Ultra-fast Hub-and-Spoke engine for multi-agent workflows.
+            A Commander-led agent loop for OpenCode: plan, implement, and verify — until the work is actually done.
         </p>
 
         <div class="hero-cta">
@@ -1126,28 +1126,28 @@
     <div class="perf-strip">
         <div class="perf-inner">
             <div class="perf-item">
-                <div class="perf-num">10×</div>
-                <div class="perf-lbl">Tool Speed</div>
+                <div class="perf-num">4</div>
+                <div class="perf-lbl">Specialized Agents</div>
             </div>
             <div class="perf-item">
-                <div class="perf-num">90%</div>
-                <div class="perf-lbl">Session Init</div>
+                <div class="perf-num">Rust</div>
+                <div class="perf-lbl">Native Tools</div>
             </div>
             <div class="perf-item">
-                <div class="perf-num">90%+</div>
-                <div class="perf-lbl">Token Savings</div>
+                <div class="perf-num">Local</div>
+                <div class="perf-lbl">First Memory</div>
             </div>
             <div class="perf-item">
-                <div class="perf-num">60%</div>
-                <div class="perf-lbl">Memory Cut</div>
+                <div class="perf-num">Canvas</div>
+                <div class="perf-lbl">Knowledge Graph</div>
             </div>
             <div class="perf-item">
-                <div class="perf-num">80%</div>
-                <div class="perf-lbl">GC Pressure</div>
+                <div class="perf-num">MIT</div>
+                <div class="perf-lbl">Open Source</div>
             </div>
             <div class="perf-item">
-                <div class="perf-num">99.95%</div>
-                <div class="perf-lbl">Sync Acc.</div>
+                <div class="perf-num">Node 24+</div>
+                <div class="perf-lbl">Runtime</div>
             </div>
         </div>
     </div>
@@ -1161,14 +1161,14 @@
                     <!-- Left -->
                     <div class="arch-left">
                         <div class="arch-title">
-                            Hub-and-Spoke Topology
+                            Commander-Led Orchestration
                         </div>
                         <p class="arch-desc">
-                            <strong>Parallel Execution</strong> with MVCC atomic state sync. No race conditions, no data
-                            loss.
+                            The <strong>Commander</strong> delegates to Planner, Worker, and Reviewer agents and drives a
+                            persisted mission loop until verification passes.
                         </p>
                         <p class="arch-desc" style="margin-top: 2rem; color: var(--text-lo); font-size: 0.8125rem;">
-                            Distributed mission control with work-stealing optimization.
+                            Local-first mission state under <code>.opencode/</code> — no external service required.
                         </p>
                     </div>
 
@@ -1188,10 +1188,10 @@
                             <div><span class="t-d">[pool]</span> Sessions A, B, C ready</div>
                             <div><span class="t-p">Planner</span> generating Todo.md</div>
                             <div><span class="t-w">[parallel]</span> Workers A + B spawned</div>
-                            <div><span class="t-d">[mvcc]</span> Atomic state sync ✓</div>
-                            <div><span class="t-r">[steal]</span> B takes A's idle task</div>
+                            <div><span class="t-d">[state]</span> Mission state synced ✓</div>
+                            <div><span class="t-r">[gate]</span> Wiring gate: changes verified</div>
                             <div><span class="t-p">Reviewer</span> auditing output…</div>
-                            <div><span class="t-s">[qa]</span> All checks passed ✓</div>
+                            <div><span class="t-s">[verify]</span> TODO + tests passed ✓</div>
                             <div><span class="t-s">COMPLETED</span></div>
                         </div>
                     </div>
@@ -1201,16 +1201,16 @@
             <!-- Capability Grid -->
             <div class="cap-grid">
                 <div class="card cap-card">
-                    <div class="cap-title">Reliability</div>
-                    <div class="cap-desc">Atomic MVCC state synchronization prevents all race conditions.</div>
+                    <div class="cap-title">Verified Completion</div>
+                    <div class="cap-desc">The mission loop checks evidence — TODOs, tests, and changed-file wiring — before declaring a task done.</div>
                 </div>
                 <div class="card cap-card">
-                    <div class="cap-title">Performance</div>
-                    <div class="cap-desc">10× faster tool execution via native Rust session pooling.</div>
+                    <div class="cap-title">Native Tooling</div>
+                    <div class="cap-desc">Rust-backed tools (grep, glob, ast, lsp, diff, and more) run in a pooled subprocess for fast, structured results.</div>
                 </div>
                 <div class="card cap-card">
-                    <div class="cap-title">Efficiency</div>
-                    <div class="cap-desc">90% reduction in token overhead with server-side context gating.</div>
+                    <div class="cap-title">Local-First Memory</div>
+                    <div class="cap-desc">Markdown notes, an Obsidian-compatible canvas, and role-aware retrieval keep prompts focused — no external store.</div>
                 </div>
             </div>
         </div>
@@ -1221,32 +1221,37 @@
         <div class="container">
             <div style="margin-bottom:2rem;">
                 <div style="margin-bottom:2.5rem; text-align: center;">
-                    <div class="sec-title">Performance Benchmark</div>
+                    <div class="sec-title">Capabilities at a Glance</div>
                 </div>
                 <div class="perf-table-wrap">
                     <table class="perf-table">
                         <thead>
                             <tr>
-                                <th>Metric</th>
-                                <th>Improvement</th>
+                                <th>Area</th>
+                                <th>Capability</th>
                                 <th>Detail</th>
                             </tr>
                         </thead>
                         <tbody>
                             <tr>
-                                <td style="font-family:var(--mono);color:var(--brand)">Tool Performance</td>
-                                <td style="color:var(--green);font-weight:700">10× faster</td>
-                                <td style="color:var(--text-md)">Rust native pooling</td>
+                                <td style="font-family:var(--mono);color:var(--brand)">Agents</td>
+                                <td style="color:var(--green);font-weight:700">Commander-led</td>
+                                <td style="color:var(--text-md)">Planner · Worker · Reviewer delegation</td>
                             </tr>
                             <tr>
-                                <td style="font-family:var(--mono);color:var(--brand)">Token Efficiency</td>
-                                <td style="color:var(--green);font-weight:700">90% reduction</td>
-                                <td style="color:var(--text-md)">Context Compression</td>
+                                <td style="font-family:var(--mono);color:var(--brand)">Tooling</td>
+                                <td style="color:var(--green);font-weight:700">Native Rust</td>
+                                <td style="color:var(--text-md)">Pooled grep / glob / ast / lsp / diff</td>
                             </tr>
                             <tr>
-                                <td style="font-family:var(--mono);color:var(--brand)">Execution Stability</td>
-                                <td style="color:var(--green);font-weight:700">99.9%</td>
-                                <td style="color:var(--text-md)">Atomic State Sync</td>
+                                <td style="font-family:var(--mono);color:var(--brand)">Memory</td>
+                                <td style="color:var(--green);font-weight:700">Local-first</td>
+                                <td style="color:var(--text-md)">Markdown notes + Obsidian canvas</td>
+                            </tr>
+                            <tr>
+                                <td style="font-family:var(--mono);color:var(--brand)">Completion</td>
+                                <td style="color:var(--green);font-weight:700">Runtime-verified</td>
+                                <td style="color:var(--text-md)">Evidence gates + self-review + escalation</td>
                             </tr>
                         </tbody>
                     </table>
