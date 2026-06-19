@@ -10,6 +10,7 @@ import { existsSync, readFileSync, writeFileSync, unlinkSync, mkdirSync } from "
 import { join } from "node:path";
 import { log } from "../agents/logger.js";
 import { PATHS, MISSION_CONTROL } from "../../shared/index.js";
+import { RECOVERY_PRINCIPLE } from "../../shared/recovery/constants.js";
 import { CONTINUE_INSTRUCTION, CLEANUP_INSTRUCTION } from "../../shared/constants/system-messages.js";
 import type { MissionLoopState, MissionLoopOptions } from "../../shared/loop/types.js";
 import { syncMissionMemory } from "../knowledge/mission-memory.js";
@@ -21,6 +22,9 @@ import { appendMissionLedgerEvent } from "./mission-ledger.js";
 
 /** State file path */
 const STATE_FILE = MISSION_CONTROL.STATE_FILE;
+
+/** Stagnation count at which the loop stops blind retries and escalates. */
+const ESCALATION_STAGNATION_THRESHOLD = 5;
 
 /** Default max iterations before giving up */
 const DEFAULT_MAX_ITERATIONS = MISSION_CONTROL.DEFAULT_MAX_ITERATIONS;
@@ -242,7 +246,19 @@ Next action:
 
 Completion rule:
 Do not declare success while TODO/checklist/sync verification is still failing.
+Before declaring done, briefly self-account: (1) scope fit vs the objective,
+(2) what verification ran, (3) any residual risk or follow-on wiring.
 </mission_loop>`;
+
+    if (context.escalate) {
+        prompt += `\n\n<escalation reason="repeated_stagnation">
+Progress has stalled across ${context.stagnation}. Stop blind retries.
+Follow ${RECOVERY_PRINCIPLE}
+1. DECOMPOSE the blocked step into smaller, independently verifiable pieces.
+2. RE-PLAN with a different approach if decomposition does not unblock it.
+3. If still blocked, summarize the exact blocker and ASK the user for direction.
+</escalation>`;
+    }
 
     if (context.unverifiedChanges > 0) {
         prompt += `\n\n<wiring_gate>
@@ -274,6 +290,7 @@ function normalizeContinuationContext(
         reason: continuationReason ?? state.lastContinuationReason ?? "verification_failed",
         stagnation: stagnationCount > 0 ? `${stagnationCount} unchanged check(s)` : "not detected",
         unverifiedChanges,
+        escalate: stagnationCount >= ESCALATION_STAGNATION_THRESHOLD,
     };
 }
 
