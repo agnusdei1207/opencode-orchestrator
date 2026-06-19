@@ -5,6 +5,7 @@
 
 import type { TagIndexer } from "./tag-indexer.js";
 import type { GraphParser } from "./graph-parser.js";
+import { type EngineWeights, NEUTRAL_WEIGHTS } from "./retrieval-weights.js";
 
 /** Unified search result with provenance tracking. */
 export interface SearchResult {
@@ -46,7 +47,7 @@ export class HybridSearch {
     /**
      * Fuse lexical, tag, and graph rankings via RRF to produce a single list.
      */
-    public search(query: string, maxResults?: number): SearchResult[] {
+    public search(query: string, maxResults?: number, weights?: EngineWeights): SearchResult[] {
         const limit = maxResults ?? DEFAULT_MAX_RESULTS;
         const terms = this.tokenize(query);
         if (terms.length === 0) return [];
@@ -55,7 +56,7 @@ export class HybridSearch {
         const tagRanked = this.tagSearch(terms);
         const graphRanked = this.graphSearch(terms);
 
-        return this.fuseResults(lexicalRanked, tagRanked, graphRanked, limit);
+        return this.fuseResults(lexicalRanked, tagRanked, graphRanked, limit, weights ?? NEUTRAL_WEIGHTS);
     }
 
     /**
@@ -150,12 +151,13 @@ export class HybridSearch {
         tags: string[],
         graph: string[],
         limit: number,
+        weights: EngineWeights,
     ): SearchResult[] {
         const fused = new Map<string, { score: number; matchType: SearchResult["matchType"] }>();
 
-        this.addRrfScores(fused, lexical, "lexical");
-        this.addRrfScores(fused, tags, "tag");
-        this.addRrfScores(fused, graph, "graph");
+        this.addRrfScores(fused, lexical, "lexical", weights.lexical);
+        this.addRrfScores(fused, tags, "tag", weights.tag);
+        this.addRrfScores(fused, graph, "graph", weights.graph);
 
         return Array.from(fused.entries())
             .map(([noteName, { score, matchType }]) => ({ noteName, score, matchType }))
@@ -171,9 +173,10 @@ export class HybridSearch {
         fused: Map<string, { score: number; matchType: SearchResult["matchType"] }>,
         ranked: string[],
         matchType: SearchResult["matchType"],
+        weight: number = 1,
     ): void {
         for (let i = 0; i < ranked.length; i++) {
-            const rrfScore = 1 / (RRF_K + i + 1);
+            const rrfScore = weight * (1 / (RRF_K + i + 1));
             const existing = fused.get(ranked[i]);
             if (existing) {
                 existing.score += rrfScore;

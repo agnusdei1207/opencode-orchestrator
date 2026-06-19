@@ -6,6 +6,7 @@ import { readMissionLedger, type MissionLedgerEvent } from "../loop/mission-ledg
 import { getMissionRuntimeOptions } from "../loop/mission-runtime-options.js";
 import { MemoryLevel, type MemoryEntry } from "../memory/interfaces.js";
 import { MemoryManager } from "../memory/memory-manager.js";
+import { horizonForLevel } from "./retrieval-weights.js";
 
 interface CanvasNode {
     id: string;
@@ -227,6 +228,7 @@ function buildMemoryNoteContent(state: MissionLoopState, entry: MemoryEntry): st
         `title: "${escapeYaml(`${entry.level} memory ${entry.id}`)}"`,
         "keep: true",
         `level: "${entry.level}"`,
+        `horizon: "${horizonForLevel(entry.level)}"`,
         `importance: ${entry.importance.toFixed(3)}`,
         `session: "${escapeYaml(state.sessionID)}"`,
         `recorded_at: "${recordedAt}"`,

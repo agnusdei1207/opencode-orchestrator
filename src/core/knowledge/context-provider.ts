@@ -3,6 +3,7 @@ import path from "node:path";
 import { GraphParser } from "./graph-parser.js";
 import { HybridSearch } from "./hybrid-search.js";
 import { TagIndexer } from "./tag-indexer.js";
+import { weightsForRole } from "./retrieval-weights.js";
 
 const MAX_RESULTS = 3;
 const MAX_SNIPPET_CHARS = 220;
@@ -17,7 +18,7 @@ interface IndexedKnowledge {
 }
 
 export class KnowledgeContextProvider {
-    public buildPrompt(directory: string, query: string): string | null {
+    public buildPrompt(directory: string, query: string, role?: string): string | null {
         const normalizedQuery = query.trim();
         if (!normalizedQuery) return null;
 
@@ -25,7 +26,8 @@ export class KnowledgeContextProvider {
         if (markdownFiles.length === 0) return null;
 
         const indexed = this.indexKnowledge(directory, markdownFiles);
-        const results = indexed.search.search(normalizedQuery, MAX_RESULTS);
+        // Role biases which retrieval engine dominates; omitting role is neutral.
+        const results = indexed.search.search(normalizedQuery, MAX_RESULTS, weightsForRole(role));
         if (results.length === 0) return null;
 
         return this.formatPrompt(normalizedQuery, results, indexed);
