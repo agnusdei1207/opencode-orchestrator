@@ -2083,14 +2083,19 @@ Maintenance path:
 | 검색 통합 | `context-provider.ts`, `hybrid-search.ts` | frontmatter를 `HybridSearch.indexContent()`로 전달하고 archive layer 제외 |
 | 생성 메모리 | `mission-memory.ts` | mission memory frontmatter에 `event_time`, `ingestion_time`, `record_updated_at`, `last_accessed`, `memory_kind`, `memory_layer` 기록 |
 | 접근 강화 | `context-provider.ts` 또는 별도 writer | 검색 결과 반환 후 `recordAccess()` 호출. 1차 구현에서는 surprise disk write 방지를 위해 보류 |
-| 충돌/대체 | `memory-consolidation.ts` | `valid_to`, `supersedes`, tombstone 처리 |
+| 충돌/대체 | `memory-lifecycle.ts` (신규) | `valid_to`, `supersedes`, tombstone 처리 |
 | 평가 | `tests/knowledge-memory-decay.test.ts` | LongMemEval-V2식 로컬 fixture로 recall/latency/storage 측정 |
 
 ### 2026-06-19 구현 반영 업데이트
 
 1차 반영 범위는 안전한 read-path 중심이다. `event_time`과 `ingestion_time`을 파싱·생성하고, 명시적 메모리 metadata가 있는 노트에만 Ebbinghaus식 감쇄 multiplier를 적용한다. metadata가 없는 기존 문서는 neutral multiplier `1.0`을 유지하므로 일반 문서 검색 결과는 기존 랭킹 정책을 유지한다.
 
-아직 반영하지 않은 항목은 의도적 보류다. `recordAccess()`의 영속 쓰기, hot/warm/cold 물리 이동, tombstone 기반 충돌 해소는 검색 중 디스크 mutation과 데이터 손실 위험이 있어 별도 dry-run/rollback 설계 후 다음 단계에서 구현한다.
+감쇄 수식은 단일 출처(`memory-scoring.ts`)로 통합되어 `hybrid-search.ts`(검색 랭킹)와 `memory-lifecycle.ts`(유지보수)가 동일한 `memoryStrength()`, `KIND_DECAY`, 상수를 공유한다. 출시된 상수는 강도 clamp 하한 `0.05`, quality 기본값 `importance=1.0 · confidence=1.0`(하한 `0.1`), 만료(`valid_to`) multiplier `0.35`, `keep=true → 1.0`, archive layer `→ 0`이다.
+
+이전에 "보류"로 표기됐던 항목들은 실제로는 구현되었으나 **자동 실행되지 않는다**:
+
+- `recordAccess()`의 영속 쓰기(접근 count/EMA/`last_accessed` frontmatter 갱신)는 **구현되었지만 기본 OFF, opt-in**이다. 검색 중 surprise disk mutation을 막기 위해 `KnowledgeContextProvider` 생성자 플래그(`enableAccessWriteback`) 또는 환경변수 `OPENCODE_MEMORY_WRITEBACK`(truthy = `"1"`/`"true"`)로만 활성화된다. 기본 검색 경로는 디스크를 변경하지 않는다.
+- hot/warm/cold 물리 이동(tier move/archive)과 tombstone 기반 시간적 대체(temporal supersession)는 **구현되었지만 수동/opt-in**이다. 단일 진입점 `runMemoryMaintenance()`(`src/core/knowledge/index.ts`에서 export)를 통해서만 실행되며, **기본값은 `dryRun: true`**로 파일을 이동하지 않고 계획(plan)만 반환한다. 파괴적 이동은 `dryRun: false`를 명시적으로 전달할 때만 수행되고, 어떤 search/index 경로에서도 호출되지 않는다(필요 시 `OPENCODE_MEMORY_MAINTENANCE`로 게이트).
 
 ### 로컬 평가 게이트
 

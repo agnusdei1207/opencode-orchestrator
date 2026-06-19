@@ -70,7 +70,7 @@ describe("mission memory knowledge integration", () => {
         expect(firstNote).toContain("ingestion_time:");
         expect(firstNote).toContain("## Content");
 
-        const prompt = new KnowledgeContextProvider().buildPrompt(
+        const prompt = new KnowledgeContextProvider({ enableAccessWriteback: true }).buildPrompt(
             testDir,
             "graphical memory timing retrieval grounding",
         );

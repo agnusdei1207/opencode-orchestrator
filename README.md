@@ -12,6 +12,15 @@
 
 ---
 
+## Highlights
+
+- **A mission loop, not a single prompt.** Commander, Planner, Worker, and Reviewer agents share one mission. The runtime — not the model — decides when work is *done*: it adjudicates at the idle boundary, nudges for missing verification, and on stagnation escalates `DECOMPOSE → RE-PLAN → ASK` instead of looping blindly.
+- **Pluggable agent profiles.** Built-in roles plus your own agents defined in `.opencode/agents.json`, with system prompts composed from modular fragments. Retrieval re-weights itself per active role, so a Planner, a Worker, and a Reviewer search the same vault through different lenses.
+- **Local-first, human-like memory.** An on-disk Ebbinghaus model with no external vector DB: notes gain strength when recalled and fade when unused, are *de-referenced rather than deleted* (recoverable), and separate when a fact was true (`event_time`) from when it was learned (`ingestion_time`).
+- **Retrieval by complementary senses.** BM25 lexical + tag + wiki-link graph, fused with Reciprocal Rank Fusion and biased by the active role — and a faded memory naturally sinks while a frequently recalled one rises, so search and memory are one model.
+- **Auditable by design.** A bounded mission ledger, a live scratchpad, and an Obsidian-compatible knowledge-map canvas make every decision and piece of evidence inspectable.
+- **Safe by default.** Disk writes and destructive maintenance are opt-in; sensitive or malicious memories never enter the prompt.
+
 ## 1. Install
 
 ```bash
@@ -175,11 +184,37 @@ The mission loop adjudicates continuation at the idle boundary rather than trust
 2. Before declaring done the model is asked for a short self-account (scope fit, verification, residual risk).
 3. After sustained stagnation the loop stops blind retries and escalates: DECOMPOSE → RE-PLAN → ASK the user.
 
-Memory retrieval is role-aware (planners favor structure, workers favor exact matches, reviewers favor breadth) and memory notes carry a relevance `horizon`.
+### Retrieval — finding by complementary senses
+
+A single ranking misses things, so retrieval runs several complementary channels in parallel and fuses them rather than trusting one score:
+
+- **Lexical (BM25)** — exact word matches; strong on code, identifiers, and proper nouns.
+- **Tag** — explicit frontmatter classification.
+- **Graph (wiki-link BFS)** — pulls in notes that are *contextually* close through `[[links]]` and backlinks, even when the wording differs.
+
+These are merged with Reciprocal Rank Fusion (RRF), which combines by rank position instead of raw score, so notes that several channels agree on rise to the top without hand-tuned scales. It all runs locally — no GPU, no external model, no API call.
+
+**Whoever is searching changes the weighting.** Retrieval is role-aware: a Planner leans on graph/tag structure, a Worker on exact lexical hits, a Reviewer on tag breadth (`src/core/knowledge/retrieval-weights.ts`). Swap the active agent profile and the same query is searched through a different blend of senses; custom profiles can be added via `.opencode/agents.json`. Each memory note also carries a relevance `horizon` (strategic / execution / closure) that tunes how long it stays in play.
+
+Forgetting then feeds back into retrieval — the memory-strength multiplier (below) makes a faded memory sink in the ranking while a frequently recalled one rises, so search and memory behave as one retrieval model rather than two systems.
 
 ### Ebbinghaus-Inspired Memory
 
-Local memory follows an Ebbinghaus-style lifecycle. Unused notes gradually decay in retrieval strength, reused notes are reinforced through access counters and `last_accessed`, and newer bi-temporal facts can supersede older facts by closing their validity window. Archived or tombstoned memories stay on disk for auditability but are excluded from prompt injection.
+Memory here is not an append-only log: memories carry a *strength* that fades the way human memory does, so the store stays useful instead of drowning in stale notes. The model comes straight from the Ebbinghaus forgetting curve:
+
+- **It decays naturally over time.** The longer a note goes unused, the lower its retrieval strength, so it quietly recedes instead of crowding out fresher knowledge.
+- **Different kinds of memory fade at different rates.** Procedural knowledge (`sop`, `workflow`) is sticky; one-off `episode`s fade fast — the same asymmetry that lets people keep a well-worn procedure long after the surrounding details are gone.
+- **Recall strengthens memory.** Every retrieval reinforces a note, so frequently used knowledge climbs back up the curve (the spacing / retrieval-practice effect).
+- **Nothing is truly deleted — it just stops being referenced.** Strength has a floor and never reaches zero; a faded memory drops out of search surfacing (archived or tombstoned) but the file stays on disk, fully recoverable. This mirrors human forgetting as *retrieval failure*, not erasure.
+
+Concretely, local memory follows this Ebbinghaus-style lifecycle entirely on disk with no external vector DB. The scoring model (single source of truth in `src/core/knowledge/memory-scoring.ts`) applies a per-kind exponential decay so unused notes lose retrieval strength over time (`sop`/`workflow` decay slowly, `episode` fast), while reused notes are reinforced through access counters / `access_ema` and `last_accessed`. Memory is bi-temporal: `event_time` records when a fact was true and `ingestion_time` records when it was learned, so newer facts can supersede older ones by closing their validity window (`valid_to`). Notes without memory metadata keep a neutral score, so ordinary docs rank unchanged. Archived, `sensitive`, malicious, or tombstoned memories stay on disk for auditability but are excluded from prompt injection.
+
+Both destructive and disk-mutating behaviors are off by default and gated behind explicit opt-in flags:
+
+| Flag | Effect |
+| --- | --- |
+| `OPENCODE_MEMORY_WRITEBACK` (`"1"`/`"true"`), or `new KnowledgeContextProvider({ enableAccessWriteback: true })` | Persist access reinforcement (count/EMA/`last_accessed`) to note frontmatter on search. Off by default — plain search never writes to disk. |
+| `runMemoryMaintenance({ ..., dryRun: false })` (optionally gated by `OPENCODE_MEMORY_MAINTENANCE`) | Manually apply tier moves, archiving, and tombstone supersession. Defaults to `dryRun: true` (plan only); never runs automatically on search or index. |
 
 Runtime evidence is written only when enabled:
 

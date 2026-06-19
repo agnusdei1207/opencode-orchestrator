@@ -20,6 +20,18 @@ interface IndexedKnowledge {
 }
 
 export class KnowledgeContextProvider {
+    /**
+     * When true, each matched note's frontmatter file is rewritten on search to
+     * record access (count/EMA/last_accessed). Disabled by default so that a
+     * plain search never mutates disk. Opt in via the constructor flag or the
+     * `OPENCODE_MEMORY_WRITEBACK` env var (truthy = "1"/"true").
+     */
+    private readonly enableAccessWriteback: boolean;
+
+    constructor(options: { enableAccessWriteback?: boolean } = {}) {
+        this.enableAccessWriteback = options.enableAccessWriteback ?? isWritebackEnvEnabled();
+    }
+
     public buildPrompt(directory: string, query: string, role?: string): string | null {
         const normalizedQuery = query.trim();
         if (!normalizedQuery) return null;
@@ -32,7 +44,10 @@ export class KnowledgeContextProvider {
         const results = indexed.search.search(normalizedQuery, MAX_RESULTS, weightsForRole(role));
         if (results.length === 0) return null;
 
-        this.recordResultAccess(results.map(result => indexed.noteToAbsolutePath.get(result.noteName)));
+        // Access writeback mutates disk and is OFF by default; only run when opted in.
+        if (this.enableAccessWriteback) {
+            this.recordResultAccess(results.map(result => indexed.noteToAbsolutePath.get(result.noteName)));
+        }
         return this.formatPrompt(normalizedQuery, results, indexed);
     }
 
@@ -143,4 +158,9 @@ export class KnowledgeContextProvider {
         lines.push("</knowledge_rag_context>");
         return lines.join("\n");
     }
+}
+
+function isWritebackEnvEnabled(): boolean {
+    const value = process.env.OPENCODE_MEMORY_WRITEBACK?.trim().toLowerCase();
+    return value === "1" || value === "true";
 }

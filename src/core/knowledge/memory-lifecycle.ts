@@ -2,8 +2,15 @@ import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "
 import { basename, dirname, join } from "node:path";
 import type { FrontmatterData } from "./tag-indexer.js";
 import { TagIndexer } from "./tag-indexer.js";
+import {
+    hasMemoryMetadata,
+    layerForStrength,
+    memoryStrength,
+    numberOr,
+} from "./memory-scoring.js";
+import type { MemoryLayer } from "./memory-scoring.js";
 
-export type MemoryLayer = "hot" | "warm" | "cold" | "archive";
+export type { MemoryLayer } from "./memory-scoring.js";
 
 export interface MemoryLifecycleRecord {
     filePath: string;
@@ -31,22 +38,6 @@ export interface TemporalSupersession {
     supersedesId: string;
 }
 
-const KIND_DECAY: Record<string, number> = {
-    sop: 0.006,
-    workflow: 0.01,
-    fact: 0.018,
-    preference: 0.02,
-    gotcha: 0.03,
-    episode: 0.07,
-};
-
-const LAYER_THRESHOLDS: Array<[MemoryLayer, number]> = [
-    ["hot", 0.75],
-    ["warm", 0.35],
-    ["cold", 0.08],
-    ["archive", 0],
-];
-
 export class MemoryLifecycle {
     private readonly parser = new TagIndexer();
 
@@ -59,7 +50,7 @@ export class MemoryLifecycle {
 
     public recordAccess(filePath: string, now: Date = new Date()): boolean {
         const record = this.loadRecord(filePath);
-        if (!record || !this.hasMemoryMetadata(record.metadata)) return false;
+        if (!record || !hasMemoryMetadata(record.metadata)) return false;
 
         const count = numberOr(record.metadata.access_count, 0) + 1;
         const previousEma = numberOr(record.metadata.access_ema, count - 1);
@@ -83,14 +74,14 @@ export class MemoryLifecycle {
 
         for (const filePath of filePaths) {
             const record = this.loadRecord(filePath);
-            if (!record || !this.hasMemoryMetadata(record.metadata)) continue;
+            if (!record || !hasMemoryMetadata(record.metadata)) continue;
             if (record.metadata.keep === true) {
                 protectedFiles.push(filePath);
                 continue;
             }
 
-            const strength = this.memoryStrength(record.metadata, now.getTime());
-            const to = this.layerForStrength(strength);
+            const strength = memoryStrength(record.metadata, now.getTime());
+            const to = layerForStrength(strength);
             const from = this.parseLayer(record.metadata.memory_layer);
             if (from !== to) {
                 const decision = { filePath, from, to, strength };
@@ -136,7 +127,7 @@ export class MemoryLifecycle {
     public resolveTemporalSupersessions(filePaths: string[], now: Date = new Date()): TemporalSupersession[] {
         const records = filePaths
             .map(filePath => this.loadRecord(filePath))
-            .filter((record): record is MemoryLifecycleRecord => record !== null && this.hasMemoryMetadata(record.metadata));
+            .filter((record): record is MemoryLifecycleRecord => record !== null && hasMemoryMetadata(record.metadata));
         const groups = new Map<string, MemoryLifecycleRecord[]>();
         for (const record of records) {
             const key = this.identityKey(record);
@@ -180,46 +171,6 @@ export class MemoryLifecycle {
         return supersessions.sort((a, b) => a.supersededFile.localeCompare(b.supersededFile));
     }
 
-    public memoryStrength(metadata: FrontmatterData, now = Date.now()): number {
-        if (metadata.keep === true) return 1;
-        if (metadata.memory_layer === "archive") return 0;
-        if (!this.hasMemoryMetadata(metadata)) return 1;
-
-        const lastSeen = timestampMillis(metadata.last_accessed ?? metadata.ingestion_time) ?? now;
-        const ageDays = Math.max(0, (now - lastSeen) / 86_400_000);
-        const lambda = numberOr(metadata.decay_lambda, KIND_DECAY[metadata.memory_kind ?? "fact"] ?? 0.03);
-        const access = numberOr(metadata.access_ema, numberOr(metadata.access_count, 0));
-        const quality = Math.max(0.1, numberOr(metadata.importance, 1) * numberOr(metadata.confidence, 1));
-        const reinforcement = 1 + Math.log1p(access) / 4;
-        const expiry = this.isExpired(metadata.valid_to, now) ? 0.35 : 1;
-        return clamp(quality * reinforcement * Math.exp(-lambda * ageDays) * expiry, 0.05, 1);
-    }
-
-    private hasMemoryMetadata(metadata: FrontmatterData): boolean {
-        return [
-            metadata.event_time,
-            metadata.ingestion_time,
-            metadata.last_accessed,
-            metadata.valid_to,
-            metadata.decay_lambda,
-            metadata.access_count,
-            metadata.access_ema,
-            metadata.importance,
-            metadata.confidence,
-            metadata.memory_kind,
-            metadata.memory_layer,
-            metadata.valid_from,
-            metadata.supersedes,
-        ].some(value => value !== undefined && value !== null);
-    }
-
-    private layerForStrength(strength: number): MemoryLayer {
-        for (const [layer, threshold] of LAYER_THRESHOLDS) {
-            if (strength >= threshold) return layer;
-        }
-        return "archive";
-    }
-
     private parseLayer(value: unknown): MemoryLayer | undefined {
         return value === "hot" || value === "warm" || value === "cold" || value === "archive"
             ? value
@@ -247,11 +198,6 @@ export class MemoryLifecycle {
             ?? "";
     }
 
-    private isExpired(validTo: unknown, now: number): boolean {
-        const expiresAt = timestampMillis(validTo);
-        return expiresAt !== null && expiresAt < now;
-    }
-
     private writeRecord(filePath: string, metadata: FrontmatterData, body: string): void {
         mkdirSync(dirname(filePath), { recursive: true });
         const content = `${serializeFrontmatter(metadata)}\n${body.trimStart()}`;
@@ -259,6 +205,58 @@ export class MemoryLifecycle {
         writeFileSync(tempPath, content, "utf8");
         renameSync(tempPath, filePath);
     }
+}
+
+export interface MemoryMaintenanceOptions {
+    /** Repository root used to resolve the archive destination directory. */
+    root: string;
+    /** Memory note file paths to evaluate. */
+    filePaths: string[];
+    /**
+     * When true (the DEFAULT), nothing is written or moved: the computed plan is
+     * returned for inspection. Pass `dryRun: false` to actually apply tier
+     * changes, archive moves, and temporal supersessions to disk.
+     */
+    dryRun?: boolean;
+    /** When applying, also physically move archive candidates into archive/memory. */
+    applyArchives?: boolean;
+    /** Injectable clock for deterministic runs (defaults to now). */
+    now?: Date;
+}
+
+export interface MemoryMaintenanceResult {
+    dryRun: boolean;
+    plan: MemoryLifecyclePlan;
+    changedFiles: string[];
+    supersessions: TemporalSupersession[];
+}
+
+/**
+ * Manual / opt-in memory maintenance entry point.
+ *
+ * This is the ONLY supported way to run the destructive lifecycle operations
+ * (tier moves, archiving, tombstone supersession). It is deliberately NOT wired
+ * into any search or index path — those must never mutate memory on disk.
+ *
+ * Defaults to `dryRun: true`, returning the plan without touching files. Call
+ * with `dryRun: false` to apply. Invoke from a CLI/maintenance task only.
+ *
+ * Tip: gate any auto-scheduling of this behind `OPENCODE_MEMORY_MAINTENANCE`.
+ */
+export function runMemoryMaintenance(options: MemoryMaintenanceOptions): MemoryMaintenanceResult {
+    const { root, filePaths, applyArchives = false } = options;
+    const dryRun = options.dryRun ?? true;
+    const now = options.now ?? new Date();
+    const lifecycle = new MemoryLifecycle();
+
+    const plan = lifecycle.planLifecycle(filePaths, now);
+    if (dryRun) {
+        return { dryRun: true, plan, changedFiles: [], supersessions: [] };
+    }
+
+    const changedFiles = lifecycle.applyLifecyclePlan(root, plan, applyArchives, now);
+    const supersessions = lifecycle.resolveTemporalSupersessions(filePaths, now);
+    return { dryRun: false, plan, changedFiles, supersessions };
 }
 
 function serializeFrontmatter(metadata: FrontmatterData): string {
@@ -280,20 +278,6 @@ function formatYamlValue(value: unknown): string {
     return /^[A-Za-z0-9_./:@+-]+$/.test(text) ? text : JSON.stringify(text);
 }
 
-function numberOr(value: unknown, fallback: number): number {
-    return typeof value === "number" && Number.isFinite(value) ? value : fallback;
-}
-
 function stringOr(value: unknown): string | null {
     return typeof value === "string" && value.trim() ? value : null;
-}
-
-function timestampMillis(value: unknown): number | null {
-    if (typeof value !== "string" || !value.trim()) return null;
-    const parsed = Date.parse(value);
-    return Number.isNaN(parsed) ? null : parsed;
-}
-
-function clamp(value: number, min: number, max: number): number {
-    return Math.min(max, Math.max(min, value));
 }

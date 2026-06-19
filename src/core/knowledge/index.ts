@@ -19,11 +19,13 @@ export {
 export { SafetyGuards } from "./safety-guards.js";
 export type { WriteQueue } from "./safety-guards.js";
 export { MemoryConsolidation } from "./memory-consolidation.js";
-export { MemoryLifecycle } from "./memory-lifecycle.js";
+export { MemoryLifecycle, runMemoryMaintenance } from "./memory-lifecycle.js";
 export type {
     MemoryLayer,
     MemoryLifecyclePlan,
     MemoryLifecycleRecord,
+    MemoryMaintenanceOptions,
+    MemoryMaintenanceResult,
     MemoryTierDecision,
     TemporalSupersession,
 } from "./memory-lifecycle.js";

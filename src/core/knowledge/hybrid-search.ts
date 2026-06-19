@@ -7,6 +7,7 @@ import type { TagIndexer } from "./tag-indexer.js";
 import type { FrontmatterData } from "./tag-indexer.js";
 import type { GraphParser } from "./graph-parser.js";
 import { type EngineWeights, NEUTRAL_WEIGHTS } from "./retrieval-weights.js";
+import { isPromptSafeMemory, memoryStrength } from "./memory-scoring.js";
 
 /** Unified search result with provenance tracking. */
 export interface SearchResult {
@@ -25,17 +26,6 @@ const BM25_K1 = 1.2;
 const BM25_B = 0.75;
 /** Graph traversal reaches 2-hop neighbors for contextual relevance. */
 const GRAPH_HOP_DEPTH = 2;
-const EXPIRED_MEMORY_MULTIPLIER = 0.35;
-const MIN_MEMORY_STRENGTH = 0.05;
-
-const KIND_DECAY: Record<string, number> = {
-    sop: 0.006,
-    workflow: 0.01,
-    fact: 0.018,
-    preference: 0.02,
-    gotcha: 0.03,
-    episode: 0.07,
-};
 
 export class HybridSearch {
     private readonly tagIndexer: TagIndexer;
@@ -253,59 +243,4 @@ export class HybridSearch {
             .sort((a, b) => b[1] - a[1])
             .map(([name]) => name);
     }
-}
-
-function memoryStrength(metadata: FrontmatterData | undefined, now = Date.now()): number {
-    if (!metadata || metadata.keep) return 1;
-    if (metadata.memory_layer === "archive") return 0;
-
-    const hasMemoryMetadata = [
-        metadata.event_time,
-        metadata.ingestion_time,
-        metadata.last_accessed,
-        metadata.valid_to,
-        metadata.decay_lambda,
-        metadata.access_count,
-        metadata.access_ema,
-        metadata.importance,
-        metadata.confidence,
-        metadata.memory_kind,
-    ].some(value => value !== undefined && value !== null);
-    if (!hasMemoryMetadata) return 1;
-
-    const lastSeen = timestampMillis(metadata.last_accessed ?? metadata.ingestion_time) ?? now;
-    const ageDays = Math.max(0, (now - lastSeen) / 86_400_000);
-    const lambda = numberOr(metadata.decay_lambda, KIND_DECAY[metadata.memory_kind ?? "fact"] ?? 0.03);
-    const access = numberOr(metadata.access_ema, numberOr(metadata.access_count, 0));
-    const quality = Math.max(0.1, numberOr(metadata.importance, 1) * numberOr(metadata.confidence, 1));
-    const reinforcement = 1 + Math.log1p(access) / 4;
-    const expiry = isExpired(metadata.valid_to, now) ? EXPIRED_MEMORY_MULTIPLIER : 1;
-
-    return clamp(quality * reinforcement * Math.exp(-lambda * ageDays) * expiry, MIN_MEMORY_STRENGTH, 1);
-}
-
-function isPromptSafeMemory(metadata: FrontmatterData | undefined): boolean {
-    if (!metadata) return true;
-    return metadata.privacy_class !== "sensitive"
-        && metadata.memory_layer !== "malicious"
-        && metadata.tombstone !== true;
-}
-
-function numberOr(value: unknown, fallback: number): number {
-    return typeof value === "number" && Number.isFinite(value) ? value : fallback;
-}
-
-function timestampMillis(value: unknown): number | null {
-    if (typeof value !== "string" || !value.trim()) return null;
-    const parsed = Date.parse(value);
-    return Number.isNaN(parsed) ? null : parsed;
-}
-
-function isExpired(validTo: unknown, now: number): boolean {
-    const expiresAt = timestampMillis(validTo);
-    return expiresAt !== null && expiresAt < now;
-}
-
-function clamp(value: number, min: number, max: number): number {
-    return Math.min(max, Math.max(min, value));
 }
