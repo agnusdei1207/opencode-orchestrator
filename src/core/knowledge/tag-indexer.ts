@@ -7,6 +7,20 @@ export interface FrontmatterData {
     tags?: string[];
     title?: string;
     keep?: boolean;
+    event_time?: string;
+    ingestion_time?: string;
+    record_updated_at?: string;
+    last_accessed?: string;
+    access_count?: number;
+    access_ema?: number;
+    importance?: number;
+    confidence?: number;
+    decay_lambda?: number;
+    memory_kind?: string;
+    memory_layer?: string;
+    valid_from?: string;
+    valid_to?: string | null;
+    supersedes?: string[];
     [key: string]: unknown;
 }
 
@@ -193,9 +207,10 @@ export class TagIndexer {
     /**
      * Basic scalar value parser for YAML frontmatter fields.
      */
-    private parseScalar(val: string): string | boolean | number {
+    private parseScalar(val: string): string | boolean | number | null {
         if (val === "true") return true;
         if (val === "false") return false;
+        if (val === "null" || val === "~") return null;
         const num = Number(val);
         if (!isNaN(num)) return num;
         // Strip surround quotes if present

@@ -218,6 +218,7 @@ function buildMemoryNoteFileName(entry: MemoryEntry): string {
 
 function buildMemoryNoteContent(state: MissionLoopState, entry: MemoryEntry): string {
     const recordedAt = new Date(entry.timestamp).toISOString();
+    const ingestedAt = new Date().toISOString();
     const body = entry.content.length > MAX_MEMORY_BODY_CHARS
         ? `${entry.content.slice(0, MAX_MEMORY_BODY_CHARS)}...`
         : entry.content;
@@ -232,6 +233,14 @@ function buildMemoryNoteContent(state: MissionLoopState, entry: MemoryEntry): st
         `importance: ${entry.importance.toFixed(3)}`,
         `session: "${escapeYaml(state.sessionID)}"`,
         `recorded_at: "${recordedAt}"`,
+        `event_time: "${recordedAt}"`,
+        `ingestion_time: "${ingestedAt}"`,
+        `record_updated_at: "${ingestedAt}"`,
+        `last_accessed: "${ingestedAt}"`,
+        "access_count: 1",
+        `memory_kind: "${entry.level}"`,
+        "memory_layer: \"warm\"",
+        "confidence: 1",
         `objective: "${escapeYaml(state.objective ?? state.prompt)}"`,
         "---",
         `# ${capitalize(entry.level)} Memory`,

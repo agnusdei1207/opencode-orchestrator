@@ -26,6 +26,32 @@ describe("TagIndexer - Frontmatter & Tag Indexing RAG Engine", () => {
         expect(body).toBe("Body text here.");
     });
 
+    it("should parse bi-temporal memory metadata from frontmatter", () => {
+        const doc = [
+            "---",
+            "tags: [memory, sop]",
+            "event_time: 2026-06-18T00:00:00Z",
+            "ingestion_time: 2026-06-19T09:00:00Z",
+            "last_accessed: 2026-06-19T10:00:00Z",
+            "access_count: 7",
+            "importance: 0.82",
+            "valid_to: null",
+            "supersedes: [mem-old]",
+            "---",
+            "Body text here.",
+        ].join("\n");
+
+        const { data } = indexer.parseFrontmatter(doc);
+
+        expect(data.event_time).toBe("2026-06-18T00:00:00Z");
+        expect(data.ingestion_time).toBe("2026-06-19T09:00:00Z");
+        expect(data.last_accessed).toBe("2026-06-19T10:00:00Z");
+        expect(data.access_count).toBe(7);
+        expect(data.importance).toBe(0.82);
+        expect(data.valid_to).toBeNull();
+        expect(data.supersedes).toEqual(["mem-old"]);
+    });
+
     it("should successfully recover from dirty yaml formats (Indentation Error Recovery)", () => {
         const doc = `---\ntitle: Broken Yaml\ntags: \n- invalid\n  - missing-colon\n- recovery-tag\n---\nBody text.`;
         const { data } = indexer.parseFrontmatter(doc);

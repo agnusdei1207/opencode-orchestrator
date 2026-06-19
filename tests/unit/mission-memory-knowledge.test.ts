@@ -66,6 +66,8 @@ describe("mission memory knowledge integration", () => {
 
         const firstNote = fs.readFileSync(path.join(notesDir, noteFiles[0]), "utf8");
         expect(firstNote).toContain("tags: [mission-memory, orchestrator");
+        expect(firstNote).toContain("event_time:");
+        expect(firstNote).toContain("ingestion_time:");
         expect(firstNote).toContain("## Content");
 
         const prompt = new KnowledgeContextProvider().buildPrompt(

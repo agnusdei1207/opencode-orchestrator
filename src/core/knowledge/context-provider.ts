@@ -73,12 +73,12 @@ export class KnowledgeContextProvider {
             try {
                 const content = readFileSync(filePath, "utf8");
                 const noteName = graphParser.getNoteName(filePath);
-                const { body } = tagIndexer.parseFrontmatter(content);
+                const { data, body } = tagIndexer.parseFrontmatter(content);
                 const normalizedBody = body.trim();
 
                 tagIndexer.indexFile(filePath, content);
                 graphParser.indexFile(filePath, content);
-                search.indexContent(noteName, normalizedBody);
+                search.indexContent(noteName, normalizedBody, data);
                 noteToPath.set(noteName, path.relative(directory, filePath) || filePath);
                 noteToSnippet.set(noteName, this.buildSnippet(normalizedBody));
             } catch {

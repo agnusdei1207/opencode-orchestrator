@@ -100,4 +100,31 @@ describe("HybridSearch - BM25 + Tag + Graph Fusion RAG", () => {
             expect(taggedIdx).toBeLessThanOrEqual(plainIdx);
         }
     });
+
+    it("should demote explicitly expired bi-temporal memory without affecting neutral notes", () => {
+        const freshDoc = "Kerberoasting defense uses SPN monitoring and rotation.";
+        const expiredDoc = "Kerberoasting defense uses SPN monitoring and rotation.";
+
+        search.indexContent("expired-memory", expiredDoc, {
+            event_time: "2024-03-15T00:00:00Z",
+            ingestion_time: "2024-03-20T00:00:00Z",
+            valid_to: "2024-04-01T00:00:00Z",
+            decay_lambda: 0.2,
+            memory_kind: "episode",
+        });
+        search.indexContent("fresh-memory", freshDoc, {
+            event_time: "2026-06-18T00:00:00Z",
+            ingestion_time: "2026-06-19T00:00:00Z",
+            decay_lambda: 0.006,
+            memory_kind: "sop",
+            access_count: 5,
+        });
+        search.indexContent("neutral-note", freshDoc);
+
+        const results = search.search("Kerberoasting SPN monitoring", 3);
+
+        expect(results[0].noteName).toBe("fresh-memory");
+        expect(results.findIndex(result => result.noteName === "expired-memory"))
+            .toBeGreaterThan(results.findIndex(result => result.noteName === "neutral-note"));
+    });
 });
