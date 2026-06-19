@@ -37,7 +37,8 @@
     "scripts/run-install-hook.mjs",
     "bin",
     "README.md",
-    "LICENSE"
+    "LICENSE",
+    "opencode-orchestrator.schema.json"
   ],
   "scripts": {
     "docker:build-all": "docker compose run --rm dev && docker compose run --rm rust-arm64 && docker compose run --rm win-builder",
@@ -46,6 +47,7 @@
     "docker:test": "docker compose run --rm test",
     "docker:clean": "docker compose down -v",
     "build": "node scripts/build.mjs",
+    "gen:schema": "esbuild scripts/gen-schema.ts --bundle --platform=node --format=esm --outfile=node_modules/.cache/gen-schema.mjs && node node_modules/.cache/gen-schema.mjs",
     "build:all": "npm run build && npm run docker:rust-dist",
     "test": "vitest run --reporter=verbose",
     "test:coverage": "vitest run --coverage",

@@ -1,0 +1,75 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "agentConcurrency": {
+      "type": "object",
+      "propertyNames": {
+        "type": "string"
+      },
+      "additionalProperties": {
+        "type": "integer",
+        "exclusiveMinimum": 0,
+        "maximum": 9007199254740991
+      }
+    },
+    "providerConcurrency": {
+      "type": "object",
+      "propertyNames": {
+        "type": "string"
+      },
+      "additionalProperties": {
+        "type": "integer",
+        "exclusiveMinimum": 0,
+        "maximum": 9007199254740991
+      }
+    },
+    "modelConcurrency": {
+      "type": "object",
+      "propertyNames": {
+        "type": "string"
+      },
+      "additionalProperties": {
+        "type": "integer",
+        "exclusiveMinimum": 0,
+        "maximum": 9007199254740991
+      }
+    },
+    "defaultConcurrency": {
+      "type": "integer",
+      "exclusiveMinimum": 0,
+      "maximum": 9007199254740991
+    },
+    "missionLoop": {
+      "default": {
+        "ledger": true,
+        "markdownMemory": true,
+        "maxEvidenceEvents": 20
+      },
+      "type": "object",
+      "properties": {
+        "ledger": {
+          "default": true,
+          "type": "boolean"
+        },
+        "markdownMemory": {
+          "default": true,
+          "type": "boolean"
+        },
+        "maxEvidenceEvents": {
+          "default": 20,
+          "type": "integer",
+          "exclusiveMinimum": 0,
+          "maximum": 9007199254740991
+        }
+      },
+      "required": [
+        "ledger",
+        "markdownMemory",
+        "maxEvidenceEvents"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": {}
+}
