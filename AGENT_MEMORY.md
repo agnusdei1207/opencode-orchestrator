@@ -2,11 +2,11 @@
 
 ## Current Task
 
-Completed a full evidence-based audit (TS plugin + Rust crates) with a phased plan/report
-dated 2026-06-19, and shipped Phases 0, 1, 4, 5 across patches `1.5.2` and `1.5.3`. Phases 2
-and 6 were withdrawn after direct verification showed they are intentional designs, not bugs.
-Phase 3 (over-modularization consolidation) is the only remaining work, left as a staged
-per-domain series.
+Completed the full 2026-06-19 audit + phased refactor. All phases resolved across patches
+`1.5.2`–`1.5.4`: Phase 0/1 (version sync + Rust dead-code), Phase 4 (hygiene/CI), Phase 5
+(Rust robustness), and Phase 3 (over-modularization: `src/shared` 185→53, total `src`
+525→393, all exports preserved; shipped as `1.5.4`). Phases 2 and 6 were withdrawn after
+direct verification proved they are intentional designs, not bugs. No phases remain open.
 
 ## Last Completed Step
 

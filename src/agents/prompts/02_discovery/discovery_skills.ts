@@ -4,7 +4,7 @@
  * Instructs agents on how to autonomously discover, install, and use skills.
  * This empowers agents to extend their own capabilities when they encounter unknown tasks.
  */
-import { PROMPT_TAGS, wrapTag } from "../../../shared/prompt/constants/tags.js";
+import { PROMPT_TAGS, wrapTag } from "../../../shared/prompt/index.js";
 
 export const SKILLS_CAPABILITIES = wrapTag(PROMPT_TAGS.SKILLS_CAPABILITIES, `
 ### AUTONOMOUS SKILL ACQUISITION

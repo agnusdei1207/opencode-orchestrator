@@ -2,8 +2,8 @@
  * Error Detection
  */
 
-import { ERROR_PATTERNS } from "./constants/error-patterns.js";
-import type { ErrorPatternType } from "./types/error-pattern-type.js";
+import { ERROR_PATTERNS } from "./constants.js";
+import type { ErrorPatternType } from "./constants.js";
 
 
 export function detectErrorType(error: unknown): ErrorPatternType | null {

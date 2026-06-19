@@ -6,7 +6,7 @@
  */
 
 import { ObjectPool } from "./object-pool.js";
-import type { ParallelTask } from "../../shared/task/interfaces/parallel-task.js";
+import type { ParallelTask } from "../../shared/task/types.js";
 import { TASK_STATUS } from "../../shared/index.js";
 
 /**

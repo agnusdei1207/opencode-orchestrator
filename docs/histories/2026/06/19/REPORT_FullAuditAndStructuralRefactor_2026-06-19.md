@@ -112,24 +112,47 @@ commit contains only logical changes.
    `npm run release:patch` (or `npm run publish:token`) from an authenticated environment
    with Docker for the Rust artifact rebuild.
 
-## 8. Remaining Work — Phase 3 Only
+## 8. Phase 3 — Over-modularization Consolidation (shipped as `1.5.4`)
 
-The single open phase is the over-modularization consolidation (Phase 3). It is deliberately
-left as a staged, reviewable series rather than a single autonomous big-bang, because:
+Executed the full `src/shared` consolidation. Every domain that used the
+`constants/`+`interfaces/`+`types/` (and deeper `os-notify/*`, `tool/constants/{common,lsp,
+parallel}`) split was flattened to at most `constants.ts` + `types.ts` + `index.ts`, with all
+export names preserved so the 138 top-barrel consumers were untouched. The few direct
+deep-importers were repointed to domain barrels.
 
-1. it spans ~150–200 files with import rewrites across all 525 source files;
-2. the plan itself prescribes "one domain per commit" with prompt-output snapshots;
-3. a rushed, unreviewed mass rewrite would contradict the "clean" requirement and the
-   AGENTS.md rule against unverified wide changes.
+Method: large/sensitive bodies (prompt strings, event tables) were merged by byte-preserving
+concatenation (strip import lines, re-add fixed-path imports) rather than retyping, so prompt
+output stays identical.
 
-Recommended order when resumed (each its own commit, `tsc` + `npm test` after each):
+Results:
 
-1. collapse the deepest chains first: `shared/notification/os-notify/*`,
-   `shared/tool/constants/{common,lsp,parallel}`;
-2. fold each domain's `constants/`+`interfaces/`+`types/` split into one `constants.ts` +
-   one `types.ts` + one `index.ts`;
-3. group the 95 prompt string modules per numbered stage with a byte-identical snapshot test;
-4. drop now-redundant single-line barrels (e.g. `core/agents/consts/task-status.const.ts`)
-   by re-pointing their `index.ts` at the real source.
+| Metric | Before | After |
+| --- | --- | --- |
+| `src/shared` files | 185 | 53 |
+| total `src` files | 525 | 393 |
 
-Phases 0, 1, 4, 5 are complete; Phases 2 and 6 require no change.
+Domains flattened: agent, cache, message, os, prompt, session, command, errors, core,
+recovery, loop, task, verification, notification (incl. `os-notify` + `presets`), tool. Also
+removed verified-dead `shared/task/base-task.ts`.
+
+One merge-induced regression was caught by the test suite and fixed: collapsing leaf files
+created a `core ↔ tool` circular import (core needed `TOOL_NAMES`; tool needed
+`STATUS_LABEL`). Resolved by keeping `TOOL_NAMES` in a zero-dependency `tool/tool-names.ts`
+leaf so neither consolidated module imports the other at evaluation time.
+
+Verification: `tsc --noEmit` 0, `npm run build` 0, `cargo fmt --check`/`clippy -D warnings` 0,
+`cargo test` 35, `npm test` 75 files / 713 tests.
+
+## 9. Phase Status Summary
+
+| Phase | Status |
+| --- | --- |
+| 0 — Baseline + version sync | Done (`1.5.2`) |
+| 1 — Dead code removal (Rust `config`) | Done (`1.5.2`) |
+| 2 — Continuation unify | Withdrawn (intentional mutually-exclusive design) |
+| 3 — Over-modularization consolidation | Done (`1.5.4`) |
+| 4 — Repository/build/type hygiene | Done (`1.5.3`) |
+| 5 — Rust subprocess robustness | Done (`1.5.3`) |
+| 6 — Release pipeline | Withdrawn (intentional, test-locked design) |
+
+No phases remain open.

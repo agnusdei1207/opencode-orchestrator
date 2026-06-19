@@ -9,12 +9,12 @@
  */
 
 import { PARALLEL_TASK } from "../../shared/index.js";
-import type { ConcurrencyConfig } from "../../shared/agent/interfaces/concurrency-config.js";
+import type { ConcurrencyConfig } from "../../shared/agent/index.js";
 import { ConcurrencyToken } from "./concurrency-token.js";
 import { WorkStealingWorkerPool } from "../queue/worker-pool.js";
 import type { WorkItem } from "../queue/work-stealing-deque.js";
 
-export type { ConcurrencyConfig } from "../../shared/agent/interfaces/concurrency-config.js";
+export type { ConcurrencyConfig } from "../../shared/agent/index.js";
 
 export enum TaskPriority {
     HIGH = 0,

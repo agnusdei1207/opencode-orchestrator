@@ -3,7 +3,7 @@
  */
 
 import { AGENTS as BUILTIN_AGENTS } from "../../agents/definitions.js";
-import type { AgentDefinition } from "../../shared/agent/interfaces/index.js";
+import type { AgentDefinition } from "../../shared/agent/index.js";
 import { log } from "./logger.js";
 import * as fs from "fs/promises";
 import * as path from "path";

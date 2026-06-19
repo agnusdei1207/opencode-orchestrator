@@ -7,7 +7,7 @@
  * Learn = Document. What you discover, you record for future use.
  */
 
-import { AGENT_NAMES } from "../../../shared/agent/constants/index.js";
+import { AGENT_NAMES } from "../../../shared/agent/index.js";
 import {
     PROMPT_TAGS,
     PHILOSOPHY_PHASES,

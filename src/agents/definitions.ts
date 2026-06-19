@@ -8,8 +8,8 @@
  * - Reviewer: Verification + Context Management (Final Quality Gate)
  */
 
-import { AGENT_NAMES } from "../shared/agent/constants/index.js";
-import type { AgentDefinition } from "../shared/agent/interfaces/index.js";
+import { AGENT_NAMES } from "../shared/agent/index.js";
+import type { AgentDefinition } from "../shared/agent/index.js";
 import { commander } from "./commander.js";
 import { planner } from "./subagents/planner.js";
 import { worker } from "./subagents/worker.js";

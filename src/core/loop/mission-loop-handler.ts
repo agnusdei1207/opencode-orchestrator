@@ -17,7 +17,7 @@ import {
     writeLoopState,
     generateMissionContinuationPrompt,
 } from "./mission-loop.js";
-import type { MissionLoopState } from "../../shared/loop/interfaces/mission-loop.js";
+import type { MissionLoopState } from "../../shared/loop/types.js";
 import { STAGNATION_INTERVENTION } from "../../shared/constants/system-messages.js";
 import { PART_TYPES, LOOP, TOAST_DURATION, STATUS_LABEL, TOAST_VARIANTS, MISSION_CONTROL } from "../../shared/index.js";
 import { isSessionRecovering } from "../recovery/session-recovery.js";

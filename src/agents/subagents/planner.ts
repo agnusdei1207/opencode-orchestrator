@@ -6,8 +6,8 @@
  * TODO sync - updates TODO based on Commander instructions.
  */
 
-import { AGENT_NAMES } from "../../shared/agent/constants/index.js";
-import type { AgentDefinition } from "../../shared/agent/interfaces/index.js";
+import { AGENT_NAMES } from "../../shared/agent/index.js";
+import type { AgentDefinition } from "../../shared/agent/index.js";
 import {
     // Common (no philosophy - Commander handles that)
     ENVIRONMENT_DISCOVERY,

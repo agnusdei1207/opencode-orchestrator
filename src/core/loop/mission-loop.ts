@@ -11,7 +11,7 @@ import { join } from "node:path";
 import { log } from "../agents/logger.js";
 import { PATHS, MISSION_CONTROL } from "../../shared/index.js";
 import { CONTINUE_INSTRUCTION, CLEANUP_INSTRUCTION } from "../../shared/constants/system-messages.js";
-import type { MissionLoopState, MissionLoopOptions } from "../../shared/loop/interfaces/mission-loop.js";
+import type { MissionLoopState, MissionLoopOptions } from "../../shared/loop/types.js";
 import { syncMissionMemory } from "../knowledge/mission-memory.js";
 import { appendMissionLedgerEvent } from "./mission-ledger.js";
 

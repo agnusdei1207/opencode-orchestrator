@@ -2,10 +2,10 @@
  * Error Retry Logic
  */
 
-import { ERROR_TYPE } from "./constants/error-type.js";
-import type { ErrorPatternType } from "./types/error-pattern-type.js";
+import { ERROR_TYPE } from "./constants.js";
+import type { ErrorPatternType } from "./constants.js";
 
-import { RECOVERY } from "../recovery/constants/recovery.js";
+import { RECOVERY } from "../recovery/index.js";
 
 export function isRetryableError(errorType: ErrorPatternType | null): boolean {
     if (!errorType) return false;

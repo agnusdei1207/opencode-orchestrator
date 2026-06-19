@@ -1,5 +1,5 @@
 /**
  * Core Domain
  */
-export * from "./constants/index.js";
+export * from "./constants.js";
 export { Poolable } from "./poolable.js";

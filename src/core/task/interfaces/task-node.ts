@@ -2,7 +2,7 @@
  * Task Node Interface
  */
 
-import type { ParallelTaskStatus } from "../../../shared/task/types/index.js";
+import type { ParallelTaskStatus } from "../../../shared/task/types.js";
 
 export type TaskStatus = ParallelTaskStatus;
 

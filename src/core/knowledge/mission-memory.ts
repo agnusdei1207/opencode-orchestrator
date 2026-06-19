@@ -1,7 +1,7 @@
 import { existsSync, mkdirSync, readFileSync, readdirSync, renameSync, unlinkSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { PATHS } from "../../shared/index.js";
-import type { MissionLoopState } from "../../shared/loop/interfaces/mission-loop.js";
+import type { MissionLoopState } from "../../shared/loop/types.js";
 import { readMissionLedger, type MissionLedgerEvent } from "../loop/mission-ledger.js";
 import { getMissionRuntimeOptions } from "../loop/mission-runtime-options.js";
 import { MemoryLevel, type MemoryEntry } from "../memory/interfaces.js";
