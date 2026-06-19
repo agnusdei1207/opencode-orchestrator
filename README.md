@@ -6,7 +6,7 @@
   [![MIT License](https://img.shields.io/badge/license-MIT-red.svg)](LICENSE)
   [![npm](https://img.shields.io/npm/v/opencode-orchestrator.svg)](https://www.npmjs.com/package/opencode-orchestrator)
   <!-- VERSION:START -->
-  **Version:** `1.5.4`
+  **Version:** `1.6.0`
   <!-- VERSION:END -->
 </div>
 
@@ -84,6 +84,8 @@ Model selection follows normal OpenCode inheritance. The plugin does not force a
 
 Legacy top-level concurrency keys (`agentConcurrency`, `providerConcurrency`, `modelConcurrency`, `defaultConcurrency`) are still accepted for backward compatibility, but the plugin tuple is the preferred location.
 
+Plugin options are schema-described in `opencode-orchestrator.schema.json` (generated from the Zod source, shipped in the package) for editor autocomplete and validation. Invalid or missing option fields fall back to defaults rather than failing.
+
 ## 3. Run
 
 Inside OpenCode:
@@ -152,6 +154,14 @@ flowchart LR
 | Worker | Implements scoped file changes with isolated context. |
 | Reviewer | Checks completion evidence, tests, and integration risk. |
 
+The mission loop adjudicates continuation at the idle boundary rather than trusting a model's "done":
+
+1. Tool calls are observed to record changed files and verification runs; if files changed with no verification, the continuation prompt emphatically asks the model to run tests/build/lint and cite results (a nudge, never a hard block).
+2. Before declaring done the model is asked for a short self-account (scope fit, verification, residual risk).
+3. After sustained stagnation the loop stops blind retries and escalates: DECOMPOSE → RE-PLAN → ASK the user.
+
+Memory retrieval is role-aware (planners favor structure, workers favor exact matches, reviewers favor breadth) and memory notes carry a relevance `horizon`.
+
 Runtime evidence is written only when enabled:
 
 | Artifact | Purpose |
@@ -176,6 +186,8 @@ cargo fmt --all --check
 cargo clippy --workspace --all-targets -- -D warnings
 cargo test --workspace
 ```
+
+Regenerate the plugin-options JSON Schema after changing option types: `npm run gen:schema`.
 
 Useful references:
 

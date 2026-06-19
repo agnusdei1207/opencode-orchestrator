@@ -2,11 +2,13 @@
 
 ## Current Task
 
-Completed the full 2026-06-19 audit + phased refactor. All phases resolved across patches
-`1.5.2`–`1.5.4`: Phase 0/1 (version sync + Rust dead-code), Phase 4 (hygiene/CI), Phase 5
-(Rust robustness), and Phase 3 (over-modularization: `src/shared` 185→53, total `src`
-525→393, all exports preserved; shipped as `1.5.4`). Phases 2 and 6 were withdrawn after
-direct verification proved they are intentional designs, not bugs. No phases remain open.
+Shipped Builder-learnings adoption as minor `1.6.0` (after the 1.5.x audit/refactor line).
+Surveyed ../builder-private (25 crates/185K LOC), wrote an adoption assessment, then applied
+all recommended items A–H phase by phase, each verified green and committed: prompt
+registry+snapshots (A/B), tolerant safeJsonParse (F), memory horizons + role-aware retrieval
+(E), mission evidence + wiring-gate nudge (C), completion self-review + stagnation escalation
+(D), Zod schema-driven options + generated schema.json + shared→core layering guard (G/H).
+WATCH/SKIP items left to OpenCode (providers/permissions/turn-loop). Tests 713→747.
 
 ## Last Completed Step
 
