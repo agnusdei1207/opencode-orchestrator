@@ -1111,7 +1111,8 @@
         </h1>
 
         <p class="hero-sub">
-            A Commander-led agent loop for OpenCode: plan, implement, and verify — until the work is actually done.
+            A mission loop, not a single prompt. Commander, Planner, Worker, and Reviewer agents plan, implement,
+            and verify — and the runtime decides when the work is actually done.
         </p>
 
         <div class="hero-cta">
@@ -1165,7 +1166,12 @@
                         </div>
                         <p class="arch-desc">
                             The <strong>Commander</strong> delegates to Planner, Worker, and Reviewer agents and drives a
-                            persisted mission loop until verification passes.
+                            persisted mission loop. The runtime adjudicates "done" at the idle boundary and, when a task
+                            stalls, escalates in order — <strong>DECOMPOSE → RE-PLAN → ASK</strong> — instead of guessing.
+                        </p>
+                        <p class="arch-desc">
+                            Roles are pluggable: drop a <code>.opencode/agents.json</code> file to swap in your own agent
+                            profiles, and retrieval re-weights per role so each agent sees the context it needs.
                         </p>
                         <p class="arch-desc" style="margin-top: 2rem; color: var(--text-lo); font-size: 0.8125rem;">
                             Local-first mission state under <code>.opencode/</code> — no external service required.
@@ -1201,16 +1207,28 @@
             <!-- Capability Grid -->
             <div class="cap-grid">
                 <div class="card cap-card">
+                    <div class="cap-title">Memory That Forgets Like You Do</div>
+                    <div class="cap-desc">A local-first, human-like Ebbinghaus memory — no external vector DB. Notes gain strength on recall and fade when unused; stale ones are de-referenced, never deleted, and every note carries bi-temporal event &amp; ingestion time.</div>
+                </div>
+                <div class="card cap-card">
+                    <div class="cap-title">Retrieval by Complementary Senses</div>
+                    <div class="cap-desc">BM25 lexical search, tags, and a wiki-link graph are fused with Reciprocal Rank Fusion and biased by role — so each agent recalls the right context the way you'd reach for it.</div>
+                </div>
+                <div class="card cap-card">
                     <div class="cap-title">Verified Completion</div>
-                    <div class="cap-desc">The mission loop checks evidence — TODOs, tests, and changed-file wiring — before declaring a task done.</div>
+                    <div class="cap-desc">The mission loop checks evidence — TODOs, tests, and changed-file wiring — before declaring a task done, then escalates DECOMPOSE → RE-PLAN → ASK if it can't.</div>
                 </div>
                 <div class="card cap-card">
                     <div class="cap-title">Native Tooling</div>
                     <div class="cap-desc">Rust-backed tools (grep, glob, ast, lsp, diff, and more) run in a pooled subprocess for fast, structured results.</div>
                 </div>
                 <div class="card cap-card">
-                    <div class="cap-title">Local-First Memory</div>
-                    <div class="cap-desc">Markdown notes, an Obsidian-compatible canvas, and role-aware retrieval keep prompts focused — no external store.</div>
+                    <div class="cap-title">Auditable by Design</div>
+                    <div class="cap-desc">Every mission leaves a trail — a mission ledger, a working scratchpad, and an Obsidian-compatible knowledge-map canvas you can open and read for yourself.</div>
+                </div>
+                <div class="card cap-card">
+                    <div class="cap-title">Safe by Default</div>
+                    <div class="cap-desc">Disk writes are opt-in, and sensitive or malicious memories are excluded from prompts — so untrusted notes never steer an agent.</div>
                 </div>
             </div>
         </div>
@@ -1245,8 +1263,13 @@
                             </tr>
                             <tr>
                                 <td style="font-family:var(--mono);color:var(--brand)">Memory</td>
-                                <td style="color:var(--green);font-weight:700">Local-first</td>
-                                <td style="color:var(--text-md)">Markdown notes + Obsidian canvas</td>
+                                <td style="color:var(--green);font-weight:700">Ebbinghaus</td>
+                                <td style="color:var(--text-md)">Notes strengthen on recall, fade when unused — no vector DB</td>
+                            </tr>
+                            <tr>
+                                <td style="font-family:var(--mono);color:var(--brand)">Retrieval</td>
+                                <td style="color:var(--green);font-weight:700">Multi-sense + RRF</td>
+                                <td style="color:var(--text-md)">BM25 + tag + wiki-link graph, fused &amp; role-biased</td>
                             </tr>
                             <tr>
                                 <td style="font-family:var(--mono);color:var(--brand)">Completion</td>
