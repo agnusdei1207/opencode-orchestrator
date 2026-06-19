@@ -177,6 +177,10 @@ The mission loop adjudicates continuation at the idle boundary rather than trust
 
 Memory retrieval is role-aware (planners favor structure, workers favor exact matches, reviewers favor breadth) and memory notes carry a relevance `horizon`.
 
+### Ebbinghaus-Inspired Memory
+
+Local memory follows an Ebbinghaus-style lifecycle. Unused notes gradually decay in retrieval strength, reused notes are reinforced through access counters and `last_accessed`, and newer bi-temporal facts can supersede older facts by closing their validity window. Archived or tombstoned memories stay on disk for auditability but are excluded from prompt injection.
+
 Runtime evidence is written only when enabled:
 
 | Artifact | Purpose |
