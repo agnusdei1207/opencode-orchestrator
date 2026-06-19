@@ -8,6 +8,7 @@
 
 import { AGENT_NAMES } from "../../shared/agent/index.js";
 import type { AgentDefinition } from "../../shared/agent/index.js";
+import { composePrompt } from "../prompts/registry.js";
 import {
     // Common (no philosophy - Commander handles that)
     ENVIRONMENT_DISCOVERY,
@@ -35,7 +36,7 @@ import {
  * Compose Planner system prompt from modular fragments
  * NOTE: No CORE_PHILOSOPHY - Commander holds the philosophy and delegates clear tasks
  */
-const systemPrompt = [
+const systemPrompt = composePrompt([
     PLANNER_ROLE,
     MODULARITY_ENFORCEMENT,
     HYPER_PARALLEL_ENFORCEMENT,
@@ -53,7 +54,7 @@ const systemPrompt = [
     SHARED_AST_TOOLS,
     SKILLS_CAPABILITIES,
     SHARED_WORKSPACE,
-].join("\n\n");
+]);
 
 export const planner: AgentDefinition = {
     id: AGENT_NAMES.PLANNER,

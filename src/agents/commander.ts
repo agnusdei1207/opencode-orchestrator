@@ -8,6 +8,7 @@
 
 import { AGENT_NAMES } from "../shared/agent/index.js";
 import type { AgentDefinition } from "../shared/agent/index.js";
+import { composePrompt } from "./prompts/registry.js";
 import {
    // Common
    CORE_PHILOSOPHY,
@@ -40,7 +41,7 @@ import {
 /**
  * Compose Commander system prompt from modular fragments
  */
-const systemPrompt = [
+const systemPrompt = composePrompt([
    CORE_PHILOSOPHY,
    COMMANDER_ROLE,
    COMMANDER_IDENTITY,
@@ -64,7 +65,7 @@ const systemPrompt = [
    COMPLETION_CONDITIONS,
    AUTONOMOUS_MANDATE,
    MISSION_STATUS_FORMAT,
-].join("\n\n");
+]);
 
 export const commander: AgentDefinition = {
    id: AGENT_NAMES.COMMANDER,

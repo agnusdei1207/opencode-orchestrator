@@ -8,6 +8,7 @@
 
 import { AGENT_NAMES } from "../../shared/agent/index.js";
 import type { AgentDefinition } from "../../shared/agent/index.js";
+import { composePrompt } from "../prompts/registry.js";
 import {
     // Common (no philosophy - Commander handles that)
     SHARED_WORKSPACE,
@@ -36,7 +37,7 @@ import {
  * Compose Reviewer system prompt from modular fragments
  * NOTE: No CORE_PHILOSOPHY - Commander holds the philosophy and delegates clear tasks
  */
-const systemPrompt = [
+const systemPrompt = composePrompt([
     REVIEWER_ROLE,
     MODULARITY_ENFORCEMENT,
     HYPER_PARALLEL_ENFORCEMENT,
@@ -54,7 +55,7 @@ const systemPrompt = [
     SHARED_AST_TOOLS,
     EVIDENCE_FORMAT,
     SHARED_WORKSPACE,
-].join("\n\n");
+]);
 
 export const reviewer: AgentDefinition = {
     id: AGENT_NAMES.REVIEWER,

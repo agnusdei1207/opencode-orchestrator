@@ -8,6 +8,7 @@
 
 import { AGENT_NAMES } from "../../shared/agent/index.js";
 import type { AgentDefinition } from "../../shared/agent/index.js";
+import { composePrompt } from "../prompts/registry.js";
 import {
     // Common (no philosophy - Commander handles that)
     ANTI_HALLUCINATION_CORE,
@@ -38,7 +39,7 @@ import {
  * Compose Worker system prompt from modular fragments
  * NOTE: No CORE_PHILOSOPHY - Commander holds the philosophy and delegates clear tasks
  */
-const systemPrompt = [
+const systemPrompt = composePrompt([
     WORKER_ROLE,
     MODULARITY_ENFORCEMENT,
     HYPER_PARALLEL_ENFORCEMENT,
@@ -58,7 +59,7 @@ const systemPrompt = [
     SKILLS_CAPABILITIES,
     VERIFICATION_REQUIREMENTS,
     SHARED_WORKSPACE,
-].join("\n\n");
+]);
 
 export const worker: AgentDefinition = {
     id: AGENT_NAMES.WORKER,
