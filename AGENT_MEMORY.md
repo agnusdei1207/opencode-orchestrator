@@ -2,14 +2,20 @@
 
 ## Current Task
 
-Published the `1.5.0` minor release after adding the authorized shell-listener CLI, updating OpenCode SDK/plugin dependencies, refactoring clippy warnings, and completing release verification.
+Completed a full evidence-based audit (TS plugin + Rust crates), wrote a phased refactor plan
+and report dated 2026-06-19, and shipped the `1.5.2` patch covering the safe subset
+(Phase 0 + Rust Phase 1). Phases 2–6 are planned, not yet executed.
 
 ## Last Completed Step
 
-1. Added `orchestrator shell-listener` as an explicit Rust CLI command.
-2. Kept shell-listener outside the OpenCode JSON-RPC tool registry.
-3. Updated `@opencode-ai/plugin` and `@opencode-ai/sdk` to `1.17.4`.
-4. Removed Rust clippy warnings across touched CLI/core paths.
+1. Wrote `docs/histories/2026/06/19/PLAN_FullAuditAndStructuralRefactor_2026-06-19.md` and the
+   companion `REPORT_*` file.
+2. Synced the Cargo workspace version to the npm package version (`0.1.0` → `1.5.2`) and added
+   a regression test in `tests/unit/package-metadata.test.ts` to guard it.
+3. Removed the verified-dead Rust `config` module (`config/{mod,loader,schema}.rs`) and its
+   `lib.rs` exports.
+4. Bumped `package.json`/`README.md` to `1.5.2`; committed and pushed `v1.5.2`.
+5. Verified green: `tsc --noEmit`, `cargo check`/`cargo test` (24), `npm test` (713).
 5. Ran `npm run release:minor`, which created release commit `afe616e` and tag `v1.5.0`.
 6. Fixed `scripts/release-sync-artifacts.mjs` path parsing and amended the `1.5.0` release commit before publish.
 7. Published `opencode-orchestrator@1.5.0` to npm with the `latest` tag.

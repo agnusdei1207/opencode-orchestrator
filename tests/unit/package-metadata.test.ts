@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 
 interface PackageMetadata {
     description?: string;
+    version?: string;
     homepage?: string;
     bugs?: {
         url?: string;
@@ -12,6 +13,19 @@ interface PackageMetadata {
 
 function readPackageMetadata(): PackageMetadata {
     return JSON.parse(readFileSync(resolve(process.cwd(), "package.json"), "utf8")) as PackageMetadata;
+}
+
+function readCargoWorkspaceVersion(): string {
+    const cargoToml = readFileSync(resolve(process.cwd(), "Cargo.toml"), "utf8");
+    const workspacePackage = cargoToml.match(/\[workspace\.package\]([\s\S]*?)(?:\n\[|$)/);
+    if (!workspacePackage) {
+        throw new Error("Cargo.toml is missing the [workspace.package] section.");
+    }
+    const versionMatch = workspacePackage[1].match(/version\s*=\s*"([^"]+)"/);
+    if (!versionMatch) {
+        throw new Error("Cargo.toml [workspace.package] is missing a version field.");
+    }
+    return versionMatch[1];
 }
 
 describe("package metadata", () => {
@@ -31,5 +45,13 @@ describe("package metadata", () => {
 
         expect(metadata.homepage).toBe("https://agnusdei1207.github.io/opencode-orchestrator/");
         expect(metadata.bugs?.url).toBe(issueURL);
+    });
+
+    it("keeps the Cargo workspace version in sync with the npm package version", () => {
+        const metadata = readPackageMetadata();
+        const cargoVersion = readCargoWorkspaceVersion();
+
+        expect(metadata.version).toBeDefined();
+        expect(cargoVersion).toBe(metadata.version);
     });
 });
