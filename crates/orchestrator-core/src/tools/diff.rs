@@ -50,7 +50,7 @@ impl DiffTool {
     /// Compare two files
     pub fn diff_files(&self, file1: &Path, file2: &Path) -> Result<DiffResult> {
         let mut cmd = Command::new("diff");
-        
+
         if self.config.unified {
             cmd.arg(format!("-U{}", self.config.context_lines));
         }
@@ -60,13 +60,13 @@ impl DiffTool {
         if self.config.ignore_case {
             cmd.arg("-i");
         }
-        
+
         cmd.arg(file1).arg(file2);
-        
+
         let output = cmd.output()?;
         let diff_output = String::from_utf8_lossy(&output.stdout).to_string();
         let has_differences = !output.status.success();
-        
+
         // Count additions and deletions
         let mut additions = 0;
         let mut deletions = 0;
@@ -77,7 +77,7 @@ impl DiffTool {
                 deletions += 1;
             }
         }
-        
+
         Ok(DiffResult {
             has_differences,
             diff_output,
@@ -92,15 +92,15 @@ impl DiffTool {
 
         let file1 = tmp_dir.join("diff_a.tmp");
         let file2 = tmp_dir.join("diff_b.tmp");
-        
+
         std::fs::write(&file1, content1)?;
         std::fs::write(&file2, content2)?;
-        
+
         let result = self.diff_files(&file1, &file2);
-        
+
         let _ = std::fs::remove_file(&file1);
         let _ = std::fs::remove_file(&file2);
-        
+
         result
     }
 }
@@ -120,7 +120,7 @@ mod tests {
         let tool = DiffTool::default();
         let s1 = "line1\nline2\n";
         let s2 = "line1\nline3\n";
-        
+
         // This might fail if 'diff' command is not available in test environment,
         // but it's a valid structural test.
         let result = tool.diff_strings(s1, s2);

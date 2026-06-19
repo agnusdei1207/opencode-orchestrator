@@ -1,8 +1,8 @@
 //! Shared constants for OpenCode Orchestrator
-//! 
-//! CRITICAL: These constants must be synchronized with the TypeScript 
+//!
+//! CRITICAL: These constants must be synchronized with the TypeScript
 //! implementation (tests/unit/rust-tools-wrapper.test.ts and various tool definitions).
-//! Since we communicate via JSON RPC over stdio, any mismatch in these strings 
+//! Since we communicate via JSON RPC over stdio, any mismatch in these strings
 //! will break the integration between the Rust CLI and the TypeScript plugin.
 
 /// Agent identification names.
@@ -52,7 +52,7 @@ pub mod rpc {
     pub const INITIALIZE: &str = "initialize";
     pub const TOOLS_LIST: &str = "tools/list";
     pub const TOOLS_CALL: &str = "tools/call";
-    
+
     // Protocol Metadata
     pub const PROTOCOL_VERSION: &str = "2024-11-05";
 }
