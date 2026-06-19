@@ -10,6 +10,7 @@ import * as path from "path";
 import { PATHS } from "../../shared/index.js";
 
 import { z } from "zod";
+import { parse as parseJsonc } from "jsonc-parser";
 
 // Schema for Agent Definition
 const AgentDefinitionSchema = z.object({
@@ -78,7 +79,8 @@ export class AgentRegistry {
         const agentsConfigPath = path.join(this.directory, PATHS.AGENTS_CONFIG);
         try {
             const content = await fs.readFile(agentsConfigPath, "utf-8");
-            const customAgents = JSON.parse(content);
+            // Tolerate comments and trailing commas in hand-edited agents config.
+            const customAgents = parseJsonc(content);
 
             if (typeof customAgents === "object" && customAgents !== null) {
                 for (const [name, def] of Object.entries(customAgents)) {

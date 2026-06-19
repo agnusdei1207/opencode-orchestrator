@@ -8,6 +8,7 @@
 import { tool, type ToolDefinition } from "@opencode-ai/plugin";
 import * as DocumentCache from "../../core/cache/document-cache.js";
 import { PATHS, OUTPUT_LABEL } from "../../shared/index.js";
+import { safeJsonParse } from "../../utils/parsing/safe-json.js";
 
 // Simple HTML to Markdown converter
 function htmlToMarkdown(html: string): string {
@@ -135,7 +136,9 @@ webfetch({ url: "https://react.dev/reference/react/useEffect", cache: true })
 
             // Handle non-HTML content
             if (contentType.includes("application/json")) {
-                const content = JSON.stringify(JSON.parse(html), null, 2);
+                // Tolerate malformed/fenced JSON bodies; fall back to raw text.
+                const parsed = safeJsonParse(html);
+                const content = parsed !== null ? JSON.stringify(parsed, null, 2) : html;
                 if (cache) {
                     const filename = await DocumentCache.set(url, content, "JSON Response");
                     return `${OUTPUT_LABEL.JSON_FETCHED} (cached: ${PATHS.DOCS}/${filename})\n\n\`\`\`json\n${content.slice(0, 5000)}\n\`\`\``;
