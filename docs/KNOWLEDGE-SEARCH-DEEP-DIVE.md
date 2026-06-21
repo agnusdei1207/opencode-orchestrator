@@ -747,10 +747,12 @@ task        ───────→ closure         (단기, 태스크 단위)
 ---
 tags: [mission-memory, orchestrator, project]
 title: "project memory abc-123"
-keep: true
+keep: true                   ← importance ≥ 0.9일 때만 부여 (PIN_IMPORTANCE_THRESHOLD)
 level: "project"
 horizon: "strategic"         ← horizonForLevel("project")
-importance: 0.850
+importance: 0.950
+memory_kind: "fact"          ← decayProfileForLevel(level).kind
+decay_lambda: 0.006          ← decayProfileForLevel(level).lambda (명시적 λ)
 session: "sess-001"
 recorded_at: "2026-06-19T10:30:00Z"
 objective: "검색 시스템 구현"
@@ -758,6 +760,14 @@ objective: "검색 시스템 구현"
 ```
 
 이를 통해 메모리 정리(consolidation) 시 수평선에 따라 만료 정책을 적용할 수 있다.
+
+### 10.4 망각곡선 활성화 정책 (중요)
+
+생성되는 메모리 노트는 **무조건 고정되지 않는다.** `importance`가 `PIN_IMPORTANCE_THRESHOLD`(`0.9`) 미만이면 `keep` 줄을 생략하여 에빙하우스 감쇠 모델에 참여시킨다. 이로써 README의 "fade when unused"가 실제 생성 데이터에도 적용된다.
+
+또한 각 레벨은 `decayProfileForLevel()`로 유효한 `memory_kind`와 **명시적** `decay_lambda`를 기록한다(`project→fact/0.006`, `mission→workflow/0.02`, `task→episode/0.07`). 명시적 `decay_lambda` 덕분에 `memoryStrength()`가 알 수 없는 종류 문자열에 대해 `0.03` 기본값으로 폴백하지 않는다.
+
+**감쇠의 디스크 반영은 옵트인이다.** 계층 강등·아카이브·tombstone supersession은 `runMemoryMaintenancePass()`를 통해서만 일어나며, `CleanupScheduler`는 `OPENCODE_MEMORY_MAINTENANCE=1`일 때만 6시간 주기로 이를 실행한다(기본 OFF, 물리적 파일 이동 없음). 검색 시점의 강도 가중(`score × memoryStrength`)은 항상 적용되므로, 디스크 정리 없이도 감쇠한 메모리는 자연히 검색 하위로 가라앉는다.
 
 ---
 
