@@ -1,29 +1,29 @@
-# 로컬 퍼스트 검색 고도화 제안서
+# Local-First Search Enhancement Proposal
 
-> **opencode-orchestrator** 하이브리드 검색 시스템 차세대 진화 로드맵
+> **opencode-orchestrator** next-generation evolution roadmap for the hybrid search system
 
 ---
 
-## 메타데이터
+## Metadata
 
-| 항목 | 값 |
+| Item | Value |
 |:-----|:---|
-| **작성일** | 2026-06-19 |
-| **대상 프로젝트** | opencode-orchestrator (TypeScript / Node.js) |
-| **현행 시스템** | BM25 렉시컬 + 태그 검색 + 위키링크 그래프 2-hop BFS + RRF 융합 + 역할별 가중치 |
-| **제약 조건** | GPU 없음 · 외부 모델 파일 없음 · 외부 API 없음 · CPU 전용 · 브라우저 호환 고려 |
-| **핵심 파일** | `hybrid-search.ts` · `retrieval-weights.ts` · `tag-indexer.ts` · `graph-parser.ts` · `context-provider.ts` |
+| **Date** | 2026-06-19 |
+| **Target Project** | opencode-orchestrator (TypeScript / Node.js) |
+| **Current System** | BM25 lexical + tag search + wikilink graph 2-hop BFS + RRF fusion + role-based weighting |
+| **Constraints** | No GPU · No external model files · No external API · CPU-only · Browser compatibility considered |
+| **Core Files** | `hybrid-search.ts` · `retrieval-weights.ts` · `tag-indexer.ts` · `graph-parser.ts` · `context-provider.ts` |
 
 ---
 
-## 현행 시스템 분석
+## Current System Analysis
 
-### 아키텍처 개관
+### Architecture Overview
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────┐
 │                    KnowledgeContextProvider                             │
-│  context-provider.ts:20  ─ buildPrompt() 오케스트레이션                  │
+│  context-provider.ts:20  ─ buildPrompt() orchestration                  │
 │                                                                         │
 │  ┌──────────┐    ┌──────────┐    ┌────────────┐                         │
 │  │TagIndexer│    │GraphParser│    │HybridSearch│                         │
@@ -33,10 +33,11 @@
 │       │                │               │                                │
 │       ▼                ▼               ▼                                │
 │   frontmatter      wikilink        BM25 lexical                        │
-│   tag 파싱         양방향 그래프     TF-IDF 스코어링                      │
+│   tag parsing      bidirectional   TF-IDF scoring                      │
+│                    graph                                                │
 │                                                                         │
 │  ┌──────────────────────────────────────────────────────────────┐       │
-│  │         RRF Fusion  (K=60)  ×  역할별 가중치                  │       │
+│  │         RRF Fusion  (K=60)  ×  role-based weighting           │       │
 │  │         hybrid-search.ts:149  fuseResults()                   │       │
 │  └──────────────────────────────────────────────────────────────┘       │
 │                              ▼                                          │
@@ -44,23 +45,23 @@
 └─────────────────────────────────────────────────────────────────────────┘
 ```
 
-### 핵심 구성요소 상세
+### Core Component Details
 
-#### 1. BM25 렉시컬 검색 — `hybrid-search.ts:66-89`
+#### 1. BM25 Lexical Search — `hybrid-search.ts:66-89`
 
 ```typescript
 // hybrid-search.ts:72-86
 private lexicalSearch(terms: string[]): string[] {
     const scores = new Map<string, number>();
-    const avgLen = this.computeAverageLength();        // L78: 문자 기반 평균 길이
+    const avgLen = this.computeAverageLength();        // L78: character-based average length
 
     for (const term of terms) {
-        const df = this.documentFrequency(term);       // L74: 전수 스캔 O(N)
+        const df = this.documentFrequency(term);       // L74: full scan O(N)
         const idf = Math.log((corpusSize - df + 0.5) / (df + 0.5) + 1);  // L75
 
         for (const [name, content] of this.contentMap) {
-            const tf = this.countOccurrences(content, term);  // L78: indexOf 루프
-            // BM25 정규화  K1=1.2, B=0.75
+            const tf = this.countOccurrences(content, term);  // L78: indexOf loop
+            // BM25 normalization  K1=1.2, B=0.75
             const tfNorm = (tf * (BM25_K1 + 1)) /
                 (tf + BM25_K1 * (1 - BM25_B + BM25_B * (docLen / avgLen)));
         }
@@ -68,18 +69,18 @@ private lexicalSearch(terms: string[]): string[] {
 }
 ```
 
-**현재 한계:**
-- `countOccurrences()` (L198-206)는 단순 `indexOf` 루프 → **위치 정보 버림**
-- 질의어 `["error", "handling"]`이 같은 문장에 나타나는지, 1000행 간격인지 구분 불가
-- `documentFrequency()` (L218-224)가 **매 질의마다 전수 스캔** → O(terms × docs)
+**Current Limitations:**
+- `countOccurrences()` (L198-206) is a simple `indexOf` loop → **discards position information**
+- Cannot distinguish whether query terms `["error", "handling"]` appear in the same sentence or 1000 lines apart
+- `documentFrequency()` (L218-224) performs a **full scan on every query** → O(terms × docs)
 
-#### 2. 태그 검색 — `tag-indexer.ts:16-207`
+#### 2. Tag Search — `tag-indexer.ts:16-207`
 
 ```typescript
 // tag-indexer.ts:82-95
 public indexFile(filePath: string, fileContent: string): void {
     const { data } = this.parseFrontmatter(fileContent);
-    // YAML frontmatter에서 tags 배열만 추출
+    // Extracts only the tags array from the YAML frontmatter
     if (data.tags && Array.isArray(data.tags)) {
         for (const tag of data.tags) {
             this.addTagEntry(tag.toLowerCase(), filePath);
@@ -88,10 +89,10 @@ public indexFile(filePath: string, fileContent: string): void {
 }
 ```
 
-- O(1) 태그 조회 (`tagMap: Map<string, Set<string>>`, L17)
-- 프론트매터 전용 — **본문 해시태그(`#topic`)는 무시됨**
+- O(1) tag lookup (`tagMap: Map<string, Set<string>>`, L17)
+- Frontmatter-only — **inline hashtags (`#topic`) in the body are ignored**
 
-#### 3. 그래프 검색 — `graph-parser.ts:5-152` + `hybrid-search.ts:110-143`
+#### 3. Graph Search — `graph-parser.ts:5-152` + `hybrid-search.ts:110-143`
 
 ```typescript
 // hybrid-search.ts:124-143
@@ -103,33 +104,33 @@ private traverseGraph(note, depth, visited, scores): void {
         ...this.graphParser.getBacklinks(note),       // L135
     ];
     for (const neighbor of neighbors) {
-        scores.set(neighbor, prev + depth);           // L140: depth 기반 점수만
-        this.traverseGraph(neighbor, depth - 1, ...); // L141: 재귀 2-hop
+        scores.set(neighbor, prev + depth);           // L140: depth-based score only
+        this.traverseGraph(neighbor, depth - 1, ...); // L141: recursive 2-hop
     }
 }
 ```
 
-**현재 한계:**
-- 모든 이웃이 depth 값으로 동일한 점수 → **허브 노트 vs 말단 노트 구분 불가**
-- 그래프 구조적 중요도(링크 수, 연결 중심성)를 전혀 반영하지 않음
+**Current Limitations:**
+- All neighbors receive the same score based on the depth value → **cannot distinguish hub notes vs. leaf notes**
+- Does not reflect graph structural importance (link count, connectivity centrality) at all
 
-#### 4. RRF 융합 + 역할별 가중치 — `hybrid-search.ts:149-190` + `retrieval-weights.ts:16-42`
+#### 4. RRF Fusion + Role-Based Weighting — `hybrid-search.ts:149-190` + `retrieval-weights.ts:16-42`
 
 ```typescript
 // retrieval-weights.ts:28-37
 export const ROLE_WEIGHTS: Record<string, EngineWeights> = {
-    planner:   { lexical: 0.8, tag: 1.1, graph: 1.3 },  // L30: 구조 선호
-    worker:    { lexical: 1.3, tag: 1.0, graph: 0.7 },  // L32: 정확 매칭 선호
-    reviewer:  { lexical: 1.0, tag: 1.2, graph: 1.0 },  // L34: 태그 커버리지 선호
-    commander: { lexical: 1,   tag: 1,   graph: 1   },  // L36: 중립
+    planner:   { lexical: 0.8, tag: 1.1, graph: 1.3 },  // L30: prefers structure
+    worker:    { lexical: 1.3, tag: 1.0, graph: 0.7 },  // L32: prefers exact matching
+    reviewer:  { lexical: 1.0, tag: 1.2, graph: 1.0 },  // L34: prefers tag coverage
+    commander: { lexical: 1,   tag: 1,   graph: 1   },  // L36: neutral
 };
 ```
 
 - **3-way RRF**: `score(d) = Σ weight_i / (60 + rank_i + 1)` (L179)
-- 가중치가 **하드코딩** → 사용자 피드백 반영 불가
-- **시맨틱 채널 자체가 없음** → 동의어/의미적 유사 문서 검색 불가
+- Weights are **hardcoded** → cannot incorporate user feedback
+- **No semantic channel at all** → cannot retrieve synonyms or semantically similar documents
 
-#### 5. 오케스트레이션 — `context-provider.ts:20-129`
+#### 5. Orchestration — `context-provider.ts:20-129`
 
 ```typescript
 // context-provider.ts:65-90
@@ -137,75 +138,75 @@ private indexKnowledge(directory, files): IndexedKnowledge {
     const tagIndexer = new TagIndexer();
     const graphParser = new GraphParser();
     const search = new HybridSearch(tagIndexer, graphParser);
-    // ... 파일별 인덱싱 루프
+    // ... per-file indexing loop
     tagIndexer.indexFile(filePath, content);     // L79
     graphParser.indexFile(filePath, content);    // L80
     search.indexContent(noteName, normalizedBody); // L81
 }
 ```
 
-- **매 질의마다 전체 재인덱싱** (L65-90) — 캐시/증분 인덱싱 없음
-- `MAX_RESULTS = 3` (L8), `MAX_SNIPPET_CHARS = 220` (L9)으로 고정
+- **Full re-indexing on every query** (L65-90) — no caching or incremental indexing
+- Fixed at `MAX_RESULTS = 3` (L8) and `MAX_SNIPPET_CHARS = 220` (L9)
 
 ---
 
-## 현행 시스템 약점 요약
+## Summary of Current System Weaknesses
 
 ```
 ┌──────────────────────────────────────────────────────────┐
-│                    현재 검색 파이프라인 약점               │
+│                Current Search Pipeline Weaknesses          │
 ├──────────────────┬───────────────────────────────────────┤
-│ 약점             │ 영향                                   │
+│ Weakness         │ Impact                                 │
 ├──────────────────┼───────────────────────────────────────┤
-│ 위치 정보 소실    │ "error handling" 구문 근접 무시         │
-│ 시맨틱 채널 없음  │ 동의어·유사 개념 검색 불가              │
-│ 허브 노트 미구분  │ 중요 노트와 말단 노트 동일 점수         │
-│ 질의 확장 없음    │ 단어 그대로만 매칭                     │
-│ 하드코딩 가중치   │ 사용 패턴 적응 불가                    │
-│ 고정 RRF 공식    │ 최적 결합 학습 불가                    │
-│ 매 질의 재인덱싱  │ 코퍼스 규모 증가 시 지연               │
+│ Position info lost  │ Ignores "error handling" proximity   │
+│ No semantic channel │ Cannot search synonyms/similar ideas │
+│ No hub distinction  │ Important & leaf notes scored equally │
+│ No query expansion  │ Matches only literal terms           │
+│ Hardcoded weights   │ Cannot adapt to usage patterns       │
+│ Fixed RRF formula   │ Cannot learn optimal combination     │
+│ Re-index per query  │ Latency grows with corpus size       │
 └──────────────────┴───────────────────────────────────────┘
 ```
 
 ---
 
-## 제안 1: PageRank 그래프 스코어링
+## Proposal 1: PageRank Graph Scoring
 
-### 현황
+### Current State
 
-`graphSearch()` (hybrid-search.ts:110-119)는 시드 노트에서 2-hop BFS를 수행하며 `depth` 값만 점수로 사용한다:
+`graphSearch()` (hybrid-search.ts:110-119) performs a 2-hop BFS from the seed note and uses only the `depth` value as the score:
 
 ```typescript
 // hybrid-search.ts:139-140
 const prev = scores.get(neighbor) ?? 0;
-scores.set(neighbor, prev + depth);  // depth=2이면 2점, depth=1이면 1점
+scores.set(neighbor, prev + depth);  // depth=2 yields 2 points, depth=1 yields 1 point
 ```
 
-이 방식은 **모든 이웃을 동등하게** 취급한다. 10개 노트에서 링크되는 허브 노트와, 단 1개 노트에서만 참조되는 말단 노트가 동일한 가중치를 받는다.
+This approach treats **all neighbors equally**. A hub note linked from 10 notes receives the same weight as a leaf note referenced by only 1 note.
 
-### 제안 요약
+### Proposal Summary
 
-`GraphParser`에 `pagerank()` 메서드를 추가하여, 그래프 전체의 **구조적 중요도**를 정량화한다. 이 PageRank 점수를 `traverseGraph()`의 depth 기반 점수에 가산하여, 허브 노트가 자연스럽게 상위로 부상하도록 만든다.
+Add a `pagerank()` method to `GraphParser` to quantify the **structural importance** of the entire graph. Add this PageRank score to the depth-based score in `traverseGraph()` so that hub notes naturally rise to the top.
 
-### 설계
+### Design
 
 ```
 ┌────────────────────────────────────────────────────────────┐
-│             PageRank 통합 파이프라인                        │
+│             PageRank Integration Pipeline                  │
 │                                                            │
-│  indexFile() 호출 후                                       │
+│  After indexFile() call                                    │
 │       │                                                    │
 │       ▼                                                    │
 │  GraphParser.computePageRank()                             │
-│       │  20회 반복 (damping=0.85)                          │
+│       │  20 iterations (damping=0.85)                      │
 │       ▼                                                    │
 │  Map<noteName, prScore>                                    │
 │       │                                                    │
 │       ▼                                                    │
-│  traverseGraph() 점수 = depth + α × pagerank(neighbor)    │
+│  traverseGraph() score = depth + α × pagerank(neighbor)   │
 │       │                                                    │
 │       ▼                                                    │
-│  RRF 융합 (기존 파이프라인)                                 │
+│  RRF fusion (existing pipeline)                            │
 └────────────────────────────────────────────────────────────┘
 ```
 
@@ -230,16 +231,16 @@ for (const neighbor of neighbors) {
 }
 ```
 
-### 구현 스케치 — `graph-parser.ts`에 추가
+### Implementation Sketch — Added to `graph-parser.ts`
 
 ```typescript
-// graph-parser.ts — 새 메서드
+// graph-parser.ts — new method
 
 private pageRankScores: Map<string, number> = new Map();
 
 /**
- * Power-iteration PageRank. CPU-only, 의존성 없음.
- * O(iterations × edges) — 일반적 knowledge base에서 수십 ms.
+ * Power-iteration PageRank. CPU-only, no dependencies.
+ * O(iterations × edges) — tens of ms on a typical knowledge base.
  */
 public computePageRank(
     damping: number = 0.85,
@@ -252,12 +253,12 @@ public computePageRank(
     const N = allNotes.length || 1;
     const pr = new Map<string, number>();
 
-    // 초기값: 균등 분배
+    // Initial value: uniform distribution
     for (const note of allNotes) {
         pr.set(note, 1 / N);
     }
 
-    // 반복 수렴
+    // Iterate to convergence
     for (let iter = 0; iter < iterations; iter++) {
         const next = new Map<string, number>();
         for (const note of allNotes) {
@@ -283,33 +284,33 @@ public getPageRankScore(note: string): number {
 }
 ```
 
-### 성능 영향
+### Performance Impact
 
-| 항목 | 값 |
+| Item | Value |
 |:-----|:---|
-| **시간 복잡도** | O(iterations × edges) ≈ O(20 × E) |
-| **예상 지연** | 1,000 노트 / 5,000 엣지 기준 < 10ms |
-| **메모리** | Map 1개 추가 (노트 수 × 8 bytes) |
-| **인덱싱 시점** | `indexKnowledge()` 완료 후 1회 호출 |
+| **Time Complexity** | O(iterations × edges) ≈ O(20 × E) |
+| **Expected Latency** | < 10ms for 1,000 notes / 5,000 edges |
+| **Memory** | 1 additional Map (note count × 8 bytes) |
+| **Indexing Point** | Called once after `indexKnowledge()` completes |
 
-### 리스크 평가
+### Risk Assessment
 
-| 리스크 | 심각도 | 완화 전략 |
+| Risk | Severity | Mitigation Strategy |
 |:-------|:------:|:---------|
-| Dangling 노트 (outlink 0) → sink 문제 | 낮음 | `(1-d)/N` 텔레포트 항이 자동 보정 |
-| 그래프 변경 시 재계산 비용 | 낮음 | 현재도 매 질의마다 재인덱싱하므로 추가 비용 미미 |
-| PR 점수 범위가 depth 점수와 스케일 불일치 | 중간 | `PR_ALPHA` 계수로 조절 (기본 10.0 권장) |
+| Dangling notes (0 outlinks) → sink problem | Low | The `(1-d)/N` teleport term auto-corrects |
+| Recomputation cost on graph changes | Low | Already re-indexes per query, so additional cost is negligible |
+| PR score range mismatches scale of depth score | Medium | Adjustable via `PR_ALPHA` coefficient (default 10.0 recommended) |
 
-### 구현 난이도: `낮음` 🟢
-### 의존성 추가: **없음**
+### Implementation Difficulty: `Low` 🟢
+### Added Dependencies: **None**
 
 ---
 
-## 제안 2: 위치 인덱스 + 구문 근접 보너스 (Proximity Scoring)
+## Proposal 2: Position Index + Phrase Proximity Bonus (Proximity Scoring)
 
-### 현황
+### Current State
 
-`countOccurrences()` (hybrid-search.ts:198-206)는 텀의 **출현 횟수만** 세고 **위치 정보를 버린다**:
+`countOccurrences()` (hybrid-search.ts:198-206) counts only the **number of occurrences** of a term and **discards position information**:
 
 ```typescript
 // hybrid-search.ts:198-206
@@ -324,24 +325,24 @@ private countOccurrences(text: string, term: string): number {
 }
 ```
 
-질의 `"error handling"`에 대해:
-- 문서 A: "error" ... (500자 후) ... "handling" → 2점
-- 문서 B: "error handling strategy" → 2점
-- **두 문서의 점수가 동일** — 명백한 정보 손실
+For the query `"error handling"`:
+- Document A: "error" ... (500 chars later) ... "handling" → 2 points
+- Document B: "error handling strategy" → 2 points
+- **Both documents score identically** — a clear loss of information
 
-### 제안 요약
+### Proposal Summary
 
-`countOccurrences()`를 **위치 목록을 반환하는 `getTermPositions()`로 교체**하고, 질의어 쌍의 **최소 거리(span)**에 기반한 근접 보너스를 BM25 점수에 가산한다.
+Replace `countOccurrences()` with `getTermPositions()`, which **returns a list of positions**, and add a proximity bonus based on the **minimum distance (span)** between query term pairs to the BM25 score.
 
-### 설계
+### Design
 
 ```
 ┌───────────────────────────────────────────────────────────┐
-│              Proximity Scoring 파이프라인                   │
+│              Proximity Scoring Pipeline                    │
 │                                                           │
 │  terms = ["error", "handling"]                            │
 │                                                           │
-│  문서별:                                                  │
+│  Per document:                                            │
 │  1. getTermPositions("error")   → [12, 450, 890]         │
 │  2. getTermPositions("handling") → [20, 900]              │
 │  3. minSpan = min(|12-20|, |450-20|, ...) = 8            │
@@ -361,24 +362,24 @@ const tf = this.countOccurrences(content, term);
 ```typescript
 const positions = this.getTermPositions(content, term);
 const tf = positions.length;
-// ... BM25 계산 후 ...
+// ... after BM25 computation ...
 const proximityBonus = this.computeProximityBonus(allPositions);
 scores.set(name, prev + idf * tfNorm + PROX_WEIGHT * proximityBonus);
 ```
 
-### 구현 스케치
+### Implementation Sketch
 
 ```typescript
-// hybrid-search.ts — 새 메서드들
+// hybrid-search.ts — new methods
 
-/** 근접도 보너스 가중치 */
+/** Proximity bonus weight */
 const PROX_WEIGHT = 0.5;
-/** 근접 판정 윈도우 (문자 수) */
+/** Proximity window (in characters) */
 const PROX_WINDOW = 50;
 
 /**
- * 텀의 모든 출현 위치를 반환한다.
- * countOccurrences()를 대체.
+ * Returns all occurrence positions of a term.
+ * Replaces countOccurrences().
  */
 private getTermPositions(text: string, term: string): number[] {
     const positions: number[] = [];
@@ -391,8 +392,8 @@ private getTermPositions(text: string, term: string): number[] {
 }
 
 /**
- * 질의 텀 쌍의 최소 거리를 기반으로 근접 보너스 산출.
- * 모든 텀 쌍의 minimum span이 PROX_WINDOW 이내이면 최대 보너스.
+ * Computes a proximity bonus based on the minimum distance between query term pairs.
+ * Maximum bonus when the minimum span of all term pairs is within PROX_WINDOW.
  */
 private computeProximityBonus(
     positionsByTerm: Map<string, number[]>,
@@ -417,7 +418,7 @@ private computeProximityBonus(
 }
 
 /**
- * 두 정렬된 위치 배열 간 최소 거리를 O(n+m) 투 포인터로 산출.
+ * Computes the minimum distance between two sorted position arrays using an O(n+m) two-pointer scan.
  */
 private minPairDistance(a: number[], b: number[]): number {
     if (a.length === 0 || b.length === 0) return Infinity;
@@ -432,10 +433,10 @@ private minPairDistance(a: number[], b: number[]): number {
 }
 ```
 
-### 수정 대상 코드 (lexicalSearch 변경)
+### Code to Modify (lexicalSearch changes)
 
 ```typescript
-// hybrid-search.ts:66-89  변경 후
+// hybrid-search.ts:66-89  after changes
 private lexicalSearch(terms: string[]): string[] {
     const scores = new Map<string, number>();
     const corpusSize = this.contentMap.size;
@@ -470,32 +471,32 @@ private lexicalSearch(terms: string[]): string[] {
 }
 ```
 
-### 성능 영향
+### Performance Impact
 
-| 항목 | 현재 | 변경 후 |
+| Item | Current | After Changes |
 |:-----|:-----|:--------|
-| `countOccurrences` 반환 | `number` | `number[]` (위치 배열) |
-| 추가 메모리 | 없음 | 질의당 임시 위치 배열 (질의 완료 후 GC) |
-| 추가 CPU | 없음 | 투 포인터 O(n+m) × 텀 쌍 수 |
-| **예상 추가 지연** | — | < 1ms (1,000 문서 기준) |
+| `countOccurrences` return | `number` | `number[]` (position array) |
+| Additional memory | None | Temporary position arrays per query (GC'd after query completes) |
+| Additional CPU | None | Two-pointer O(n+m) × number of term pairs |
+| **Expected Added Latency** | — | < 1ms (for 1,000 documents) |
 
-### 리스크 평가
+### Risk Assessment
 
-| 리스크 | 심각도 | 완화 전략 |
+| Risk | Severity | Mitigation Strategy |
 |:-------|:------:|:---------|
-| 짧은 문서에서 근접 보너스 과도 | 낮음 | 문서 길이 대비 정규화 가능 |
-| 단일 텀 질의 시 보너스 0 | 없음 | `termList.length < 2`이면 0 반환 (설계 의도) |
+| Excessive proximity bonus in short documents | Low | Can be normalized relative to document length |
+| Bonus is 0 for single-term queries | None | Returns 0 when `termList.length < 2` (by design) |
 
-### 구현 난이도: `중간` 🟡
-### 의존성 추가: **없음**
+### Implementation Difficulty: `Medium` 🟡
+### Added Dependencies: **None**
 
 ---
 
-## 제안 3: 코퍼스 기반 질의 확장 (Co-occurrence Query Expansion)
+## Proposal 3: Corpus-Based Query Expansion (Co-occurrence Query Expansion)
 
-### 현황
+### Current State
 
-현재 `tokenize()` (hybrid-search.ts:193-195)는 질의를 공백으로 분리하고 **그대로** 검색한다:
+The current `tokenize()` (hybrid-search.ts:193-195) splits the query on whitespace and searches **as-is**:
 
 ```typescript
 // hybrid-search.ts:193-195
@@ -504,75 +505,75 @@ private tokenize(query: string): string[] {
 }
 ```
 
-질의 `"refactoring"`으로 검색하면, `"리팩터링"`, `"restructuring"`, `"코드 개선"` 등 의미적으로 동일한 텀이 포함된 문서를 찾을 수 없다.
+Searching for the query `"refactoring"` cannot find documents containing semantically equivalent terms like `"code cleanup"`, `"restructuring"`, or `"code improvement"`.
 
-### 제안 요약
+### Proposal Summary
 
-코퍼스 내 **동시 출현(co-occurrence) 통계**를 수집하여, 질의 텀과 높은 상관관계를 보이는 텀을 자동 추가한다. 외부 모델이나 임베딩 없이 **코퍼스 자체의 통계**만으로 질의 확장을 수행한다.
+Collect **co-occurrence statistics** within the corpus and automatically add terms that show a high correlation with the query terms. Query expansion is performed using **only the corpus's own statistics**, without any external model or embeddings.
 
-### 설계
+### Design
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │             Co-occurrence Query Expansion                    │
 │                                                             │
-│  인덱싱 시점 (1회):                                         │
+│  At indexing time (once):                                  │
 │  ┌─────────────────────────────────────────┐                │
-│  │ 모든 문서의 텀 쌍에 대해                  │                │
+│  │ For every term pair in all documents     │                │
 │  │ cooccurrence[termA][termB] += 1          │                │
-│  │ (같은 문서에 함께 출현하면 카운트)          │                │
+│  │ (count when they co-occur in one doc)    │                │
 │  └─────────────────────────────────────────┘                │
 │                                                             │
-│  질의 시점:                                                  │
+│  At query time:                                            │
 │  query = ["error"]                                          │
 │       │                                                     │
 │       ▼                                                     │
 │  co-occurrence("error") → {handling: 42, log: 38, ...}      │
 │       │                                                     │
 │       ▼                                                     │
-│  PMI 필터: PMI(error, handling) > threshold?                │
+│  PMI filter: PMI(error, handling) > threshold?              │
 │       │                                                     │
 │       ▼                                                     │
-│  expanded = ["error", "handling"]   (가중치 0.5)            │
+│  expanded = ["error", "handling"]   (weight 0.5)           │
 │       │                                                     │
 │       ▼                                                     │
 │  lexicalSearch(expanded)                                    │
 └─────────────────────────────────────────────────────────────┘
 ```
 
-### PMI (Pointwise Mutual Information) 기반 필터링
+### PMI (Pointwise Mutual Information) Based Filtering
 
-단순 빈도가 아닌 **PMI**를 사용해 의미 있는 연관어만 선별한다:
+Use **PMI** rather than raw frequency to select only meaningful related terms:
 
 ```
 PMI(x, y) = log₂( P(x,y) / (P(x) × P(y)) )
 
-P(x,y) = 텀 x와 y가 같은 문서에 등장할 확률
-P(x)   = 텀 x가 등장할 확률
+P(x,y) = probability that terms x and y appear in the same document
+P(x)   = probability that term x appears
 ```
 
-PMI가 높으면 우연 이상으로 자주 동시 출현 → 의미적 연관성 높음.
+A high PMI means they co-occur more often than chance → strong semantic association.
 
-### 구현 스케치
+### Implementation Sketch
 
 ```typescript
-// hybrid-search.ts — 새 필드 및 메서드
+// hybrid-search.ts — new fields and methods
 
-/** 동시 출현 행렬: term → Map<term, count> */
+/** Co-occurrence matrix: term → Map<term, count> */
 private cooccurrence: Map<string, Map<string, number>> = new Map();
-/** 문서 빈도: term → df */
+/** Document frequency: term → df */
 private dfCache: Map<string, number> = new Map();
 
-/** 질의 확장 후보 최대 수 */
+/** Maximum number of query expansion candidates */
 const MAX_EXPANSION_TERMS = 3;
-/** PMI 하한 임계값 */
+/** PMI lower-bound threshold */
 const PMI_THRESHOLD = 1.0;
-/** 확장 텀 가중치 (원본 텀은 1.0) */
+/** Expansion term weight (original terms are 1.0) */
 const EXPANSION_WEIGHT = 0.5;
 
 /**
- * 인덱싱 완료 후 호출 — 동시 출현 행렬 구축.
- * 각 문서의 고유 텀 쌍을 카운트한다.
+ * Called after indexing completes — builds the co-occurrence matrix.
+ * Counts unique term pairs in each document.
  */
 public buildCooccurrenceMatrix(): void {
     this.cooccurrence.clear();
@@ -583,7 +584,7 @@ public buildCooccurrenceMatrix(): void {
         for (const term of docTerms) {
             this.dfCache.set(term, (this.dfCache.get(term) ?? 0) + 1);
         }
-        // 텀 쌍 동시 출현 카운트 (상위 빈출 텀만 제한하여 O(T²) 억제)
+        // Count term-pair co-occurrences (limit to top frequent terms to cap O(T²))
         const limited = docTerms.slice(0, 200);
         for (let i = 0; i < limited.length; i++) {
             for (let j = i + 1; j < limited.length; j++) {
@@ -601,8 +602,8 @@ private incrementCooccurrence(a: string, b: string): void {
 }
 
 /**
- * PMI 기반 질의 확장.
- * 원본 텀과 동시 출현 빈도가 높은 텀을 최대 MAX_EXPANSION_TERMS개 반환.
+ * PMI-based query expansion.
+ * Returns up to MAX_EXPANSION_TERMS terms with high co-occurrence frequency with the original terms.
  */
 public expandQuery(terms: string[]): Array<{ term: string; weight: number }> {
     const result = terms.map(t => ({ term: t, weight: 1.0 }));
@@ -640,85 +641,85 @@ public expandQuery(terms: string[]): Array<{ term: string; weight: number }> {
 }
 ```
 
-### 성능 영향
+### Performance Impact
 
-| 항목 | 값 |
+| Item | Value |
 |:-----|:---|
-| 동시 출현 행렬 구축 | O(docs × T²) — T를 200으로 제한 |
-| 질의 확장 | O(co-occurrence 엔트리 수) — 보통 수백 |
-| 메모리 | 스파스 Map 구조 — 1,000 문서 기준 수 MB |
+| Building co-occurrence matrix | O(docs × T²) — T capped at 200 |
+| Query expansion | O(number of co-occurrence entries) — usually a few hundred |
+| Memory | Sparse Map structure — a few MB for 1,000 documents |
 
-### 리스크 평가
+### Risk Assessment
 
-| 리스크 | 심각도 | 완화 전략 |
+| Risk | Severity | Mitigation Strategy |
 |:-------|:------:|:---------|
-| 확장 텀이 의미 발산 (topic drift) | 중간 | PMI 임계값 + 최대 3개 제한 |
-| 작은 코퍼스에서 통계 불안정 | 중간 | 최소 df 필터 (df ≥ 3) |
-| 행렬 메모리 사용량 | 낮음 | 문서당 텀 200개 제한 |
+| Expansion terms diverge in meaning (topic drift) | Medium | PMI threshold + cap of 3 |
+| Statistical instability on small corpora | Medium | Minimum df filter (df ≥ 3) |
+| Matrix memory usage | Low | Cap of 200 terms per document |
 
-### 구현 난이도: `중간` 🟡
-### 의존성 추가: **없음**
+### Implementation Difficulty: `Medium` 🟡
+### Added Dependencies: **None**
 
 ---
 
-## 제안 4: 로컬 해시 임베딩 추가 (Dense 채널 신설)
+## Proposal 4: Add Local Hash Embeddings (New Dense Channel)
 
-### 현황
+### Current State
 
-현행 `HybridSearch`는 3가지 엔진만 보유한다:
+The current `HybridSearch` has only 3 engines:
 
 ```typescript
 // hybrid-search.ts:55-57
-const lexicalRanked  = this.lexicalSearch(terms);   // 엔진 1: BM25
-const tagRanked      = this.tagSearch(terms);       // 엔진 2: 태그
-const graphRanked    = this.graphSearch(terms);      // 엔진 3: 그래프
+const lexicalRanked  = this.lexicalSearch(terms);   // Engine 1: BM25
+const tagRanked      = this.tagSearch(terms);       // Engine 2: tags
+const graphRanked    = this.graphSearch(terms);      // Engine 3: graph
 
 // retrieval-weights.ts:16-20
 export interface EngineWeights {
     lexical: number;
     tag: number;
     graph: number;
-    // ❌ semantic 필드 없음
+    // ❌ no semantic field
 }
 ```
 
-**시맨틱 검색 채널이 전혀 없다.** "dependency injection"으로 검색해도 "DI 패턴"이라 표현된 문서를 찾을 수 없다.
+**There is no semantic search channel at all.** Searching for "dependency injection" cannot find a document expressed as "the DI pattern".
 
-### 제안 요약
+### Proposal Summary
 
-**SimHash / MinHash 기반 로컬 해시 임베딩**을 4번째 엔진으로 추가한다.
-외부 모델 없이 **n-gram 해시만으로** 문서 간 유사도를 계산하는 방식이다.
+Add a **SimHash / MinHash-based local hash embedding** as a 4th engine.
+This computes inter-document similarity using **only n-gram hashes**, without any external model.
 
-### 설계
+### Design
 
 ```
 ┌────────────────────────────────────────────────────────────────┐
 │            Hash Embedding Dense Channel                        │
 │                                                                │
-│  인덱싱 시점:                                                   │
+│  At indexing time:                                             │
 │  ┌──────────┐    ┌──────────────┐    ┌──────────────┐          │
-│  │  문서     │───▶│ char 3-gram  │───▶│ SimHash      │          │
-│  │  content  │    │ 추출         │    │ 64-bit 벡터  │          │
+│  │ document  │───▶│ extract      │───▶│ SimHash      │          │
+│  │ content   │    │ char 3-gram  │    │ 64-bit vector│          │
 │  └──────────┘    └──────────────┘    └──────┬───────┘          │
 │                                             │                  │
 │                                             ▼                  │
 │                                    embeddings: Map<name, u64>  │
 │                                                                │
-│  질의 시점:                                                     │
+│  At query time:                                                │
 │  ┌──────────┐    ┌──────────────┐    ┌──────────────┐          │
-│  │  query   │───▶│ char 3-gram  │───▶│ SimHash      │          │
-│  │          │    │ 추출         │    │ 64-bit 벡터  │          │
+│  │  query   │───▶│ extract      │───▶│ SimHash      │          │
+│  │          │    │ char 3-gram  │    │ 64-bit vector│          │
 │  └──────────┘    └──────────────┘    └──────┬───────┘          │
 │                                             │                  │
 │                                             ▼                  │
-│                      hamming distance로 전체 문서와 비교         │
+│                      compare with all docs via hamming dist    │
 │                                             │                  │
 │                                             ▼                  │
-│                      유사도 순으로 정렬 → ranked list            │
+│                      sort by similarity → ranked list          │
 └────────────────────────────────────────────────────────────────┘
 ```
 
-### Before / After — `EngineWeights` 변경
+### Before / After — `EngineWeights` Changes
 
 **Before** (`retrieval-weights.ts:16-20`):
 ```typescript
@@ -735,7 +736,7 @@ export interface EngineWeights {
     lexical: number;
     tag: number;
     graph: number;
-    semantic: number;      // ← 새 필드
+    semantic: number;      // ← new field
 }
 ```
 
@@ -759,7 +760,7 @@ export const ROLE_WEIGHTS: Record<string, EngineWeights> = {
 };
 ```
 
-### Before / After — `fuseResults()` 4-way 변경
+### Before / After — `fuseResults()` 4-way Change
 
 **Before** (`hybrid-search.ts:149-160`):
 ```typescript
@@ -782,17 +783,17 @@ private fuseResults(lexical, tags, graph, semantic, limit, weights): SearchResul
 }
 ```
 
-### 구현 스케치 — `local-embedding.ts` (신규 파일)
+### Implementation Sketch — `local-embedding.ts` (new file)
 
 ```typescript
 /**
- * LocalEmbedding - SimHash 기반 로컬 해시 임베딩.
- * 외부 모델/API 불필요. CPU-only, 브라우저 호환 가능.
+ * LocalEmbedding - SimHash-based local hash embedding.
+ * No external model/API required. CPU-only, browser-compatible.
  */
 export class LocalEmbedding {
     private embeddings: Map<string, bigint> = new Map();
 
-    /** char n-gram 추출 */
+    /** Extract char n-grams */
     private charNgrams(text: string, n: number = 3): string[] {
         const grams: string[] = [];
         const lower = text.toLowerCase().replace(/\s+/g, " ");
@@ -803,8 +804,8 @@ export class LocalEmbedding {
     }
 
     /**
-     * SimHash: 64-bit 지문 생성.
-     * 각 n-gram을 해시하고, 비트별로 가중 투표.
+     * SimHash: generates a 64-bit fingerprint.
+     * Hashes each n-gram and votes per bit with weighting.
      */
     public simhash(text: string): bigint {
         const grams = this.charNgrams(text);
@@ -830,7 +831,7 @@ export class LocalEmbedding {
         return hash;
     }
 
-    /** FNV-1a 64-bit 해시 (의존성 없음) */
+    /** FNV-1a 64-bit hash (no dependencies) */
     private fnv1a64(str: string): bigint {
         let hash = 0xcbf29ce484222325n;
         for (let i = 0; i < str.length; i++) {
@@ -840,7 +841,7 @@ export class LocalEmbedding {
         return hash;
     }
 
-    /** 해밍 거리 (비트 불일치 수) */
+    /** Hamming distance (number of mismatched bits) */
     public hammingDistance(a: bigint, b: bigint): number {
         let xor = a ^ b;
         let dist = 0;
@@ -851,17 +852,17 @@ export class LocalEmbedding {
         return dist;
     }
 
-    /** 유사도: 1 - (hamming / 64) */
+    /** Similarity: 1 - (hamming / 64) */
     public similarity(a: bigint, b: bigint): number {
         return 1 - this.hammingDistance(a, b) / 64;
     }
 
-    /** 문서 인덱싱 */
+    /** Document indexing */
     public index(noteName: string, content: string): void {
         this.embeddings.set(noteName, this.simhash(content));
     }
 
-    /** 질의와 모든 문서의 유사도 순으로 정렬 */
+    /** Sort all documents by similarity to the query */
     public search(query: string): string[] {
         const queryHash = this.simhash(query);
         const scored: Array<[string, number]> = [];
@@ -877,59 +878,59 @@ export class LocalEmbedding {
 }
 ```
 
-### 영향 범위
+### Scope of Impact
 
-| 파일 | 변경 내용 |
+| File | Change |
 |:-----|:---------|
-| `local-embedding.ts` | **신규 생성** — SimHash 엔진 |
-| `hybrid-search.ts` | `search()`, `fuseResults()` — 4번째 엔진 추가 |
-| `retrieval-weights.ts` | `EngineWeights`에 `semantic` 필드 추가 |
-| `context-provider.ts` | `indexKnowledge()`에서 `LocalEmbedding.index()` 호출 |
+| `local-embedding.ts` | **Newly created** — SimHash engine |
+| `hybrid-search.ts` | `search()`, `fuseResults()` — add 4th engine |
+| `retrieval-weights.ts` | Add `semantic` field to `EngineWeights` |
+| `context-provider.ts` | Call `LocalEmbedding.index()` in `indexKnowledge()` |
 
-### 성능 영향
+### Performance Impact
 
-| 항목 | 값 |
+| Item | Value |
 |:-----|:---|
-| SimHash 생성 | O(n-gram 수) ≈ O(문서 길이) |
-| 검색 | O(N × 64-bit popcount) — 매우 빠름 |
-| 메모리 | 문서당 8 bytes (64-bit bigint) |
-| **예상 인덱싱 지연** | 1,000 문서 기준 < 50ms |
-| **예상 검색 지연** | < 1ms |
+| SimHash generation | O(number of n-grams) ≈ O(document length) |
+| Search | O(N × 64-bit popcount) — very fast |
+| Memory | 8 bytes per document (64-bit bigint) |
+| **Expected Indexing Latency** | < 50ms for 1,000 documents |
+| **Expected Search Latency** | < 1ms |
 
-### 리스크 평가
+### Risk Assessment
 
-| 리스크 | 심각도 | 완화 전략 |
+| Risk | Severity | Mitigation Strategy |
 |:-------|:------:|:---------|
-| SimHash 정밀도가 진짜 임베딩보다 낮음 | 중간 | RRF 융합으로 보완 — 단독 사용 아님 |
-| `BigInt` 성능 (구 브라우저) | 낮음 | Node.js 12+ / 모든 현대 브라우저 지원 |
-| `EngineWeights` 인터페이스 변경 → 하위 호환성 | 중간 | `semantic` 기본값 1.0, optional로 선언 |
+| SimHash precision lower than a real embedding | Medium | Compensated by RRF fusion — not used alone |
+| `BigInt` performance (older browsers) | Low | Supported on Node.js 12+ / all modern browsers |
+| `EngineWeights` interface change → backward compatibility | Medium | Declare `semantic` as optional with default 1.0 |
 
-### 구현 난이도: `중간` 🟡 (포팅)
-### 의존성 추가: **없음**
+### Implementation Difficulty: `Medium` 🟡 (porting)
+### Added Dependencies: **None**
 
 ---
 
-## 제안 5: ONNX 경량 임베딩 (onnxruntime-node)
+## Proposal 5: ONNX Lightweight Embeddings (onnxruntime-node)
 
-### 현황
+### Current State
 
-제안 4의 SimHash는 **구문 유사도**만 포착한다. "dependency injection"과 "DI 패턴"은 문자열이 완전히 다르므로 SimHash로도 매칭이 어렵다.
+The SimHash from Proposal 4 captures only **syntactic similarity**. Since "dependency injection" and "the DI pattern" are completely different strings, even SimHash struggles to match them.
 
-**진짜 의미 매칭**을 위해서는 학습된 임베딩 모델이 필요하다.
+**True semantic matching** requires a trained embedding model.
 
-### 제안 요약
+### Proposal Summary
 
-`all-MiniLM-L6-v2` INT8 양자화 모델(~22MB)을 `onnxruntime-node`로 로드하여 **진정한 의미 기반 검색**을 추가한다.
+Load the `all-MiniLM-L6-v2` INT8 quantized model (~22MB) via `onnxruntime-node` to add **true meaning-based search**.
 
-### 아키텍처
+### Architecture
 
 ```
 ┌──────────────────────────────────────────────────────────┐
 │              ONNX Embedding Pipeline                      │
 │                                                          │
 │  ┌──────────┐     ┌──────────────┐     ┌──────────────┐ │
-│  │ 문서/질의 │────▶│ Tokenizer    │────▶│ ONNX Runtime │ │
-│  │ (string) │     │ (wordpiece)  │     │ INT8 추론    │ │
+│  │ doc/query │────▶│ Tokenizer    │────▶│ ONNX Runtime │ │
+│  │ (string) │     │ (wordpiece)  │     │ INT8 inference│ │
 │  └──────────┘     └──────────────┘     └──────┬───────┘ │
 │                                               │         │
 │                                               ▼         │
@@ -940,22 +941,22 @@ export class LocalEmbedding {
 └──────────────────────────────────────────────────────────┘
 ```
 
-### 제안 4와의 차이
+### Differences from Proposal 4
 
-| 항목 | 제안 4 (SimHash) | 제안 5 (ONNX) |
+| Item | Proposal 4 (SimHash) | Proposal 5 (ONNX) |
 |:-----|:----------------|:--------------|
-| 유사도 종류 | 구문적 (n-gram) | 의미적 (transformer) |
-| 모델 파일 | 없음 | ~22MB ONNX 파일 |
-| 의존성 | 없음 | `onnxruntime-node` |
-| 정밀도 | 낮음~중간 | 높음 |
-| 추론 속도 | < 1ms | ~50ms/문서 (CPU) |
-| 브라우저 호환 | ✅ | ⚠️ onnxruntime-web 필요 |
-| 오프라인 | ✅ | ✅ (모델 파일 로컬) |
+| Similarity type | Syntactic (n-gram) | Semantic (transformer) |
+| Model file | None | ~22MB ONNX file |
+| Dependencies | None | `onnxruntime-node` |
+| Precision | Low–medium | High |
+| Inference speed | < 1ms | ~50ms/doc (CPU) |
+| Browser compatible | ✅ | ⚠️ requires onnxruntime-web |
+| Offline | ✅ | ✅ (model file is local) |
 
-### 구현 스케치
+### Implementation Sketch
 
 ```typescript
-// onnx-embedding.ts (신규 파일)
+// onnx-embedding.ts (new file)
 
 import { InferenceSession, Tensor } from "onnxruntime-node";
 
@@ -972,7 +973,7 @@ export class OnnxEmbedding {
 
     async embed(text: string): Promise<Float32Array> {
         if (!this.session) throw new Error("Session not initialized");
-        const tokenIds = this.tokenize(text);  // WordPiece tokenizer 필요
+        const tokenIds = this.tokenize(text);  // WordPiece tokenizer required
         const inputTensor = new Tensor("int64", tokenIds, [1, tokenIds.length]);
         const attentionMask = new Tensor(
             "int64",
@@ -997,40 +998,40 @@ export class OnnxEmbedding {
         return dot / (Math.sqrt(normA) * Math.sqrt(normB) + 1e-8);
     }
 
-    // ... tokenize(), meanPool() 등 구현 필요
+    // ... tokenize(), meanPool(), etc. need to be implemented
 }
 ```
 
-### 성능 영향
+### Performance Impact
 
-| 항목 | 값 |
+| Item | Value |
 |:-----|:---|
-| 모델 로딩 | ~500ms (초기 1회) |
-| 문서 임베딩 | ~50ms/문서 (CPU, INT8) |
-| 검색 (코사인 유사도) | O(N × 384) — 1,000 문서 < 5ms |
-| 메모리 | 문서당 1.5KB (384 × 4 bytes) + 모델 ~50MB resident |
-| 디스크 | 모델 파일 ~22MB |
+| Model loading | ~500ms (once at startup) |
+| Document embedding | ~50ms/doc (CPU, INT8) |
+| Search (cosine similarity) | O(N × 384) — < 5ms for 1,000 docs |
+| Memory | 1.5KB per doc (384 × 4 bytes) + model ~50MB resident |
+| Disk | Model file ~22MB |
 
-### 리스크 평가
+### Risk Assessment
 
-| 리스크 | 심각도 | 완화 전략 |
+| Risk | Severity | Mitigation Strategy |
 |:-------|:------:|:---------|
-| `onnxruntime-node` 네이티브 의존성 | 높음 | Optional peer dependency로 선언 |
-| 모델 파일 배포/업데이트 | 중간 | 첫 실행 시 자동 다운로드 + 캐시 |
-| 인덱싱 시간 증가 (50ms × N) | 중간 | 증분 인덱싱 + 임베딩 캐시 |
-| 브라우저 호환성 | 중간 | `onnxruntime-web` 폴백 또는 제안 4로 폴백 |
-| 토크나이저 구현 복잡도 | 중간 | `tokenizers` WASM 패키지 또는 직접 WordPiece 구현 |
+| `onnxruntime-node` native dependency | High | Declare as optional peer dependency |
+| Model file distribution/updates | Medium | Auto-download + cache on first run |
+| Increased indexing time (50ms × N) | Medium | Incremental indexing + embedding cache |
+| Browser compatibility | Medium | Fall back to `onnxruntime-web` or to Proposal 4 |
+| Tokenizer implementation complexity | Medium | `tokenizers` WASM package or a direct WordPiece implementation |
 
-### 구현 난이도: `중간-높음` 🟠
-### 의존성 추가: `onnxruntime-node` + 모델 파일 (~22MB)
+### Implementation Difficulty: `Medium–High` 🟠
+### Added Dependencies: `onnxruntime-node` + model file (~22MB)
 
 ---
 
-## 제안 6: 역할별 가중치 자율 학습 (Online Weight Learning)
+## Proposal 6: Autonomous Role-Based Weight Learning (Online Weight Learning)
 
-### 현황
+### Current State
 
-`ROLE_WEIGHTS`가 하드코딩되어 있다 (`retrieval-weights.ts:28-37`):
+`ROLE_WEIGHTS` is hardcoded (`retrieval-weights.ts:28-37`):
 
 ```typescript
 // retrieval-weights.ts:28-37
@@ -1042,21 +1043,22 @@ export const ROLE_WEIGHTS: Record<string, EngineWeights> = {
 };
 ```
 
-이 값들은 **직관에 기반한 초기값**이며, 실제 사용 패턴에 최적화되지 않았다.
+These values are **intuition-based initial values** that are not optimized for actual usage patterns.
 
-### 제안 요약
+### Proposal Summary
 
-사용자의 **암묵적 피드백**(결과 클릭, 컨텍스트 사용 여부)을 기반으로 역할별 가중치를 **온라인 학습**한다.
+**Online-learn** role-based weights based on the user's **implicit feedback** (result clicks, whether the context was used).
 
-### 설계
+### Design
 
 ```
 ┌──────────────────────────────────────────────────────────────┐
 │              Online Weight Learning Loop                      │
 │                                                              │
 │  ┌─────────┐     ┌──────────────┐     ┌──────────────────┐  │
-│  │ 검색 수행│────▶│ 결과 반환    │────▶│ 사용자 상호작용  │  │
-│  │         │     │ + matchType  │     │ (클릭/사용 여부) │  │
+│  │ perform │────▶│ return       │────▶│ user interaction │  │
+│  │ search  │     │ results      │     │ (click/used?)    │  │
+│  │         │     │ + matchType  │     │                  │  │
 │  └─────────┘     └──────────────┘     └────────┬─────────┘  │
 │                                                │              │
 │                                                ▼              │
@@ -1067,36 +1069,36 @@ export const ROLE_WEIGHTS: Record<string, EngineWeights> = {
 │                                            │                  │
 │                                            ▼                  │
 │                               ┌────────────────────┐         │
-│                               │ EWA 가중치 업데이트 │         │
+│                               │ EWA weight update  │         │
 │                               │ w_new = α×signal   │         │
 │                               │       + (1-α)×w_old│         │
 │                               └────────┬───────────┘         │
 │                                        │                      │
 │                                        ▼                      │
-│                           weights.json에 저장 (영속)          │
+│                           persist to weights.json            │
 └──────────────────────────────────────────────────────────────┘
 ```
 
-### 구현 스케치
+### Implementation Sketch
 
 ```typescript
-// weight-learner.ts (신규 파일)
+// weight-learner.ts (new file)
 
 import { readFileSync, writeFileSync, existsSync } from "node:fs";
 import type { EngineWeights } from "./retrieval-weights.js";
 
-/** EWA 학습률 — 새 피드백의 반영 비율 */
+/** EWA learning rate — the fraction by which new feedback is incorporated */
 const LEARNING_RATE = 0.05;
-/** 가중치 하한 — 완전 소거 방지 */
+/** Weight lower bound — prevents complete elimination */
 const MIN_WEIGHT = 0.3;
-/** 가중치 상한 — 과적합 방지 */
+/** Weight upper bound — prevents overfitting */
 const MAX_WEIGHT = 2.0;
 
 interface FeedbackSignal {
     role: string;
-    /** 사용자가 실제 사용한 결과의 matchType */
+    /** matchType of the result the user actually used */
     usedEngine: keyof EngineWeights;
-    /** +1: 유용했음, -1: 무시됨 */
+    /** +1: was useful, -1: ignored */
     signal: 1 | -1;
 }
 
@@ -1129,8 +1131,8 @@ export class WeightLearner {
     }
 
     /**
-     * 피드백 신호를 반영하여 가중치를 업데이트한다.
-     * EWA(Exponentially Weighted Average) 방식.
+     * Updates weights by incorporating a feedback signal.
+     * Uses an EWA (Exponentially Weighted Average) approach.
      */
     public update(feedback: FeedbackSignal): void {
         const { role, usedEngine, signal } = feedback;
@@ -1146,17 +1148,17 @@ export class WeightLearner {
         this.save();
     }
 
-    /** 학습된 가중치를 반환. 없으면 null → 호출자가 기본값 사용. */
+    /** Returns the learned weights. Returns null if none → caller uses defaults. */
     public getWeights(role: string): EngineWeights | null {
         return this.learnedWeights[role] ?? null;
     }
 }
 ```
 
-### `weightsForRole()` 변경
+### `weightsForRole()` Changes
 
 ```typescript
-// retrieval-weights.ts — 변경
+// retrieval-weights.ts — changes
 
 import { WeightLearner } from "./weight-learner.js";
 
@@ -1168,86 +1170,86 @@ export function initWeightLearner(persistPath: string): void {
 
 export function weightsForRole(role?: string | null): EngineWeights {
     if (!role) return NEUTRAL_WEIGHTS;
-    // 학습된 가중치 우선, 없으면 하드코딩 기본값
+    // Prefer learned weights, fall back to hardcoded defaults
     const learned = learner?.getWeights(role.toLowerCase());
     return learned ?? ROLE_WEIGHTS[role.toLowerCase()] ?? NEUTRAL_WEIGHTS;
 }
 ```
 
-### 성능 영향
+### Performance Impact
 
-| 항목 | 값 |
+| Item | Value |
 |:-----|:---|
-| 피드백 처리 | O(1) — 단순 EWA 갱신 |
-| 파일 I/O | 피드백당 1회 writeFileSync (~수백 bytes) |
-| 메모리 | 역할 수 × EngineWeights 크기 (무시 가능) |
+| Feedback processing | O(1) — simple EWA update |
+| File I/O | One writeFileSync per feedback (~a few hundred bytes) |
+| Memory | Number of roles × EngineWeights size (negligible) |
 
-### 리스크 평가
+### Risk Assessment
 
-| 리스크 | 심각도 | 완화 전략 |
+| Risk | Severity | Mitigation Strategy |
 |:-------|:------:|:---------|
-| 잘못된 피드백 → 가중치 발산 | 중간 | MIN/MAX 클램프 + 리셋 기능 |
-| 피드백 수집 지점 정의 모호 | 중간 | 명확한 이벤트 정의 (컨텍스트 채택 = +1) |
-| 초기 학습 데이터 부족 | 낮음 | 하드코딩 기본값으로 폴백 |
+| Bad feedback → weight divergence | Medium | MIN/MAX clamp + reset capability |
+| Ambiguous definition of feedback collection points | Medium | Clear event definitions (context adopted = +1) |
+| Insufficient initial training data | Low | Fall back to hardcoded defaults |
 
-### 구현 난이도: `중간` 🟡
-### 의존성 추가: **없음**
+### Implementation Difficulty: `Medium` 🟡
+### Added Dependencies: **None**
 
 ---
 
-## 제안 7: Learning-to-Rank — RRF 대체
+## Proposal 7: Learning-to-Rank — Replacing RRF
 
-### 현황
+### Current State
 
-현재 RRF 공식 (`hybrid-search.ts:179`):
+The current RRF formula (`hybrid-search.ts:179`):
 
 ```typescript
 // hybrid-search.ts:179
 const rrfScore = weight * (1 / (RRF_K + i + 1));
 ```
 
-RRF는 **순위만** 사용하고 **실제 점수 크기**를 무시한다. 1위와 2위 점수 차이가 0.001이든 100이든 동일하게 처리된다.
+RRF uses **only rank** and ignores the **actual score magnitude**. Whether the score difference between 1st and 2nd place is 0.001 or 100, it is treated identically.
 
-### 제안 요약
+### Proposal Summary
 
-경량 **결정트리(GBDT) 또는 로지스틱 회귀**로 각 엔진의 **원점수(raw score)**를 피처로 받아 최적 결합을 학습한다. RRF를 완전히 대체한다.
+Use a lightweight **decision tree (GBDT) or logistic regression** that takes each engine's **raw score** as a feature and learns the optimal combination. This completely replaces RRF.
 
-### 설계
+### Design
 
 ```
 ┌──────────────────────────────────────────────────────────────────┐
 │                Learning-to-Rank Pipeline                         │
 │                                                                  │
 │  ┌────────────────────────────────────┐                          │
-│  │  피처 벡터 (문서별)                 │                          │
+│  │  feature vector (per document)      │                          │
 │  │  [bm25_score,                      │                          │
 │  │   tag_match_count,                 │                          │
 │  │   graph_depth_score,               │                          │
-│  │   simhash_similarity,              │  ← 각 엔진의 원점수      │
+│  │   simhash_similarity,              │  ← raw score per engine  │
 │  │   onnx_cosine_sim,                 │                          │
-│  │   query_term_count,                │  ← 메타 피처             │
+│  │   query_term_count,                │  ← meta features         │
 │  │   doc_length_ratio]                │                          │
 │  └──────────┬─────────────────────────┘                          │
 │             │                                                    │
 │             ▼                                                    │
 │  ┌────────────────────────────────────┐                          │
-│  │  경량 모델                          │                          │
-│  │  Option A: Logistic Regression     │ ← 가장 단순, 해석 가능   │
-│  │  Option B: 소형 GBDT (depth=3, 10T)│ ← 비선형 포착            │
-│  │  Option C: LambdaMART-lite         │ ← 순위 최적화 전용       │
+│  │  lightweight model                  │                          │
+│  │  Option A: Logistic Regression     │ ← simplest, interpretable│
+│  │  Option B: small GBDT (depth=3,10T)│ ← captures non-linearity │
+│  │  Option C: LambdaMART-lite         │ ← rank-optimization only │
 │  └──────────┬─────────────────────────┘                          │
 │             │                                                    │
 │             ▼                                                    │
 │        relevance_score (0~1)                                     │
 │             │                                                    │
 │             ▼                                                    │
-│        정렬 → Top-N 반환                                         │
+│        sort → return Top-N                                       │
 └──────────────────────────────────────────────────────────────────┘
 ```
 
-### Before / After — `fuseResults()` 대체
+### Before / After — Replacing `fuseResults()`
 
-**Before** (RRF 기반):
+**Before** (RRF-based):
 ```typescript
 // hybrid-search.ts:149-166
 private fuseResults(lexical, tags, graph, limit, weights): SearchResult[] {
@@ -1255,11 +1257,11 @@ private fuseResults(lexical, tags, graph, limit, weights): SearchResult[] {
     this.addRrfScores(fused, lexical, "lexical", weights.lexical);
     this.addRrfScores(fused, tags,    "tag",     weights.tag);
     this.addRrfScores(fused, graph,   "graph",   weights.graph);
-    // ... 정렬 및 반환
+    // ... sort and return
 }
 ```
 
-**After** (LtR 기반):
+**After** (LtR-based):
 ```typescript
 private fuseResults(
     rawScores: Map<string, FeatureVector>,
@@ -1281,10 +1283,10 @@ private fuseResults(
 }
 ```
 
-### 구현 스케치 — 로지스틱 회귀 (가장 단순한 시작점)
+### Implementation Sketch — Logistic Regression (the simplest starting point)
 
 ```typescript
-// ltr-ranker.ts (신규 파일)
+// ltr-ranker.ts (new file)
 
 export interface FeatureVector {
     bm25Score: number;
@@ -1296,21 +1298,21 @@ export interface FeatureVector {
 }
 
 /**
- * 미니 로지스틱 회귀 랭커.
- * 가중치는 피드백 로그로 오프라인 학습하거나,
- * WeightLearner와 연계하여 온라인 SGD로 학습.
+ * Mini logistic regression ranker.
+ * Weights can be trained offline from feedback logs,
+ * or trained online via SGD in conjunction with WeightLearner.
  */
 export class LtrRanker {
     private weights: number[];
     private bias: number;
 
     constructor(weights?: number[], bias?: number) {
-        // 6개 피처에 대한 초기 가중치
+        // Initial weights for the 6 features
         this.weights = weights ?? [0.4, 0.2, 0.15, 0.15, 0.05, 0.05];
         this.bias = bias ?? 0;
     }
 
-    /** 시그모이드 예측 */
+    /** Sigmoid prediction */
     predict(features: FeatureVector): number {
         const x = [
             features.bm25Score,
@@ -1328,8 +1330,8 @@ export class LtrRanker {
     }
 
     /**
-     * 온라인 SGD 업데이트.
-     * label: 1 (사용됨) / 0 (무시됨)
+     * Online SGD update.
+     * label: 1 (used) / 0 (ignored)
      */
     update(features: FeatureVector, label: number, lr: number = 0.01): void {
         const pred = this.predict(features);
@@ -1350,76 +1352,76 @@ export class LtrRanker {
 }
 ```
 
-### 학습 데이터 수집
+### Training Data Collection
 
 ```
 ┌──────────────────────────────────────────────────────────┐
 │              Training Data Pipeline                       │
 │                                                          │
-│  1. 검색 수행 → 결과 + 피처 벡터 로깅                     │
-│  2. 사용자 상호작용 관찰                                  │
-│     - 결과 채택 → label=1                                │
-│     - 결과 무시 → label=0                                │
-│  3. (query, doc, features, label) 저장                   │
-│  4. 배치 학습 or 온라인 SGD                               │
+│  1. Perform search → log results + feature vectors        │
+│  2. Observe user interaction                              │
+│     - Result adopted → label=1                           │
+│     - Result ignored → label=0                           │
+│  3. Store (query, doc, features, label)                  │
+│  4. Batch training or online SGD                         │
 └──────────────────────────────────────────────────────────┘
 ```
 
-### 성능 영향
+### Performance Impact
 
-| 항목 | 값 |
+| Item | Value |
 |:-----|:---|
-| 예측 | O(피처 수) — < 0.01ms |
-| 학습 (온라인 SGD) | O(피처 수) — < 0.01ms/샘플 |
-| 메모리 | 가중치 배열 수십 bytes |
-| 모델 저장 | JSON 수백 bytes |
+| Prediction | O(number of features) — < 0.01ms |
+| Training (online SGD) | O(number of features) — < 0.01ms/sample |
+| Memory | Weight array, a few dozen bytes |
+| Model storage | JSON, a few hundred bytes |
 
-### 리스크 평가
+### Risk Assessment
 
-| 리스크 | 심각도 | 완화 전략 |
+| Risk | Severity | Mitigation Strategy |
 |:-------|:------:|:---------|
-| 학습 데이터 부족 시 RRF보다 나쁠 수 있음 | 높음 | 최소 샘플 수 미달 시 RRF 폴백 |
-| 피처 스케일 불균형 | 중간 | 피처 정규화 (z-score or min-max) |
-| 콜드 스타트 문제 | 높음 | RRF를 기본값으로 유지하고 데이터 축적 후 전환 |
-| 과적합 (작은 코퍼스) | 중간 | L2 정규화 추가 |
+| May be worse than RRF when training data is insufficient | High | Fall back to RRF below a minimum sample count |
+| Feature scale imbalance | Medium | Feature normalization (z-score or min-max) |
+| Cold-start problem | High | Keep RRF as the default and switch after accumulating data |
+| Overfitting (small corpus) | Medium | Add L2 regularization |
 
-### 구현 난이도: `높음` 🔴
-### 의존성 추가: **없음** (순수 TypeScript 구현)
+### Implementation Difficulty: `High` 🔴
+### Added Dependencies: **None** (pure TypeScript implementation)
 
 ---
 
-## 우선순위 매트릭스
+## Priority Matrix
 
 ```
-                    영향도 (Impact)
-            낮음          중간          높음
+                    Impact
+            Low           Medium        High
         ┌──────────┬──────────────┬──────────────┐
-  낮음  │          │              │  제안 1      │
+  Low   │          │              │  Proposal 1  │
         │          │              │  PageRank    │
-구 ─────┼──────────┼──────────────┼──────────────┤
-현      │          │  제안 2      │  제안 4      │
-난 중간 │          │  위치인덱스   │  해시임베딩   │
-이      │          │  제안 3      │  제안 6      │
-도      │          │  질의확장    │  가중치학습   │
-  ─────┼──────────┼──────────────┼──────────────┤
-  높음  │          │  제안 5      │  제안 7      │
+        ├──────────┼──────────────┼──────────────┤
+Diff-   │          │  Proposal 2  │  Proposal 4  │
+iculty  │          │  Position idx│  Hash embed  │
+ Medium │          │  Proposal 3  │  Proposal 6  │
+        │          │  Query expand│  Weight learn│
+        ├──────────┼──────────────┼──────────────┤
+  High  │          │  Proposal 5  │  Proposal 7  │
         │          │  ONNX       │  LtR         │
         └──────────┴──────────────┴──────────────┘
 ```
 
-| 우선순위 | 제안 | 구현 난이도 | 영향도 | 의존성 | ROI |
+| Priority | Proposal | Implementation Difficulty | Impact | Dependencies | ROI |
 |:--------:|:-----|:----------:|:------:|:------:|:---:|
-| **1** | 제안 1: PageRank 그래프 스코어링 | 🟢 낮음 | 높음 | 없음 | ⭐⭐⭐⭐⭐ |
-| **2** | 제안 4: 로컬 해시 임베딩 | 🟡 중간 | 높음 | 없음 | ⭐⭐⭐⭐ |
-| **3** | 제안 2: 위치 인덱스 + 구문 근접 | 🟡 중간 | 중간 | 없음 | ⭐⭐⭐⭐ |
-| **4** | 제안 6: 역할별 가중치 학습 | 🟡 중간 | 높음 | 없음 | ⭐⭐⭐⭐ |
-| **5** | 제안 3: 코퍼스 기반 질의 확장 | 🟡 중간 | 중간 | 없음 | ⭐⭐⭐ |
-| **6** | 제안 5: ONNX 경량 임베딩 | 🟠 중간-높음 | 중간 | onnxruntime-node | ⭐⭐⭐ |
-| **7** | 제안 7: Learning-to-Rank | 🔴 높음 | 높음 | 없음 | ⭐⭐ |
+| **1** | Proposal 1: PageRank graph scoring | 🟢 Low | High | None | ⭐⭐⭐⭐⭐ |
+| **2** | Proposal 4: Local hash embeddings | 🟡 Medium | High | None | ⭐⭐⭐⭐ |
+| **3** | Proposal 2: Position index + phrase proximity | 🟡 Medium | Medium | None | ⭐⭐⭐⭐ |
+| **4** | Proposal 6: Role-based weight learning | 🟡 Medium | High | None | ⭐⭐⭐⭐ |
+| **5** | Proposal 3: Corpus-based query expansion | 🟡 Medium | Medium | None | ⭐⭐⭐ |
+| **6** | Proposal 5: ONNX lightweight embeddings | 🟠 Medium–High | Medium | onnxruntime-node | ⭐⭐⭐ |
+| **7** | Proposal 7: Learning-to-Rank | 🔴 High | High | None | ⭐⭐ |
 
 ---
 
-## 구현 로드맵
+## Implementation Roadmap
 
 ```
 ────────────────────────────────────────────────────────────────────────
@@ -1427,72 +1429,72 @@ export class LtrRanker {
 ────────────────────────────────────────────────────────────────────────
 
 Phase 1 ████████
-  제안 1: PageRank      ████
-  제안 4: 해시 임베딩        ████████
+  Proposal 1: PageRank     ████
+  Proposal 4: Hash embed       ████████
 
 Phase 2          ████████████
-  제안 2: 위치 인덱스         ████████
-  제안 3: 질의 확장               ████████
+  Proposal 2: Position idx     ████████
+  Proposal 3: Query expand         ████████
 
 Phase 3                       ████████████████
-  제안 5: ONNX 임베딩              ████████████
-  제안 6: 가중치 학습                   ████████
+  Proposal 5: ONNX embed          ████████████
+  Proposal 6: Weight learn             ████████
 
 Phase 4                                        ████████████
-  제안 7: LtR                                  ████████████
+  Proposal 7: LtR                             ████████████
 
 ────────────────────────────────────────────────────────────────────────
 ```
 
-### Phase 1 (1~2주): 기반 강화 — PageRank + 해시 임베딩
+### Phase 1 (Weeks 1–2): Foundation Strengthening — PageRank + Hash Embeddings
 
-| 주차 | 작업 | 산출물 |
+| Week | Task | Deliverable |
 |:----:|:-----|:------|
-| 1 | `GraphParser.computePageRank()` 구현 + 테스트 | `graph-parser.ts` 변경 |
-| 1 | `traverseGraph()`에 PR 보너스 통합 | `hybrid-search.ts` 변경 |
-| 2 | `LocalEmbedding` 클래스 구현 | `local-embedding.ts` 신규 |
-| 2 | `EngineWeights` 확장 + 4-way RRF 통합 | `retrieval-weights.ts`, `hybrid-search.ts` 변경 |
-| 2 | `context-provider.ts`에서 LocalEmbedding 인덱싱 연결 | `context-provider.ts` 변경 |
+| 1 | Implement + test `GraphParser.computePageRank()` | `graph-parser.ts` change |
+| 1 | Integrate PR bonus into `traverseGraph()` | `hybrid-search.ts` change |
+| 2 | Implement `LocalEmbedding` class | `local-embedding.ts` new |
+| 2 | Extend `EngineWeights` + integrate 4-way RRF | `retrieval-weights.ts`, `hybrid-search.ts` change |
+| 2 | Wire LocalEmbedding indexing in `context-provider.ts` | `context-provider.ts` change |
 
-**마일스톤**: 4-way 하이브리드 검색 동작 확인 (기존 테스트 + 새 시맨틱 테스트)
+**Milestone**: Confirm 4-way hybrid search works (existing tests + new semantic tests)
 
-### Phase 2 (2~4주): 정밀도 향상 — 위치 인덱스 + 질의 확장
+### Phase 2 (Weeks 2–4): Precision Improvement — Position Index + Query Expansion
 
-| 주차 | 작업 | 산출물 |
+| Week | Task | Deliverable |
 |:----:|:-----|:------|
-| 3 | `getTermPositions()` + `computeProximityBonus()` 구현 | `hybrid-search.ts` 변경 |
-| 3 | `lexicalSearch()` 리팩터링 + 벤치마크 | 성능 보고서 |
-| 4 | `buildCooccurrenceMatrix()` + `expandQuery()` 구현 | `hybrid-search.ts` 변경 |
-| 4 | PMI 임계값 튜닝 + 확장 품질 검증 | 튜닝 보고서 |
+| 3 | Implement `getTermPositions()` + `computeProximityBonus()` | `hybrid-search.ts` change |
+| 3 | Refactor `lexicalSearch()` + benchmark | Performance report |
+| 4 | Implement `buildCooccurrenceMatrix()` + `expandQuery()` | `hybrid-search.ts` change |
+| 4 | Tune PMI threshold + validate expansion quality | Tuning report |
 
-**마일스톤**: 구문 근접 + 질의 확장으로 recall 향상 검증
+**Milestone**: Verify recall improvement from phrase proximity + query expansion
 
-### Phase 3 (4~8주): 시맨틱 + 적응 — ONNX 임베딩 + 가중치 학습
+### Phase 3 (Weeks 4–8): Semantic + Adaptive — ONNX Embeddings + Weight Learning
 
-| 주차 | 작업 | 산출물 |
+| Week | Task | Deliverable |
 |:----:|:-----|:------|
-| 5-6 | `OnnxEmbedding` 클래스 + 토크나이저 구현 | `onnx-embedding.ts` 신규 |
-| 6 | 모델 다운로드/캐시 매니저 | `model-manager.ts` 신규 |
-| 7 | 5-way RRF 통합 (SimHash + ONNX 공존) | `hybrid-search.ts` 변경 |
-| 7-8 | `WeightLearner` 구현 + 피드백 수집 파이프라인 | `weight-learner.ts` 신규 |
-| 8 | A/B 테스트 프레임워크 (학습 가중치 vs 하드코딩) | 비교 보고서 |
+| 5-6 | Implement `OnnxEmbedding` class + tokenizer | `onnx-embedding.ts` new |
+| 6 | Model download/cache manager | `model-manager.ts` new |
+| 7 | Integrate 5-way RRF (SimHash + ONNX coexisting) | `hybrid-search.ts` change |
+| 7-8 | Implement `WeightLearner` + feedback collection pipeline | `weight-learner.ts` new |
+| 8 | A/B test framework (learned weights vs. hardcoded) | Comparison report |
 
-**마일스톤**: 진짜 의미 검색 + 적응형 가중치 동작 확인
+**Milestone**: Confirm true semantic search + adaptive weights work
 
-### Phase 4 (8주+): LtR — RRF 완전 대체
+### Phase 4 (Week 8+): LtR — Fully Replace RRF
 
-| 주차 | 작업 | 산출물 |
+| Week | Task | Deliverable |
 |:----:|:-----|:------|
-| 9-10 | 피처 벡터 정의 + 학습 데이터 수집 파이프라인 | `ltr-ranker.ts` 신규 |
-| 10-11 | 로지스틱 회귀 → 미니 GBDT 단계적 구현 | `ltr-ranker.ts` 확장 |
-| 11-12 | RRF ↔ LtR 전환 스위치 + 폴백 로직 | `hybrid-search.ts` 변경 |
-| 12+ | 프로덕션 배포 + 모니터링 | 배포 보고서 |
+| 9-10 | Define feature vectors + training data collection pipeline | `ltr-ranker.ts` new |
+| 10-11 | Stepwise implementation: logistic regression → mini GBDT | `ltr-ranker.ts` extension |
+| 11-12 | RRF ↔ LtR switch + fallback logic | `hybrid-search.ts` change |
+| 12+ | Production deployment + monitoring | Deployment report |
 
-**마일스톤**: 학습 데이터 기반 최적 결합으로 검색 품질 측정 가능한 개선
+**Milestone**: Measurable search-quality improvement from optimal combination based on training data
 
 ---
 
-## 최종 아키텍처 비전 (Phase 4 완료 후)
+## Final Architecture Vision (After Phase 4 Completion)
 
 ```
 ┌──────────────────────────────────────────────────────────────────────┐
@@ -1513,7 +1515,7 @@ Phase 4                                        ███████████
 │    └── ONNX Embedding (opt) ──────→ cosine_similarity                │
 │                                                                      │
 │         ┌──────────────────────────────────────────┐                 │
-│         │  Feature Vector (문서별)                   │                 │
+│         │  Feature Vector (per document)            │                 │
 │         │  [bm25, prox, tag, graph, pr, simhash,   │                 │
 │         │   onnx_cos, query_len, doc_len_ratio]    │                 │
 │         └──────────────────┬───────────────────────┘                 │
@@ -1521,10 +1523,10 @@ Phase 4                                        ███████████
 │                            ▼                                         │
 │              ┌───────────────────────────┐                           │
 │              │  LtR Ranker               │                           │
-│              │  (학습 데이터 충분)         │                           │
+│              │  (sufficient training data)│                           │
 │              │  OR                        │                           │
 │              │  RRF + Adaptive Weights   │                           │
-│              │  (폴백 / 콜드 스타트)       │                           │
+│              │  (fallback / cold start)  │                           │
 │              └─────────────┬─────────────┘                           │
 │                            │                                         │
 │                            ▼                                         │
@@ -1532,113 +1534,113 @@ Phase 4                                        ███████████
 └──────────────────────────────────────────────────────────────────────┘
 ```
 
-### 파일 변경 총괄
+### File Change Summary
 
-| 파일 | Phase | 변경 유형 |
+| File | Phase | Change Type |
 |:-----|:-----:|:---------|
-| `graph-parser.ts` | 1 | `computePageRank()`, `getPageRankScore()` 추가 |
-| `local-embedding.ts` | 1 | **신규** — SimHash 엔진 |
-| `retrieval-weights.ts` | 1, 3 | `EngineWeights.semantic` 추가 + learner 연동 |
-| `hybrid-search.ts` | 1, 2, 3, 4 | 4→5-way 융합, 위치 인덱스, 질의 확장, LtR 통합 |
-| `context-provider.ts` | 1, 3 | 인덱싱 파이프라인 확장 |
-| `weight-learner.ts` | 3 | **신규** — 온라인 가중치 학습 |
-| `onnx-embedding.ts` | 3 | **신규** — ONNX 임베딩 (Optional) |
-| `model-manager.ts` | 3 | **신규** — 모델 다운로드/캐시 |
-| `ltr-ranker.ts` | 4 | **신규** — Learning-to-Rank 랭커 |
+| `graph-parser.ts` | 1 | Add `computePageRank()`, `getPageRankScore()` |
+| `local-embedding.ts` | 1 | **New** — SimHash engine |
+| `retrieval-weights.ts` | 1, 3 | Add `EngineWeights.semantic` + learner integration |
+| `hybrid-search.ts` | 1, 2, 3, 4 | 4→5-way fusion, position index, query expansion, LtR integration |
+| `context-provider.ts` | 1, 3 | Extend indexing pipeline |
+| `weight-learner.ts` | 3 | **New** — online weight learning |
+| `onnx-embedding.ts` | 3 | **New** — ONNX embeddings (optional) |
+| `model-manager.ts` | 3 | **New** — model download/cache |
+| `ltr-ranker.ts` | 4 | **New** — Learning-to-Rank ranker |
 
 ---
 
-## 검증 전략
+## Validation Strategy
 
-### 오프라인 평가 메트릭
+### Offline Evaluation Metrics
 
-| 메트릭 | 설명 | 목표 |
+| Metric | Description | Target |
 |:-------|:-----|:-----|
-| **MRR@10** | Mean Reciprocal Rank at 10 | ≥ 0.6 (현행 추정 0.4) |
+| **MRR@10** | Mean Reciprocal Rank at 10 | ≥ 0.6 (current estimate 0.4) |
 | **NDCG@10** | Normalized DCG at 10 | ≥ 0.7 |
-| **Recall@20** | 상위 20건 내 관련 문서 포함율 | ≥ 0.8 |
-| **P@3** | 상위 3건 정밀도 (컨텍스트 반영 기준) | ≥ 0.7 |
+| **Recall@20** | Fraction of relevant docs within top 20 | ≥ 0.8 |
+| **P@3** | Precision of top 3 (based on context inclusion) | ≥ 0.7 |
 
-### 평가 데이터셋 구축
+### Building the Evaluation Dataset
 
 ```
-1. 현행 시스템 로그에서 (query, selected_result) 쌍 수집
-2. 수동 레이블링: 50+ 질의 × 관련도 3단계 (0/1/2)
-3. 각 Phase 완료 시 동일 데이터셋으로 회귀 비교
+1. Collect (query, selected_result) pairs from current system logs
+2. Manual labeling: 50+ queries × 3 relevance levels (0/1/2)
+3. On each Phase completion, run a regression comparison on the same dataset
 ```
 
-### 성능 버짓
+### Performance Budget
 
-| 항목 | 허용치 |
+| Item | Allowance |
 |:-----|:------|
-| 인덱싱 (1,000 문서) | < 2초 |
-| 검색 지연 (P99) | < 50ms |
-| 메모리 (인덱스 상주) | < 100MB |
-| 디스크 (ONNX 모델 제외) | < 1MB |
+| Indexing (1,000 docs) | < 2s |
+| Search latency (P99) | < 50ms |
+| Memory (index resident) | < 100MB |
+| Disk (excluding ONNX model) | < 1MB |
 
 ---
 
-## 부록: 제약 조건 준수 매트릭스
+## Appendix: Constraint Compliance Matrix
 
-| 제약 조건 | 제안 1 | 제안 2 | 제안 3 | 제안 4 | 제안 5 | 제안 6 | 제안 7 |
+| Constraint | Prop 1 | Prop 2 | Prop 3 | Prop 4 | Prop 5 | Prop 6 | Prop 7 |
 |:---------|:------:|:------:|:------:|:------:|:------:|:------:|:------:|
-| GPU 없음 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| 외부 모델 없음 | ✅ | ✅ | ✅ | ✅ | ⚠️¹ | ✅ | ✅ |
-| 외부 API 없음 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| CPU 전용 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| 브라우저 호환 | ✅ | ✅ | ✅ | ✅ | ⚠️² | ✅ | ✅ |
-| 의존성 추가 없음 | ✅ | ✅ | ✅ | ✅ | ❌³ | ✅ | ✅ |
+| No GPU | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| No external model | ✅ | ✅ | ✅ | ✅ | ⚠️¹ | ✅ | ✅ |
+| No external API | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| CPU-only | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Browser compatible | ✅ | ✅ | ✅ | ✅ | ⚠️² | ✅ | ✅ |
+| No added dependencies | ✅ | ✅ | ✅ | ✅ | ❌³ | ✅ | ✅ |
 
-> ¹ ONNX 모델 파일(~22MB)이 로컬에 필요하나, 외부 API 호출은 없음
-> ² `onnxruntime-web`으로 대체 가능하나 WASM 로딩 오버헤드 존재
-> ³ `onnxruntime-node` 네이티브 의존성 추가 필요
-
----
-
-*작성: AI Agent · 2026-06-19 · opencode-orchestrator 검색 시스템 고도화 제안*
+> ¹ An ONNX model file (~22MB) must be local, but there are no external API calls
+> ² Can be substituted with `onnxruntime-web`, but a WASM loading overhead exists
+> ³ Requires adding the `onnxruntime-node` native dependency
 
 ---
 
-# Part 2: 기억 감쇄 (Memory Decay) 고도화
-
-> **문제 정의**: 지식 볼트에 메모리가 계속 쌓이기만 하면 검색 노이즈 증가, 저장 비용 증가, 오래된 정보가 최신 정보를 밀어내는 **컨텍스트 부패(context rot)** 현상이 발생한다.
-> opencode-orchestrator는 현재 `memory-consolidation.ts`에 기본적인 분석 로직이 있으나, **능동적 감쇄·자동 압축·충돌 해소**는 미구현 상태이다.
+*Authored by: AI Agent · 2026-06-19 · opencode-orchestrator search system enhancement proposal*
 
 ---
 
-## 현행 기억 수명주기 분석
+# Part 2: Memory Decay Enhancement
 
-| 메커니즘 | 파일 | 동작 | 한계 |
+> **Problem Statement**: If memory keeps accumulating in the knowledge vault unchecked, search noise increases, storage costs rise, and **context rot** occurs as stale information crowds out newer information.
+> opencode-orchestrator currently has basic analysis logic in `memory-consolidation.ts`, but **active decay, automatic compaction, and conflict resolution** are not yet implemented.
+
+---
+
+## Current Memory Lifecycle Analysis
+
+| Mechanism | File | Behavior | Limitation |
 |:--|:--|:--|:--|
-| **미션 메모리** | `mission-memory.ts` | 생성된 미션 노트 동기화 및 stale generated note 삭제 | 시간/접근 기반 감쇄 없음 |
-| **그래프 유지보수** | `memory-consolidation.ts` | 고아/대형/태그중복 분석, MOC 초안 생성 | side-effect-free 분석만; 백링크 동기화/아카이브 실행 없음 |
-| **Safety Guards** | `safety-guards.ts` | 순환 감지, 동시 쓰기 큐 | 무결성만, 감쇄 무관 |
-| **Scratchpad** | `scratchpad.ts` | LRU 레지스터 캐시 (최대 64 entries, entry 4KB cap) | 세션/런타임 보조 기억이며 장기 볼트 감쇄와 별개 |
+| **Mission Memory** | `mission-memory.ts` | Syncs generated mission notes and deletes stale generated notes | No time/access-based decay |
+| **Graph Maintenance** | `memory-consolidation.ts` | Analyzes orphans/large notes/tag duplication, drafts MOCs | Side-effect-free analysis only; does not run backlink sync/archiving |
+| **Safety Guards** | `safety-guards.ts` | Cycle detection, concurrent write queue | Integrity only, unrelated to decay |
+| **Scratchpad** | `scratchpad.ts` | LRU register cache (max 64 entries, 4KB cap per entry) | A session/runtime auxiliary memory, separate from long-term vault decay |
 
 ```
-현행 수명주기:
+Current lifecycle:
 
-생성 → 볼트 잔류 중심 → generated note stale 삭제/수동 삭제
+create → vault-retention focused → delete stale generated notes / manual deletion
                           ↑
-                  시간·접근 기반 자동 감쇄/압축 없음
+                  No time-/access-based automatic decay or compaction
 ```
 
 ---
 
-## 제안 8: 접근 빈도 추적 (Usage-Aware Priority)
+## Proposal 8: Access Frequency Tracking (Usage-Aware Priority)
 
-> **난이도**: 🟢 낮음 | **의존성**: 없음 | **영향**: 전체 검색 품질
+> **Difficulty**: 🟢 Low | **Dependencies**: None | **Impact**: Overall search quality
 
-### 현재
+### Current State
 
-검색 결과로 반환되어도 **접근 기록이 없다**. 핵심 SOP와 한 번도 안 쓰인 고아 노트가 동일 취급.
+Even when returned as a search result, there is **no access record**. A core SOP and an orphan note that was never used are treated identically.
 
-### 제안
+### Proposal
 
-frontmatter에 접근 메타데이터를 추가하고, 검색 시 RRF 점수에 반영한다.
+Add access metadata to the frontmatter and incorporate it into the RRF score at search time.
 
 ```yaml
-# 노트 frontmatter에 추가되는 필드
+# Fields added to note frontmatter
 ---
 tags: [sop]
 access_count: 47
@@ -1647,86 +1649,86 @@ last_accessed: 2026-06-18T14:30:00Z
 ```
 
 ```typescript
-// hybrid-search.ts — 검색 결과 반환 시 접근 기록 갱신
+// hybrid-search.ts — update access record when returning search results
 function recordAccess(note: ParsedNote): void {
   note.frontmatter.access_count = (note.frontmatter.access_count ?? 0) + 1;
   note.frontmatter.last_accessed = new Date().toISOString();
-  // frontmatter를 파일에 다시 기록 (tag-indexer.ts의 파서 활용)
+  // Write the frontmatter back to the file (using tag-indexer.ts's parser)
 }
 
-// RRF 점수에 가산
+// Add to the RRF score
 function usageBonus(note: ParsedNote): number {
   const count = note.frontmatter.access_count ?? 0;
-  return Math.log(count + 1) * 0.05; // 로그 스케일
+  return Math.log(count + 1) * 0.05; // log scale
 }
 ```
 
-### 구현 위치
+### Implementation Location
 
-| 파일 | 변경 |
+| File | Change |
 |:--|:--|
-| `tag-indexer.ts` | frontmatter에 `access_count`, `last_accessed` 파싱 추가 |
-| `hybrid-search.ts` | `fuseResults()`에서 `usageBonus` 가산 |
-| `context-provider.ts` | 검색 결과 반환 시 `recordAccess()` 호출 |
+| `tag-indexer.ts` | Add parsing of `access_count`, `last_accessed` in frontmatter |
+| `hybrid-search.ts` | Add `usageBonus` in `fuseResults()` |
+| `context-provider.ts` | Call `recordAccess()` when returning search results |
 
 ---
 
-## 제안 9: 적응형 지수 감쇄 — FadeMem 패턴
+## Proposal 9: Adaptive Exponential Decay — FadeMem Pattern
 
-> **난이도**: 🟡 중간 | **의존성**: 없음 | **영향**: 검색 정밀도 + 저장 절감
-> **참조**: FadeMem (arXiv:2601.18642, 2026.01) — 에빙하우스 망각 곡선 기반
+> **Difficulty**: 🟡 Medium | **Dependencies**: None | **Impact**: Search precision + storage savings
+> **Reference**: FadeMem (arXiv:2601.18642, 2026.01) — based on the Ebbinghaus forgetting curve
 
-### 원리
+### Principle
 
-모든 메모리에 **강도(strength)**를 부여하고, 시간이 지남에 따라 지수적으로 감쇄한다.
+Assign a **strength** to every memory, which decays exponentially over time.
 
 ```
 strength(t) = e^(-λ × Δt) × frequencyBoost
 
-λ = 기본 감쇄 상수 (태그 기반으로 결정)
-Δt = (현재 시각 - 마지막 접근 시각) / 1일
+λ = base decay constant (determined by tag)
+Δt = (current time - last access time) / 1 day
 frequencyBoost = 1 + ln(accessCount + 1) / 10
 ```
 
-### 태그별 감쇄 속도
+### Per-Tag Decay Rates
 
 ```
 ┌──────────────────────────────────────────────────────┐
 │  strength                                            │
 │  1.0 ┤ ●                                             │
-│      │  ╲  sop (λ=0.01, 반감기 69일)                  │
+│      │  ╲  sop (λ=0.01, half-life 69 days)            │
 │  0.8 ┤   ╲                                           │
-│      │    ╲╲  reference (λ=0.03, 반감기 23일)         │
+│      │    ╲╲  reference (λ=0.03, half-life 23 days)   │
 │  0.6 ┤     ╲ ╲                                       │
-│      │      ╲  ╲╲  episodic (λ=0.07, 반감기 10일)    │
+│      │      ╲  ╲╲  episodic (λ=0.07, half-life 10d)  │
 │  0.4 ┤       ╲   ╲╲                                  │
 │      │        ╲    ╲╲╲                               │
-│  0.2 ┤ --------╲-----╲╲----- 압축 임계값 (0.2)       │
+│  0.2 ┤ --------╲-----╲╲----- compaction threshold(0.2)│
 │      │          ╲      ╲╲╲                           │
-│  0.0 ┤───────────╲───────╲╲──── 아카이브 임계값 (0.05)│
-│      └─────┬─────┬─────┬─────┬─────── 경과 일수      │
+│  0.0 ┤───────────╲───────╲╲──── archive threshold(0.05)│
+│      └─────┬─────┬─────┬─────┬─────── days elapsed   │
 │            10    20    30    60                       │
 └──────────────────────────────────────────────────────┘
 ```
 
 ```typescript
-// retrieval-weights.ts — 태그별 감쇄 상수
+// retrieval-weights.ts — per-tag decay constants
 const DECAY_RATES: Record<string, number> = {
-  sop:       0.01,  // 반감기 69일
-  playbook:  0.02,  // 반감기 35일
-  reference: 0.03,  // 반감기 23일
-  episodic:  0.07,  // 반감기 10일
-  scratch:   0.15,  // 반감기 5일
+  sop:       0.01,  // half-life 69 days
+  playbook:  0.02,  // half-life 35 days
+  reference: 0.03,  // half-life 23 days
+  episodic:  0.07,  // half-life 10 days
+  scratch:   0.15,  // half-life 5 days
 };
 
 function decayRate(tags: string[]): number {
   for (const tag of tags) {
     if (tag in DECAY_RATES) return DECAY_RATES[tag];
   }
-  return 0.03; // 기본값: reference 수준
+  return 0.03; // default: reference level
 }
 
-// hybrid-search.ts — 검색 점수에 감쇄 적용
+// hybrid-search.ts — apply decay to the search score
 function memoryStrength(note: ParsedNote): number {
   const lambda = decayRate(note.frontmatter.tags ?? []);
   const lastAccessed = new Date(note.frontmatter.last_accessed ?? note.frontmatter.created ?? Date.now());
@@ -1738,58 +1740,58 @@ function memoryStrength(note: ParsedNote): number {
 }
 ```
 
-### 임계값 도달 시 자동 조치
+### Automatic Action on Reaching Thresholds
 
 ```
-strength > 0.2  → 정상 (검색 결과에 포함)
-strength ≤ 0.2  → 압축 대상 (요약 → 팩트 노트로 증류)
-strength ≤ 0.05 → 아카이브 대상 (archives/ 이동)
+strength > 0.2  → normal (included in search results)
+strength ≤ 0.2  → compaction target (summarize → distill into a fact note)
+strength ≤ 0.05 → archive target (move to archives/)
 ```
 
-### FadeMem 벤치마크 참고 성과
+### FadeMem Benchmark Reference Results
 
-- 스토리지 **45% 절감**
-- 멀티홉 추론 정확도 유지 (LoCoMo 벤치마크)
+- **45% reduction** in storage
+- Maintains multi-hop reasoning accuracy (LoCoMo benchmark)
 
 ---
 
-## 제안 10: 계층적 압축 파이프라인 (Tiered Consolidation)
+## Proposal 10: Tiered Consolidation Pipeline (Tiered Consolidation)
 
-> **난이도**: 🟡 중간 | **의존성**: 없음 | **영향**: 저장 구조 전면 개선
-> **참조**: Letta/Mem0 등 장기 메모리 시스템의 계층화 패턴 (2025~2026 공개 자료 기준)
+> **Difficulty**: 🟡 Medium | **Dependencies**: None | **Impact**: Complete overhaul of storage structure
+> **Reference**: Tiering patterns of long-term memory systems such as Letta/Mem0 (based on 2025–2026 public material)
 
-### 현행 vs 제안
+### Current vs. Proposed
 
 ```
-현행:
-  Scratchpad (최대 64 entries) ──────────────── 볼트 잔류 중심
-  ← Working memory와 장기 볼트 사이의 Warm/Cold 요약 티어 없음
+Current:
+  Scratchpad (max 64 entries) ──────────────── vault-retention focused
+  ← No Warm/Cold summary tier between working memory and the long-term vault
 
-제안:
+Proposed:
   ┌────────────────────────────────────────────────────────────┐
   │ Tier 1: Working Memory (Scratchpad)                       │
-  │ TTL: 세션 종료 시 소멸                                      │
-  │ 형태: LRU 레지스터 (현행 유지)                               │
+  │ TTL: expires at session end                               │
+  │ Form: LRU register (retained as-is)                        │
   ├────────────────────────────────────────────────────────────┤
-  │ Tier 2: Episodic Memory (에피소드 기억)                     │
-  │ TTL: 7~30일 (strength 기반 감쇄)                            │
-  │ 형태: 미션 단위 실행 로그                                    │
-  │ 감쇄 후: → LLM 증류 → Tier 3                               │
+  │ Tier 2: Episodic Memory                                    │
+  │ TTL: 7–30 days (strength-based decay)                      │
+  │ Form: per-mission execution log                            │
+  │ After decay: → LLM distillation → Tier 3                  │
   ├────────────────────────────────────────────────────────────┤
-  │ Tier 3: Semantic Memory (의미 기억)                         │
-  │ TTL: 무기한 (충돌 시에만 갱신)                               │
-  │ 형태: 증류된 팩트/선호/규칙                                  │
+  │ Tier 3: Semantic Memory                                    │
+  │ TTL: indefinite (updated only on conflict)                 │
+  │ Form: distilled facts/preferences/rules                    │
   ├────────────────────────────────────────────────────────────┤
-  │ Tier 4: Archive (아카이브)                                  │
-  │ 형태: 압축된 원본 보존                                       │
-  │ 역할: 감사 추적, 필요 시 복원                                │
+  │ Tier 4: Archive                                            │
+  │ Form: compressed original preservation                     │
+  │ Role: audit trail, restore when needed                     │
   └────────────────────────────────────────────────────────────┘
 ```
 
-### 컴팩션 파이프라인
+### Compaction Pipeline
 
 ```typescript
-// memory-consolidation.ts — 새 메서드
+// memory-consolidation.ts — new method
 async function compact(notes: ParsedNote[]): Promise<CompactionResult> {
   const result: CompactionResult = { promoted: [], archived: [], distilled: [] };
   
@@ -1798,12 +1800,12 @@ async function compact(notes: ParsedNote[]): Promise<CompactionResult> {
     const tier = note.frontmatter.tier ?? 'episodic';
     
     if (tier === 'episodic' && strength <= 0.05) {
-      // Tier 2 → Tier 4: 아카이브
+      // Tier 2 → Tier 4: archive
       await moveToArchive(note);
       result.archived.push(note.path);
     } else if (tier === 'episodic' && strength <= 0.2) {
-      // Tier 2 → Tier 3: LLM 증류
-      const fact = await distillToFact(note); // LLM 요약
+      // Tier 2 → Tier 3: LLM distillation
+      const fact = await distillToFact(note); // LLM summary
       await saveFact(fact);
       await moveToArchive(note);
       result.distilled.push(note.path);
@@ -1813,53 +1815,53 @@ async function compact(notes: ParsedNote[]): Promise<CompactionResult> {
 }
 ```
 
-### 구현 위치
+### Implementation Location
 
-| 파일 | 변경 |
+| File | Change |
 |:--|:--|
-| `tag-indexer.ts` | frontmatter에 `tier` 필드 파싱 |
-| `memory-consolidation.ts` | `compact()` 메서드 추가 |
-| `hybrid-search.ts` | Tier 1-3만 검색, Tier 4 제외 |
-| `context-provider.ts` | 초기화 시 컴팩션 트리거 |
+| `tag-indexer.ts` | Parse `tier` field in frontmatter |
+| `memory-consolidation.ts` | Add `compact()` method |
+| `hybrid-search.ts` | Search only Tier 1-3, exclude Tier 4 |
+| `context-provider.ts` | Trigger compaction at initialization |
 
 ---
 
-## 제안 11: 충돌 기반 망각 (Conflict-Driven Forgetting)
+## Proposal 11: Conflict-Driven Forgetting (Conflict-Driven Forgetting)
 
-> **난이도**: 🟠 중간-높음 | **의존성**: 없음 | **영향**: 팩트 정확도
+> **Difficulty**: 🟠 Medium–High | **Dependencies**: None | **Impact**: Fact accuracy
 
-### 문제
+### Problem
 
 ```
-기존 노트: "Node.js 18에서는 fetch가 experimental이다"
-새 정보:   "Node.js 22에서는 fetch가 stable이다"
+Existing note: "In Node.js 18, fetch is experimental"
+New info:      "In Node.js 22, fetch is stable"
 
-현행: 둘 다 저장 → 검색 시 구버전이 먼저 나올 수 있음
+Current: both stored → the older version may surface first in search
 ```
 
-### 제안
+### Proposal
 
 ```typescript
-// memory-consolidation.ts — 새 노트 저장 시 충돌 체크
+// memory-consolidation.ts — conflict check when storing a new note
 async function conflictCheck(
   newNote: ParsedNote, 
   existingNotes: ParsedNote[],
   search: HybridSearch
 ): Promise<ConflictResolution> {
-  // 1. 기존 노트 중 유사도 상위 5건 추출
+  // 1. Extract the top 5 most similar existing notes
   const candidates = search.search(newNote.content, 'worker', 5);
   
   for (const hit of candidates) {
-    if (hit.score < 0.6) continue; // 무관
+    if (hit.score < 0.6) continue; // irrelevant
     
-    // 2. 같은 태그 + 높은 유사도 → 충돌 후보
+    // 2. Same tags + high similarity → conflict candidate
     const tagOverlap = intersect(newNote.tags, hit.tags).length;
     if (tagOverlap === 0) continue;
     
-    // 3. 판정
+    // 3. Decision
     if (isSuperseding(newNote, hit)) {
-      await moveToArchive(hit.note);  // 구 노트 아카이브
-      inheritLinks(newNote, hit.note); // 링크 승계
+      await moveToArchive(hit.note);  // archive the old note
+      inheritLinks(newNote, hit.note); // inherit links
       return { action: 'replaced', old: hit.path };
     }
   }
@@ -1869,21 +1871,21 @@ async function conflictCheck(
 
 ---
 
-## 제안 12: A-Mem 자율 링킹 — 에이전트 주도 그래프 성장
+## Proposal 12: A-Mem Autonomous Linking — Agent-Driven Graph Growth
 
-> **난이도**: 🔴 높음 | **의존성**: 없음 | **영향**: 그래프 품질
-> **참조**: A-Mem (NeurIPS 2025) — 제텔카스텐 기반 자율 메모리
+> **Difficulty**: 🔴 High | **Dependencies**: None | **Impact**: Graph quality
+> **Reference**: A-Mem (NeurIPS 2025) — Zettelkasten-based autonomous memory
 
-### 현재
+### Current State
 
-위키링크 `[[target]]`는 **사람이 직접 작성**해야 생긴다. 에이전트가 노트를 생성해도 링크를 안 달면 고아가 된다.
+A wikilink `[[target]]` is created only when **a human writes it directly**. Even when an agent creates a note, it becomes an orphan if no links are attached.
 
-### 제안
+### Proposal
 
-노트 저장 시 에이전트가 **자동으로 관련 노트를 찾아 양방향 링크를 생성**한다.
+When storing a note, the agent **automatically finds related notes and creates bidirectional links**.
 
 ```typescript
-// graph-parser.ts — 새 메서드
+// graph-parser.ts — new method
 function suggestLinks(
   newNote: ParsedNote,
   existingNotes: ParsedNote[],
@@ -1902,75 +1904,75 @@ function suggestLinks(
     }));
 }
 
-// 저장 후 자동 링크 삽입
+// Automatically insert links after storing
 async function autoLink(note: ParsedNote): Promise<void> {
   const suggestions = suggestLinks(note, allNotes, hybridSearch);
   
-  // 새 노트에 링크 추가
+  // Add links to the new note
   const linkSection = suggestions
     .map(s => `- ${s.wikiLink}`)
     .join('\n');
-  note.content += `\n\n## 관련 노트\n${linkSection}\n`;
+  note.content += `\n\n## Related Notes\n${linkSection}\n`;
   
-  // 대상 노트에 역방향 링크 추가
+  // Add reverse links to the target notes
   for (const s of suggestions) {
     await appendBacklink(s.target, note.path);
   }
 }
 ```
 
-### A-Mem 핵심 원칙
+### A-Mem Core Principles
 
 ```
-1. 원자성: 모든 메모리는 독립적이고 자기 완결적
-2. 연결성: 유사한 메모리는 자동으로 연결
-3. 진화성: 새 정보가 기존 메모리의 컨텍스트를 갱신
-4. 자율성: 에이전트가 인간 개입 없이 그래프를 관리
+1. Atomicity: every memory is independent and self-contained
+2. Connectivity: similar memories are automatically connected
+3. Evolvability: new information updates the context of existing memories
+4. Autonomy: the agent manages the graph without human intervention
 ```
 
 ---
 
-## 기억 감쇄 우선순위 매트릭스
+## Memory Decay Priority Matrix
 
-| 순서 | 제안 | 영향도 | 난이도 | 의존성 | 선행 조건 |
+| Order | Proposal | Impact | Difficulty | Dependencies | Prerequisites |
 |:----:|:-----|:------:|:------:|:------:|:---------|
-| **1** | ⑧ 접근 빈도 추적 | ⭐⭐⭐ | 🟢 낮음 | 없음 | 없음 |
-| **2** | ⑨ 적응형 지수 감쇄 | ⭐⭐⭐⭐ | 🟡 중간 | 없음 | 제안 8 |
-| **3** | ⑩ 계층적 압축 | ⭐⭐⭐⭐⭐ | 🟡 중간 | 없음 | 제안 8, 9 |
-| **4** | ⑪ 충돌 기반 망각 | ⭐⭐⭐ | 🟠 중간-높음 | 없음 | 없음 |
-| **5** | ⑫ A-Mem 자율 링킹 | ⭐⭐⭐⭐ | 🔴 높음 | 없음 | 제안 8 |
-| **6** | ⑬ 로컬 에빙하우스 메모리 OS | ⭐⭐⭐⭐⭐ | 🟠 중간-높음 | 없음 | 제안 8, 9, 11 |
+| **1** | ⑧ Access frequency tracking | ⭐⭐⭐ | 🟢 Low | None | None |
+| **2** | ⑨ Adaptive exponential decay | ⭐⭐⭐⭐ | 🟡 Medium | None | Proposal 8 |
+| **3** | ⑩ Tiered consolidation | ⭐⭐⭐⭐⭐ | 🟡 Medium | None | Proposals 8, 9 |
+| **4** | ⑪ Conflict-driven forgetting | ⭐⭐⭐ | 🟠 Medium–High | None | None |
+| **5** | ⑫ A-Mem autonomous linking | ⭐⭐⭐⭐ | 🔴 High | None | Proposal 8 |
+| **6** | ⑬ Local Ebbinghaus memory OS | ⭐⭐⭐⭐⭐ | 🟠 Medium–High | None | Proposals 8, 9, 11 |
 
-## 기억 감쇄 구현 로드맵
+## Memory Decay Implementation Roadmap
 
 ```
-Phase A (1-2주):  제안 8 — frontmatter 확장 + 접근 카운터
-Phase B (2-4주):  제안 9 — 감쇄 함수 + RRF 점수 반영
-Phase C (4-8주):  제안 10 — 4-Tier 구조 + 컴팩션 파이프라인
-Phase D (8주+):   제안 11, 12 — 충돌 감지 + 자율 링킹
-Phase E (8~12주): 제안 13 — 로컬 메모리 OS + 장기 평가 하네스
+Phase A (1-2 wk):  Proposal 8 — frontmatter extension + access counter
+Phase B (2-4 wk):  Proposal 9 — decay function + RRF score reflection
+Phase C (4-8 wk):  Proposal 10 — 4-Tier structure + compaction pipeline
+Phase D (8 wk+):   Proposals 11, 12 — conflict detection + autonomous linking
+Phase E (8-12 wk): Proposal 13 — local memory OS + long-term evaluation harness
 ```
 
 ---
 
-# Part 3: 로컬 에빙하우스 기반 메모리 OS 제안
+# Part 3: Local Ebbinghaus-Based Memory OS Proposal
 
-> **목표**: 외부 API 없이 Markdown vault + 로컬 인덱스만으로 장기 에이전트 기억을 구축한다. 핵심은 "무조건 보관"이 아니라 **강도(strength)를 가진 기억**을 만들고, 검색·사용·충돌·시간 경과에 따라 기억을 강화, 압축, 대체, 아카이브하는 것이다.
+> **Goal**: Build long-term agent memory using only a Markdown vault + local index, without any external API. The key is not "store everything" but creating **memories with strength** and reinforcing, compacting, replacing, and archiving them based on retrieval, usage, conflict, and the passage of time.
 
-## 최신 연구 근거
+## Recent Research Basis
 
-| 연구 | 핵심 근거 | 로컬 설계 반영 |
+| Research | Key Finding | Local Design Reflection |
 |:--|:--|:--|
-| [FadeMem, arXiv:2601.18642](https://arxiv.org/abs/2601.18642) | 에빙하우스 기반 적응형 지수 감쇄, access frequency/semantic relevance/temporal pattern 반영, 45% storage reduction 보고 | `strength`, `access_count`, `last_accessed`, `decay_lambda`를 frontmatter에 저장하고 검색 점수에 곱한다 |
-| [FSFM, arXiv:2604.20300](https://arxiv.org/abs/2604.20300) | passive decay, active deletion, safety-triggered, adaptive reinforcement 분류 | 감쇄를 단일 cron이 아니라 policy engine으로 분리한다 |
-| [Zep/Graphiti, arXiv:2501.13956](https://arxiv.org/abs/2501.13956) | 시간 인식 knowledge graph와 historical relationship 유지 | `event_time`, `ingestion_time`, `valid_from`, `valid_to`, `supersedes`를 노트 메타데이터로 둔다 |
-| [Mem0, arXiv:2504.19413](https://arxiv.org/abs/2504.19413) | 대화에서 salient information을 추출·통합·검색하고 graph memory variant 제공 | raw log를 그대로 쌓지 않고 fact/event/preference 단위로 추출한다 |
-| [LiCoMemory, arXiv:2511.01448](https://arxiv.org/abs/2511.01448) | hierarchical graph + temporal/hierarchy-aware search | 태그/링크 그래프를 layer-aware reranking에 사용한다 |
-| [LongMemEval-V2, arXiv:2605.12493](https://arxiv.org/abs/2605.12493) | web agent 장기 기억 평가를 static state, dynamic state, workflow, gotchas, premise awareness로 분해 | 구현 완료 기준을 "저장됨"이 아니라 환경 경험 질의 정확도로 둔다 |
+| [FadeMem, arXiv:2601.18642](https://arxiv.org/abs/2601.18642) | Ebbinghaus-based adaptive exponential decay reflecting access frequency/semantic relevance/temporal pattern, reports 45% storage reduction | Store `strength`, `access_count`, `last_accessed`, `decay_lambda` in frontmatter and multiply them into the search score |
+| [FSFM, arXiv:2604.20300](https://arxiv.org/abs/2604.20300) | Classifies passive decay, active deletion, safety-triggered, adaptive reinforcement | Separate decay into a policy engine rather than a single cron job |
+| [Zep/Graphiti, arXiv:2501.13956](https://arxiv.org/abs/2501.13956) | Time-aware knowledge graph that maintains historical relationships | Keep `event_time`, `ingestion_time`, `valid_from`, `valid_to`, `supersedes` as note metadata |
+| [Mem0, arXiv:2504.19413](https://arxiv.org/abs/2504.19413) | Extracts, consolidates, and retrieves salient information from conversations and provides a graph memory variant | Extract at the fact/event/preference granularity instead of piling up raw logs |
+| [LiCoMemory, arXiv:2511.01448](https://arxiv.org/abs/2511.01448) | Hierarchical graph + temporal/hierarchy-aware search | Use the tag/link graph for layer-aware reranking |
+| [LongMemEval-V2, arXiv:2605.12493](https://arxiv.org/abs/2605.12493) | Decomposes long-term memory evaluation for web agents into static state, dynamic state, workflow, gotchas, premise awareness | Define the completion criterion as environment-experience query accuracy rather than "stored" |
 
-## 제안 13: Local Ebbinghaus Memory OS
+## Proposal 13: Local Ebbinghaus Memory OS
 
-### 메모리 레코드 형식
+### Memory Record Format
 
 ```yaml
 ---
@@ -1978,14 +1980,14 @@ tags: [memory, sop]
 memory_id: mem_20260619_001
 memory_kind: sop              # sop | fact | preference | episode | gotcha | workflow
 memory_layer: warm            # hot | warm | cold | archive
-event_time: 2026-06-18T00:00:00Z       # 사실이 세상에서 참이 된 시점
-ingestion_time: 2026-06-19T09:00:00Z   # 에이전트가 이 사실을 배운 시점
+event_time: 2026-06-18T00:00:00Z       # when the fact became true in the world
+ingestion_time: 2026-06-19T09:00:00Z   # when the agent learned this fact
 record_updated_at: 2026-06-19T09:00:00Z
 last_accessed: 2026-06-19T09:00:00Z
 access_count: 3
-access_ema: 1.42              # 최근 접근을 더 크게 보는 지수 이동 평균
-importance: 0.82              # agent/role/task 기반 중요도
-confidence: 0.91              # 추출 신뢰도
+access_ema: 1.42              # exponential moving average that weighs recent access more
+importance: 0.82              # importance based on agent/role/task
+confidence: 0.91              # extraction confidence
 decay_lambda: 0.02
 strength: 0.78
 valid_from: 2026-06-19T00:00:00Z
@@ -1996,18 +1998,18 @@ keep: false
 ---
 ```
 
-### Bi-temporal 시간 모델
+### Bi-temporal Time Model
 
-| 필드 | 의미 | 사용 위치 |
+| Field | Meaning | Usage Location |
 |:--|:--|:--|
-| `event_time` | 사실/사건이 실제 세계에서 발생했거나 참이 된 시점 | "그때는 참이었나?" 질의, temporal conflict, `valid_from` 기본값 |
-| `ingestion_time` | 에이전트가 그 사실을 관측·학습·저장한 시점 | 감쇄 기준 fallback, 소스 최신성, 재현 가능한 감사 추적 |
-| `valid_from` / `valid_to` | 사실이 유효한 구간 | 오래된 CVE, 만료 IOC, 교체된 자격증명 판단 |
-| `last_accessed` | 검색 결과로 사용된 마지막 시점 | Ebbinghaus 강화/감쇄 계산 |
+| `event_time` | When the fact/event actually occurred or became true in the real world | "Was it true at that time?" queries, temporal conflict, default for `valid_from` |
+| `ingestion_time` | When the agent observed/learned/stored that fact | Decay fallback, source recency, reproducible audit trail |
+| `valid_from` / `valid_to` | The interval during which the fact is valid | Judging stale CVEs, expired IOCs, replaced credentials |
+| `last_accessed` | The last time it was used as a search result | Ebbinghaus reinforcement/decay calculation |
 
-타임스탬프를 하나만 두면 "사실이 언제 참이었는지"와 "에이전트가 언제 배웠는지"가 섞인다. 로컬 기억 레이어는 이 둘을 분리해야 `CVE-2024-1234는 2024-03-15에는 위험했지만 2024-04-01 패치 이후 현재는 낮은 우선순위` 같은 판단을 할 수 있다.
+If you keep only a single timestamp, "when the fact was true" and "when the agent learned it" get conflated. The local memory layer must separate these two so it can make judgments like `CVE-2024-1234 was dangerous on 2024-03-15 but is now low priority after the 2024-04-01 patch`.
 
-### 감쇄 함수
+### Decay Function
 
 ```typescript
 type MemoryMeta = {
@@ -2025,7 +2027,7 @@ type MemoryMeta = {
 };
 
 const KIND_DECAY: Record<string, number> = {
-  sop: 0.006,       // 절차는 느리게 감쇄
+  sop: 0.006,       // procedures decay slowly
   workflow: 0.010,
   fact: 0.018,
   preference: 0.020,
@@ -2047,13 +2049,13 @@ function memoryStrength(meta: MemoryMeta, now = Date.now()): number {
 }
 ```
 
-### 로컬 파이프라인
+### Local Pipeline
 
 ```
 Write path:
   session/event/raw note
     → salient fact extraction
-    → event_time과 ingestion_time 분리 저장
+    → store event_time and ingestion_time separately
     → duplicate/source_hash check
     → temporal conflict check
     → memory_kind/layer assignment
@@ -2062,56 +2064,56 @@ Write path:
 Read path:
   query
     → lexical + semantic + graph candidates
-    → strength 계산
-    → role/context weight와 fuse
-    → 반환된 노트 recordAccess()로 강화
+    → strength calculation
+    → fuse with role/context weight
+    → reinforce returned notes via recordAccess()
 
 Maintenance path:
   daily or N writes
-    → strength 재계산
-    → hot↔warm↔cold 이동
-    → cold 요약본 생성
-    → obsolete/sensitive/malicious 노트 archive 또는 tombstone
+    → recompute strength
+    → move hot↔warm↔cold
+    → generate cold summaries
+    → archive or tombstone obsolete/sensitive/malicious notes
 ```
 
-### 구현 단위
+### Implementation Units
 
-| 단계 | 파일 | 변경 |
+| Step | File | Change |
 |:--|:--|:--|
-| 메타데이터 확장 | `tag-indexer.ts` | `memory_*`, `event_time`, `ingestion_time`, `access_ema`, `valid_*`, `supersedes` frontmatter 파싱 |
-| 1차 강도 계산 | `hybrid-search.ts` | `memoryStrength()`와 kind별 lambda를 검색 근처에 두고 fused score에 곱셈 |
-| 검색 통합 | `context-provider.ts`, `hybrid-search.ts` | frontmatter를 `HybridSearch.indexContent()`로 전달하고 archive layer 제외 |
-| 생성 메모리 | `mission-memory.ts` | mission memory frontmatter에 `event_time`, `ingestion_time`, `record_updated_at`, `last_accessed`, `memory_kind`, `memory_layer` 기록 |
-| 접근 강화 | `context-provider.ts` 또는 별도 writer | 검색 결과 반환 후 `recordAccess()` 호출. 1차 구현에서는 surprise disk write 방지를 위해 보류 |
-| 충돌/대체 | `memory-lifecycle.ts` (신규) | `valid_to`, `supersedes`, tombstone 처리 |
-| 평가 | `tests/knowledge-memory-decay.test.ts` | LongMemEval-V2식 로컬 fixture로 recall/latency/storage 측정 |
+| Metadata extension | `tag-indexer.ts` | Parse `memory_*`, `event_time`, `ingestion_time`, `access_ema`, `valid_*`, `supersedes` frontmatter |
+| Primary strength calculation | `hybrid-search.ts` | Place `memoryStrength()` and per-kind lambda near search and multiply into the fused score |
+| Search integration | `context-provider.ts`, `hybrid-search.ts` | Pass frontmatter to `HybridSearch.indexContent()` and exclude the archive layer |
+| Generated memory | `mission-memory.ts` | Record `event_time`, `ingestion_time`, `record_updated_at`, `last_accessed`, `memory_kind`, `memory_layer` in mission memory frontmatter |
+| Access reinforcement | `context-provider.ts` or a separate writer | Call `recordAccess()` after returning search results. Deferred in the first implementation to avoid surprise disk writes |
+| Conflict/replacement | `memory-lifecycle.ts` (new) | Handle `valid_to`, `supersedes`, tombstones |
+| Evaluation | `tests/knowledge-memory-decay.test.ts` | Measure recall/latency/storage with LongMemEval-V2-style local fixtures |
 
-### 2026-06-19 구현 반영 업데이트
+### 2026-06-19 Implementation Update
 
-1차 반영 범위는 안전한 read-path 중심이다. `event_time`과 `ingestion_time`을 파싱·생성하고, 명시적 메모리 metadata가 있는 노트에만 Ebbinghaus식 감쇄 multiplier를 적용한다. metadata가 없는 기존 문서는 neutral multiplier `1.0`을 유지하므로 일반 문서 검색 결과는 기존 랭킹 정책을 유지한다.
+The first-pass scope is focused on the safe read path. It parses and generates `event_time` and `ingestion_time`, and applies the Ebbinghaus-style decay multiplier only to notes that have explicit memory metadata. Existing documents without metadata keep a neutral multiplier of `1.0`, so search results for ordinary documents retain the existing ranking policy.
 
-감쇄 수식은 단일 출처(`memory-scoring.ts`)로 통합되어 `hybrid-search.ts`(검색 랭킹)와 `memory-lifecycle.ts`(유지보수)가 동일한 `memoryStrength()`, `KIND_DECAY`, 상수를 공유한다. 출시된 상수는 강도 clamp 하한 `0.05`, quality 기본값 `importance=1.0 · confidence=1.0`(하한 `0.1`), 만료(`valid_to`) multiplier `0.35`, `keep=true → 1.0`, archive layer `→ 0`이다.
+The decay formula has been consolidated into a single source (`memory-scoring.ts`), so that `hybrid-search.ts` (search ranking) and `memory-lifecycle.ts` (maintenance) share the same `memoryStrength()`, `KIND_DECAY`, and constants. The shipped constants are: strength clamp lower bound `0.05`, quality defaults `importance=1.0 · confidence=1.0` (lower bound `0.1`), expiration (`valid_to`) multiplier `0.35`, `keep=true → 1.0`, and archive layer `→ 0`.
 
-이전에 "보류"로 표기됐던 항목들은 실제로는 구현되었으나 **자동 실행되지 않는다**:
+Items previously marked as "deferred" were in fact implemented, but **do not run automatically**:
 
-- `recordAccess()`의 영속 쓰기(접근 count/EMA/`last_accessed` frontmatter 갱신)는 **구현되었지만 기본 OFF, opt-in**이다. 검색 중 surprise disk mutation을 막기 위해 `KnowledgeContextProvider` 생성자 플래그(`enableAccessWriteback`) 또는 환경변수 `OPENCODE_MEMORY_WRITEBACK`(truthy = `"1"`/`"true"`)로만 활성화된다. 기본 검색 경로는 디스크를 변경하지 않는다.
-- hot/warm/cold 물리 이동(tier move/archive)과 tombstone 기반 시간적 대체(temporal supersession)는 **구현되었지만 수동/opt-in**이다. 단일 진입점 `runMemoryMaintenance()`(`src/core/knowledge/index.ts`에서 export)를 통해서만 실행되며, **기본값은 `dryRun: true`**로 파일을 이동하지 않고 계획(plan)만 반환한다. 파괴적 이동은 `dryRun: false`를 명시적으로 전달할 때만 수행되고, 어떤 search/index 경로에서도 호출되지 않는다(필요 시 `OPENCODE_MEMORY_MAINTENANCE`로 게이트).
+- `recordAccess()`'s persistent writes (updating access count/EMA/`last_accessed` frontmatter) are **implemented but OFF by default and opt-in**. To prevent surprise disk mutation during search, they are activated only via the `KnowledgeContextProvider` constructor flag (`enableAccessWriteback`) or the environment variable `OPENCODE_MEMORY_WRITEBACK` (truthy = `"1"`/`"true"`). The default search path makes no disk changes.
+- hot/warm/cold physical movement (tier move/archive) and tombstone-based temporal supersession are **implemented but manual/opt-in**. They run only through the single entry point `runMemoryMaintenance()` (exported from `src/core/knowledge/index.ts`), and the **default is `dryRun: true`**, which returns only a plan without moving files. Destructive moves are performed only when `dryRun: false` is explicitly passed, and they are never invoked from any search/index path (gate via `OPENCODE_MEMORY_MAINTENANCE` if needed).
 
-### 로컬 평가 게이트
+### Local Evaluation Gates
 
-| 게이트 | 기준 |
+| Gate | Criterion |
 |:--|:--|
-| Recall | static state, workflow, gotcha 질의에서 baseline 대비 MRR@10 비회귀 |
-| Temporal | `event_time` 기준 과거 사실과 `ingestion_time` 기준 학습 시점이 분리되고, 최신 정보가 과거 정보보다 먼저 검색되며 과거 정보는 `valid_to`로 설명 가능 |
-| Storage | raw memory 대비 active layer 토큰 수 30% 이상 감소 |
-| Latency | 검색 p95가 baseline 대비 20% 이상 악화되지 않음 |
-| Safety | `privacy_class=sensitive` 또는 malicious marker는 검색 프롬프트에 포함되지 않음 |
-| Recoverability | archive/tombstone된 노트는 수동 복구 경로가 존재 |
+| Recall | No MRR@10 regression vs. baseline on static state, workflow, and gotcha queries |
+| Temporal | Past facts (by `event_time`) and learning time (by `ingestion_time`) are separated, newer information is retrieved before older information, and older information is explainable via `valid_to` |
+| Storage | At least 30% reduction in active-layer token count vs. raw memory |
+| Latency | Search p95 does not degrade by more than 20% vs. baseline |
+| Safety | `privacy_class=sensitive` or malicious markers are not included in the search prompt |
+| Recoverability | Archived/tombstoned notes have a manual recovery path |
 
-### 핵심 판단
+### Key Judgment
 
-로컬 기반 에빙하우스 메모리는 가능하다. 단, 단순히 `last_accessed`로 오래된 노트를 삭제하면 위험하다. 안전한 구현은 **감쇄 점수로 검색 노출을 줄이고, 압축/아카이브는 별도 dry-run과 tombstone을 거친 뒤 실행**하는 구조다. 이렇게 하면 외부 벡터 DB나 클라우드 메모리 서비스 없이도 장기 기억의 정확도, 비용, 보안성을 함께 관리할 수 있다.
+A local-based Ebbinghaus memory is feasible. However, simply deleting old notes by `last_accessed` is dangerous. A safe implementation is a structure that **reduces search exposure via decay scores, and performs compaction/archiving only after a separate dry-run and tombstoning**. This way, the accuracy, cost, and security of long-term memory can be managed together without an external vector DB or cloud memory service.
 
 ---
 
-*작성: AI Agent · 2026-06-19 · opencode-orchestrator 검색 시스템 고도화 제안 (Part 1: 검색 고도화 제안 1~7, Part 2: 기억 감쇄 제안 8~12, Part 3: 로컬 에빙하우스 메모리 OS 제안 13)*
+*Authored by: AI Agent · 2026-06-19 · opencode-orchestrator search system enhancement proposal (Part 1: search enhancement Proposals 1–7, Part 2: memory decay Proposals 8–12, Part 3: local Ebbinghaus memory OS Proposal 13)*

@@ -140,7 +140,7 @@
 
 ---
 
-## Phase 6 — Refactoring & full re-audit (전수조사)
+## Phase 6 — Refactoring & full re-audit
 
 **Files:** repo-wide (read-mostly; small DRY refactors only)
 

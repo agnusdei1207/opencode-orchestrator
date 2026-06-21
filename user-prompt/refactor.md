@@ -43,454 +43,454 @@
 
 ---
 
-## 프로젝트 특화 보강 규칙 — pentesting 코드베이스 전용
+## Project-Specific Reinforcement Rules — pentesting codebase only
 
-> 이 섹션은 범용 원칙 위에 추가되는 **프로젝트 전용 필수 규칙**이다.
-> 현재 코드베이스(`MainAgent` / pipeline / delegated runtime / prompt builder / TUI)에 즉시 적용한다.
+> This section adds **project-specific mandatory rules** on top of the universal principles.
+> Apply them immediately to the current codebase (`MainAgent` / pipeline / delegated runtime / prompt builder / TUI).
 
-### A. 응집도(Cohesion) 판단 원칙
+### A. Cohesion Decision Principles
 
-- 하나의 모듈은 가능하면 **하나의 주된 변경 이유**를 가져야 한다.
-- 다만 **응집도를 높이는 것 자체가 목표는 아니다.**
-- **결합도를 낮추는 방향은 기본적으로 유효하지만, 응집도 증가는 자동 정답으로 취급하지 않는다.**
-- 응집도 조정은 아래를 함께 검토한 뒤에만 채택한다:
-  - 아키텍처 경계가 더 명확해지는가
-  - 확장 포인트가 더 나아지는가
-  - 운영/배포/테스트 단위가 더 좋아지는가
-  - 미래 변경 비용이 실제로 줄어드는가
-  - 단지 관련 코드들을 한곳에 모으는 것 이상 의미가 있는가
-- 즉, **응집도 증가가 인터페이스 축소, 경계 명확화, 확장성 개선, 운영 변경 비용 감소로 이어지지 않으면 정답이 아닐 수 있다.**
-- 로컬 응집도가 높아 보여도 아래가 나빠지면 잘못된 리팩토링으로 본다:
-  - 독립 배포/교체 가능성
-  - 런타임 확장 지점의 명확성
-  - 팀/운영 소유권 경계
-  - 장애 격리와 롤백 범위
-- 반대로, 변경 이유가 완전히 같지 않더라도 아래 이유가 구조적으로 정당하면 함께 둘 수 있다:
-  - 동일한 아키텍처 경계 안에서 하나의 계약을 완성함
-  - 같은 배포 단위와 장애 격리 단위를 공유함
-  - 동일한 확장 포인트를 안정적으로 보존해야 함
-- 파일이 아래 중 2개 이상에 해당하면 분해 후보로 간주한다:
-  - 상태 관리 + 입출력 + 정책 판단을 함께 수행
-  - 도메인 규칙 + UI 포맷팅을 함께 수행
-  - 런타임 설정 해석 + 파일 I/O + 기본값 정책을 함께 수행
-  - scheduler + executor + result shaping 을 한 파일에서 모두 처리
-- 단, 아래에 해당하면 무리하게 합치지 않는다:
-  - 현재 분리가 아키텍처 경계를 보존하고 있음
-  - 확장 포인트가 이미 독립 계약으로 잘 드러나 있음
-  - 테스트 격리가 합쳐질 때 더 나빠짐
-  - 배포/운영 관점에서 독립 교체 가능성이 중요함
-- `Manager`, `Helper`, `Processor`, `Runtime` 같은 넓은 이름을 유지하려면:
-  - 책임 범위를 문서 한 줄로 명확히 적을 수 있어야 하며
-  - 그 설명이 "and" 없이 끝나야 한다.
-- 응집도 판단 기준:
-  - 같은 이유로 함께 수정되는가?
-  - 같은 테스트 fixture를 공유하는가?
-  - 같은 도메인 언어로 설명 가능한가?
-  - 같은 입력/출력 경계를 가지는가?
-  - 같은 배포/운영 경계에 있어야 하는가?
-  - 같은 확장 시나리오를 공유하는가?
+- A module should, where possible, have **one primary reason to change**.
+- However, **increasing cohesion is not itself the goal.**
+- **Lowering coupling is generally valid as a direction, but increasing cohesion is not treated as an automatic correct answer.**
+- Adopt a cohesion adjustment only after also reviewing the following:
+  - Does the architectural boundary become clearer?
+  - Do the extension points improve?
+  - Do the operational/deployment/test units improve?
+  - Does the future cost of change actually decrease?
+  - Is there meaning beyond merely gathering related code in one place?
+- In other words, **if increasing cohesion does not lead to a smaller interface, clearer boundaries, better extensibility, and lower operational change cost, it may not be the correct answer.**
+- Even if local cohesion looks high, treat it as a bad refactoring if any of the following gets worse:
+  - Independent deployability/replaceability
+  - Clarity of runtime extension points
+  - Team/operational ownership boundaries
+  - Fault isolation and rollback scope
+- Conversely, even if the reasons to change are not entirely identical, code may be kept together when the following are structurally justified:
+  - It completes a single contract within the same architectural boundary
+  - It shares the same deployment unit and fault-isolation unit
+  - It must stably preserve the same extension point
+- Treat a file as a decomposition candidate if it matches 2 or more of the following:
+  - Performs state management + I/O + policy decisions together
+  - Performs domain rules + UI formatting together
+  - Performs runtime config interpretation + file I/O + default-value policy together
+  - Handles scheduler + executor + result shaping all in one file
+- However, do not force a merge if any of the following applies:
+  - The current separation preserves an architectural boundary
+  - The extension points are already well exposed as independent contracts
+  - Test isolation gets worse when merged
+  - Independent replaceability matters from a deployment/operations standpoint
+- To keep broad names like `Manager`, `Helper`, `Processor`, `Runtime`:
+  - You must be able to state the responsibility scope clearly in one line of documentation, and
+  - That description must end without an "and."
+- Cohesion decision criteria:
+  - Is it modified together for the same reason?
+  - Does it share the same test fixture?
+  - Can it be described in the same domain language?
+  - Does it have the same input/output boundary?
+  - Should it be in the same deployment/operations boundary?
+  - Does it share the same extension scenario?
 
-### B. 결합도(Coupling) 하향 원칙
+### B. Coupling Reduction Principles
 
-- 상위 정책은 하위 구현 상세를 직접 알면 안 된다.
-- 결합도 하향은 기본 원칙으로 유지한다.
-- 다만 결합도를 낮추기 위해 불필요한 추상화, 과도한 facade, 의미 없는 중간 계층을 도입하지는 않는다.
-- 가장 좋은 상태는 "낮은 결합도 + 필요한 만큼의 명확한 응집"이지, "무조건 분리된 구조"나 "무조건 응집도 상승"이 아니다.
-- 결합도를 낮추는 일이 항상 유리하더라도, 응집도 조정은 시스템 수준의 경계와 확장성 개선이 입증될 때만 수행한다.
-- 문자열 기반 연결은 최소화한다:
-  - 문자열 키가 필요하면 상수 또는 typed registry를 통해서만 접근
-  - 자유 문자열 dispatch 추가 금지
-- 모듈 간 허용 의존 방향:
+- High-level policy must not directly know low-level implementation details.
+- Keep coupling reduction as a baseline principle.
+- However, do not introduce unnecessary abstractions, excessive facades, or meaningless intermediate layers just to lower coupling.
+- The best state is "low coupling + exactly as much clear cohesion as needed," not "separation at all costs" or "cohesion increase at all costs."
+- Even though lowering coupling is always advantageous, perform cohesion adjustments only when system-level boundary and extensibility improvements are proven.
+- Minimize string-based wiring:
+  - If a string key is required, access it only through a constant or a typed registry
+  - No adding free-form string dispatch
+- Allowed inter-module dependency direction:
   - `platform -> agents -> engine -> domains/shared`
-  - 역방향 참조 금지
-- 직접 파일 경로 결합, `process.cwd()` 결합, 특정 디렉토리 구조 가정 결합은 문서화 없는 경우 금지
-- 한 모듈이 다른 모듈의 내부 shape를 3개 이상 알아야 하면 결합도가 높다고 판단하고 계약(interface/type/facade)으로 축소한다.
+  - No reverse references
+- Direct file-path coupling, `process.cwd()` coupling, and coupling that assumes a specific directory structure are forbidden when undocumented.
+- If one module must know 3 or more internal shapes of another module, judge coupling as high and reduce it via a contract (interface/type/facade).
 
-### C. YAML / YML 비사용 원칙
+### C. No YAML / YML Principle
 
-- **새 runtime source of truth로 `yaml` / `yml`을 사용하지 않는다.**
-- 운영 경로의 설정은 반드시 **코드(TypeScript) 기반**으로 관리한다.
-- 허용되는 단일 기준:
+- **Do not use `yaml` / `yml` as a new runtime source of truth.**
+- Configuration on the operational path must be managed in a **code (TypeScript) based** form.
+- The only allowed baseline:
   - `src/agents/runtime-config.ts`
   - typed accessor / validator
-  - compile-time import 가능한 상수/객체
-- 금지:
-  - `pipeline.yaml` 부활
-  - `.yml` / `.yaml` 기반 prompt wiring
-  - 문자열 파싱 후 런타임에만 깨지는 구조
-  - 문서에는 코드 기반이라고 써 놓고 실제로는 YAML loader가 운영 경로를 지배하는 상태
-- 예외:
-  - 테스트 fixture
-  - 마이그레이션 중 임시 호환 레이어
-  - 외부 시스템과의 파일 교환 포맷
-  - archive 문서에서 과거 구조를 설명하는 기록
-- 단, 예외도 **운영 source of truth**가 되어서는 안 된다.
+  - compile-time importable constants/objects
+- Forbidden:
+  - Reviving `pipeline.yaml`
+  - `.yml` / `.yaml` based prompt wiring
+  - Structures that only break at runtime after string parsing
+  - A state where the docs claim it is code-based but a YAML loader actually governs the operational path
+- Exceptions:
+  - Test fixtures
+  - A temporary compatibility layer during migration
+  - File exchange formats with external systems
+  - Records in archive documents describing past structures
+- Even so, an exception must never become the **operational source of truth**.
 
-### D. Code-Driven Runtime Config 원칙
+### D. Code-Driven Runtime Config Principles
 
-- 설정은 “파일에 있다”가 아니라 “타입으로 보장된다”가 기준이다.
-- runtime config는 다음을 만족해야 한다:
-  - 타입 정의 존재
-  - accessor 존재
-  - 잘못된 참조 시 즉시 실패(fail fast)
-  - 문서와 코드의 기준점이 동일
-- config accessor는 조용한 기본값을 남발하지 않는다.
-- 기본값이 필요하면:
-  - 왜 기본값이 안전한지 설명 가능해야 하며
-  - 테스트가 그 기본값을 고정해야 한다.
-- 경로 기반 설정은 패키징/배포 경로까지 고려해 절대/상대 기준을 명확히 한다.
+- The criterion for configuration is "it is guaranteed by types," not "it exists in a file."
+- Runtime config must satisfy the following:
+  - A type definition exists
+  - An accessor exists
+  - It fails fast on an invalid reference
+  - The reference point of the docs and the code is identical
+- A config accessor must not overuse silent defaults.
+- If a default value is needed:
+  - You must be able to explain why the default is safe, and
+  - A test must pin that default value.
+- For path-based configuration, clarify the absolute/relative basis by considering packaging/deployment paths as well.
 
-### E. 이 프로젝트에서 우선 분해할 경계
+### E. Boundaries to Decompose First in This Project
 
-- `MainAgent`: orchestration만 남기고 정책/실행/입출력 후처리 분리
-- pipeline loader/runner: 선언 해석과 실행 엔진 경계 분리
-- prompt builder: 레이어 해석, 파일 로딩, state formatting, truncation 정책 분리
-- delegated execution: queue/scheduler/handoff/runtime/executor 책임 혼합 금지
-- config 계층: env/runtime-config/path-resolution/default-policy 검증을 한 군데서 끝내기
+- `MainAgent`: keep only orchestration and separate policy/execution/I/O post-processing
+- pipeline loader/runner: separate the boundary between declaration interpretation and the execution engine
+- prompt builder: separate layer interpretation, file loading, state formatting, and truncation policy
+- delegated execution: no mixing of queue/scheduler/handoff/runtime/executor responsibilities
+- config layer: finish env/runtime-config/path-resolution/default-policy validation in one place
 
-### F. 문서화 원칙
+### F. Documentation Principles
 
-- 리팩토링 문서는 “무엇을 예쁘게 만들까”가 아니라 아래를 답해야 한다:
-  - 어떤 결합을 끊는가
-  - 어떤 응집을 조정하는가
-  - 왜 그 조정이 아키텍처 경계와 확장성에 실제로 도움이 되는가
-  - 어떤 source of truth를 제거하는가
-  - 어떤 단계로 옮기고 언제 구코드를 삭제하는가
-- 문서에는 다음 판단을 명시해야 한다:
-  - 이번 변경이 단순 응집도 상승을 노린 것인지, 아니면 경계/확장성/운영성을 개선하기 위한 것인지
-  - 응집도를 더 높이지 않기로 한 이유가 있는지
-- 모든 구조 변경 문서는 다음 5개를 포함해야 한다:
-  - 현재 문제
-  - 목표 경계
-  - 삭제 대상
-  - 단계별 이행 순서
-  - 검증 항목
+- A refactoring document must answer the following, not "what should we make pretty":
+  - Which coupling is being broken
+  - Which cohesion is being adjusted
+  - Why that adjustment actually helps the architectural boundary and extensibility
+  - Which source of truth is being removed
+  - By which steps it is being moved and when the old code is deleted
+- The document must state the following judgments explicitly:
+  - Whether this change aims at a mere cohesion increase, or at improving boundaries/extensibility/operability
+  - Whether there is a reason for deciding not to raise cohesion further
+- Every structural-change document must include the following 5 items:
+  - Current problem
+  - Target boundary
+  - Deletion targets
+  - Step-by-step migration order
+  - Verification items
 
-### G. 진행 기록 원칙
+### G. Progress Recording Principles
 
-- 큰 리팩토링은 계획 문서에 `Current Status Snapshot` 또는 동등한 진행 현황 섹션을 유지한다.
-- 계획 문서는 future work만 적지 말고, **오늘 기준 완료된 구조 변경**도 함께 적는다.
-- 문서에 적힌 “남은 작업”은 실제 코드 기준으로 갱신되어야 한다.
+- For large refactorings, maintain a `Current Status Snapshot` or equivalent progress section in the plan document.
+- The plan document should record not only future work but also the **structural changes completed as of today**.
+- The "remaining work" written in the document must be kept up to date against the actual code.
 
 ---
 
-## 섹션 미리보기
+## Section Preview
 
-| # | 섹션 | 한 줄 요약 |
+| # | Section | One-Line Summary |
 |:---:|:---|:---|
-| **§0** | Prerequisites | 전수조사 → 빌드 0에러 → 테스트 100% pass → 롤백 확보 |
-| **§POST** | **Post-Execution Audit** | **작업 후 필수: 전체 안전성·연결성·일관성 전수조사** |
-| **§1** | Stabilization | P0~P3 결함 우선순위, acquire→use→release, 에러 전파, 동시성 |
-| **§2** | Flow Integrity | 마이크로 추적으로 Producer→Consumer 1:1 검증, Dead Code 분류 |
-| **§3** | Structural Refactoring | 관심사 분리, 의존성 방향, 도메인 우선 디렉토리, 계층 일관성 |
-| **§4** | Code-Level Refactoring | 복잡도 ≤10, 파라미터 ≤4, Magic Value 0, 타입 안전 |
-| **§5** | Constants/Config | 4계층 분류, 도메인별 상수 파일, 불변성·타입 도출 |
-| **§6** | Comment & Doc | WHY만 남기고 노이즈 삭제, TODO에 이슈번호+기한 |
-| **§7** | Readability | 줄당 1의미, 추상화 수준 통일, Happy path 들여쓰기 없이 |
-| **§8** | Test & Verification | Unit 70%, 경계값 필수, 테스트-소스 동기화(Test Sync) |
-| **§9** | Security & Safety | 스코프 가드, 승인 게이트, 민감 데이터 격리 |
-| **§10** | Performance | 측정 먼저, 상위 20% 병목, 가독성 해치는 최적화 금지 |
+| **§0** | Prerequisites | Full survey → build 0 errors → tests 100% pass → rollback secured |
+| **§POST** | **Post-Execution Audit** | **Mandatory after work: full safety/connectivity/consistency survey** |
+| **§1** | Stabilization | P0~P3 defect priority, acquire→use→release, error propagation, concurrency |
+| **§2** | Flow Integrity | Verify Producer→Consumer 1:1 via micro-tracing, classify Dead Code |
+| **§3** | Structural Refactoring | Separation of concerns, dependency direction, domain-first directories, layer consistency |
+| **§4** | Code-Level Refactoring | Complexity ≤10, parameters ≤4, Magic Value 0, type safety |
+| **§5** | Constants/Config | 4-layer classification, per-domain constant files, immutability/type derivation |
+| **§6** | Comment & Doc | Keep only WHY and remove noise, issue number + deadline on TODO |
+| **§7** | Readability | One meaning per line, uniform abstraction level, Happy path without indentation |
+| **§8** | Test & Verification | Unit 70%, boundary values mandatory, Test-Source synchronization (Test Sync) |
+| **§9** | Security & Safety | Scope guards, approval gates, sensitive data isolation |
+| **§10** | Performance | Measure first, top 20% bottlenecks, no optimization that harms readability |
 | **§11** | Execution Protocol | AUDIT→PLAN→EXECUTE→TEST→HARDEN→DOCUMENT→VERIFY |
-| **§12** | Master Checklist | A~V 22개 카테고리 체크리스트 (최종 검증용) |
-| **§13** | Domain-Driven Structure | 1개념=1도메인, 폴더당 ≤7, 도메인 간 직접 참조 금지 |
-| **§15** | Migration | 역방향 DOWN 필수, 컬럼 추가→사용→삭제 순서 |
-| **§16** | API Contract | SemVer, Breaking change 정의, Deprecation sunset |
-| **§17** | Dependency Management | 50줄 구현 가능? → 외부 의존성 불필요, 어댑터 래핑 |
-| **§18** | Production Safety | 피처 플래그, 카나리 롤아웃, 5분 이내 롤백 |
-| **§19** | Monitoring | 기준선 기록, 동일 워크로드 비교, 24시간 관측 |
-| **§20** | Technical Debt | 인벤토리 관리, 스프린트 15~20% 예약, 분기별 감사 |
-| **§21** | Legacy Code | 특성화 테스트로 현행 동작 캡처 후 안전 리팩토링 |
-| **§22** | Git Hygiene | type(scope): subject, 원자적 커밋, PR ≤400줄 |
-| **§23** | Prioritization | Priority = Pain/Effort, Hotspot 우선 |
-| **§24** | Type System | 원시→enum→branded→판별 공용체, Parse don't validate |
-| **§25** | Error Handling | 재시도(멱등만), 회로차단기, 폴백 5계층 |
-| **§26** | Concurrency | 공유 상태 회피 → RW Lock → Actor → Channel → Mutex |
-| **§27** | Configuration | CLI > env > 로컬 > 공유 > 기본값, 비밀은 vault/env만 |
-| **§28** | Simplification | "불필요한 복잡도 제거" → 단순화 또는 제거 |
-| **§M** | Modulization | 작은 단위부터, 독립 단계로, 모듈화 계획서 작성 후 진행 |
-| **§REPORT** | **Work Report** | **작업 완료 보고서 (메타데이터·상태·싱크·부채)** |
-| **§REVIEW** | **Multi-Perspective Code Review** | **§POST 후 10개 관점 전수 코드 리뷰 — 실행형** ← NEW |
-| **§IMPROVE** | **Document Improvement Log** | **문서 자체의 개선사항 추적** |
+| **§12** | Master Checklist | A~V 22-category checklist (for final verification) |
+| **§13** | Domain-Driven Structure | 1 concept = 1 domain, ≤7 per folder, no direct cross-domain references |
+| **§15** | Migration | Reverse DOWN mandatory, add→use→drop column order |
+| **§16** | API Contract | SemVer, Breaking change definition, Deprecation sunset |
+| **§17** | Dependency Management | Implementable in 50 lines? → external dependency unnecessary, adapter wrapping |
+| **§18** | Production Safety | Feature flags, canary rollout, rollback within 5 minutes |
+| **§19** | Monitoring | Baseline recording, same-workload comparison, 24-hour observation |
+| **§20** | Technical Debt | Inventory management, reserve 15~20% per sprint, quarterly audit |
+| **§21** | Legacy Code | Capture current behavior with characterization tests, then refactor safely |
+| **§22** | Git Hygiene | type(scope): subject, atomic commits, PR ≤400 lines |
+| **§23** | Prioritization | Priority = Pain/Effort, Hotspot first |
+| **§24** | Type System | primitive→enum→branded→discriminated union, Parse don't validate |
+| **§25** | Error Handling | Retry (idempotent only), circuit breaker, 5-layer fallback |
+| **§26** | Concurrency | Avoid shared state → RW Lock → Actor → Channel → Mutex |
+| **§27** | Configuration | CLI > env > local > shared > default, secrets only in vault/env |
+| **§28** | Simplification | "Remove unnecessary complexity" → simplify or remove |
+| **§M** | Modulization | Start from the smallest unit, in independent steps, after writing a modulization plan |
+| **§REPORT** | **Work Report** | **Work completion report (metadata/status/sync/debt)** |
+| **§REVIEW** | **Multi-Perspective Code Review** | **Full 10-perspective code review after §POST — executable** ← NEW |
+| **§IMPROVE** | **Document Improvement Log** | **Tracking improvements to the document itself** |
 
 ---
 
-## 🔴 매 섹션 실행 시 반드시 (MANDATORY EXECUTION RULES):
+## 🔴 MANDATORY EXECUTION RULES for every section:
 
 ```
-# 0. thoroughly check! — 피상적 확인 절대 금지
-# 1. [PRE]  작업 전 전체 프로젝트 완벽하게 전수조사 (§0-0)
-#           작은 의존관계부터 구조적·마이크로 플로우까지 끝까지 확인
-#           모든 흐름 상세 파악: 진입점 · 데이터 흐름 · 의존 관계 · 동적 등록/이벤트/DI
-# 2. [EXEC] 해당 번호의 체크리스트 문서 생성 후 체크하며 진행
-# 3. [EXEC] 매 체크항목마다 실제 코드 파일을 열어 마이크로 추적(Micro-Tracing) 실시
-# 4. [EXEC] grep/패턴 매칭으로 "확인했다" 판단 ❌ 금지 — 실제 코드 1줄씩 읽고 추적만 인정
-# 5. [EXEC] 할루시네이션 방지: 가정 금지, 소스코드 직접 확인만 인정
+# 0. thoroughly check! — never do superficial verification
+# 1. [PRE]  Before work, perform a complete full survey of the entire project (§0-0)
+#           Verify everything from the smallest dependency to structural/micro-flows
+#           Understand every flow in detail: entry points · data flow · dependencies · dynamic registration/events/DI
+# 2. [EXEC] Create the checklist document for that number and proceed while checking it off
+# 3. [EXEC] For every check item, open the actual code file and perform Micro-Tracing
+# 4. [EXEC] Judging "verified" via grep/pattern matching ❌ forbidden — only reading and tracing the actual code line by line is accepted
+# 5. [EXEC] Prevent hallucination: no assumptions, only direct verification of source code is accepted
 # 6. [EXEC] Zero Backward Compatibility:
-#           리팩토링/모듈화 후 사용하지 않는 구 코드·구 구조는 반드시 삭제.
-#           삭제 순서를 계획서에 시간순으로 상세하게 빠짐없이 기재. (thoroughly)
+#           After refactoring/modulization, old code/old structures no longer in use MUST be deleted.
+#           Record the deletion order in the plan, in chronological detail, leaving nothing out. (thoroughly)
 # 7. [EXEC] Zero Behavioral Change:
-#           기존 흐름을 해치지 않고 오직 리팩토링/모듈화만 진행. 100% 동작 보존.
-# 8. [POST] 작업 완료 후 반드시 §POST(전체 시스템 안전성 검증) 실행
-# 9. [POST] 작업 완료 후 반드시 §REPORT(보고서) 작성
-# 10. [POST] 작업 완료 후 반드시 §REVIEW(10개 관점 코드 리뷰) 실행
+#           Proceed with refactoring/modulization only, without harming the existing flow. 100% behavior preservation.
+# 8. [POST] After completing the work, MUST run §POST (full system safety verification)
+# 9. [POST] After completing the work, MUST write §REPORT (report)
+# 10. [POST] After completing the work, MUST run §REVIEW (10-perspective code review)
 ```
 
 ---
 
-## 0. Prerequisites — 리팩토링 시작 전 필수 조건
+## 0. Prerequisites — mandatory conditions before starting refactoring
 
-> ⚠️ **아래 조건이 충족되지 않으면 작업을 시작하지 마라.**
+> ⚠️ **Do not start work unless the conditions below are met.**
 
-**0-0. 전체 전수조사 (★ 절대 최우선 — 생략 불가)**
-- 작업 전 전체 프로젝트를 완벽하게 전수조사
-- 작은 의존관계부터 구조적·마이크로 플로우까지 끝까지 확인
-- 파악 대상: 진입점 · 데이터 흐름 · 모듈 간 의존 관계 · 동적 등록(Tool Registry, Event Emitter, DI) · Barrel/Entry point · 세대별 흐름(v1/v2)
-- **할루시네이션 금지**: grep으로 "확인했다" 판단 ❌ — 파일을 열어 직접 읽고 추적만 인정
-- 연결성 · 무결성 · 안전성 모두 확인. thoroughly.
+**0-0. Full survey (★ absolute top priority — cannot be skipped)**
+- Before work, perform a complete full survey of the entire project
+- Verify everything from the smallest dependency to structural/micro-flows
+- Targets to understand: entry points · data flow · inter-module dependencies · dynamic registration (Tool Registry, Event Emitter, DI) · Barrel/Entry point · generation-based flows (v1/v2)
+- **No hallucination**: judging "verified" via grep ❌ — only opening files, reading directly, and tracing is accepted
+- Verify connectivity · integrity · safety, all of them. thoroughly.
 
-**0-1. 상태 스냅샷**: VCS clean · 빌드 0 warnings · 전체 테스트 100% pass · 롤백 경로 확보 · 취약 의존성 없음
-**0-2. 범위 선언**: Target Module · Change Type · Expected Impact · Regression Risk · Rollback Strategy
-**0-3. 금지 사항**: 범위 선언 없이 수정 금지 · 테스트 없이 구조 변경 금지 · 리팩토링+기능추가 동시 커밋 금지 · 발견 버그 별도 추적 없이 수정 금지
-**0-4. 완료 기준**: Master Checklist(§12) 전항목 ✅ · 빌드 0에러 · 테스트 100% · 0 regression · 문서 업데이트 · 성능 저하 없음
-**0-5. 도달성 분석**: 동적 등록 매핑 완료 · Barrel/Entry point 외부 용도 파악 · 세대별 흐름 파악 · 진입점 기준 도달성 분석 완료
+**0-1. State snapshot**: VCS clean · build 0 warnings · all tests 100% pass · rollback path secured · no vulnerable dependencies
+**0-2. Scope declaration**: Target Module · Change Type · Expected Impact · Regression Risk · Rollback Strategy
+**0-3. Prohibitions**: no modification without a scope declaration · no structural change without tests · no commit mixing refactoring + feature addition · no fixing a discovered bug without separate tracking
+**0-4. Completion criteria**: all Master Checklist (§12) items ✅ · build 0 errors · tests 100% · 0 regression · docs updated · no performance degradation
+**0-5. Reachability analysis**: dynamic registration mapping complete · external uses of Barrel/Entry point understood · generation-based flows understood · reachability analysis from entry points complete
 
 ---
 
-## §POST. Post-Execution Audit — 작업 완료 후 필수 전수조사
+## §POST. Post-Execution Audit — mandatory full survey after work completion
 
-> **⚠️ 모든 작업(리팩토링·모듈화·기능추가·삭제 등) 완료 후 반드시 실행. 생략 불가.**
-> **변경사항이 많을수록 이 단계가 더 중요하다. 할루시네이션 체크 금지 — 전수조사 직접 수행.**
-> **⚠️ 전체 싱크 필수: 소스 변경으로 영향받는 모든 것(테스트·타입·상수·문서·임포트 등)을 빠짐없이 동기화.**
+> **⚠️ Must run after completing any work (refactoring · modulization · feature addition · deletion, etc.). Cannot be skipped.**
+> **The more changes there are, the more important this step is. No hallucination check — perform the full survey directly.**
+> **⚠️ Full Sync mandatory: synchronize everything affected by the source change (tests · types · constants · docs · imports, etc.) without omission.**
 
 ```
-【전체 시스템 안전성·연결성·일관성 전수조사 체크리스트】
+【Full system safety/connectivity/consistency survey checklist】
 
-▸ 안전성 (Safety)
-  □ 삭제된 코드를 참조하는 지점 0 (Dead reference 0)
-  □ 새 구조로의 이주가 누락된 소비자 0
-  □ 빌드 0에러 · 정적 분석 0에러
-  □ 전체 테스트 100% pass (regression 0)
+▸ Safety
+  □ 0 points referencing deleted code (Dead reference 0)
+  □ 0 consumers missing migration to the new structure
+  □ Build 0 errors · static analysis 0 errors
+  □ All tests 100% pass (regression 0)
 
-▸ 연결성 (Connectivity) — 실제 코드 열어 1줄씩 추적. grep 금지.
-  □ 모든 import/export 경로 추적 완료
-  □ 동적 연결(Registry/이벤트/DI/문자열 디스패치) 추적 완료
-  □ Barrel/Entry point 공개 API 일관성 확인
-  □ Producer→Consumer 필드 1:1 매칭 재검증
-  □ 고아 코드(와이어업 누락) 0
+▸ Connectivity — open the actual code and trace line by line. No grep.
+  □ All import/export paths traced
+  □ Dynamic wiring (Registry/event/DI/string dispatch) traced
+  □ Barrel/Entry point public API consistency confirmed
+  □ Producer→Consumer field 1:1 matching re-verified
+  □ Orphan code (missing wire-up) 0
 
-▸ 일관성 (Consistency)
-  □ 새 모듈·파일 명명 규칙 전체 통일
-  □ 계층 구조 일관성 유지 (Presentation/Business/Infrastructure)
-  □ 상수·타입 참조가 모두 현행 정의를 가리킴
-  □ 문서(README/ARCHITECTURE/CHANGELOG) 현행 구조 반영
+▸ Consistency
+  □ Naming conventions for new modules/files fully unified
+  □ Layer structure consistency maintained (Presentation/Business/Infrastructure)
+  □ All constant/type references point to current definitions
+  □ Docs (README/ARCHITECTURE/CHANGELOG) reflect the current structure
 
-▸ 전체 싱크 (Full Sync) — 소스 변경으로 영향받는 모든 항목 동기화
-  □ 테스트 코드: 시그니처·임포트·어설션·fixture 현행 소스 반영
-  □ 고아 테스트 0 (삭제된 소스에 대응하는 테스트 즉시 삭제)
-  □ 누락 테스트 0 (새로 추가된 공개 함수에 테스트 존재)
-  □ 타입 정의: 인터페이스·enum·branded type 변경 시 모든 참조 업데이트
-  □ 상수/설정: 이동·이름 변경 시 모든 소비자 임포트 경로 업데이트
-  □ 환경 변수·설정 파일: 변경 시 테스트 설정·문서 동기화
-  □ Mock/Stub: 현행 계약(시그니처·반환값) 반영
-  □ 문서(README·ARCHITECTURE·CHANGELOG·ADR): 현행 구조 완전 반영
+▸ Full Sync — synchronize every item affected by the source change
+  □ Test code: signatures · imports · assertions · fixtures reflect the current source
+  □ Orphan tests 0 (immediately delete tests corresponding to deleted source)
+  □ Missing tests 0 (a test exists for each newly added public function)
+  □ Type definitions: update all references when interface · enum · branded type change
+  □ Constants/config: update all consumer import paths on move/rename
+  □ Environment variables/config files: synchronize test config and docs on change
+  □ Mock/Stub: reflect the current contract (signature · return value)
+  □ Docs (README · ARCHITECTURE · CHANGELOG · ADR): fully reflect the current structure
 
-▸ 프로젝트 영향도 분석
-  □ 변경된 모듈의 상위·하위 의존성 전수조사
-  □ 작은 의존관계부터 구조적·마이크로 플로우까지 끝까지 확인
-  □ 문제 없음 확인. 문제 발견 시 즉시 보고 후 수정.
+▸ Project impact analysis
+  □ Full survey of upstream/downstream dependencies of the changed module
+  □ Verify everything from the smallest dependency to structural/micro-flows
+  □ Confirm no problems. If a problem is found, report immediately, then fix.
 ```
 
-**→ §POST 완료 후 §REPORT 작성, 이어서 §REVIEW 실행 필수.**
+**→ After §POST, writing §REPORT and then running §REVIEW is mandatory.**
 
 ---
 
-## 1. Stabilization — 안정화
+## 1. Stabilization
 
-**1-1. 결함 우선순위**: P0(크래시/보안) 즉시 · P1(비즈니스 로직) 당일 · P2(비효율) 사이클 내 · P3(네이밍/스타일) 별도 커밋
+**1-1. Defect priority**: P0 (crash/security) immediately · P1 (business logic) same day · P2 (inefficiency) within the cycle · P3 (naming/style) separate commit
 
-**1-2. 리소스 라이프사이클**: acquire→use→release 보장
-- 획득 실패 → 명시적 에러 반환 · 사용 중 예외 → release 경로 보장 · 해제 후 재사용 차단
-- **Background Asset**: 역할(server/worker/watcher/daemon 등) 명명 · 부모-자식 트리 추적 · 좀비/고아 자동 감지 · 작업 완료 시 즉시 정리
-- **프로세스/스레드**: 자식 상태 확인 후 부모 종료 · 스레드풀 drain · SIGTERM/SIGINT 핸들러 · graceful shutdown
-- **정리 순서**: 역의존성 순서 · 외부→내부 순서 · 공유 리소스 최후 · 정리 실패 격리(try-catch)
+**1-2. Resource lifecycle**: guarantee acquire→use→release
+- Acquisition failure → return an explicit error · exception during use → guarantee the release path · block reuse after release
+- **Background Asset**: name by role (server/worker/watcher/daemon, etc.) · track the parent-child tree · auto-detect zombies/orphans · clean up immediately on completion
+- **Process/thread**: terminate the parent after checking child state · drain the thread pool · SIGTERM/SIGINT handlers · graceful shutdown
+- **Cleanup order**: reverse-dependency order · outer→inner order · shared resources last · isolate cleanup failures (try-catch)
 
-**1-3. 에러 전파**: 가장 가까운 "처리 가능 계층"으로 전파 · 에러 삼키기 금지 · 메시지에 what+why+context 포함
+**1-3. Error propagation**: propagate to the nearest "handleable layer" · no swallowing errors · include what+why+context in the message
 
-**1-4. 동시성 안정화**: 데이터 레이스 → 불변성/동기화 · 데드락 → 락 순서 강제 · 기아 → 공정 스케줄링
+**1-4. Concurrency stabilization**: data race → immutability/synchronization · deadlock → enforce lock order · starvation → fair scheduling
 
-**1-5. 에러 분류**: 복구가능/치명적 × 비즈니스/기술/외부 × 일시적/영구적
-- Business+Permanent → 도메인 에러 반환 · Technical+Transient → 재시도+백오프 · External+Transient → 회로차단기
-- 모든 에러에 WHAT, WHY, WHERE, WITH WHAT, WHEN 포함
+**1-5. Error classification**: recoverable/fatal × business/technical/external × transient/permanent
+- Business+Permanent → return a domain error · Technical+Transient → retry+backoff · External+Transient → circuit breaker
+- Include WHAT, WHY, WHERE, WITH WHAT, WHEN in every error
 
 ---
 
-## 2. Flow Integrity — 흐름 무결성
+## 2. Flow Integrity
 
-> **⚠️ 모든 흐름 검증은 실제 코드를 한 줄씩 읽고 추적. grep/패턴 매칭으로 "확인했다"고 판단 절대 금지.**
+> **⚠️ Verify every flow by reading and tracing the actual code line by line. Judging "verified" via grep/pattern matching is absolutely forbidden.**
 
-**마이크로 추적(Micro-Tracing)**:
+**Micro-Tracing**:
 ```
-□ 생산자 함수 열어 출력 필드 목록 작성
-□ 소비자 함수 열어 입력 필드 목록 작성
-□ 두 목록 1:1 대조 — 누락/불일치/미사용 식별
-□ 중간 변환 단계마다 동일 검증
-□ 직렬화↔역직렬화 경계에서 스키마 일치 확인
-□ 분기문(if/switch) 모든 경로에서 필드 접근 검증
-```
-
-**2-1. 호출 체인 추적**: 진입점 열거(API/Event/Cron/CLI) → 분기 끝까지 추적 → 도달 불가 코드 식별
-**2-2. 상태 전이 완전성**: 모든 상태/전이 명시 · 미정의 전이 에러 처리 · 터미널 상태에서 추가 전이 차단
-**2-3. 경계 교차 검증**: 입력 검증(수신측) · 출력 계약(송신측) · 세션/인증 재검증 · 직렬화 스키마 호환 · 외부 호출 타임아웃 · 멱등성 보장 시만 재시도
-
-**2-4. Dead Code 분류 & 액션**:
-- Type A(완전 미참조) → 즉시 삭제
-- Type B(항상 false 분기) → 조건 제거, 살아있는 분기만 유지
-- Type C(고아 코드=누락된 연결) → **삭제 금지**, 연결점 분석 후 **와이어업**
-  - ⚠️ 단, 의도적 제거(deprecation/sunset 진행 중)인 경우 Type D로 재분류 후 처리
-- Type D(세대 잔여물) → v2 완전 가동 시 v1 **완전 삭제**
-- Type E(Barrel/호환 shim) → 유지, 이유 문서화
-
-**2-5. 연결성 감사**: 정적 임포트 체크 · 동적 연결(Registry/문자열 디스패치/이벤트 리스너/DI) · Barrel/Entry point 체크 · 세대 감사
-
-**2-6. Implicit Contract 검증**:
-- 문자열 기반 매칭 → 상수화(sender/receiver 같은 상수 참조)
-- 함수 시그니처 관례 → 인터페이스 명시
-- 데이터 스키마 관례 → 스키마 명시 정의, 양측 참조
-- 도구/AI 등록 → 도구명 상수화, 파라미터명 코드에서 자동 추출, 등록 시 구현 존재 검증
-- 설정 기반 연결 → 로드 시 참조 대상 존재 검증
-
----
-
-## 3. Structural Refactoring — 구조 리팩토링
-
-**4대 원칙**: ① 관심사 분리 ② 도메인 격리 ③ 구조적 명확성 ④ 확장성
-
-**3-1. 모듈 분해**: 변경 이유 2개 이상 → 분리 · 다른 사용자가 다른 부분 사용 → 분리 · 테스트에 무관한 의존성 필요 → 추출
-- **분리 금지**: 같은 인스턴스 상태의 메서드 분리 금지 · 소비자 1개인 함수 추출 금지 · 순환 의존성 유발 분리 금지
-
-**3-2. 의존성 방향**: 안정←휘발 방향만 · 순환 의존성=구조 결함 즉시 해소 · 계층 위반 금지 · 외부 의존성 어댑터 격리
-- **추가 강제 규칙 (pentesting)**:
-  - `MainAgent`는 정책 오케스트레이션만 담당하고 개별 실행 세부 구현을 흡수하지 않는다.
-  - prompt 로딩, runtime-config 해석, 파일 경로 해석은 에이전트 본체에서 직접 수행하지 않는다.
-  - UI 계층은 agent/engine 내부 상태 shape에 직접 결합하지 않고 전용 adapter/hook을 통해 소비한다.
-  - registry 문자열 분기는 추가 시 반드시 상수화 + 존재 검증 + 테스트를 동반한다.
-
-**3-3. 디렉토리 구조**: 도메인 우선(기술 타입 우선 금지) · 깊이 최대 4단계 · 관련 파일 인접 배치 · Barrel은 공개 API만 re-export
-
-**3-4. 계층 일관성**: Presentation(파싱/검증만) · Business(순수 도메인 규칙) · Infrastructure(교체 가능 구현) · Cross-cutting(미들웨어로 분리)
-
-**3-5. 파일 명명**: 의미 없는 이름(utils/helpers/misc) 금지 · 1파일=1클래스/1모듈 · 빈 폴더 삭제 · 폴더당 20+ 파일 금지
-
-**3-6. 모듈 경계**: 수직 슬라이싱(기능별 그룹) · 2+ 모듈 참조 리소스 → shared 이동 · 계층 참조 방향 강제 · 외부 라이브러리 3+ 파일 참조 → 어댑터 격리
-
----
-
-## 4. Code-Level Refactoring — 코드 수준 리팩토링
-
-**4-1. 함수 품질**: 순환 복잡도 ≤10 · 파라미터 ≤4 · 함수 길이 ≤40줄 · 중첩 ≤3단계 · 부작용 최소화
-
-**4-2. 명명 규칙**:
-- "무엇을 하는가/무엇인가"를 설명 · "어떻게"는 이름에 넣지 않기
-- 불필요한 약어 금지(도메인 표준만 허용) · Boolean은 is/has/can/should 접두사 필수
-- 의미 없는 접미사 금지: Manager/Handler/Processor/Helper/Utils/Data/Base → 구체적 이름으로 교체
-
-**4-3. Magic Value 제거**: 전체 코드베이스 리터럴 수집 → 8가지 분류(이벤트/역할/명령/한계값/경로/UI텍스트/프로토콜/테스트) → 상수화 → 검증
-- 허용 예외: 0, 1, -1(인덱스), 빈 문자열, true/false — 단, 맥락에서 의미 불명확하면 상수화
-
-**4-4. 타입 안전**: 암시적 형변환 금지 · any/void*/untyped 금지 · Union/enum 완전 매칭 · Nullable 명시 표기 · 외부 입력 경계에서 타입 검증
-
-**4-5. 조건문 품질**: Guard Clause(실패 먼저 반환) · Table Dispatch(5+ 분기) · 다형성 · 이중 부정 금지 · 복잡 조건 함수 추출
-
-**4-6. 중복 제거**: 완전 동일 → 함수 추출 · 구조 동일/세부 다름 → 파라미터화 · 표면만 유사/다른 도메인 → 유지(의도적 중복 주석)
-
----
-
-## 5. Constants/Config Architecture — 상수/설정 아키텍처
-
-**5-1. 분류**: Layer1(환경설정=런타임) · Layer2(도메인 상수=비즈니스 규칙) · Layer3(시스템 상수) · Layer4(언어/프레임워크 기본 상수=재정의 금지)
-**5-2. 파일 명명**: `{domain}.const.{ext}` · 공유: `_shared/common.const.{ext}`
-**5-3. 중복 제거**: 같은 값 2+ 도메인 존재 → `_shared/` 이동 · Barrel로 통합 임포트 경로 제공
-**5-4. 타입 안전 상수**: 불변성 보장 · 리터럴 타입 보존 · 상수에서 타입 도출 · 관련 상수 그룹 객체화 · 읽기전용 배열/셋
-**5-5. 그룹핑**: 의미 단위별 그룹 · SCREAMING_SNAKE_CASE · Barrel로 단일 진입점
-**5-6. 운영 설정 원칙 (pentesting)**:
-- 운영 source of truth는 **TypeScript runtime config** 하나로 유지
-- YAML/YML은 운영 설정에서 제거
-- accessor가 존재하지 않는 설정 필드 직접 접근 금지
-- config와 문서가 서로 다른 용어를 쓰는 상태 금지
-- 패키징 경로와 로컬 개발 경로가 다르면 resolver 계층에서 흡수하고 소비자는 경로 차이를 몰라야 한다
-**5-7. 설정 변경 프로토콜**:
-- 설정 필드 추가 시: 타입 → runtime config → accessor → validation → 테스트 → 문서 순서로 반영
-- 설정 필드 삭제 시: 소비자 제거 → fallback 제거 → 테스트 제거 → 문서 제거 순으로 진행
-- 사용되지 않는 fallback/default는 기술 부채가 아니라 삭제 대상이다
-
----
-
-## 6. Comment & Documentation — 주석 & 문서
-
-**6-1. 주석 품질**: 코드가 이미 말하는 것 반복=노이즈 → 삭제 · WHY/CONTEXT/WARNING/INVARIANT/PERF/HACK만 유지
-**6-2. 형식**: `// WHY:` `// INVARIANT:` `// WARNING:` `// HACK(#이슈):` · 함수 문서: 요약+의도+파라미터+반환+예외
-**6-3. TODO/FIXME**: 이슈 번호+기한 필수 · 기한 없는 TODO 금지 · 분기별 감사
-**6-4. 문서 계층**: README(설치→실행→검증 100줄 이하) · ARCHITECTURE(토폴로지/데이터 흐름) · CHANGELOG · ADR
-**6-5. ADR**: 2+ 기술 선택지 · 새 의존성 · 데이터/API 전략 변경 → ADR 작성
-**6-6. 로깅**: FATAL/ERROR/WARN/INFO/DEBUG/TRACE · 구조화 로그(JSON: ts, level, module, msg, context) · 비밀/PII 로깅 금지
-
----
-
-## 7. Readability — 가독성
-
-- 줄당 1개 의미 단위 · 체이닝 3단계까지 · 4+ 중간 변수로 분리
-- 함수 내 추상화 수준 통일 (고수준/저수준 혼합 금지)
-- 위→아래 읽기 순서 · Happy path 들여쓰기 없이 · 관련 코드 인접 배치 · 최소 놀라움 원칙
-
----
-
-## 8. Test & Verification — 테스트 & 검증
-
-**8-1. 피라미드**: Unit 70% · Integration 20% · E2E 10%
-**8-2. 단위 테스트**: 공개 함수당 최소 1개 · 경계값 필수(min/max/0/empty/null) · 실패 경로 필수 · AAA 패턴 · 테스트 간 상태 독립
-
-**8-3. 스트레스 검증**: 리소스 고갈 → graceful 거부 · 동시성 충돌 → 데이터 무결성 · 네트워크 열화 → 재시도/폴백 · 악성 입력 → 검증 실패+안전 거부
-
-**8-4. 테스트 파일**: 소스 경로와 1:1 대응 · 프로젝트 전체 하나의 방식
-
-**8-5. 복잡도 예산**: 순환복잡도 ≤10 · 중첩 ≤3 · 파라미터 ≤4
-- **파일 분해 신호**: ① 변경 이유 복수 ② 도메인 혼합 ③ 이름 짓기 어려움(utils 등) ④ 데이터 테이블이 로직 지배 ⑤ 스크롤 필요
-- **가이드 범위**: ≤200 이상적 · 200~400 수용 · 400~500 검토(사유 문서화) · 500+ 거의 분리 필요
-
-**8-6. 테스트-소스 동기화(Test Sync)**:
-```
-□ 소스 변경 시: 영향 분석 → 시그니처 동기화 → 행동 동기화 → 커버리지 동기화 → 실행 검증
-□ 리팩토링 시: 이름 변경 시 모든 테스트 임포트/어설션 업데이트
-              · 환경 변수 변경 시 테스트 설정 업데이트
-              · 타입 변경 시 모든 fixture 업데이트
-              · 소스 삭제 시 해당 테스트 즉시 삭제
-□ 금지: 통과하지만 오래된 어설션 · 테스트에 소스 상수 복사(임포트 사용) · 리팩토링 중 테스트 skip
+□ Open the producer function and list its output fields
+□ Open the consumer function and list its input fields
+□ Compare the two lists 1:1 — identify missing/mismatched/unused
+□ Apply the same verification at every intermediate transformation step
+□ Confirm schema agreement at the serialization↔deserialization boundary
+□ Verify field access on every path of branch statements (if/switch)
 ```
 
+**2-1. Call chain tracing**: enumerate entry points (API/Event/Cron/CLI) → trace branches to the end → identify unreachable code
+**2-2. State transition completeness**: state all states/transitions · handle undefined transitions as errors · block further transitions from terminal states
+**2-3. Boundary-crossing verification**: input validation (receiver side) · output contract (sender side) · session/auth re-verification · serialization schema compatibility · external call timeout · retry only when idempotency is guaranteed
+
+**2-4. Dead Code classification & action**:
+- Type A (completely unreferenced) → delete immediately
+- Type B (always-false branch) → remove the condition, keep only the live branch
+- Type C (orphan code = missing wiring) → **do not delete**, analyze the connection point then **wire it up**
+  - ⚠️ However, if it is intentional removal (deprecation/sunset in progress), reclassify as Type D and handle accordingly
+- Type D (generation residue) → **completely delete** v1 once v2 is fully operational
+- Type E (Barrel/compatibility shim) → keep, document the reason
+
+**2-5. Connectivity audit**: static import check · dynamic wiring (Registry/string dispatch/event listener/DI) · Barrel/Entry point check · generation audit
+
+**2-6. Implicit Contract verification**:
+- String-based matching → make it a constant (reference shared constants like sender/receiver)
+- Function signature conventions → make the interface explicit
+- Data schema conventions → define the schema explicitly, referenced by both sides
+- Tool/AI registration → make tool names constants, auto-extract parameter names from code, verify the implementation exists at registration time
+- Config-based wiring → verify the referenced target exists at load time
+
 ---
 
-## 9. Security & Operational Safety — 보안 & 운영 안전
+## 3. Structural Refactoring
 
-- **운영 보안**: 임시 파일/리소스 즉시 정리 · 민감 정보 로그 금지 · 리소스 격리
-- **Safety Guardrails**: 스코프 가드(승인된 범위 자동 검증) · 승인 게이트(고위험 작업) · 리소스 쿼터 · 입력 검증
-- **민감 데이터 관리**: 데이터 무결성 · 암호화 저장 · 접근 제어 · 기밀 유지
+**4 core principles**: ① Separation of concerns ② Domain isolation ③ Structural clarity ④ Extensibility
+
+**3-1. Module decomposition**: 2 or more reasons to change → split · different users use different parts → split · test needs an unrelated dependency → extract
+- **No splitting**: do not split methods sharing the same instance state · do not extract a function with only 1 consumer · do not split in a way that introduces a circular dependency
+
+**3-2. Dependency direction**: only stable←volatile direction · circular dependency = structural defect, resolve immediately · no layer violations · isolate external dependencies behind adapters
+- **Additional enforced rules (pentesting)**:
+  - `MainAgent` is responsible only for policy orchestration and does not absorb individual execution details.
+  - Prompt loading, runtime-config interpretation, and file path resolution are not performed directly in the agent body.
+  - The UI layer does not couple directly to the internal state shape of the agent/engine but consumes it through dedicated adapters/hooks.
+  - Any added registry string branch MUST be accompanied by constant-ization + existence verification + tests.
+
+**3-3. Directory structure**: domain-first (no technology-type-first) · maximum depth of 4 levels · place related files adjacently · Barrel re-exports only the public API
+
+**3-4. Layer consistency**: Presentation (parsing/validation only) · Business (pure domain rules) · Infrastructure (replaceable implementations) · Cross-cutting (separated into middleware)
+
+**3-5. File naming**: no meaningless names (utils/helpers/misc) · 1 file = 1 class/1 module · delete empty folders · no 20+ files per folder
+
+**3-6. Module boundaries**: vertical slicing (grouping by feature) · resources referenced by 2+ modules → move to shared · enforce layer reference direction · external library referenced in 3+ files → isolate behind an adapter
 
 ---
 
-## 10. Performance — 성능
+## 4. Code-Level Refactoring
 
-- **원칙**: 측정 먼저 · 병목 식별(상위 20%) · 알고리즘 개선 우선 · 가독성 해치는 최적화는 측정 근거 필요
-- **일반 병목**: 불필요 할당 → 풀링 · N+1 → 배치 · 불필요 복사 → 참조 전달 · 블로킹 IO → 비동기 · 락 경합 → 세밀한 락
-- **캐싱**: 읽기>>쓰기 AND 오래된 데이터 허용 AND 비싼 계산일 때만 캐시 · TTL 필수 · 캐시=일시적 저장소
+**4-1. Function quality**: cyclomatic complexity ≤10 · parameters ≤4 · function length ≤40 lines · nesting ≤3 levels · minimize side effects
+
+**4-2. Naming conventions**:
+- Describe "what it does / what it is" · do not put "how" in the name
+- No unnecessary abbreviations (only domain standards allowed) · Booleans require an is/has/can/should prefix
+- No meaningless suffixes: Manager/Handler/Processor/Helper/Utils/Data/Base → replace with a concrete name
+
+**4-3. Magic Value removal**: collect literals across the whole codebase → 8-way classification (event/role/command/limit/path/UI text/protocol/test) → make constants → verify
+- Allowed exceptions: 0, 1, -1 (index), empty string, true/false — but make them constants if their meaning is unclear in context
+
+**4-4. Type safety**: no implicit conversions · no any/void*/untyped · exhaustive Union/enum matching · explicit Nullable notation · validate types at external input boundaries
+
+**4-5. Conditional quality**: Guard Clause (return on failure first) · Table Dispatch (5+ branches) · polymorphism · no double negation · extract complex conditions into functions
+
+**4-6. Duplication removal**: identical → extract a function · same structure/different details → parameterize · only superficially similar/different domains → keep (comment the intentional duplication)
 
 ---
 
-## 11. Refactoring Execution Protocol — 실행 프로토콜
+## 5. Constants/Config Architecture
 
-**8단계**:
-| 단계 | 이름 | 참조 섹션 |
+**5-1. Classification**: Layer1 (environment config = runtime) · Layer2 (domain constants = business rules) · Layer3 (system constants) · Layer4 (language/framework default constants = no redefinition)
+**5-2. File naming**: `{domain}.const.{ext}` · shared: `_shared/common.const.{ext}`
+**5-3. Duplication removal**: same value exists in 2+ domains → move to `_shared/` · provide a unified import path via Barrel
+**5-4. Type-safe constants**: guarantee immutability · preserve literal types · derive types from constants · objectify related constant groups · read-only arrays/sets
+**5-5. Grouping**: group by meaning unit · SCREAMING_SNAKE_CASE · single entry point via Barrel
+**5-6. Operational config principles (pentesting)**:
+- Keep the operational source of truth as a single **TypeScript runtime config**
+- Remove YAML/YML from operational config
+- No direct access to a config field that has no accessor
+- No state where config and docs use different terminology
+- If the packaging path and the local development path differ, absorb it in the resolver layer so consumers are unaware of the path difference
+**5-7. Config change protocol**:
+- When adding a config field: reflect in the order type → runtime config → accessor → validation → test → docs
+- When deleting a config field: proceed in the order remove consumers → remove fallback → remove tests → remove docs
+- An unused fallback/default is not technical debt but a deletion target
+
+---
+
+## 6. Comment & Documentation
+
+**6-1. Comment quality**: repeating what the code already says = noise → delete · keep only WHY/CONTEXT/WARNING/INVARIANT/PERF/HACK
+**6-2. Format**: `// WHY:` `// INVARIANT:` `// WARNING:` `// HACK(#issue):` · function docs: summary+intent+parameters+return+exceptions
+**6-3. TODO/FIXME**: issue number + deadline mandatory · no TODO without a deadline · quarterly audit
+**6-4. Doc hierarchy**: README (install→run→verify, 100 lines or fewer) · ARCHITECTURE (topology/data flow) · CHANGELOG · ADR
+**6-5. ADR**: 2+ technology options · a new dependency · a change in data/API strategy → write an ADR
+**6-6. Logging**: FATAL/ERROR/WARN/INFO/DEBUG/TRACE · structured logs (JSON: ts, level, module, msg, context) · no logging of secrets/PII
+
+---
+
+## 7. Readability
+
+- One meaning unit per line · chaining up to 3 levels · split into 4+ intermediate variables otherwise
+- Uniform abstraction level within a function (no mixing high-level/low-level)
+- Top→bottom reading order · Happy path without indentation · place related code adjacently · principle of least surprise
+
+---
+
+## 8. Test & Verification
+
+**8-1. Pyramid**: Unit 70% · Integration 20% · E2E 10%
+**8-2. Unit tests**: at least 1 per public function · boundary values mandatory (min/max/0/empty/null) · failure path mandatory · AAA pattern · state independence between tests
+
+**8-3. Stress verification**: resource exhaustion → graceful rejection · concurrency conflict → data integrity · network degradation → retry/fallback · malicious input → validation failure + safe rejection
+
+**8-4. Test files**: 1:1 correspondence with source paths · one consistent approach across the whole project
+
+**8-5. Complexity budget**: cyclomatic complexity ≤10 · nesting ≤3 · parameters ≤4
+- **File decomposition signals**: ① multiple reasons to change ② domain mixing ③ hard to name (utils, etc.) ④ data tables dominate the logic ⑤ requires scrolling
+- **Guide ranges**: ≤200 ideal · 200~400 acceptable · 400~500 review (document the reason) · 500+ almost certainly needs splitting
+
+**8-6. Test-Source synchronization (Test Sync)**:
+```
+□ On source change: impact analysis → signature sync → behavior sync → coverage sync → execution verification
+□ On refactoring: on rename, update all test imports/assertions
+              · on environment variable change, update test config
+              · on type change, update all fixtures
+              · on source deletion, immediately delete the corresponding test
+□ Forbidden: passing but stale assertions · copying source constants into tests (use imports) · skipping tests during refactoring
+```
+
+---
+
+## 9. Security & Operational Safety
+
+- **Operational security**: clean up temporary files/resources immediately · no logging of sensitive information · resource isolation
+- **Safety Guardrails**: scope guards (auto-verify the approved scope) · approval gates (high-risk operations) · resource quotas · input validation
+- **Sensitive data management**: data integrity · encrypted storage · access control · confidentiality
+
+---
+
+## 10. Performance
+
+- **Principles**: measure first · identify bottlenecks (top 20%) · prioritize algorithmic improvement · optimization that harms readability requires measurement evidence
+- **Common bottlenecks**: unnecessary allocation → pooling · N+1 → batching · unnecessary copy → pass by reference · blocking IO → async · lock contention → fine-grained locks
+- **Caching**: cache only when read>>write AND stale data is acceptable AND the computation is expensive · TTL mandatory · cache = temporary store
+
+---
+
+## 11. Refactoring Execution Protocol
+
+**8 stages**:
+| Stage | Name | Reference Sections |
 |:---:|:---|:---|
-| 1 | SURVEY (전수조사) | §0-0, §0-5 |
+| 1 | SURVEY (full survey) | §0-0, §0-5 |
 | 2 | AUDIT | §2, §12B |
 | 3 | PLAN | §0-2, §M-2 |
 | 4 | EXECUTE | §4, §5 |
@@ -499,386 +499,386 @@
 | 7 | DOCUMENT | §6 |
 | 8 | VERIFY | §POST, §12V |
 
-- 이상 발견 시 즉시 중단 → 보고 → 지시 대기
+- On finding any anomaly, stop immediately → report → wait for instructions
 
 **11-4. Code-Driven Runtime Migration Protocol (pentesting)**:
 ```
-1. 운영 YAML/YML 사용처 전수조사
-2. 실제 source of truth 1개를 TypeScript 객체로 승격
-3. 타입 정의 + accessor + validation 먼저 작성
-4. 소비자 읽기 경로를 새 accessor로 일괄 전환
-5. 구 YAML loader는 테스트/호환 경계로만 축소
-6. 문서의 용어와 경로를 새 구조에 맞게 동기화
-7. 구 파일/구 분기/구 fallback 삭제
-8. 최종적으로 "YAML이 없어도 운영 가능" 상태를 테스트로 증명
+1. Full survey of where operational YAML/YML is used
+2. Promote the single real source of truth to a TypeScript object
+3. Write the type definition + accessor + validation first
+4. Switch all consumer read paths to the new accessor at once
+5. Reduce the old YAML loader to a test/compatibility boundary only
+6. Synchronize the docs' terminology and paths to the new structure
+7. Delete old files/old branches/old fallbacks
+8. Finally, prove via tests that "it can operate without YAML"
 ```
 
-**증분 vs 일괄**: 기본=증분(기존 옆에 신규 구현 → 소비자 이주 → 구 구현 제거) · 일괄은 500줄 미만+전체 소비자 동시 업데이트 가능할 때만
+**Incremental vs bulk**: default = incremental (new implementation alongside the old → migrate consumers → remove old implementation) · bulk only when under 500 lines + all consumers can be updated simultaneously
 
-**11-3. 실행 흐름 검증 (Anti-Hallucination)**:
+**11-3. Execution flow verification (Anti-Hallucination)**:
 ```
-EXECUTE(실제 데이터) → OBSERVE(실제 출력 vs 기대) → CORRECT(근거 기반 수정) → RE-EXECUTE(100% pass)
+EXECUTE (real data) → OBSERVE (actual output vs expected) → CORRECT (evidence-based fix) → RE-EXECUTE (100% pass)
 
-할루시네이션 4대 범주:
-1. API Shape    : 함수 시그니처 — 소스 코드에서 직접 확인 필수
-2. Export Boundary: 모듈 공개 API(entry point/barrel file) — 직접 확인 필수
-3. Data Flow   : 상수/설정 파일의 실제 매핑 — 직접 확인 필수
-4. State Shape : 상태 인터페이스/클래스 정의 — 직접 확인 필수
+4 categories of hallucination:
+1. API Shape    : function signatures — must verify directly in the source code
+2. Export Boundary: module public API (entry point/barrel file) — must verify directly
+3. Data Flow   : actual mapping in constants/config files — must verify directly
+4. State Shape : state interface/class definitions — must verify directly
 
-교차 모듈 검증: 임포트 해소 · 데이터 흐름 · 상태 변이 · 이벤트/메시지 · 스트레스 하 안정성
-```
-
----
-
-## 12. Master Checklist — 마스터 체크리스트
-
-### A. 안정화
-```
-□ 에셋 역할 할당 · □ acquire-use-release 증명 · □ 좀비/고아 자동감지 · □ 에러 전파 갭 0 · □ 데이터 레이스 0 · □ 외부 호출 타임아웃/하트비트
-```
-### B. 흐름 무결성
-```
-□ 진입점→종료 호출체인 추적 완료 · □ 모든 분기 처리 · □ 고아 코드 0(와이어업 완료) · □ 세대 잔여물 0(v1 완전 퍼지) · □ Dead code 0
-□ 미정의 상태 전이 0 · □ 경계 교차 검증 누락 0 · □ Implicit contract 일관성 검증 · □ Micro-Tracing으로 검증(grep 아님) · □ Producer→Consumer 필드 1:1 매칭
-```
-### C. 구조
-```
-□ 순환 의존성 0 · □ 단일 책임 위반 0 · □ 계층 위반 0 · □ 디렉토리 깊이 ≤4 · □ 외부 의존성 어댑터 격리
-```
-### D. 코드 품질
-```
-□ Magic value 0 · □ 순환복잡도 ≤10 · □ 파일 길이 원칙 기반 분해(§8-5) · □ 중첩 ≤3 · □ 파라미터 ≤4 · □ 암시적 형변환 0 · □ any/untyped 0
-```
-### E. 명명 & 가독성
-```
-□ 모든 이름이 의미 설명 · □ 약어는 도메인 표준만 · □ 함수 내 추상화 수준 일관 · □ Happy path 들여쓰기 없음 · □ 관련 코드 인접
-```
-### F. 주석 & 문서
-```
-□ 노이즈 주석 0 · □ WHY 주석 존재 · □ TODO/FIXME에 이슈번호+기한 · □ README/ARCHITECTURE/CHANGELOG 최신 · □ ADR 완료
-```
-### G. 테스트 & 동기화
-```
-□ 공개 함수별 테스트 존재 · □ 경계값+실패 경로 커버리지 · □ 테스트 간 상태 독립 · □ 스트레스 시나리오 검증
-□ 전체 100% pass · □ 테스트 임포트 → 현행 소스 모듈 · □ 함수 호출 → 현행 시그니처 · □ 어설션 → 현행 동작
-□ Mock/Stub → 현행 계약 · □ 환경변수 → 현행 설정 · □ 상수/타입 참조 → 현행 정의 · □ 고아 테스트 0 · □ 누락 테스트 0
-```
-### H. 보안 & 안전
-```
-□ 외부 진입점 입력 검증 · □ 인젝션/리소스 고갈 벡터 체크 · □ 승인 게이트/접근 제어 정책 · □ 민감 데이터 암호화/격리 · □ 임시 데이터/프로세스 자동 회수
-```
-### I. 성능
-```
-□ 프로파일링 기반 병목 식별 · □ N+1 문제 0 · □ 불필요 할당/복사 최소화 · □ 벤치마크 전/후 기록 · □ 가독성 훼손 최적화에 측정 근거
-```
-### J. 운영
-```
-□ 버전 태그 업데이트(SemVer) · □ CHANGELOG 커밋 해시 링크 · □ 빌드 경고 0 · □ CI/CD 통과 · □ 롤백 경로 검증
-```
-### K. 상수화
-```
-□ Magic string 0 · □ Magic number 0 · □ 상수 파일 도메인별 분리 · □ 공유 상수 shared 디렉토리 · □ 불변 선언 · □ 상수에서 타입 도출 · □ Barrel로 통합 경로
-```
-### L. 도메인 구조
-```
-□ 도메인 폴더 분리 · □ 동일 표준 구조 · □ 도메인 진입점으로 중앙 등록/발견 · □ 도메인 간 직접 참조 0 · □ 도메인 전용 리소스 격리
-```
-### M. ADR & 로깅
-```
-□ 비자명 아키텍처 결정에 ADR 존재 · □ 로그 레벨 표준 준수 · □ 구조화 로깅(JSON) · □ 비밀/PII 로깅 없음 · □ 외부 시스템 호출 로깅
-```
-### N. 코드 리뷰 & 캐싱
-```
-□ 코드 리뷰 체크리스트 준수 · □ 캐싱 결정 프레임워크 준수 · □ 모든 캐시 TTL 설정 · □ N+1 쿼리 패턴 없음
-```
-### O. 마이그레이션 & API 계약
-```
-□ 스키마 마이그레이션 역호환 또는 롤백 계획 · □ API SemVer · □ Deprecated API에 sunset 타임라인 · □ Breaking change CHANGELOG 기록
-```
-### P. 의존성 & 프로덕션 안전
-```
-□ 취약 의존성 0 · □ 외부 의존성 어댑터 격리 · □ 위험 변경에 피처 플래그 · □ 롤백 절차 테스트/문서화 · □ 증분 리팩토링 적용
-```
-### Q. 모니터링 & 관측
-```
-□ 리팩토링 전 기준선 기록 · □ 리팩토링 후 저하 없음 · □ 크리티컬 경로 알림 설정 · □ 에러율/지연/처리량 모니터 · □ 관측 기간 완료 무이상
-```
-### R. 기술 부채 & 레거시
-```
-□ 기술 부채 인벤토리 최신 · □ 부채 항목에 심각도/비용/우선순위 · □ 레거시 코드에 특성화 테스트 · □ 테스트 없는 레거시 수정 금지
-```
-### S. Git & 우선순위
-```
-□ 커밋 메시지 표준(type(scope): subject) · □ 원자적 커밋(1 논리 변경/커밋) · □ PR ≤400줄 · □ 우선순위=Pain/Effort · □ 고위험-고보상 먼저
-```
-### T. 타입 시스템, 에러 처리, 동시성, 설정
-```
-□ 판별 공용체 사용 · □ stringly-typed API 0(enum/branded type) · □ 재시도/회로차단기 패턴 · □ 공유 가변 상태 보호 · □ 런타임 설정 vs 빌드타임 상수 분리 · □ 비밀은 vault/env만
-```
-### U. 실행 흐름 검증 (Anti-Hallucination)
-```
-□ 수정된 실행 경로 실제 데이터로 실행 · □ API shape 할루시네이션 0 · □ Export boundary 할루시네이션 0
-□ Data flow 할루시네이션 0 · □ State shape 할루시네이션 0 · □ 교차 모듈 E2E 테스트 · □ Execute→Observe→Correct 근거 문서화
-□ 모든 에러 경로 actionable 메시지 · □ 전체 테스트 pass · □ 정적 분석 0에러 · □ 빌드 0에러
-```
-### V. Post-Execution 전수조사 (★ 작업 완료 후 필수)
-```
-□ 전체 시스템 安전성·연결성·일관성 전수조사 완료 (§POST)
-□ 삭제 코드 참조 0 (Dead reference 0)
-□ 모든 import/export 경로 추적 완료 (grep 아님 — 직접 추적)
-□ 동적 연결(Registry/이벤트/DI) 추적 완료
-□ 프로젝트 영향도 분석 완료 · 문제 없음 확인
-□ 문서(README/ARCHITECTURE/CHANGELOG) 현행 반영
-□ 빌드 0에러 · 테스트 100% pass (최종)
-□ §REPORT 작성 완료
-□ §REVIEW (10개 관점 코드 리뷰) 실행 완료
-□ §REVIEW P0·P1 발견 항목 즉시 수정 완료
+Cross-module verification: import resolution · data flow · state mutation · events/messages · stability under stress
 ```
 
 ---
 
-## 13. Domain-Driven Structure — 도메인 주도 구조
+## 12. Master Checklist
 
-- **분해**: 1개 비즈니스 개념=1개 도메인 후보 · 독립 변경 가능 → 별도 폴더 · 전용 타입/상수/로직 있으면 자체 구조
-- **폴더 구성**: 필수(구현+타입) · 선택(상수/데이터접근/테스트/진입점) · 도메인 폴더당 파일 ≤7 · 도메인 간 직접 참조 금지
-- **진입점**: 중앙 등록 · 내부 구현 은닉 · 필요시 레지스트리 패턴
-- **격리**: 수평 격리(도메인↔도메인 직접 의존 금지) · 수직 격리(도메인→상위 계층 의존 금지)
+### A. Stabilization
+```
+□ Asset role assignment · □ acquire-use-release proven · □ zombie/orphan auto-detection · □ error-propagation gaps 0 · □ data races 0 · □ external-call timeout/heartbeat
+```
+### B. Flow Integrity
+```
+□ Entry-point→exit call chain traced · □ all branches handled · □ orphan code 0 (wire-up complete) · □ generation residue 0 (v1 fully purged) · □ Dead code 0
+□ Undefined state transitions 0 · □ boundary-crossing verification gaps 0 · □ Implicit contract consistency verified · □ verified via Micro-Tracing (not grep) · □ Producer→Consumer field 1:1 matching
+```
+### C. Structure
+```
+□ Circular dependencies 0 · □ single-responsibility violations 0 · □ layer violations 0 · □ directory depth ≤4 · □ external dependencies isolated behind adapters
+```
+### D. Code Quality
+```
+□ Magic value 0 · □ cyclomatic complexity ≤10 · □ principled file-length decomposition (§8-5) · □ nesting ≤3 · □ parameters ≤4 · □ implicit conversions 0 · □ any/untyped 0
+```
+### E. Naming & Readability
+```
+□ Every name describes its meaning · □ abbreviations only domain standards · □ consistent abstraction level within a function · □ Happy path without indentation · □ related code adjacent
+```
+### F. Comments & Docs
+```
+□ Noise comments 0 · □ WHY comments present · □ issue number + deadline on TODO/FIXME · □ README/ARCHITECTURE/CHANGELOG up to date · □ ADR complete
+```
+### G. Tests & Synchronization
+```
+□ A test exists per public function · □ boundary-value + failure-path coverage · □ state independence between tests · □ stress scenarios verified
+□ All 100% pass · □ test imports → current source modules · □ function calls → current signatures · □ assertions → current behavior
+□ Mock/Stub → current contract · □ environment variables → current config · □ constant/type references → current definitions · □ orphan tests 0 · □ missing tests 0
+```
+### H. Security & Safety
+```
+□ Input validation at external entry points · □ injection/resource-exhaustion vector check · □ approval gate/access-control policy · □ sensitive data encrypted/isolated · □ temporary data/processes auto-reclaimed
+```
+### I. Performance
+```
+□ Profiling-based bottleneck identification · □ N+1 problems 0 · □ unnecessary allocation/copy minimized · □ before/after benchmarks recorded · □ measurement evidence for readability-harming optimizations
+```
+### J. Operations
+```
+□ Version tag updated (SemVer) · □ CHANGELOG commit-hash links · □ build warnings 0 · □ CI/CD passing · □ rollback path verified
+```
+### K. Constant-ization
+```
+□ Magic string 0 · □ Magic number 0 · □ constant files separated by domain · □ shared constants in the shared directory · □ immutable declarations · □ types derived from constants · □ unified path via Barrel
+```
+### L. Domain Structure
+```
+□ Domain folder separation · □ identical standard structure · □ central registration/discovery via domain entry points · □ direct cross-domain references 0 · □ domain-specific resources isolated
+```
+### M. ADR & Logging
+```
+□ ADR exists for non-trivial architectural decisions · □ log-level standard compliance · □ structured logging (JSON) · □ no logging of secrets/PII · □ external system call logging
+```
+### N. Code Review & Caching
+```
+□ Code-review checklist followed · □ caching decision framework followed · □ TTL set on all caches · □ no N+1 query patterns
+```
+### O. Migration & API Contract
+```
+□ Schema migration backward-compatible or rollback plan · □ API SemVer · □ sunset timeline on deprecated APIs · □ Breaking change recorded in CHANGELOG
+```
+### P. Dependencies & Production Safety
+```
+□ Vulnerable dependencies 0 · □ external dependencies isolated behind adapters · □ feature flags on risky changes · □ rollback procedure tested/documented · □ incremental refactoring applied
+```
+### Q. Monitoring & Observability
+```
+□ Baseline recorded before refactoring · □ no degradation after refactoring · □ alerts set on critical paths · □ error rate/latency/throughput monitored · □ observation period completed with no anomalies
+```
+### R. Technical Debt & Legacy
+```
+□ Technical-debt inventory up to date · □ severity/cost/priority on debt items · □ characterization tests on legacy code · □ no modifying legacy without tests
+```
+### S. Git & Prioritization
+```
+□ Commit message standard (type(scope): subject) · □ atomic commits (1 logical change/commit) · □ PR ≤400 lines · □ priority = Pain/Effort · □ high-risk-high-reward first
+```
+### T. Type System, Error Handling, Concurrency, Config
+```
+□ Discriminated unions used · □ stringly-typed APIs 0 (enum/branded type) · □ retry/circuit-breaker patterns · □ shared mutable state protected · □ runtime config vs build-time constants separated · □ secrets only in vault/env
+```
+### U. Execution Flow Verification (Anti-Hallucination)
+```
+□ Modified execution paths run with real data · □ API shape hallucination 0 · □ Export boundary hallucination 0
+□ Data flow hallucination 0 · □ State shape hallucination 0 · □ cross-module E2E tests · □ Execute→Observe→Correct evidence documented
+□ Every error path has an actionable message · □ all tests pass · □ static analysis 0 errors · □ build 0 errors
+```
+### V. Post-Execution Full Survey (★ mandatory after work completion)
+```
+□ Full system safety/connectivity/consistency survey complete (§POST)
+□ References to deleted code 0 (Dead reference 0)
+□ All import/export paths traced (not grep — direct tracing)
+□ Dynamic wiring (Registry/event/DI) traced
+□ Project impact analysis complete · no problems confirmed
+□ Docs (README/ARCHITECTURE/CHANGELOG) reflect the current state
+□ Build 0 errors · tests 100% pass (final)
+□ §REPORT written
+□ §REVIEW (10-perspective code review) executed
+□ §REVIEW P0·P1 findings fixed immediately
+```
 
 ---
 
-## 15. Migration & Data Schema — 마이그레이션
+## 13. Domain-Driven Structure
 
-- 모든 마이그레이션 역방향(DOWN) 필수 · 역호환 기간 · 컬럼 추가→사용→삭제 순서 · DROP 전 백업 검증 · 대용량은 배치 처리
-
----
-
-## 16. API Contract & Versioning — API 계약
-
-- SemVer(MAJOR.MINOR.PATCH) · Breaking change 정의: 제거/타입변경/필수↔선택변경/의미변경
-- Deprecation: 경고+sunset 날짜 · 최소 2 minor 후 제거 · 마이그레이션 가이드 제공
+- **Decomposition**: 1 business concept = 1 domain candidate · independently changeable → separate folder · has dedicated types/constants/logic → its own structure
+- **Folder composition**: required (implementation+types) · optional (constants/data access/tests/entry point) · files per domain folder ≤7 · no direct cross-domain references
+- **Entry point**: central registration · hide internal implementation · registry pattern when needed
+- **Isolation**: horizontal isolation (no direct domain↔domain dependency) · vertical isolation (no domain→upper-layer dependency)
 
 ---
 
-## 17. Dependency Management — 의존성 관리
+## 15. Migration & Data Schema
 
-- 추가 전: 50줄 이내 구현 가능? · 전이 의존성 10+ 끌어오는가? · 활발히 유지보수? · 취약점 있는가?
-- 버전 잠금(lockfile) · "latest"/"*" 프로덕션 금지 · 3+ 파일 참조 → 어댑터 래핑
-- **업그레이드**: 보안 감사 → 변경로그 읽기 → 1개씩 격리 업그레이드 → 전체 테스트 → 스테이징 검증 → 배포 후 모니터
+- A reverse (DOWN) is mandatory for every migration · backward-compatibility window · add→use→drop column order · backup verification before DROP · batch processing for large volumes
 
 ---
 
-## 18. Production Refactoring — 프로덕션 안전 배포
+## 16. API Contract & Versioning
 
-- **피처 플래그**: 위험 리팩토링은 릴리즈 플래그 뒤에 · 기본값=OFF · 완전 롤아웃 2스프린트 내 플래그 제거
-- **롤아웃**: 카나리(1%→5%→25%→50%→100%) · 롤백 5분 이내 완료 · 배포 전 롤백 테스트
-
----
-
-## 19. Monitoring & Observability — 모니터링
-
-- **기준선 기록**: 에러율, 지연(p50/p95/p99), 처리량, 리소스, 비즈니스 메트릭, 빌드/테스트 시간
-- **검증**: 동일 워크로드로 비교 · 에러율↓ · 지연↓(5% 허용) · 처리량↑ · 프로덕션 최소 24시간 관측
+- SemVer (MAJOR.MINOR.PATCH) · Breaking change definition: removal/type change/required↔optional change/semantic change
+- Deprecation: warning + sunset date · remove after at least 2 minors · provide a migration guide
 
 ---
 
-## 20. Technical Debt — 기술 부채
+## 17. Dependency Management
 
-- **인벤토리**: ID, 위치, 설명, 원인, 심각도, 수정비용, 미수정 위험, 담당자
-- **상환**: 스프린트 15~20% 예약 · 기회적 상환(파일 작업 시 함께) · 분기별 감사 · 부채 천장 → 초과 시 기능 중단
-
----
-
-## 21. Legacy Code Strategy — 레거시 코드
-
-- **특성화 테스트**: 변경 전 현행 동작 캡처 · 버그 포함 실제 출력 assert · 리팩토링 후 올바른 동작으로 업데이트
-- **Seam**: 객체/전처리기/링크/인터페이스 seam 식별 → 의존성 분리 → 테스트 → 안전 리팩토링
+- Before adding: implementable in 50 lines or fewer? · does it pull in 10+ transitive dependencies? · actively maintained? · any vulnerabilities?
+- Version lock (lockfile) · no "latest"/"*" in production · referenced in 3+ files → wrap with an adapter
+- **Upgrade**: security audit → read the changelog → upgrade one at a time in isolation → full tests → staging verification → monitor after deployment
 
 ---
 
-## 22. Git/VCS Hygiene — Git 위생
+## 18. Production Refactoring
 
-- **커밋**: `<type>(<scope>): <subject>` · 제목 ≤72자 · 명령형 · 본문에 WHY · 푸터에 이슈 번호
-- **원자적 커밋**: 1논리변경/커밋 · 모든 커밋 빌드+테스트 통과 · 리팩토링+동작변경 혼합 금지
-- **브랜치**: ≤3일 · PR ≤400줄 · 스택 PR 사용
+- **Feature flags**: risky refactoring behind a release flag · default = OFF · remove the flag within 2 sprints of full rollout
+- **Rollout**: canary (1%→5%→25%→50%→100%) · rollback completed within 5 minutes · test rollback before deployment
 
 ---
 
-## 23. Refactoring Prioritization — 우선순위
+## 19. Monitoring & Observability
+
+- **Baseline recording**: error rate, latency (p50/p95/p99), throughput, resources, business metrics, build/test time
+- **Verification**: compare with the same workload · error rate↓ · latency↓ (5% tolerance) · throughput↑ · observe in production for at least 24 hours
+
+---
+
+## 20. Technical Debt
+
+- **Inventory**: ID, location, description, cause, severity, fix cost, risk of not fixing, owner
+- **Repayment**: reserve 15~20% per sprint · opportunistic repayment (along with file work) · quarterly audit · debt ceiling → halt features when exceeded
+
+---
+
+## 21. Legacy Code Strategy
+
+- **Characterization tests**: capture current behavior before changes · assert the actual output including bugs · update to correct behavior after refactoring
+- **Seam**: identify object/preprocessor/link/interface seams → break dependencies → test → refactor safely
+
+---
+
+## 22. Git/VCS Hygiene
+
+- **Commits**: `<type>(<scope>): <subject>` · subject ≤72 chars · imperative mood · WHY in the body · issue number in the footer
+- **Atomic commits**: 1 logical change/commit · every commit passes build+tests · no mixing refactoring + behavior change
+- **Branches**: ≤3 days · PR ≤400 lines · use stacked PRs
+
+---
+
+## 23. Refactoring Prioritization
 
 - **Priority = Pain / Effort**
 
-  | 척도 | 1 (낮음) | 3 (중간) | 5 (높음) |
+  | Scale | 1 (low) | 3 (medium) | 5 (high) |
   |:---|:---|:---|:---|
-  | **Pain** | 드물게 발생, 영향 작음 | 주기적 발생, 개발 속도 저하 | 자주 발생, 버그·장애 유발 |
-  | **Effort** | 1일 이내 완료 | 1스프린트 내 완료 | 다수 스프린트 필요 |
+  | **Pain** | Occurs rarely, small impact | Occurs periodically, slows development | Occurs frequently, causes bugs/outages |
+  | **Effort** | Done within 1 day | Done within 1 sprint | Requires multiple sprints |
 
-  - Priority > 2.0 → 즉시 · 1.0~2.0 → 다음 스프린트 · 0.5~1.0 → 백로그 · < 0.5 → 수용
+  - Priority > 2.0 → immediately · 1.0~2.0 → next sprint · 0.5~1.0 → backlog · < 0.5 → accept
 
-- **Hotspot**: 변경 빈도 높음 + 복잡도 높음 = 1순위 리팩토링 대상
-
----
-
-## 24. Type System Maximization — 타입 시스템 극대화
-
-- 원시 타입 집착 → enum → branded type → 판별 공용체 → phantom type 순으로 강화
-- boolean 플래그 → union type · optional 필드 → 별도 타입 · 완전 매칭 · Parse, don't validate
+- **Hotspot**: high change frequency + high complexity = top-priority refactoring target
 
 ---
 
-## 25. Error Handling Patterns — 에러 처리 패턴
+## 24. Type System Maximization
 
-- **재시도**: 일시적 에러만 · 최대 3~5회 · 지수 백오프+지터 · 멱등성 필수 · 401/403/400/404 재시도 금지
-- **회로차단기**: CLOSED→OPEN→HALF-OPEN · 의존성별 설정 · OPEN 시 폴백 반환 · 상태 전이 로깅+알림
-- **폴백 계층**: 재시도 → 대안 소스 → 열화 응답 → 큐잉 → 정중 거부
-
----
-
-## 26. Concurrency Patterns — 동시성 패턴
-
-- 공유 상태 회피 가능? → 최선 · 읽기 위주 → RW Lock · 분할 가능 → Actor · 파이프라인 → Channel · 최후 → Mutex(순서 규칙)
-- 안티패턴: 락 순서 위반 · 락 내 IO · await 누락 · 루프 내 await · check-then-act 레이스
+- Strengthen in the order primitive-type fixation → enum → branded type → discriminated union → phantom type
+- boolean flag → union type · optional field → separate type · exhaustive matching · Parse, don't validate
 
 ---
 
-## 27. Configuration Management — 설정 관리
+## 25. Error Handling Patterns
 
-- **우선순위**: CLI args > 환경변수 > 로컬 설정 > 공유 설정 > 앱 기본값
-- **비밀**: 코드/설정파일/CI로그에 비밀 금지 · vault/암호화 env만 · 재배포 없이 교체 가능
-- **환경 분리**: 모든 환경 동일 바이너리 · 설정만 다름 · dev/staging≈production · 시작 시 필수 설정 검증+실패 시 즉시 종료
+- **Retry**: transient errors only · max 3~5 times · exponential backoff + jitter · idempotency required · no retry on 401/403/400/404
+- **Circuit breaker**: CLOSED→OPEN→HALF-OPEN · per-dependency configuration · return fallback when OPEN · log + alert on state transitions
+- **Fallback layers**: retry → alternative source → degraded response → queuing → graceful rejection
 
 ---
 
-## 28. Simplification — 불필요 복잡도 제거
+## 26. Concurrency Patterns
 
-동작에 필요 없는 과도한 레이어/처리/패턴이 있다면 단순화. 판단 기준:
+- Can shared state be avoided? → best · read-heavy → RW Lock · partitionable → Actor · pipeline → Channel · last resort → Mutex (ordering rule)
+- Anti-patterns: lock-order violation · IO inside a lock · missing await · await inside a loop · check-then-act race
 
-| 신호 | 액션 |
+---
+
+## 27. Configuration Management
+
+- **Priority**: CLI args > environment variables > local config > shared config > app defaults
+- **Secrets**: no secrets in code/config files/CI logs · only vault/encrypted env · replaceable without redeployment
+- **Environment separation**: identical binary across all environments · only config differs · dev/staging≈production · validate required config at startup + exit immediately on failure
+
+---
+
+## 28. Simplification — removing unnecessary complexity
+
+If there are excessive layers/processing/patterns not needed for behavior, simplify. Decision criteria:
+
+| Signal | Action |
 |:---|:---|
-| 추상화 계층이 3개 이상인데 각 계층이 1:1로 통과만 함 | 중간 계층 제거 |
-| 인터페이스 구현체가 단 1개뿐이고 교체 계획 없음 | 인터페이스 제거, 직접 사용 |
-| 설정 옵션이 있는데 실제로 바뀐 적이 없음 | 하드코딩 후 설정 제거 |
-| 팩토리가 단순 생성자 호출만 함 | 팩토리 제거 |
-| 래퍼가 메서드 1개를 그대로 위임만 함 | 래퍼 제거, 직접 참조 |
+| 3 or more abstraction layers but each just passes through 1:1 | Remove the intermediate layers |
+| An interface has only 1 implementation and no replacement plan | Remove the interface, use it directly |
+| A config option exists but has never actually changed | Hard-code it and remove the config |
+| A factory only calls a simple constructor | Remove the factory |
+| A wrapper just delegates 1 method as-is | Remove the wrapper, reference directly |
 
-> "이 복잡도는 현재 요구사항을 위해 정말 필요한가?" 라는 질문에 명확히 YES를 말할 수 없으면 제거 대상.
+> If you cannot clearly say YES to "is this complexity really necessary for the current requirements?", it is a removal target.
 
 ---
 
-## §M. Modulization Protocol — 모듈화 전용 프로토콜
+## §M. Modulization Protocol — dedicated modulization protocol
 
-> **목적**: 확장성·응집도 향상을 위한 점진적 모듈화
-> **핵심 원칙**: 가장 작은 단위부터 · 하나씩 · 완전히 독립된 작업으로 · 분할과 정복
+> **Purpose**: incremental modulization to improve extensibility/cohesion
+> **Core principles**: start from the smallest unit · one at a time · as fully independent work · divide and conquer
 
-### M-1. 모듈화 전용 금지/필수 규칙
-
-```
-❌ NEVER:  전체 시스템을 한 번에 모듈화 시도
-❌ NEVER:  계획서 없이 모듈화 착수
-❌ NEVER:  구 코드를 삭제하지 않고 새 구조와 공존
-❌ NEVER:  기존 동작을 변경하면서 모듈화 진행
-❌ NEVER:  grep/패턴 매칭으로 "확인했다" 판단
-❌ NEVER:  테스트 없이 이주 단계 완료 선언
-
-✅ ALWAYS: 전체 프로젝트 전수조사 후 시작
-✅ ALWAYS: 가장 급해 보이는 딱 한 가지부터 (작아도 됨)
-✅ ALWAYS: 계획서 먼저 작성 → 체크하며 진행
-✅ ALWAYS: Zero Backward Compatibility — 구 코드 반드시 삭제
-✅ ALWAYS: Zero Behavioral Change — 100% 동작 보존
-✅ ALWAYS: 각 이주 단계 후 테스트 100% pass 확인
-✅ ALWAYS: 완료 후 전체 싱크 + §POST 전수조사
-```
-
-### M-2. PRE-WORK — 작업 시작 전 전수조사
-
-> ⛔ 아래가 완료되지 않으면 모듈화를 시작하지 마라.
+### M-1. Modulization-specific prohibited/mandatory rules
 
 ```
-□ 진입점 전부 열거 (API/Event/Cron/CLI/DI)
-□ 데이터 흐름 추적 — 진입점에서 종료점까지 모든 분기 끝까지
-□ 모듈 간 의존 관계 파악 — 가장 작은 것부터 구조적·마이크로 플로우까지
-□ 동적 등록 파악 — Registry/Event Emitter/DI/문자열 디스패치
-□ Barrel/Entry point 공개 API 목록 확인
-□ 모든 흐름 상세 파악 완료 — thoroughly
+❌ NEVER:  Attempt to modulize the entire system at once
+❌ NEVER:  Start modulization without a plan
+❌ NEVER:  Let old code coexist with the new structure without deleting it
+❌ NEVER:  Proceed with modulization while changing existing behavior
+❌ NEVER:  Judge "verified" via grep/pattern matching
+❌ NEVER:  Declare a migration step complete without tests
+
+✅ ALWAYS: Start after a full survey of the entire project
+✅ ALWAYS: Begin with exactly the one thing that seems most urgent (small is fine)
+✅ ALWAYS: Write the plan first → proceed while checking it off
+✅ ALWAYS: Zero Backward Compatibility — old code MUST be deleted
+✅ ALWAYS: Zero Behavioral Change — 100% behavior preservation
+✅ ALWAYS: Confirm tests 100% pass after each migration step
+✅ ALWAYS: Full Sync + §POST full survey after completion
 ```
 
-### M-3. 대상 선정
+### M-2. PRE-WORK — full survey before starting work
+
+> ⛔ Do not start modulization unless the following is complete.
 
 ```
-□ 확장성·응집도 관점에서 가장 급해 보이는 딱 한 가지 선정
-□ 큰 작업이 아니어도 됨 — 작은 단위도 유효
-□ 선정 이유 한 줄 명시 (왜 이것이 먼저인가)
+□ Enumerate all entry points (API/Event/Cron/CLI/DI)
+□ Trace data flow — every branch from entry point to exit point
+□ Understand inter-module dependencies — from the smallest to structural/micro-flows
+□ Understand dynamic registration — Registry/Event Emitter/DI/string dispatch
+□ Confirm the public API list of Barrel/Entry point
+□ Detailed understanding of every flow complete — thoroughly
 ```
 
-### M-4. 계획서 작성
-
-> 새 md 파일을 `task/` 폴더 아래 생성하고, 그 문서를 체크리스트로 사용한다.
+### M-3. Target selection
 
 ```
-□ As-Is 구조 명시 (기존 코드 위치, 의존성, 현재 문제점)
-□ To-Be 구조 명시 (새 모듈 경계, 파일/폴더 레이아웃)
-□ 시간순 단계별 실행 계획 — 빠짐없이 모두 기술 (thoroughly)
-   └─ 각 단계: 무엇을 어디서 어떻게 이주/삭제하는지 상세 기술
-□ 각 단계별 롤백 방법
-□ 프로젝트 영향도 분석 포함 (상위·하위 의존성)
-□ Zero Backward Compatibility 삭제 순서 시간순으로 명시
+□ Select exactly the one thing that seems most urgent from an extensibility/cohesion standpoint
+□ It need not be a large task — a small unit is also valid
+□ State the selection reason in one line (why this one first)
+```
+
+### M-4. Writing the plan
+
+> Create a new md file under the `task/` folder and use that document as the checklist.
+
+```
+□ State the As-Is structure (current code location, dependencies, current problems)
+□ State the To-Be structure (new module boundaries, file/folder layout)
+□ Chronological step-by-step execution plan — describe everything without omission (thoroughly)
+   └─ For each step: describe in detail what is migrated/deleted, where, and how
+□ Rollback method for each step
+□ Include project impact analysis (upstream/downstream dependencies)
+□ State the Zero Backward Compatibility deletion order chronologically
 ```
 
 ### M-5. Zero Backward Compatibility
 
-- 모듈화 완료 후 구 코드/구 구조는 **반드시 삭제**
-- 삭제 전 의존성 체인 전수조사 필수
-- 삭제 누락은 "안전장치"가 아니라 구조 오염으로 간주
+- After modulization, old code/old structures **MUST be deleted**
+- A full survey of the dependency chain is mandatory before deletion
+- A missed deletion is not a "safety net" but structural contamination
 
 ### M-6. Zero Behavioral Change
 
-- 기존 흐름을 해치지 않고 오직 모듈화만 수행
-- 각 이주 단계 후 전체 테스트 100% pass 확인
-- 동작 변경 발견 시 즉시 중단 → 보고 → 지시 대기
+- Perform only modulization, without harming the existing flow
+- Confirm all tests 100% pass after each migration step
+- On finding a behavior change, stop immediately → report → wait for instructions
 
-### M-7. 이주(Migration) 실행 순서
-
-```
-1. 기존 코드에 특성화 테스트 작성 (현행 동작 캡처)
-2. 새 모듈 구조 생성 (기존 코드 옆에 신규 구현)
-3. 소비자를 신규 구조로 이주 (한 번에 하나씩)
-   └─ 이주 시 관련 싱크 즉시 동기화:
-      · 테스트 임포트·어설션·fixture 현행 경로/시그니처로 업데이트
-      · 타입·인터페이스 변경 시 모든 참조 업데이트
-      · 상수 이동 시 소비자 임포트 경로 업데이트
-      · 환경 변수·설정 변경 시 테스트 설정 동기화
-4. 각 이주 단계 후 테스트 100% pass 확인
-5. 구 구현 완전 삭제 + 고아 테스트·타입·상수 즉시 삭제
-6. 최종 §POST 전수조사 실행
-```
-
-### M-8. POST-WORK — 모듈화 완료 후 필수 전수조사
+### M-7. Migration execution order
 
 ```
-▸ 안전성
-  □ Dead reference 0 (삭제 코드 참조 없음)
-  □ 빌드 0에러 · 정적 분석 0에러
-  □ 전체 테스트 100% pass
+1. Write characterization tests on the existing code (capture current behavior)
+2. Create the new module structure (new implementation alongside the old code)
+3. Migrate consumers to the new structure (one at a time)
+   └─ During migration, synchronize related items immediately:
+      · update test imports·assertions·fixtures to current paths/signatures
+      · update all references on type·interface changes
+      · update consumer import paths on constant moves
+      · synchronize test config on environment variable·config changes
+4. Confirm tests 100% pass after each migration step
+5. Completely delete the old implementation + immediately delete orphan tests·types·constants
+6. Run the final §POST full survey
+```
 
-▸ 연결성 — 실제 코드 1줄씩 추적
-  □ 모든 import/export 경로 추적 완료
-  □ 동적 연결(Registry/이벤트/DI) 추적 완료
-  □ 고아 코드 0
+### M-8. POST-WORK — mandatory full survey after modulization
 
-▸ 일관성
-  □ 명명 규칙 전체 통일
-  □ 계층 구조 일관성 유지
-  □ 상수·타입 참조 → 현행 정의
-  □ 문서 현행 구조 반영
+```
+▸ Safety
+  □ Dead reference 0 (no references to deleted code)
+  □ Build 0 errors · static analysis 0 errors
+  □ All tests 100% pass
 
-▸ 전체 싱크 (Full Sync)
-  □ 테스트 코드 현행 소스 반영 · 고아 테스트 0 · 누락 테스트 0
-  □ 타입·상수·설정 모든 참조 업데이트
-  □ 문서(README·ARCHITECTURE·CHANGELOG) 현행 구조 완전 반영
+▸ Connectivity — trace the actual code line by line
+  □ All import/export paths traced
+  □ Dynamic wiring (Registry/event/DI) traced
+  □ Orphan code 0
 
-▸ 프로젝트 영향도 분석
-  □ 변경 모듈 상위·하위 의존성 전수조사
-  □ 작은 의존관계부터 마이크로 플로우까지 끝까지 — thoroughly
-  □ 문제 없음 확인. 문제 발견 시 즉시 보고 후 수정
+▸ Consistency
+  □ Naming conventions fully unified
+  □ Layer structure consistency maintained
+  □ Constant·type references → current definitions
+  □ Docs reflect the current structure
+
+▸ Full Sync
+  □ Test code reflects the current source · orphan tests 0 · missing tests 0
+  □ All type·constant·config references updated
+  □ Docs (README·ARCHITECTURE·CHANGELOG) fully reflect the current structure
+
+▸ Project impact analysis
+  □ Full survey of the changed module's upstream·downstream dependencies
+  □ From the smallest dependency to micro-flows, all the way — thoroughly
+  □ Confirm no problems. If a problem is found, report immediately, then fix
 ```
 
 ---
@@ -886,107 +886,107 @@ EXECUTE(실제 데이터) → OBSERVE(실제 출력 vs 기대) → CORRECT(근�
 ---
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-# §REPORT. Work Completion Report — 작업 완료 보고서
+# §REPORT. Work Completion Report
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-> **⚠️ §POST 완료 직후 작성. 이후 §REVIEW 실행. 두 섹션 모두 생략 불가.**
-> **보고서는 최종 커밋에 포함하거나 PR Description으로 제출.**
+> **⚠️ Write immediately after §POST. Then run §REVIEW. Neither section may be skipped.**
+> **Include the report in the final commit or submit it as the PR Description.**
 
 ---
 
-## REPORT-1. 작업 메타데이터
+## REPORT-1. Work metadata
 
 ```
-작업 ID / PR번호  :
-브랜치            :
-작업 유형         : [ ] 리팩토링  [ ] 모듈화  [ ] 버그픽스  [ ] 기능추가  [ ] 문서  [ ] 기타
-작업 범위         :
-작업자            :
-작업 시작         :         작업 완료:
+Work ID / PR number :
+Branch              :
+Work type           : [ ] Refactoring  [ ] Modulization  [ ] Bugfix  [ ] Feature  [ ] Docs  [ ] Other
+Work scope          :
+Worker              :
+Started             :         Completed:
 ```
 
 ---
 
-## REPORT-2. 완료된 작업 목록
+## REPORT-2. List of completed work
 
-> 실제로 수정된 내용만 기재. 계획과 다르게 진행된 항목은 사유 명시.
+> Record only what was actually modified. State the reason for items that deviated from the plan.
 
-| # | 작업 내용 | 대상 파일/모듈 | 변경 유형 | 결과 |
+| # | Work content | Target file/module | Change type | Result |
 |:---:|:---|:---|:---|:---:|
-| 1 | | | 추가/수정/삭제/이동 | ✅/❌ |
+| 1 | | | add/modify/delete/move | ✅/❌ |
 | 2 | | | | |
 | 3 | | | | |
 | ... | | | | |
 
 ---
 
-## REPORT-3. 시스템 상태 (§POST 결과)
+## REPORT-3. System status (§POST results)
 
 ```
-빌드              : [ ] ✅ 0에러  [ ] ❌ 에러 있음 → 사유:
-정적 분석         : [ ] ✅ 0에러  [ ] ❌ 에러 있음 → 사유:
-전체 테스트       : [ ] ✅ n/n pass  [ ] ❌ 실패 → 사유:
-Regression        : [ ] ✅ 0건  [ ] ❌ 발견 → 내용:
-성능 기준선 비교  : 에러율 [전/후], p95 지연 [전/후], 처리량 [전/후]
-롤백 경로         : [ ] ✅ 검증됨  [ ] ❌ 미검증 → 사유:
+Build             : [ ] ✅ 0 errors  [ ] ❌ has errors → reason:
+Static analysis   : [ ] ✅ 0 errors  [ ] ❌ has errors → reason:
+All tests         : [ ] ✅ n/n pass  [ ] ❌ failed → reason:
+Regression        : [ ] ✅ 0  [ ] ❌ found → details:
+Perf baseline cmp : error rate [before/after], p95 latency [before/after], throughput [before/after]
+Rollback path     : [ ] ✅ verified  [ ] ❌ unverified → reason:
 ```
 
 ---
 
-## REPORT-4. 삭제된 항목 목록
+## REPORT-4. List of deleted items
 
-> Zero Backward Compatibility 원칙에 따라 삭제한 구 코드/파일 목록.
-> 삭제 누락이 있으면 즉시 추가 커밋.
+> List of old code/files deleted per the Zero Backward Compatibility principle.
+> If there is a missed deletion, add a commit immediately.
 
-| 삭제 대상 | 삭제 사유 | 대체 위치 |
+| Deletion target | Deletion reason | Replacement location |
 |:---|:---|:---|
 | | | |
 
 ---
 
-## REPORT-5. 동기화 완료 항목 (Full Sync)
+## REPORT-5. Completed synchronization items (Full Sync)
 
 ```
-[ ] 테스트 코드      : 시그니처·임포트·어설션·fixture 모두 현행 반영
-[ ] 타입 정의        : 변경된 인터페이스·enum·branded type 모든 참조 업데이트
-[ ] 상수/설정        : 이동·이름 변경된 상수 모든 소비자 경로 업데이트
-[ ] 환경 변수        : 변경된 env var 테스트 설정·문서 동기화
-[ ] Mock/Stub        : 현행 계약(시그니처·반환값) 반영
-[ ] README           : 현행 구조 반영
-[ ] ARCHITECTURE     : 현행 구조 반영
-[ ] CHANGELOG        : 이번 변경 기록 추가
-[ ] ADR              : 아키텍처 결정 사항 문서화 (해당 시)
+[ ] Test code        : signatures·imports·assertions·fixtures all reflect the current state
+[ ] Type definitions : all references updated for changed interface·enum·branded type
+[ ] Constants/config : all consumer paths updated for moved·renamed constants
+[ ] Environment vars : test config·docs synchronized for changed env vars
+[ ] Mock/Stub        : reflects the current contract (signature·return value)
+[ ] README           : reflects the current structure
+[ ] ARCHITECTURE     : reflects the current structure
+[ ] CHANGELOG        : this change recorded
+[ ] ADR              : architectural decisions documented (where applicable)
 ```
 
 ---
 
-## REPORT-6. 발견된 이슈 & 기술 부채 등록
+## REPORT-6. Discovered issues & technical debt registration
 
-> 작업 중 발견했으나 이번 범위에 포함하지 않은 항목. 기술 부채 인벤토리(§20)에 즉시 등록.
+> Items found during work but not included in this scope. Register immediately in the technical-debt inventory (§20).
 
-| ID | 위치 | 내용 | 심각도 (P0~P3) | 권장 조치 |
+| ID | Location | Content | Severity (P0~P3) | Recommended action |
 |:---|:---|:---|:---:|:---|
 | DEBT-001 | | | | |
 | DEBT-002 | | | | |
 
 ---
 
-## REPORT-7. 발견된 이슈 & 기술 부채 등록
+## REPORT-7. Discovered issues & technical debt registration
 
-> 작업 중 발견했으나 이번 범위에 포함하지 않은 항목. 기술 부채 인벤토리(§20)에 즉시 등록.
+> Items found during work but not included in this scope. Register immediately in the technical-debt inventory (§20).
 
-| ID | 위치 | 내용 | 심각도 (P0~P3) | 권장 조치 |
+| ID | Location | Content | Severity (P0~P3) | Recommended action |
 |:---|:---|:---|:---:|:---|
 | DEBT-001 | | | | |
 | DEBT-002 | | | | |
 
 ---
 
-## REPORT-8. 후속 작업 권고 (Next Actions)
+## REPORT-8. Next Actions
 
-> §REVIEW 완료 후 도출된 우선순위 기반 후속 작업 목록. 우선순위와 담당자 명시.
+> Priority-based follow-up list derived after §REVIEW. State priority and owner.
 
-| 우선순위 | 내용 | 예상 규모 | 담당 |
+| Priority | Content | Estimated size | Owner |
 |:---:|:---|:---|:---|
 | P0~P3 | | S/M/L | |
 
@@ -995,302 +995,302 @@ Regression        : [ ] ✅ 0건  [ ] ❌ 발견 → 내용:
 ---
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-# §REVIEW. Multi-Perspective Code Review — 다각도 코드 리뷰   ← NEW
+# §REVIEW. Multi-Perspective Code Review   ← NEW
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-> **⚠️ §POST + §REPORT 완료 직후 실행. 생략 불가.**
-> **"제안"이 아니라 "실행"이다. 각 관점마다 변경된 파일을 실제로 열고 1줄씩 읽으며 수행.**
-> **grep·패턴 매칭·기억에 의존 금지. 코드를 직접 보고 판단한 것만 기록.**
-> **발견 사항 없으면 "✅ 이상 없음" 명시. 공란 금지.**
+> **⚠️ Run immediately after §POST + §REPORT. Cannot be skipped.**
+> **This is "execution," not "suggestion." For each perspective, actually open the changed files and read them line by line.**
+> **No reliance on grep·pattern matching·memory. Record only what you judged by looking at the code directly.**
+> **If there are no findings, state "✅ No issues" explicitly. No blanks.**
 
 ---
 
-## REVIEW-0. 리뷰 대상 범위 선언
+## REVIEW-0. Review scope declaration
 
 ```
-리뷰 대상 파일/모듈  : (이번 작업에서 변경된 파일 전체 목록)
-리뷰 제외 범위       : (변경 없는 레거시 파일 등 — 제외 사유 명시)
-리뷰 수행자          :
-리뷰 기준 커밋       :
+Review target files/modules : (full list of files changed in this work)
+Review-excluded scope        : (unchanged legacy files, etc. — state the exclusion reason)
+Reviewer                     :
+Review base commit           :
 ```
 
 ---
 
-## REVIEW-1. 관점 ① 정확성 (Correctness)
+## REVIEW-1. Perspective ① Correctness
 
-> **"코드가 의도한 대로 동작하는가?"**
-> 구현이 요구사항·설계 의도와 실제로 일치하는지 검증. 동작 오류, 엣지 케이스 누락, 잘못된 알고리즘을 찾는다.
+> **"Does the code behave as intended?"**
+> Verify that the implementation actually matches the requirements·design intent. Find behavioral errors, missing edge cases, and incorrect algorithms.
 
 ```
-실행 방법:
-□ 변경된 각 함수/메서드의 입출력 계약을 코드에서 직접 읽고 검증
-□ 분기문(if/switch/ternary) 모든 경로가 올바른 결과를 반환하는지 추적
-□ 루프 경계 조건(off-by-one) 확인
-□ 널/빈값/최솟값/최댓값 처리 경로 추적
-□ 비동기 흐름에서 순서 의존성이 있는 구간 확인
-□ 수치 연산 오버플로우·언더플로우·정밀도 손실 가능성 확인
+How to execute:
+□ Read and verify the input/output contract of each changed function/method directly from the code
+□ Trace that every path of branch statements (if/switch/ternary) returns the correct result
+□ Check loop boundary conditions (off-by-one)
+□ Trace null/empty/min/max handling paths
+□ Check sections with order dependencies in async flows
+□ Check the possibility of overflow·underflow·precision loss in numeric operations
 ```
 
-**발견 사항**:
+**Findings**:
 
-| 위치 (파일:행) | 문제 설명 | 심각도 | 권고 조치 |
+| Location (file:line) | Problem description | Severity | Recommended action |
 |:---|:---|:---:|:---|
 | | | P0~P3 | |
 
 ---
 
-## REVIEW-2. 관점 ② 보안 (Security)
+## REVIEW-2. Perspective ② Security
 
-> **"공격자가 이 코드를 어떻게 악용할 수 있는가?"**
-> 입력 신뢰 경계, 인증·인가 우회, 데이터 노출, 주입 공격 취약점을 찾는다.
+> **"How could an attacker abuse this code?"**
+> Find input-trust boundaries, authentication·authorization bypass, data exposure, and injection vulnerabilities.
 
 ```
-실행 방법:
-□ 외부 입력(HTTP 요청·파일·환경변수·DB·메시지큐)이 검증 없이 사용되는 지점 추적
-□ SQL/Command/LDAP/XPath 인젝션 가능한 문자열 조합 패턴 확인
-□ 인증(Authentication) 우회 가능한 조건문 확인
-□ 인가(Authorization) 검사가 누락된 내부 API 호출 경로 확인
-□ 민감 데이터(비밀번호·토큰·PII·카드번호)가 로그·에러 메시지·응답에 포함되는지 확인
-□ 타임아웃·재시도 없는 외부 호출 → DoS 벡터 확인
-□ 파일 경로 조작(Path Traversal) 가능한 경로 결합 확인
-□ 직렬화/역직렬화 경계에서 타입 혼동 공격 가능성 확인
+How to execute:
+□ Trace where external input (HTTP request·file·environment variable·DB·message queue) is used without validation
+□ Check string-concatenation patterns vulnerable to SQL/Command/LDAP/XPath injection
+□ Check conditionals that allow Authentication bypass
+□ Check internal API call paths missing an Authorization check
+□ Check whether sensitive data (password·token·PII·card number) appears in logs·error messages·responses
+□ External calls without timeout·retry → check DoS vectors
+□ Check path concatenation vulnerable to Path Traversal
+□ Check the possibility of type-confusion attacks at the serialization/deserialization boundary
 ```
 
-**발견 사항**:
+**Findings**:
 
-| 위치 (파일:행) | 취약점 유형 | 심각도 | 권고 조치 |
+| Location (file:line) | Vulnerability type | Severity | Recommended action |
 |:---|:---|:---:|:---|
 | | | P0~P3 | |
 
 ---
 
-## REVIEW-3. 관점 ③ 안정성 (Robustness)
+## REVIEW-3. Perspective ③ Robustness
 
-> **"예상치 못한 상황에서 코드가 어떻게 무너지는가?"**
-> 리소스 누수, 에러 삼키기, 복구 불가 상태, 무한 루프/재귀를 찾는다.
+> **"How does the code break down under unexpected conditions?"**
+> Find resource leaks, swallowed errors, unrecoverable states, and infinite loops/recursion.
 
 ```
-실행 방법:
-□ acquire 후 release 없이 예외가 던져지는 경로 추적 (파일핸들·DB커넥션·락·소켓)
-□ try-catch 블록이 에러를 삼키고(catch {}) 상위로 전파하지 않는 지점 확인
-□ 재귀 호출에 종료 조건이 명확한지, 스택 오버플로우 가능성 확인
-□ 이벤트 리스너·콜백·Promise가 해제되지 않는 메모리 누수 경로 확인
-□ 외부 서비스 호출 실패 시 시스템이 일관성 없는 중간 상태로 남는 경로 확인
-□ 타임아웃 설정 없는 블로킹 I/O 확인
-□ 에러 메시지에 WHAT/WHY/WHERE가 포함되어 있는지 확인 (액션 가능한 메시지)
+How to execute:
+□ Trace paths where an exception is thrown after acquire without release (file handle·DB connection·lock·socket)
+□ Check where a try-catch block swallows the error (catch {}) and does not propagate it upward
+□ Check whether recursive calls have a clear termination condition, and the possibility of stack overflow
+□ Check memory-leak paths where event listeners·callbacks·Promises are not released
+□ Check paths where the system is left in an inconsistent intermediate state on external service-call failure
+□ Check blocking I/O without a timeout setting
+□ Check whether error messages include WHAT/WHY/WHERE (actionable messages)
 ```
 
-**발견 사항**:
+**Findings**:
 
-| 위치 (파일:행) | 문제 설명 | 심각도 | 권고 조치 |
+| Location (file:line) | Problem description | Severity | Recommended action |
 |:---|:---|:---:|:---|
 | | | P0~P3 | |
 
 ---
 
-## REVIEW-4. 관점 ④ 성능 (Performance)
+## REVIEW-4. Perspective ④ Performance
 
-> **"코드가 불필요한 비용을 지불하는 지점은 어디인가?"**
-> 측정 없이 "느릴 것 같다"는 감으로 판단 금지. 명확히 보이는 구조적 문제만 기록.
+> **"Where does the code pay unnecessary cost?"**
+> No judging by a gut feeling that "it seems slow" without measurement. Record only clearly visible structural problems.
 
 ```
-실행 방법:
-□ 루프 내 반복 호출되는 DB/외부 API 호출 확인 (N+1 패턴)
-□ 루프 내 대용량 객체 복사·직렬화 확인
-□ 동기 I/O가 이벤트 루프/스레드풀을 블로킹하는 경로 확인
-□ 동일 결과를 반복 계산하는 고비용 연산 (캐시 적용 가능 여부 검토)
-□ 불필요하게 전체 컬렉션을 로드 후 필터링하는 패턴 확인 (DB 레벨 필터 적용 가능?)
-□ 재귀·중첩 반복문의 최악 복잡도(O notation) 추정
-□ 메모리 할당 핫패스에서 반복 생성되는 임시 객체 확인
+How to execute:
+□ Check DB/external API calls invoked repeatedly inside a loop (N+1 pattern)
+□ Check large-object copying·serialization inside a loop
+□ Check paths where synchronous I/O blocks the event loop/thread pool
+□ Expensive operations that repeatedly compute the same result (review whether caching is applicable)
+□ Check patterns that unnecessarily load the whole collection and then filter (can a DB-level filter apply?)
+□ Estimate the worst-case complexity (O notation) of recursion·nested loops
+□ Check temporary objects repeatedly created on a memory-allocation hot path
 ```
 
-**발견 사항**:
+**Findings**:
 
-| 위치 (파일:행) | 문제 설명 | 예상 영향도 | 권고 조치 |
+| Location (file:line) | Problem description | Estimated impact | Recommended action |
 |:---|:---|:---:|:---|
-| | | 높음/중간/낮음 | |
+| | | High/Medium/Low | |
 
 ---
 
-## REVIEW-5. 관점 ⑤ 설계 (Design & Architecture)
+## REVIEW-5. Perspective ⑤ Design & Architecture
 
-> **"이 코드의 구조가 미래 변경을 어렵게 만드는가?"**
-> 결합도, 응집도, 책임 분리, 의존성 방향의 문제를 찾는다.
+> **"Does the structure of this code make future changes difficult?"**
+> Find problems in coupling, cohesion, responsibility separation, and dependency direction.
 
 ```
-실행 방법:
-□ 단일 함수/클래스가 2개 이상의 변경 이유를 가지는지 확인 (SRP 위반)
-□ 두 모듈이 서로를 직접 참조하는 순환 의존성 확인
-□ Presentation 계층에 비즈니스 규칙이 섞여 있는지 확인
-□ Infrastructure(DB·HTTP·파일)가 Business 계층을 직접 의존하는지 확인
-□ 테스트하기 위해 프로덕션 코드에 테스트 전용 분기가 들어가 있는지 확인
-□ 추상화 계층이 실제 교체·확장 필요 없이 과도하게 래핑만 하는지 확인 (§28)
-□ 두 도메인의 로직이 하나의 파일에 혼재하는지 확인
-□ 공통 유틸리티가 특정 도메인에 종속된 로직을 포함하는지 확인
+How to execute:
+□ Check whether a single function/class has 2 or more reasons to change (SRP violation)
+□ Check circular dependencies where two modules reference each other directly
+□ Check whether business rules are mixed into the Presentation layer
+□ Check whether Infrastructure (DB·HTTP·file) directly depends on the Business layer
+□ Check whether test-only branches were added to production code for testing
+□ Check whether an abstraction layer merely wraps excessively without an actual replacement·extension need (§28)
+□ Check whether the logic of two domains is mixed in one file
+□ Check whether a common utility contains logic tied to a specific domain
 ```
 
-**발견 사항**:
+**Findings**:
 
-| 위치 (파일:행) | 설계 문제 유형 | 심각도 | 권고 조치 |
+| Location (file:line) | Design problem type | Severity | Recommended action |
 |:---|:---|:---:|:---|
-| | SRP위반/순환의존/계층위반/불필요추상화/... | P0~P3 | |
+| | SRP violation/circular dependency/layer violation/unnecessary abstraction/... | P0~P3 | |
 
 ---
 
-## REVIEW-6. 관점 ⑥ 가독성 (Readability)
+## REVIEW-6. Perspective ⑥ Readability
 
-> **"6개월 후 이 코드를 처음 보는 팀원이 30초 안에 의도를 파악할 수 있는가?"**
-
-```
-실행 방법:
-□ 이름(변수·함수·클래스·파일)이 "무엇인가/무엇을 하는가"를 설명하는지 확인
-□ 이름에 약어·축약·내부 은어가 사용되어 도메인 외부인에게 불명확한지 확인
-□ 함수 내 추상화 수준이 혼재하는지 확인 (고수준 로직 + 저수준 구현 혼합)
-□ 중첩 깊이가 3단계를 초과하는 구간 확인
-□ 조건문이 부정/이중부정으로 의도를 가리는지 확인
-□ 코드를 보면 알 수 있는 내용을 반복하는 노이즈 주석 확인
-□ WHY가 없는 비자명 코드(마법 같은 숫자, 알 수 없는 조건) 확인
-□ 한 줄에 2개 이상의 부수효과 또는 의미 단위가 밀집된 구간 확인
-```
-
-**발견 사항**:
-
-| 위치 (파일:행) | 문제 설명 | 심각도 | 권고 조치 |
-|:---|:---|:---:|:---|
-| | | P0~P3 | |
-
----
-
-## REVIEW-7. 관점 ⑦ 테스트 품질 (Test Quality)
-
-> **"테스트가 통과하는 것이 실제 동작의 정확성을 보장하는가?"**
-> 커버리지 숫자가 아니라 테스트의 의미와 신뢰성을 검증한다.
+> **"Can a teammate seeing this code for the first time grasp its intent within 30 seconds, 6 months from now?"**
 
 ```
-실행 방법:
-□ 테스트가 구현 세부사항(내부 상태·private 메서드)을 검증하는지 확인
-  → 외부 동작(입출력·부수효과)을 검증해야 리팩토링에 안전
-□ assert가 항상 성공하는 형태(tautology)인지 확인
-  예: expect(true).toBe(true) / expect(result).toBeDefined()만으로 종료
-□ 경계값 케이스(0, -1, 빈 배열, null, 최댓값)가 존재하는지 확인
-□ 에러 경로(예외 발생·실패 응답) 테스트가 존재하는지 확인
-□ Mock/Stub이 현행 인터페이스 계약과 일치하는지 확인
-□ 테스트 간 공유 상태(전역변수·DB·파일)로 인한 순서 의존성 확인
-□ 테스트 이름이 "무엇을 검증하는지"를 정확히 설명하는지 확인
-□ 소스 변경 없이 테스트만 삭제하거나 skip한 흔적 확인
+How to execute:
+□ Check whether names (variable·function·class·file) describe "what it is / what it does"
+□ Check whether names use abbreviations·contractions·internal jargon that are unclear to those outside the domain
+□ Check whether abstraction levels are mixed within a function (high-level logic + low-level implementation)
+□ Check sections where nesting depth exceeds 3 levels
+□ Check whether conditionals obscure intent with negation/double negation
+□ Check noise comments that repeat what the code already makes obvious
+□ Check non-obvious code without a WHY (magic-like numbers, unknown conditions)
+□ Check sections where 2 or more side effects or meaning units are packed into one line
 ```
 
-**발견 사항**:
+**Findings**:
 
-| 위치 (테스트 파일:행) | 문제 설명 | 심각도 | 권고 조치 |
+| Location (file:line) | Problem description | Severity | Recommended action |
 |:---|:---|:---:|:---|
 | | | P0~P3 | |
 
 ---
 
-## REVIEW-8. 관점 ⑧ 타입 안전성 (Type Safety)
+## REVIEW-7. Perspective ⑦ Test Quality
 
-> **"타입 시스템이 런타임 오류를 컴파일 타임에 차단하고 있는가?"**
+> **"Does passing tests guarantee the correctness of the actual behavior?"**
+> Verify the meaning and reliability of the tests, not the coverage number.
 
 ```
-실행 방법:
-□ any / unknown / object / untyped 사용 지점 확인 — 사유 없는 사용은 즉시 지적
-□ 타입 단언(as Type / type assertion / !)이 실제 불변조건 없이 사용되는 지점 확인
-□ Union type · enum이 switch/if 분기에서 완전 매칭되는지 확인 (누락 케이스 탐지)
-□ Optional(nullable) 값이 null 체크 없이 직접 접근되는 지점 확인
-□ 외부 입력(JSON.parse·HTTP body·DB row)에 런타임 타입 검증이 존재하는지 확인
-□ 같은 개념을 원시 타입(string/number)으로 표현해 혼동 위험이 있는지 확인
-  → branded type / enum 으로 교체 가능 여부 검토
-□ 제네릭 타입 파라미터가 너무 광범위하게 선언되어 타입 정보를 잃는지 확인
+How to execute:
+□ Check whether tests verify implementation details (internal state·private methods)
+  → they should verify external behavior (I/O·side effects) to be safe for refactoring
+□ Check whether asserts are tautologies that always pass
+  e.g.: ending with only expect(true).toBe(true) / expect(result).toBeDefined()
+□ Check whether boundary-value cases (0, -1, empty array, null, max) exist
+□ Check whether error-path tests (exception raised·failure response) exist
+□ Check whether Mock/Stub matches the current interface contract
+□ Check order dependencies caused by state shared between tests (global variables·DB·files)
+□ Check whether test names accurately describe "what they verify"
+□ Check for traces of deleting or skipping tests without source changes
 ```
 
-**발견 사항**:
+**Findings**:
 
-| 위치 (파일:행) | 문제 설명 | 심각도 | 권고 조치 |
+| Location (test file:line) | Problem description | Severity | Recommended action |
 |:---|:---|:---:|:---|
 | | | P0~P3 | |
 
 ---
 
-## REVIEW-9. 관점 ⑨ 동시성 (Concurrency)
+## REVIEW-8. Perspective ⑧ Type Safety
 
-> **"병렬·비동기 실행 환경에서 코드가 올바르게 동작하는가?"**
-> 단일 스레드 언어라도 비동기 코드에서 동시성 버그는 발생한다.
+> **"Is the type system blocking runtime errors at compile time?"**
 
 ```
-실행 방법:
-□ 공유 가변 상태(전역변수·모듈 수준 캐시·클래스 필드)에 대한 동시 접근 보호 확인
-□ async 함수에서 await 누락으로 Promise가 무시되는 지점 확인
-□ 루프 내 await 패턴이 병렬 처리 가능한데 직렬로 처리하는지 확인 (Promise.all 적용 가능?)
-□ check-then-act 패턴 (조건 확인 → 실행 사이에 상태가 바뀔 수 있는 구간) 확인
-□ 이벤트 리스너가 중복 등록되어 핸들러가 여러 번 실행될 수 있는지 확인
-□ 데드락 가능성: 두 작업이 서로 상대방이 완료되길 기다리는 구조 확인
-□ 콜백 기반 API와 Promise/async가 혼재하여 에러 전파가 끊기는 경계 확인
+How to execute:
+□ Check uses of any / unknown / object / untyped — point out unjustified uses immediately
+□ Check where type assertions (as Type / type assertion / !) are used without an actual invariant
+□ Check whether Union type · enum are exhaustively matched in switch/if branches (detect missing cases)
+□ Check where Optional (nullable) values are accessed directly without a null check
+□ Check whether external input (JSON.parse·HTTP body·DB row) has runtime type validation
+□ Check whether the same concept is expressed with a primitive type (string/number) creating a confusion risk
+  → review whether it can be replaced with a branded type / enum
+□ Check whether generic type parameters are declared too broadly and lose type information
 ```
 
-**발견 사항**:
+**Findings**:
 
-| 위치 (파일:행) | 문제 설명 | 심각도 | 권고 조치 |
+| Location (file:line) | Problem description | Severity | Recommended action |
 |:---|:---|:---:|:---|
 | | | P0~P3 | |
 
 ---
 
-## REVIEW-10. 관점 ⑩ 기술 부채 (Technical Debt)
+## REVIEW-9. Perspective ⑨ Concurrency
 
-> **"이 코드가 미래의 작업 속도를 얼마나 잠식하는가?"**
-> 지금 당장은 동작하지만 비용이 누적되는 구조적 문제를 찾는다.
+> **"Does the code behave correctly in a parallel·async execution environment?"**
+> Even in a single-threaded language, concurrency bugs occur in async code.
 
 ```
-실행 방법:
-□ TODO/FIXME/HACK 주석 중 이슈번호·기한이 없는 항목 전수조사
-□ 함수·파일·모듈이 명확한 이름을 갖지 못해 utils/helpers/misc 등으로 남은 항목 확인
-□ 테스트 없이 동작에 의존하는 복잡한 로직 (특성화 테스트 부재) 확인
-□ 동일한 비즈니스 규칙이 2개 이상 위치에서 구현되어 하나가 바뀌면 싱크 깨짐 위험 확인
-□ 외부 라이브러리를 어댑터 없이 3+ 파일에서 직접 임포트하여 교체 비용이 큰 구간 확인
-□ 단기 해결책(Workaround)이 주석 없이 영구 코드처럼 남아 있는 구간 확인
-□ 설정값이 하드코딩되어 환경별 변경이 코드 수정을 요구하는 구간 확인
+How to execute:
+□ Check protection of concurrent access to shared mutable state (global variables·module-level cache·class fields)
+□ Check where a missing await in an async function causes a Promise to be ignored
+□ Check whether an await-in-loop pattern processes serially when it could be parallel (can Promise.all apply?)
+□ Check the check-then-act pattern (sections where state can change between condition check → execution)
+□ Check whether an event listener is registered multiple times, causing the handler to run several times
+□ Deadlock possibility: check structures where two tasks each wait for the other to complete
+□ Check boundaries where callback-based APIs and Promise/async are mixed, breaking error propagation
 ```
 
-**발견 사항**:
+**Findings**:
 
-| 위치 (파일:행) | 부채 유형 | 누적 위험도 | 권고 조치 |
+| Location (file:line) | Problem description | Severity | Recommended action |
 |:---|:---|:---:|:---|
-| | | 높음/중간/낮음 | |
+| | | P0~P3 | |
 
 ---
 
-## REVIEW-SUMMARY. 종합 요약
+## REVIEW-10. Perspective ⑩ Technical Debt
 
-> 10개 관점 리뷰 완료 후 전체 결과를 집약. 이 요약이 §REPORT-8 후속 작업의 입력이 된다.
+> **"How much does this code erode future development speed?"**
+> Find structural problems that work right now but accumulate cost.
 
-### 전체 발견 사항 집계
+```
+How to execute:
+□ Full survey of TODO/FIXME/HACK comments lacking an issue number·deadline
+□ Check functions·files·modules that, lacking a clear name, remain as utils/helpers/misc, etc.
+□ Check complex logic that relies on behavior without tests (no characterization test)
+□ Check the risk of broken sync where the same business rule is implemented in 2+ locations
+□ Check sections with high replacement cost where an external library is imported directly in 3+ files without an adapter
+□ Check sections where a short-term Workaround remains as if permanent code, without a comment
+□ Check sections where a config value is hard-coded so per-environment changes require code modification
+```
 
-| 심각도 | 건수 | 주요 위치 |
+**Findings**:
+
+| Location (file:line) | Debt type | Accumulated risk | Recommended action |
+|:---|:---|:---:|:---|
+| | | High/Medium/Low | |
+
+---
+
+## REVIEW-SUMMARY. Comprehensive summary
+
+> Aggregate all results after completing the 10-perspective review. This summary becomes the input for §REPORT-8 next actions.
+
+### Aggregate of all findings
+
+| Severity | Count | Main locations |
 |:---:|:---:|:---|
-| P0 (즉시 수정 필요) | | |
-| P1 (당일 처리) | | |
-| P2 (이번 사이클 내) | | |
-| P3 (별도 커밋·백로그) | | |
+| P0 (needs immediate fix) | | |
+| P1 (handle same day) | | |
+| P2 (within this cycle) | | |
+| P3 (separate commit·backlog) | | |
 
-### 관점별 결과 요약
+### Per-perspective result summary
 
-| 관점 | 결과 | 주요 발견 (1줄) |
+| Perspective | Result | Main finding (1 line) |
 |:---|:---:|:---|
-| ① 정확성 | ✅/⚠️/❌ | |
-| ② 보안 | ✅/⚠️/❌ | |
-| ③ 안정성 | ✅/⚠️/❌ | |
-| ④ 성능 | ✅/⚠️/❌ | |
-| ⑤ 설계 | ✅/⚠️/❌ | |
-| ⑥ 가독성 | ✅/⚠️/❌ | |
-| ⑦ 테스트 품질 | ✅/⚠️/❌ | |
-| ⑧ 타입 안전성 | ✅/⚠️/❌ | |
-| ⑨ 동시성 | ✅/⚠️/❌ | |
-| ⑩ 기술 부채 | ✅/⚠️/❌ | |
+| ① Correctness | ✅/⚠️/❌ | |
+| ② Security | ✅/⚠️/❌ | |
+| ③ Robustness | ✅/⚠️/❌ | |
+| ④ Performance | ✅/⚠️/❌ | |
+| ⑤ Design | ✅/⚠️/❌ | |
+| ⑥ Readability | ✅/⚠️/❌ | |
+| ⑦ Test Quality | ✅/⚠️/❌ | |
+| ⑧ Type Safety | ✅/⚠️/❌ | |
+| ⑨ Concurrency | ✅/⚠️/❌ | |
+| ⑩ Technical Debt | ✅/⚠️/❌ | |
 
-### 리뷰어 인수인계 포인트
+### Reviewer handoff points
 
-> P0·P1 항목 중 PR 리뷰어가 특히 집중해야 할 지점을 3개 이내로 압축.
+> Compress into 3 or fewer the points the PR reviewer should especially focus on among P0·P1 items.
 
 ```
 1.
@@ -1305,44 +1305,44 @@ Regression        : [ ] ✅ 0건  [ ] ❌ 발견 → 내용:
 ---
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-# §IMPROVE. Document Improvement Log — 문서 개선사항 추적  ← NEW
+# §IMPROVE. Document Improvement Log  ← NEW
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-> **이 섹션은 문서 자체(이 마스터 문서)에 대한 개선 이력 및 알려진 문제를 추적한다.**
-> **섹션 추가 기준**: 기존 섹션으로 커버 불가능한 독립적 주제 + 2개 이상 실사례 발생 시.
-> **섹션 통합 기준**: 내용 70% 이상 중복 또는 단독으로 의미를 이루기 어려운 경우.
+> **This section tracks the improvement history and known issues of the document itself (this master document).**
+> **Section addition criterion**: an independent topic not coverable by existing sections + 2 or more real cases occurred.
+> **Section consolidation criterion**: 70% or more content overlap, or it cannot stand on its own meaningfully.
 
 ---
 
-## IMPROVE-1. v5.0 → v5.2 변경 이력
+## IMPROVE-1. v5.0 → v5.2 change history
 
-| 버전 | 항목 | 변경 내용 | 사유 |
+| Version | Item | Change | Reason |
 |:---:|:---|:---|:---|
-| v5.1 | §REPORT 추가 | 작업 완료 보고서 템플릿 신설 | 작업 후 인수인계·추적 누락 방지 |
-| v5.1 | §IMPROVE 추가 | 문서 자체 개선사항 추적 섹션 신설 | 문서 무한 비대화 방지, 개선 이력 가시화 |
-| v5.1 | §11 단계표 추가 | 8단계에 참조 섹션 번호 명시 | 에이전트가 각 단계에서 어느 섹션을 봐야 하는지 불명확 문제 해소 |
-| v5.1 | §23 Pain/Effort 정의 | 척도 기준표(1/3/5) 추가 | 정의 없이 공식만 있어 실사용 불가 문제 해소 |
-| v5.1 | §28 Simplification 확장 | 판단 기준표 추가 | 1문장으로는 실행 기준 부재 |
-| v5.1 | §2-4 Type C 명확화 | 의도적 제거(Deprecation 중) 예외 조건 추가 | Type C와 Type D 경계 모호 문제 해소 |
-| v5.2 | §REPORT-7 재설계 | "개선사항 제안 테이블" 제거 → 기술 부채 등록으로 통합 | 제안은 §REVIEW에서 실행형으로 대체 |
-| v5.2 | §REVIEW 신설 | 10개 관점 실행형 코드 리뷰 섹션 추가 | "제안" 대신 §POST 후 실제 코드를 읽고 수행하는 전수 리뷰 |
-| v5.2 | §REPORT-9 제거 | 리뷰어 체크포인트 → §REVIEW-SUMMARY로 통합 | §REVIEW 종합 요약이 동일 역할을 더 풍부하게 수행 |
+| v5.1 | Added §REPORT | New work-completion report template | Prevent missed handoff·tracking after work |
+| v5.1 | Added §IMPROVE | New section tracking document-self improvements | Prevent unbounded document bloat, make improvement history visible |
+| v5.1 | Added §11 stage table | State reference section numbers for the 8 stages | Resolve the ambiguity of which section the agent should view at each stage |
+| v5.1 | §23 Pain/Effort definition | Added a scale table (1/3/5) | Resolve unusability where only a formula existed without definitions |
+| v5.1 | §28 Simplification expanded | Added a decision-criteria table | A single sentence lacked an execution criterion |
+| v5.1 | §2-4 Type C clarified | Added an intentional-removal (during deprecation) exception condition | Resolve the ambiguity of the Type C / Type D boundary |
+| v5.2 | §REPORT-7 redesigned | Removed the "improvement suggestion table" → consolidated into technical-debt registration | Suggestions are replaced by executable form in §REVIEW |
+| v5.2 | Added §REVIEW | Added a 10-perspective executable code-review section | An exhaustive review that reads and acts on actual code after §POST, instead of "suggestions" |
+| v5.2 | Removed §REPORT-9 | Reviewer checkpoints → consolidated into §REVIEW-SUMMARY | The §REVIEW comprehensive summary performs the same role more richly |
 
 ---
 
-## IMPROVE-2. 알려진 문제 (Known Issues)
+## IMPROVE-2. Known Issues
 
-> 현재 식별된 문제로, 향후 버전에서 해결 예정.
+> Currently identified problems, to be resolved in future versions.
 
-### 🔴 HIGH — 즉시 조치 권고
+### 🔴 HIGH — immediate action recommended
 
-**[ISSUE-001] LLM 컨텍스트 비대화 (Context Bloat)**
+**[ISSUE-001] LLM Context Bloat**
 
-- **현상**: 문서 전체가 단일 파일(~10,000+ 토큰). 에이전트가 매 호출 시 전문을 컨텍스트에 로드하면 토큰 비용이 선형으로 증가하고, 긴 컨텍스트에서 중간 지시사항이 희석(Lost-in-the-Middle 현상)됨.
-- **측정 기준**: 현재 문서 약 10,000+ 토큰 → 단일 작업 세션에서 에이전트 호출 10회면 100,000+ 토큰 소비.
-- **권고 조치**: 섹션 그룹별 분리 파일화 + 에이전트는 현재 단계에 해당하는 섹션만 동적 로드.
+- **Symptom**: The whole document is a single file (~10,000+ tokens). If the agent loads the full text into context on every call, the token cost grows linearly, and middle instructions get diluted in a long context (the Lost-in-the-Middle phenomenon).
+- **Measurement basis**: The current document is about 10,000+ tokens → 10 agent calls in a single work session consume 100,000+ tokens.
+- **Recommended action**: Split into files by section group + the agent dynamically loads only the section relevant to the current stage.
   ```
-  예시 분리 구조:
+  Example split structure:
   refactoring-core.md      (§0, §POST, §11, §12, CONSTRAINTS)
   refactoring-code.md      (§1~§10)
   refactoring-ops.md       (§15~§22)
@@ -1350,55 +1350,55 @@ Regression        : [ ] ✅ 0건  [ ] ❌ 발견 → 내용:
   refactoring-report.md    (§REPORT, §IMPROVE)
   ```
 
-**[ISSUE-002] 핵심 규칙 과도한 반복 (Rule Redundancy)**
+**[ISSUE-002] Excessive Rule Redundancy**
 
-- **현상**: "grep 금지", "할루시네이션 금지", "파일 직접 열어 확인" 등 핵심 규칙이 §CONSTRAINTS, §0-0, §POST, §2 서두, §11-3, §12V에 최소 6회 반복. 에이전트에게 강조 효과보다 컨텍스트 낭비 효과가 더 큼.
-- **권고 조치**: 핵심 규칙은 §CONSTRAINTS(문서 최상단)에 1회만 정의. 나머지 섹션은 `→ §CONSTRAINTS 참조` 로 대체. 반복이 필요한 경우 1줄 요약만 허용.
-
----
-
-### 🟡 MEDIUM — 다음 버전에서 해결
-
-**[ISSUE-003] §14 누락**
-
-- **현상**: 섹션 목차 및 본문에서 §13 다음이 §15로 건너뜀. §14가 의도적으로 생략된 것인지, 실수로 누락된 것인지 불명확.
-- **권고 조치**: 의도적 삭제라면 목차에서도 §14 행 제거. 향후 신규 내용 추가 시 §14 슬롯 재사용 가능 여부 결정.
-
-**[ISSUE-004] §POST ≈ §12V 중복**
-
-- **현상**: §POST의 체크리스트와 §12 카테고리 V의 체크리스트가 내용 90% 이상 동일. 두 곳을 모두 읽으면 중복 처리, 하나만 읽으면 다른 하나가 누락될 위험.
-- **권고 조치**: §12V를 `→ §POST 참조` 단일 라인으로 대체하거나, §POST를 §12 내부로 통합.
-
-**[ISSUE-005] 문서 버전 관리 체계 부재**
-
-- **현상**: v5.1 명시는 있으나, v4→v5→v5.1에서 무엇이 추가/삭제/변경됐는지 이력이 없음. 팀원이 변경 사항을 추적할 수 없음.
-- **권고 조치**: §IMPROVE-1 형태로 각 버전 이력을 누적 관리. 최신 3개 버전 이력만 본문 유지, 오래된 이력은 CHANGELOG 파일로 이동.
+- **Symptom**: Core rules like "no grep", "no hallucination", and "open the file and verify directly" are repeated at least 6 times across §CONSTRAINTS, §0-0, §POST, the §2 preamble, §11-3, and §12V. For the agent, the context-waste effect outweighs the emphasis effect.
+- **Recommended action**: Define core rules only once in §CONSTRAINTS (top of the document). Replace the rest with `→ see §CONSTRAINTS`. Where repetition is needed, allow only a 1-line summary.
 
 ---
 
-### 🟢 LOW — 백로그
+### 🟡 MEDIUM — resolve in the next version
 
-**[ISSUE-006] 문서 무한 증가 위험**
+**[ISSUE-003] §14 missing**
 
-- **현상**: v5.0 기준 §1~§28 + §M + §POST = 31개 섹션. 섹션 추가 기준이 명확하지 않아 버전마다 섹션이 계속 증가할 위험. 문서가 커질수록 [ISSUE-001] 악화.
-- **권고 조치**: §IMPROVE 상단에 "섹션 추가 기준 / 통합 기준"을 명시 (v5.1에서 반영 완료). 분기별 문서 감사 시 섹션 수 ≤35 상한 유지.
+- **Symptom**: In both the table of contents and the body, §13 jumps to §15. It is unclear whether §14 was intentionally omitted or missed by mistake.
+- **Recommended action**: If intentionally removed, also remove the §14 row from the table of contents. Decide whether the §14 slot can be reused when adding new content in the future.
 
-**[ISSUE-007] Dead Code Type C/D 경계 모호**
+**[ISSUE-004] §POST ≈ §12V overlap**
 
-- **현상**: Type C(고아 코드=누락된 연결)는 삭제 금지+와이어업, Type D(세대 잔여물)는 삭제. 그러나 Deprecation 진행 중인 코드는 의도적으로 연결이 끊겨 있어 Type C로 오분류될 수 있음.
-- **권고 조치**: v5.1에서 Type C에 "의도적 제거(deprecation 중) 예외 조건" 추가 완료(§2-4). 향후 버전에서 판단 플로우차트 추가 권고.
+- **Symptom**: The §POST checklist and the §12 category V checklist are 90%+ identical in content. Reading both means duplicate processing; reading only one risks omitting the other.
+- **Recommended action**: Replace §12V with a single line `→ see §POST`, or merge §POST into §12.
 
-**[ISSUE-008] §8-5 파일 길이 기준 ↔ §4-1 함수 길이 기준 연결 누락**
+**[ISSUE-005] No document version-management system**
 
-- **현상**: §4-1은 함수 길이 ≤40줄, §8-5는 파일 길이 기준(≤200/400/500)을 각각 제시하나 두 기준 간 관계 미설명. 함수 40줄 × 5개 = 200줄이라는 암묵적 연산이 명시되지 않음.
-- **권고 조치**: §8-5에 "함수 ≤40줄(§4-1) 기준 적용 시 파일당 함수 ≤5개가 이상적" 안내 문구 추가.
+- **Symptom**: v5.1 is stated, but there is no history of what was added/removed/changed across v4→v5→v5.1. Teammates cannot track the changes.
+- **Recommended action**: Accumulate each version's history in the §IMPROVE-1 form. Keep only the latest 3 versions' history in the body, and move older history to a CHANGELOG file.
 
 ---
 
-## IMPROVE-3. 섹션 수 현황
+### 🟢 LOW — backlog
+
+**[ISSUE-006] Risk of unbounded document growth**
+
+- **Symptom**: As of v5.0, §1~§28 + §M + §POST = 31 sections. With no clear section-addition criterion, there is a risk that sections keep growing each version. The larger the document, the worse [ISSUE-001] becomes.
+- **Recommended action**: State "section addition criterion / consolidation criterion" at the top of §IMPROVE (done in v5.1). Keep the section count ≤35 at the quarterly document audit.
+
+**[ISSUE-007] Ambiguous Dead Code Type C/D boundary**
+
+- **Symptom**: Type C (orphan code = missing wiring) is do-not-delete + wire-up, while Type D (generation residue) is delete. However, code in progress of deprecation is intentionally disconnected and may be misclassified as Type C.
+- **Recommended action**: Done in v5.1 — added the "intentional-removal (during deprecation) exception condition" to Type C (§2-4). Recommend adding a decision flowchart in a future version.
+
+**[ISSUE-008] Missing link between §8-5 file-length criterion ↔ §4-1 function-length criterion**
+
+- **Symptom**: §4-1 gives function length ≤40 lines and §8-5 gives file-length criteria (≤200/400/500), but the relationship between the two is not explained. The implicit arithmetic of 40 lines × 5 functions = 200 lines is not stated.
+- **Recommended action**: Add a note to §8-5: "Applying the function ≤40-line criterion (§4-1), ≤5 functions per file is ideal."
+
+---
+
+## IMPROVE-3. Section count status
 
 ```
-현재 섹션 수: 33개 (§1~§28 + §M + §POST + §REPORT + §REVIEW + §IMPROVE)
-권장 상한:   ≤35개
-다음 감사일: [분기별 갱신]
+Current section count: 33 (§1~§28 + §M + §POST + §REPORT + §REVIEW + §IMPROVE)
+Recommended ceiling:   ≤35
+Next audit date: [updated quarterly]
 ```

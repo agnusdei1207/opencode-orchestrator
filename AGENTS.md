@@ -1,308 +1,308 @@
 # AGENTS.md
 
-## 목적
-이 파일은 이 저장소의 모든 에이전트 작업에 대한 필수 운영 규칙을 정의합니다.
-이 규칙들을 코드, 문서화, 분석, 설계, 리뷰 및 디버깅에 적용하십시오.
+## Purpose
+This file defines the mandatory operating rules for all agent work in this repository.
+Apply these rules to code, documentation, analysis, design, review, and debugging.
 
 ---
 
-## 핵심 규칙
-작업은 증거 기반(evidence-based)이어야 합니다.
+## Core Rules
+Work must be evidence-based.
 
-허용되는 증거:
-- 파일을 열고 관련 줄을 직접 읽음
-- 명령을 실행하고 출력을 직접 관찰함
-- 테스트를 실행하고 결과를 직접 관찰함
+Acceptable evidence:
+- Opening a file and directly reading the relevant lines
+- Running a command and directly observing the output
+- Running tests and directly observing the results
 
-증거로 유효하지 않은 것:
-- 기억 (Memory)
-- 가정 (Assumption)
-- 패턴 매칭만 사용하는 것
-- 검색 결과만 사용하는 것
-- "아마 맞을 것이다 (It is probably correct)"
-- "작동해야 한다 (It should work)"
+What does NOT count as evidence:
+- Memory
+- Assumption
+- Relying on pattern matching alone
+- Relying on search results alone
+- "It is probably correct"
+- "It should work"
 
-무언가를 모른다면, 다음과 같이 말하십시오:
-- `모르겠습니다 — 파일을 열고 확인해보겠습니다. (I don't know — I will open the file and verify.)`
-
----
-
-## 절대 금지 사항
-다음과 같은 행동은 절대 하지 마십시오:
-
-- 관련 파일을 열어보지 않고 검증했다고 주장하기
-- 가정을 바탕으로 코드를 수정하기
-- 검증되지 않은 함수, 파일, 변수, 경로, 내보내기(export), 타입 또는 인터페이스를 참조하기
-- 영향 분석 건너뛰기
-- 작업 후 검증 건너뛰기
-- 동작 변경이 명시적인 목표가 아닌 한 리팩토링 중에 동작을 변경하기
-- 마이그레이션 후 데드 코드 남겨두기
-- 동일한 변경 사항에 리팩토링과 기능 작업을 섞기
-- 테스트, 타입, 상수, 임포트, 구성(configuration) 및 문서의 동기화를 누락하기
-- 동일한 파일에서 작업하는 병렬 에이전트와의 충돌 가능성을 무시하기
+If you do not know something, say:
+- `I don't know — I will open the file and verify.`
 
 ---
 
-## 필수 작업 흐름 (Required Workflow)
+## Absolute Prohibitions
+Never do any of the following:
 
-### 1. 작업을 시작하기 전
-변경하기 전에 다음을 모두 수행하십시오:
-
-1. 직접 관련된 모든 파일을 열어서 위에서 아래로 읽으십시오.
-2. 다음을 식별하십시오:
-   - 진입점 (entry points)
-   - 데이터 흐름 (data flow)
-   - 의존성 (dependencies)
-   - 동적 연결 (dynamic wiring)
-   - 퍼블릭 내보내기 (public exports)
-3. 영향을 받는 파일을 나열하십시오.
-4. 다음을 선언하십시오:
-   - 대상 (Target)
-   - 이유 (Reason)
-   - 범위 (Scope)
-   - 예상되는 영향 (Expected impact)
-   - 롤백 계획 (Rollback plan)
-5. 베이스라인 안정성을 확인하십시오:
-   - 코드의 경우: 빌드가 성공하고 관련 테스트가 통과하는지 확인
-   - 문서의 경우: 현재 코드 상태가 검증되었는지 확인
-   - 분석의 경우: 베이스라인 증거가 수집되었는지 확인
-
-위 항목이 완료되기 전에 구현을 시작하지 마십시오.
-
-### 2. 작업 중
-다음 순서를 사용하십시오:
-
-`조사(SURVEY) → 계획(PLAN) → 실행(EXECUTE) → 테스트(TEST) → 검증(VERIFY) → 문서화(DOCUMENT)`
-
-규칙:
-- 점진적 마이그레이션을 선호하십시오.
-- 작업이 명시적으로 동작(behavior) 변경을 요구하지 않는 한 동작을 변경하지 않고 유지하십시오.
-- 성공적인 마이그레이션 후에는 사용되지 않는 이전 코드를 제거하십시오.
-- 예상치 못한 동작이 나타나거나 누락된 증거가 나타나면 즉시 중단하십시오.
-
-### 3. 작업 후
-다음을 모두 수행하십시오:
-
-1. 변경된 모든 파일을 다시 열고 처음부터 끝까지 읽으십시오.
-2. 영향을 받는 모든 연결을 직접 추적하십시오.
-3. 업스트림 및 다운스트림 영향을 검증하십시오.
-4. 관련 테스트를 실행하십시오.
-5. 영향을 받는 모든 아티팩트를 동기화하십시오:
-   - 테스트
-   - 타입
-   - 상수
-   - 임포트
-   - 구성 (configuration)
-   - 문서
-
-위의 모든 항목이 완료되기 전에 작업을 완료로 표시하지 마십시오.
+- Claim you verified something without opening the relevant file
+- Modify code based on assumptions
+- Reference unverified functions, files, variables, paths, exports, types, or interfaces
+- Skip impact analysis
+- Skip post-work verification
+- Change behavior during refactoring unless a behavior change is an explicit goal
+- Leave dead code behind after a migration
+- Mix refactoring and feature work in the same change
+- Fail to keep tests, types, constants, imports, configuration, and documentation in sync
+- Ignore the possibility of conflicts with parallel agents working on the same file
 
 ---
 
-## 검증 기준 (Verification Standards)
+## Required Workflow
 
-### 파일 검증
-"검증됨"이라고 말하려면 다음 중 하나 이상을 수행했어야 합니다:
-- 파일을 열고 관련 줄을 읽음
-- 명령을 실행하고 출력을 확인함
-- 테스트를 실행하고 통과 또는 실패 결과를 확인함
+### 1. Before Starting Work
+Before making any change, do all of the following:
 
-### 연결 추적
-의미 있는 변경의 경우, 다음을 검증하십시오:
-- 생산자(producer) 출력 필드
-- 소비자(consumer) 입력 필드
-- 중간 변환 (intermediate transforms)
-- 직렬화 및 역직렬화 경계
-- 변경된 데이터에 접근하는 모든 분기(branch) 경로
+1. Open every directly related file and read it top to bottom.
+2. Identify the following:
+   - Entry points
+   - Data flow
+   - Dependencies
+   - Dynamic wiring
+   - Public exports
+3. List the affected files.
+4. Declare the following:
+   - Target
+   - Reason
+   - Scope
+   - Expected impact
+   - Rollback plan
+5. Confirm baseline stability:
+   - For code: confirm that the build succeeds and the relevant tests pass
+   - For documentation: confirm that the current state of the code has been verified
+   - For analysis: confirm that baseline evidence has been collected
 
-### 필수 환각(hallucination) 방지 검사
-파일에서 직접 검증하십시오:
-1. 함수 서명 및 반환 형태
-2. 내보내기 경계(export boundary) 및 진입점 노출
-3. 상수, 구성 및 환경 값의 실제 데이터 흐름
-4. 인터페이스, 클래스 및 타입의 실제 상태 형태
+Do not begin implementation before the above items are complete.
 
----
+### 2. During Work
+Use the following sequence:
 
-## 작업 유형별 규칙 (Work-Type Rules)
+`SURVEY → PLAN → EXECUTE → TEST → VERIFY → DOCUMENT`
 
-### 코드 작업
-코드를 변경하기 전에 다음을 검증하십시오:
-- 모든 진입점
-- 진입점부터 종료지점까지의 전체 경로
-- 의존성 관계
-- 레지스트리, 이벤트 이미터, 의존성 주입, 문자열 디스패치와 같은 동적 등록
-- 퍼블릭 내보내기 표면
+Rules:
+- Prefer incremental migration.
+- Keep behavior unchanged unless the task explicitly requires a behavior change.
+- After a successful migration, remove the unused legacy code.
+- Stop immediately if unexpected behavior appears or evidence is missing.
 
-코드 변경 후 동기화하십시오:
-- 테스트
-- 모의 객체(mocks) 및 스텁(stubs)
-- 인터페이스 및 타입
-- 상수
-- 환경 문서
-- 임포트
+### 3. After Work
+Do all of the following:
 
-### 문서화 작업
-문서를 작성하기 전:
-- 기존 문서를 열고 전체를 읽으십시오.
-- 문서가 설명하는 코드를 여십시오.
-- 구식이거나 잘못된 설명을 나열하십시오.
+1. Reopen every changed file and read it from start to finish.
+2. Directly trace every affected connection.
+3. Verify upstream and downstream impact.
+4. Run the relevant tests.
+5. Synchronize every affected artifact:
+   - Tests
+   - Types
+   - Constants
+   - Imports
+   - Configuration
+   - Documentation
 
-규칙:
-- 코드가 진실의 원천(source of truth)입니다.
-- 꼭 필요한 경우가 아니면 큰 코드 블록을 문서에 복사하지 마십시오.
-- 뻔한 구현 과정 대신 의도와 근거를 작성하십시오.
-
-### 분석 작업
-다음 순서를 사용하십시오:
-`관찰(OBSERVE) → 가설(HYPOTHESIS) → 검증(VERIFY) → 결론(CONCLUDE)`
-
-규칙:
-- 결론을 내리기 전에 증거를 수집하십시오.
-- 확인된 사실과 추론을 분리하십시오.
-- 측정하지 않고 성능 주장을 하지 마십시오.
-- 입력, 비밀(secrets), 암호화 및 접근 제어를 직접 확인하지 않고 보안 주장을 하지 마십시오.
-
-### 설계 작업
-설계를 제안하기 전:
-- 현재 구조를 직접 읽으십시오.
-- 영향을 받는 모든 모듈을 나열하십시오.
-- 최소 두 가지 옵션을 준비하십시오.
-
-규칙:
-- 결정, 대안, 이유 및 결과(consequences)를 기록하십시오.
-- 순환 의존성(circular dependency)과 계층 위반을 피하십시오.
-- 새로운 의존성을 추가하는 것보다 직접 구현하는 것이 더 간단한지 확인하십시오.
+Do not mark work as complete before all of the above items are done.
 
 ---
 
-## 병렬 에이전트 규칙 (Parallel Agent Rules)
-병렬 작업을 시작하기 전에 다음을 모두 확인하십시오:
-- 파일 소유권이 겹치지 않는지
-- 한 에이전트의 출력이 다른 에이전트의 필수 입력이 아닌지
-- 공유 상태가 동시에 수정되지 않는지
-- 각 작업에 독립적인 "완료 정의"가 있는지
+## Verification Standards
 
-다음 중 하나라도 해당되면 병렬화하지 마십시오:
-- 여러 에이전트가 동일한 파일을 변경함
-- 스키마 또는 마이그레이션 작업이 포함됨
-- 의존성 설치 또는 제거가 포함됨
-- 엄격한 순차적 의존성이 존재함
+### File Verification
+To say "verified," you must have done at least one of the following:
+- Opened the file and read the relevant lines
+- Ran a command and checked the output
+- Ran a test and confirmed the pass or fail result
 
-병렬 에이전트를 실행하는 경우, 각 에이전트에 대해 다음을 정의하십시오:
-- 소유한 파일 (owned files)
-- 기능 경계 (feature boundary)
-- 완료 정의 (definition of done)
-- 금지된 파일 (forbidden files)
-- 다른 에이전트에 대한 의존성
-- 충돌 가능성 구간
-- 통합 계획
+### Connection Tracing
+For meaningful changes, verify the following:
+- Producer output fields
+- Consumer input fields
+- Intermediate transforms
+- Serialization and deserialization boundaries
+- Every branch path that accesses the changed data
 
----
-
-## 코드 품질 규칙 (Code Quality Rules)
-저장소에 이미 더 엄격한 규칙이 구성되어 있지 않는 한, 제출된 모든 코드는 다음 제약 조건을 만족해야 합니다:
-
-- 순환 복잡도(cyclomatic complexity) 최대 10 이하
-- 매개변수 개수 최대 4개 이하
-- 함수 길이 최대 40줄 이하
-- 중첩 깊이 최대 3 이하
-- 타입을 지정하지 않은 `any` 금지
-- 설명되지 않은 매직 문자열 또는 매직 숫자 금지
-- 암묵적 타입 변환(implicit coercion) 금지
-- 순환 의존성 금지
-- 계층 위반 금지
-- 데드 레퍼런스(dead references) 금지
-
-아키텍처 선호도:
-- 프레젠테이션 계층: 파싱(parsing) 및 유효성 검사만 수행
-- 비즈니스 계층: 도메인 로직
-- 인프라 계층: 데이터베이스, 네트워크, 파일 시스템, 외부 서비스
-- 횡단 관심사(cross-cutting concerns): 로깅, 인증, 모니터링은 별도 메커니즘으로 분리
-
-주석 정책:
-- '왜(why)'를 설명하는 주석만 남기십시오.
-- 단순히 코드를 다시 설명하는 주석을 제거하십시오.
-- 모든 일시적 우회(workaround) 조치에는 이슈 참조와 제거 조건을 포함해야 합니다.
+### Mandatory Hallucination-Prevention Checks
+Verify directly in the file:
+1. Function signatures and return shapes
+2. Export boundaries and entry-point exposure
+3. The actual data flow of constants, configuration, and environment values
+4. The actual state shape of interfaces, classes, and types
 
 ---
 
-## 데드 코드 규칙 (Dead Code Rules)
-실행하기 전에 분류하십시오:
+## Work-Type Rules
 
-- 완전히 참조되지 않는 코드 → 삭제
-- 영구적으로 `false`인 분기 → 데드 분기 제거
-- 상태가 불명확한, 연결되지 않은(Unwired) 코드 → 삭제하기 전에 조사
-- 성공적인 마이그레이션 후의 이전 세대 코드 → 삭제
-- 여전히 어떤 목적을 수행하고 있는 호환성 심(shim) 또는 배럴(barrel) 내보내기 → 유지하고 그 이유를 문서화
+### Code Work
+Before changing code, verify the following:
+- All entry points
+- The full path from entry point to exit point
+- Dependency relationships
+- Dynamic registration such as registries, event emitters, dependency injection, and string dispatch
+- The public export surface
 
----
+After changing code, synchronize the following:
+- Tests
+- Mocks and stubs
+- Interfaces and types
+- Constants
+- Environment documentation
+- Imports
 
-## 작업 후 감사 (Post-Work Audit)
-완료 전에 이 감사를 실행하십시오:
+### Documentation Work
+Before writing documentation:
+- Open the existing documentation and read it in full.
+- Open the code that the documentation describes.
+- List any outdated or incorrect descriptions.
 
-### 안전성 (Safety)
-- 제거된 코드에 대한 참조 없음
-- 누락된 소비자(consumers) 없음
-- 빌드 성공
-- (구성된 경우) 정적 검사 성공
-- 관련 테스트 통과
+Rules:
+- The code is the source of truth.
+- Do not copy large code blocks into documentation unless absolutely necessary.
+- Write the intent and rationale instead of the obvious implementation steps.
 
-### 연결성 (Connectivity)
-- 임포트 및 내보내기가 유효함
-- 동적 연결이 여전히 작동함
-- 퍼블릭 진입점이 의도된 항목을 노출함
-- 생산자 필드와 소비자 필드가 여전히 일치함
-- 고아(orphaned) 코드가 남아있지 않음
+### Analysis Work
+Use the following sequence:
+`OBSERVE → HYPOTHESIS → VERIFY → CONCLUDE`
 
-### 일관성 (Consistency)
-- 네이밍이 일관됨
-- 계층(layering)이 보존됨
-- 상수 및 타입이 현재의 정의를 가리킴
-- 문서가 현재의 동작과 일치함
+Rules:
+- Gather evidence before drawing conclusions.
+- Separate confirmed facts from inferences.
+- Do not make performance claims without measuring.
+- Do not make security claims without directly checking inputs, secrets, encryption, and access control.
 
-### 완전한 동기화 (Full sync)
-- 테스트 업데이트됨
-- 고아 테스트가 남아있지 않음
-- 새로운 퍼블릭 동작에 대한 테스트 커버리지 존재
-- 모의 객체와 스텁이 현재 계약(contracts)과 일치함
-- 구성(configuration) 및 환경 문서가 업데이트됨
+### Design Work
+Before proposing a design:
+- Read the current structure directly.
+- List every affected module.
+- Prepare at least two options.
 
----
-
-## 세션 기억 (Session Memory)
-세션 종료 시, 저장소 루트에 있는 `AGENT_MEMORY.md`를 업데이트하십시오.
-
-현재 작업, 완료된 단계, 다음 단계를 기록하여 단 하나의 활성 스냅샷만 유지하십시오:
-
-- 현재 작업 (current task)
-- 최근 완료된 단계 (last completed step)
-- 다음 세부 단계 (next exact step)
-- 미완료 항목 및 이유 (incomplete items and why)
-- 주요 결정 사항 (key decisions)
-- 기각된 대안 (rejected alternatives)
-- 알려진 위험 (known risks)
-- 다음 세션에 가장 먼저 열 파일, 순서대로
-
-다음 세션 시작 시:
-1. `AGENT_MEMORY.md`를 엽니다.
-2. 최신 스냅샷을 읽습니다.
-3. 복원 목록에 있는 파일을 순서대로 엽니다.
-4. 기록된 다음 단계부터 다시 시작합니다.
-
-만약 `AGENT_MEMORY.md`가 존재하지 않는다면, 전체 조사를 처음부터 다시 수행하십시오.
+Rules:
+- Record the decision, alternatives, reasons, and consequences.
+- Avoid circular dependencies and layering violations.
+- Confirm whether implementing it directly is simpler than adding a new dependency.
 
 ---
 
-## 완료 요구 사항 (Completion Requirements)
-다음 사항들을 모두 제공할 수 없다면 절대 완료를 선언하지 마십시오:
+## Parallel Agent Rules
+Before starting parallel work, confirm all of the following:
+- That file ownership does not overlap
+- That one agent's output is not a required input for another agent
+- That shared state is not modified concurrently
+- That each task has an independent "definition of done"
 
-- 변경된 파일을 열고 다시 읽음
-- 명령문을 실행함
-- 실제 결과를 관찰함
-- 부작용(side effects)을 검토함
-- 테스트, 타입, 상수, 임포트, 구성 및 문서를 동기화함
-- 작업 후 감사를 완료함
-- `AGENT_MEMORY.md`를 업데이트함
+Do not parallelize if any of the following apply:
+- Multiple agents change the same file
+- Schema or migration work is involved
+- Dependency installation or removal is involved
+- A strict sequential dependency exists
 
-작업이 끝날 때, 100점 만점 기준의 확신 점수(confidence score)를 보고하십시오.
+When running parallel agents, define the following for each agent:
+- Owned files
+- Feature boundary
+- Definition of done
+- Forbidden files
+- Dependencies on other agents
+- Potential conflict zones
+- Integration plan
+
+---
+
+## Code Quality Rules
+Unless the repository is already configured with stricter rules, all submitted code must satisfy the following constraints:
+
+- Cyclomatic complexity of at most 10
+- At most 4 parameters
+- Function length of at most 40 lines
+- Nesting depth of at most 3
+- No untyped `any`
+- No unexplained magic strings or magic numbers
+- No implicit coercion
+- No circular dependencies
+- No layering violations
+- No dead references
+
+Architecture preferences:
+- Presentation layer: parsing and validation only
+- Business layer: domain logic
+- Infrastructure layer: database, network, file system, external services
+- Cross-cutting concerns: logging, authentication, and monitoring are separated into dedicated mechanisms
+
+Comment policy:
+- Leave only comments that explain "why".
+- Remove comments that merely restate the code.
+- Every temporary workaround must include an issue reference and a removal condition.
+
+---
+
+## Dead Code Rules
+Classify before acting:
+
+- Code that is completely unreferenced → delete
+- Branches that are permanently `false` → remove the dead branch
+- Unwired code of unclear status → investigate before deleting
+- Previous-generation code after a successful migration → delete
+- Compatibility shims or barrel exports that still serve a purpose → keep and document the reason
+
+---
+
+## Post-Work Audit
+Run this audit before completion:
+
+### Safety
+- No references to removed code
+- No missing consumers
+- Build succeeds
+- Static checks pass (if configured)
+- Relevant tests pass
+
+### Connectivity
+- Imports and exports are valid
+- Dynamic wiring still works
+- Public entry points expose what is intended
+- Producer fields and consumer fields still match
+- No orphaned code remains
+
+### Consistency
+- Naming is consistent
+- Layering is preserved
+- Constants and types point to current definitions
+- Documentation matches the current behavior
+
+### Full sync
+- Tests updated
+- No orphaned tests remain
+- Test coverage exists for new public behavior
+- Mocks and stubs match the current contracts
+- Configuration and environment documentation are updated
+
+---
+
+## Session Memory
+At the end of a session, update `AGENT_MEMORY.md` in the repository root.
+
+Record the current task, completed steps, and next steps, keeping only a single active snapshot:
+
+- Current task
+- Last completed step
+- Next exact step
+- Incomplete items and why
+- Key decisions
+- Rejected alternatives
+- Known risks
+- The files to open first in the next session, in order
+
+At the start of the next session:
+1. Open `AGENT_MEMORY.md`.
+2. Read the latest snapshot.
+3. Open the files in the restore list, in order.
+4. Resume from the recorded next step.
+
+If `AGENT_MEMORY.md` does not exist, perform the full survey again from scratch.
+
+---
+
+## Completion Requirements
+Never declare completion unless you can provide all of the following:
+
+- Reopened and reread the changed files
+- Ran the commands
+- Observed the actual results
+- Reviewed side effects
+- Synchronized tests, types, constants, imports, configuration, and documentation
+- Completed the post-work audit
+- Updated `AGENT_MEMORY.md`
+
+At the end of the work, report a confidence score out of 100.

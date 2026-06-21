@@ -1,36 +1,36 @@
-# 지식 저장소 & 검색 시스템 — 기술 심층 분석
+# Knowledge Store & Search System — Technical Deep Dive
 
-> **대상 독자**: opencode-orchestrator의 검색 파이프라인을 이해하고자 하는 개발자·연구자
-> **마지막 업데이트**: 2026-06-19
-> **소스 경로**: `src/core/knowledge/`
-
----
-
-## 목차
-
-1. [전체 구조 한눈에](#1-전체-구조-한눈에)
-2. [마크다운 파싱과 인덱싱](#2-마크다운-파싱과-인덱싱)
-3. [태그 시스템](#3-태그-시스템)
-4. [위키링크 그래프](#4-위키링크-그래프)
-5. [BM25 키워드 검색](#5-bm25-키워드-검색)
-6. [태그 검색](#6-태그-검색)
-7. [그래프 검색 — 2-hop BFS](#7-그래프-검색--2-hop-bfs)
-8. [RRF 하이브리드 합의](#8-rrf-하이브리드-합의)
-9. [역할별 검색 가중치](#9-역할별-검색-가중치)
-10. [메모리 수평선 (Memory Horizon)](#10-메모리-수평선-memory-horizon)
-11. [신경망 임베딩과의 비교](#11-신경망-임베딩과의-비교)
-12. [한계와 향후 고도화 방향](#12-한계와-향후-고도화-방향)
+> **Target audience**: Developers and researchers who want to understand opencode-orchestrator's search pipeline
+> **Last updated**: 2026-06-19
+> **Source path**: `src/core/knowledge/`
 
 ---
 
-## 1. 전체 구조 한눈에
+## Table of Contents
 
-아래 ASCII 다이어그램은 마크다운 파일이 검색 결과로 변환되기까지의 전체 흐름을 보여준다.
+1. [The Whole Picture at a Glance](#1-the-whole-picture-at-a-glance)
+2. [Markdown Parsing and Indexing](#2-markdown-parsing-and-indexing)
+3. [Tag System](#3-tag-system)
+4. [Wikilink Graph](#4-wikilink-graph)
+5. [BM25 Keyword Search](#5-bm25-keyword-search)
+6. [Tag Search](#6-tag-search)
+7. [Graph Search — 2-hop BFS](#7-graph-search--2-hop-bfs)
+8. [RRF Hybrid Fusion](#8-rrf-hybrid-fusion)
+9. [Per-Role Search Weights](#9-per-role-search-weights)
+10. [Memory Horizon](#10-memory-horizon)
+11. [Comparison with Neural Embeddings](#11-comparison-with-neural-embeddings)
+12. [Limitations and Future Enhancements](#12-limitations-and-future-enhancements)
+
+---
+
+## 1. The Whole Picture at a Glance
+
+The ASCII diagram below shows the full flow from a markdown file to a search result.
 
 ```
                           ┌──────────────────┐
-                          │   .md 파일 수집    │
-                          │ (docs/ 디렉터리)   │
+                          │  .md file intake  │
+                          │ (docs/ directory) │
                           └────────┬─────────┘
                                    │
                    ┌───────────────┼───────────────┐
@@ -53,7 +53,7 @@
               ▼                 ▼                 ▼
      ┌──────────────┐  ┌──────────────┐  ┌──────────────┐
      │ lexicalSearch│  │  tagSearch   │  │ graphSearch  │
-     │   (BM25)     │  │ (태그 매칭)  │  │ (2-hop BFS) │
+     │   (BM25)     │  │ (tag match)  │  │ (2-hop BFS) │
      └──────┬───────┘  └──────┬───────┘  └──────┬───────┘
             │                 │                 │
             │  ranked list    │  ranked list    │  ranked list
@@ -67,11 +67,11 @@
                             ▼
                    ┌──────────────────┐
                    │  SearchResult[]  │
-                   │  (top N 반환)     │
+                   │  (top N returned) │
                    └──────────────────┘
 ```
 
-**핵심 모듈 간 의존 관계:**
+**Dependencies between the core modules:**
 
 ```
 context-provider.ts ─── orchestrates ───→ TagIndexer
@@ -79,63 +79,63 @@ context-provider.ts ─── orchestrates ───→ TagIndexer
         │                                  HybridSearch
         │                                  weightsForRole()
         │
-        └──→ buildPrompt() → <knowledge_rag_context> XML 블록
+        └──→ buildPrompt() → <knowledge_rag_context> XML block
 ```
 
-**파일 구성:**
+**File layout:**
 
-| 파일 | 역할 | 줄 수 |
+| File | Role | Lines |
 |:---|:---|---:|
-| `context-provider.ts` | 파일 수집 → 인덱싱 → 검색 → 프롬프트 생성 오케스트레이션 | 130 |
-| `tag-indexer.ts` | YAML frontmatter 파싱, 태그 역색인 | 208 |
-| `graph-parser.ts` | 위키링크·마크다운 링크 파싱, 양방향 그래프 구축 | 153 |
-| `hybrid-search.ts` | BM25 + 태그 + 그래프 검색, RRF 융합 | 233 |
-| `retrieval-weights.ts` | 역할별 가중치, 메모리 수평선 | 59 |
-| `memory-consolidation.ts` | 그래프 유지보수(oversized·orphan·merge 감지) | 148 |
-| `mission-memory.ts` | 미션 루프 상태를 마크다운 노트로 동기화 | 276 |
-| `safety-guards.ts` | 순환 링크 감지, 동시 쓰기 큐, 고정(pin) 검사 | 102 |
-| `scratchpad.ts` | LRU 기반 휘발성 레지스터 캐시 | 109 |
-| `index.ts` | 배럴 파일(barrel export) | 22 |
+| `context-provider.ts` | Orchestrates file intake → indexing → search → prompt generation | 130 |
+| `tag-indexer.ts` | YAML frontmatter parsing, tag inverted index | 208 |
+| `graph-parser.ts` | Wikilink/markdown link parsing, bidirectional graph construction | 153 |
+| `hybrid-search.ts` | BM25 + tag + graph search, RRF fusion | 233 |
+| `retrieval-weights.ts` | Per-role weights, memory horizon | 59 |
+| `memory-consolidation.ts` | Graph maintenance (oversized/orphan/merge detection) | 148 |
+| `mission-memory.ts` | Syncs mission-loop state to markdown notes | 276 |
+| `safety-guards.ts` | Circular-link detection, concurrent-write queue, pin checks | 102 |
+| `scratchpad.ts` | LRU-based volatile register cache | 109 |
+| `index.ts` | Barrel file (barrel export) | 22 |
 
 ---
 
-## 2. 마크다운 파싱과 인덱싱
+## 2. Markdown Parsing and Indexing
 
-### 2.1 파일 수집
+### 2.1 File Intake
 
 `KnowledgeContextProvider.collectMarkdownFiles()`
 ([context-provider.ts:36–46](file:///mnt/c/workspace/opencode-orchestrator/src/core/knowledge/context-provider.ts#L36-L46))
-가 프로젝트 디렉터리 내 **두 곳**의 루트에서 `.md` 파일을 재귀적으로 수집한다.
+recursively collects `.md` files from **two** roots within the project directory.
 
 ```typescript
 const KNOWLEDGE_ROOTS = ["docs", path.join(".opencode", "docs")];
 const SKIP_SEGMENTS = new Set(["node_modules", "dist", "bin", ".git", "archive"]);
 ```
 
-- `docs/` — 사용자 문서
-- `.opencode/docs/` — 오케스트레이터 자동 생성 문서
+- `docs/` — user documentation
+- `.opencode/docs/` — orchestrator auto-generated documentation
 
-`walkDirectory()` ([context-provider.ts:48–63](file:///mnt/c/workspace/opencode-orchestrator/src/core/knowledge/context-provider.ts#L48-L63))는 `SKIP_SEGMENTS`에 속하는 디렉터리를 건너뛴다. 또한 `isDirectInjectedScratchpad()`로 자동 생성된 스크래치패드 파일(`.opencode/docs/brain/scratchpad.md`)을 **중복 주입 방지**를 위해 제외한다.
+`walkDirectory()` ([context-provider.ts:48–63](file:///mnt/c/workspace/opencode-orchestrator/src/core/knowledge/context-provider.ts#L48-L63)) skips directories that belong to `SKIP_SEGMENTS`. It also uses `isDirectInjectedScratchpad()` to exclude the auto-generated scratchpad file (`.opencode/docs/brain/scratchpad.md`) in order to **prevent duplicate injection**.
 
-### 2.2 인덱싱 파이프라인
+### 2.2 Indexing Pipeline
 
-`indexKnowledge()` ([context-provider.ts:65–90](file:///mnt/c/workspace/opencode-orchestrator/src/core/knowledge/context-provider.ts#L65-L90))는 수집된 각 파일에 대해 **세 단계**의 인덱싱을 수행한다:
+`indexKnowledge()` ([context-provider.ts:65–90](file:///mnt/c/workspace/opencode-orchestrator/src/core/knowledge/context-provider.ts#L65-L90)) performs **three stages** of indexing for each collected file:
 
 ```
-파일 읽기 → parseFrontmatter() → frontmatter/body 분리
+read file → parseFrontmatter() → split frontmatter/body
                                       │
            ┌──────────────────────────┤
            ▼                          ▼                    ▼
   tagIndexer.indexFile()    graphParser.indexFile()   search.indexContent()
-  (태그 역색인 갱신)          (링크 그래프 갱신)         (본문 텍스트 저장)
+  (update tag inverted index) (update link graph)      (store body text)
 ```
 
-1. **frontmatter 분리**: `TagIndexer.parseFrontmatter(content)` → `{ data, body }`
-2. **태그 인덱싱**: `tagIndexer.indexFile(filePath, content)` → 태그→파일 역색인
-3. **그래프 인덱싱**: `graphParser.indexFile(filePath, content)` → 양방향 링크 맵
-4. **본문 등록**: `search.indexContent(noteName, normalizedBody)` → `contentMap`에 소문자 변환하여 저장
+1. **Frontmatter split**: `TagIndexer.parseFrontmatter(content)` → `{ data, body }`
+2. **Tag indexing**: `tagIndexer.indexFile(filePath, content)` → tag→file inverted index
+3. **Graph indexing**: `graphParser.indexFile(filePath, content)` → bidirectional link map
+4. **Body registration**: `search.indexContent(noteName, normalizedBody)` → stored lowercased in `contentMap`
 
-**노트 이름 규칙**: 파일 경로의 basename에서 확장자를 제거한 것이 노트 이름이 된다. 예: `/docs/architecture.md` → `architecture`
+**Note-name rule**: The note name is the file path's basename with its extension stripped. For example: `/docs/architecture.md` → `architecture`
 
 ```typescript
 // graph-parser.ts:21-25
@@ -146,9 +146,9 @@ public getNoteName(filePath: string): string {
 }
 ```
 
-### 2.3 스니펫 생성
+### 2.3 Snippet Generation
 
-각 노트의 본문은 `buildSnippet()` ([context-provider.ts:92–96](file:///mnt/c/workspace/opencode-orchestrator/src/core/knowledge/context-provider.ts#L92-L96))으로 220자 이내의 스니펫으로 축약되어 검색 결과에 포함된다.
+Each note's body is condensed by `buildSnippet()` ([context-provider.ts:92–96](file:///mnt/c/workspace/opencode-orchestrator/src/core/knowledge/context-provider.ts#L92-L96)) into a snippet of at most 220 characters that is included in the search result.
 
 ```typescript
 const MAX_SNIPPET_CHARS = 220;
@@ -162,38 +162,38 @@ private buildSnippet(content: string): string {
 
 ---
 
-## 3. 태그 시스템
+## 3. Tag System
 
-### 3.1 Frontmatter 파싱
+### 3.1 Frontmatter Parsing
 
-`TagIndexer.parseFrontmatter()` ([tag-indexer.ts:24–43](file:///mnt/c/workspace/opencode-orchestrator/src/core/knowledge/tag-indexer.ts#L24-L43))는 **정규식 기반**의 경량 YAML 파서다. 외부 라이브러리 의존성 없이 결정론적 오류 복구를 제공한다.
+`TagIndexer.parseFrontmatter()` ([tag-indexer.ts:24–43](file:///mnt/c/workspace/opencode-orchestrator/src/core/knowledge/tag-indexer.ts#L24-L43)) is a **regex-based** lightweight YAML parser. It provides deterministic error recovery without any external library dependency.
 
 ```
-입력 마크다운:
+Input markdown:
   ---
   tags: [architecture, search]
   title: "Knowledge Search"
   keep: true
   ---
-  # 본문 시작...
+  # Body begins...
 
-파싱 결과:
+Parse result:
   data = { tags: ["architecture", "search"], title: "Knowledge Search", keep: true }
-  body = "# 본문 시작..."
+  body = "# Body begins..."
 ```
 
-**파싱 로직:**
+**Parsing logic:**
 
-1. `^---\r?\n([\s\S]*?)\r?\n---` 정규식으로 frontmatter 블록 추출
-2. 각 줄에 대해 `parseYamlLine()` 호출:
-   - `key: [val1, val2]` → 인라인 배열로 파싱
-   - `key: value` → `parseScalar()`로 타입 추론 (`true`/`false` → boolean, 숫자 → number)
-   - `key:` (값 없음) → 빈 배열 초기화, 이후 `- item` 줄에서 추가
-   - `- item` → 현재 활성 키의 배열에 추가
+1. Extract the frontmatter block with the regex `^---\r?\n([\s\S]*?)\r?\n---`
+2. Call `parseYamlLine()` for each line:
+   - `key: [val1, val2]` → parsed as an inline array
+   - `key: value` → type inferred via `parseScalar()` (`true`/`false` → boolean, numbers → number)
+   - `key:` (no value) → initialize an empty array, appended from subsequent `- item` lines
+   - `- item` → appended to the array of the currently active key
 
-### 3.2 태그 역색인
+### 3.2 Tag Inverted Index
 
-`tagMap`은 `Map<string, Set<string>>` 구조로, **태그 → 파일 경로 집합**의 역색인이다.
+`tagMap` is a `Map<string, Set<string>>` structure: an inverted index of **tag → set of file paths**.
 
 ```
 tagMap:
@@ -202,95 +202,95 @@ tagMap:
   "mission"      → { ".opencode/docs/brain/scratchpad.md" }
 ```
 
-**인덱싱 과정** ([tag-indexer.ts:82–95](file:///mnt/c/workspace/opencode-orchestrator/src/core/knowledge/tag-indexer.ts#L82-L95)):
+**Indexing process** ([tag-indexer.ts:82–95](file:///mnt/c/workspace/opencode-orchestrator/src/core/knowledge/tag-indexer.ts#L82-L95)):
 
-1. `clearIndexForFile(filePath)` — 기존 매핑 제거 (재인덱싱 시 중복 방지)
-2. `parseFrontmatter(content)` — frontmatter에서 `tags` 배열 추출
-3. 각 태그를 소문자로 정규화하여 `addTagEntry(tag, filePath)` 호출
+1. `clearIndexForFile(filePath)` — remove existing mappings (prevents duplication on re-indexing)
+2. `parseFrontmatter(content)` — extract the `tags` array from frontmatter
+3. Normalize each tag to lowercase and call `addTagEntry(tag, filePath)`
 
-### 3.3 조회 API
+### 3.3 Lookup API
 
-| 메서드 | 시간 복잡도 | 설명 |
+| Method | Time complexity | Description |
 |:---|:---:|:---|
-| `getFilesWithTag(tag)` | O(1) | 단일 태그와 매칭되는 파일 집합 반환 |
-| `getFilesWithAllTags(tags)` | O(n·k) | 모든 태그를 **동시에** 갖는 파일 (교집합) |
-| `getFilesWithAnyTags(tags)` | O(n·k) | 하나 이상의 태그를 갖는 파일 (합집합) |
-| `getAllTags()` | O(1) | 전체 태그 목록 |
-| `getMetadata(filePath)` | O(1) | 캐시된 frontmatter 반환 |
+| `getFilesWithTag(tag)` | O(1) | Returns the set of files matching a single tag |
+| `getFilesWithAllTags(tags)` | O(n·k) | Files that have **all** tags simultaneously (intersection) |
+| `getFilesWithAnyTags(tags)` | O(n·k) | Files that have one or more of the tags (union) |
+| `getAllTags()` | O(1) | The complete list of tags |
+| `getMetadata(filePath)` | O(1) | Returns the cached frontmatter |
 
-**설계 의도**: `Map` + `Set` 구조를 사용하여 조회를 O(1)으로 보장하고, 재인덱싱 시 `clearIndexForFile`로 기존 엔트리를 **원자적으로** 정리한다. 빈 Set은 즉시 삭제하여 메모리 누수를 방지한다.
+**Design intent**: Using a `Map` + `Set` structure guarantees O(1) lookups, and on re-indexing `clearIndexForFile` cleans up existing entries **atomically**. Empty Sets are deleted immediately to prevent memory leaks.
 
 ---
 
-## 4. 위키링크 그래프
+## 4. Wikilink Graph
 
-### 4.1 링크 추출
+### 4.1 Link Extraction
 
-`GraphParser.parseLinks()` ([graph-parser.ts:30–57](file:///mnt/c/workspace/opencode-orchestrator/src/core/knowledge/graph-parser.ts#L30-L57))는 두 가지 링크 형식을 파싱한다:
+`GraphParser.parseLinks()` ([graph-parser.ts:30–57](file:///mnt/c/workspace/opencode-orchestrator/src/core/knowledge/graph-parser.ts#L30-L57)) parses two link formats:
 
-**① 위키링크 (Obsidian 스타일)**
+**① Wikilinks (Obsidian style)**
 
 ```
-정규식: /\[\[([^\[\]|#]+)(?:\|[^\[\]]+)?(?:#[^\[\]]+)?\]\]/g
+Regex: /\[\[([^\[\]|#]+)(?:\|[^\[\]]+)?(?:#[^\[\]]+)?\]\]/g
 ```
 
-| 예시 | 캡처 결과 |
+| Example | Capture result |
 |:---|:---|
 | `[[Architecture]]` | `Architecture` |
-| `[[Architecture\|아키텍처]]` | `Architecture` (레이블 무시) |
-| `[[Architecture#검색]]` | `Architecture` (섹션 앵커 무시) |
+| `[[Architecture\|Architecture KR]]` | `Architecture` (label ignored) |
+| `[[Architecture#search]]` | `Architecture` (section anchor ignored) |
 
-- `[^\[\]|#]+` — 대괄호·파이프·해시를 제외한 노트 이름 캡처
-- `(?:\|[^\[\]]+)?` — 선택적 디스플레이 레이블 (비캡처 그룹)
-- `(?:#[^\[\]]+)?` — 선택적 섹션 앵커 (비캡처 그룹)
+- `[^\[\]|#]+` — captures the note name, excluding brackets, pipes, and hashes
+- `(?:\|[^\[\]]+)?` — optional display label (non-capturing group)
+- `(?:#[^\[\]]+)?` — optional section anchor (non-capturing group)
 
-**② 표준 마크다운 링크**
+**② Standard markdown links**
 
 ```
-정규식: /\[([^\]]+)\]\(([^)]+)\)/g
+Regex: /\[([^\]]+)\]\(([^)]+)\)/g
 ```
 
-로컬 파일만 추출하는 필터:
+Filter that extracts only local files:
 
 ```typescript
 // graph-parser.ts:48
 if (!url.includes("://") && (url.endsWith(".md") || url.startsWith(".") || url.startsWith("/")))
 ```
 
-- `://`를 포함하면 외부 URL로 판단하여 제외
-- `.md` 확장자, `.` 시작(상대 경로), `/` 시작(절대 경로)만 로컬 참조로 인식
+- If it contains `://`, it is treated as an external URL and excluded
+- Only the `.md` extension, a leading `.` (relative path), or a leading `/` (absolute path) are recognized as local references
 
-### 4.2 양방향 그래프 구조
+### 4.2 Bidirectional Graph Structure
 
-`GraphParser`는 네 개의 `Map`으로 그래프를 관리한다:
+`GraphParser` manages the graph with four `Map`s:
 
 ```
-forwardLinks:  noteA → { noteB, noteC }      "A가 B와 C를 참조"
-backlinks:     noteB → { noteA }              "B는 A로부터 참조됨"
+forwardLinks:  noteA → { noteB, noteC }      "A references B and C"
+backlinks:     noteB → { noteA }              "B is referenced by A"
                noteC → { noteA }
 
 noteToPath:    noteA → "/docs/noteA.md"
 pathToNote:    "/docs/noteA.md" → noteA
 ```
 
-### 4.3 인덱싱 흐름
+### 4.3 Indexing Flow
 
 `indexFile()` ([graph-parser.ts:62–86](file:///mnt/c/workspace/opencode-orchestrator/src/core/knowledge/graph-parser.ts#L62-L86)):
 
 ```
 1. getNoteName(filePath) → sourceNote
-2. clearIndexForNote(sourceNote)     ← 기존 forward→backlink 쌍 정리
+2. clearIndexForNote(sourceNote)     ← clean up existing forward→backlink pairs
 3. parseLinks(content) → targets[]
 4. forwardLinks.set(sourceNote, new Set(targets))
-5. 각 target에 대해:
+5. for each target:
    backlinks[target].add(sourceNote)
 ```
 
-**`clearIndexForNote()`의 역할** ([graph-parser.ts:137–151](file:///mnt/c/workspace/opencode-orchestrator/src/core/knowledge/graph-parser.ts#L137-L151)): 노트를 재인덱싱할 때 **이전 forward link가 가리키던 target들의 backlink 집합에서 해당 노트를 제거**한다. 이를 통해 링크 그래프의 **일관성**이 보장된다.
+**The role of `clearIndexForNote()`** ([graph-parser.ts:137–151](file:///mnt/c/workspace/opencode-orchestrator/src/core/knowledge/graph-parser.ts#L137-L151)): When re-indexing a note, it **removes that note from the backlink sets of the targets that the previous forward links pointed to**. This guarantees the **consistency** of the link graph.
 
-### 4.4 백링크 동기화
+### 4.4 Backlink Synchronization
 
-`syncBacklinksSection()` ([graph-parser.ts:113–132](file:///mnt/c/workspace/opencode-orchestrator/src/core/knowledge/graph-parser.ts#L113-L132))은 노트 본문의 `## 🔗 Backlinks` 섹션을 자동으로 갱신한다:
+`syncBacklinksSection()` ([graph-parser.ts:113–132](file:///mnt/c/workspace/opencode-orchestrator/src/core/knowledge/graph-parser.ts#L113-L132)) automatically updates the `## 🔗 Backlinks` section in the note body:
 
 ```markdown
 ## 🔗 Backlinks
@@ -299,42 +299,42 @@ pathToNote:    "/docs/noteA.md" → noteA
 - [[Design-Decisions]]
 ```
 
-- 기존 섹션이 있으면 정규식으로 교체
-- 없으면 파일 끝에 추가
-- 빈 경우 `*(No backlinks found)*` 표시
+- If an existing section is present, it is replaced via regex
+- If absent, it is appended to the end of the file
+- If empty, `*(No backlinks found)*` is shown
 
 ---
 
-## 5. BM25 키워드 검색
+## 5. BM25 Keyword Search
 
-### 5.1 전체 흐름
+### 5.1 Overall Flow
 
-`lexicalSearch()` ([hybrid-search.ts:66–89](file:///mnt/c/workspace/opencode-orchestrator/src/core/knowledge/hybrid-search.ts#L66-L89))는 BM25 알고리즘에 기반한 키워드 점수를 계산한다.
+`lexicalSearch()` ([hybrid-search.ts:66–89](file:///mnt/c/workspace/opencode-orchestrator/src/core/knowledge/hybrid-search.ts#L66-L89)) computes keyword scores based on the BM25 algorithm.
 
 ```
-terms[] ──→ 각 term에 대해:
+terms[] ──→ for each term:
             │
             ├─ documentFrequency(term) → df
-            ├─ IDF 계산
+            ├─ compute IDF
             │
-            └─ 각 문서에 대해:
+            └─ for each document:
                ├─ countOccurrences(content, term) → tf
-               ├─ TF 정규화
+               ├─ TF normalization
                └─ score += IDF × tfNorm
 ```
 
-### 5.2 상수
+### 5.2 Constants
 
 ```typescript
 // hybrid-search.ts:22-24
-const BM25_K1 = 1.2;   // 용어 빈도 감쇠 파라미터
-const BM25_B = 0.75;    // 문서 길이 정규화 가중치
+const BM25_K1 = 1.2;   // term-frequency saturation parameter
+const BM25_B = 0.75;    // document-length normalization weight
 ```
 
-| 상수 | 값 | 의미 |
+| Constant | Value | Meaning |
 |:---|:---|:---|
-| `BM25_K1` | 1.2 | TF 포화 곡선의 기울기 제어. 높을수록 빈도가 높은 문서 우대 |
-| `BM25_B` | 0.75 | 문서 길이 보정 비율. 1.0이면 완전 정규화, 0이면 길이 무시 |
+| `BM25_K1` | 1.2 | Controls the slope of the TF saturation curve. Higher values favor documents with higher frequency |
+| `BM25_B` | 0.75 | Document-length correction ratio. 1.0 is full normalization, 0 ignores length |
 
 ### 5.3 IDF (Inverse Document Frequency)
 
@@ -347,15 +347,15 @@ IDF(t) = ln( (N - df(t) + 0.5) / (df(t) + 0.5) + 1 )
 const idf = Math.log((corpusSize - df + 0.5) / (df + 0.5) + 1);
 ```
 
-- `N` = `corpusSize` (전체 문서 수)
-- `df(t)` = 용어 `t`를 포함하는 문서 수
+- `N` = `corpusSize` (total number of documents)
+- `df(t)` = number of documents containing term `t`
 
-**해석**: 
-- 모든 문서에 나타나는 흔한 단어 → IDF ≈ 0 (정보량 낮음)
-- 소수 문서에만 나타나는 단어 → IDF 높음 (변별력 높음)
-- `+ 1`은 IDF가 음수가 되는 것을 방지 (표준 BM25 개선)
+**Interpretation**:
+- Common words that appear in every document → IDF ≈ 0 (low information content)
+- Words that appear in only a few documents → high IDF (high discriminative power)
+- The `+ 1` prevents IDF from becoming negative (a standard BM25 improvement)
 
-### 5.4 TF 정규화
+### 5.4 TF Normalization
 
 ```
 tfNorm(t, d) = tf(t,d) × (k1 + 1)
@@ -369,16 +369,16 @@ const tfNorm = (tf * (BM25_K1 + 1)) /
     (tf + BM25_K1 * (1 - BM25_B + BM25_B * (docLen / avgLen)));
 ```
 
-- `tf(t,d)` = 문서 `d`에서 용어 `t`의 출현 횟수
-- `|d|` = `docLen` (문서의 문자 수)
-- `avgdl` = `avgLen` (코퍼스 평균 문서 길이)
+- `tf(t,d)` = number of occurrences of term `t` in document `d`
+- `|d|` = `docLen` (number of characters in the document)
+- `avgdl` = `avgLen` (average document length in the corpus)
 
-**특성**:
-- `tf`가 증가할수록 `tfNorm`은 점근적으로 `(k1+1)` = 2.2에 수렴 (포화)
-- 문서가 평균보다 길면 분모가 커져 점수가 낮아짐 (길이 페널티)
-- 문서가 평균보다 짧으면 분모가 작아져 점수가 높아짐 (길이 보상)
+**Characteristics**:
+- As `tf` increases, `tfNorm` asymptotically converges to `(k1+1)` = 2.2 (saturation)
+- If a document is longer than average, the denominator grows and the score drops (length penalty)
+- If a document is shorter than average, the denominator shrinks and the score rises (length reward)
 
-### 5.5 최종 점수
+### 5.5 Final Score
 
 ```
 score(d) = Σ IDF(t) × tfNorm(t, d)    (t ∈ query terms)
@@ -389,9 +389,9 @@ score(d) = Σ IDF(t) × tfNorm(t, d)    (t ∈ query terms)
 scores.set(name, prev + idf * tfNorm);
 ```
 
-### 5.6 용어 빈도 계산
+### 5.6 Term Frequency Counting
 
-`countOccurrences()` ([hybrid-search.ts:198–206](file:///mnt/c/workspace/opencode-orchestrator/src/core/knowledge/hybrid-search.ts#L198-L206))는 **비중첩(non-overlapping)** 방식으로 텍스트 내 용어 출현 횟수를 센다:
+`countOccurrences()` ([hybrid-search.ts:198–206](file:///mnt/c/workspace/opencode-orchestrator/src/core/knowledge/hybrid-search.ts#L198-L206)) counts term occurrences in text in a **non-overlapping** manner:
 
 ```typescript
 private countOccurrences(text: string, term: string): number {
@@ -399,15 +399,15 @@ private countOccurrences(text: string, term: string): number {
     let pos = 0;
     while ((pos = text.indexOf(term, pos)) !== -1) {
         count++;
-        pos += term.length;  // 겹치지 않게 다음 위치로 이동
+        pos += term.length;  // advance past the match so they do not overlap
     }
     return count;
 }
 ```
 
-### 5.7 문서 빈도 계산
+### 5.7 Document Frequency Counting
 
-`documentFrequency()` ([hybrid-search.ts:218–224](file:///mnt/c/workspace/opencode-orchestrator/src/core/knowledge/hybrid-search.ts#L218-L224))는 용어를 포함하는 문서 수를 선형 스캔으로 계산한다:
+`documentFrequency()` ([hybrid-search.ts:218–224](file:///mnt/c/workspace/opencode-orchestrator/src/core/knowledge/hybrid-search.ts#L218-L224)) computes the number of documents containing a term via a linear scan:
 
 ```typescript
 private documentFrequency(term: string): number {
@@ -419,20 +419,20 @@ private documentFrequency(term: string): number {
 }
 ```
 
-> **설계 트레이드오프**: 역색인을 별도로 구축하지 않고 매 쿼리마다 전체 코퍼스를 스캔한다. 문서 수가 수백 수준인 프로젝트 내 지식 저장소에서는 충분히 빠르지만, 수만 건 이상으로 확장하면 역색인이 필요할 것이다.
+> **Design trade-off**: Rather than building a separate inverted index, it scans the entire corpus on every query. For a project-local knowledge store with documents in the hundreds, this is fast enough; but scaling to tens of thousands or more would require an inverted index.
 
 ---
 
-## 6. 태그 검색
+## 6. Tag Search
 
-`tagSearch()` ([hybrid-search.ts:94–105](file:///mnt/c/workspace/opencode-orchestrator/src/core/knowledge/hybrid-search.ts#L94-L105))는 쿼리 용어를 태그로 취급하여 매칭되는 노트를 찾는다.
+`tagSearch()` ([hybrid-search.ts:94–105](file:///mnt/c/workspace/opencode-orchestrator/src/core/knowledge/hybrid-search.ts#L94-L105)) treats query terms as tags to find matching notes.
 
-### 6.1 알고리즘
+### 6.1 Algorithm
 
 ```
-각 쿼리 용어(term)에 대해:
-  tagIndexer.getFilesWithTag(term) → 파일 집합
-  각 파일에 대해:
+for each query term:
+  tagIndexer.getFilesWithTag(term) → set of files
+  for each file:
     noteName = graphParser.getNoteName(file)
     scores[noteName] += 1
 ```
@@ -452,26 +452,26 @@ private tagSearch(terms: string[]): string[] {
 }
 ```
 
-### 6.2 점수 체계
+### 6.2 Scoring Scheme
 
-- **점수 = 매칭된 쿼리 용어(태그) 수**
-- 쿼리가 `"architecture search"`이고 어떤 노트가 두 태그 모두 가지고 있으면 → 점수 2
-- 하나만 매칭되면 → 점수 1
+- **Score = number of matched query terms (tags)**
+- If the query is `"architecture search"` and a note has both tags → score 2
+- If only one matches → score 1
 
-### 6.3 설계 근거
+### 6.3 Design Rationale
 
-태그 검색은 **구조적 메타데이터**를 활용한다. 본문에 키워드가 없더라도 적절한 태그가 붙어 있으면 검색에 걸릴 수 있다. 이는 BM25의 어휘적 한계를 보완하는 역할을 한다.
+Tag search leverages **structural metadata**. Even if a keyword is absent from the body, a note can still be found as long as the appropriate tag is attached. This serves to complement BM25's lexical limitations.
 
 ---
 
-## 7. 그래프 검색 — 2-hop BFS
+## 7. Graph Search — 2-hop BFS
 
-### 7.1 개요
+### 7.1 Overview
 
-`graphSearch()` ([hybrid-search.ts:110–119](file:///mnt/c/workspace/opencode-orchestrator/src/core/knowledge/hybrid-search.ts#L110-L119))는 태그 검색 결과를 **시드 노트**로 삼아 링크 그래프를 2-hop까지 탐색하여 관련 노트를 발견한다.
+`graphSearch()` ([hybrid-search.ts:110–119](file:///mnt/c/workspace/opencode-orchestrator/src/core/knowledge/hybrid-search.ts#L110-L119)) takes the tag-search results as **seed notes** and traverses the link graph up to 2 hops to discover related notes.
 
 ```
-쿼리 → tagSearch() → 시드 노트들
+query → tagSearch() → seed notes
                        │
                        ▼
                ┌───────────────┐
@@ -481,18 +481,18 @@ private tagSearch(terms: string[]): string[] {
                        │
         ┌──────────────┼──────────────┐
         ▼              ▼              ▼
-   1-hop 이웃      2-hop 이웃     (depth=0 중단)
-   score += 2     score += 1
+   1-hop neighbor  2-hop neighbor  (stop at depth=0)
+   score += 2      score += 1
 ```
 
-### 7.2 탐색 상수
+### 7.2 Traversal Constant
 
 ```typescript
 // hybrid-search.ts:26
 const GRAPH_HOP_DEPTH = 2;
 ```
 
-### 7.3 traverseGraph 알고리즘
+### 7.3 traverseGraph Algorithm
 
 ([hybrid-search.ts:124–143](file:///mnt/c/workspace/opencode-orchestrator/src/core/knowledge/hybrid-search.ts#L124-L143))
 
@@ -513,56 +513,56 @@ private traverseGraph(
 
     for (const neighbor of neighbors) {
         const prev = scores.get(neighbor) ?? 0;
-        scores.set(neighbor, prev + depth);     // ← 가까울수록 높은 점수
+        scores.set(neighbor, prev + depth);     // ← closer means higher score
         this.traverseGraph(neighbor, depth - 1, visited, scores);
     }
 }
 ```
 
-**핵심 동작:**
+**Key behavior:**
 
-1. **양방향 탐색**: forward link와 backlink를 **모두** 이웃으로 취급
-2. **점수 = 잔여 깊이**: 1-hop 이웃 → `+2`, 2-hop 이웃 → `+1`
-3. **방문 추적**: `visited` Set으로 순환 방지
-4. **깊이 제한**: `GRAPH_HOP_DEPTH = 2`이므로 최대 2-hop까지만 탐색
+1. **Bidirectional traversal**: treats **both** forward links and backlinks as neighbors
+2. **Score = remaining depth**: 1-hop neighbor → `+2`, 2-hop neighbor → `+1`
+3. **Visit tracking**: prevents cycles with a `visited` Set
+4. **Depth limit**: since `GRAPH_HOP_DEPTH = 2`, traversal goes at most 2 hops
 
-### 7.4 점수 누적
+### 7.4 Score Accumulation
 
-하나의 노트가 여러 시드에서 도달 가능하면 점수가 누적된다:
+If a single note is reachable from multiple seeds, its score accumulates:
 
 ```
-시드 A → 노트 X (1-hop, +2)
-시드 B → 노트 X (1-hop, +2)
+seed A → note X (1-hop, +2)
+seed B → note X (1-hop, +2)
 ────────────────────────────
-노트 X 최종 점수 = 4
+note X final score = 4
 ```
 
-### 7.5 설계 근거
+### 7.5 Design Rationale
 
-- **2-hop 제한**: 소규모 지식 그래프에서 3-hop 이상은 거의 모든 노트에 도달하여 변별력이 사라짐
-- **깊이 기반 점수**: 시드에 가까울수록 관련성이 높다는 직관 반영
-- **태그 시드 의존**: 그래프 검색 단독이 아닌 태그 검색 결과에서 시작하므로, 관련 없는 그래프 영역으로의 확산을 억제
+- **2-hop limit**: In a small knowledge graph, 3 hops or more reaches almost every note, so discriminative power vanishes
+- **Depth-based scoring**: Reflects the intuition that nodes closer to a seed are more relevant
+- **Tag-seed dependence**: Because it starts from tag-search results rather than running graph search alone, it suppresses diffusion into unrelated regions of the graph
 
 ---
 
-## 8. RRF 하이브리드 합의
+## 8. RRF Hybrid Fusion
 
 ### 8.1 Reciprocal Rank Fusion (RRF)
 
-`fuseResults()` ([hybrid-search.ts:149–166](file:///mnt/c/workspace/opencode-orchestrator/src/core/knowledge/hybrid-search.ts#L149-L166))은 세 검색 엔진의 순위 목록을 **Reciprocal Rank Fusion**으로 통합한다.
+`fuseResults()` ([hybrid-search.ts:149–166](file:///mnt/c/workspace/opencode-orchestrator/src/core/knowledge/hybrid-search.ts#L149-L166)) integrates the ranked lists of the three search engines via **Reciprocal Rank Fusion**.
 
-### 8.2 공식
+### 8.2 Formula
 
 ```
 RRF_score(d) = Σ w_i × 1/(k + rank_i(d))
                i ∈ {lexical, tag, graph}
 ```
 
-- `k` = `RRF_K = 60` (평활 상수, [원본 RRF 논문](https://dl.acm.org/doi/10.1145/1571941.1572114)의 표준값)
-- `rank_i(d)` = 엔진 `i`에서 문서 `d`의 순위 (0-based)
-- `w_i` = 엔진별 가중치 (`EngineWeights`에서 제공)
+- `k` = `RRF_K = 60` (smoothing constant, the standard value from the [original RRF paper](https://dl.acm.org/doi/10.1145/1571941.1572114))
+- `rank_i(d)` = the rank of document `d` in engine `i` (0-based)
+- `w_i` = per-engine weight (provided by `EngineWeights`)
 
-### 8.3 상수
+### 8.3 Constants
 
 ```typescript
 // hybrid-search.ts:18
@@ -571,7 +571,7 @@ const RRF_K = 60;
 const DEFAULT_MAX_RESULTS = 20;
 ```
 
-### 8.4 구현 세부
+### 8.4 Implementation Details
 
 `addRrfScores()` ([hybrid-search.ts:172–190](file:///mnt/c/workspace/opencode-orchestrator/src/core/knowledge/hybrid-search.ts#L172-L190)):
 
@@ -597,71 +597,71 @@ private addRrfScores(
 }
 ```
 
-**matchType 결정 로직:**
+**matchType decision logic:**
 
 ```
-rrfScore > 1/(RRF_K + 1)  →  이 엔진의 rank가 0 (1위)일 때의 점수보다 높은가?
+rrfScore > 1/(RRF_K + 1)  →  is this higher than the score this engine yields at rank 0 (1st place)?
 
-사실상 rank=0일 때:  weight × 1/(60+0+1) = weight × 1/61
-비교 기준:           1/(60+1) = 1/61
+In effect, at rank=0:  weight × 1/(60+0+1) = weight × 1/61
+Comparison threshold:  1/(60+1) = 1/61
 
-따라서 weight > 1인 엔진이 1위 결과를 제공하면 matchType이 갱신됨
+So if an engine with weight > 1 provides the top result, the matchType is updated
 ```
 
-이는 **가장 큰 기여를 한 엔진**이 해당 결과의 `matchType`을 결정하도록 보장한다.
+This ensures that the **engine that contributed the most** determines that result's `matchType`.
 
-### 8.5 RRF의 장점
+### 8.5 Advantages of RRF
 
 ```
-          점수  
+          score
   0.016 ┤ ■ rank 0
   0.015 ┤ ■ rank 1
   0.014 ┤ ■ rank 2
   0.013 ┤ ■ rank 3
-        │   ...       ← 순위가 내려가면 점수 차이가 급격히 줄어듦
+        │   ...       ← as rank descends, the score gap shrinks sharply
   0.003 ┤             ■ rank 100
         └──────────────────────────
 ```
 
-- 각 엔진의 **원시 점수 스케일에 무관**하게 순위만으로 통합
-- BM25의 점수 범위(0~수십)와 태그 점수(정수 카운트)를 직접 비교하는 문제 회피
-- `k=60`은 상위 순위에 대한 민감도를 적절히 조절 (너무 작으면 1위만 중요, 너무 크면 순위 차이 무시)
+- Integrates by rank alone, **independent of each engine's raw score scale**
+- Avoids the problem of directly comparing BM25's score range (0 to tens) with tag scores (integer counts)
+- `k=60` properly tunes the sensitivity to top ranks (too small and only 1st place matters, too large and rank differences are ignored)
 
 ---
 
-## 9. 역할별 검색 가중치
+## 9. Per-Role Search Weights
 
-### 9.1 EngineWeights 인터페이스
+### 9.1 EngineWeights Interface
 
 ([retrieval-weights.ts:16–20](file:///mnt/c/workspace/opencode-orchestrator/src/core/knowledge/retrieval-weights.ts#L16-L20))
 
 ```typescript
 export interface EngineWeights {
-    lexical: number;   // BM25 가중치
-    tag: number;       // 태그 검색 가중치
-    graph: number;     // 그래프 검색 가중치
+    lexical: number;   // BM25 weight
+    tag: number;       // tag-search weight
+    graph: number;     // graph-search weight
 }
 ```
 
-### 9.2 ROLE_WEIGHTS 테이블
+### 9.2 ROLE_WEIGHTS Table
 
 ([retrieval-weights.ts:28–37](file:///mnt/c/workspace/opencode-orchestrator/src/core/knowledge/retrieval-weights.ts#L28-L37))
 
-| 역할 | lexical | tag | graph | 설계 근거 |
+| Role | lexical | tag | graph | Design rationale |
 |:---|:---:|:---:|:---:|:---|
-| **planner** | 0.8 | 1.1 | **1.3** | 의존성/아키텍처를 추론 → 그래프 구조 우선 |
-| **worker** | **1.3** | 1.0 | 0.7 | 구체적 구현 → 정확한 키워드 히트 우선 |
-| **reviewer** | 1.0 | **1.2** | 1.0 | 증거의 폭 필요 → 태그/주제 커버리지 우선 |
-| **commander** | 1.0 | 1.0 | 1.0 | 조율 역할 → 중립 |
+| **planner** | 0.8 | 1.1 | **1.3** | Reasons about dependencies/architecture → prioritize graph structure |
+| **worker** | **1.3** | 1.0 | 0.7 | Concrete implementation → prioritize precise keyword hits |
+| **reviewer** | 1.0 | **1.2** | 1.0 | Needs breadth of evidence → prioritize tag/topic coverage |
+| **commander** | 1.0 | 1.0 | 1.0 | Coordination role → neutral |
 
-시각적으로 표현하면:
+Visually:
 
 ```
              lexical    tag    graph
-  planner:    ████░      █████░     ███████░   ← 그래프 강조
-  worker:     ███████░   █████░     ████░      ← 키워드 강조
-  reviewer:   █████░     ██████░    █████░     ← 태그 강조
-  commander:  █████░     █████░     █████░     ← 균등
+  planner:    ████░      █████░     ███████░   ← graph emphasized
+  worker:     ███████░   █████░     ████░      ← keyword emphasized
+  reviewer:   █████░     ██████░    █████░     ← tag emphasized
+  commander:  █████░     █████░     █████░     ← even
 ```
 
 ### 9.3 weightsForRole()
@@ -675,26 +675,26 @@ export function weightsForRole(role?: string | null): EngineWeights {
 }
 ```
 
-- 역할이 `null`/`undefined`이면 중립 가중치 `{ 1, 1, 1 }` 반환
-- 대소문자 무관 매칭
-- 알 수 없는 역할도 중립으로 폴백
+- If the role is `null`/`undefined`, returns the neutral weights `{ 1, 1, 1 }`
+- Case-insensitive matching
+- An unknown role also falls back to neutral
 
-### 9.4 가중치의 효과
+### 9.4 The Effect of Weights
 
-RRF 공식에서 가중치는 **곱셈 인자**로 적용된다:
+In the RRF formula, weights are applied as a **multiplicative factor**:
 
 ```
-가중치가 1.3인 엔진의 1위 기여:  1.3 × 1/(60+1) ≈ 0.0213
-가중치가 0.7인 엔진의 1위 기여:  0.7 × 1/(60+1) ≈ 0.0115
+1st-place contribution of an engine with weight 1.3:  1.3 × 1/(60+1) ≈ 0.0213
+1st-place contribution of an engine with weight 0.7:  0.7 × 1/(60+1) ≈ 0.0115
 ```
 
-→ 약 **1.86배** 차이. 동일 순위에서 선호 엔진의 기여가 거의 2배 커진다.
+→ About a **1.86×** difference. At the same rank, the preferred engine's contribution is nearly doubled.
 
 ---
 
-## 10. 메모리 수평선 (Memory Horizon)
+## 10. Memory Horizon
 
-### 10.1 MemoryHorizon 타입
+### 10.1 MemoryHorizon Type
 
 ([retrieval-weights.ts:45](file:///mnt/c/workspace/opencode-orchestrator/src/core/knowledge/retrieval-weights.ts#L45))
 
@@ -702,11 +702,11 @@ RRF 공식에서 가중치는 **곱셈 인자**로 적용된다:
 export type MemoryHorizon = "strategic" | "execution" | "closure";
 ```
 
-| 수평선 | 의미 | 메모리 수명 |
+| Horizon | Meaning | Memory lifetime |
 |:---|:---|:---|
-| `strategic` | 프로젝트 전반에 걸쳐 유효 | 장기 (세션 간 유지) |
-| `execution` | 현재 미션 실행 중 유효 | 중기 (미션 종료 시 만료 가능) |
-| `closure` | 특정 태스크 완료 시까지 유효 | 단기 (태스크 종료 시 만료) |
+| `strategic` | Valid across the entire project | Long-term (persists across sessions) |
+| `execution` | Valid during the current mission's execution | Medium-term (may expire at mission end) |
+| `closure` | Valid until a specific task completes | Short-term (expires at task end) |
 
 ### 10.2 horizonForLevel()
 
@@ -727,141 +727,141 @@ export function horizonForLevel(level: string): MemoryHorizon {
 }
 ```
 
-**매핑 관계:**
+**Mapping relationship:**
 
 ```
 MemoryLevel          MemoryHorizon
 ─────────────        ─────────────
-system      ───────→ strategic       (장기, 시스템 전반)
-project     ───────→ strategic       (장기, 프로젝트 전반)
-mission     ───────→ execution       (중기, 미션 단위)
-task        ───────→ closure         (단기, 태스크 단위)
-(unknown)   ───────→ execution       (기본값)
+system      ───────→ strategic       (long-term, system-wide)
+project     ───────→ strategic       (long-term, project-wide)
+mission     ───────→ execution       (medium-term, per mission)
+task        ───────→ closure         (short-term, per task)
+(unknown)   ───────→ execution       (default)
 ```
 
-### 10.3 미션 메모리 노트에서의 활용
+### 10.3 Usage in Mission Memory Notes
 
-`mission-memory.ts`의 `buildMemoryNoteContent()` ([mission-memory.ts:219–247](file:///mnt/c/workspace/opencode-orchestrator/src/core/knowledge/mission-memory.ts#L219-L247))에서 각 메모리 노트의 frontmatter에 수평선을 기록한다:
+In `mission-memory.ts`, `buildMemoryNoteContent()` ([mission-memory.ts:219–247](file:///mnt/c/workspace/opencode-orchestrator/src/core/knowledge/mission-memory.ts#L219-L247)) records the horizon in each memory note's frontmatter:
 
 ```yaml
 ---
 tags: [mission-memory, orchestrator, project]
 title: "project memory abc-123"
-keep: true                   ← importance ≥ 0.9일 때만 부여 (PIN_IMPORTANCE_THRESHOLD)
+keep: true                   ← assigned only when importance ≥ 0.9 (PIN_IMPORTANCE_THRESHOLD)
 level: "project"
 horizon: "strategic"         ← horizonForLevel("project")
 importance: 0.950
 memory_kind: "fact"          ← decayProfileForLevel(level).kind
-decay_lambda: 0.006          ← decayProfileForLevel(level).lambda (명시적 λ)
+decay_lambda: 0.006          ← decayProfileForLevel(level).lambda (explicit λ)
 session: "sess-001"
 recorded_at: "2026-06-19T10:30:00Z"
-objective: "검색 시스템 구현"
+objective: "implement the search system"
 ---
 ```
 
-이를 통해 메모리 정리(consolidation) 시 수평선에 따라 만료 정책을 적용할 수 있다.
+This allows an expiration policy to be applied according to the horizon during memory consolidation.
 
-### 10.4 망각곡선 활성화 정책 (중요)
+### 10.4 Forgetting-Curve Activation Policy (Important)
 
-생성되는 메모리 노트는 **무조건 고정되지 않는다.** `importance`가 `PIN_IMPORTANCE_THRESHOLD`(`0.9`) 미만이면 `keep` 줄을 생략하여 에빙하우스 감쇠 모델에 참여시킨다. 이로써 README의 "fade when unused"가 실제 생성 데이터에도 적용된다.
+A generated memory note is **not unconditionally pinned.** If `importance` is below `PIN_IMPORTANCE_THRESHOLD` (`0.9`), the `keep` line is omitted so that the note participates in the Ebbinghaus decay model. This makes the README's "fade when unused" actually apply to generated data as well.
 
-또한 각 레벨은 `decayProfileForLevel()`로 유효한 `memory_kind`와 **명시적** `decay_lambda`를 기록한다(`project→fact/0.006`, `mission→workflow/0.02`, `task→episode/0.07`). 명시적 `decay_lambda` 덕분에 `memoryStrength()`가 알 수 없는 종류 문자열에 대해 `0.03` 기본값으로 폴백하지 않는다.
+In addition, each level records a valid `memory_kind` and an **explicit** `decay_lambda` via `decayProfileForLevel()` (`project→fact/0.006`, `mission→workflow/0.02`, `task→episode/0.07`). Thanks to the explicit `decay_lambda`, `memoryStrength()` does not fall back to the `0.03` default for unknown kind strings.
 
-**감쇠의 디스크 반영은 옵트인이다.** 계층 강등·아카이브·tombstone supersession은 `runMemoryMaintenancePass()`를 통해서만 일어나며, `CleanupScheduler`는 `OPENCODE_MEMORY_MAINTENANCE=1`일 때만 6시간 주기로 이를 실행한다(기본 OFF, 물리적 파일 이동 없음). 검색 시점의 강도 가중(`score × memoryStrength`)은 항상 적용되므로, 디스크 정리 없이도 감쇠한 메모리는 자연히 검색 하위로 가라앉는다.
+**Disk reflection of decay is opt-in.** Tier demotion, archival, and tombstone supersession occur only through `runMemoryMaintenancePass()`, and `CleanupScheduler` runs it on a 6-hour cycle only when `OPENCODE_MEMORY_MAINTENANCE=1` (OFF by default, no physical file movement). Strength weighting at search time (`score × memoryStrength`) is always applied, so even without disk cleanup, decayed memories naturally sink toward the bottom of search results.
 
-### 10.5 재동기화 시 lifecycle 보존 (중요)
+### 10.5 Lifecycle Preservation on Re-Sync (Important)
 
-미션 메모리 노트는 `MemoryManager`(휘발성 작업셋)의 projection이지만, **lifecycle 상태는 노트 자신(장기기억)이 소유한다.** `syncMissionMemoryNotes()`는 재동기화 시 기존 노트의 frontmatter를 읽어(`loadExistingNoteMetadata()`) 다음 필드를 **보존**한다:
+A mission memory note is a projection of `MemoryManager` (the volatile working set), but **the lifecycle state is owned by the note itself (long-term memory).** On re-sync, `syncMissionMemoryNotes()` reads the frontmatter of the existing note (`loadExistingNoteMetadata()`) and **preserves** the following fields:
 
-- `ingestion_time` — 최초 학습 시점(바이템포럴의 "언제 알았나")을 안정적으로 유지
-- `last_accessed`, `access_count`, `access_ema` — 감쇠 나이 누적과 회상 강화(reinforcement)를 보존
-- `memory_layer`, `tombstone`, `valid_to`, `supersedes` — 유지보수가 내린 계층/supersession 결정을 보존
+- `ingestion_time` — stably keeps the moment first learned (the bitemporal "when did we know it")
+- `last_accessed`, `access_count`, `access_ema` — preserve accumulated decay age and recall reinforcement
+- `memory_layer`, `tombstone`, `valid_to`, `supersedes` — preserve the tier/supersession decisions made by maintenance
 
-`content`/`importance`/`event_time`/`record_updated_at`만 `MemoryManager`에서 갱신된다. 이 보존이 없으면 매 sync가 `last_accessed`를 now로, `access_count`를 1로 리셋해 감쇠·강화가 영구히 초기화된다(누적 불가). archived↔active 충돌은 self-correcting이다: 회상하면 strength가 올라 다음 유지보수 패스가 계층을 다시 승격시킨다.
+Only `content`/`importance`/`event_time`/`record_updated_at` are updated from `MemoryManager`. Without this preservation, every sync would reset `last_accessed` to now and `access_count` to 1, permanently re-initializing decay and reinforcement (no accumulation possible). The archived↔active conflict is self-correcting: when recalled, strength rises and the next maintenance pass re-promotes the tier.
 
-### 10.6 현재 한계 — 역할 가중치 주입 범위
+### 10.6 Current Limitation — Scope of Role-Weight Injection
 
-§9의 역할별 가중치는 `buildPrompt(query, role)`까지 올바르게 배선돼 있으나, **프로덕션 knowledge 주입은 현재 commander(중립) 세션 한 곳에서만 일어난다**(`system-transform-handler`). 따라서 planner/worker/reviewer 전용 가중치가 실제로 검색을 재편하려면 **서브에이전트 세션에도 role별 주입을 추가하는 후속 작업**이 필요하다. 그전까지 역할 가중치의 실효는 commander 경로에서 중립이다.
+The per-role weights of §9 are correctly wired through to `buildPrompt(query, role)`, but **in production, knowledge injection currently happens at only one place — the commander (neutral) session** (`system-transform-handler`). Therefore, for the planner/worker/reviewer-specific weights to actually reshape search, **follow-up work to add per-role injection to subagent sessions as well** is needed. Until then, the effective role weighting on the commander path is neutral.
 
 ---
 
-## 11. 신경망 임베딩과의 비교
+## 11. Comparison with Neural Embeddings
 
-현재 opencode-orchestrator의 검색 시스템은 **순수 통계/구조 기반**이다. 신경망 임베딩을 사용하지 않는다.
+The current opencode-orchestrator search system is **purely statistics/structure-based**. It does not use neural embeddings.
 
-### 11.1 현재 시스템에 없는 것
+### 11.1 What the Current System Lacks
 
-| 구성 요소 | 현재 상태 | 설명 |
+| Component | Current state | Description |
 |:---|:---:|:---|
-| Dense Retrieval (밀집 검색) | ❌ 없음 | 사전 훈련된 인코더(BERT, E5 등)로 문서를 벡터화하여 의미적 유사도 검색 |
-| Cross-Encoder 재순위 | ❌ 없음 | 쿼리-문서 쌍을 동시에 인코딩하여 정밀 재순위 |
-| 벡터 DB / ANN 인덱스 | ❌ 없음 | FAISS, Qdrant 등의 근사 최근접 이웃 검색 |
-| 학습된 Sparse 표현 | ❌ 없음 | SPLADE 등의 학습된 희소 벡터 |
+| Dense Retrieval | ❌ absent | Vectorizes documents with a pretrained encoder (BERT, E5, etc.) for semantic-similarity search |
+| Cross-Encoder reranking | ❌ absent | Encodes query-document pairs jointly for precise reranking |
+| Vector DB / ANN index | ❌ absent | Approximate nearest-neighbor search with FAISS, Qdrant, etc. |
+| Learned sparse representations | ❌ absent | Learned sparse vectors such as SPLADE |
 
-### 11.2 비교 테이블
+### 11.2 Comparison Table
 
-| 차원 | 현재 시스템 (BM25 + Tag + Graph) | Dense Retrieval + Cross-Encoder |
+| Dimension | Current system (BM25 + Tag + Graph) | Dense Retrieval + Cross-Encoder |
 |:---|:---|:---|
-| **의미 이해** | ❌ 어휘 매칭만 가능. "검색" ≠ "탐색" | ✅ 동의어·패러프레이즈 이해 |
-| **다국어 교차 검색** | ❌ 동일 언어 토큰만 매칭 | ✅ 다국어 모델로 교차 가능 |
-| **인프라 요구** | ✅ 제로 의존성, Node.js만 필요 | ❌ GPU/모델 서빙, 벡터 DB 필요 |
-| **레이턴시** | ✅ 밀리초 단위 | ⚠️ 수십~수백 ms (모델 추론) |
-| **투명성** | ✅ 점수 공식이 명시적 | ⚠️ 블랙박스 (해석 어려움) |
-| **업데이트 비용** | ✅ 즉시 재인덱싱 | ⚠️ 벡터 재계산 필요 |
-| **구조적 관계 활용** | ✅ 위키링크 그래프 탐색 | ❌ 문서 간 링크 무시 (별도 구현 필요) |
-| **메타데이터 활용** | ✅ frontmatter 태그 | ⚠️ 메타데이터 필터링 별도 구현 필요 |
-| **콜드 스타트** | ✅ 문서만 있으면 동작 | ❌ 모델 다운로드/파인튜닝 필요 |
+| **Semantic understanding** | ❌ Lexical matching only. "search" ≠ "explore" | ✅ Understands synonyms and paraphrases |
+| **Cross-lingual search** | ❌ Matches only same-language tokens | ✅ Cross-lingual via multilingual models |
+| **Infrastructure requirements** | ✅ Zero dependencies, only Node.js needed | ❌ Requires GPU/model serving, vector DB |
+| **Latency** | ✅ Millisecond range | ⚠️ Tens to hundreds of ms (model inference) |
+| **Transparency** | ✅ Scoring formulas are explicit | ⚠️ Black box (hard to interpret) |
+| **Update cost** | ✅ Immediate re-indexing | ⚠️ Requires recomputing vectors |
+| **Use of structural relations** | ✅ Wikilink graph traversal | ❌ Ignores inter-document links (requires separate implementation) |
+| **Use of metadata** | ✅ frontmatter tags | ⚠️ Metadata filtering must be implemented separately |
+| **Cold start** | ✅ Works with documents alone | ❌ Requires model download/fine-tuning |
 
-### 11.3 현재 설계의 강점
+### 11.3 Strengths of the Current Design
 
-1. **제로 의존성**: 외부 모델·벡터 DB 없이 `node:fs`만으로 동작
-2. **결정론적 재현**: 동일 입력 → 동일 출력, 디버깅 용이
-3. **구조 인식**: 위키링크 그래프를 통해 문서 간 **관계**를 검색에 반영
-4. **역할 적응**: 에이전트 역할에 따라 검색 전략을 자동 조정
-5. **즉시 갱신**: 파일 변경 시 재인덱싱이 즉각적, 벡터 재계산 불필요
+1. **Zero dependencies**: Works with only `node:fs`, no external models or vector DB
+2. **Deterministic reproducibility**: Same input → same output, easy to debug
+3. **Structure-aware**: Reflects inter-document **relationships** in search via the wikilink graph
+4. **Role adaptation**: Automatically adjusts the search strategy by agent role
+5. **Instant updates**: Re-indexing is immediate on file change, no vector recomputation needed
 
 ---
 
-## 12. 한계와 향후 고도화 방향
+## 12. Limitations and Future Enhancements
 
-### 12.1 현재 한계
+### 12.1 Current Limitations
 
-| # | 한계 | 영향 | 심각도 |
+| # | Limitation | Impact | Severity |
 |:---|:---|:---|:---:|
-| 1 | **의미적 매칭 불가** | "검색 엔진" 쿼리로 "탐색 시스템" 문서를 찾을 수 없음 | 높음 |
-| 2 | **다국어 교차 검색 불가** | 한국어 쿼리로 영어 문서를 찾을 수 없음 | 중간 |
-| 3 | **DF 계산의 선형 스캔** | 매 쿼리마다 전체 코퍼스 스캔 (`O(N×T)`, N=문서 수, T=용어 수) | 낮음¹ |
-| 4 | **그래프 시드가 태그에 의존** | 태그가 없는 문서는 그래프 검색의 시드가 될 수 없음 | 중간 |
-| 5 | **단일 토크나이저** | 공백 분리만 사용, 형태소 분석·서브워드 토크나이징 없음 | 중간 |
-| 6 | **스니펫의 단순 절삭** | 쿼리 관련 부분이 아닌 문서 첫 220자를 반환 | 낮음 |
+| 1 | **No semantic matching** | A "search engine" query cannot find a "discovery system" document | High |
+| 2 | **No cross-lingual search** | A Korean query cannot find an English document | Medium |
+| 3 | **Linear scan for DF computation** | Scans the entire corpus on every query (`O(N×T)`, N=document count, T=term count) | Low¹ |
+| 4 | **Graph seeds depend on tags** | A document with no tags cannot be a seed for graph search | Medium |
+| 5 | **Single tokenizer** | Uses only whitespace splitting, no morphological analysis or subword tokenization | Medium |
+| 6 | **Simple snippet truncation** | Returns the first 220 characters of a document rather than the query-relevant portion | Low |
 
-> ¹ 프로젝트 내 지식 저장소는 보통 수백 건 이하이므로 현재 규모에서는 문제없음
+> ¹ A project-local knowledge store is usually under a few hundred entries, so it is not a problem at the current scale
 
-### 12.2 고도화 로드맵
+### 12.2 Enhancement Roadmap
 
 ```
-                현재 (v1)                    향후 (v2)
+                Now (v1)                     Future (v2)
          ┌──────────────────┐        ┌──────────────────────┐
          │  BM25 + Tag +    │        │  BM25 + Tag + Graph  │
          │  Graph + RRF     │   →    │  + Dense + RRF       │
          │                  │        │  + Cross-Encoder     │
-         │  (어휘 매칭만)    │        │  (의미 + 어휘)        │
+         │  (lexical only)  │        │  (semantic + lexical) │
          └──────────────────┘        └──────────────────────┘
 ```
 
-**단계별 고도화 방안:**
+**Step-by-step enhancement plan:**
 
-| 단계 | 추가 구성 요소 | 기대 효과 | 난이도 |
+| Stage | Added component | Expected benefit | Difficulty |
 |:---|:---|:---|:---:|
-| **v1.1** | 용어 역색인 (`Map<term, Set<doc>>`) | DF 계산 O(1)화 | 낮음 |
-| **v1.2** | 쿼리 하이라이팅 스니펫 | 검색 결과의 맥락 이해 향상 | 낮음 |
-| **v1.3** | 형태소 분석기 연동 (한국어 `nori`, 영어 `stemmer`) | 어형 변화에 대한 매칭력 향상 | 중간 |
-| **v2.0** | Dense Retrieval (경량 임베딩 모델, 예: `gte-small`) | 동의어·패러프레이즈 매칭 | 높음 |
-| **v2.1** | 다국어 모델 (`multilingual-e5-small`) | 한국어 ↔ 영어 교차 검색 | 높음 |
-| **v2.2** | Cross-Encoder 재순위 | 상위 N개 결과의 정밀도 향상 | 높음 |
-| **v2.3** | 레이블 가중 RRF | 검색 품질 피드백으로 엔진 가중치 학습 | 높음 |
+| **v1.1** | Term inverted index (`Map<term, Set<doc>>`) | Makes DF computation O(1) | Low |
+| **v1.2** | Query-highlighting snippets | Improves contextual understanding of search results | Low |
+| **v1.3** | Morphological analyzer integration (Korean `nori`, English `stemmer`) | Improves matching against inflectional variants | Medium |
+| **v2.0** | Dense Retrieval (lightweight embedding model, e.g. `gte-small`) | Synonym/paraphrase matching | High |
+| **v2.1** | Multilingual model (`multilingual-e5-small`) | Korean ↔ English cross-lingual search | High |
+| **v2.2** | Cross-Encoder reranking | Improves precision of the top-N results | High |
+| **v2.3** | Label-weighted RRF | Learn engine weights from search-quality feedback | High |
 
-### 12.3 Dense Retrieval 통합 시 아키텍처 제안
+### 12.3 Proposed Architecture When Integrating Dense Retrieval
 
 ```
                        ┌───────────────────────┐
@@ -876,8 +876,8 @@ objective: "검색 시스템 구현"
   └──────┬───────┘        └──────┬───────┘        └──────┬───────┘
          │                       │                       │
          │  ┌──────────────┐     │                       │
-         │  │ denseSearch  │ ◄───┤  (NEW: 4번째 엔진)    │
-         │  │ (벡터 유사도)  │     │                       │
+         │  │ denseSearch  │ ◄───┤  (NEW: 4th engine)    │
+         │  │ (vector sim) │     │                       │
          │  └──────┬───────┘     │                       │
          │         │             │                       │
          └─────────┼─────────────┼───────────────────────┘
@@ -885,13 +885,13 @@ objective: "검색 시스템 구현"
           ┌──────────────────┐
           │   fuseResults    │
           │  RRF (k=60)     │
-          │  × EngineWeights │  ← EngineWeights에 `dense` 필드 추가
+          │  × EngineWeights │  ← add a `dense` field to EngineWeights
           └────────┬─────────┘
                    ▼
           ┌──────────────────┐
-          │ Cross-Encoder    │  (선택적 재순위)
-          │ 상위 10개만 정밀  │
-          │  점수 재계산      │
+          │ Cross-Encoder    │  (optional reranking)
+          │ recompute scores │
+          │ for top 10 only  │
           └────────┬─────────┘
                    ▼
           ┌──────────────────┐
@@ -899,47 +899,47 @@ objective: "검색 시스템 구현"
           └──────────────────┘
 ```
 
-**핵심 설계 원칙**: 기존 RRF 파이프라인을 보존하면서 Dense 엔진을 **4번째 순위 목록**으로 추가. `EngineWeights`에 `dense` 필드만 추가하면 기존 역할별 가중치 시스템과 자연스럽게 통합된다.
+**Core design principle**: Preserve the existing RRF pipeline while adding the Dense engine as a **4th ranked list**. Just adding a `dense` field to `EngineWeights` integrates it naturally with the existing per-role weight system.
 
 ---
 
-## 부록: 보조 모듈
+## Appendix: Auxiliary Modules
 
 ### A. MemoryConsolidation
 
 ([memory-consolidation.ts](file:///mnt/c/workspace/opencode-orchestrator/src/core/knowledge/memory-consolidation.ts))
 
-그래프 **유지보수**를 위한 순수 분석 함수들 (부수 효과 없음):
+Pure analysis functions for graph **maintenance** (no side effects):
 
-| 메서드 | 기능 |
+| Method | Function |
 |:---|:---|
-| `identifyOversizedNotes(contentMap, maxLines?)` | 500줄(기본값) 초과 노트 탐지 → 분할 후보 |
-| `identifyOrphanNotes(allNotes)` | forward link·backlink 모두 0인 고아 노트 탐지 |
-| `suggestMerges(threshold?)` | 공유 태그 3개(기본값) 이상인 노트 쌍 → 병합 후보 |
-| `generateMOC(tag)` | 특정 태그의 Map of Content 마크다운 생성 |
+| `identifyOversizedNotes(contentMap, maxLines?)` | Detects notes exceeding 500 lines (default) → split candidates |
+| `identifyOrphanNotes(allNotes)` | Detects orphan notes with both forward links and backlinks at 0 |
+| `suggestMerges(threshold?)` | Note pairs sharing 3 (default) or more tags → merge candidates |
+| `generateMOC(tag)` | Generates a Map of Content markdown for a specific tag |
 
 ### B. SafetyGuards
 
 ([safety-guards.ts](file:///mnt/c/workspace/opencode-orchestrator/src/core/knowledge/safety-guards.ts))
 
-| 기능 | 메서드 | 설명 |
+| Function | Method | Description |
 |:---|:---|:---|
-| 순환 링크 감지 | `checkCircularLinks(graph, startNote, maxDepth?)` | depth-limited DFS로 자기 자신으로의 순환 탐지 |
-| 동시 쓰기 보호 | `createWriteQueue()` | FIFO 비동기 큐로 파일 쓰기 직렬화 |
-| 고정 노트 확인 | `isPinned(metadata)` | `keep: true` frontmatter → 정리 대상 제외 |
+| Circular-link detection | `checkCircularLinks(graph, startNote, maxDepth?)` | Detects cycles back to the node itself via depth-limited DFS |
+| Concurrent-write protection | `createWriteQueue()` | Serializes file writes with a FIFO async queue |
+| Pinned-note check | `isPinned(metadata)` | `keep: true` frontmatter → excluded from cleanup |
 
 ### C. Scratchpad
 
 ([scratchpad.ts](file:///mnt/c/workspace/opencode-orchestrator/src/core/knowledge/scratchpad.ts))
 
-| 특성 | 값 |
+| Property | Value |
 |:---|:---|
-| 최대 엔트리 | 64 |
-| 엔트리당 최대 크기 | 4,096 bytes |
-| 퇴거 정책 | LRU (Map 삽입 순서 활용) |
-| 직렬화 형식 | 마크다운 (`# Scratchpad Registers` + `## key` 블록) |
+| Max entries | 64 |
+| Max size per entry | 4,096 bytes |
+| Eviction policy | LRU (leverages Map insertion order) |
+| Serialization format | Markdown (`# Scratchpad Registers` + `## key` blocks) |
 
 ---
 
-> **이 문서는 `src/core/knowledge/` 디렉터리의 소스 코드를 기반으로 작성되었습니다.**
-> **소스 코드와 이 문서의 내용이 불일치할 경우, 항상 소스 코드를 신뢰하십시오.**
+> **This document was written based on the source code in the `src/core/knowledge/` directory.**
+> **Whenever the source code and this document disagree, always trust the source code.**
