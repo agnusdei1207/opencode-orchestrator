@@ -7,11 +7,12 @@ vi.mock("../../src/core/agents/logger", () => ({
     log: vi.fn(),
 }));
 
-import { startMissionLoop } from "../../src/core/loop/mission-loop.js";
+import { startMissionLoop, readLoopState } from "../../src/core/loop/mission-loop.js";
 import { configureMissionRuntimeOptions, DEFAULT_MISSION_RUNTIME_OPTIONS } from "../../src/core/loop/mission-runtime-options.js";
 import { KnowledgeContextProvider } from "../../src/core/knowledge/context-provider.js";
-import { getMissionMemoryNotesDirPath } from "../../src/core/knowledge/mission-memory.js";
+import { getMissionMemoryNotesDirPath, syncMissionMemory } from "../../src/core/knowledge/mission-memory.js";
 import { memoryStrength } from "../../src/core/knowledge/memory-scoring.js";
+import { MemoryLifecycle } from "../../src/core/knowledge/memory-lifecycle.js";
 import { MemoryManager } from "../../src/core/memory/memory-manager.js";
 import { MemoryLevel, type MemorySnapshot } from "../../src/core/memory/interfaces.js";
 
@@ -128,6 +129,36 @@ describe("mission memory knowledge integration", () => {
 
         const note = readNoteByPrefix(getMissionMemoryNotesDirPath(testDir), "project-");
         expect(note).toContain("keep: true");
+    });
+
+    it("preserves accumulated access + ingestion_time across re-syncs", () => {
+        MemoryManager.getInstance().add(
+            MemoryLevel.MISSION,
+            "Durable mission note about retrieval grounding workflow.",
+            0.8,
+        );
+        startMissionLoop(testDir, "resync-session", "Investigate retrieval grounding");
+
+        const notesDir = getMissionMemoryNotesDirPath(testDir);
+        const file = fs.readdirSync(notesDir).find(name => name.startsWith("mission-") && name.endsWith(".md"));
+        if (!file) throw new Error("expected a generated mission note");
+        const notePath = path.join(notesDir, file);
+
+        const firstIngestion = /ingestion_time: "([^"]+)"/.exec(fs.readFileSync(notePath, "utf8"))?.[1];
+        expect(firstIngestion).toBeTruthy();
+
+        // A recall lands reinforcement on disk (access_count 1 -> 2).
+        new MemoryLifecycle().recordAccess(notePath);
+        expect(fs.readFileSync(notePath, "utf8")).toContain("access_count: 2");
+
+        // A later mission sync must NOT clobber the accumulated lifecycle state.
+        const state = readLoopState(testDir);
+        if (!state) throw new Error("expected an active loop state");
+        syncMissionMemory(testDir, state);
+
+        const after = fs.readFileSync(notePath, "utf8");
+        expect(after).toContain("access_count: 2");
+        expect(after).toContain(`ingestion_time: "${firstIngestion}"`);
     });
 
     it("decays an unpinned generated-style note after long disuse", () => {

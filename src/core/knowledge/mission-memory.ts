@@ -7,6 +7,7 @@ import { getMissionRuntimeOptions } from "../loop/mission-runtime-options.js";
 import { MemoryLevel, type MemoryEntry } from "../memory/interfaces.js";
 import { MemoryManager } from "../memory/memory-manager.js";
 import { horizonForLevel } from "./retrieval-weights.js";
+import { TagIndexer, type FrontmatterData } from "./tag-indexer.js";
 
 interface CanvasNode {
     id: string;
@@ -130,7 +131,12 @@ function syncMissionMemoryNotes(directory: string, state: MissionLoopState): voi
     for (const entry of selectMissionMemoryEntries(state)) {
         const fileName = buildMemoryNoteFileName(entry);
         expectedFiles.add(fileName);
-        atomicWrite(join(notesDir, fileName), buildMemoryNoteContent(state, entry));
+        const notePath = join(notesDir, fileName);
+        // Preserve any accumulated lifecycle state already on disk so a resync
+        // refreshes content/importance without wiping decay age, reinforcement,
+        // or maintenance tier decisions.
+        const existing = loadExistingNoteMetadata(notePath);
+        atomicWrite(notePath, buildMemoryNoteContent(state, entry, existing));
     }
 
     if (!existsSync(notesDir)) return;
@@ -222,12 +228,28 @@ function buildMemoryNoteFileName(entry: MemoryEntry): string {
     return `${entry.level}-${sanitizeFilePart(entry.id)}.md`;
 }
 
-function buildMemoryNoteContent(state: MissionLoopState, entry: MemoryEntry): string {
+function buildMemoryNoteContent(
+    state: MissionLoopState,
+    entry: MemoryEntry,
+    existing?: FrontmatterData | null,
+): string {
     const recordedAt = new Date(entry.timestamp).toISOString();
-    const ingestedAt = new Date().toISOString();
+    const now = new Date().toISOString();
     const body = entry.content.length > MAX_MEMORY_BODY_CHARS
         ? `${entry.content.slice(0, MAX_MEMORY_BODY_CHARS)}...`
         : entry.content;
+
+    // Lifecycle state belongs to the note (its long-term memory), not to the
+    // volatile MemoryManager projection. Preserve it across resyncs; fall back
+    // to fresh values only when the note is first created.
+    const ingestionTime = stringMeta(existing?.ingestion_time) ?? now;
+    const lastAccessed = stringMeta(existing?.last_accessed) ?? now;
+    const accessCount = numberMeta(existing?.access_count) ?? 1;
+    const accessEma = numberMeta(existing?.access_ema);
+    const memoryLayer = stringMeta(existing?.memory_layer) ?? "warm";
+    const tombstone = existing?.tombstone === true;
+    const validTo = stringMeta(existing?.valid_to);
+    const supersedes = Array.isArray(existing?.supersedes) ? existing?.supersedes : undefined;
 
     const profile = decayProfileForLevel(entry.level);
     const frontmatter: string[] = [
@@ -246,13 +268,29 @@ function buildMemoryNoteContent(state: MissionLoopState, entry: MemoryEntry): st
         `session: "${escapeYaml(state.sessionID)}"`,
         `recorded_at: "${recordedAt}"`,
         `event_time: "${recordedAt}"`,
-        `ingestion_time: "${ingestedAt}"`,
-        `record_updated_at: "${ingestedAt}"`,
-        `last_accessed: "${ingestedAt}"`,
-        "access_count: 1",
+        `ingestion_time: "${ingestionTime}"`,
+        `record_updated_at: "${now}"`,
+        `last_accessed: "${lastAccessed}"`,
+        `access_count: ${accessCount}`,
+    );
+    if (accessEma !== undefined) {
+        frontmatter.push(`access_ema: ${accessEma}`);
+    }
+    frontmatter.push(
         `memory_kind: "${profile.kind}"`,
         `decay_lambda: ${profile.lambda}`,
-        "memory_layer: \"warm\"",
+        `memory_layer: "${memoryLayer}"`,
+    );
+    if (tombstone) {
+        frontmatter.push("tombstone: true");
+    }
+    if (validTo) {
+        frontmatter.push(`valid_to: "${validTo}"`);
+    }
+    if (supersedes && supersedes.length > 0) {
+        frontmatter.push(`supersedes: [${supersedes.map(item => String(item)).join(", ")}]`);
+    }
+    frontmatter.push(
         "confidence: 1",
         `objective: "${escapeYaml(state.objective ?? state.prompt)}"`,
         "---",
@@ -270,6 +308,24 @@ function buildMemoryNoteContent(state: MissionLoopState, entry: MemoryEntry): st
         body,
         "",
     ].join("\n");
+}
+
+/** Read an existing note's frontmatter so its lifecycle state can be preserved. */
+function loadExistingNoteMetadata(filePath: string): FrontmatterData | null {
+    if (!existsSync(filePath)) return null;
+    try {
+        return new TagIndexer().parseFrontmatter(readFileSync(filePath, "utf8")).data;
+    } catch {
+        return null;
+    }
+}
+
+function stringMeta(value: unknown): string | undefined {
+    return typeof value === "string" && value.trim() ? value : undefined;
+}
+
+function numberMeta(value: unknown): number | undefined {
+    return typeof value === "number" && Number.isFinite(value) ? value : undefined;
 }
 
 /**

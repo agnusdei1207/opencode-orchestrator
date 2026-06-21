@@ -769,6 +769,20 @@ objective: "검색 시스템 구현"
 
 **감쇠의 디스크 반영은 옵트인이다.** 계층 강등·아카이브·tombstone supersession은 `runMemoryMaintenancePass()`를 통해서만 일어나며, `CleanupScheduler`는 `OPENCODE_MEMORY_MAINTENANCE=1`일 때만 6시간 주기로 이를 실행한다(기본 OFF, 물리적 파일 이동 없음). 검색 시점의 강도 가중(`score × memoryStrength`)은 항상 적용되므로, 디스크 정리 없이도 감쇠한 메모리는 자연히 검색 하위로 가라앉는다.
 
+### 10.5 재동기화 시 lifecycle 보존 (중요)
+
+미션 메모리 노트는 `MemoryManager`(휘발성 작업셋)의 projection이지만, **lifecycle 상태는 노트 자신(장기기억)이 소유한다.** `syncMissionMemoryNotes()`는 재동기화 시 기존 노트의 frontmatter를 읽어(`loadExistingNoteMetadata()`) 다음 필드를 **보존**한다:
+
+- `ingestion_time` — 최초 학습 시점(바이템포럴의 "언제 알았나")을 안정적으로 유지
+- `last_accessed`, `access_count`, `access_ema` — 감쇠 나이 누적과 회상 강화(reinforcement)를 보존
+- `memory_layer`, `tombstone`, `valid_to`, `supersedes` — 유지보수가 내린 계층/supersession 결정을 보존
+
+`content`/`importance`/`event_time`/`record_updated_at`만 `MemoryManager`에서 갱신된다. 이 보존이 없으면 매 sync가 `last_accessed`를 now로, `access_count`를 1로 리셋해 감쇠·강화가 영구히 초기화된다(누적 불가). archived↔active 충돌은 self-correcting이다: 회상하면 strength가 올라 다음 유지보수 패스가 계층을 다시 승격시킨다.
+
+### 10.6 현재 한계 — 역할 가중치 주입 범위
+
+§9의 역할별 가중치는 `buildPrompt(query, role)`까지 올바르게 배선돼 있으나, **프로덕션 knowledge 주입은 현재 commander(중립) 세션 한 곳에서만 일어난다**(`system-transform-handler`). 따라서 planner/worker/reviewer 전용 가중치가 실제로 검색을 재편하려면 **서브에이전트 세션에도 role별 주입을 추가하는 후속 작업**이 필요하다. 그전까지 역할 가중치의 실효는 commander 경로에서 중립이다.
+
 ---
 
 ## 11. 신경망 임베딩과의 비교
