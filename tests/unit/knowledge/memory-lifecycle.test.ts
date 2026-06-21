@@ -3,6 +3,8 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { MemoryLifecycle } from "../../../src/core/knowledge/memory-lifecycle.js";
+import { memoryStrength } from "../../../src/core/knowledge/memory-scoring.js";
+import { TagIndexer } from "../../../src/core/knowledge/tag-indexer.js";
 
 describe("MemoryLifecycle - local Ebbinghaus memory operations", () => {
     let testDir: string;
@@ -101,6 +103,35 @@ describe("MemoryLifecycle - local Ebbinghaus memory operations", () => {
         expect(readFileSync(oldPath, "utf8")).toContain("memory_layer: archive");
         expect(readFileSync(oldPath, "utf8")).toContain("tombstone: true");
         expect(readFileSync(newPath, "utf8")).toContain("supersedes: [cve-1234]");
+    });
+
+    it("recall reinforcement raises strength on an unpinned note", () => {
+        const evalAt = new Date("2026-06-21T00:00:00Z");
+        const notePath = path.join(testDir, "reinforce.md");
+        writeFileSync(notePath, [
+            "---",
+            "tags: [memory]",
+            "memory_id: mem-reinforce",
+            "importance: 0.3",
+            "confidence: 1",
+            "access_count: 0",
+            "decay_lambda: 0.02",
+            "ingestion_time: 2026-06-21T00:00:00Z",
+            "last_accessed: 2026-06-21T00:00:00Z",
+            "memory_layer: warm",
+            "---",
+            "# Memory",
+        ].join("\n"));
+
+        const parser = new TagIndexer();
+        const strengthAt = () => memoryStrength(parser.parseFrontmatter(readFileSync(notePath, "utf8")).data, evalAt.getTime());
+
+        const before = strengthAt();
+        // Re-evaluate at the same instant so only reinforcement (not age) changes.
+        for (let i = 0; i < 3; i++) lifecycle.recordAccess(notePath, evalAt);
+        const after = strengthAt();
+
+        expect(after).toBeGreaterThan(before);
     });
 
     function writeMemory(fileName: string, lastAccessed: string, layer: string, kind: string, accessCount: number, keep = false): string {
