@@ -11,8 +11,15 @@ import { startMissionLoop } from "../../src/core/loop/mission-loop.js";
 import { configureMissionRuntimeOptions, DEFAULT_MISSION_RUNTIME_OPTIONS } from "../../src/core/loop/mission-runtime-options.js";
 import { KnowledgeContextProvider } from "../../src/core/knowledge/context-provider.js";
 import { getMissionMemoryNotesDirPath } from "../../src/core/knowledge/mission-memory.js";
+import { memoryStrength } from "../../src/core/knowledge/memory-scoring.js";
 import { MemoryManager } from "../../src/core/memory/memory-manager.js";
 import { MemoryLevel, type MemorySnapshot } from "../../src/core/memory/interfaces.js";
+
+function readNoteByPrefix(notesDir: string, prefix: string): string {
+    const file = fs.readdirSync(notesDir).find(name => name.startsWith(prefix) && name.endsWith(".md"));
+    if (!file) throw new Error(`No generated note starting with "${prefix}" in ${notesDir}`);
+    return fs.readFileSync(path.join(notesDir, file), "utf8");
+}
 
 const emptySnapshot: MemorySnapshot = {
     [MemoryLevel.SYSTEM]: [],
@@ -83,5 +90,57 @@ describe("mission memory knowledge integration", () => {
         const accessedNote = fs.readFileSync(path.join(notesDir, noteFiles[0]), "utf8");
         expect(accessedNote).toContain("access_count: 2");
         expect(accessedNote).toContain("last_accessed:");
+    });
+
+    it("emits a valid decay profile (memory_kind + decay_lambda) on generated notes", () => {
+        MemoryManager.getInstance().add(
+            MemoryLevel.MISSION,
+            "Mission scoped decision about retrieval grounding workflow.",
+            0.9,
+        );
+        startMissionLoop(testDir, "decay-profile-session", "Investigate retrieval grounding");
+
+        const note = readNoteByPrefix(getMissionMemoryNotesDirPath(testDir), "mission-");
+        expect(note).toContain('memory_kind: "workflow"');
+        expect(note).toContain("decay_lambda: 0.02");
+        expect(note).not.toContain('memory_kind: "mission"');
+    });
+
+    it("omits keep for low-importance generated notes so they can decay", () => {
+        MemoryManager.getInstance().add(
+            MemoryLevel.TASK,
+            "Short lived task finding about retrieval grounding evidence.",
+            0.7,
+        );
+        startMissionLoop(testDir, "pin-low-session", "Investigate retrieval grounding");
+
+        const note = readNoteByPrefix(getMissionMemoryNotesDirPath(testDir), "task-");
+        expect(note).not.toContain("keep: true");
+    });
+
+    it("keeps high-importance generated notes pinned", () => {
+        MemoryManager.getInstance().add(
+            MemoryLevel.PROJECT,
+            "Durable architectural decision about retrieval grounding.",
+            0.95,
+        );
+        startMissionLoop(testDir, "pin-high-session", "Investigate retrieval grounding");
+
+        const note = readNoteByPrefix(getMissionMemoryNotesDirPath(testDir), "project-");
+        expect(note).toContain("keep: true");
+    });
+
+    it("decays an unpinned generated-style note after long disuse", () => {
+        const now = Date.parse("2026-06-21T00:00:00Z");
+        const stale = {
+            importance: 0.7,
+            confidence: 1,
+            access_count: 1,
+            memory_kind: "episode",
+            decay_lambda: 0.07,
+            ingestion_time: "2026-04-22T00:00:00Z",
+            last_accessed: "2026-04-22T00:00:00Z",
+        };
+        expect(memoryStrength(stale, now)).toBeLessThan(0.9);
     });
 });

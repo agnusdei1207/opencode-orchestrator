@@ -33,6 +33,12 @@ const MAX_CANVAS_EVENTS = 3;
 const MAX_SCRATCHPAD_EVENTS = 6;
 const MAX_MEMORY_NOTES = 8;
 const MAX_MEMORY_BODY_CHARS = 900;
+/**
+ * Generated memory notes are pinned (`keep: true`, exempt from decay/archival)
+ * only at or above this importance. Below it, notes carry decay metadata and
+ * participate in the Ebbinghaus model so unused memory fades as designed.
+ */
+const PIN_IMPORTANCE_THRESHOLD = 0.9;
 const SCRATCHPAD_SNAPSHOT_CHARS = 1600;
 const MISSION_MEMORY_LEVELS: readonly MemoryLevel[] = [
     MemoryLevel.PROJECT,
@@ -223,11 +229,17 @@ function buildMemoryNoteContent(state: MissionLoopState, entry: MemoryEntry): st
         ? `${entry.content.slice(0, MAX_MEMORY_BODY_CHARS)}...`
         : entry.content;
 
-    return [
+    const profile = decayProfileForLevel(entry.level);
+    const frontmatter: string[] = [
         "---",
         `tags: [mission-memory, orchestrator, ${entry.level}]`,
         `title: "${escapeYaml(`${entry.level} memory ${entry.id}`)}"`,
-        "keep: true",
+    ];
+    // Pin only high-value memory; everything else decays via the Ebbinghaus model.
+    if (entry.importance >= PIN_IMPORTANCE_THRESHOLD) {
+        frontmatter.push("keep: true");
+    }
+    frontmatter.push(
         `level: "${entry.level}"`,
         `horizon: "${horizonForLevel(entry.level)}"`,
         `importance: ${entry.importance.toFixed(3)}`,
@@ -238,11 +250,16 @@ function buildMemoryNoteContent(state: MissionLoopState, entry: MemoryEntry): st
         `record_updated_at: "${ingestedAt}"`,
         `last_accessed: "${ingestedAt}"`,
         "access_count: 1",
-        `memory_kind: "${entry.level}"`,
+        `memory_kind: "${profile.kind}"`,
+        `decay_lambda: ${profile.lambda}`,
         "memory_layer: \"warm\"",
         "confidence: 1",
         `objective: "${escapeYaml(state.objective ?? state.prompt)}"`,
         "---",
+    );
+
+    return [
+        ...frontmatter,
         `# ${capitalize(entry.level)} Memory`,
         "",
         `- Session: ${state.sessionID}`,
@@ -253,6 +270,25 @@ function buildMemoryNoteContent(state: MissionLoopState, entry: MemoryEntry): st
         body,
         "",
     ].join("\n");
+}
+
+/**
+ * Map a memory level to a valid `KIND_DECAY` kind and an explicit per-day decay
+ * rate. Writing `decay_lambda` directly keeps `memoryStrength()` from falling
+ * back to the generic 0.03 default when `memory_kind` would otherwise be an
+ * unrecognized level string (the Finding E regression).
+ */
+function decayProfileForLevel(level: MemoryLevel): { kind: string; lambda: number } {
+    switch (level) {
+        case MemoryLevel.PROJECT:
+            return { kind: "fact", lambda: 0.006 };
+        case MemoryLevel.MISSION:
+            return { kind: "workflow", lambda: 0.02 };
+        case MemoryLevel.TASK:
+            return { kind: "episode", lambda: 0.07 };
+        default:
+            return { kind: "fact", lambda: 0.03 };
+    }
 }
 
 function formatEventLines(events: MissionLedgerEvent[]): string[] {
