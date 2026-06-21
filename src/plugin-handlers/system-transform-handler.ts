@@ -63,11 +63,15 @@ export function createSystemTransformHandler(ctx: EventHandlerContext) {
             systemAdditions.push(buildActiveSessionPrompt(session.step));
         }
 
-        // 3. Knowledge graph RAG context for orchestrated sessions
+        // 3. Knowledge graph RAG context for orchestrated sessions.
+        // The orchestrated session runs as the Commander; passing the role lets
+        // retrieval bias by role (Commander is neutral, but subagent sessions
+        // routed through the same provider get their role-specific weighting).
         const knowledgePrompt = buildKnowledgeContextPrompt(
             directory,
             loopState,
             state.sessions.get(sessionID)?.currentTask,
+            "commander",
         );
         if (knowledgePrompt) {
             systemAdditions.push(knowledgePrompt);
@@ -104,6 +108,7 @@ function buildKnowledgeContextPrompt(
         lastContinuationReason?: string;
     } | null,
     currentTask?: string,
+    role?: string,
 ): string | null {
     const queryParts = [
         loopState?.objective ?? "",
@@ -113,7 +118,7 @@ function buildKnowledgeContextPrompt(
         loopState?.lastVerificationSummary ?? "",
         loopState?.lastContinuationReason ?? "",
     ].filter(Boolean);
-    return knowledgeContextProvider.buildPrompt(directory, queryParts.join(" ").trim());
+    return knowledgeContextProvider.buildPrompt(directory, queryParts.join(" ").trim(), role);
 }
 
 function buildMissionScratchpadPrompt(directory: string): string | null {
