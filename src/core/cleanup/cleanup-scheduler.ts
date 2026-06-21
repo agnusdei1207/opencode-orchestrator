@@ -8,8 +8,15 @@ import { parallelAgentManager } from "../agents/index.js";
 import * as DocumentCache from "../cache/document-cache.js";
 import { log } from "../agents/logger.js";
 import { TASK_STATUS } from "../../shared/index.js";
+import { runMemoryMaintenancePass } from "../knowledge/memory-maintenance-runner.js";
 
 const pipelineAsync = promisify(pipeline);
+
+/** Opt-in flag for disk-mutating memory lifecycle maintenance. Default OFF. */
+function isMemoryMaintenanceEnabled(): boolean {
+    const value = process.env.OPENCODE_MEMORY_MAINTENANCE?.trim().toLowerCase();
+    return value === "1" || value === "true";
+}
 
 export class CleanupScheduler {
     private intervals: Map<string, NodeJS.Timeout> = new Map();
@@ -41,6 +48,14 @@ export class CleanupScheduler {
         // TODO history rotation: every 6 hours (was 24 hours)
         this.schedule('history-rotate', () => this.rotateHistory(), 6 * 60 * 60 * 1000);
 
+        // Memory lifecycle maintenance: every 6 hours, ONLY when explicitly
+        // opted in. Mutates generated memory note tiers on disk, so it stays off
+        // by default (set OPENCODE_MEMORY_MAINTENANCE=1 to enable).
+        if (isMemoryMaintenanceEnabled()) {
+            this.schedule('memory-maintenance', () => this.maintainMemory(), 6 * 60 * 60 * 1000);
+            log(`[Cleanup] Memory maintenance enabled (OPENCODE_MEMORY_MAINTENANCE)`);
+        }
+
         log(`[Cleanup] Scheduler started with aggressive cleanup intervals`);
     }
 
@@ -66,6 +81,22 @@ export class CleanupScheduler {
 
     async compactWAL(): Promise<void> {
         // WAL removed - no compaction needed
+    }
+
+    /**
+     * Apply the Ebbinghaus memory lifecycle (tier moves + tombstones) to
+     * generated memory notes. Tier-only — never relocates files. No-op unless
+     * opted in via OPENCODE_MEMORY_MAINTENANCE.
+     */
+    async maintainMemory(): Promise<void> {
+        try {
+            const result = runMemoryMaintenancePass(this.directory, { apply: true });
+            if (result.changedFiles.length > 0) {
+                log(`[Cleanup] Memory maintenance updated ${result.changedFiles.length} note(s)`);
+            }
+        } catch (err) {
+            log(`[Cleanup] Memory maintenance failed: ${err}`);
+        }
     }
 
     async cleanDocs(): Promise<void> {
