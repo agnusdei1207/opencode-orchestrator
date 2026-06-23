@@ -158,7 +158,9 @@ export class TaskLauncher {
           // WAL already logged in prepareTask - skip duplicate
 
           // 2. Fire prompt with timeout
-          const agentDef = AgentRegistry.getInstance().getAgent(task.agent);
+          const agentRegistry = AgentRegistry.getInstance();
+          await agentRegistry.ready();
+          const agentDef = agentRegistry.getAgent(task.agent);
           let finalPrompt = task.prompt;
 
           // If it's a custom agent (or if we want to ensure system prompt is used)

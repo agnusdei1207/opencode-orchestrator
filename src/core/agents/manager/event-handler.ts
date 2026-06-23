@@ -23,6 +23,7 @@ export class EventHandler {
         private notifyParentIfAllComplete: (parentSessionID: string) => Promise<void>,
         private scheduleCleanup: (taskId: string) => void,
         private validateSessionHasOutput: (sessionID: string) => Promise<boolean>,
+        private invalidateSession?: (sessionID: string) => Promise<void>,
         private onTaskComplete?: (task: ParallelTask) => void | Promise<void>
     ) { }
 
@@ -54,7 +55,9 @@ export class EventHandler {
             const task = this.findBySession(sessionID);
             if (!task) return;
 
-            this.handleSessionDeleted(task);
+            this.handleSessionDeleted(task).catch(err => {
+                log("Error handling session.deleted:", err);
+            });
         }
     }
 
@@ -101,7 +104,7 @@ export class EventHandler {
         log(`Task ${task.id} completed via session.idle event (${formatDuration(task.startedAt, task.completedAt)})`);
     }
 
-    private handleSessionDeleted(task: ParallelTask): void {
+    private async handleSessionDeleted(task: ParallelTask): Promise<void> {
         log(`Session deleted event for task ${task.id}`);
 
         // Mark as cancelled if was running
@@ -122,6 +125,8 @@ export class EventHandler {
         this.store.untrackPending(task.parentSessionID, task.id);
         this.store.clearNotificationsForTask(task.id);
         this.store.delete(task.id);
+
+        await this.invalidateSession?.(task.sessionID).catch(() => { });
 
 
 

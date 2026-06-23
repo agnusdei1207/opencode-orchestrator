@@ -362,53 +362,43 @@ If your task is too complex, please:
         }
 
         // =========================================
-        // SYNC MODE: Create new session and wait
+        // SYNC MODE: Launch through the manager and wait
         // =========================================
         try {
             const session = sessionClient.session;
-            const createResult = await session.create({
-                body: { parentID: ctx.sessionID, title: `Task: ${description}` },
-                query: { directory: "." },
+            const launchResult = await manager.launch({
+                agent, description, prompt,
+                parentSessionID: ctx.sessionID,
+                mode: mode as "normal" | "race" | "fractal" | undefined,
+                groupID,
+                depth: parentDepth,
             });
+            const task = (Array.isArray(launchResult) ? launchResult[0] : launchResult) as ParallelTask;
 
-            if (createResult.error || !createResult.data?.id) {
-                return `${OUTPUT_LABEL.ERROR} Failed to create session: ${createResult.error || "No session ID returned"}`;
+            if (!task) {
+                return `${OUTPUT_LABEL.ERROR} Failed to launch task: ${description}`;
             }
 
-            const sessionID = createResult.data.id;
             const startTime = Date.now();
 
-            log(`${PARALLEL_LOG.DELEGATE_TASK} Sync: starting`, { agent, sessionID });
-
-            // Fire the prompt (don't await - it returns immediately)
-            await session.prompt({
-                path: { id: sessionID },
-                body: {
-                    agent,
-                    tools: {
-                        [TOOL_NAMES.DELEGATE_TASK]: false,
-                        [TOOL_NAMES.GET_TASK_RESULT]: false,
-                        [TOOL_NAMES.LIST_TASKS]: false,
-                        [TOOL_NAMES.CANCEL_TASK]: false,
-                    },
-                    parts: [{ type: PART_TYPES.TEXT, text: prompt }]
-                },
-            });
+            log(`${PARALLEL_LOG.DELEGATE_TASK} Sync: waiting`, { agent, taskId: task.id, sessionID: task.sessionID });
 
             // Poll for completion with safety limits
-            const pollResult = await pollWithSafetyLimits(session, sessionID, startTime);
+            const pollResult = await pollWithSafetyLimits(session, task.sessionID, startTime);
 
             if (pollResult.timedOut) {
                 log(`${PARALLEL_LOG.DELEGATE_TASK} Sync: timed out`, pollResult);
                 return `${OUTPUT_LABEL.TIMEOUT} after ${Math.floor(pollResult.elapsedMs / 1000)}s (${pollResult.pollCount} polls)\n` +
-                    `Session: \`${sessionID}\` - Use ${TOOL_NAMES.GET_TASK_RESULT} or resume later.`;
+                    `Task: \`${task.id}\`\n` +
+                    `Session: \`${task.sessionID}\` - Use ${TOOL_NAMES.GET_TASK_RESULT} or resume later.`;
             }
 
-            const text = await extractSessionResult(session, sessionID);
-            log(`${PARALLEL_LOG.DELEGATE_TASK} Sync: completed`, { sessionID, elapsedMs: pollResult.elapsedMs });
+            const text = await extractSessionResult(session, task.sessionID);
+            log(`${PARALLEL_LOG.DELEGATE_TASK} Sync: completed`, { taskId: task.id, sessionID: task.sessionID, elapsedMs: pollResult.elapsedMs });
 
             return `${OUTPUT_LABEL.DONE} (${Math.floor(pollResult.elapsedMs / 1000)}s)\n` +
-                `Session: \`${sessionID}\` (save for resume)\n\n${text || "(No output)"}`;
+                `Task: \`${task.id}\`\n` +
+                `Session: \`${task.sessionID}\` (save for resume)\n\n${text || "(No output)"}`;
         } catch (error) {
             log(`${PARALLEL_LOG.DELEGATE_TASK} Sync: error`, error);
             return `${OUTPUT_LABEL.ERROR} Failed: ${error instanceof Error ? error.message : String(error)}`;

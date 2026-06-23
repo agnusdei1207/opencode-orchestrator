@@ -13,6 +13,7 @@ export const createListAgentsTool = () => tool({
     args: {},
     async execute() {
         const registry = AgentRegistry.getInstance();
+        await registry.ready();
         const agentNames = registry.listAgents();
 
         if (agentNames.length === 0) {

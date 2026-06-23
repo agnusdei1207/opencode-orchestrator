@@ -14,7 +14,12 @@ import { UserActivityHook } from "./custom/user-activity.js";
 import { MemoryGateHook } from "./custom/memory-gate.js";
 import { MetricsHook } from "./custom/metrics.js";
 
+let initialized = false;
+
 export function initializeHooks() {
+    if (initialized) return;
+    initialized = true;
+
     const registry = HookRegistry.getInstance();
 
     // Instantiate Hooks

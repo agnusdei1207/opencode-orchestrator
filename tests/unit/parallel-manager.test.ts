@@ -27,6 +27,7 @@ vi.mock("../../src/core/agents/logger", () => ({
 
 import { TaskStore } from "../../src/core/agents/task-store";
 import { ConcurrencyController } from "../../src/core/agents/concurrency";
+import { EventHandler } from "../../src/core/agents/manager/event-handler";
 import type { ParallelTask } from "../../src/core/agents/interfaces/parallel-task.interface";
 import { TASK_STATUS } from "../../src/shared";
 
@@ -61,25 +62,31 @@ describe("ParallelAgentManager Features", () => {
     // ========================================================================
 
     describe("session.deleted event handling", () => {
-        it("should cleanup task when session is deleted", () => {
+        it("should cleanup task when session is deleted", async () => {
             const task = createMockTask();
             store.set(task.id, task);
             store.trackPending(task.parentSessionID, task.id);
+            const invalidateSession = vi.fn().mockResolvedValue(undefined);
 
-            // Simulate session.deleted handling
-            if (task.status === TASK_STATUS.RUNNING) {
-                task.status = TASK_STATUS.ERROR;
-                task.error = "Session deleted";
-                task.completedAt = new Date();
-            }
+            const handler = new EventHandler(
+                {} as never,
+                store,
+                concurrency,
+                (sessionID) => store.getAll().find(t => t.sessionID === sessionID),
+                vi.fn().mockResolvedValue(undefined),
+                vi.fn(),
+                vi.fn().mockResolvedValue(true),
+                invalidateSession,
+            );
 
-            if (task.concurrencyKey) {
-                concurrency.release(task.concurrencyKey);
-                task.concurrencyKey = undefined;
-            }
+            handler.handle({
+                type: "session.deleted",
+                properties: { sessionID: task.sessionID },
+            });
 
-            store.untrackPending(task.parentSessionID, task.id);
-            store.delete(task.id);
+            await vi.waitFor(() => {
+                expect(invalidateSession).toHaveBeenCalledWith(task.sessionID);
+            });
 
             expect(store.get(task.id)).toBeUndefined();
             expect(store.hasPending(task.parentSessionID)).toBe(false);

@@ -86,7 +86,11 @@ export class SessionPool implements ISessionPool {
         const agentPool = this.pool.get(poolKey) || [];
 
         // Find an available session
-        const available = agentPool.find(s => !s.inUse && s.reuseCount < this.config.maxReuseCount);
+        const available = agentPool.find(s =>
+            !s.inUse &&
+            s.health === "healthy" &&
+            s.reuseCount < this.config.maxReuseCount
+        );
 
         if (available) {
             // Reuse existing session
@@ -143,8 +147,12 @@ export class SessionPool implements ISessionPool {
             }
         }
 
-        // Return session to pool
-        await this.resetSession(sessionId);
+        // Return session to pool only after it has been reset successfully.
+        const resetOk = await this.resetSession(sessionId);
+        if (!resetOk) {
+            await this.invalidate(sessionId);
+            return;
+        }
         session.inUse = false;
         log(`[SessionPool] Released session ${sessionId.slice(0, 8)}... to pool`);
     }
@@ -244,9 +252,9 @@ export class SessionPool implements ISessionPool {
     /**
      * Reset/Compact a session to clear context for next reuse.
      */
-    private async resetSession(sessionId: string): Promise<void> {
+    private async resetSession(sessionId: string): Promise<boolean> {
         const session = this.sessionsById.get(sessionId);
-        if (!session) return;
+        if (!session) return false;
 
         log(`[SessionPool] Resetting session ${sessionId.slice(0, 8)}...`);
         try {
@@ -257,9 +265,11 @@ export class SessionPool implements ISessionPool {
             }
             session.lastResetAt = new Date();
             session.health = "healthy";
+            return true;
         } catch (error) {
             log(`[SessionPool] Failed to reset session ${sessionId.slice(0, 8)}: ${error}`);
             session.health = "degraded";
+            return false;
         }
     }
 

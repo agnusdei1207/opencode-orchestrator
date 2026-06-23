@@ -42,15 +42,17 @@ describe("SessionPool (Reset & Isolation)", () => {
         expect(session.health).toBe("healthy");
     });
 
-    it("should mark session as degraded if compact fails", async () => {
+    it("should invalidate session if compact fails", async () => {
         mockClient.session.compact.mockRejectedValue(new Error("Compact failed"));
 
         const session = await pool.acquire("worker", "parent", "task");
         await pool.release(session.id);
 
         expect(session.health).toBe("degraded");
-        // Still available in pool though? (Current implementation says yes)
-        expect(session.inUse).toBe(false);
+        expect(mockClient.session.delete).toHaveBeenCalledWith({
+            path: { id: session.id }
+        });
+        expect(pool.getStats().totalSessions).toBe(0);
     });
 
     it("should invalidate session if reuse count exceeded", async () => {

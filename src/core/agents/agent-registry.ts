@@ -28,6 +28,7 @@ export class AgentRegistry {
     private static instance: AgentRegistry;
     private agents: Map<string, AgentDefinition> = new Map();
     private directory: string = "";
+    private loadPromise: Promise<void> = Promise.resolve();
 
     private constructor() {
         // Load built-in agents
@@ -45,7 +46,11 @@ export class AgentRegistry {
 
     public setDirectory(dir: string): void {
         this.directory = dir;
-        this.loadCustomAgents();
+        this.loadPromise = this.loadCustomAgents();
+    }
+
+    public async ready(): Promise<void> {
+        await this.loadPromise;
     }
 
     /**

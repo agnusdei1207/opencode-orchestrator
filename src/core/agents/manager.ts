@@ -125,6 +125,7 @@ export class ParallelAgentManager {
             (parentSessionID) => this.cleaner.notifyParentIfAllComplete(parentSessionID),
             (taskId) => this.cleaner.scheduleCleanup(taskId),
             (sessionID) => this.poller.validateSessionHasOutput(sessionID),
+            (sessionID) => this.sessionPool.invalidate(sessionID),
             (task) => this.handleTaskComplete(task)
         );
 
@@ -192,12 +193,7 @@ export class ParallelAgentManager {
         if (task.concurrencyKey) this.concurrency.release(task.concurrencyKey);
         this.store.untrackPending(task.parentSessionID, taskId);
 
-        try {
-            await this.client.session.delete({ path: { id: task.sessionID } });
-            log(`Session ${task.sessionID.slice(0, 8)}... deleted`);
-        } catch {
-            log(`Session ${task.sessionID.slice(0, 8)}... already gone`);
-        }
+        await this.sessionPool.invalidate(task.sessionID);
 
         this.cleaner.scheduleCleanup(taskId);
 
