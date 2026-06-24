@@ -2,7 +2,7 @@
  * Progress Formatting Utilities
  */
 
-import type { ProgressSnapshot } from "./interfaces/progress-snapshot.js";
+import type { ProgressSnapshot } from "./store.js";
 import { LIMITS } from "../../shared/index.js";
 
 /**

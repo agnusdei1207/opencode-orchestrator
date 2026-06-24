@@ -1,10 +1,49 @@
+import { HISTORY, LIMITS } from "../../shared/index.js";
+
 /**
  * Progress Store - Session data management
  */
 
-import type { ProgressSnapshot } from "./interfaces/progress-snapshot.js";
-import type { SnapshotInput } from "./interfaces/snapshot-input.js";
-import { HISTORY, LIMITS } from "../../shared/index.js";
+export interface TodoProgress {
+    total: number;
+    completed: number;
+    pending: number;
+    percentage: number;
+}
+
+export interface TaskProgress {
+    total: number;
+    running: number;
+    completed: number;
+    failed: number;
+    percentage: number;
+}
+
+export interface StepProgress {
+    current: number;
+    max: number;
+}
+
+export interface ProgressSnapshot {
+    sessionId: string;
+    timestamp: Date;
+    todos: TodoProgress;
+    tasks: TaskProgress;
+    steps: StepProgress;
+    startedAt: Date;
+    elapsedMs: number;
+}
+
+export interface SnapshotInput {
+    todoTotal?: number;
+    todoCompleted?: number;
+    taskTotal?: number;
+    taskRunning?: number;
+    taskCompleted?: number;
+    taskFailed?: number;
+    currentStep?: number;
+    maxSteps?: number;
+}
 
 // Progress history by session
 const progressHistory = new Map<string, ProgressSnapshot[]>();
