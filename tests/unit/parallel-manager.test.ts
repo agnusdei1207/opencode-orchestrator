@@ -28,9 +28,9 @@ vi.mock("../../src/core/agents/logger", () => ({
 import { TaskStore } from "../../src/core/agents/task-store";
 import { ConcurrencyController } from "../../src/core/agents/concurrency";
 import { EventHandler } from "../../src/core/agents/manager/event-handler";
+import { TaskPoller } from "../../src/core/agents/manager/task-poller";
 import { buildUnitReviewPrompt } from "../../src/core/agents/manager";
-import type { ParallelTask } from "../../src/core/agents/interfaces/parallel-task.interface";
-import { TASK_STATUS } from "../../src/shared";
+import { TASK_STATUS, type ParallelTask } from "../../src/shared";
 
 // Create mock task for testing
 function createMockTask(overrides: Partial<ParallelTask> = {}): ParallelTask {
@@ -74,6 +74,25 @@ describe("ParallelAgentManager Features", () => {
             );
             expect(prompt).not.toContain("Review completed task");
             expect(prompt).not.toContain("Return findings only.");
+        });
+    });
+
+    describe("session output validation", () => {
+        it("does not treat message fetch failures as confirmed assistant output", async () => {
+            const task = createMockTask();
+            const poller = new TaskPoller(
+                { session: { messages: vi.fn().mockRejectedValue(new Error("messages unavailable")) } } as never,
+                store,
+                concurrency,
+                vi.fn().mockResolvedValue(undefined),
+                vi.fn(),
+                vi.fn(),
+            );
+
+            const hasOutput = await poller.validateSessionHasOutput(task.sessionID, task);
+
+            expect(hasOutput).toBe(false);
+            expect(task.hasStartedOutputting).not.toBe(true);
         });
     });
 

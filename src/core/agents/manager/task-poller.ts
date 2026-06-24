@@ -9,8 +9,8 @@ import { CONFIG } from "../config.js";
 import { log } from "../logger.js";
 import { formatDuration } from "../format.js";
 import { presets } from "../../../shared/index.js";
-import type { ParallelTask } from "../interfaces/index.js";
 import { TASK_STATUS, PART_TYPES, MESSAGE_ROLES, SESSION_STATUS } from "../../../shared/index.js";
+import type { ParallelTask } from "../../../shared/index.js";
 import { progressNotifier } from "../../progress/progress-notifier.js";
 
 type OpencodeClient = PluginInput["client"];
@@ -139,8 +139,9 @@ export class TaskPoller {
             }
 
             return hasOutput;
-        } catch {
-            return true;
+        } catch (error) {
+            log("[task-poller.ts] Failed to validate session output", { sessionID, error });
+            return false;
         }
     }
 
