@@ -4,10 +4,8 @@
  * Ensures all todos are completed before stopping
  */
 
-// Re-export interfaces
-export type { Todo } from "./interfaces/todo.js";
-export type { TodoStats } from "./interfaces/todo-stats.js";
-export type { TodoStatus, TodoPriority } from "./types/index.js";
+// Re-export shared loop contracts
+export type { Todo, TodoStats, TodoStatus, TodoPriority } from "../../shared/loop/types.js";
 
 // Re-export parser
 export { parseTodos } from "./parser.js";

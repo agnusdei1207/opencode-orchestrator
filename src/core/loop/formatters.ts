@@ -2,7 +2,7 @@
  * Todo Formatters - Format output strings
  */
 
-import type { Todo } from "./interfaces/todo.js";
+import type { Todo } from "../../shared/loop/types.js";
 import { getStats, getNextPending } from "./stats.js";
 import {
     MISSION_CONTROL,

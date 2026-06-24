@@ -2,7 +2,7 @@
  * Todo Parser - Parse todo data from session
  */
 
-import type { Todo } from "./interfaces/todo.js";
+import type { Todo } from "../../shared/loop/types.js";
 import { STATUS_LABEL } from "../../shared/index.js";
 
 /**

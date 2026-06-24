@@ -2,73 +2,72 @@
 
 ## Current Task
 
-User requested repeated fresh exhaustive audit passes, with commit and push after each pass. Current pass completed: 30. The broader requested target remains active beyond this session.
+User requested repeated fresh exhaustive audit passes, with commit and push after each pass. Current pass completed: 31. The broader requested target remains active beyond this session.
 
 ## Last Completed Step
 
-Completed audit pass 30 after moving the hierarchical memory contracts into their owner module and deleting the old memory interfaces file.
+Completed audit pass 31 after moving core loop todo contracts to the shared loop owner and deleting duplicate core loop contract files.
 
-- Confirmed `main` was aligned with `origin/main` at `9823dbe` before pass 30 changes.
-- Reopened `AGENT_MEMORY.md`, `AGENTS.md`, `src/core/memory/interfaces.ts`, `src/core/memory/memory-manager.ts`, `src/core/knowledge/mission-memory.ts`, `src/hooks/custom/memory-gate.ts`, `src/core/agents/manager.ts`, `tests/unit/mission-memory-knowledge.test.ts`, `tests/unit/prompt-routing.test.ts`, and `tests/unit/task-resumer.test.ts`.
-- Traced every `src/core/memory/interfaces.ts` consumer with `rg`.
-- Confirmed `MemoryLevel`, `MemoryEntry`, `MemorySnapshot`, and `MemoryConfig` are the `MemoryManager` state contract and are consumed by memory runtime, mission-memory projection, agent manager initialization, memory-gate hooks, and focused tests.
-- Moved `MemoryLevel`, `MemoryEntry`, `MemorySnapshot`, and `MemoryConfig` into `src/core/memory/memory-manager.ts`.
-- Updated all consumers to import memory contracts directly from `src/core/memory/memory-manager.ts`.
-- Deleted `src/core/memory/interfaces.ts`.
+- Confirmed `main` was aligned with `origin/main` at `798f426` before pass 31 changes.
+- Reopened `AGENT_MEMORY.md`, `AGENTS.md`, `src/core/loop/interfaces/todo.ts`, `src/core/loop/interfaces/todo-stats.ts`, `src/core/loop/types/index.ts`, `src/core/loop/types/todo-status.ts`, `src/core/loop/types/todo-priority.ts`, `src/core/loop/formatters.ts`, `src/core/loop/stats.ts`, `src/core/loop/parser.ts`, `src/core/loop/todo-continuation.ts`, `src/core/loop/todo-enforcer.ts`, `src/shared/loop/types.ts`, `tests/unit/todo-continuation.test.ts`, and `tests/unit/todo-enforcer.test.ts`.
+- Traced all core loop todo interface/type consumers with `rg`.
+- Confirmed `src/shared/loop/types.ts` already owns `Todo`, `TodoStats`, `TodoStatus`, and `TodoPriority`.
+- Updated core loop parser/stats/formatters/continuation code to import todo contracts directly from `src/shared/loop/types.ts`.
+- Kept `src/core/loop/todo-enforcer.ts` as the existing public loop API, but changed its type exports to re-export the shared loop contracts directly.
+- Deleted `src/core/loop/interfaces/todo.ts`, `src/core/loop/interfaces/todo-stats.ts`, `src/core/loop/types/index.ts`, `src/core/loop/types/todo-status.ts`, and `src/core/loop/types/todo-priority.ts`.
 
 ## Next Exact Step
 
-Start audit pass 31 from current state:
+Start audit pass 32 from current state:
 
 1. Open `AGENT_MEMORY.md`.
 2. Run `git status --branch --short`.
-3. Reopen the pass-31 target files listed below.
-4. Continue compatibility/debt removal from fresh evidence, starting with `src/core/loop/interfaces/todo.ts`; determine whether it is a real owner file, a shared public contract, or an interface-only shim that should be fully migrated.
+3. Reopen the pass-32 target files listed below.
+4. Continue compatibility/debt removal from fresh evidence, starting with the progress contract group under `src/core/progress/interfaces/*`; determine whether those files are real owner contracts or can be moved into their consuming owner module.
 
 ## Incomplete Items And Why
 
-The full requested repeated-pass objective is not complete. Pass 30 is complete and ready to commit/push.
+The full requested repeated-pass objective is not complete. Pass 31 is complete and ready to commit/push.
 
 ## Key Decisions
 
-- `MemoryManager` is the owner of hierarchical memory state, export/import snapshots, pruning, relevance filtering, and lifecycle reset.
-- The memory level enum and snapshot/entry/config interfaces belong with `MemoryManager` because every current consumer uses them to call or interpret `MemoryManager`.
-- `src/core/memory/interfaces.ts` was a compatibility-style split contract file and should not remain when full migration over compatibility is preferred.
+- `src/shared/loop/types.ts` is the owner for todo domain contracts used across shared harnesses and core loop code.
+- Core loop todo interface/type files were duplicate ownership, not independent runtime logic.
+- `todo-enforcer.ts` remains the public loop API for enforcer functions and can re-export shared contracts directly without preserving the deleted internal paths.
 
 ## Rejected Alternatives
 
-- Rejected keeping `src/core/memory/interfaces.ts` as a compatibility import path because the user explicitly prefers complete migration over compatibility shims.
-- Rejected creating a new memory barrel because that would preserve indirection rather than assign ownership.
-- Rejected changing memory behavior, note generation, pruning, or prompt context formatting in this pass because the target was ownership migration only.
+- Rejected leaving `src/core/loop/interfaces/todo.ts` or `todo-stats.ts` as compatibility paths because the user prefers complete migration over compatibility shims.
+- Rejected leaving `src/core/loop/types/*` because their only current consumer was `todo-enforcer.ts` and identical contracts already exist in shared loop types.
+- Rejected changing todo parsing, continuation, stats, or prompt behavior because this pass was a contract ownership migration only.
 
 ## Known Risks
 
 - The broader 100/1000-pass objective is intentionally not marked complete.
-- External consumers importing removed `src/core/memory/interfaces.ts` must now import from `src/core/memory/memory-manager.ts`.
-- `src/core/loop/interfaces/todo.ts` may be a legitimate contract file; it needs fresh analysis before changing.
+- External consumers importing deleted core loop todo/type paths must import from `src/shared/loop/types.ts` or the existing `todo-enforcer.ts` public API.
+- `src/core/progress/interfaces/*` may contain legitimate progress-owner contracts and needs fresh analysis before changing.
 
 ## Verification Observed
 
-- Baseline focused tests before edits: `tests/unit/mission-memory-knowledge.test.ts`, `tests/unit/prompt-routing.test.ts`, and `tests/unit/task-resumer.test.ts` passed, 3 files and 10 tests.
+- Baseline focused tests before edits: `tests/unit/todo-enforcer.test.ts` and `tests/unit/todo-continuation.test.ts` passed, 2 files and 32 tests.
 - Baseline `npm run build --silent`: passed.
-- Post-edit `rg -n "core/memory/interfaces|from ['\\\"][^'\\\"]*memory/interfaces|from ['\\\"]\\.\\/interfaces\\.js|from ['\\\"]\\.\\/interfaces['\\\"]" src tests -g '*.ts'`: no matches.
-- `test ! -e src/core/memory/interfaces.ts && echo deleted`: printed `deleted`.
-- Focused tests after edits: same 3 files and 10 tests passed.
+- Post-edit `rg -n "core/loop/(interfaces/todo|types)|from ['\\\"][^'\\\"]*core/loop/interfaces/todo|from ['\\\"][^'\\\"]*core/loop/types|TodoStats|TodoStatus|TodoPriority|type \\{ Todo" src tests -g '*.ts'`: only shared loop ownership, updated imports, and unrelated progress/task-toast references remained.
+- `test ! -e src/core/loop/interfaces/todo.ts && test ! -e src/core/loop/interfaces/todo-stats.ts && test ! -e src/core/loop/types/index.ts && test ! -e src/core/loop/types/todo-priority.ts && test ! -e src/core/loop/types/todo-status.ts && echo deleted`: printed `deleted`.
+- Focused tests after edits: `tests/unit/todo-enforcer.test.ts`, `tests/unit/todo-continuation.test.ts`, and `tests/unit/harness-builders.test.ts` passed, 3 files and 50 tests.
 - `npm run build --silent`: passed after edits.
 - `git diff --check`: passed.
 - Full `npx vitest run --reporter=dot`: passed, 96 files and 806 tests.
 - `cargo fmt --check`: passed.
 - `cargo test -p orchestrator-cli -p orchestrator-core --quiet`: passed, CLI 12 tests and core 35 tests.
-- Final `rg -n "core/memory/interfaces|from ['\\\"][^'\\\"]*memory/interfaces|MemoryLevel|MemorySnapshot|MemoryEntry|MemoryConfig" src tests -g '*.ts'`: only `memory-manager.ts` ownership and updated consumer imports remained.
 
 ## Files To Open First Next Session
 
 1. `AGENT_MEMORY.md`
 2. `git status --branch --short`
-3. `src/core/loop/interfaces/todo.ts`
-4. `src/core/loop/formatters.ts`
-5. `src/core/loop/stats.ts`
-6. `src/core/loop/parser.ts`
-7. `src/core/loop/todo-continuation.ts`
-8. `src/core/loop/todo-enforcer.ts`
-9. `tests/unit/todo-continuation.test.ts`
+3. `src/core/progress/interfaces/progress-snapshot.ts`
+4. `src/core/progress/interfaces/snapshot-input.ts`
+5. `src/core/progress/interfaces/step-progress.ts`
+6. `src/core/progress/interfaces/task-progress.ts`
+7. `src/core/progress/interfaces/todo-progress.ts`
+8. `src/core/progress/tracker.ts`
+9. `src/core/progress/state-broadcaster.ts`
