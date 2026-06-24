@@ -2,55 +2,54 @@
 
 ## Current Task
 
-User requested exhaustive routing, prompt architecture, SDK/plugin compatibility, minimal agent-to-agent communication, documentation ignore handling, and full commit/push completion.
+User requested repeated fresh exhaustive audit passes, with commit and push after each pass. Current pass completed: 1. The broader requested target remains active beyond this session.
 
 ## Last Completed Step
 
-Completed final SDK migration pass with no legacy/fallback SDK routing left in the audited paths:
+Completed audit pass 1 after reopening the restore files and current worktree state.
 
-- `session.created` and `session.deleted` now read the official OpenCode SDK `properties.info.id` shape only.
-- `message.updated` now reads `properties.info.sessionID` and `properties.info.tokens` only.
-- Session pool compaction now uses the current OpenCode SDK v2 `client.v2.session.compact({ sessionID })` path only.
-- Todo continuation and OS notify todo checks now read SDK `response.data` only.
-- Assistant-done message extraction now reads SDK `response.data.parts` only.
-- Agent-to-agent task completion and progress notifications are compact; rich task details stay in user-facing toast UI.
-- `docs/architecture/prompt-architecture.html` is ignored by `.gitignore`.
+- Confirmed `main` was aligned with `origin/main` at `eb5d889` before pass 1 changes.
+- Reopened `AGENT_MEMORY.md`, `src/plugin-handlers/event-handler.ts`, `src/core/agents/session-pool.ts`, `src/core/loop/todo-continuation.ts`, `src/plugin-handlers/assistant-done-handler.ts`, `tests/unit/event-handler.test.ts`, and `tests/unit/session-pool-reset.test.ts`.
+- Found one remaining legacy SDK type surface in `src/core/agents/session-pool.ts`: the local `OpencodeClient` type still allowed root `client.session.compact`.
+- Removed that unused legacy type member so the audited session reset path is v2 compact only.
 
 ## Next Exact Step
 
-No in-repo implementation step remains. If work resumes, start by checking the latest branch state and user request.
+Start audit pass 2 from current state:
+
+1. Open `AGENT_MEMORY.md`.
+2. Run `git status --branch --short`.
+3. Reopen the pass-2 target files listed below.
+4. Search for a different class of residual compatibility or routing complexity than pass 1.
 
 ## Incomplete Items And Why
 
-None known after the latest verification pass.
+The full requested repeated-pass objective is not complete. Pass 1 is complete and ready to commit/push.
 
 ## Key Decisions
 
-- Removed SDK backwards-compatibility fallback paths because the user explicitly requested complete migration instead of compatibility complexity.
-- Kept `session.idle` and `session.status` on `properties.sessionID` because that is the official SDK event shape.
-- Kept parent-agent task notifications minimal: ids, agent, status, and exact next action only.
-- Kept user-facing notifications separate from agent-to-agent prompts.
+- A type-only legacy SDK allowance counts as residual compatibility complexity and should be removed when implementation no longer uses it.
+- `client.v2.session.compact({ sessionID })` remains the only session-pool compaction path.
 
 ## Rejected Alternatives
 
-- Rejected mixed legacy/current SDK event and response parsing.
-- Rejected sending verbose task descriptions to parent agents.
-- Rejected reusing sessions when compaction API is absent.
+- Rejected keeping root `client.session.compact` in local types as harmless documentation; it weakens the migration boundary.
 
 ## Known Risks
 
-- The change is intentionally tied to OpenCode SDK/plugin `1.17.9`; older SDK event/response shapes are no longer supported in the audited paths.
-- There is existing repository debt with broad compatibility comments/modules outside this specific SDK routing migration.
+- The broader 100/1000-pass objective is intentionally not marked complete.
+- Pass 1 included one transient Rust test failure on first full run; direct rerun of the failed test passed, and a full Rust rerun passed.
 
 ## Verification Observed
 
 - `npm run build`: passed.
+- Focused tests passed: `tests/unit/session-pool-reset.test.ts`, `tests/unit/event-handler.test.ts`, `tests/unit/todo-continuation.test.ts`, `tests/unit/assistant-done-handler.test.ts`, `tests/unit/os-notify.test.ts` with 54 tests.
 - `npm test`: passed, 96 files and 803 tests.
 - `cargo fmt --check`: passed.
-- `cargo test -p orchestrator-cli -p orchestrator-core`: passed, CLI 12 tests and core 35 tests.
+- `cargo test -p orchestrator-core tools::lsp::tests::eslint_with_config_and_failed_output_returns_error_diagnostic -- --nocapture`: passed after investigating the transient full-run failure.
+- `cargo test -p orchestrator-cli -p orchestrator-core`: passed on rerun, CLI 12 tests and core 35 tests.
 - `git diff --check`: passed.
-- `git check-ignore -v docs/architecture/prompt-architecture.html`: `.gitignore:21` matched.
-- Fallback search passed with no matches:
+- SDK fallback search showed no legacy compact response/event fallbacks. Remaining matches were current `v2.session.compact` use, tests, and unrelated session-compacting hook names:
   - `?? response`
   - `response.data ?? response`
   - `client.session.compact`
@@ -63,9 +62,9 @@ None known after the latest verification pass.
 
 1. `AGENT_MEMORY.md`
 2. `git status --short`
-3. `src/plugin-handlers/event-handler.ts`
-4. `src/core/agents/session-pool.ts`
-5. `src/core/loop/todo-continuation.ts`
-6. `src/plugin-handlers/assistant-done-handler.ts`
-7. `tests/unit/event-handler.test.ts`
-8. `tests/unit/session-pool-reset.test.ts`
+3. `src/core/agents/manager/prompt-routing.ts`
+4. `src/core/agents/format.ts`
+5. `src/core/agents/manager/task-cleaner.ts`
+6. `tests/unit/prompt-routing.test.ts`
+7. `tests/unit/task-format.test.ts`
+8. `tests/unit/task-cleaner.test.ts`

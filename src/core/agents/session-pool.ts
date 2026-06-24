@@ -19,9 +19,6 @@ import type {
 } from "./interfaces/session-pool.interface.js";
 
 type OpencodeClient = PluginInput["client"] & {
-    session: {
-        compact?: (opts: { path: { id: string } }) => Promise<unknown>;
-    };
     v2?: {
         session?: {
             compact?: (parameters: { sessionID: string }) => Promise<unknown>;
