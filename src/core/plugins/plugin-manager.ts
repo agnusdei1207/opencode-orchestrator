@@ -6,10 +6,34 @@ import * as fs from "fs/promises";
 import * as path from "path";
 import { pathToFileURL } from "node:url";
 import type { ToolDefinition } from "@opencode-ai/plugin";
-import { CustomPlugin, PluginContext } from "./interfaces.js";
+import type {
+    AssistantDoneHook,
+    ChatMessageHook,
+    PostToolUseHook,
+    PreToolUseHook,
+} from "../../hooks/types.js";
 import { log } from "../agents/logger.js";
 import { HookRegistry } from "../../hooks/registry.js";
 import { PATHS, LOG_PREFIX } from "../../shared/index.js";
+
+interface CustomPlugin {
+    name: string;
+    version: string;
+    description?: string;
+    tools?: Record<string, ToolDefinition>;
+    hooks?: {
+        preTool?: PreToolUseHook;
+        postTool?: PostToolUseHook;
+        chat?: ChatMessageHook;
+        done?: AssistantDoneHook;
+    };
+    init?: (context: PluginContext) => Promise<void>;
+    cleanup?: () => Promise<void>;
+}
+
+interface PluginContext {
+    directory: string;
+}
 
 export class PluginManager {
     private static instance: PluginManager;
