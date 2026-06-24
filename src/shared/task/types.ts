@@ -35,6 +35,8 @@ export interface LaunchInput {
     parentSessionID: string;
     /** Current nesting depth (default: 1) */
     depth?: number;
+    mode?: "normal" | "race" | "fractal";
+    groupID?: string;
 }
 
 /**
@@ -93,4 +95,3 @@ export interface ParallelTask extends Poolable {
     // Output tracking for optimization
     hasStartedOutputting?: boolean;
 }
-
