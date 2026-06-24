@@ -3,7 +3,8 @@
  */
 
 import { tool, type ToolDefinition } from "@opencode-ai/plugin";
-import { backgroundTaskManager, type BackgroundTask } from "../../core/commands/index.js";
+import { backgroundTaskManager } from "../../core/commands/index.js";
+import type { BackgroundTask } from "../../shared/index.js";
 import { BACKGROUND_STATUS, FILTER_STATUS } from "../../shared/index.js";
 
 export const listBackgroundTool: ToolDefinition = tool({

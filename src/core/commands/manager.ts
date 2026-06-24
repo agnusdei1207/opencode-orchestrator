@@ -6,14 +6,25 @@
 
 import { spawn } from "node:child_process";
 import { randomBytes } from "node:crypto";
-import { ID_PREFIX, getStatusIndicator, STATUS_LABEL, CLI_NAME, PLATFORM, type BackgroundTaskStatus } from "../../shared/index.js";
+import {
+    ID_PREFIX,
+    getStatusIndicator,
+    STATUS_LABEL,
+    CLI_NAME,
+    PLATFORM,
+    type BackgroundTask,
+    type BackgroundTaskStatus,
+    type RunBackgroundOptions,
+} from "../../shared/index.js";
 import { log as internalLog } from "../agents/logger.js";
-import type { BackgroundTask } from "./interfaces/background-task.js";
-import type { RunBackgroundOptions } from "./interfaces/run-background-options.js";
+
+interface ManagedBackgroundTask extends BackgroundTask {
+    timeoutHandle?: NodeJS.Timeout;
+}
 
 class BackgroundTaskManager {
     private static _instance: BackgroundTaskManager;
-    private tasks: Map<string, BackgroundTask> = new Map();
+    private tasks: Map<string, ManagedBackgroundTask> = new Map();
     private debugMode = process.env.DEBUG_BG_TASK === "true"; // Disabled by default
 
     private constructor() { }
@@ -44,7 +55,7 @@ class BackgroundTaskManager {
         const shell = isWindows ? "cmd.exe" : CLI_NAME.SH;
         const shellFlag = isWindows ? "/c" : "-c";
 
-        const task: BackgroundTask = {
+        const task: ManagedBackgroundTask = {
             id,
             command,
             args: [shellFlag, command],
@@ -168,7 +179,9 @@ class BackgroundTaskManager {
      * Shutdown - kills all running processes and clears tasks
      */
     async shutdown(): Promise<void> {
-        const running = this.getByStatus(STATUS_LABEL.RUNNING);
+        const running = Array.from(this.tasks.values()).filter(
+            task => task.status === STATUS_LABEL.RUNNING
+        );
         for (const task of running) {
             if (task.process) {
                 try {
@@ -182,7 +195,7 @@ class BackgroundTaskManager {
         this.tasks.clear();
     }
 
-    private cleanupTaskResources(task: BackgroundTask): void {
+    private cleanupTaskResources(task: ManagedBackgroundTask): void {
         if (task.timeoutHandle) {
             clearTimeout(task.timeoutHandle);
             task.timeoutHandle = undefined;
