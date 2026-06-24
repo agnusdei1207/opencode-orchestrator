@@ -18,7 +18,5 @@ export {
     TaskToastManager,
     getTaskToastManager,
     initTaskToastManager,
-    type TrackedTask,
-    type TaskStatus,
-    type TaskCompletionInfo,
 } from "./task-toast-manager.js";
+export type { TrackedTask, TaskStatus, TaskCompletionInfo } from "../../shared/index.js";

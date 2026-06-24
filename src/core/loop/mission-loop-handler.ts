@@ -19,14 +19,13 @@ import {
 } from "./mission-loop.js";
 import type { MissionLoopState } from "../../shared/loop/types.js";
 import { STAGNATION_INTERVENTION } from "../../shared/constants/system-messages.js";
-import { PART_TYPES, LOOP, TOAST_DURATION, STATUS_LABEL, TOAST_VARIANTS, MISSION_CONTROL, type ToastVariant } from "../../shared/index.js";
+import { PART_TYPES, LOOP, TOAST_DURATION, STATUS_LABEL, TOAST_VARIANTS, MISSION_CONTROL, type ToastVariant, type VerificationResult } from "../../shared/index.js";
 import { isSessionRecovering } from "../recovery/session-recovery.js";
 import { ParallelAgentManager } from "../agents/manager.js";
 import { sendNotification } from "../notification/os-notify/notifier.js";
 import { playSound } from "../notification/os-notify/sound-player.js";
 import { detectPlatform, getDefaultSoundPath } from "../notification/os-notify/platform.js";
 import { verifyMissionCompletion, buildVerificationSummary } from "./verification.js";
-import type { VerificationResult } from "./verification.js";
 import { syncMissionMemory } from "../knowledge/mission-memory.js";
 import { appendMissionLedgerEvent } from "./mission-ledger.js";
 import { createSessionStateStore } from "./session-state-store.js";

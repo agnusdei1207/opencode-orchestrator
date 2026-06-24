@@ -14,8 +14,8 @@ import {
     verifyMissionCompletion,
     buildVerificationFailurePrompt,
     buildVerificationSummary,
-    type VerificationResult
 } from "../../src/core/loop/verification.js";
+import type { VerificationResult } from "../../src/shared/index.js";
 
 describe("Mission Verification", () => {
     let testDir: string;

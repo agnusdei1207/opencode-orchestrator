@@ -16,16 +16,12 @@ import {
     CHECKLIST,
     CHECKLIST_PATTERNS,
     CHECKLIST_CATEGORIES,
-    // Verification types
     type ChecklistCategory,
     type ChecklistItem,
     type ChecklistVerificationResult,
     type VerificationResult,
 } from "../../shared/index.js";
 import { log } from "../agents/logger.js";
-
-// Re-export for backward compatibility
-export type { ChecklistItem, ChecklistCategory, ChecklistVerificationResult, VerificationResult };
 
 export const CHECKLIST_FILE = CHECKLIST.FILE;
 
@@ -528,4 +524,3 @@ export function buildVerificationSummary(result: VerificationResult): string {
     }
     return `[Verification ${status}] TODO: ${result.todoProgress}, Sync: ${result.syncIssuesEmpty ? 'clean' : result.syncIssuesCount + ' issues'}`;
 }
-

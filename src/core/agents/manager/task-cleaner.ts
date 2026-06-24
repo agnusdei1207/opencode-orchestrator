@@ -14,7 +14,8 @@ import { CONFIG } from "../config.js";
 import { log } from "../logger.js";
 import { SessionPool } from "../session-pool.js";
 import { buildAgentTaskCompletionMessage, buildAgentTaskProgressMessage, formatDuration } from "../format.js";
-import { getTaskToastManager, type TaskCompletionInfo } from "../../notification/task-toast-manager.js";
+import { getTaskToastManager } from "../../notification/task-toast-manager.js";
+import type { TaskCompletionInfo } from "../../../shared/index.js";
 import * as sessionStore from "../../session/store.js";
 
 type OpencodeClient = PluginInput["client"];

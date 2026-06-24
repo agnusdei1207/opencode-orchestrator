@@ -13,16 +13,9 @@
 
 import type { PluginInput } from "@opencode-ai/plugin";
 import type { ConcurrencyController } from "../agents/concurrency.js";
-import { TASK_STATUS, STATUS_LABEL, TUI_ICONS, TUI_BLOCKS, TUI_TAGS, TUI_MESSAGES, type TaskStatus, type TrackedTask, type TaskCompletionInfo } from "../../shared/index.js";
+import { STATUS_LABEL, TUI_ICONS, TUI_BLOCKS, TUI_TAGS, TUI_MESSAGES, type TaskStatus, type TrackedTask, type TaskCompletionInfo } from "../../shared/index.js";
 import type { TodoSyncService } from "../sync/todo-sync-service.js";
 import { sanitizeToastInline, sanitizeToastMessage, sanitizeToastTitle } from "./toast-sanitizer.js";
-
-// ============================================================
-// Types
-// ============================================================
-
-// Re-export for backward compatibility and internal usage
-export type { TaskStatus, TrackedTask, TaskCompletionInfo } from "../../shared/index.js";
 
 type OpencodeClient = PluginInput["client"];
 

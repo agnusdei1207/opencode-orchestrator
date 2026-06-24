@@ -17,7 +17,7 @@ import {
     readLoopState,
     writeLoopState,
 } from "../../core/loop/mission-loop.js";
-import { PROMPTS, COMMAND_NAMES, TOAST_VARIANTS, MISSION_CONTROL } from "../../shared/index.js";
+import { PROMPTS, COMMAND_NAMES, TOAST_VARIANTS, MISSION_CONTROL, type VerificationResult } from "../../shared/index.js";
 import { STAGNATION_INTERVENTION } from "../../shared/constants/system-messages.js";
 import type { MissionLoopState } from "../../shared/loop/types.js";
 import { HOOK_ACTIONS, HOOK_NAMES } from "../constants.js";
@@ -44,7 +44,6 @@ import {
     buildVerificationFailurePrompt,
     buildTodoIncompletePrompt,
     buildVerificationSummary,
-    type VerificationResult
 } from "../../core/loop/verification.js";
 import { parallelAgentManager } from "../../core/agents/manager.js";
 

@@ -17,13 +17,12 @@ import { SanityCheckHook } from "../../src/hooks/features/sanity-check";
 import { SecretScannerHook } from "../../src/hooks/custom/secret-scanner";
 
 import { HOOK_ACTIONS } from "../../src/hooks/constants";
-import { TOOL_NAMES } from "../../src/shared";
+import { TOOL_NAMES, type VerificationResult } from "../../src/shared";
 import { state } from "../../src/core/orchestrator/state";
 import { updateSessionTokens, recordAnomaly } from "../../src/core/orchestrator/session-manager";
 import { MISSION_MESSAGES } from "../../src/shared/constants/system-messages.js";
 import type { HookContext } from "../../src/hooks/types";
 import type { SessionState } from "../../src/core/orchestrator/interfaces/session-state";
-import type { VerificationResult } from "../../src/core/loop/verification";
 
 // Mock dependencies
 vi.mock("../../src/core/agents/logger", () => ({ log: vi.fn() }));
