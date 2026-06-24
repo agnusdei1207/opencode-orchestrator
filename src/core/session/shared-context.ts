@@ -5,11 +5,13 @@
  */
 
 // Re-export interfaces
-export type { SharedDocument } from "./interfaces/shared-document.js";
-export type { SharedFinding } from "./interfaces/shared-finding.js";
-export type { SharedDecision } from "./interfaces/shared-decision.js";
-export type { SharedContext } from "./interfaces/shared-context.js";
-export type { ContextStats } from "./interfaces/context-stats.js";
+export type {
+    SharedDocument,
+    SharedFinding,
+    SharedDecision,
+    SharedContext,
+    ContextStats,
+} from "./store.js";
 
 // Re-export store operations
 export {

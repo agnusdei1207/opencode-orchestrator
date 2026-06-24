@@ -2,11 +2,45 @@
  * Context Store - Session context data management
  */
 
-import type { ContextStats } from "./interfaces/context-stats.js";
-import type { SharedContext } from "./interfaces/shared-context.js";
-import type { SharedDecision } from "./interfaces/shared-decision.js";
-import type { SharedDocument } from "./interfaces/shared-document.js";
-import type { SharedFinding } from "./interfaces/shared-finding.js";
+export interface SharedDocument {
+    url: string;
+    filename: string;
+    title: string;
+    cachedAt: Date;
+}
+
+export interface SharedFinding {
+    id: string;
+    content: string;
+    source: string;
+    timestamp: Date;
+    category: "pattern" | "api" | "config" | "warning" | "decision";
+}
+
+export interface SharedDecision {
+    id: string;
+    question: string;
+    answer: string;
+    rationale: string;
+    decidedAt: Date;
+}
+
+export interface SharedContext {
+    sessionId: string;
+    parentId?: string;
+    documents: Map<string, SharedDocument>;
+    findings: SharedFinding[];
+    decisions: Map<string, SharedDecision>;
+    createdAt: Date;
+    updatedAt: Date;
+}
+
+export interface ContextStats {
+    totalContexts: number;
+    totalDocuments: number;
+    totalFindings: number;
+    totalDecisions: number;
+}
 
 // Global context store
 const contexts = new Map<string, SharedContext>();
