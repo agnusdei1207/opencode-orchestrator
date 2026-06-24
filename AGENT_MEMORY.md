@@ -2,73 +2,69 @@
 
 ## Current Task
 
-User requested repeated fresh exhaustive audit passes, with commit and push after each pass. Current pass completed: 10. The broader requested target remains active beyond this session.
+User requested repeated fresh exhaustive audit passes, with commit and push after each pass. Current pass completed: 11. The broader requested target remains active beyond this session.
 
 ## Last Completed Step
 
-Completed audit pass 10 after reopening the pass-10 files and current worktree state.
+Completed audit pass 11 after reopening the pass-11 files and current worktree state.
 
-- Confirmed `main` was aligned with `origin/main` at `ad052ce` before pass 10 changes.
-- Reopened `AGENT_MEMORY.md`, `AGENTS.md`, and official OpenCode plugin/SDK docs search results.
-- Reopened and traced `src/utils/common.ts`, `src/utils/parsing/index.ts`, `src/utils/parsing/slash-command.ts`, `src/utils/formatting/index.ts`, `src/utils/formatting/timestamp.ts`, and `src/utils/formatting/elapsed-time.ts`.
-- Reopened and traced consumers `src/plugin-handlers/tool-execute-handler.ts` and `src/hooks/features/mission-loop.ts`.
-- Reopened and traced `src/core/recovery/constants.ts`, `src/core/recovery/handler.ts`, `src/core/recovery/patterns.ts`, `src/core/recovery/auto-recovery.ts`, and shared recovery constants.
-- Reopened `src/core/memory/interfaces.ts`, `src/core/memory/memory-manager.ts`, `src/core/plugins/interfaces.ts`, and `src/core/plugins/plugin-manager.ts`; found those interface files are actual type definitions, not compatibility shims.
-- Migrated `utils/common.ts` consumers to `utils/formatting/index.js` and `utils/parsing/index.js`.
-- Migrated recovery handler/patterns to shared `RECOVERY` and `HISTORY` constants.
-- Removed `auto-recovery.ts` re-export of compatibility constants.
-- Deleted `src/utils/common.ts` and `src/core/recovery/constants.ts`.
+- Confirmed `main` was aligned with `origin/main` at `29d66be` before pass 11 changes.
+- Reopened `AGENT_MEMORY.md`, `AGENTS.md`, `src/core/progress/tracker.ts`, `src/core/progress/formatters.ts`, `src/core/progress/store.ts`, `src/core/progress/calculator.ts`, `src/hooks/features/mission-loop.ts`, `src/plugin-handlers/event-handler.ts`, and related tests.
+- Reopened `src/core/memory/interfaces.ts`, `src/core/memory/memory-manager.ts`, `src/core/plugins/interfaces.ts`, and `src/core/plugins/plugin-manager.ts`; confirmed memory/plugin interface files are real type definitions, not compatibility shims.
+- Found `ProgressTracker.format` and `ProgressTracker.formatCompact` were convenience functions marked for backward compatibility.
+- Found runtime consumer `src/hooks/features/mission-loop.ts` used `ProgressTracker.formatCompact(sessionID)`.
+- Migrated mission-loop to use `ProgressTracker.getLatest(sessionID)` plus canonical `formatCompact(snapshot)` from `src/core/progress/formatters.ts`.
+- Migrated `tests/unit/progress-tracker.test.ts` to test canonical `formatSnapshot(snapshot)` and `formatCompact(snapshot)` directly.
+- Removed the backward-compatibility `format` and `formatCompact` wrappers from `src/core/progress/tracker.ts`.
 
 ## Next Exact Step
 
-Start audit pass 11 from current state:
+Start audit pass 12 from current state:
 
 1. Open `AGENT_MEMORY.md`.
 2. Run `git status --branch --short`.
-3. Reopen the pass-11 target files listed below.
-4. Continue compatibility-shim removal from fresh owners, starting with plugin/memory interface consumers if any are only legacy imports, or progress convenience functions.
+3. Reopen the pass-12 target files listed below.
+4. Continue compatibility-shim removal from fresh owners, starting with `src/core/loop/verification.ts`, `src/core/loop/todo-manager.ts`, `src/core/notification/task-toast-manager.ts`, or `src/hooks/compatibility/external-plugin.ts`.
 
 ## Incomplete Items And Why
 
-The full requested repeated-pass objective is not complete. Pass 10 is complete and ready to commit/push.
+The full requested repeated-pass objective is not complete. Pass 11 is complete and ready to commit/push.
 
 ## Key Decisions
 
-- `src/utils/common.ts` was compatibility-only; direct parsing/formatting module imports are the canonical replacement.
-- `src/core/recovery/constants.ts` was compatibility-only; shared `RECOVERY` and `HISTORY` constants are the canonical source.
-- `src/core/memory/interfaces.ts` and `src/core/plugins/interfaces.ts` are real type definition modules and should not be deleted as shims without a separate redesign.
+- Progress formatting should be snapshot-based via `src/core/progress/formatters.ts`; session lookup belongs to `src/core/progress/store.ts`/tracker exports.
+- `ProgressTracker.format` and `ProgressTracker.formatCompact` were compatibility wrappers and should not remain as public convenience surface.
+- Memory/plugin interface modules are not compatibility barrels and were not changed in this pass.
 
 ## Rejected Alternatives
 
-- Rejected preserving `auto-recovery.ts` constant re-exports because no current consumer uses them and keeping them would retain the compatibility surface.
-- Rejected deleting memory/plugin interfaces because the opened files define actual exported interfaces, not a backward-compatibility barrel.
+- Rejected keeping progress wrapper functions because the single runtime consumer could use canonical `getLatest` plus formatter directly.
+- Rejected deleting memory/plugin interface files because they define actual types and are imported by their owners.
 
 ## Known Risks
 
 - The broader 100/1000-pass objective is intentionally not marked complete.
-- Other compatibility surfaces remain outside this pass, including progress convenience functions and any remaining documented compatibility adapters.
+- Other compatibility surfaces remain outside this pass, including loop verification exports, todo-manager compatibility, task-toast-manager re-export, and external plugin compatibility hook.
 
 ## Verification Observed
 
-- Baseline focused tests passed before edits: `tests/unit/auto-recovery.test.ts`, `tests/unit/tool-execute-handler.test.ts`, and `tests/unit/hooks.test.ts`, 3 files and 24 tests.
-- Focused tests passed after edits: the same 3 files and 24 tests.
+- Baseline focused tests passed before edits: `tests/unit/progress-tracker.test.ts`, `tests/unit/hooks.test.ts`, and `tests/unit/event-handler.test.ts`, 3 files and 29 tests.
+- Focused tests passed after edits: the same 3 files and 29 tests.
 - `npm run build --silent`: passed.
 - `npx vitest run --reporter=dot`: passed, 96 files and 807 tests.
 - `cargo fmt --check`: passed.
 - `cargo test -p orchestrator-cli -p orchestrator-core --quiet`: passed, CLI 12 tests and core 35 tests.
 - `git diff --check`: passed.
-- `rg -n "utils/common|recovery/constants|\\.\\.\\/utils/common\\.js|\\.\\/common\\.js" src tests -g '*.ts'` showed no remaining references to the deleted pass-10 common-utils path; `core/recovery/constants.ts` was deleted and recovery consumers use shared constants.
+- `rg -n "ProgressTracker\\.format\\(|ProgressTracker\\.formatCompact\\(|export function format\\(|format\\(sessionId|formatCompact\\(sessionId" src tests -g '*.ts'` returned no matches.
 
 ## Files To Open First Next Session
 
 1. `AGENT_MEMORY.md`
 2. `git status --branch --short`
-3. `src/core/progress/tracker.ts`
-4. `src/core/progress/formatters.ts`
-5. `src/hooks/features/mission-loop.ts`
-6. `tests/unit/progress-tracker.test.ts`
-7. `src/core/memory/interfaces.ts`
-8. `src/core/memory/memory-manager.ts`
-9. `src/core/plugins/interfaces.ts`
-10. `src/core/plugins/plugin-manager.ts`
-11. `src/hooks/compatibility/external-plugin.ts`
+3. `src/core/loop/verification.ts`
+4. `src/core/loop/todo-manager.ts`
+5. `src/core/notification/task-toast-manager.ts`
+6. `src/hooks/compatibility/external-plugin.ts`
+7. `tests/unit/todo-enforcer.test.ts`
+8. `tests/unit/task-toast-manager.test.ts`
+9. `tests/unit/hooks.test.ts`

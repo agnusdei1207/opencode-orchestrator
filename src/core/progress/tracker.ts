@@ -35,19 +35,3 @@ export {
     calculateRate,
     estimateRemaining,
 } from "./calculator.js";
-
-// Convenience functions for backward compatibility
-import { getLatest } from "./store.js";
-import { formatSnapshot as formatSnapshotImpl, formatCompact as formatCompactImpl } from "./formatters.js";
-
-export function format(sessionId: string): string {
-    const snapshot = getLatest(sessionId);
-    if (!snapshot) return "No progress data";
-    return formatSnapshotImpl(snapshot);
-}
-
-export function formatCompact(sessionId: string): string {
-    const snapshot = getLatest(sessionId);
-    if (!snapshot) return "...";
-    return formatCompactImpl(snapshot);
-}

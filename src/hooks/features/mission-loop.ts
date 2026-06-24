@@ -23,6 +23,7 @@ import type { MissionLoopState } from "../../shared/loop/types.js";
 import { HOOK_ACTIONS, HOOK_NAMES } from "../constants.js";
 import * as Toast from "../../core/notification/toast.js";
 import * as ProgressTracker from "../../core/progress/tracker.js";
+import { formatCompact as formatProgressCompact } from "../../core/progress/formatters.js";
 import { formatTimestamp, formatElapsedTime } from "../../utils/formatting/index.js";
 import { detectSlashCommand } from "../../utils/parsing/index.js";
 import { COMMANDS } from "../../tools/slashCommand.js";
@@ -208,7 +209,8 @@ export class MissionControlHook implements AssistantDoneHook, ChatMessageHook {
         const stepDuration = formatElapsedTime(session.lastStepTime, now);
         const totalElapsed = formatElapsedTime(session.startTime, now);
         const currentTime = formatTimestamp();
-        const progressInfo = ProgressTracker.formatCompact(sessionID);
+        const latestProgress = ProgressTracker.getLatest(sessionID);
+        const progressInfo = latestProgress ? formatProgressCompact(latestProgress) : "...";
 
         const continuePrompt = CONTINUE_INSTRUCTION +
             `\n\n[${currentTime}] Step ${session.step} | ${progressInfo} | This step: ${stepDuration} | Total: ${totalElapsed}`;

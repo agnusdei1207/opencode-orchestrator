@@ -4,6 +4,7 @@
 
 import { describe, it, expect, beforeEach } from "vitest";
 import * as ProgressTracker from "../../src/core/progress/tracker";
+import { formatSnapshot, formatCompact } from "../../src/core/progress/formatters";
 
 describe("ProgressTracker", () => {
     const TEST_SESSION = "session_test";
@@ -92,7 +93,7 @@ describe("ProgressTracker", () => {
         });
     });
 
-    describe("format", () => {
+    describe("formatSnapshot", () => {
         it("should return formatted progress string", () => {
             ProgressTracker.startSession(TEST_SESSION);
             ProgressTracker.recordSnapshot(TEST_SESSION, {
@@ -104,7 +105,10 @@ describe("ProgressTracker", () => {
                 currentStep: 15,
             });
 
-            const formatted = ProgressTracker.format(TEST_SESSION);
+            const snapshot = ProgressTracker.getLatest(TEST_SESSION);
+            expect(snapshot).toBeDefined();
+
+            const formatted = formatSnapshot(snapshot!);
             expect(formatted).toContain("Progress Report");
             expect(formatted).toContain("Todos:");
             expect(formatted).toContain("Tasks:");
@@ -121,7 +125,10 @@ describe("ProgressTracker", () => {
                 taskRunning: 2,
             });
 
-            const compact = ProgressTracker.formatCompact(TEST_SESSION);
+            const snapshot = ProgressTracker.getLatest(TEST_SESSION);
+            expect(snapshot).toBeDefined();
+
+            const compact = formatCompact(snapshot!);
             expect(compact).toContain("✅3/10");
             expect(compact).toContain("⚡2");
         });
