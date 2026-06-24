@@ -5,10 +5,24 @@
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { CACHE, PATHS } from "../../shared/index.js";
-import { ensureCacheDir, urlToFilename, readMetadata, writeMetadata } from "./utils.js";
-import type { CacheListEntry } from "./interfaces/cache-list-entry.js";
-import type { CacheStats } from "./interfaces/cache-stats.js";
-import type { CachedDocument } from "./interfaces/cached-document.js";
+import { ensureCacheDir, urlToFilename, readMetadata, writeMetadata, type CacheDocumentEntry } from "./utils.js";
+
+export interface CachedDocument extends CacheDocumentEntry {
+    content: string;
+}
+
+export interface CacheListEntry extends CacheDocumentEntry {
+    filename: string;
+    expired: boolean;
+}
+
+export interface CacheStats {
+    totalDocuments: number;
+    totalSize: number;
+    expiredCount: number;
+    oldestDocument: string | null;
+    newestDocument: string | null;
+}
 
 /**
  * Get cached document by URL

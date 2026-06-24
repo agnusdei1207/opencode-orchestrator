@@ -2,60 +2,60 @@
 
 ## Current Task
 
-User requested repeated fresh exhaustive audit passes, with commit and push after each pass. Current pass completed: 33. The broader requested target remains active beyond this session.
+User requested repeated fresh exhaustive audit passes, with commit and push after each pass. Current pass completed: 34. The broader requested target remains active beyond this session.
 
 ## Last Completed Step
 
-Completed audit pass 33 after moving task hierarchy contracts into their owner module and deleting the task interfaces files.
+Completed audit pass 34 after moving document-cache contracts into their owner modules and deleting the cache interfaces files.
 
-- Confirmed `main` was aligned with `origin/main` at `fb3af11` before pass 33 changes.
-- Reopened `AGENT_MEMORY.md`, `AGENTS.md`, `src/core/task/interfaces/task-progress.ts`, `src/core/task/interfaces/task-hierarchy.ts`, `src/core/task/interfaces/task-input.ts`, `src/core/task/interfaces/task-node.ts`, `src/core/task/task-decomposer.ts`, `src/core/task/store.ts`, `src/core/task/parser.ts`, `src/core/task/scheduler.ts`, `src/core/task/summary.ts`, `src/shared/task/types.ts`, and `tests/unit/task-decomposer.test.ts`.
-- Traced all task interface consumers with `rg`.
-- Confirmed `src/core/task/store.ts` owns task hierarchy creation, task node creation, status mutation, completion checks, and hierarchy progress calculation.
-- Confirmed `src/shared/task/types.ts` owns parallel-agent task contracts and its `TaskProgress` is a different shape from core task hierarchy progress.
-- Moved `TaskStatus`, `TaskNode`, `TaskHierarchy`, `TaskInput`, and hierarchy `TaskProgress` into `src/core/task/store.ts`.
-- Updated `src/core/task/parser.ts` and `src/core/task/scheduler.ts` to import task contracts from `store.ts`.
-- Updated `src/core/task/task-decomposer.ts` to re-export store-owned task contracts directly.
-- Deleted `src/core/task/interfaces/task-progress.ts`, `src/core/task/interfaces/task-hierarchy.ts`, `src/core/task/interfaces/task-input.ts`, and `src/core/task/interfaces/task-node.ts`.
+- Confirmed `main` was aligned with `origin/main` at `1b6a9d6` before pass 34 changes.
+- Reopened `AGENT_MEMORY.md`, `AGENTS.md`, `src/core/cache/interfaces/cache-document-entry.ts`, `src/core/cache/interfaces/cache-list-entry.ts`, `src/core/cache/interfaces/cache-metadata.ts`, `src/core/cache/interfaces/cache-stats.ts`, `src/core/cache/interfaces/cached-document.ts`, `src/core/cache/document-cache.ts`, `src/core/cache/operations.ts`, `src/core/cache/utils.ts`, `src/core/cache/index.ts`, `src/tools/web/cache-docs.ts`, `src/core/cleanup/cleanup-scheduler.ts`, and `tests/unit/document-cache.test.ts`.
+- Traced all cache interface consumers with `rg`.
+- Confirmed `src/core/cache/utils.ts` owns cache metadata serialization/deserialization and the metadata document-entry shape.
+- Confirmed `src/core/cache/operations.ts` owns cached document retrieval, list entries, and cache statistics return shapes.
+- Moved `CacheDocumentEntry` and `CacheMetadata` into `src/core/cache/utils.ts`.
+- Moved `CachedDocument`, `CacheListEntry`, and `CacheStats` into `src/core/cache/operations.ts`.
+- Updated `src/core/cache/document-cache.ts` to re-export owner-defined cache contracts directly.
+- Deleted `src/core/cache/interfaces/cache-document-entry.ts`, `src/core/cache/interfaces/cache-list-entry.ts`, `src/core/cache/interfaces/cache-metadata.ts`, `src/core/cache/interfaces/cache-stats.ts`, and `src/core/cache/interfaces/cached-document.ts`.
 
 ## Next Exact Step
 
-Start audit pass 34 from current state:
+Start audit pass 35 from current state:
 
 1. Open `AGENT_MEMORY.md`.
 2. Run `git status --branch --short`.
-3. Reopen the pass-34 target files listed below.
-4. Continue compatibility/debt removal from fresh evidence, starting with the cache contract group under `src/core/cache/interfaces/*`; determine whether those files are real owner contracts or can be moved into cache owner modules.
+3. Reopen the pass-35 target files listed below.
+4. Continue compatibility/debt removal from fresh evidence, starting with the recovery contract group under `src/core/recovery/interfaces/*`; determine whether those files are real owner contracts or can be moved into recovery owner modules.
 
 ## Incomplete Items And Why
 
-The full requested repeated-pass objective is not complete. Pass 33 is complete and ready to commit/push.
+The full requested repeated-pass objective is not complete. Pass 34 is complete and ready to commit/push.
 
 ## Key Decisions
 
-- `src/core/task/store.ts` is the owner for task hierarchy state and the corresponding hierarchy/node/input/progress contracts.
-- `src/core/task/task-decomposer.ts` remains the public task-decomposer API, but its type exports now point directly to store-owned contracts.
-- `src/shared/task/types.ts` was not used as the owner for core task hierarchy progress because it describes parallel task progress with a different shape.
+- `src/core/cache/utils.ts` is the owner for cache metadata and metadata document-entry contracts because it reads and writes the metadata file boundary.
+- `src/core/cache/operations.ts` is the owner for cached document/list/stat contracts because it produces those public operation return shapes.
+- `src/core/cache/document-cache.ts` remains the public document-cache API, but its type exports now point directly to owner modules.
 
 ## Rejected Alternatives
 
-- Rejected leaving `src/core/task/interfaces/*` as compatibility paths because the user prefers complete migration over compatibility shims.
-- Rejected merging core hierarchy `TaskProgress` into `src/shared/task/types.ts` because the shared `TaskProgress` shape is unrelated.
-- Rejected changing task parsing, scheduling, hierarchy mutation, or progress calculation behavior because this pass was a contract ownership migration only.
+- Rejected leaving `src/core/cache/interfaces/*` as compatibility paths because the user prefers complete migration over compatibility shims.
+- Rejected moving all cache contracts into `document-cache.ts` because it is an API facade, while serialization and operation shapes have clearer owner modules.
+- Rejected changing cache file layout, TTL behavior, cleanup behavior, or return values because this pass was a contract ownership migration only.
 
 ## Known Risks
 
 - The broader 100/1000-pass objective is intentionally not marked complete.
-- External consumers importing deleted `src/core/task/interfaces/*` paths must import from `src/core/task/store.ts` or the existing `src/core/task/task-decomposer.ts` public API.
-- `src/core/cache/interfaces/*` contains the next interface-contract group and needs fresh analysis before changing.
+- External consumers importing deleted `src/core/cache/interfaces/*` paths must import from `src/core/cache/utils.ts`, `src/core/cache/operations.ts`, or the existing `src/core/cache/document-cache.ts` public API.
+- `src/core/recovery/interfaces/*` contains the next interface-contract group and needs fresh analysis before changing.
 
 ## Verification Observed
 
-- Baseline focused tests before edits: `tests/unit/task-decomposer.test.ts` passed, 1 file and 11 tests.
+- Baseline focused tests before edits: `tests/unit/document-cache.test.ts` passed, 1 file and 12 tests.
 - Baseline `npm run build --silent`: passed.
-- Post-edit `rg -n "core/task/interfaces|\\.\\/interfaces/(task-progress|task-hierarchy|task-input|task-node)|\\.\\./interfaces/(task-progress|task-hierarchy|task-input|task-node)" src tests -g '*.ts'`: no matches.
-- `test ! -e src/core/task/interfaces/task-progress.ts && test ! -e src/core/task/interfaces/task-hierarchy.ts && test ! -e src/core/task/interfaces/task-input.ts && test ! -e src/core/task/interfaces/task-node.ts && echo deleted`: printed `deleted`.
-- Focused tests after edits: `tests/unit/task-decomposer.test.ts` passed, 1 file and 11 tests.
+- Post-edit `rg -n "core/cache/interfaces|\\.\\/interfaces/(cache-document-entry|cache-list-entry|cache-metadata|cache-stats|cached-document)|\\.\\./interfaces/(cache-document-entry|cache-list-entry|cache-metadata|cache-stats|cached-document)" src tests -g '*.ts'`: no matches.
+- `test ! -e src/core/cache/interfaces/cache-document-entry.ts && test ! -e src/core/cache/interfaces/cache-list-entry.ts && test ! -e src/core/cache/interfaces/cache-metadata.ts && test ! -e src/core/cache/interfaces/cache-stats.ts && test ! -e src/core/cache/interfaces/cached-document.ts && echo deleted`: printed `deleted`.
+- Focused tests after edits: `tests/unit/document-cache.test.ts` passed, 1 file and 12 tests.
 - `npm run build --silent`: passed after edits.
 - `git diff --check`: passed.
 - Full `npx vitest run --reporter=dot`: passed, 96 files and 806 tests.
@@ -66,11 +66,12 @@ The full requested repeated-pass objective is not complete. Pass 33 is complete 
 
 1. `AGENT_MEMORY.md`
 2. `git status --branch --short`
-3. `src/core/cache/interfaces/cache-document-entry.ts`
-4. `src/core/cache/interfaces/cache-list-entry.ts`
-5. `src/core/cache/interfaces/cache-metadata.ts`
-6. `src/core/cache/interfaces/cache-stats.ts`
-7. `src/core/cache/interfaces/cached-document.ts`
-8. `src/core/cache/document-cache.ts`
-9. `src/core/cache/operations.ts`
-10. `src/core/cache/utils.ts`
+3. `src/core/recovery/interfaces/error-context.ts`
+4. `src/core/recovery/interfaces/error-pattern.ts`
+5. `src/core/recovery/interfaces/recovery-action.ts`
+6. `src/core/recovery/interfaces/recovery-record.ts`
+7. `src/core/recovery/interfaces/recovery-stats.ts`
+8. `src/core/recovery/handler.ts`
+9. `src/core/recovery/patterns.ts`
+10. `src/core/recovery/session-recovery.ts`
+11. `src/core/recovery/auto-recovery.ts`
