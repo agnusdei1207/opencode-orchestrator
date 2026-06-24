@@ -147,6 +147,11 @@ TUI commands:
                     /task input
                          |
                          v
+                  +---------------+
+                  | Intent Router |  picks context profile
+                  +-------+-------+  (MINIMAL/STANDARD/FULL)
+                         |
+                         v
                   +-------------+
            +----->|  Commander  |
            |      +------+------+
@@ -183,6 +188,18 @@ The mission loop adjudicates continuation at the idle boundary rather than trust
 1. Tool calls are observed to record changed files and verification runs; if files changed with no verification, the continuation prompt emphatically asks the model to run tests/build/lint and cite results (a nudge, never a hard block).
 2. Before declaring done the model is asked for a short self-account (scope fit, verification, residual risk).
 3. After sustained stagnation the loop stops blind retries and escalates: DECOMPOSE → RE-PLAN → ASK the user.
+
+### Context Routing — injecting only what the turn needs
+
+Before the Commander sees a turn, a local **intent router** decides *which* context blocks that turn actually needs, instead of unconditionally injecting every block every time. It classifies the user message (rule-based, on-device, zero added latency) and maps it to one of three context profiles:
+
+| Profile | Auxiliary context injected | Typical turn |
+| --- | --- | --- |
+| `MINIMAL` | RAG only | a short standalone question |
+| `STANDARD` | RAG + scratchpad + background tasks | a light mission turn |
+| `FULL` | everything (today's behavior) | code work, a mission step, or anything ambiguous |
+
+Two invariants keep this safe. The **core** blocks — the Commander's own instructions and the mission-loop state — are *never* gated; the router only trims the auxiliary blocks. And the router only ever *reduces*: any doubt, a low-confidence call, or a turn that never passed through message handling (e.g. an autonomous mission-loop continuation) falls back to `FULL`, so it can never starve the Commander of context. The decision is computed in the `chat.message` hook and consumed once in `chat.system.transform` (`src/core/router/intent-router.ts`); set `ORCHESTRATOR_ROUTER_DISABLED=1` to bypass it entirely.
 
 ### Retrieval — finding by complementary senses
 

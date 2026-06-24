@@ -16,7 +16,9 @@ import { AGENT_NAMES, PART_TYPES, PROMPTS, COMMAND_NAMES } from "../shared/index
 import * as Toast from "../core/notification/toast.js";
 import * as ProgressTracker from "../core/progress/tracker.js";
 import * as TodoContinuation from "../core/loop/todo-continuation.js";
-import { startMissionLoop } from "../core/loop/mission-loop.js";
+import { startMissionLoop, readLoopState } from "../core/loop/mission-loop.js";
+import { isMissionActive } from "../core/orchestrator/session-manager.js";
+import { classifyIntent, setRouterDecision, isRouterEnabled } from "../core/router/intent-router.js";
 import { HookRegistry } from "../hooks/registry.js"; // Added import
 import { HOOK_ACTIONS } from "../hooks/constants.js";
 import type { ChatMessageHandlerContext, SessionState } from "./interfaces/index.js";
@@ -87,6 +89,36 @@ export function createChatMessageHandler(ctx: ChatMessageHandlerContext) {
 
         if (hookResult.modifiedMessage) {
             parts[textPartIndex].text = hookResult.modifiedMessage;
+        }
+
+        // Intent router: classify the final (post-hook) turn so system-transform
+        // injects only the context blocks it needs. Set here — after the intercept
+        // check — so an intercepted command never leaves a stale decision behind.
+        // Disabled, errored, or no decision → system-transform uses the FULL fallback.
+        if (sessionID && isRouterEnabled()) {
+            try {
+                const finalText = parts[textPartIndex].text || originalText;
+                const loopState = readLoopState(directory);
+                const missionActive =
+                    isMissionActive(sessionID, directory) ||
+                    (loopState?.active === true && loopState.sessionID === sessionID);
+                const decision = classifyIntent(finalText, {
+                    missionActive,
+                    sessionActive: sessions.get(sessionID)?.active === true,
+                    isSlashCommand: finalText.trim().startsWith("/"),
+                });
+                setRouterDecision(sessionID, decision);
+                log("[chat-message-handler] router decision", {
+                    sessionID,
+                    intent: decision.intent,
+                    profile: decision.profile,
+                    confidence: decision.confidence,
+                    source: decision.source,
+                });
+            } catch (err) {
+                // Never let routing break message handling; FULL fallback covers it.
+                log("[chat-message-handler] router error", { sessionID, error: String(err) });
+            }
         }
     };
 }

@@ -14,6 +14,8 @@ import { ParallelAgentManager } from "../core/agents/manager.js";
 import { isMissionActive, ensureSessionInitialized } from "../core/orchestrator/session-manager.js";
 import { KnowledgeContextProvider } from "../core/knowledge/context-provider.js";
 import { readMissionScratchpadSnapshot } from "../core/knowledge/mission-memory.js";
+import { consumeRouterDecision, FULL_DECISION } from "../core/router/intent-router.js";
+import { log } from "../core/agents/logger.js";
 
 // Re-export interfaces for external use
 export type { SystemTransformInput, SystemTransformOutput } from "./interfaces/index.js";
@@ -42,53 +44,75 @@ export function createSystemTransformHandler(ctx: EventHandlerContext) {
             return;
         }
 
+        // Intent router decision for this turn (consume-once). A missing decision
+        // (e.g. a mission auto-continuation turn with no preceding chat.message)
+        // falls back to FULL — the always-safe, today's-behavior path.
+        const decision = consumeRouterDecision(sessionID) ?? FULL_DECISION;
+        const needs = decision.needs;
+        if (decision.source !== "fallback") {
+            log("[system-transform] applying router decision", {
+                sessionID,
+                intent: decision.intent,
+                profile: decision.profile,
+                needs,
+            });
+        }
+
         // Build system prompt additions
         const systemAdditions: string[] = [];
 
-        // 1. Mission loop context (if active)
+        // 1. Mission loop context (if active).
+        //    CORE blocks (Commander instructions + mission loop) are NEVER gated:
+        //    they are the mission identity. The router only gates auxiliary blocks.
         if (isActiveLoop && loopState) {
             // FUNDAMENTAL: Inject full Commander instructions via system transform
             // This prevents massive prompt injection in user messages.
             const { commander } = await import("../agents/commander.js");
             systemAdditions.push(commander.systemPrompt);
             systemAdditions.push(buildMissionLoopSystemPrompt(loopState));
-            const scratchpadPrompt = buildMissionScratchpadPrompt(directory);
-            if (scratchpadPrompt) {
-                systemAdditions.push(scratchpadPrompt);
+            if (needs.includes("scratchpad")) {
+                const scratchpadPrompt = buildMissionScratchpadPrompt(directory);
+                if (scratchpadPrompt) {
+                    systemAdditions.push(scratchpadPrompt);
+                }
             }
         }
 
-        // 2. Active session context
-        if (session?.active) {
+        // 2. Active session context (auxiliary — gated).
+        if (session?.active && needs.includes("active-session")) {
             systemAdditions.push(buildActiveSessionPrompt(session.step));
         }
 
-        // 3. Knowledge graph RAG context for orchestrated sessions.
+        // 3. Knowledge graph RAG context for orchestrated sessions (auxiliary — gated).
         // The orchestrated session runs as the Commander; passing the role lets
         // retrieval bias by role (Commander is neutral, but subagent sessions
         // routed through the same provider get their role-specific weighting).
-        const knowledgePrompt = buildKnowledgeContextPrompt(
-            directory,
-            loopState,
-            state.sessions.get(sessionID)?.currentTask,
-            "commander",
-        );
-        if (knowledgePrompt) {
-            systemAdditions.push(knowledgePrompt);
+        if (needs.includes("rag")) {
+            const knowledgePrompt = buildKnowledgeContextPrompt(
+                directory,
+                loopState,
+                state.sessions.get(sessionID)?.currentTask,
+                "commander",
+            );
+            if (knowledgePrompt) {
+                systemAdditions.push(knowledgePrompt);
+            }
         }
 
-        // 3. Background task awareness
-        try {
-            const manager = ParallelAgentManager.getInstance();
-            const tasks = manager.getTasksByParent(sessionID);
-            const runningCount = tasks.filter(t => t.status === STATUS_LABEL.RUNNING).length;
-            const pendingCount = tasks.filter(t => t.status === STATUS_LABEL.PENDING).length;
+        // 4. Background task awareness (auxiliary — gated).
+        if (needs.includes("background")) {
+            try {
+                const manager = ParallelAgentManager.getInstance();
+                const tasks = manager.getTasksByParent(sessionID);
+                const runningCount = tasks.filter(t => t.status === STATUS_LABEL.RUNNING).length;
+                const pendingCount = tasks.filter(t => t.status === STATUS_LABEL.PENDING).length;
 
-            if (runningCount > 0 || pendingCount > 0) {
-                systemAdditions.push(buildBackgroundTasksPrompt(runningCount, pendingCount));
+                if (runningCount > 0 || pendingCount > 0) {
+                    systemAdditions.push(buildBackgroundTasksPrompt(runningCount, pendingCount));
+                }
+            } catch {
+                // Manager not available
             }
-        } catch {
-            // Manager not available
         }
 
         // Inject additions

@@ -11,6 +11,7 @@ import type { EventHandlerContext, SystemTransformInput, SystemTransformOutput }
 import { isMissionActive, ensureSessionInitialized } from "../../src/core/orchestrator/session-manager";
 import { readLoopState } from "../../src/core/loop/mission-loop";
 import { ParallelAgentManager } from "../../src/core/agents/manager";
+import { setRouterDecision, clearRouterDecision, type RouterDecision } from "../../src/core/router/intent-router";
 
 // Mock dependencies
 vi.mock("../../src/core/loop/mission-loop", () => ({
@@ -191,6 +192,102 @@ describe("System Transform Handler", () => {
         } finally {
             rmSync(testDir, { recursive: true, force: true });
         }
+    });
+
+    it("gates auxiliary blocks per router decision (STANDARD excludes active-session, keeps core)", async () => {
+        vi.mocked(readLoopState).mockReturnValue({
+            active: true,
+            iteration: 2,
+            maxIterations: 10,
+            prompt: "summarize progress",
+            sessionID: "test-session",
+            startedAt: new Date().toISOString(),
+        });
+        vi.mocked(ParallelAgentManager.getInstance).mockReturnValue({
+            getTasksByParent: vi.fn(() => [{ id: "t1", status: "running" }]),
+        } as any);
+
+        const standard: RouterDecision = {
+            intent: "mission-step",
+            profile: "STANDARD",
+            needs: ["rag", "scratchpad", "background"],
+            route: "commander",
+            confidence: 0.75,
+            source: "rule",
+        };
+        setRouterDecision("test-session", standard);
+
+        const output: SystemTransformOutput = { system: [] };
+        await handler({ sessionID: "test-session" }, output);
+
+        // Core block stays; gated active-session is dropped; background allowed.
+        expect(output.system.some(s => s.includes("MISSION LOOP ACTIVE"))).toBe(true);
+        expect(output.system.some(s => s.includes("Orchestrator Session Active"))).toBe(false);
+        expect(output.system.some(s => s.includes("Background Tasks Status"))).toBe(true);
+    });
+
+    it("gates auxiliary blocks per router decision (MINIMAL keeps only core + rag)", async () => {
+        vi.mocked(readLoopState).mockReturnValue({
+            active: true,
+            iteration: 2,
+            maxIterations: 10,
+            prompt: "quick question",
+            sessionID: "test-session",
+            startedAt: new Date().toISOString(),
+        });
+        vi.mocked(ParallelAgentManager.getInstance).mockReturnValue({
+            getTasksByParent: vi.fn(() => [{ id: "t1", status: "running" }]),
+        } as any);
+
+        const minimal: RouterDecision = {
+            intent: "simple-qa",
+            profile: "MINIMAL",
+            needs: ["rag"],
+            route: "commander",
+            confidence: 0.8,
+            source: "rule",
+        };
+        setRouterDecision("test-session", minimal);
+
+        const output: SystemTransformOutput = { system: [] };
+        await handler({ sessionID: "test-session" }, output);
+
+        expect(output.system.some(s => s.includes("MISSION LOOP ACTIVE"))).toBe(true);
+        expect(output.system.some(s => s.includes("Orchestrator Session Active"))).toBe(false);
+        expect(output.system.some(s => s.includes("Background Tasks Status"))).toBe(false);
+    });
+
+    it("consumes a router decision exactly once (next turn falls back to FULL)", async () => {
+        vi.mocked(readLoopState).mockReturnValue({
+            active: true,
+            iteration: 2,
+            maxIterations: 10,
+            prompt: "task",
+            sessionID: "test-session",
+            startedAt: new Date().toISOString(),
+        });
+
+        const minimal: RouterDecision = {
+            intent: "simple-qa",
+            profile: "MINIMAL",
+            needs: ["rag"],
+            route: "commander",
+            confidence: 0.8,
+            source: "rule",
+        };
+        setRouterDecision("test-session", minimal);
+
+        const first: SystemTransformOutput = { system: [] };
+        await handler({ sessionID: "test-session" }, first);
+        // MINIMAL: active-session excluded
+        expect(first.system.some(s => s.includes("Orchestrator Session Active"))).toBe(false);
+
+        // No decision set for the second turn → FULL fallback → active-session returns.
+        const second: SystemTransformOutput = { system: [] };
+        await handler({ sessionID: "test-session" }, second);
+        expect(second.system.some(s => s.includes("Orchestrator Session Active"))).toBe(true);
+
+        clearRouterDecision("test-session");
     });
 
     it("should inject mission scratchpad snapshot when present", async () => {
