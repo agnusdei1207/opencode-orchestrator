@@ -4,8 +4,7 @@ import { PATHS } from "../../shared/index.js";
 import type { MissionLoopState } from "../../shared/loop/types.js";
 import { readMissionLedger, type MissionLedgerEvent } from "../loop/mission-ledger.js";
 import { getMissionRuntimeOptions } from "../loop/mission-runtime-options.js";
-import { MemoryLevel, type MemoryEntry } from "../memory/interfaces.js";
-import { MemoryManager } from "../memory/memory-manager.js";
+import { MemoryLevel, MemoryManager, type MemoryEntry } from "../memory/memory-manager.js";
 import { horizonForLevel } from "./retrieval-weights.js";
 import { TagIndexer, type FrontmatterData } from "./tag-indexer.js";
 

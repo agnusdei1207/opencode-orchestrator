@@ -1,8 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { AgentRegistry } from "../../src/core/agents/agent-registry";
 import { buildRoutedAgentPrompt } from "../../src/core/agents/manager/prompt-routing";
-import { MemoryManager } from "../../src/core/memory/memory-manager";
-import { MemoryLevel } from "../../src/core/memory/interfaces";
+import { MemoryLevel, MemoryManager } from "../../src/core/memory/memory-manager";
 import { AGENT_NAMES, TOOL_NAMES } from "../../src/shared";
 
 vi.mock("../../src/core/agents/logger", () => ({ log: vi.fn() }));

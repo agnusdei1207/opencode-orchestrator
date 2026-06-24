@@ -13,8 +13,7 @@ import { KnowledgeContextProvider } from "../../src/core/knowledge/context-provi
 import { getMissionMemoryNotesDirPath, syncMissionMemory } from "../../src/core/knowledge/mission-memory.js";
 import { memoryStrength } from "../../src/core/knowledge/memory-scoring.js";
 import { MemoryLifecycle } from "../../src/core/knowledge/memory-lifecycle.js";
-import { MemoryManager } from "../../src/core/memory/memory-manager.js";
-import { MemoryLevel, type MemorySnapshot } from "../../src/core/memory/interfaces.js";
+import { MemoryLevel, MemoryManager, type MemorySnapshot } from "../../src/core/memory/memory-manager.js";
 
 function readNoteByPrefix(notesDir: string, prefix: string): string {
     const file = fs.readdirSync(notesDir).find(name => name.startsWith(prefix) && name.endsWith(".md"));

@@ -11,8 +11,7 @@ import type {
     ToolInput,
     ToolOutput,
 } from "../types.js";
-import { MemoryManager } from "../../core/memory/memory-manager.js";
-import { MemoryLevel } from "../../core/memory/interfaces.js";
+import { MemoryLevel, MemoryManager } from "../../core/memory/memory-manager.js";
 import { HOOK_ACTIONS } from "../constants.js";
 import { MEMORY_CONSTANTS, HOOK_NAMES } from "../../shared/index.js";
 
