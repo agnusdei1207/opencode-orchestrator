@@ -5,11 +5,13 @@
  */
 
 // Re-export public recovery types
-export type { RecoveryAction } from "./interfaces/recovery-action.js";
-export type { ErrorContext } from "./interfaces/error-context.js";
-export type { ErrorPattern } from "./interfaces/error-pattern.js";
-export type { RecoveryRecord } from "./interfaces/recovery-record.js";
-export type { RecoveryStats } from "./interfaces/recovery-stats.js";
+export type {
+    RecoveryAction,
+    ErrorContext,
+    RecoveryRecord,
+    RecoveryStats,
+} from "./handler.js";
+export type { ErrorPattern } from "./patterns.js";
 
 // Re-export patterns
 export { errorPatterns } from "./patterns.js";

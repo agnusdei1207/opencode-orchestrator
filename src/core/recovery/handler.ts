@@ -4,10 +4,36 @@
 
 import { RECOVERY, HISTORY } from "../../shared/index.js";
 import { errorPatterns } from "./patterns.js";
-import type { ErrorContext } from "./interfaces/error-context.js";
-import type { RecoveryAction } from "./interfaces/recovery-action.js";
-import type { RecoveryRecord } from "./interfaces/recovery-record.js";
-import type { RecoveryStats } from "./interfaces/recovery-stats.js";
+
+export interface ErrorContext {
+    sessionId: string;
+    taskId?: string;
+    agent?: string;
+    error: Error;
+    attempt: number;
+    timestamp: Date;
+}
+
+export type RecoveryAction =
+    | { type: "retry"; delay: number; attempt: number; modifyPrompt?: string }
+    | { type: "skip"; reason: string }
+    | { type: "escalate"; to: string; reason: string }
+    | { type: "resume"; sessionId: string }
+    | { type: "compact"; reason: string }
+    | { type: "abort"; reason: string };
+
+export interface RecoveryRecord {
+    context: ErrorContext;
+    action: RecoveryAction;
+    timestamp: Date;
+}
+
+export interface RecoveryStats {
+    totalRecoveries: number;
+    byCategory: Record<string, number>;
+    byAction: Record<string, number>;
+    successRate: number;
+}
 
 // Error tracking
 const errorCounts = new Map<string, number>();

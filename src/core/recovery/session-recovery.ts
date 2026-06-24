@@ -14,8 +14,7 @@ import type { PluginInput } from "@opencode-ai/plugin";
 import { PART_TYPES, BACKGROUND_TASK, RECOVERY, detectErrorType, getRetryDelay, ERROR_TYPE, type ErrorPatternType } from "../../shared/index.js";
 import { log } from "../agents/logger.js";
 import { presets } from "../notification/toast.js";
-import { handleError } from "./handler.js";
-import type { ErrorContext } from "./interfaces/error-context.js";
+import { handleError, type ErrorContext } from "./handler.js";
 
 type OpencodeClient = PluginInput["client"];
 

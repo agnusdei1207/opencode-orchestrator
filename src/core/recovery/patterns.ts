@@ -4,9 +4,13 @@
 
 import { RECOVERY } from "../../shared/index.js";
 import * as Toast from "../notification/toast.js";
-import type { ErrorContext } from "./interfaces/error-context.js";
-import type { ErrorPattern } from "./interfaces/error-pattern.js";
-import type { RecoveryAction } from "./interfaces/recovery-action.js";
+import type { ErrorContext, RecoveryAction } from "./handler.js";
+
+export interface ErrorPattern {
+    pattern: RegExp | string;
+    category: string;
+    handler: (context: ErrorContext) => RecoveryAction;
+}
 
 /**
  * Error patterns and their recovery strategies
