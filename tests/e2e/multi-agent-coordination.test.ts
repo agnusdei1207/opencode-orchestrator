@@ -16,8 +16,7 @@ vi.mock("../../src/core/agents/logger", () => ({
 
 import { TaskStore } from "../../src/core/agents/task-store";
 import { ConcurrencyController } from "../../src/core/agents/concurrency";
-import type { ParallelTask } from "../../src/core/agents/interfaces/parallel-task.interface";
-import { TASK_STATUS, AGENT_NAMES } from "../../src/shared";
+import { TASK_STATUS, AGENT_NAMES, type ParallelTask } from "../../src/shared";
 
 function createAgentTask(
     agent: string,

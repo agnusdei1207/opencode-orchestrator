@@ -9,7 +9,7 @@ export type {
     CacheDocumentEntry,
     CacheListEntry,
     CacheStats,
-} from "./interfaces.js";
+} from "./interfaces/index.js";
 
 // Re-export constants
 export { CACHE_DIR, METADATA_FILE, DEFAULT_TTL_MS } from "./constants.js";

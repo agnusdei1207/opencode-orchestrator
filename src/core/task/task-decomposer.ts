@@ -11,7 +11,7 @@ export type {
     TaskHierarchy,
     TaskProgress,
     TaskInput,
-} from "./interfaces.js";
+} from "./interfaces/index.js";
 
 // Re-export store operations
 export {

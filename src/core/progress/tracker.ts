@@ -11,7 +11,7 @@ export type {
     StepProgress,
     ProgressSnapshot,
     SnapshotInput,
-} from "./interfaces.js";
+} from "./interfaces/index.js";
 
 // Re-export store operations
 export {

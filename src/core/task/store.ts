@@ -2,8 +2,8 @@
  * Task Store - Hierarchy data management
  */
 
-import type { TaskNode, TaskHierarchy, TaskInput, TaskStatus, TaskProgress } from "./interfaces.js";
-import { TASK_STATUS } from "./interfaces.js";
+import type { TaskNode, TaskHierarchy, TaskInput, TaskStatus, TaskProgress } from "./interfaces/index.js";
+import { TASK_STATUS } from "./interfaces/index.js";
 import { ID_PREFIX } from "../../shared/index.js";
 
 // Store task hierarchies by session

@@ -1,10 +1,12 @@
-import type { ParallelTask } from "../../src/shared/task/interfaces/parallel-task";
-import type { BackgroundTask } from "../../src/shared/command/interfaces/background-task";
-import type { Todo } from "../../src/shared/loop/interfaces/todo";
-import type { ParallelTaskStatus } from "../../src/shared/task/types/parallel-task-status";
-import type { BackgroundTaskStatus } from "../../src/shared/command/types/background-task-status";
-import type { TodoStatus } from "../../src/shared/loop/types/todo-status";
-import type { TodoPriority } from "../../src/shared/loop/types/todo-priority";
+import type {
+    BackgroundTask,
+    BackgroundTaskStatus,
+    ParallelTask,
+    ParallelTaskStatus,
+    Todo,
+    TodoPriority,
+    TodoStatus,
+} from "../../src/shared";
 import { vi } from "vitest";
 
 let taskCounter = 0;
