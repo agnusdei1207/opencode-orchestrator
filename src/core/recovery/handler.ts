@@ -4,7 +4,10 @@
 
 import { RECOVERY, HISTORY } from "../../shared/index.js";
 import { errorPatterns } from "./patterns.js";
-import type { ErrorContext, RecoveryAction, RecoveryRecord, RecoveryStats } from "./interfaces/index.js";
+import type { ErrorContext } from "./interfaces/error-context.js";
+import type { RecoveryAction } from "./interfaces/recovery-action.js";
+import type { RecoveryRecord } from "./interfaces/recovery-record.js";
+import type { RecoveryStats } from "./interfaces/recovery-stats.js";
 
 // Error tracking
 const errorCounts = new Map<string, number>();

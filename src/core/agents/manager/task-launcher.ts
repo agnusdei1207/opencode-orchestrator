@@ -17,7 +17,7 @@ import type { LaunchInput, ParallelTask } from "../../../shared/index.js";
 
 import { SessionPool } from "../session-pool.js";
 import { handleError } from "../../recovery/auto-recovery.js";
-import type { ErrorContext } from "../../recovery/interfaces/index.js";
+import type { ErrorContext } from "../../recovery/interfaces/error-context.js";
 import { log } from "../logger.js";
 import { taskPool } from "../../pool/task-pool.js";
 import { buildRoutedAgentPrompt } from "./prompt-routing.js";
