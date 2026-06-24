@@ -2,7 +2,8 @@
  * Progress Store - Session data management
  */
 
-import type { ProgressSnapshot, SnapshotInput } from "./interfaces/index.js";
+import type { ProgressSnapshot } from "./interfaces/progress-snapshot.js";
+import type { SnapshotInput } from "./interfaces/snapshot-input.js";
 import { HISTORY, LIMITS } from "../../shared/index.js";
 
 // Progress history by session

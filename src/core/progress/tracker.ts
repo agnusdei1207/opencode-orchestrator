@@ -5,13 +5,11 @@
  */
 
 // Re-export interfaces
-export type {
-    TodoProgress,
-    TaskProgress,
-    StepProgress,
-    ProgressSnapshot,
-    SnapshotInput,
-} from "./interfaces/index.js";
+export type { TodoProgress } from "./interfaces/todo-progress.js";
+export type { TaskProgress } from "./interfaces/task-progress.js";
+export type { StepProgress } from "./interfaces/step-progress.js";
+export type { ProgressSnapshot } from "./interfaces/progress-snapshot.js";
+export type { SnapshotInput } from "./interfaces/snapshot-input.js";
 
 // Re-export store operations
 export {
