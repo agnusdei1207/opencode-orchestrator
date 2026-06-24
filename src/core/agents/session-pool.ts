@@ -11,12 +11,38 @@
 import type { PluginInput } from "@opencode-ai/plugin";
 import { PARALLEL_TASK } from "../../shared/index.js";
 import { log } from "./logger.js";
-import type {
-    PooledSession,
-    SessionPoolConfig,
-    SessionPoolStats,
-    ISessionPool,
-} from "./interfaces/session-pool.interface.js";
+
+interface PooledSession {
+    id: string;
+    agentName: string;
+    projectDirectory: string;
+    createdAt: Date;
+    lastUsedAt: Date;
+    reuseCount: number;
+    inUse: boolean;
+    lastResetAt?: Date;
+    health: "healthy" | "degraded" | "unhealthy";
+}
+
+interface SessionPoolConfig {
+    maxPoolSizePerAgent: number;
+    idleTimeoutMs: number;
+    maxReuseCount: number;
+    healthCheckIntervalMs: number;
+}
+
+interface SessionPoolStats {
+    totalSessions: number;
+    sessionsInUse: number;
+    availableSessions: number;
+    reuseHits: number;
+    creationMisses: number;
+    byAgent: Record<string, {
+        total: number;
+        inUse: number;
+        available: number;
+    }>;
+}
 
 type OpencodeClient = PluginInput["client"] & {
     v2?: {
@@ -33,7 +59,7 @@ const DEFAULT_CONFIG: SessionPoolConfig = {
     healthCheckIntervalMs: 60_000, // 1 minute
 };
 
-export class SessionPool implements ISessionPool {
+export class SessionPool {
     private static _instance: SessionPool;
 
     private pool: Map<string, PooledSession[]> = new Map(); // key: agentName

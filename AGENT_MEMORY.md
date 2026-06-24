@@ -2,75 +2,74 @@
 
 ## Current Task
 
-User requested repeated fresh exhaustive audit passes, with commit and push after each pass. Current pass completed: 18. The broader requested target remains active beyond this session.
+User requested repeated fresh exhaustive audit passes, with commit and push after each pass. Current pass completed: 19. The broader requested target remains active beyond this session.
 
 ## Last Completed Step
 
-Completed audit pass 18 after migrating agent launch/resume input ownership to the shared task contract and removing core agent input wrapper files.
+Completed audit pass 19 after internalizing session-pool implementation types and deleting the remaining core agents interface file.
 
-- Confirmed `main` was aligned with `origin/main` at `bacb5d9` before pass 18 changes.
-- Reopened `AGENT_MEMORY.md`, `AGENTS.md`, `src/shared/task/types.ts`, `src/core/agents/interfaces/launch-input.interface.ts`, `src/core/agents/interfaces/resume-input.interface.ts`, `src/core/agents/interfaces/index.ts`, `src/core/agents/manager.ts`, `src/core/agents/manager/task-launcher.ts`, and `src/core/agents/manager/task-resumer.ts`.
-- Reopened `src/core/agents/interfaces/session-pool.interface.ts`, `src/core/agents/session-pool.ts`, and `src/core/agents/index.ts` to verify remaining interface ownership and public exports.
-- Confirmed `ResumeInput` was duplicated exactly between shared task types and core agent interfaces.
-- Confirmed `LaunchInput` was duplicated except for active runtime fields `mode` and `groupID` used by delegate task and unit-review launch paths.
-- Added `mode?: "normal" | "race" | "fractal"` and `groupID?: string` to canonical `src/shared/task/types.ts` `LaunchInput`.
-- Updated `src/core/agents/manager.ts`, `src/core/agents/manager/task-launcher.ts`, and `src/core/agents/manager/task-resumer.ts` to import `LaunchInput` and `ResumeInput` from shared.
-- Removed `src/core/agents/interfaces/launch-input.interface.ts`, `src/core/agents/interfaces/resume-input.interface.ts`, and `src/core/agents/interfaces/index.ts`.
-- Removed the dead interface barrel export from `src/core/agents/index.ts`.
+- Confirmed `main` was aligned with `origin/main` at `df7feb9` before pass 19 changes.
+- Reopened `AGENT_MEMORY.md`, `AGENTS.md`, `src/core/agents/interfaces/session-pool.interface.ts`, `src/core/agents/session-pool.ts`, `src/core/agents/index.ts`, `src/core/orchestrator/interfaces/session-state.ts`, `src/core/orchestrator/interfaces/index.ts`, `src/core/orchestrator/session-manager.ts`, and `src/core/orchestrator/state.ts`.
+- Traced `PooledSession`, `SessionPoolConfig`, `SessionPoolStats`, and `ISessionPool` consumers with `rg`.
+- Confirmed those session-pool types were consumed only by `src/core/agents/session-pool.ts`.
+- Moved `PooledSession`, `SessionPoolConfig`, and `SessionPoolStats` into `src/core/agents/session-pool.ts` as local implementation interfaces.
+- Removed the unused `ISessionPool` abstraction and the `implements ISessionPool` clause from `SessionPool`.
+- Deleted `src/core/agents/interfaces/session-pool.interface.ts`.
+- Confirmed `src/core/agents/interfaces/` is now empty.
+- Surveyed orchestrator `SessionState` files and left them for a separate pass because they have direct production/test consumers.
 
 ## Next Exact Step
 
-Start audit pass 19 from current state:
+Start audit pass 20 from current state:
 
 1. Open `AGENT_MEMORY.md`.
 2. Run `git status --branch --short`.
-3. Reopen the pass-19 target files listed below.
-4. Continue compatibility/debt removal from fresh evidence, starting with session-pool interface ownership and remaining core/orchestrator interface barrels.
+3. Reopen the pass-20 target files listed below.
+4. Continue compatibility/debt removal from fresh evidence, starting with orchestrator `SessionState` ownership and the `src/core/orchestrator/interfaces/index.ts` barrel.
 
 ## Incomplete Items And Why
 
-The full requested repeated-pass objective is not complete. Pass 18 is complete and ready to commit/push.
+The full requested repeated-pass objective is not complete. Pass 19 is complete and ready to commit/push.
 
 ## Key Decisions
 
-- `src/shared/task/types.ts` is the canonical owner of agent launch/resume task contracts.
-- `LaunchInput.mode` and `LaunchInput.groupID` are real runtime fields, so they belong in the canonical shared contract rather than a core-only duplicate.
-- `src/core/agents/index.ts` should expose agent classes only; removed input types come from shared.
-- `src/core/agents/interfaces/session-pool.interface.ts` remains for now because it describes the internal session-pool implementation and is still consumed by `src/core/agents/session-pool.ts`.
+- Session-pool types are implementation details, not shared/public contracts.
+- `ISessionPool` was an unused abstraction and added no active boundary.
+- The session-pool change was kept separate from orchestrator `SessionState` migration to avoid mixing two ownership decisions.
 
 ## Rejected Alternatives
 
-- Rejected deleting `mode` and `groupID` from launch inputs because delegate task and unit-review paths actively use them.
-- Rejected preserving the core launch/resume interface files as compatibility paths because current consumers can import the canonical shared types.
-- Rejected moving session-pool interfaces in the same pass because that is a separate ownership question from task launch/resume contracts.
+- Rejected exporting session-pool types from `src/core/agents/index.ts` because no current consumer needs them.
+- Rejected keeping `src/core/agents/interfaces/session-pool.interface.ts` as a compatibility path because all consumers were internal to one file.
+- Rejected modifying orchestrator `SessionState` in the same pass because it has direct production and test consumers that need a focused trace.
 
 ## Known Risks
 
 - The broader 100/1000-pass objective is intentionally not marked complete.
-- External consumers importing removed `src/core/agents/interfaces/*` launch/resume paths would need to import canonical shared task types instead, matching the user's no-compatibility-shim direction.
-- Session-pool interface ownership and other interface barrels still need dedicated fresh passes.
+- External consumers importing removed `src/core/agents/interfaces/session-pool.interface.ts` would need to stop relying on internal implementation types, matching the user's no-compatibility-shim direction.
+- Orchestrator `SessionState` and `src/core/orchestrator/interfaces/index.ts` still need a dedicated fresh pass.
 
 ## Verification Observed
 
-- Baseline focused tests before edits: `tests/unit/task-launcher.test.ts`, `tests/unit/task-resumer.test.ts`, `tests/unit/delegate-task.test.ts`, and `tests/unit/parallel-manager.test.ts`, 4 files and 19 tests passed.
+- Baseline focused tests before edits: `tests/unit/session-pool-reset.test.ts`, `tests/unit/parallel-manager.test.ts`, and `tests/unit/task-launcher.test.ts`, 3 files and 20 tests passed.
 - Baseline `npm run build --silent`: passed.
-- Focused tests after edits: same 4 files and 19 tests passed.
+- Focused tests after edits: same 3 files and 20 tests passed.
 - `npm run build --silent`: passed after edits.
 - Final `npx vitest run --reporter=dot`: passed, 96 files and 806 tests.
 - `cargo fmt --check`: passed.
 - `cargo test -p orchestrator-cli -p orchestrator-core --quiet`: passed, CLI 12 tests and core 35 tests.
-- `test ! -e src/core/agents/interfaces/launch-input.interface.ts && test ! -e src/core/agents/interfaces/resume-input.interface.ts && test ! -e src/core/agents/interfaces/index.ts && echo deleted`: printed `deleted`.
-- `rg -n "core/agents/interfaces|agents/interfaces|launch-input\.interface|resume-input\.interface|from [\"']\.\/interfaces\/index\.js|from [\"']\.\/interfaces\/index" src/core/agents src/tools tests -g '*.ts'`: no matches.
-- `git diff --check`: passed.
+- `test ! -e src/core/agents/interfaces/session-pool.interface.ts && echo deleted`: printed `deleted`.
+- `find src/core/agents/interfaces -maxdepth 2 -type f -name '*.ts' -print | sort`: no output.
+- `rg -n "session-pool\.interface|core/agents/interfaces/session-pool|ISessionPool" src tests -g '*.ts'`: no matches.
 
 ## Files To Open First Next Session
 
 1. `AGENT_MEMORY.md`
 2. `git status --branch --short`
-3. `src/core/agents/interfaces/session-pool.interface.ts`
-4. `src/core/agents/session-pool.ts`
-5. `src/core/agents/index.ts`
-6. `src/core/orchestrator/interfaces/session-state.ts`
-7. `src/core/orchestrator/interfaces/index.ts`
-8. `src/core/orchestrator/session-manager.ts`
-9. `src/core/orchestrator/state.ts`
+3. `src/core/orchestrator/interfaces/session-state.ts`
+4. `src/core/orchestrator/interfaces/index.ts`
+5. `src/core/orchestrator/session-manager.ts`
+6. `src/core/orchestrator/state.ts`
+7. `src/core/orchestrator/index.ts`
+8. `src/index.ts`
+9. `tests/unit/hooks.test.ts`
