@@ -2,7 +2,11 @@
  * Context Store - Session context data management
  */
 
-import type { SharedContext, SharedDocument, SharedFinding, SharedDecision, ContextStats } from "./interfaces/index.js";
+import type { ContextStats } from "./interfaces/context-stats.js";
+import type { SharedContext } from "./interfaces/shared-context.js";
+import type { SharedDecision } from "./interfaces/shared-decision.js";
+import type { SharedDocument } from "./interfaces/shared-document.js";
+import type { SharedFinding } from "./interfaces/shared-finding.js";
 
 // Global context store
 const contexts = new Map<string, SharedContext>();
