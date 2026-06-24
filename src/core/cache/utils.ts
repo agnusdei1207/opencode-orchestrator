@@ -5,7 +5,7 @@
 import * as fs from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { PATHS } from "../../shared/index.js";
-import type { CacheMetadata } from "./interfaces/index.js";
+import type { CacheMetadata } from "./interfaces/cache-metadata.js";
 
 /**
  * Ensure cache directory exists

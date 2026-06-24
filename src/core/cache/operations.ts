@@ -6,7 +6,9 @@ import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { CACHE, PATHS } from "../../shared/index.js";
 import { ensureCacheDir, urlToFilename, readMetadata, writeMetadata } from "./utils.js";
-import type { CachedDocument, CacheListEntry, CacheStats } from "./interfaces/index.js";
+import type { CacheListEntry } from "./interfaces/cache-list-entry.js";
+import type { CacheStats } from "./interfaces/cache-stats.js";
+import type { CachedDocument } from "./interfaces/cached-document.js";
 
 /**
  * Get cached document by URL
