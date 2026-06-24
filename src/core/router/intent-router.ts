@@ -164,10 +164,25 @@ export function classifyIntent(prompt: string, signals: RouterSignals): RouterDe
 
 const pendingDecisions = new Map<string, RouterDecision>();
 
+/**
+ * Upper bound on un-consumed decisions. A decision is normally consumed on the
+ * next system-transform; this cap only guards against sessions that set one and
+ * never reach system-transform, so the map can never grow without bound.
+ */
+const MAX_PENDING_DECISIONS = 1024;
+
 /** Store the routing decision for the next system-transform of this session. */
 export function setRouterDecision(sessionID: string, decision: RouterDecision): void {
     if (!sessionID) return;
+    // Re-inserting moves the key to the most-recent position (Map keeps order).
+    pendingDecisions.delete(sessionID);
     pendingDecisions.set(sessionID, decision);
+    // Evict the oldest un-consumed entries if we somehow exceed the cap.
+    while (pendingDecisions.size > MAX_PENDING_DECISIONS) {
+        const oldest = pendingDecisions.keys().next().value;
+        if (oldest === undefined) break;
+        pendingDecisions.delete(oldest);
+    }
 }
 
 /**

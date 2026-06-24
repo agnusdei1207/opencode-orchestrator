@@ -226,7 +226,7 @@ describe("System Transform Handler", () => {
         expect(output.system.some(s => s.includes("Background Tasks Status"))).toBe(true);
     });
 
-    it("gates auxiliary blocks per router decision (MINIMAL keeps only core + rag)", async () => {
+    it("escalates a MINIMAL decision to FULL during an active mission (invariant guard)", async () => {
         vi.mocked(readLoopState).mockReturnValue({
             active: true,
             iteration: 2,
@@ -239,6 +239,7 @@ describe("System Transform Handler", () => {
             getTasksByParent: vi.fn(() => [{ id: "t1", status: "running" }]),
         } as any);
 
+        // A MINIMAL decision computed before the mission activated (transition turn).
         const minimal: RouterDecision = {
             intent: "simple-qa",
             profile: "MINIMAL",
@@ -252,9 +253,10 @@ describe("System Transform Handler", () => {
         const output: SystemTransformOutput = { system: [] };
         await handler({ sessionID: "test-session" }, output);
 
+        // Guard escalates MINIMAL → FULL: every auxiliary block returns.
         expect(output.system.some(s => s.includes("MISSION LOOP ACTIVE"))).toBe(true);
-        expect(output.system.some(s => s.includes("Orchestrator Session Active"))).toBe(false);
-        expect(output.system.some(s => s.includes("Background Tasks Status"))).toBe(false);
+        expect(output.system.some(s => s.includes("Orchestrator Session Active"))).toBe(true);
+        expect(output.system.some(s => s.includes("Background Tasks Status"))).toBe(true);
     });
 
     it("consumes a router decision exactly once (next turn falls back to FULL)", async () => {
@@ -267,19 +269,20 @@ describe("System Transform Handler", () => {
             startedAt: new Date().toISOString(),
         });
 
-        const minimal: RouterDecision = {
-            intent: "simple-qa",
-            profile: "MINIMAL",
-            needs: ["rag"],
+        // STANDARD legitimately drops active-session while keeping core.
+        const standard: RouterDecision = {
+            intent: "mission-step",
+            profile: "STANDARD",
+            needs: ["rag", "scratchpad", "background"],
             route: "commander",
-            confidence: 0.8,
+            confidence: 0.75,
             source: "rule",
         };
-        setRouterDecision("test-session", minimal);
+        setRouterDecision("test-session", standard);
 
         const first: SystemTransformOutput = { system: [] };
         await handler({ sessionID: "test-session" }, first);
-        // MINIMAL: active-session excluded
+        // STANDARD: active-session excluded
         expect(first.system.some(s => s.includes("Orchestrator Session Active"))).toBe(false);
 
         // No decision set for the second turn → FULL fallback → active-session returns.

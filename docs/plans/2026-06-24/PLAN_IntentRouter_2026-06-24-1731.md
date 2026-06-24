@@ -150,6 +150,14 @@ Signals (rule, local):
 - Core blocks (commander + mission-loop) never gated.
 - code-edit / mission-step heavy turns always FULL → zero block loss on high-risk paths.
 - Log `intent / profile / confidence / source` for distribution review.
+- **Invariant guard (mission-start transition):** `system.transform` escalates any
+  `MINIMAL` decision to `FULL`, because a mission turn is always floored to STANDARD
+  by the classifier. A `MINIMAL` reaching the gate means the decision was computed
+  before the mission activated (the first/transition turn), so it is escalated rather
+  than allowed to trim mission context.
+- **Bounded decision store:** the consume-once map is capped (1024) with oldest-entry
+  eviction, so sessions that set a decision but never reach `system.transform` cannot
+  grow it without bound.
 
 ## 8. Phased rollout
 

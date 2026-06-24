@@ -117,6 +117,41 @@ describe("consume-once decision store", () => {
     });
 });
 
+describe("edge cases", () => {
+    it("never throws and stays safe on empty / whitespace prompts", () => {
+        for (const p of ["", "   ", "\n\t"]) {
+            const d = classifyIntent(p, NO_MISSION);
+            expect(d.route).toBe("commander");
+            expect(["MINIMAL", "STANDARD", "FULL"]).toContain(d.profile);
+        }
+    });
+
+    it("detects Korean code-edit intent (substring, since \\b is ASCII-only)", () => {
+        const d = classifyIntent("이 파일 수정해줘", NO_MISSION);
+        expect(d.intent).toBe("code-edit");
+        expect(d.profile).toBe("FULL");
+    });
+
+    it("detects Korean planning intent", () => {
+        const d = classifyIntent("전체 구조 비교해서 방향 잡자", NO_MISSION);
+        expect(d.intent).toBe("planning");
+    });
+});
+
+describe("pending-decision store is bounded", () => {
+    it("evicts the oldest entries beyond the cap and keeps the newest", () => {
+        const d = classifyIntent("뭐야?", NO_MISSION);
+        // Exceed the 1024 cap; the very first session must be evicted.
+        for (let i = 0; i < 1100; i++) {
+            setRouterDecision(`bounded-${i}`, d);
+        }
+        expect(consumeRouterDecision("bounded-0")).toBeNull();
+        expect(consumeRouterDecision("bounded-1099")).not.toBeNull();
+        // cleanup
+        for (let i = 0; i < 1100; i++) clearRouterDecision(`bounded-${i}`);
+    });
+});
+
 describe("feature flag", () => {
     it("is enabled by default and disabled via env", () => {
         const prev = process.env.ORCHESTRATOR_ROUTER_DISABLED;

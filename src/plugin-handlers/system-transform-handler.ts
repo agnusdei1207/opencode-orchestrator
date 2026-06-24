@@ -47,7 +47,14 @@ export function createSystemTransformHandler(ctx: EventHandlerContext) {
         // Intent router decision for this turn (consume-once). A missing decision
         // (e.g. a mission auto-continuation turn with no preceding chat.message)
         // falls back to FULL — the always-safe, today's-behavior path.
-        const decision = consumeRouterDecision(sessionID) ?? FULL_DECISION;
+        let decision = consumeRouterDecision(sessionID) ?? FULL_DECISION;
+        // Invariant guard: MINIMAL must never apply while a mission is active (the
+        // classifier floors mission turns to STANDARD). Seeing MINIMAL here means
+        // the decision was computed before the mission activated (a start/transition
+        // turn) — escalate to FULL so a transition can never starve mission context.
+        if (decision.profile === "MINIMAL") {
+            decision = FULL_DECISION;
+        }
         const needs = decision.needs;
         if (decision.source !== "fallback") {
             log("[system-transform] applying router decision", {
