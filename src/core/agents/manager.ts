@@ -40,6 +40,7 @@ export type { ParallelTask };
 export { formatDuration };
 
 type OpencodeClient = PluginInput["client"];
+const UNIT_REVIEW_DESCRIPTION_LIMIT = 240;
 
 export class ParallelAgentManager {
     private static _instance: ParallelAgentManager;
@@ -308,8 +309,7 @@ export class ParallelAgentManager {
                 await this.launch({
                     agent: AGENT_NAMES.REVIEWER,
                     description: `Unit Review: ${task.description}`,
-                    prompt: `Review completed task: ${task.description}\n` +
-                        `Check tests, code quality, and integration risks. Return findings only.`,
+                    prompt: buildUnitReviewPrompt(task),
                     parentSessionID: task.parentSessionID,
                     depth: task.depth,
                     groupID: task.groupID || task.id, // Group reviews with their origins
@@ -334,3 +334,18 @@ export const parallelAgentManager = {
         }
     },
 };
+
+export function buildUnitReviewPrompt(task: Pick<ParallelTask, "id" | "description">): string {
+    return [
+        "[UNIT REVIEW]",
+        `task=${task.id}`,
+        `desc=${compactWireValue(task.description, UNIT_REVIEW_DESCRIPTION_LIMIT)}`,
+        "check=tests,quality,integration",
+        "return=findings_only",
+    ].join("\n");
+}
+
+function compactWireValue(value: string, limit: number): string {
+    const compact = value.replace(/\s+/g, " ").trim();
+    return compact.length > limit ? `${compact.slice(0, limit - 3)}...` : compact;
+}

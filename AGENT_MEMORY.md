@@ -2,54 +2,57 @@
 
 ## Current Task
 
-User requested repeated fresh exhaustive audit passes, with commit and push after each pass. Current pass completed: 2. The broader requested target remains active beyond this session.
+User requested repeated fresh exhaustive audit passes, with commit and push after each pass. Current pass completed: 3. The broader requested target remains active beyond this session.
 
 ## Last Completed Step
 
-Completed audit pass 2 after reopening the pass-2 files and current worktree state.
+Completed audit pass 3 after reopening the pass-3 files and current worktree state.
 
-- Confirmed `main` was aligned with `origin/main` at `c7eed61` before pass 2 changes.
-- Reopened `AGENT_MEMORY.md`, `src/core/agents/manager/prompt-routing.ts`, `src/core/agents/format.ts`, `src/core/agents/manager/task-cleaner.ts`, `tests/unit/prompt-routing.test.ts`, `tests/unit/task-format.test.ts`, and `tests/unit/task-cleaner.test.ts`.
-- Found that completed background task notifications still used an XML wrapper plus prose before the compact task ids/statuses.
-- Replaced that completion notification with a minimal wire format:
-  - `[BACKGROUND COMPLETE]`
-  - `results=<taskId>:<agent>:<status>,...`
-  - `next=get_task_result`
-- Kept rich task descriptions in user-facing toast data only.
+- Confirmed `main` was aligned with `origin/main` at `2568801` before pass 3 changes.
+- Reopened `AGENT_MEMORY.md`, `src/core/agents/manager/task-launcher.ts`, `src/core/agents/manager/task-resumer.ts`, `src/core/agents/manager.ts`, `tests/unit/task-launcher.test.ts`, `tests/unit/task-resumer.test.ts`, and `tests/unit/delegate-task.test.ts`.
+- Confirmed launcher/resumer both route through `buildRoutedAgentPrompt(...)`.
+- Found the automatic Worker-to-Reviewer MSVP prompt still used prose: `Review completed task... Check tests... Return findings only.`
+- Replaced it with a compact wire-format helper:
+  - `[UNIT REVIEW]`
+  - `task=<taskId>`
+  - `desc=<single-line truncated description>`
+  - `check=tests,quality,integration`
+  - `return=findings_only`
+- Added a regression test for the compact unit review prompt contract.
 
 ## Next Exact Step
 
-Start audit pass 3 from current state:
+Start audit pass 4 from current state:
 
 1. Open `AGENT_MEMORY.md`.
 2. Run `git status --branch --short`.
-3. Reopen the pass-3 target files listed below.
-4. Search for a different class of residual routing, lifecycle, or SDK complexity than pass 2.
+3. Reopen the pass-4 target files listed below.
+4. Search for a different class of residual routing, lifecycle, or SDK complexity than pass 3.
 
 ## Incomplete Items And Why
 
-The full requested repeated-pass objective is not complete. Pass 2 is complete and ready to commit/push.
+The full requested repeated-pass objective is not complete. Pass 3 is complete and ready to commit/push.
 
 ## Key Decisions
 
-- Agent-to-agent completion messages should avoid XML wrappers and prose when structured key lines are enough.
-- User-facing task toasts remain the place for rich descriptions and durations.
+- Automatic reviewer prompts are agent-to-agent messages and should use the same compact key-line style as task completion notices.
+- Exposing `buildUnitReviewPrompt(...)` gives a small testable contract for this routing edge.
 
 ## Rejected Alternatives
 
-- Rejected keeping `<system-notification>` around task completion messages because the payload is already injected as a system-style session prompt and the wrapper adds tokens without adding data.
+- Rejected leaving the MSVP review prompt as prose because it duplicated intent in more tokens and was not directly covered by a regression test.
 
 ## Known Risks
 
 - The broader 100/1000-pass objective is intentionally not marked complete.
-- Completion wire format now uses colon/comma separators; task ids and agent names are expected not to contain those separators in current generated paths.
+- `buildUnitReviewPrompt(...)` truncates descriptions to 240 characters for compactness; if future task ids or descriptions need escaping, add a structured encoder instead of returning to prose.
 
 ## Verification Observed
 
-- Focused tests passed: `tests/unit/task-format.test.ts`, `tests/unit/task-cleaner.test.ts`, `tests/unit/prompt-routing.test.ts` with 7 tests.
-- `rg -n "Background tasks complete|system-notification|Next: call get_task_result|BACKGROUND COMPLETE|results=" src tests -g '*.ts'` showed only the new compact format and negative assertions.
+- Focused tests passed: `tests/unit/parallel-manager.test.ts`, `tests/unit/task-launcher.test.ts`, `tests/unit/task-resumer.test.ts`, and `tests/unit/delegate-task.test.ts` with 17 tests.
+- `rg -n "Review completed task|Return findings only|UNIT REVIEW|buildUnitReviewPrompt|Check tests, code quality" src tests -g '*.ts'` showed only the new compact helper and negative assertions.
 - `npm run build`: passed.
-- `npm test`: passed, 96 files and 803 tests.
+- `npm test`: passed, 96 files and 804 tests.
 - `cargo fmt --check`: passed.
 - `cargo test -p orchestrator-cli -p orchestrator-core`: passed, CLI 12 tests and core 35 tests.
 - `git diff --check`: passed.
@@ -58,9 +61,9 @@ The full requested repeated-pass objective is not complete. Pass 2 is complete a
 
 1. `AGENT_MEMORY.md`
 2. `git status --short`
-3. `src/core/agents/manager/task-launcher.ts`
-4. `src/core/agents/manager/task-resumer.ts`
-5. `src/core/agents/manager.ts`
-6. `tests/unit/task-launcher.test.ts`
-7. `tests/unit/task-resumer.test.ts`
-8. `tests/unit/delegate-task.test.ts`
+3. `src/core/agents/manager/task-poller.ts`
+4. `src/core/agents/manager/event-handler.ts`
+5. `src/core/agents/task-store.ts`
+6. `tests/unit/parallel-manager.test.ts`
+7. `tests/e2e/full-system.test.ts`
+8. `tests/unit/integration.test.ts`

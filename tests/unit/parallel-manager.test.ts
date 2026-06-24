@@ -28,6 +28,7 @@ vi.mock("../../src/core/agents/logger", () => ({
 import { TaskStore } from "../../src/core/agents/task-store";
 import { ConcurrencyController } from "../../src/core/agents/concurrency";
 import { EventHandler } from "../../src/core/agents/manager/event-handler";
+import { buildUnitReviewPrompt } from "../../src/core/agents/manager";
 import type { ParallelTask } from "../../src/core/agents/interfaces/parallel-task.interface";
 import { TASK_STATUS } from "../../src/shared";
 
@@ -55,6 +56,25 @@ describe("ParallelAgentManager Features", () => {
     beforeEach(() => {
         store = new TaskStore();
         concurrency = new ConcurrencyController();
+    });
+
+    describe("unit review prompt", () => {
+        it("builds a compact reviewer prompt without prose wrappers", () => {
+            const prompt = buildUnitReviewPrompt(createMockTask({
+                id: "task_review",
+                description: "Implement routing\n\nwith evidence and tests",
+            }));
+
+            expect(prompt).toBe(
+                "[UNIT REVIEW]\n" +
+                "task=task_review\n" +
+                "desc=Implement routing with evidence and tests\n" +
+                "check=tests,quality,integration\n" +
+                "return=findings_only",
+            );
+            expect(prompt).not.toContain("Review completed task");
+            expect(prompt).not.toContain("Return findings only.");
+        });
     });
 
     // ========================================================================
