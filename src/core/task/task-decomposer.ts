@@ -5,13 +5,10 @@
  */
 
 // Re-export interfaces
-export type {
-    TaskStatus,
-    TaskNode,
-    TaskHierarchy,
-    TaskProgress,
-    TaskInput,
-} from "./interfaces/index.js";
+export type { TaskStatus, TaskNode } from "./interfaces/task-node.js";
+export type { TaskHierarchy } from "./interfaces/task-hierarchy.js";
+export type { TaskProgress } from "./interfaces/task-progress.js";
+export type { TaskInput } from "./interfaces/task-input.js";
 
 // Re-export store operations
 export {

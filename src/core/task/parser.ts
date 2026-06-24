@@ -2,7 +2,7 @@
  * Task Parser - Parse hierarchy from Planner output
  */
 
-import type { TaskHierarchy } from "./interfaces/index.js";
+import type { TaskHierarchy } from "./interfaces/task-hierarchy.js";
 import { create, addTask, getHierarchy } from "./store.js";
 import { TASK_METADATA } from "../../shared/index.js";
 
