@@ -1,6 +1,5 @@
-import { state } from "./state.js";
+import { state, type SessionState } from "./state.js";
 import { log } from "../agents/logger.js";
-import { SessionState } from "./interfaces/session-state.js";
 
 /**
  * Session Manager

@@ -22,7 +22,7 @@ import { state } from "../../src/core/orchestrator/state";
 import { updateSessionTokens, recordAnomaly } from "../../src/core/orchestrator/session-manager";
 import { MISSION_MESSAGES } from "../../src/shared/constants/system-messages.js";
 import type { HookContext } from "../../src/hooks/types";
-import type { SessionState } from "../../src/core/orchestrator/interfaces/session-state";
+import type { SessionState } from "../../src/core/orchestrator/state";
 
 // Mock dependencies
 vi.mock("../../src/core/agents/logger", () => ({ log: vi.fn() }));

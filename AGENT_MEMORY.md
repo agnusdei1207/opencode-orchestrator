@@ -2,74 +2,76 @@
 
 ## Current Task
 
-User requested repeated fresh exhaustive audit passes, with commit and push after each pass. Current pass completed: 19. The broader requested target remains active beyond this session.
+User requested repeated fresh exhaustive audit passes, with commit and push after each pass. Current pass completed: 20. The broader requested target remains active beyond this session.
 
 ## Last Completed Step
 
-Completed audit pass 19 after internalizing session-pool implementation types and deleting the remaining core agents interface file.
+Completed audit pass 20 after moving orchestrator `SessionState` ownership to the state module and deleting the orchestrator interface barrel.
 
-- Confirmed `main` was aligned with `origin/main` at `df7feb9` before pass 19 changes.
-- Reopened `AGENT_MEMORY.md`, `AGENTS.md`, `src/core/agents/interfaces/session-pool.interface.ts`, `src/core/agents/session-pool.ts`, `src/core/agents/index.ts`, `src/core/orchestrator/interfaces/session-state.ts`, `src/core/orchestrator/interfaces/index.ts`, `src/core/orchestrator/session-manager.ts`, and `src/core/orchestrator/state.ts`.
-- Traced `PooledSession`, `SessionPoolConfig`, `SessionPoolStats`, and `ISessionPool` consumers with `rg`.
-- Confirmed those session-pool types were consumed only by `src/core/agents/session-pool.ts`.
-- Moved `PooledSession`, `SessionPoolConfig`, and `SessionPoolStats` into `src/core/agents/session-pool.ts` as local implementation interfaces.
-- Removed the unused `ISessionPool` abstraction and the `implements ISessionPool` clause from `SessionPool`.
-- Deleted `src/core/agents/interfaces/session-pool.interface.ts`.
-- Confirmed `src/core/agents/interfaces/` is now empty.
-- Surveyed orchestrator `SessionState` files and left them for a separate pass because they have direct production/test consumers.
+- Confirmed `main` was aligned with `origin/main` at `d877a84` before pass 20 changes.
+- Reopened `AGENT_MEMORY.md`, `AGENTS.md`, `src/core/orchestrator/interfaces/session-state.ts`, `src/core/orchestrator/interfaces/index.ts`, `src/core/orchestrator/session-manager.ts`, `src/core/orchestrator/state.ts`, `src/core/orchestrator/index.ts`, `src/index.ts`, and `tests/unit/hooks.test.ts`.
+- Traced `SessionState` and orchestrator interface consumers with `rg`.
+- Confirmed `SessionState` was the global state shape owned operationally by `src/core/orchestrator/state.ts`.
+- Moved the `SessionState` interface into `src/core/orchestrator/state.ts`.
+- Updated `src/core/orchestrator/session-manager.ts` and `tests/unit/hooks.test.ts` to import `SessionState` from `state.ts`.
+- Removed the dead interface export from `src/core/orchestrator/index.ts`.
+- Deleted `src/core/orchestrator/interfaces/session-state.ts` and `src/core/orchestrator/interfaces/index.ts`.
+- Confirmed `src/core/orchestrator` now contains only `index.ts`, `session-manager.ts`, and `state.ts`.
 
 ## Next Exact Step
 
-Start audit pass 20 from current state:
+Start audit pass 21 from current state:
 
 1. Open `AGENT_MEMORY.md`.
 2. Run `git status --branch --short`.
-3. Reopen the pass-20 target files listed below.
-4. Continue compatibility/debt removal from fresh evidence, starting with orchestrator `SessionState` ownership and the `src/core/orchestrator/interfaces/index.ts` barrel.
+3. Reopen the pass-21 target files listed below.
+4. Continue compatibility/debt removal from fresh evidence, starting with remaining interface barrels in plugin-handlers, recovery, loop, task, cache, progress, and session modules.
 
 ## Incomplete Items And Why
 
-The full requested repeated-pass objective is not complete. Pass 19 is complete and ready to commit/push.
+The full requested repeated-pass objective is not complete. Pass 20 is complete and ready to commit/push.
 
 ## Key Decisions
 
-- Session-pool types are implementation details, not shared/public contracts.
-- `ISessionPool` was an unused abstraction and added no active boundary.
-- The session-pool change was kept separate from orchestrator `SessionState` migration to avoid mixing two ownership decisions.
+- `SessionState` is the global orchestrator state shape, so `src/core/orchestrator/state.ts` owns it.
+- `src/core/orchestrator/interfaces/index.ts` was a compatibility barrel after the type moved and should not remain.
+- `src/core/orchestrator/index.ts` should expose state only.
 
 ## Rejected Alternatives
 
-- Rejected exporting session-pool types from `src/core/agents/index.ts` because no current consumer needs them.
-- Rejected keeping `src/core/agents/interfaces/session-pool.interface.ts` as a compatibility path because all consumers were internal to one file.
-- Rejected modifying orchestrator `SessionState` in the same pass because it has direct production and test consumers that need a focused trace.
+- Rejected keeping `src/core/orchestrator/interfaces/*` as a compatibility import path because current consumers can import from the owner module.
+- Rejected moving plugin-handler `SessionState` in this pass because it is a separate context/session shape with different fields.
+- Rejected editing unrelated interface barrels in this pass to keep the change bounded to orchestrator state ownership.
 
 ## Known Risks
 
 - The broader 100/1000-pass objective is intentionally not marked complete.
-- External consumers importing removed `src/core/agents/interfaces/session-pool.interface.ts` would need to stop relying on internal implementation types, matching the user's no-compatibility-shim direction.
-- Orchestrator `SessionState` and `src/core/orchestrator/interfaces/index.ts` still need a dedicated fresh pass.
+- External consumers importing removed `src/core/orchestrator/interfaces/*` paths would need to import `SessionState` from `src/core/orchestrator/state`.
+- Many other interface barrels remain and need fresh per-module ownership passes.
 
 ## Verification Observed
 
-- Baseline focused tests before edits: `tests/unit/session-pool-reset.test.ts`, `tests/unit/parallel-manager.test.ts`, and `tests/unit/task-launcher.test.ts`, 3 files and 20 tests passed.
+- Baseline focused tests before edits: `tests/unit/session-manager.test.ts`, `tests/unit/hooks.test.ts`, and `tests/unit/system-transform-handler.test.ts`, 3 files and 22 tests passed.
 - Baseline `npm run build --silent`: passed.
-- Focused tests after edits: same 3 files and 20 tests passed.
+- Focused tests after edits: same 3 files and 22 tests passed.
 - `npm run build --silent`: passed after edits.
-- Final `npx vitest run --reporter=dot`: passed, 96 files and 806 tests.
+- First full `npx vitest run --reporter=dot` failed on `tests/unit/document-cache.test.ts` clear/stats timeout, unrelated to edited files.
+- `npx vitest run tests/unit/document-cache.test.ts --reporter=dot`: passed, 1 file and 12 tests.
+- Final rerun `npx vitest run --reporter=dot`: passed, 96 files and 806 tests.
 - `cargo fmt --check`: passed.
 - `cargo test -p orchestrator-cli -p orchestrator-core --quiet`: passed, CLI 12 tests and core 35 tests.
-- `test ! -e src/core/agents/interfaces/session-pool.interface.ts && echo deleted`: printed `deleted`.
-- `find src/core/agents/interfaces -maxdepth 2 -type f -name '*.ts' -print | sort`: no output.
-- `rg -n "session-pool\.interface|core/agents/interfaces/session-pool|ISessionPool" src tests -g '*.ts'`: no matches.
+- `test ! -e src/core/orchestrator/interfaces/session-state.ts && test ! -e src/core/orchestrator/interfaces/index.ts && echo deleted`: printed `deleted`.
+- `rg -n "core/orchestrator/interfaces|orchestrator/interfaces|interfaces/session-state" src tests -g '*.ts'`: no matches.
+- `git diff --check`: passed.
 
 ## Files To Open First Next Session
 
 1. `AGENT_MEMORY.md`
 2. `git status --branch --short`
-3. `src/core/orchestrator/interfaces/session-state.ts`
-4. `src/core/orchestrator/interfaces/index.ts`
-5. `src/core/orchestrator/session-manager.ts`
-6. `src/core/orchestrator/state.ts`
-7. `src/core/orchestrator/index.ts`
-8. `src/index.ts`
-9. `tests/unit/hooks.test.ts`
+3. `src/plugin-handlers/interfaces/index.ts`
+4. `src/plugin-handlers/interfaces/session-state.ts`
+5. `src/plugin-handlers/chat-message-handler.ts`
+6. `src/plugin-handlers/event-handler.ts`
+7. `src/index.ts`
+8. `tests/unit/chat-message-handler.test.ts`
+9. `tests/unit/event-handler.test.ts`
