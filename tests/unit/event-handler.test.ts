@@ -145,6 +145,49 @@ describe("createEventHandler", () => {
         expect(ContextMonitor.cleanupSession).toHaveBeenCalledWith("session-1");
     });
 
+    it("prefers direct SDK sessionID over nested info.id for session lifecycle events", async () => {
+        const handler = createEventHandler(ctx);
+
+        await handler({
+            event: {
+                type: "session.created",
+                properties: {
+                    sessionID: "session-direct",
+                    info: {
+                        id: "session-nested",
+                    },
+                },
+            },
+        });
+
+        ctx.sessions.set("session-direct", {
+            active: true,
+            step: 0,
+            timestamp: 0,
+            startTime: Date.now(),
+            lastStepTime: 0,
+            tokens: { totalInput: 0, totalOutput: 0, estimatedCost: 0 },
+        });
+
+        await handler({
+            event: {
+                type: "session.deleted",
+                properties: {
+                    sessionID: "session-direct",
+                    info: {
+                        id: "session-nested",
+                    },
+                },
+            },
+        });
+
+        expect(Toast.presets.missionStarted).toHaveBeenCalledWith("Session session-dire...");
+        expect(ctx.sessions.has("session-direct")).toBe(false);
+        expect(ctx.sessions.has("session-nested")).toBe(false);
+        expect(SessionRecovery.cleanupSessionRecovery).toHaveBeenCalledWith("session-direct");
+        expect(SessionRecovery.cleanupSessionRecovery).not.toHaveBeenCalledWith("session-nested");
+    });
+
     it("treats idle without an assistant completion after the user turn as an abort", async () => {
         vi.useFakeTimers();
         const handler = createEventHandler(ctx);

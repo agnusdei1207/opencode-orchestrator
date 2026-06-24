@@ -14,9 +14,6 @@ import { ParallelAgentManager } from "../core/agents/manager.js";
 import { STATUS_LABEL } from "../shared/index.js";
 import { handleSessionCompacted } from "../core/loop/mission-loop-handler.js";
 
-// Re-export interfaces for external use
-export type { SessionCompactingInput, SessionCompactingOutput } from "./interfaces/index.js";
-
 /**
  * Create session compacting handler that preserves mission context
  */

@@ -60,6 +60,9 @@ function readStringField(source: UnknownRecord, key: string): string | undefined
 
 function readCreatedSessionID(properties: unknown): string | undefined {
     if (!isRecord(properties)) return undefined;
+    const directSessionID = readStringField(properties, "sessionID");
+    if (directSessionID) return directSessionID;
+
     const info = properties.info;
     return isRecord(info) ? readStringField(info, "id") : undefined;
 }

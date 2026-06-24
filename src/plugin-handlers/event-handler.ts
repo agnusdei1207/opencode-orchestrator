@@ -18,9 +18,6 @@ import { SESSION_EVENTS, MESSAGE_EVENTS, MESSAGE_ROLES } from "../shared/index.j
 import type { EventHandlerContext, SessionState } from "./interfaces/index.js";
 import { handleCompletedAssistantMessage } from "./assistant-done-handler.js";
 
-// Re-export interfaces for backward compatibility
-export type { SessionState, OrchestratorState, EventHandlerContext } from "./interfaces/index.js";
-
 /**
  * Create event handler for session events
  */
@@ -68,7 +65,7 @@ export function createEventHandler(ctx: EventHandlerContext) {
 
         // session.error
         if (event.type === SESSION_EVENTS.ERROR) {
-            const sessionID = event.properties?.sessionID as string || "";
+            const sessionID = readSessionID(event.properties);
             const error = event.properties?.error;
 
             if (sessionID) {
@@ -134,7 +131,7 @@ export function createEventHandler(ctx: EventHandlerContext) {
 
         // session.idle
         if (event.type === SESSION_EVENTS.IDLE) {
-            const sessionID = event.properties?.sessionID as string || "";
+            const sessionID = readSessionID(event.properties);
             if (sessionID) {
                 scheduleIdleContinuation(ctx, sessionID);
             }
@@ -142,7 +139,7 @@ export function createEventHandler(ctx: EventHandlerContext) {
 
         if (event.type === SESSION_EVENTS.STATUS) {
             const properties = event.properties as { sessionID?: string; status?: { type?: string } } | undefined;
-            const sessionID = properties?.sessionID ?? "";
+            const sessionID = readSessionID(event.properties);
             if (sessionID && properties?.status?.type === "idle") {
                 scheduleIdleContinuation(ctx, sessionID);
             }
@@ -151,6 +148,9 @@ export function createEventHandler(ctx: EventHandlerContext) {
 }
 
 function readSessionID(properties: Record<string, unknown> | undefined): string {
+    const directSessionID = readString(properties?.sessionID);
+    if (directSessionID) return directSessionID;
+
     const info = properties?.info;
     if (!isRecord(info)) return "";
     return readString(info.id) ?? "";

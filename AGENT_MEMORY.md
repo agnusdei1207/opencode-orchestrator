@@ -2,58 +2,59 @@
 
 ## Current Task
 
-User requested repeated fresh exhaustive audit passes, with commit and push after each pass. Current pass completed: 4. The broader requested target remains active beyond this session.
+User requested repeated fresh exhaustive audit passes, with commit and push after each pass. Current pass completed: 5. The broader requested target remains active beyond this session.
 
 ## Last Completed Step
 
-Completed audit pass 4 after reopening the pass-4 files and current worktree state.
+Completed audit pass 5 after reopening the pass-5 files and current worktree state.
 
-- Confirmed `main` was aligned with `origin/main` at `ee401c9` before pass 4 changes.
-- Reopened `AGENT_MEMORY.md`, `src/core/agents/manager/task-poller.ts`, `src/core/agents/manager/event-handler.ts`, `src/core/agents/task-store.ts`, and the related integration/unit tests.
-- Confirmed `TaskPoller.validateSessionHasOutput(...)` gates both poll-based and event-driven completion through the manager wiring.
-- Checked current official OpenCode plugin and SDK docs for session events, plugin client usage, and SDK error handling.
-- Found `validateSessionHasOutput(...)` treated OpenCode message fetch failures as successful output validation by returning `true` in the catch branch.
-- Changed that branch to log the failed validation and return `false`.
-- Added a regression test proving message fetch failures do not mark a task as having assistant output.
-- Kept the touched files on canonical shared `ParallelTask` exports instead of adding more `core/agents/interfaces` compatibility imports.
+- Confirmed `main` was aligned with `origin/main` at `3e016af` before pass 5 changes.
+- Reopened `AGENT_MEMORY.md`, `src/plugin-handlers/event-handler.ts`, `src/plugin-handlers/session-compacting-handler.ts`, `src/core/loop/mission-loop-handler.ts`, `tests/unit/event-handler.test.ts`, `tests/unit/session-compacting-handler.test.ts`, `tests/e2e/mission-loop-lifecycle.test.ts`, and `tests/e2e/mission-loop-persistence.test.ts`.
+- Checked installed `@opencode-ai/plugin` and `@opencode-ai/sdk` generated types. Plugin events are SDK `Event`; v1 created/deleted use `info`, v2 created/deleted include direct `sessionID` plus `info`; idle/status/error use direct `sessionID`.
+- Found session lifecycle ID reading only used `info.id` for created/deleted and direct `sessionID` for other events.
+- Updated `event-handler.ts` to use one `readSessionID(...)` helper that prefers direct `sessionID` and falls back to `info.id`.
+- Updated plugin root `readCreatedSessionID(...)` to prefer direct `sessionID` for TodoSync registration.
+- Removed duplicate implementation-file type re-exports from `event-handler.ts` and `session-compacting-handler.ts`; canonical exports remain in `plugin-handlers/interfaces/index.ts`.
+- Added a regression test proving direct SDK `sessionID` wins over nested `info.id` for session lifecycle routing.
 
 ## Next Exact Step
 
-Start audit pass 5 from current state:
+Start audit pass 6 from current state:
 
 1. Open `AGENT_MEMORY.md`.
 2. Run `git status --branch --short`.
-3. Reopen the pass-5 target files listed below.
-4. Search for a different class of residual routing, lifecycle, or SDK complexity than pass 4.
+3. Reopen the pass-6 target files listed below.
+4. Continue compatibility-shim removal and route-surface consolidation from a fresh file boundary.
 
 ## Incomplete Items And Why
 
-The full requested repeated-pass objective is not complete. Pass 4 is complete and ready to commit/push.
+The full requested repeated-pass objective is not complete. Pass 5 is complete and ready to commit/push.
 
 ## Key Decisions
 
-- Completion requires verified assistant output. If the SDK message fetch fails, the system must wait for later evidence instead of completing optimistically.
-- The event handler and poller share the manager's validation callback, so the fail-closed behavior protects both completion paths.
-- OpenCode plugin docs list `session.idle` as a session event, and SDK docs document client calls as error-capable; completion logic should therefore require successful message evidence.
-- New or touched code should not extend compatibility import paths; remaining compatibility shims need a dedicated migration pass.
+- Prefer current SDK event fields over compatibility fallback fields when both exist.
+- Keep type exports centralized in `plugin-handlers/interfaces/index.ts`; implementation modules should expose behavior, not duplicate type barrels.
+- Preserve `info.id` fallback only where current installed SDK v1 generated types prove it is still required for created/deleted events.
 
 ## Rejected Alternatives
 
-- Rejected preserving fail-open compatibility because it can hide SDK/session read failures and complete tasks without evidence.
+- Rejected removing the `info.id` fallback for created/deleted in this pass because installed `@opencode-ai/sdk@1.17.9` v1 generated types still use `properties.info` for those events.
+- Rejected keeping implementation-file type re-exports because `plugin-handlers/index.ts` already exports the canonical interfaces barrel.
 
 ## Known Risks
 
 - The broader 100/1000-pass objective is intentionally not marked complete.
-- A transient SDK read failure can delay completion until the next successful validation, which is safer than false completion.
-- One full Rust verification attempt briefly failed `tools::lsp::tests::local_tsc_uses_timeout_without_npx_install`; rerunning that exact test and then the full requested Rust packages passed.
+- `src/plugin-handlers/system-transform-handler.ts` still has an implementation-file type re-export and should be checked in pass 6 with its tests.
+- `src/core/agents/interfaces/index.ts` still re-exports shared types for compatibility and needs a dedicated migration, not a drive-by removal.
 
 ## Verification Observed
 
-- Focused tests passed: `tests/unit/parallel-manager.test.ts`, `tests/e2e/full-system.test.ts`, and `tests/unit/integration.test.ts` with 26 tests.
-- `rg -n "return true;|validateSessionHasOutput|Failed to validate session output|messages unavailable" src/core/agents/manager/task-poller.ts tests/unit/parallel-manager.test.ts` showed the expected validation sites and no fail-open `return true` in `task-poller.ts`.
-- Official OpenCode docs checked: `https://opencode.ai/docs/plugins/`, `https://opencode.ai/docs/sdk/`, and `https://opencode.ai/br/changelog`.
+- Baseline focused tests passed before edits: `tests/unit/event-handler.test.ts`, `tests/unit/session-compacting-handler.test.ts`, `tests/e2e/mission-loop-lifecycle.test.ts`, and `tests/e2e/mission-loop-persistence.test.ts` with 28 tests.
+- Focused tests passed after edits: the same 4 files with 29 tests.
+- SDK/plugin generated type evidence checked in `node_modules/@opencode-ai/plugin/dist/index.d.ts`, `node_modules/@opencode-ai/sdk/dist/gen/types.gen.d.ts`, and `node_modules/@opencode-ai/sdk/dist/v2/gen/types.gen.d.ts`.
+- `rg -n "Re-export interfaces|backward compatibility|readSessionID|session-direct|readCreatedSessionID" src/plugin-handlers src/index.ts tests/unit/event-handler.test.ts` showed the removed re-exports in touched files and the remaining `system-transform-handler.ts` re-export for pass 6.
 - `npm run build`: passed.
-- `npx vitest run --reporter=dot`: passed, 96 files and 805 tests.
+- `npx vitest run --reporter=dot`: passed, 96 files and 806 tests.
 - `cargo fmt --check`: passed.
 - `cargo test -p orchestrator-cli -p orchestrator-core`: passed, CLI 12 tests and core 35 tests.
 - `git diff --check`: passed.
@@ -62,10 +63,10 @@ The full requested repeated-pass objective is not complete. Pass 4 is complete a
 
 1. `AGENT_MEMORY.md`
 2. `git status --short`
-3. `src/plugin-handlers/event-handler.ts`
-4. `src/plugin-handlers/session-compacting-handler.ts`
-5. `src/core/loop/mission-loop-handler.ts`
-6. `tests/unit/event-handler.test.ts`
-7. `tests/unit/session-compacting-handler.test.ts`
-8. `tests/e2e/mission-loop-lifecycle.test.ts`
-9. `tests/e2e/mission-loop-persistence.test.ts`
+3. `src/plugin-handlers/system-transform-handler.ts`
+4. `src/plugin-handlers/index.ts`
+5. `src/plugin-handlers/interfaces/index.ts`
+6. `tests/unit/system-transform-handler.test.ts`
+7. `src/core/agents/interfaces/index.ts`
+8. `src/core/agents/manager.ts`
+9. `tests/unit/task-resumer.test.ts`
