@@ -2,7 +2,7 @@
  * Recovery Handler - Core error handling logic
  */
 
-import { MAX_RETRIES, BASE_DELAY, MAX_HISTORY } from "./constants.js";
+import { RECOVERY, HISTORY } from "../../shared/index.js";
 import { errorPatterns } from "./patterns.js";
 import type { ErrorContext, RecoveryAction, RecoveryRecord, RecoveryStats } from "./interfaces/index.js";
 
@@ -33,7 +33,7 @@ export function handleError(context: ErrorContext): RecoveryAction {
             });
 
             // Trim history
-            if (recoveryHistory.length > MAX_HISTORY) {
+            if (recoveryHistory.length > HISTORY.MAX_RECOVERY) {
                 recoveryHistory.shift();
             }
 
@@ -45,15 +45,15 @@ export function handleError(context: ErrorContext): RecoveryAction {
     }
 
     // Default: retry with backoff
-    if (context.attempt < MAX_RETRIES) {
+    if (context.attempt < RECOVERY.MAX_ATTEMPTS) {
         return {
             type: "retry",
-            delay: BASE_DELAY * Math.pow(2, context.attempt),
+            delay: RECOVERY.BASE_DELAY_MS * Math.pow(2, context.attempt),
             attempt: context.attempt + 1,
         };
     }
 
-    return { type: "abort", reason: `Unknown error after ${MAX_RETRIES} retries` };
+    return { type: "abort", reason: `Unknown error after ${RECOVERY.MAX_ATTEMPTS} retries` };
 }
 
 /**
@@ -67,7 +67,7 @@ export async function withRecovery<T>(
         onRetry?: (action: RecoveryAction) => void;
     } = {}
 ): Promise<T> {
-    const maxRetries = options.maxRetries ?? MAX_RETRIES;
+    const maxRetries = options.maxRetries ?? RECOVERY.MAX_ATTEMPTS;
     let attempt = 0;
 
     while (true) {

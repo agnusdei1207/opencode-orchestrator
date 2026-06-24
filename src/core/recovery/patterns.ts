@@ -2,7 +2,7 @@
  * Error Patterns - Recovery strategies for common errors
  */
 
-import { MAX_RETRIES, BASE_DELAY } from "./constants.js";
+import { RECOVERY } from "../../shared/index.js";
 import * as Toast from "../notification/toast.js";
 import type { ErrorPattern, ErrorContext, RecoveryAction } from "./interfaces/index.js";
 
@@ -15,7 +15,7 @@ export const errorPatterns: ErrorPattern[] = [
         pattern: /rate.?limit|too.?many.?requests|429/i,
         category: "rate_limit",
         handler: (ctx: ErrorContext): RecoveryAction => {
-            const delay = BASE_DELAY * Math.pow(2, ctx.attempt);
+            const delay = RECOVERY.BASE_DELAY_MS * Math.pow(2, ctx.attempt);
             Toast.presets.warningRateLimited();
             return { type: "retry", delay, attempt: ctx.attempt + 1 };
         },
@@ -36,10 +36,10 @@ export const errorPatterns: ErrorPattern[] = [
         pattern: /ECONNREFUSED|ETIMEDOUT|network|fetch.?failed/i,
         category: "network",
         handler: (ctx: ErrorContext): RecoveryAction => {
-            if (ctx.attempt >= MAX_RETRIES) {
+            if (ctx.attempt >= RECOVERY.MAX_ATTEMPTS) {
                 return { type: "abort", reason: "Network unavailable after retries" };
             }
-            return { type: "retry", delay: BASE_DELAY * (ctx.attempt + 1), attempt: ctx.attempt + 1 };
+            return { type: "retry", delay: RECOVERY.BASE_DELAY_MS * (ctx.attempt + 1), attempt: ctx.attempt + 1 };
         },
     },
 

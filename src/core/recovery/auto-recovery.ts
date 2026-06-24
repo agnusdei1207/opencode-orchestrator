@@ -13,9 +13,6 @@ export type {
     RecoveryStats,
 } from "./interfaces/index.js";
 
-// Re-export constants
-export { MAX_RETRIES, BASE_DELAY, MAX_HISTORY } from "./constants.js";
-
 // Re-export patterns
 export { errorPatterns } from "./patterns.js";
 

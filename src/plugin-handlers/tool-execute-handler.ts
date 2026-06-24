@@ -10,7 +10,7 @@
 import { log } from "../core/agents/logger.js";
 import { recordToolCall } from "../core/loop/circuit-breaker.js";
 import { recordToolEvidence } from "../core/loop/evidence.js";
-import { formatElapsedTime, formatTimestamp } from "../utils/common.js";
+import { formatElapsedTime, formatTimestamp } from "../utils/formatting/index.js";
 import { HookRegistry } from "../hooks/registry.js"; // Import Registry
 import type { ToolExecuteHandlerContext, ToolHookInput, ToolHookOutput } from "./interfaces/index.js";
 
