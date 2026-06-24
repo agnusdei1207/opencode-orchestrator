@@ -13,7 +13,7 @@ import { ConcurrencyController } from "../concurrency.js";
 import { TaskStore } from "../task-store.js";
 import { presets } from "../../../shared/index.js";
 import { getTaskToastManager } from "../../notification/task-toast-manager.js";
-import type { ParallelTask } from "../interfaces/index.js";
+import type { ParallelTask } from "../../../shared/index.js";
 import type { LaunchInput } from "../interfaces/launch-input.interface.js";
 
 import { SessionPool } from "../session-pool.js";

@@ -2,57 +2,58 @@
 
 ## Current Task
 
-User requested repeated fresh exhaustive audit passes, with commit and push after each pass. Current pass completed: 5. The broader requested target remains active beyond this session.
+User requested repeated fresh exhaustive audit passes, with commit and push after each pass. Current pass completed: 6. The broader requested target remains active beyond this session.
 
 ## Last Completed Step
 
-Completed audit pass 5 after reopening the pass-5 files and current worktree state.
+Completed audit pass 6 after reopening the pass-6 files and current worktree state.
 
-- Confirmed `main` was aligned with `origin/main` at `3e016af` before pass 5 changes.
-- Reopened `AGENT_MEMORY.md`, `src/plugin-handlers/event-handler.ts`, `src/plugin-handlers/session-compacting-handler.ts`, `src/core/loop/mission-loop-handler.ts`, `tests/unit/event-handler.test.ts`, `tests/unit/session-compacting-handler.test.ts`, `tests/e2e/mission-loop-lifecycle.test.ts`, and `tests/e2e/mission-loop-persistence.test.ts`.
-- Checked installed `@opencode-ai/plugin` and `@opencode-ai/sdk` generated types. Plugin events are SDK `Event`; v1 created/deleted use `info`, v2 created/deleted include direct `sessionID` plus `info`; idle/status/error use direct `sessionID`.
-- Found session lifecycle ID reading only used `info.id` for created/deleted and direct `sessionID` for other events.
-- Updated `event-handler.ts` to use one `readSessionID(...)` helper that prefers direct `sessionID` and falls back to `info.id`.
-- Updated plugin root `readCreatedSessionID(...)` to prefer direct `sessionID` for TodoSync registration.
-- Removed duplicate implementation-file type re-exports from `event-handler.ts` and `session-compacting-handler.ts`; canonical exports remain in `plugin-handlers/interfaces/index.ts`.
-- Added a regression test proving direct SDK `sessionID` wins over nested `info.id` for session lifecycle routing.
+- Confirmed `main` was aligned with `origin/main` at `14078fa` before pass 6 changes.
+- Reopened `AGENT_MEMORY.md`, `src/plugin-handlers/system-transform-handler.ts`, `src/plugin-handlers/index.ts`, `src/plugin-handlers/interfaces/index.ts`, `tests/unit/system-transform-handler.test.ts`, `src/core/agents/interfaces/index.ts`, `src/core/agents/manager.ts`, and `tests/unit/task-resumer.test.ts`.
+- Found `system-transform-handler.ts` still re-exported interface types even though `plugin-handlers/index.ts` already exports the canonical interfaces barrel.
+- Found `src/core/agents/interfaces/index.ts` still re-exported shared `ParallelTask`, `TaskProgress`, and `ConcurrencyConfig` as compatibility shims.
+- Found core agent manager session deletion still read only `properties.info.id`, while current SDK v2-style events can carry direct `sessionID`.
+- Removed the `system-transform-handler.ts` implementation-file type re-export.
+- Removed shared type re-exports from `src/core/agents/interfaces/index.ts`, leaving only local launch/resume input types.
+- Migrated source imports for `ParallelTask` in manager, launcher, resumer, event handler, task store, and parallel tools to `src/shared`.
+- Added a regression test proving core session deletion uses direct `sessionID` over stale nested `info.id`.
 
 ## Next Exact Step
 
-Start audit pass 6 from current state:
+Start audit pass 7 from current state:
 
 1. Open `AGENT_MEMORY.md`.
 2. Run `git status --branch --short`.
-3. Reopen the pass-6 target files listed below.
-4. Continue compatibility-shim removal and route-surface consolidation from a fresh file boundary.
+3. Reopen the pass-7 target files listed below.
+4. Continue compatibility-shim removal from remaining plugin handler implementation-file re-exports.
 
 ## Incomplete Items And Why
 
-The full requested repeated-pass objective is not complete. Pass 5 is complete and ready to commit/push.
+The full requested repeated-pass objective is not complete. Pass 6 is complete and ready to commit/push.
 
 ## Key Decisions
 
-- Prefer current SDK event fields over compatibility fallback fields when both exist.
-- Keep type exports centralized in `plugin-handlers/interfaces/index.ts`; implementation modules should expose behavior, not duplicate type barrels.
-- Preserve `info.id` fallback only where current installed SDK v1 generated types prove it is still required for created/deleted events.
+- Source code should import `ParallelTask` from `src/shared`, not through `src/core/agents/interfaces`.
+- `src/core/agents/interfaces/index.ts` should only export local agent-manager interface files.
+- Session deletion handling should prefer direct `sessionID` and use `info.id` only as fallback.
 
 ## Rejected Alternatives
 
-- Rejected removing the `info.id` fallback for created/deleted in this pass because installed `@opencode-ai/sdk@1.17.9` v1 generated types still use `properties.info` for those events.
-- Rejected keeping implementation-file type re-exports because `plugin-handlers/index.ts` already exports the canonical interfaces barrel.
+- Rejected deleting `src/core/agents/interfaces/index.ts` entirely because `LaunchInput` and `ResumeInput` are still local types there.
+- Rejected removing all remaining plugin handler type re-exports in this pass because `chat-message`, `assistant-done`, and tool handlers need separate test coverage.
 
 ## Known Risks
 
 - The broader 100/1000-pass objective is intentionally not marked complete.
-- `src/plugin-handlers/system-transform-handler.ts` still has an implementation-file type re-export and should be checked in pass 6 with its tests.
-- `src/core/agents/interfaces/index.ts` still re-exports shared types for compatibility and needs a dedicated migration, not a drive-by removal.
+- Remaining implementation-file type re-exports exist in `chat-message-handler.ts`, `assistant-done-handler.ts`, and `tool-execute-handler.ts`.
+- Some tests outside this pass may still use old type-only `core/agents/interfaces/parallel-task.interface` imports that Vitest transpiles away; migrate them in a later pass with their owners.
+- `src/tools/parallel/delegate-task.ts` still has a separate fail-open `validateSessionHasOutput(...)` catch path; audit it with dedicated sync delegate tests in a later pass.
 
 ## Verification Observed
 
-- Baseline focused tests passed before edits: `tests/unit/event-handler.test.ts`, `tests/unit/session-compacting-handler.test.ts`, `tests/e2e/mission-loop-lifecycle.test.ts`, and `tests/e2e/mission-loop-persistence.test.ts` with 28 tests.
-- Focused tests passed after edits: the same 4 files with 29 tests.
-- SDK/plugin generated type evidence checked in `node_modules/@opencode-ai/plugin/dist/index.d.ts`, `node_modules/@opencode-ai/sdk/dist/gen/types.gen.d.ts`, and `node_modules/@opencode-ai/sdk/dist/v2/gen/types.gen.d.ts`.
-- `rg -n "Re-export interfaces|backward compatibility|readSessionID|session-direct|readCreatedSessionID" src/plugin-handlers src/index.ts tests/unit/event-handler.test.ts` showed the removed re-exports in touched files and the remaining `system-transform-handler.ts` re-export for pass 6.
+- Baseline focused tests passed before edits: `tests/unit/system-transform-handler.test.ts`, `tests/unit/task-resumer.test.ts`, `tests/unit/task-cleaner.test.ts`, `tests/unit/task-store.test.ts`, and `tests/e2e/full-system.test.ts` with 32 tests.
+- Focused tests passed after edits: `tests/unit/system-transform-handler.test.ts`, `tests/unit/task-resumer.test.ts`, `tests/unit/task-cleaner.test.ts`, `tests/unit/task-store.test.ts`, `tests/unit/parallel-manager.test.ts`, and `tests/e2e/full-system.test.ts` with 44 tests.
+- `rg -n "from ['\\\"].*core/agents/interfaces|type \\{ ParallelTask \\} from .*core/agents|type \\{ ParallelTask \\} from .*interfaces|Re-export interfaces|external use|backward compatibility|maintain compatibility|Use shared interfaces" ...` showed touched source no longer imports `ParallelTask` through `core/agents/interfaces`; remaining matches are separate compatibility barrels and future-pass owners.
 - `npm run build`: passed.
 - `npx vitest run --reporter=dot`: passed, 96 files and 806 tests.
 - `cargo fmt --check`: passed.
@@ -63,10 +64,11 @@ The full requested repeated-pass objective is not complete. Pass 5 is complete a
 
 1. `AGENT_MEMORY.md`
 2. `git status --short`
-3. `src/plugin-handlers/system-transform-handler.ts`
-4. `src/plugin-handlers/index.ts`
-5. `src/plugin-handlers/interfaces/index.ts`
-6. `tests/unit/system-transform-handler.test.ts`
-7. `src/core/agents/interfaces/index.ts`
-8. `src/core/agents/manager.ts`
-9. `tests/unit/task-resumer.test.ts`
+3. `src/plugin-handlers/chat-message-handler.ts`
+4. `src/plugin-handlers/assistant-done-handler.ts`
+5. `src/plugin-handlers/tool-execute-handler.ts`
+6. `src/plugin-handlers/index.ts`
+7. `src/plugin-handlers/interfaces/index.ts`
+8. `tests/unit/chat-message-handler.test.ts`
+9. `tests/unit/tool-execute-handler.test.ts`
+10. `src/tools/parallel/delegate-task.ts`

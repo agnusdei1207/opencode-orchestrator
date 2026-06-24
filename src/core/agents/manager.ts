@@ -10,12 +10,11 @@
  */
 
 import type { PluginInput } from "@opencode-ai/plugin";
-import { TASK_STATUS, PART_TYPES, MESSAGE_ROLES, AGENT_NAMES } from "../../shared/index.js";
+import { TASK_STATUS, PART_TYPES, MESSAGE_ROLES, AGENT_NAMES, type ParallelTask } from "../../shared/index.js";
 import { ConcurrencyController } from "./concurrency.js";
 import { TaskStore } from "./task-store.js";
 import { log } from "./logger.js";
 import { formatDuration } from "./format.js";
-import type { ParallelTask } from "./interfaces/index.js";
 import type { LaunchInput } from "./interfaces/launch-input.interface.js";
 import type { ResumeInput } from "./interfaces/resume-input.interface.js";
 

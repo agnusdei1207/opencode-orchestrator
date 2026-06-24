@@ -15,8 +15,7 @@ vi.mock("../../src/core/agents/logger", () => ({
 
 import { ConcurrencyController, type ConcurrencyConfig } from "../../src/core/agents/concurrency";
 import { TaskStore } from "../../src/core/agents/task-store";
-import type { ParallelTask } from "../../src/core/agents/interfaces/parallel-task.interface";
-import { TASK_STATUS } from "../../src/shared";
+import { TASK_STATUS, type ParallelTask } from "../../src/shared";
 
 // ========================================================================
 // Helpers

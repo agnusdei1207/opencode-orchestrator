@@ -15,9 +15,6 @@ import { isMissionActive, ensureSessionInitialized } from "../core/orchestrator/
 import { KnowledgeContextProvider } from "../core/knowledge/context-provider.js";
 import { readMissionScratchpadSnapshot } from "../core/knowledge/mission-memory.js";
 
-// Re-export interfaces for external use
-export type { SystemTransformInput, SystemTransformOutput } from "./interfaces/index.js";
-
 const knowledgeContextProvider = new KnowledgeContextProvider();
 
 /**

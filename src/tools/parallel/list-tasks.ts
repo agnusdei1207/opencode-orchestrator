@@ -3,8 +3,8 @@
  */
 
 import { tool, type ToolDefinition } from "@opencode-ai/plugin";
-import { ParallelAgentManager, type ParallelTask } from "../../core/agents/index.js";
-import { STATUS_LABEL, TASK_STATUS, PARALLEL_PARAMS, LOOP_LABELS } from "../../shared/index.js";
+import { ParallelAgentManager } from "../../core/agents/index.js";
+import { STATUS_LABEL, TASK_STATUS, PARALLEL_PARAMS, LOOP_LABELS, type ParallelTask } from "../../shared/index.js";
 
 export const createListTasksTool = (manager: ParallelAgentManager): ToolDefinition => tool({
     description: `List all background tasks.`,

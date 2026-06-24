@@ -11,7 +11,7 @@
  */
 
 import { tool, type ToolDefinition } from "@opencode-ai/plugin";
-import { ParallelAgentManager, type ParallelTask } from "../../core/agents/index.js";
+import { ParallelAgentManager } from "../../core/agents/index.js";
 import { log } from "../../core/agents/logger.js";
 import { presets } from "../../shared/index.js";
 import {
@@ -27,7 +27,8 @@ import {
     PARALLEL_PARAMS,
     TOOL_NAMES,
     type SessionClient,
-    type PollResult
+    type PollResult,
+    type ParallelTask,
 } from "../../shared/index.js";
 
 

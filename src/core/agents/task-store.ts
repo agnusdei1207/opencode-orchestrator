@@ -9,7 +9,7 @@
 
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
-import type { ParallelTask } from "./interfaces/index.js";
+import type { ParallelTask } from "../../shared/index.js";
 import { MEMORY_LIMITS, PATHS, TASK_STATUS } from "../../shared/index.js";
 import { stringPool } from "../pool/string-pool.js";
 import { taskPool } from "../pool/task-pool.js";
@@ -257,4 +257,3 @@ export class TaskStore {
         };
     }
 }
-

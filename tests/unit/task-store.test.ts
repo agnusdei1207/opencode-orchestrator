@@ -10,8 +10,7 @@
 
 import { describe, it, expect, beforeEach } from "vitest";
 import { TaskStore } from "../../src/core/agents/task-store";
-import type { ParallelTask } from "../../src/core/agents/interfaces/parallel-task.interface";
-import { TASK_STATUS } from "../../src/shared";
+import { TASK_STATUS, type ParallelTask } from "../../src/shared";
 
 function createMockTask(overrides: Partial<ParallelTask> = {}): ParallelTask {
     return {

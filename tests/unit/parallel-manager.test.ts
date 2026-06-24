@@ -120,7 +120,7 @@ describe("ParallelAgentManager Features", () => {
 
             handler.handle({
                 type: "session.deleted",
-                properties: { info: { id: task.sessionID } },
+                properties: { sessionID: task.sessionID, info: { id: "stale-session" } },
             });
 
             await vi.waitFor(() => {
@@ -129,6 +129,7 @@ describe("ParallelAgentManager Features", () => {
 
             expect(store.get(task.id)).toBeUndefined();
             expect(store.hasPending(task.parentSessionID)).toBe(false);
+            expect(invalidateSession).not.toHaveBeenCalledWith("stale-session");
         });
     });
 

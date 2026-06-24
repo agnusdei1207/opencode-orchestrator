@@ -2,8 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { TaskCleaner } from "../../src/core/agents/manager/task-cleaner";
 import { TaskStore } from "../../src/core/agents/task-store";
 import { ConcurrencyController } from "../../src/core/agents/concurrency";
-import type { ParallelTask } from "../../src/core/agents/interfaces";
-import { TASK_STATUS } from "../../src/shared";
+import { TASK_STATUS, type ParallelTask } from "../../src/shared";
 
 const toastMocks = vi.hoisted(() => ({
     showCompletionToast: vi.fn(),

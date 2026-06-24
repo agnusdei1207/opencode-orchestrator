@@ -10,7 +10,7 @@ import { CONFIG } from "../config.js";
 import { log } from "../logger.js";
 import { formatDuration } from "../format.js";
 import { progressNotifier } from "../../progress/progress-notifier.js";
-import type { ParallelTask } from "../interfaces/index.js";
+import type { ParallelTask } from "../../../shared/index.js";
 
 type OpencodeClient = PluginInput["client"];
 
@@ -49,7 +49,7 @@ export class EventHandler {
 
         // Handle session.deleted - cleanup resources immediately
         if (event.type === SESSION_EVENTS.DELETED) {
-            const sessionID = props?.info?.id;
+            const sessionID = readSessionID(props);
             if (!sessionID) return;
 
             const task = this.findBySession(sessionID);
@@ -133,4 +133,8 @@ export class EventHandler {
         progressNotifier.update();
         log(`Cleaned up deleted session task: ${task.id}`);
     }
+}
+
+function readSessionID(properties: { sessionID?: string; info?: { id?: string } } | undefined): string | undefined {
+    return properties?.sessionID || properties?.info?.id;
 }

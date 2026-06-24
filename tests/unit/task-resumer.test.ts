@@ -4,8 +4,7 @@ import { TaskStore } from "../../src/core/agents/task-store";
 import { AgentRegistry } from "../../src/core/agents/agent-registry";
 import { MemoryManager } from "../../src/core/memory/memory-manager";
 import { MemoryLevel } from "../../src/core/memory/interfaces";
-import { AGENT_NAMES, TASK_STATUS, TOOL_NAMES } from "../../src/shared";
-import type { ParallelTask } from "../../src/core/agents/interfaces";
+import { AGENT_NAMES, TASK_STATUS, TOOL_NAMES, type ParallelTask } from "../../src/shared";
 
 vi.mock("../../src/core/agents/logger", () => ({ log: vi.fn() }));
 
