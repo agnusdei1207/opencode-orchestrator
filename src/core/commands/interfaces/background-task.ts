@@ -1,8 +1,8 @@
 /**
  * BackgroundTask - Represents a shell command running in background
  */
-import { ChildProcess } from "child_process";
-import { BackgroundTaskStatus } from "../types/background-task-status.js";
+import type { ChildProcess } from "child_process";
+import type { BackgroundTaskStatus } from "../../../shared/index.js";
 
 export interface BackgroundTask {
     id: string;

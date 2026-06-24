@@ -6,10 +6,9 @@
 
 import { spawn } from "node:child_process";
 import { randomBytes } from "node:crypto";
-import { ID_PREFIX, getStatusIndicator, STATUS_LABEL, CLI_NAME, PLATFORM } from "../../shared/index.js";
+import { ID_PREFIX, getStatusIndicator, STATUS_LABEL, CLI_NAME, PLATFORM, type BackgroundTaskStatus } from "../../shared/index.js";
 import { log as internalLog } from "../agents/logger.js";
 import type { BackgroundTask } from "./interfaces/background-task.js";
-import type { BackgroundTaskStatus } from "./types/background-task-status.js";
 import type { RunBackgroundOptions } from "./interfaces/run-background-options.js";
 
 class BackgroundTaskManager {
