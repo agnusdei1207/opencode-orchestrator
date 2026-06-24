@@ -13,8 +13,6 @@ import type { AssistantDoneHandlerContext } from "./interfaces/index.js";
 type OpencodeClient = PluginInput["client"];
 type AssistantMessagePart = { type: string; text?: string };
 
-export type { AssistantDoneHandlerContext } from "./interfaces/index.js";
-
 /**
  * Process a completed assistant turn and run internal done-hooks.
  */

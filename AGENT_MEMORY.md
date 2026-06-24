@@ -2,60 +2,59 @@
 
 ## Current Task
 
-User requested repeated fresh exhaustive audit passes, with commit and push after each pass. Current pass completed: 6. The broader requested target remains active beyond this session.
+User requested repeated fresh exhaustive audit passes, with commit and push after each pass. Current pass completed: 7. The broader requested target remains active beyond this session.
 
 ## Last Completed Step
 
-Completed audit pass 6 after reopening the pass-6 files and current worktree state.
+Completed audit pass 7 after reopening the pass-7 files and current worktree state.
 
-- Confirmed `main` was aligned with `origin/main` at `14078fa` before pass 6 changes.
-- Reopened `AGENT_MEMORY.md`, `src/plugin-handlers/system-transform-handler.ts`, `src/plugin-handlers/index.ts`, `src/plugin-handlers/interfaces/index.ts`, `tests/unit/system-transform-handler.test.ts`, `src/core/agents/interfaces/index.ts`, `src/core/agents/manager.ts`, and `tests/unit/task-resumer.test.ts`.
-- Found `system-transform-handler.ts` still re-exported interface types even though `plugin-handlers/index.ts` already exports the canonical interfaces barrel.
-- Found `src/core/agents/interfaces/index.ts` still re-exported shared `ParallelTask`, `TaskProgress`, and `ConcurrencyConfig` as compatibility shims.
-- Found core agent manager session deletion still read only `properties.info.id`, while current SDK v2-style events can carry direct `sessionID`.
-- Removed the `system-transform-handler.ts` implementation-file type re-export.
-- Removed shared type re-exports from `src/core/agents/interfaces/index.ts`, leaving only local launch/resume input types.
-- Migrated source imports for `ParallelTask` in manager, launcher, resumer, event handler, task store, and parallel tools to `src/shared`.
-- Added a regression test proving core session deletion uses direct `sessionID` over stale nested `info.id`.
+- Confirmed `main` was aligned with `origin/main` at `7983b4d` before pass 7 changes.
+- Reopened `AGENT_MEMORY.md`, `src/plugin-handlers/chat-message-handler.ts`, `src/plugin-handlers/assistant-done-handler.ts`, `src/plugin-handlers/tool-execute-handler.ts`, `src/plugin-handlers/index.ts`, `src/plugin-handlers/interfaces/index.ts`, `tests/unit/chat-message-handler.test.ts`, `tests/unit/tool-execute-handler.test.ts`, and `src/tools/parallel/delegate-task.ts`.
+- Found implementation-file type re-exports in `chat-message-handler.ts`, `assistant-done-handler.ts`, and `tool-execute-handler.ts` while `plugin-handlers/interfaces/index.ts` already exports the canonical types.
+- Found `delegate_task` sync output validation still failed open when `session.messages(...)` rejected.
+- Removed the three duplicate implementation-file type re-exports.
+- Changed `delegate_task` output validation to fail closed on message fetch errors.
+- Added a sync delegate regression test proving message fetch failures do not produce a DONE result.
+- Removed dead chat-message handler imports and the unused slash-command parse result while preserving existing hook behavior.
 
 ## Next Exact Step
 
-Start audit pass 7 from current state:
+Start audit pass 8 from current state:
 
 1. Open `AGENT_MEMORY.md`.
 2. Run `git status --branch --short`.
-3. Reopen the pass-7 target files listed below.
-4. Continue compatibility-shim removal from remaining plugin handler implementation-file re-exports.
+3. Reopen the pass-8 target files listed below.
+4. Continue compatibility-shim removal and stale type-only test import migration from fresh owners.
 
 ## Incomplete Items And Why
 
-The full requested repeated-pass objective is not complete. Pass 6 is complete and ready to commit/push.
+The full requested repeated-pass objective is not complete. Pass 7 is complete and ready to commit/push.
 
 ## Key Decisions
 
-- Source code should import `ParallelTask` from `src/shared`, not through `src/core/agents/interfaces`.
-- `src/core/agents/interfaces/index.ts` should only export local agent-manager interface files.
-- Session deletion handling should prefer direct `sessionID` and use `info.id` only as fallback.
+- Handler implementation modules should expose handler behavior; handler context/types stay centralized in `plugin-handlers/interfaces/index.ts`.
+- Output validation must fail closed when OpenCode SDK message reads fail; failed evidence is not evidence of successful assistant output.
+- Touched files should not keep unused imports or variables after compatibility cleanup.
 
 ## Rejected Alternatives
 
-- Rejected deleting `src/core/agents/interfaces/index.ts` entirely because `LaunchInput` and `ResumeInput` are still local types there.
-- Rejected removing all remaining plugin handler type re-exports in this pass because `chat-message`, `assistant-done`, and tool handlers need separate test coverage.
+- Rejected keeping handler-local type re-exports for compatibility because `plugin-handlers/index.ts` already exports the canonical interfaces barrel.
+- Rejected treating transient `session.messages` failures as valid sync completion because that can report DONE without assistant output evidence.
 
 ## Known Risks
 
 - The broader 100/1000-pass objective is intentionally not marked complete.
-- Remaining implementation-file type re-exports exist in `chat-message-handler.ts`, `assistant-done-handler.ts`, and `tool-execute-handler.ts`.
 - Some tests outside this pass may still use old type-only `core/agents/interfaces/parallel-task.interface` imports that Vitest transpiles away; migrate them in a later pass with their owners.
-- `src/tools/parallel/delegate-task.ts` still has a separate fail-open `validateSessionHasOutput(...)` catch path; audit it with dedicated sync delegate tests in a later pass.
+- Other compatibility barrels remain in cache/progress/task/session/recovery areas and should be handled in later scoped passes.
 
 ## Verification Observed
 
-- Baseline focused tests passed before edits: `tests/unit/system-transform-handler.test.ts`, `tests/unit/task-resumer.test.ts`, `tests/unit/task-cleaner.test.ts`, `tests/unit/task-store.test.ts`, and `tests/e2e/full-system.test.ts` with 32 tests.
-- Focused tests passed after edits: `tests/unit/system-transform-handler.test.ts`, `tests/unit/task-resumer.test.ts`, `tests/unit/task-cleaner.test.ts`, `tests/unit/task-store.test.ts`, `tests/unit/parallel-manager.test.ts`, and `tests/e2e/full-system.test.ts` with 44 tests.
-- `rg -n "from ['\\\"].*core/agents/interfaces|type \\{ ParallelTask \\} from .*core/agents|type \\{ ParallelTask \\} from .*interfaces|Re-export interfaces|external use|backward compatibility|maintain compatibility|Use shared interfaces" ...` showed touched source no longer imports `ParallelTask` through `core/agents/interfaces`; remaining matches are separate compatibility barrels and future-pass owners.
+- Baseline focused tests passed before edits: `tests/unit/chat-message-handler.test.ts`, `tests/unit/tool-execute-handler.test.ts`, and `tests/unit/delegate-task.test.ts` with 5 tests.
+- Focused tests passed after edits: the same 3 files with 6 tests.
+- `rg -n "export type \\{ ChatMessageHandlerContext|export type \\{ AssistantDoneHandlerContext|export type \\{ ToolExecuteHandlerContext|fail-open|allow completion|Error validating session output|return true" ...` showed touched handler re-exports removed and no fail-open return remains in `delegate_task`.
 - `npm run build`: passed.
-- `npx vitest run --reporter=dot`: passed, 96 files and 806 tests.
+- Initial full Vitest run hit one `document-cache.test.ts` afterEach timeout; `tests/unit/document-cache.test.ts` passed on direct rerun with 12 tests.
+- Final `npx vitest run --reporter=dot`: passed, 96 files and 807 tests.
 - `cargo fmt --check`: passed.
 - `cargo test -p orchestrator-cli -p orchestrator-core`: passed, CLI 12 tests and core 35 tests.
 - `git diff --check`: passed.
@@ -64,11 +63,10 @@ The full requested repeated-pass objective is not complete. Pass 6 is complete a
 
 1. `AGENT_MEMORY.md`
 2. `git status --short`
-3. `src/plugin-handlers/chat-message-handler.ts`
-4. `src/plugin-handlers/assistant-done-handler.ts`
-5. `src/plugin-handlers/tool-execute-handler.ts`
-6. `src/plugin-handlers/index.ts`
-7. `src/plugin-handlers/interfaces/index.ts`
-8. `tests/unit/chat-message-handler.test.ts`
-9. `tests/unit/tool-execute-handler.test.ts`
-10. `src/tools/parallel/delegate-task.ts`
+3. `tests/e2e/multi-agent-coordination.test.ts`
+4. `tests/unit/integration.test.ts`
+5. `tests/harness/builders.ts`
+6. `tests/unit/harness-builders.test.ts`
+7. `src/core/cache/interfaces.ts`
+8. `src/core/progress/interfaces.ts`
+9. `src/core/task/interfaces.ts`

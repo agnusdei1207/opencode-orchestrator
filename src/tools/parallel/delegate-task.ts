@@ -84,8 +84,7 @@ async function validateSessionHasOutput(
         return hasContent;
     } catch (error) {
         log(`${PARALLEL_LOG.DELEGATE_TASK} Error validating session output:`, error);
-        // On error, allow completion to proceed (fail-open)
-        return true;
+        return false;
     }
 }
 

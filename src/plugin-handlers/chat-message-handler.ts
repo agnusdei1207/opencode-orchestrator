@@ -7,21 +7,11 @@
  * - Auto-applying mission mode for Commander
  */
 
-import type { PluginInput } from "@opencode-ai/plugin";
 import { log } from "../core/agents/logger.js";
-import { state } from "../core/orchestrator/index.js";
-import { COMMANDS } from "../tools/slashCommand.js";
-import { detectSlashCommand } from "../utils/common.js";
-import { AGENT_NAMES, PART_TYPES, PROMPTS, COMMAND_NAMES } from "../shared/index.js";
-import * as Toast from "../core/notification/toast.js";
-import * as ProgressTracker from "../core/progress/tracker.js";
-import * as TodoContinuation from "../core/loop/todo-continuation.js";
-import { startMissionLoop } from "../core/loop/mission-loop.js";
+import { PART_TYPES } from "../shared/index.js";
 import { HookRegistry } from "../hooks/registry.js"; // Added import
 import { HOOK_ACTIONS } from "../hooks/constants.js";
 import type { ChatMessageHandlerContext, SessionState } from "./interfaces/index.js";
-
-export type { ChatMessageHandlerContext } from "./interfaces/index.js";
 
 // Redefine based on actual hook input seen in validation
 type ChatHookInput = {
@@ -48,7 +38,6 @@ export function createChatMessageHandler(ctx: ChatMessageHandlerContext) {
         if (textPartIndex === -1) return;
 
         const originalText = parts[textPartIndex].text || "";
-        const parsed = detectSlashCommand(originalText);
         const sessionID = msgInput.sessionID;
         const agentName = (msgInput.agent || "").toLowerCase();
 

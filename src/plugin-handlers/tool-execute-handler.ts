@@ -14,8 +14,6 @@ import { formatElapsedTime, formatTimestamp } from "../utils/common.js";
 import { HookRegistry } from "../hooks/registry.js"; // Import Registry
 import type { ToolExecuteHandlerContext, ToolHookInput, ToolHookOutput } from "./interfaces/index.js";
 
-export type { ToolExecuteHandlerContext } from "./interfaces/index.js";
-
 /**
  * Create tool.execute.after handler
  */

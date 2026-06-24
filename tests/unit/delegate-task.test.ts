@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createDelegateTaskTool } from "../../src/tools/parallel/delegate-task";
 import type { ParallelAgentManager } from "../../src/core/agents/manager";
 
@@ -25,6 +25,10 @@ vi.mock("@opencode-ai/plugin", () => {
 vi.mock("../../src/core/agents/logger", () => ({ log: vi.fn() }));
 
 describe("createDelegateTaskTool", () => {
+    beforeEach(() => {
+        vi.useRealTimers();
+    });
+
     it("routes resume requests through manager.resume without launching a new task", async () => {
         const resumedTask = {
             id: "task-existing",
@@ -67,5 +71,48 @@ describe("createDelegateTaskTool", () => {
         });
         expect(manager.launch).not.toHaveBeenCalled();
         expect(result).toContain("session-existing");
+    });
+
+    it("does not treat message fetch failures as valid sync output", async () => {
+        vi.useFakeTimers();
+        const launchedTask = {
+            id: "task-sync",
+            sessionID: "session-sync",
+            parentSessionID: "parent-session",
+            description: "Sync task",
+            prompt: "Do sync work",
+            agent: "Worker",
+            status: "running",
+            startedAt: new Date(),
+        };
+        const manager = {
+            getAllTasks: vi.fn(() => []),
+            launch: vi.fn().mockResolvedValue(launchedTask),
+            resume: vi.fn(),
+        } as unknown as ParallelAgentManager;
+        const client = {
+            session: {
+                status: vi.fn().mockResolvedValue({ data: { "session-sync": { type: "idle" } } }),
+                messages: vi.fn().mockRejectedValue(new Error("messages unavailable")),
+            },
+        };
+
+        const delegateTask = createDelegateTaskTool(manager, client);
+        const resultPromise = delegateTask.execute(
+            {
+                agent: "Worker",
+                description: "Run sync task",
+                prompt: "Do sync work",
+                background: false,
+            },
+            { sessionID: "parent-session" },
+        );
+
+        await vi.advanceTimersByTimeAsync(5 * 60 * 1000);
+        const result = await resultPromise;
+
+        expect(result).toContain("TIMEOUT");
+        expect(result).not.toContain("DONE");
+        expect(client.session.messages).toHaveBeenCalled();
     });
 });
