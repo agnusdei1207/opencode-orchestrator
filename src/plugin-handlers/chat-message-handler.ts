@@ -44,21 +44,6 @@ export function createChatMessageHandler(ctx: ChatMessageHandlerContext) {
         log("[chat-message-handler] hook triggered", { sessionID, agent: agentName, textLength: originalText.length });
         markUserMessage(sessions, sessionID);
 
-        if (sessionID && !sessions.has(sessionID)) {
-            // Fallback: Ensure session exists even if not /task (e.g. normal chat)
-            // But usually ExternalPlugin or SlashCommand handles this?
-            // If no hook creates session, we might need a default here?
-            // Let's keep minimal safe fallback or rely on Hooks.
-            // Given safety requirement: let's keep minimal session init if missing.
-            // Actually, wait. SlashCommandHook only inits on /task. 
-            // Normal chat should probably also track session?
-            // Let's rely on the previous implementation's logic: 
-            // "Register session if not already registered (allows /task with any agent)"
-            // BUT ONLY FOR /task in legacy code.
-            // So normal chat didn't auto-create session in legacy code? 
-            // Let's assume Hooks cover it or we don't change behavior.
-        }
-
         // Execute Chat Hooks
         const hooks = HookRegistry.getInstance();
         const hookContext = {

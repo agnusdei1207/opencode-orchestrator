@@ -34,24 +34,6 @@ export interface CleanupRegistration {
     priority: number;
 }
 
-
-/**
- * Extended registration with optional metadata
- */
-export interface RegistrationWithMetadata<T> extends Registration<T> {
-    /** Additional metadata for the registration */
-    metadata?: Record<string, unknown>;
-}
-
-/**
- * Cleanup handler registration
- */
-export interface CleanupRegistration {
-    name: string;
-    fn: () => void | Promise<void>;
-    priority: number;
-}
-
 /**
  * Hook registration with phase support
  */

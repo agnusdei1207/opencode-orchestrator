@@ -9,15 +9,8 @@ import path from "node:path";
  * `src/core` (the coordination layer). This test fails on any NEW shared->core
  * import so the boundary cannot silently erode.
  *
- * Two legacy implementation files currently live under shared/ and import core;
- * they are allowlisted as known debt to migrate, not as permission for more.
  */
 const SHARED_ROOT = path.resolve(__dirname, "../../src/shared");
-
-const ALLOWLIST = new Set([
-    "lifecycle/shutdown-manager.ts",
-    "notification/presets.ts",
-]);
 
 // Matches a relative import that climbs out of src/shared into src/core,
 // e.g. "../../core/..." or "../../../core/...".
@@ -34,11 +27,10 @@ function walk(dir: string): string[] {
 }
 
 describe("module layering", () => {
-    it("src/shared does not import src/core (except known legacy debt)", () => {
+    it("src/shared does not import src/core", () => {
         const offenders: string[] = [];
         for (const file of walk(SHARED_ROOT)) {
             const rel = path.relative(SHARED_ROOT, file).split(path.sep).join("/");
-            if (ALLOWLIST.has(rel)) continue;
             if (SHARED_TO_CORE.test(readFileSync(file, "utf8"))) offenders.push(rel);
         }
         expect(offenders).toEqual([]);

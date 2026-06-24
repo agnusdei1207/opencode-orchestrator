@@ -13,7 +13,7 @@
 import { tool, type ToolDefinition } from "@opencode-ai/plugin";
 import { ParallelAgentManager } from "../../core/agents/index.js";
 import { log } from "../../core/agents/logger.js";
-import { presets } from "../../shared/index.js";
+import { presets } from "../../core/notification/toast.js";
 import {
     PARALLEL_TASK,
     PART_TYPES,

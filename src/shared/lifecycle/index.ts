@@ -5,7 +5,7 @@
  * including shutdown, cleanup, and handler registration patterns.
  */
 
-export { ShutdownManager, type CleanupHandler, type CleanupFunction } from "./shutdown-manager.js";
+export { ShutdownManager, type CleanupFunction } from "./shutdown-manager.js";
 export {
     Registration,
     RegistrationWithMetadata,

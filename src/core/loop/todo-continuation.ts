@@ -13,7 +13,7 @@
 import type { PluginInput } from "@opencode-ai/plugin";
 import { PART_TYPES, LOOP, TOAST_DURATION, TIME, STATUS_LABEL } from "../../shared/index.js";
 import { log } from "../agents/logger.js";
-import { presets } from "../../shared/index.js";
+import { presets } from "../notification/toast.js";
 import { getIncompleteCount, hasRemainingWork, getNextPending } from "./stats.js";
 import { generateContinuationPrompt, formatProgress } from "./formatters.js";
 import type { Todo } from "./interfaces/index.js";

@@ -38,9 +38,6 @@ export const MISSION_CONTROL = {
     LOG_SOURCE: "mission-loop",
 } as const;
 
-/** @deprecated Use MISSION_CONTROL instead */
-export const MISSION = MISSION_CONTROL;
-
 
 export const TASK_STATUS = {
     PENDING: STATUS_LABEL.PENDING,
@@ -109,4 +106,3 @@ export const LOOP_LABELS = {
     SUCCESS_RATE: "Success Rate",
     MISSION_ACCOMPLISHED: "All tasks have been processed and verified. Mission accomplished!",
 } as const;
-

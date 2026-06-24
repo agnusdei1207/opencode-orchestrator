@@ -5,25 +5,18 @@
  * Ensures resources are properly cleaned up when the plugin is unloaded.
  */
 
-import { log } from "../../core/agents/logger.js";
-import { LOG_PREFIX } from "../index.js";
+import { LOG_PREFIX } from "../core/constants.js";
 import type { CleanupRegistration } from "./registration.js";
 
 export type CleanupFunction = () => void | Promise<void>;
-
-/**
- * @deprecated Use CleanupRegistration instead
- */
-export interface CleanupHandler {
-    name: string;
-    fn: CleanupFunction;
-    priority: number;
-}
+type ShutdownLogger = (...args: unknown[]) => void;
 
 export class ShutdownManager {
-    private cleanupHandlers: CleanupHandler[] = [];
+    private cleanupHandlers: CleanupRegistration[] = [];
     private isShuttingDown = false;
     private shutdownPromise: Promise<void> | null = null;
+
+    constructor(private readonly log: ShutdownLogger = () => { }) { }
 
     /**
      * Register a cleanup handler
@@ -33,14 +26,14 @@ export class ShutdownManager {
      */
     register(name: string, fn: CleanupFunction, priority: number = 100): void {
         if (this.isShuttingDown) {
-            log(`[${LOG_PREFIX.SHUTDOWN_MANAGER}] Cannot register ${name} during shutdown`);
+            this.log(`[${LOG_PREFIX.SHUTDOWN_MANAGER}] Cannot register ${name} during shutdown`);
             return;
         }
 
         this.cleanupHandlers.push({ name, fn, priority });
         // Sort by priority (lower numbers first)
         this.cleanupHandlers.sort((a, b) => a.priority - b.priority);
-        log(`[${LOG_PREFIX.SHUTDOWN_MANAGER}] Registered: ${name} (priority ${priority})`);
+        this.log(`[${LOG_PREFIX.SHUTDOWN_MANAGER}] Registered: ${name} (priority ${priority})`);
     }
 
     /**
@@ -59,11 +52,11 @@ export class ShutdownManager {
     }
 
     private async _executeShutdown(): Promise<void> {
-        log(`[${LOG_PREFIX.SHUTDOWN_MANAGER}] Starting shutdown sequence (${this.cleanupHandlers.length} handlers)`);
+        this.log(`[${LOG_PREFIX.SHUTDOWN_MANAGER}] Starting shutdown sequence (${this.cleanupHandlers.length} handlers)`);
 
         for (const handler of this.cleanupHandlers) {
             try {
-                log(`[${LOG_PREFIX.SHUTDOWN_MANAGER}] Cleaning up: ${handler.name}`);
+                this.log(`[${LOG_PREFIX.SHUTDOWN_MANAGER}] Cleaning up: ${handler.name}`);
 
                 // Race between cleanup and 5s timeout
                 await Promise.race([
@@ -73,15 +66,15 @@ export class ShutdownManager {
                     )
                 ]);
 
-                log(`[${LOG_PREFIX.SHUTDOWN_MANAGER}] ✓ ${handler.name} completed`);
+                this.log(`[${LOG_PREFIX.SHUTDOWN_MANAGER}] ✓ ${handler.name} completed`);
             } catch (error) {
                 const errMsg = error instanceof Error ? error.message : String(error);
-                log(`[${LOG_PREFIX.SHUTDOWN_MANAGER}] ✗ ${handler.name} failed: ${errMsg}`);
+                this.log(`[${LOG_PREFIX.SHUTDOWN_MANAGER}] ✗ ${handler.name} failed: ${errMsg}`);
                 // Continue with other handlers even if one fails
             }
         }
 
-        log(`[${LOG_PREFIX.SHUTDOWN_MANAGER}] Shutdown complete`);
+        this.log(`[${LOG_PREFIX.SHUTDOWN_MANAGER}] Shutdown complete`);
     }
 
     /**

@@ -11,7 +11,7 @@ export type { ToastVariant, ToastMessage, ToastOptions } from "../../shared/inde
 export { show, dismiss, getActive, getHistory, clear, onToast, initToastClient } from "./toast-core.js";
 
 // Re-export presets
-export { presets } from "../../shared/index.js";
+export * as presets from "./presets.js";
 
 // Re-export task toast manager
 export {

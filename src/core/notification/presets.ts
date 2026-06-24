@@ -1,14 +1,8 @@
 /**
- * Notification presets (consolidated)
+ * Notification presets
  */
-import { show } from "../../core/notification/toast-core.js";
-import { TOAST_VARIANTS } from "./constants.js";
-import { PATHS, STATUS_LABEL, TOAST_DURATION } from "../index.js";
-
-/**
- * Task Lifecycle Presets
- */
-
+import { PATHS, STATUS_LABEL, TOAST_DURATION, TOAST_VARIANTS } from "../../shared/index.js";
+import { show } from "./toast-core.js";
 
 export const taskStarted = (taskId: string, agent: string) => show({
     title: "Task Started",
@@ -38,12 +32,6 @@ export const allTasksComplete = (count: number) => show({
     duration: 5000,
 });
 
-
-/**
- * Session Management Presets
- */
-
-
 export const sessionCreated = (sessionId: string, agent: string) => show({
     title: "Session Created",
     message: `${agent} - ${sessionId.slice(0, 12)}...`,
@@ -64,12 +52,6 @@ export const sessionCompleted = (sessionId: string, duration: string) => show({
     variant: STATUS_LABEL.SUCCESS,
     duration: TOAST_DURATION.MEDIUM,
 });
-
-
-/**
- * Parallel Processing Presets
- */
-
 
 export const parallelTasksLaunched = (count: number, agents: string[]) => show({
     title: "Parallel Tasks Launched",
@@ -92,12 +74,6 @@ export const concurrencyReleased = (agent: string) => show({
     duration: TOAST_DURATION.EXTRA_SHORT,
 });
 
-
-/**
- * Mission & Progress Presets
- */
-
-
 export const missionComplete = (summary: string) => show({
     title: "Mission Complete",
     message: summary,
@@ -111,12 +87,6 @@ export const missionStarted = (description: string) => show({
     variant: TOAST_VARIANTS.INFO,
     duration: 4000,
 });
-
-
-/**
- * Tools & Research Presets
- */
-
 
 export const toolExecuted = (toolName: string, target: string) => show({
     title: toolName,
@@ -138,12 +108,6 @@ export const researchStarted = (topic: string) => show({
     variant: "info",
     duration: TOAST_DURATION.MEDIUM,
 });
-
-
-/**
- * Warnings & Errors Presets
- */
-
 
 export const warningRateLimited = () => show({
     title: "Rate Limited",
@@ -172,5 +136,3 @@ export const warningMaxRetries = () => show({
     variant: "error",
     duration: TOAST_DURATION.PERSISTENT,
 });
-
-
