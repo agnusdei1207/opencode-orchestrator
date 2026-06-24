@@ -5,7 +5,8 @@
  */
 
 // Re-export interfaces
-export type { Todo, TodoStats } from "./interfaces/index.js";
+export type { Todo } from "./interfaces/todo.js";
+export type { TodoStats } from "./interfaces/todo-stats.js";
 export type { TodoStatus, TodoPriority } from "./types/index.js";
 
 // Re-export parser

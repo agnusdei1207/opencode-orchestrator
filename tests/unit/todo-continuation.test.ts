@@ -19,7 +19,7 @@ import {
     handleSessionIdle,
     hasPendingContinuation,
 } from "../../src/core/loop/todo-continuation.js";
-import type { Todo } from "../../src/core/loop/interfaces/index.js";
+import type { Todo } from "../../src/core/loop/interfaces/todo.js";
 
 const mocks = vi.hoisted(() => ({
     getTasksByParent: vi.fn(() => []),

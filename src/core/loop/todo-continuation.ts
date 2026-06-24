@@ -16,7 +16,7 @@ import { log } from "../agents/logger.js";
 import { presets } from "../notification/toast.js";
 import { getIncompleteCount, hasRemainingWork, getNextPending } from "./stats.js";
 import { generateContinuationPrompt, formatProgress } from "./formatters.js";
-import type { Todo } from "./interfaces/index.js";
+import type { Todo } from "./interfaces/todo.js";
 import { ParallelAgentManager } from "../agents/manager.js";
 import { isSessionRecovering } from "../recovery/session-recovery.js";
 import { verifyMissionCompletion, buildTodoIncompletePrompt } from "./verification.js";
