@@ -7,13 +7,17 @@
  * - Progress display
  */
 
+import type { Hooks } from "@opencode-ai/plugin";
 import { log } from "../core/agents/logger.js";
 import { recordToolCall } from "../core/loop/circuit-breaker.js";
 import { recordToolEvidence } from "../core/loop/evidence.js";
 import { formatElapsedTime, formatTimestamp } from "../utils/formatting/index.js";
-import { HookRegistry } from "../hooks/registry.js"; // Import Registry
-import type { ToolExecuteHandlerContext } from "./interfaces/tool-execute-context.js";
-import type { ToolHookInput, ToolHookOutput } from "./interfaces/tool-hook.js";
+import { HookRegistry } from "../hooks/registry.js";
+import type { ToolExecuteHandlerContext } from "./context.js";
+
+type ToolExecuteAfterHook = NonNullable<Hooks["tool.execute.after"]>;
+export type ToolExecuteAfterInput = Parameters<ToolExecuteAfterHook>[0];
+export type ToolExecuteAfterOutput = Parameters<ToolExecuteAfterHook>[1];
 
 /**
  * Create tool.execute.after handler
@@ -23,8 +27,8 @@ export function createToolExecuteAfterHandler(ctx: ToolExecuteHandlerContext) {
     const hooks = HookRegistry.getInstance();
 
     return async (
-        toolInput: ToolHookInput,
-        toolOutput: ToolHookOutput
+        toolInput: ToolExecuteAfterInput,
+        toolOutput: ToolExecuteAfterOutput
     ) => {
         const session = sessions.get(toolInput.sessionID);
         if (!session?.active) return;
@@ -40,7 +44,7 @@ export function createToolExecuteAfterHandler(ctx: ToolExecuteHandlerContext) {
             session.tokens = { totalInput: 0, totalOutput: 0, estimatedCost: 0 };
         }
 
-        const toolArguments = toolInput.arguments || {};
+        const toolArguments = readToolArgs(toolInput.args);
         recordToolCall(toolInput.sessionID, toolInput.tool);
         recordToolEvidence(toolInput.sessionID, toolInput.tool, toolArguments);
 
@@ -66,4 +70,12 @@ export function createToolExecuteAfterHandler(ctx: ToolExecuteHandlerContext) {
         const currentTime = formatTimestamp();
         toolOutput.output += `\n\n[${currentTime}] Step ${session.step} | This step: ${stepDuration} | Total: ${totalElapsed}`;
     };
+}
+
+function readToolArgs(value: unknown): Record<string, unknown> {
+    return isRecord(value) ? value : {};
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+    return typeof value === "object" && value !== null && !Array.isArray(value);
 }

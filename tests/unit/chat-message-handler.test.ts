@@ -2,8 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createChatMessageHandler } from "../../src/plugin-handlers/chat-message-handler";
 import { HookRegistry } from "../../src/hooks/registry";
 import { HOOK_ACTIONS } from "../../src/hooks/constants";
-import type { ChatMessageHandlerContext } from "../../src/plugin-handlers/interfaces/chat-message-context";
-import type { SessionState } from "../../src/plugin-handlers/interfaces/session-state";
+import type { ChatMessageHandlerContext, PluginSessionState } from "../../src/plugin-handlers/context";
 
 vi.mock("../../src/core/agents/logger", () => ({ log: vi.fn() }));
 
@@ -13,7 +12,7 @@ describe("createChatMessageHandler", () => {
     });
 
     it("records user turn time for tracked sessions", async () => {
-        const session: SessionState = {
+        const session: PluginSessionState = {
             active: true,
             step: 0,
             timestamp: 0,

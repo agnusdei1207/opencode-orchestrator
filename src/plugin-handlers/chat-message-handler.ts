@@ -7,25 +7,16 @@
  * - Auto-applying mission mode for Commander
  */
 
+import type { Hooks } from "@opencode-ai/plugin";
 import { log } from "../core/agents/logger.js";
 import { PART_TYPES } from "../shared/index.js";
-import { HookRegistry } from "../hooks/registry.js"; // Added import
+import { HookRegistry } from "../hooks/registry.js";
 import { HOOK_ACTIONS } from "../hooks/constants.js";
-import type { ChatMessageHandlerContext } from "./interfaces/chat-message-context.js";
-import type { SessionState } from "./interfaces/session-state.js";
+import type { ChatMessageHandlerContext, PluginSessionState } from "./context.js";
 
-// Redefine based on actual hook input seen in validation
-type ChatHookInput = {
-    sessionID: string;
-    agent?: string;
-    model?: { providerID: string; modelID: string };
-    messageID?: string;
-    variant?: string;
-};
-
-type ChatHookOutput = {
-    parts: Array<{ type: string; text?: string }>;
-};
+type ChatMessageHook = NonNullable<Hooks["chat.message"]>;
+export type ChatMessageInput = Parameters<ChatMessageHook>[0];
+export type ChatMessageOutput = Parameters<ChatMessageHook>[1];
 
 /**
  * Create chat.message handler
@@ -33,12 +24,15 @@ type ChatHookOutput = {
 export function createChatMessageHandler(ctx: ChatMessageHandlerContext) {
     const { directory, sessions } = ctx;
 
-    return async (msgInput: ChatHookInput, msgOutput: ChatHookOutput) => {
+    return async (msgInput: ChatMessageInput, msgOutput: ChatMessageOutput) => {
         const parts = msgOutput.parts;
-        const textPartIndex = parts.findIndex(p => p.type === PART_TYPES.TEXT && p.text);
+        const textPartIndex = parts.findIndex(isTextPartWithText);
         if (textPartIndex === -1) return;
 
-        const originalText = parts[textPartIndex].text || "";
+        const textPart = parts[textPartIndex];
+        if (!isTextPartWithText(textPart)) return;
+
+        const originalText = textPart.text;
         const sessionID = msgInput.sessionID;
         const agentName = (msgInput.agent || "").toLowerCase();
 
@@ -61,12 +55,19 @@ export function createChatMessageHandler(ctx: ChatMessageHandlerContext) {
         }
 
         if (hookResult.modifiedMessage) {
-            parts[textPartIndex].text = hookResult.modifiedMessage;
+            textPart.text = hookResult.modifiedMessage;
         }
     };
 }
 
-function markUserMessage(sessions: Map<string, SessionState>, sessionID: string): void {
+type ChatMessagePart = ChatMessageOutput["parts"][number];
+type ChatTextPart = ChatMessagePart & { text: string };
+
+function isTextPartWithText(part: ChatMessagePart): part is ChatTextPart {
+    return part.type === PART_TYPES.TEXT && "text" in part && typeof part.text === "string" && part.text.length > 0;
+}
+
+function markUserMessage(sessions: Map<string, PluginSessionState>, sessionID: string): void {
     const session = sessions.get(sessionID);
     if (!session) return;
 

@@ -2,8 +2,11 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createToolExecuteBeforeHandler } from "../../src/plugin-handlers/tool-execute-pre-handler";
 import { HookRegistry } from "../../src/hooks/registry";
 import { HOOK_ACTIONS } from "../../src/hooks/constants";
-import type { ToolExecuteHandlerContext } from "../../src/plugin-handlers/interfaces/tool-execute-context";
-import type { ToolHookInput } from "../../src/plugin-handlers/interfaces/tool-hook";
+import type { ToolExecuteHandlerContext } from "../../src/plugin-handlers/context";
+import type {
+    ToolExecuteBeforeInput,
+    ToolExecuteBeforeOutput,
+} from "../../src/plugin-handlers/tool-execute-pre-handler";
 
 vi.mock("../../src/core/agents/logger", () => ({ log: vi.fn() }));
 
@@ -32,21 +35,21 @@ describe("createToolExecuteBeforeHandler", () => {
         } as unknown as HookRegistry);
 
         const ctx = createContext();
-        const input: ToolHookInput = {
+        const input: ToolExecuteBeforeInput = {
             tool: "run_command",
             sessionID: "session-1",
             callID: "call-1",
-            arguments: {
+        };
+        const output: ToolExecuteBeforeOutput = {
+            args: {
                 command: "npm test",
                 unsafeFlag: true,
             },
         };
-        const originalArgs = input.arguments;
 
-        await createToolExecuteBeforeHandler(ctx)(input);
+        await createToolExecuteBeforeHandler(ctx)(input, output);
 
-        expect(input.arguments).toBe(originalArgs);
-        expect(input.arguments).toEqual({ command: "npm test" });
+        expect(output.args).toEqual({ command: "npm test" });
         expect(argsSeenByHook).toEqual({
             command: "npm test",
             unsafeFlag: true,
@@ -73,7 +76,8 @@ describe("createToolExecuteBeforeHandler", () => {
             tool: "run_command",
             sessionID: "session-1",
             callID: "call-1",
-            arguments: { command: "rm -rf /" },
+        }, {
+            args: { command: "rm -rf /" },
         })).rejects.toThrow("blocked by test");
     });
 
@@ -90,7 +94,8 @@ describe("createToolExecuteBeforeHandler", () => {
             tool: "run_command",
             sessionID: "missing-session",
             callID: "call-1",
-            arguments: { command: "ls" },
+        }, {
+            args: { command: "ls" },
         });
 
         expect(executePreTool).not.toHaveBeenCalled();

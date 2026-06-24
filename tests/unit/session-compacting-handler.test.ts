@@ -9,9 +9,12 @@
  */
 
 import { describe, it, expect, beforeEach, vi } from "vitest";
-import { createSessionCompactingHandler } from "../../src/plugin-handlers/session-compacting-handler";
-import type { EventHandlerContext } from "../../src/plugin-handlers/interfaces/event-handler-context";
-import type { SessionCompactingInput, SessionCompactingOutput } from "../../src/plugin-handlers/interfaces/session-compacting";
+import {
+    createSessionCompactingHandler,
+    type SessionCompactingInput,
+    type SessionCompactingOutput,
+} from "../../src/plugin-handlers/session-compacting-handler";
+import type { EventHandlerContext } from "../../src/plugin-handlers/event-handler";
 
 // Mock dependencies
 vi.mock("../../src/core/loop/mission-loop", () => ({

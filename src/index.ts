@@ -38,7 +38,7 @@ import {
     createSessionCompactingHandler,
     createSystemTransformHandler,
 } from "./plugin-handlers/index.js";
-import type { SessionState } from "./plugin-handlers/interfaces/session-state.js";
+import type { PluginSessionState } from "./plugin-handlers/context.js";
 
 // ============================================================================
 // Plugin Definition
@@ -84,7 +84,7 @@ const OrchestratorPlugin: Plugin = async (input, options) => {
     const taskToastManager = Toast.initTaskToastManager(client);
 
     // Track active sessions - using event-based continuation (no step limits)
-    const sessions = new Map<string, SessionState>();
+    const sessions = new Map<string, PluginSessionState>();
 
     // Initialize parallel agent manager
     const parallelAgentManager = ParallelAgentManager.getInstance(client, directory, concurrencyConfig);

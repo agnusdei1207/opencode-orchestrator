@@ -9,8 +9,11 @@ import {
     clearEvidence,
     getChangedFiles,
 } from "../../src/core/loop/evidence";
-import type { ToolExecuteHandlerContext } from "../../src/plugin-handlers/interfaces/tool-execute-context";
-import type { ToolHookInput, ToolHookOutput } from "../../src/plugin-handlers/interfaces/tool-hook";
+import type { ToolExecuteHandlerContext } from "../../src/plugin-handlers/context";
+import type {
+    ToolExecuteAfterInput,
+    ToolExecuteAfterOutput,
+} from "../../src/plugin-handlers/tool-execute-handler";
 
 vi.mock("../../src/core/agents/logger", () => ({ log: vi.fn() }));
 
@@ -41,7 +44,7 @@ describe("createToolExecuteAfterHandler", () => {
                 directory: "/tmp/project",
             }),
             "write",
-            input.arguments,
+            input.args,
             output,
         );
         expect(output.output).toContain("Step 1");
@@ -62,18 +65,18 @@ describe("createToolExecuteAfterHandler", () => {
     });
 });
 
-function createToolInput(): ToolHookInput {
+function createToolInput(): ToolExecuteAfterInput {
     return {
         tool: "write",
         sessionID: "session-1",
         callID: "call-1",
-        arguments: {
+        args: {
             filePath: "src/a.ts",
         },
     };
 }
 
-function createToolOutput(): ToolHookOutput {
+function createToolOutput(): ToolExecuteAfterOutput {
     return {
         title: "write",
         output: "wrote file",

@@ -1,4 +1,3 @@
-
 /**
  * Pre-Tool Execute Handler
  * 
@@ -6,32 +5,36 @@
  * Used for blocking prohibited actions based on agent roles via Hooks.
  */
 
+import type { Hooks } from "@opencode-ai/plugin";
 import { HookRegistry } from "../hooks/registry.js";
-import type { ToolExecuteHandlerContext } from "./interfaces/tool-execute-context.js";
-import type { ToolHookInput } from "./interfaces/tool-hook.js";
+import type { ToolExecuteHandlerContext } from "./context.js";
 import { log } from "../core/agents/logger.js";
 import { HOOK_ACTIONS } from "../hooks/constants.js";
+
+type ToolExecuteBeforeHook = NonNullable<Hooks["tool.execute.before"]>;
+export type ToolExecuteBeforeInput = Parameters<ToolExecuteBeforeHook>[0];
+export type ToolExecuteBeforeOutput = Parameters<ToolExecuteBeforeHook>[1];
 
 export function createToolExecuteBeforeHandler(ctx: ToolExecuteHandlerContext) {
     const { sessions, directory } = ctx;
     const hooks = HookRegistry.getInstance();
 
     return async (
-        toolInput: ToolHookInput
+        toolInput: ToolExecuteBeforeInput,
+        toolOutput: ToolExecuteBeforeOutput,
     ) => {
         const session = sessions.get(toolInput.sessionID);
-        if (!session?.active) return; // or proceed? If not active, maybe we don't care, or we default allow.
+        if (!session?.active) return;
+        const toolArguments = readToolArgs(toolOutput.args);
 
-        // Execute Pre-Tool Hooks
         const result = await hooks.executePreTool(
             {
                 sessionID: toolInput.sessionID,
                 directory,
                 sessions,
-                // In future, try to resolve 'agent' from session state if possible
             },
             toolInput.tool,
-            toolInput.arguments || {}
+            toolArguments
         );
 
         if (result.action === HOOK_ACTIONS.BLOCK) {
@@ -41,22 +44,22 @@ export function createToolExecuteBeforeHandler(ctx: ToolExecuteHandlerContext) {
         }
 
         if (result.action === HOOK_ACTIONS.MODIFY && result.modifiedArgs) {
-            replaceToolArguments(toolInput, result.modifiedArgs);
+            replaceToolArguments(toolOutput, result.modifiedArgs);
         }
     };
 }
 
 function replaceToolArguments(
-    toolInput: ToolHookInput,
+    toolOutput: ToolExecuteBeforeOutput,
     modifiedArgs: Record<string, unknown>,
 ): void {
-    if (!toolInput.arguments) {
-        toolInput.arguments = {};
-    }
+    toolOutput.args = { ...modifiedArgs };
+}
 
-    for (const key of Object.keys(toolInput.arguments)) {
-        delete toolInput.arguments[key];
-    }
+function readToolArgs(value: unknown): Record<string, unknown> {
+    return isRecord(value) ? value : {};
+}
 
-    Object.assign(toolInput.arguments, modifiedArgs);
+function isRecord(value: unknown): value is Record<string, unknown> {
+    return typeof value === "object" && value !== null && !Array.isArray(value);
 }

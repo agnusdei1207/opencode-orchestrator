@@ -6,9 +6,12 @@ import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { describe, it, expect, beforeEach, vi } from "vitest";
-import { createSystemTransformHandler } from "../../src/plugin-handlers/system-transform-handler";
-import type { EventHandlerContext } from "../../src/plugin-handlers/interfaces/event-handler-context";
-import type { SystemTransformInput, SystemTransformOutput } from "../../src/plugin-handlers/interfaces/system-transform";
+import {
+    createSystemTransformHandler,
+    type SystemTransformInput,
+    type SystemTransformOutput,
+} from "../../src/plugin-handlers/system-transform-handler";
+import type { EventHandlerContext } from "../../src/plugin-handlers/event-handler";
 import { isMissionActive, ensureSessionInitialized } from "../../src/core/orchestrator/session-manager";
 import { readLoopState } from "../../src/core/loop/mission-loop";
 import { ParallelAgentManager } from "../../src/core/agents/manager";
@@ -73,7 +76,7 @@ describe("System Transform Handler", () => {
             startedAt: new Date().toISOString(),
         });
 
-        const input: SystemTransformInput = { sessionID: "test-session" };
+        const input = createSystemInput();
         const output: SystemTransformOutput = { system: [] };
 
         await handler(input, output);
@@ -92,7 +95,7 @@ describe("System Transform Handler", () => {
             startedAt: new Date().toISOString(),
         });
 
-        const input: SystemTransformInput = { sessionID: "test-session" };
+        const input = createSystemInput();
         const output: SystemTransformOutput = { system: [] };
 
         await handler(input, output);
@@ -119,7 +122,7 @@ describe("System Transform Handler", () => {
             ]),
         } as any);
 
-        const input: SystemTransformInput = { sessionID: "test-session" };
+        const input = createSystemInput();
         const output: SystemTransformOutput = { system: [] };
 
         await handler(input, output);
@@ -133,7 +136,7 @@ describe("System Transform Handler", () => {
         vi.mocked(isMissionActive).mockReturnValue(false);
         vi.mocked(readLoopState).mockReturnValue(null);
 
-        const input: SystemTransformInput = { sessionID: "test-session" };
+        const input = createSystemInput();
         const output: SystemTransformOutput = { system: [] };
 
         await handler(input, output);
@@ -151,7 +154,7 @@ describe("System Transform Handler", () => {
             startedAt: new Date().toISOString(),
         });
 
-        const input: SystemTransformInput = { sessionID: "test-session" };
+        const input = createSystemInput();
         const output: SystemTransformOutput = { system: [] };
 
         await handler(input, output);
@@ -182,7 +185,7 @@ describe("System Transform Handler", () => {
                 startedAt: new Date().toISOString(),
             });
 
-            const input: SystemTransformInput = { sessionID: "test-session" };
+            const input = createSystemInput();
             const output: SystemTransformOutput = { system: [] };
 
             await handler(input, output);
@@ -226,11 +229,11 @@ describe("System Transform Handler", () => {
             });
 
             const workerOutput: SystemTransformOutput = { system: [] };
-            await handler({ sessionID: "test-session", agent: "Worker" }, workerOutput);
+            await handler(createSystemInput({ agent: "Worker" }), workerOutput);
             const workerKnowledge = findKnowledgePrompt(workerOutput);
 
             const plannerOutput: SystemTransformOutput = { system: [] };
-            await handler({ sessionID: "test-session", agent: "Planner" }, plannerOutput);
+            await handler(createSystemInput({ agent: "Planner" }), plannerOutput);
             const plannerKnowledge = findKnowledgePrompt(plannerOutput);
 
             expect(resultRank(workerKnowledge, "LexicalTarget"))
@@ -272,7 +275,7 @@ describe("System Transform Handler", () => {
                 startedAt: new Date().toISOString(),
             });
 
-            const input: SystemTransformInput = { sessionID: "test-session" };
+            const input = createSystemInput();
             const output: SystemTransformOutput = { system: [] };
 
             await handler(input, output);
@@ -289,6 +292,17 @@ function findKnowledgePrompt(output: SystemTransformOutput): string {
     const prompt = output.system.find(s => s.includes("<knowledge_rag_context>"));
     expect(prompt).toBeDefined();
     return prompt ?? "";
+}
+
+function createSystemInput(overrides: Partial<SystemTransformInput> = {}): SystemTransformInput {
+    return {
+        sessionID: "test-session",
+        model: {
+            providerID: "test-provider",
+            modelID: "test-model",
+        } as SystemTransformInput["model"],
+        ...overrides,
+    };
 }
 
 function resultRank(prompt: string, noteName: string): number {

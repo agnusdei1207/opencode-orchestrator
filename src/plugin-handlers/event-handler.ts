@@ -15,9 +15,10 @@ import * as MissionLoopHandler from "../core/loop/mission-loop-handler.js";
 import { isLoopActive } from "../core/loop/mission-loop.js";
 import * as ContextMonitor from "../core/context/index.js";
 import { SESSION_EVENTS, MESSAGE_EVENTS, MESSAGE_ROLES } from "../shared/index.js";
-import type { EventHandlerContext } from "./interfaces/event-handler-context.js";
-import type { SessionState } from "./interfaces/session-state.js";
+import type { PluginHandlerContext, PluginSessionState } from "./context.js";
 import { handleCompletedAssistantMessage } from "./assistant-done-handler.js";
+
+export type EventHandlerContext = PluginHandlerContext;
 
 /**
  * Create event handler for session events
@@ -165,14 +166,14 @@ function isRecord(value: unknown): value is Record<string, unknown> {
     return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-function markAssistantCompleted(sessions: Map<string, SessionState>, sessionID: string): void {
+function markAssistantCompleted(sessions: Map<string, PluginSessionState>, sessionID: string): void {
     const session = sessions.get(sessionID);
     if (!session) return;
 
     session.lastAssistantCompletedAt = Date.now();
 }
 
-function shouldContinueAfterIdle(session: SessionState | undefined): boolean {
+function shouldContinueAfterIdle(session: PluginSessionState | undefined): boolean {
     if (!session?.active || !session.lastAssistantCompletedAt) {
         return false;
     }
@@ -188,7 +189,7 @@ function shouldContinueAfterIdle(session: SessionState | undefined): boolean {
     return true;
 }
 
-function markAbort(sessions: Map<string, SessionState>, sessionID: string): void {
+function markAbort(sessions: Map<string, PluginSessionState>, sessionID: string): void {
     const session = sessions.get(sessionID);
     if (session) {
         session.lastAbortAt = Date.now();

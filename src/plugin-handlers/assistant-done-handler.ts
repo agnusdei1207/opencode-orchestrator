@@ -4,13 +4,11 @@
  * Handles completed assistant turns using supported OpenCode session APIs.
  */
 
-import type { PluginInput } from "@opencode-ai/plugin";
 import { log } from "../core/agents/logger.js";
 import { PART_TYPES } from "../shared/index.js";
 import { HookRegistry } from "../hooks/registry.js";
-import type { AssistantDoneHandlerContext } from "./interfaces/assistant-done-context.js";
+import type { AssistantDoneHandlerContext, OpencodeClient } from "./context.js";
 
-type OpencodeClient = PluginInput["client"];
 type AssistantMessagePart = { type: string; text?: string };
 
 /**

@@ -7,7 +7,7 @@ import * as TodoContinuation from "../../src/core/loop/todo-continuation";
 import * as MissionLoopHandler from "../../src/core/loop/mission-loop-handler";
 import * as MissionLoop from "../../src/core/loop/mission-loop";
 import * as Toast from "../../src/core/notification/toast";
-import type { EventHandlerContext } from "../../src/plugin-handlers/interfaces/event-handler-context";
+import type { EventHandlerContext } from "../../src/plugin-handlers/event-handler";
 
 vi.mock("../../src/core/agents/manager", () => ({
     ParallelAgentManager: {
