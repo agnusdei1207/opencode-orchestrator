@@ -51,12 +51,12 @@ describe("TaskCleaner", () => {
                 noReply: false,
                 parts: [{
                     type: "text",
-                    text: expect.stringContaining(`- ${task.id} | ${task.agent} | done`),
+                    text: `[BACKGROUND COMPLETE]\nresults=${task.id}:${task.agent}:done\nnext=get_task_result`,
                 }],
             },
         });
         const text = prompt.mock.calls[0][0].body.parts[0].text;
-        expect(text).toContain("Next: call get_task_result with the task id(s) you need.");
+        expect(text).toContain("next=get_task_result");
         expect(text).not.toContain(task.description);
         expect(store.getNotifications(task.parentSessionID)).toEqual([]);
     });

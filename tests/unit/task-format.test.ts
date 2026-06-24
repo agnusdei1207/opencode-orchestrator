@@ -12,12 +12,11 @@ describe("parallel task format helpers", () => {
             { id: "task_b", agent: "Reviewer", status: TASK_STATUS.ERROR },
         ]);
 
-        expect(message).toContain("Background tasks complete.");
-        expect(message).toContain("- task_a | Worker | done");
-        expect(message).toContain("- task_b | Reviewer | error");
-        expect(message).toContain("Next: call get_task_result with the task id(s) you need.");
+        expect(message).toBe("[BACKGROUND COMPLETE]\nresults=task_a:Worker:done,task_b:Reviewer:error\nnext=get_task_result");
         expect(message).not.toContain("ACTION REQUIRED");
         expect(message).not.toContain("get_task_result(taskId)");
+        expect(message).not.toContain("<system-notification>");
+        expect(message).not.toContain("Background tasks complete.");
     });
 
     it("builds a minimal progress notification for agent-to-agent updates", () => {

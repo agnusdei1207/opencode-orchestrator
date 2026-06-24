@@ -16,16 +16,10 @@ export function formatDuration(start: Date, end?: Date): string {
 export function buildAgentTaskCompletionMessage(tasks: Array<{ id: string; agent: string; status: string }>): string {
     const summary = tasks.map(t => {
         const status = t.status === TASK_STATUS.COMPLETED ? "done" : t.status;
-        return `- ${t.id} | ${t.agent} | ${status}`;
-    }).join("\n");
+        return `${t.id}:${t.agent}:${status}`;
+    }).join(",");
 
-    return `<system-notification>
-Background tasks complete.
-
-${summary}
-
-Next: call get_task_result with the task id(s) you need.
-</system-notification>`;
+    return `[BACKGROUND COMPLETE]\nresults=${summary}\nnext=get_task_result`;
 }
 
 export function buildAgentTaskProgressMessage(
