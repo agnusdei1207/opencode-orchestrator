@@ -7,7 +7,8 @@
  * session context and orchestrator state.
  */
 
-import type { EventHandlerContext, SystemTransformInput, SystemTransformOutput } from "./interfaces/index.js";
+import type { EventHandlerContext } from "./interfaces/event-handler-context.js";
+import type { SystemTransformInput, SystemTransformOutput } from "./interfaces/system-transform.js";
 import { readLoopState } from "../core/loop/mission-loop.js";
 import { PATHS, STATUS_LABEL } from "../shared/index.js";
 import { ParallelAgentManager } from "../core/agents/manager.js";

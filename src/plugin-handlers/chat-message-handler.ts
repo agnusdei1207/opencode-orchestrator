@@ -11,7 +11,8 @@ import { log } from "../core/agents/logger.js";
 import { PART_TYPES } from "../shared/index.js";
 import { HookRegistry } from "../hooks/registry.js"; // Added import
 import { HOOK_ACTIONS } from "../hooks/constants.js";
-import type { ChatMessageHandlerContext, SessionState } from "./interfaces/index.js";
+import type { ChatMessageHandlerContext } from "./interfaces/chat-message-context.js";
+import type { SessionState } from "./interfaces/session-state.js";
 
 // Redefine based on actual hook input seen in validation
 type ChatHookInput = {

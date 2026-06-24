@@ -2,7 +2,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createToolExecuteBeforeHandler } from "../../src/plugin-handlers/tool-execute-pre-handler";
 import { HookRegistry } from "../../src/hooks/registry";
 import { HOOK_ACTIONS } from "../../src/hooks/constants";
-import type { ToolExecuteHandlerContext, ToolHookInput } from "../../src/plugin-handlers/interfaces";
+import type { ToolExecuteHandlerContext } from "../../src/plugin-handlers/interfaces/tool-execute-context";
+import type { ToolHookInput } from "../../src/plugin-handlers/interfaces/tool-hook";
 
 vi.mock("../../src/core/agents/logger", () => ({ log: vi.fn() }));
 

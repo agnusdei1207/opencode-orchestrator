@@ -9,11 +9,8 @@ import {
     clearEvidence,
     getChangedFiles,
 } from "../../src/core/loop/evidence";
-import type {
-    ToolExecuteHandlerContext,
-    ToolHookInput,
-    ToolHookOutput,
-} from "../../src/plugin-handlers/interfaces";
+import type { ToolExecuteHandlerContext } from "../../src/plugin-handlers/interfaces/tool-execute-context";
+import type { ToolHookInput, ToolHookOutput } from "../../src/plugin-handlers/interfaces/tool-hook";
 
 vi.mock("../../src/core/agents/logger", () => ({ log: vi.fn() }));
 

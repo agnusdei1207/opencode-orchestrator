@@ -15,7 +15,8 @@ import * as MissionLoopHandler from "../core/loop/mission-loop-handler.js";
 import { isLoopActive } from "../core/loop/mission-loop.js";
 import * as ContextMonitor from "../core/context/index.js";
 import { SESSION_EVENTS, MESSAGE_EVENTS, MESSAGE_ROLES } from "../shared/index.js";
-import type { EventHandlerContext, SessionState } from "./interfaces/index.js";
+import type { EventHandlerContext } from "./interfaces/event-handler-context.js";
+import type { SessionState } from "./interfaces/session-state.js";
 import { handleCompletedAssistantMessage } from "./assistant-done-handler.js";
 
 /**

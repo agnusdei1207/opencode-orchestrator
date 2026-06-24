@@ -2,7 +2,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createChatMessageHandler } from "../../src/plugin-handlers/chat-message-handler";
 import { HookRegistry } from "../../src/hooks/registry";
 import { HOOK_ACTIONS } from "../../src/hooks/constants";
-import type { ChatMessageHandlerContext, SessionState } from "../../src/plugin-handlers/interfaces";
+import type { ChatMessageHandlerContext } from "../../src/plugin-handlers/interfaces/chat-message-context";
+import type { SessionState } from "../../src/plugin-handlers/interfaces/session-state";
 
 vi.mock("../../src/core/agents/logger", () => ({ log: vi.fn() }));
 

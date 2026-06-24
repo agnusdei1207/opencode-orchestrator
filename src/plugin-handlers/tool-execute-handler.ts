@@ -12,7 +12,8 @@ import { recordToolCall } from "../core/loop/circuit-breaker.js";
 import { recordToolEvidence } from "../core/loop/evidence.js";
 import { formatElapsedTime, formatTimestamp } from "../utils/formatting/index.js";
 import { HookRegistry } from "../hooks/registry.js"; // Import Registry
-import type { ToolExecuteHandlerContext, ToolHookInput, ToolHookOutput } from "./interfaces/index.js";
+import type { ToolExecuteHandlerContext } from "./interfaces/tool-execute-context.js";
+import type { ToolHookInput, ToolHookOutput } from "./interfaces/tool-hook.js";
 
 /**
  * Create tool.execute.after handler

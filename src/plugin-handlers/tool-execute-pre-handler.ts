@@ -7,7 +7,8 @@
  */
 
 import { HookRegistry } from "../hooks/registry.js";
-import type { ToolExecuteHandlerContext, ToolHookInput } from "./interfaces/index.js";
+import type { ToolExecuteHandlerContext } from "./interfaces/tool-execute-context.js";
+import type { ToolHookInput } from "./interfaces/tool-hook.js";
 import { log } from "../core/agents/logger.js";
 import { HOOK_ACTIONS } from "../hooks/constants.js";
 

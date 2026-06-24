@@ -7,7 +7,3 @@ export * from "./tool-execute-handler.js";
 export * from "./tool-execute-pre-handler.js"; // Added
 export * from "./session-compacting-handler.js";
 export * from "./system-transform-handler.js";
-
-// Export types
-export * from "./interfaces/index.js";
-

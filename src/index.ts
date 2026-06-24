@@ -37,8 +37,8 @@ import {
     createToolExecuteAfterHandler,
     createSessionCompactingHandler,
     createSystemTransformHandler,
-    type SessionState,
 } from "./plugin-handlers/index.js";
+import type { SessionState } from "./plugin-handlers/interfaces/session-state.js";
 
 // ============================================================================
 // Plugin Definition

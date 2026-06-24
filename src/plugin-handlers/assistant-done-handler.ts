@@ -8,7 +8,7 @@ import type { PluginInput } from "@opencode-ai/plugin";
 import { log } from "../core/agents/logger.js";
 import { PART_TYPES } from "../shared/index.js";
 import { HookRegistry } from "../hooks/registry.js";
-import type { AssistantDoneHandlerContext } from "./interfaces/index.js";
+import type { AssistantDoneHandlerContext } from "./interfaces/assistant-done-context.js";
 
 type OpencodeClient = PluginInput["client"];
 type AssistantMessagePart = { type: string; text?: string };

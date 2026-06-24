@@ -9,7 +9,8 @@
 
 import { readLoopState } from "../core/loop/mission-loop.js";
 import type { MissionLoopState } from "../shared/loop/types.js";
-import type { EventHandlerContext, SessionCompactingInput, SessionCompactingOutput } from "./interfaces/index.js";
+import type { EventHandlerContext } from "./interfaces/event-handler-context.js";
+import type { SessionCompactingInput, SessionCompactingOutput } from "./interfaces/session-compacting.js";
 import { ParallelAgentManager } from "../core/agents/manager.js";
 import { STATUS_LABEL } from "../shared/index.js";
 import { handleSessionCompacted } from "../core/loop/mission-loop-handler.js";
