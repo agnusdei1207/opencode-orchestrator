@@ -3,7 +3,14 @@
  */
 
 import { SEVERITY } from "./constants/severity.js";
-import type { SanityResult } from "./interfaces/sanity-result.js";
+
+export type Severity = (typeof SEVERITY)[keyof typeof SEVERITY];
+
+export interface SanityResult {
+    isHealthy: boolean;
+    reason?: string;
+    severity: Severity;
+}
 
 /**
  * Check if LLM output shows signs of degeneration
