@@ -91,8 +91,6 @@ Model selection follows normal OpenCode inheritance. The plugin does not force a
 3. Generated Commander, Planner, Worker, and Reviewer agents inherit global permissions.
 4. Same-name user agent config can still override model, temperature, and specific permission keys.
 
-Legacy top-level concurrency keys (`agentConcurrency`, `providerConcurrency`, `modelConcurrency`, `defaultConcurrency`) are still accepted for backward compatibility, but the plugin tuple is the preferred location.
-
 Plugin options are schema-described in `opencode-orchestrator.schema.json` (generated from the Zod source, shipped in the package) for editor autocomplete and validation. Invalid or missing option fields fall back to defaults rather than failing.
 
 ## 3. Run

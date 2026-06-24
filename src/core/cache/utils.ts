@@ -4,15 +4,15 @@
 
 import * as fs from "node:fs/promises";
 import { existsSync } from "node:fs";
-import { CACHE_DIR, METADATA_FILE } from "./constants.js";
+import { PATHS } from "../../shared/index.js";
 import type { CacheMetadata } from "./interfaces/index.js";
 
 /**
  * Ensure cache directory exists
  */
 export async function ensureCacheDir(): Promise<void> {
-    if (!existsSync(CACHE_DIR)) {
-        await fs.mkdir(CACHE_DIR, { recursive: true });
+    if (!existsSync(PATHS.DOCS)) {
+        await fs.mkdir(PATHS.DOCS, { recursive: true });
     }
 }
 
@@ -39,7 +39,7 @@ export function urlToFilename(url: string): string {
  */
 export async function readMetadata(): Promise<CacheMetadata> {
     try {
-        const content = await fs.readFile(METADATA_FILE, "utf-8");
+        const content = await fs.readFile(PATHS.DOC_METADATA, "utf-8");
         return JSON.parse(content);
     } catch {
         return { documents: {}, lastUpdated: new Date().toISOString() };
@@ -52,5 +52,5 @@ export async function readMetadata(): Promise<CacheMetadata> {
 export async function writeMetadata(metadata: CacheMetadata): Promise<void> {
     await ensureCacheDir();
     metadata.lastUpdated = new Date().toISOString();
-    await fs.writeFile(METADATA_FILE, JSON.stringify(metadata, null, 2));
+    await fs.writeFile(PATHS.DOC_METADATA, JSON.stringify(metadata, null, 2));
 }

@@ -25,9 +25,6 @@ import { backgroundTaskManager } from "./core/commands/manager.js";
 import { shutdownRustToolPool } from "./tools/rust-pool.js";
 import { registerAllTools } from "./tools/registry.js";
 import { SHUTDOWN_HANDLERS, SESSION_EVENTS, PLUGIN_HOOKS } from "./shared/index.js";
-import {
-    mergeConcurrencyConfig,
-} from "./core/agents/concurrency-config.js";
 import { parseOrchestratorPluginOptions } from "./core/config/plugin-options.js";
 import { configureMissionRuntimeOptions } from "./core/loop/mission-runtime-options.js";
 
@@ -70,7 +67,7 @@ function readCreatedSessionID(properties: unknown): string | undefined {
 const OrchestratorPlugin: Plugin = async (input, options) => {
     const { directory, client } = input;
     const orchestratorOptions = parseOrchestratorPluginOptions(options);
-    let concurrencyConfig = orchestratorOptions.concurrency;
+    const concurrencyConfig = orchestratorOptions.concurrency;
     configureMissionRuntimeOptions(orchestratorOptions.missionLoop);
 
     // Initialize Hooks System
@@ -148,12 +145,7 @@ const OrchestratorPlugin: Plugin = async (input, options) => {
         // -----------------------------------------------------------------
         // Config hook - registers our commands and agents with OpenCode
         // -----------------------------------------------------------------
-        config: createConfigHandler({
-            onConcurrencyConfig: (config) => {
-                concurrencyConfig = mergeConcurrencyConfig(concurrencyConfig, config);
-                parallelAgentManager.configureConcurrency(concurrencyConfig);
-            },
-        }),
+        config: createConfigHandler(),
 
         // -----------------------------------------------------------------
         // Event hook - handles OpenCode events

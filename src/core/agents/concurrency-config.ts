@@ -2,13 +2,6 @@ import type { ConcurrencyConfig } from "./concurrency.js";
 
 type UnknownRecord = Record<string, unknown>;
 
-const CONCURRENCY_KEYS = [
-    "defaultConcurrency",
-    "agentConcurrency",
-    "providerConcurrency",
-    "modelConcurrency",
-] as const;
-
 function isRecord(value: unknown): value is UnknownRecord {
     return typeof value === "object" && value !== null && !Array.isArray(value);
 }
@@ -44,31 +37,4 @@ export function extractConcurrencyConfig(source: unknown): ConcurrencyConfig {
     if (modelConcurrency) config.modelConcurrency = modelConcurrency;
 
     return config;
-}
-
-export function hasConcurrencyConfig(source: unknown): boolean {
-    if (!isRecord(source)) return false;
-    return CONCURRENCY_KEYS.some((key) => source[key] !== undefined);
-}
-
-export function mergeConcurrencyConfig(
-    base: ConcurrencyConfig,
-    override: ConcurrencyConfig,
-): ConcurrencyConfig {
-    return {
-        ...base,
-        ...override,
-        agentConcurrency: {
-            ...base.agentConcurrency,
-            ...override.agentConcurrency,
-        },
-        providerConcurrency: {
-            ...base.providerConcurrency,
-            ...override.providerConcurrency,
-        },
-        modelConcurrency: {
-            ...base.modelConcurrency,
-            ...override.modelConcurrency,
-        },
-    };
 }

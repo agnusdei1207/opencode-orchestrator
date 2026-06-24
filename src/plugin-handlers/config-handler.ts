@@ -8,11 +8,6 @@ import type { Config } from "@opencode-ai/plugin";
 import { AGENTS } from "../agents/definitions.js";
 import { COMMANDS } from "../tools/slashCommand.js";
 import { AGENT_NAMES } from "../shared/index.js";
-import type { ConcurrencyConfig } from "../core/agents/concurrency.js";
-import {
-    extractConcurrencyConfig,
-    hasConcurrencyConfig,
-} from "../core/agents/concurrency-config.js";
 
 type UnknownRecord = Record<string, unknown>;
 type PermissionAction = "ask" | "allow" | "deny";
@@ -27,10 +22,6 @@ type MutableConfig = Omit<Config, "command" | "agent" | "permission" | "default_
     default_agent?: string;
     permission?: unknown;
 };
-
-interface ConfigHandlerOptions {
-    onConcurrencyConfig?: (config: ConcurrencyConfig) => void;
-}
 
 function isRecord(value: unknown): value is UnknownRecord {
     return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -77,13 +68,9 @@ function defineAgent(
 /**
  * Create config handler for OpenCode
  */
-export function createConfigHandler(options: ConfigHandlerOptions = {}) {
+export function createConfigHandler() {
     return async (config: Config & UnknownRecord) => {
         const mutableConfig = config as MutableConfig;
-
-        if (hasConcurrencyConfig(config)) {
-            options.onConcurrencyConfig?.(extractConcurrencyConfig(config));
-        }
 
         const commanderPrompt = AGENTS[AGENT_NAMES.COMMANDER]?.systemPrompt || "";
         const plannerPrompt = AGENTS[AGENT_NAMES.PLANNER]?.systemPrompt || "";

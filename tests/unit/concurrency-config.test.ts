@@ -1,8 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
     extractConcurrencyConfig,
-    hasConcurrencyConfig,
-    mergeConcurrencyConfig,
 } from "../../src/core/agents/concurrency-config.js";
 import { parseOrchestratorPluginOptions } from "../../src/core/config/plugin-options.js";
 
@@ -35,30 +33,6 @@ describe("concurrency config helpers", () => {
             modelConcurrency: {
                 "opencode/gpt-5.1-codex": 2,
             },
-        });
-    });
-
-    it("detects legacy top-level concurrency keys", () => {
-        expect(hasConcurrencyConfig({ agentConcurrency: { worker: 2 } })).toBe(true);
-        expect(hasConcurrencyConfig({ model: "opencode/gpt-5.1-codex" })).toBe(false);
-    });
-
-    it("merges plugin option defaults with config hook overrides", () => {
-        expect(mergeConcurrencyConfig(
-            {
-                defaultConcurrency: 4,
-                agentConcurrency: { worker: 6, reviewer: 2 },
-                providerConcurrency: { anthropic: 3 },
-            },
-            {
-                agentConcurrency: { worker: 10 },
-                modelConcurrency: { "opencode/gpt-5.1-codex": 1 },
-            },
-        )).toEqual({
-            defaultConcurrency: 4,
-            agentConcurrency: { worker: 10, reviewer: 2 },
-            providerConcurrency: { anthropic: 3 },
-            modelConcurrency: { "opencode/gpt-5.1-codex": 1 },
         });
     });
 

@@ -4,7 +4,7 @@
 
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
-import { CACHE_DIR, DEFAULT_TTL_MS } from "./constants.js";
+import { CACHE, PATHS } from "../../shared/index.js";
 import { ensureCacheDir, urlToFilename, readMetadata, writeMetadata } from "./utils.js";
 import type { CachedDocument, CacheListEntry, CacheStats } from "./interfaces/index.js";
 
@@ -24,7 +24,7 @@ export async function get(url: string): Promise<CachedDocument | null> {
     }
 
     try {
-        const filepath = path.join(CACHE_DIR, filename);
+        const filepath = path.join(PATHS.DOCS, filename);
         const content = await fs.readFile(filepath, "utf-8");
         return { ...entry, content };
     } catch {
@@ -42,7 +42,7 @@ export async function getByFilename(filename: string): Promise<CachedDocument | 
     if (!entry) return null;
 
     try {
-        const filepath = path.join(CACHE_DIR, filename);
+        const filepath = path.join(PATHS.DOCS, filename);
         const content = await fs.readFile(filepath, "utf-8");
         return { ...entry, content };
     } catch {
@@ -57,12 +57,12 @@ export async function set(
     url: string,
     content: string,
     title: string,
-    ttlMs: number = DEFAULT_TTL_MS
+    ttlMs: number = CACHE.DEFAULT_TTL_MS
 ): Promise<string> {
     await ensureCacheDir();
 
     const filename = urlToFilename(url);
-    const filepath = path.join(CACHE_DIR, filename);
+    const filepath = path.join(PATHS.DOCS, filename);
     const now = new Date();
 
     const header = `# ${title}\n\n> Source: ${url}\n> Cached: ${now.toISOString()}\n\n---\n\n`;
@@ -87,7 +87,7 @@ export async function set(
  */
 export async function remove(url: string): Promise<boolean> {
     const filename = urlToFilename(url);
-    const filepath = path.join(CACHE_DIR, filename);
+    const filepath = path.join(PATHS.DOCS, filename);
 
     try {
         await fs.unlink(filepath);
@@ -122,7 +122,7 @@ export async function clear(): Promise<number> {
     const count = Object.keys(metadata.documents).length;
 
     for (const filename of Object.keys(metadata.documents)) {
-        const filepath = path.join(CACHE_DIR, filename);
+        const filepath = path.join(PATHS.DOCS, filename);
         try {
             await fs.unlink(filepath);
         } catch {

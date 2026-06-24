@@ -9,7 +9,7 @@ This document describes the current architecture that is directly verifiable fro
 | Plugin bootstrap | `src/index.ts` | Parses plugin options, initializes subsystems, registers hooks, tools, and cleanup. |
 | Rust CLI | `crates/orchestrator-cli/src/main.rs` | Dispatches local commands including `serve`, metadata commands, install/uninstall, and explicit terminal utilities. |
 | Shell listener CLI | `crates/orchestrator-cli/src/shell_listener.rs` | Runs the authorized-lab TCP session listener and line-mode TUI outside OpenCode RPC. |
-| Config hook | `src/plugin-handlers/config-handler.ts` | Registers commands and the four generated agents, merges user agent overrides, copies global permissions, and forwards concurrency config. |
+| Config hook | `src/plugin-handlers/config-handler.ts` | Registers commands and the four generated agents, merges user agent overrides, and copies global permissions. |
 | Event hook | `src/plugin-handlers/event-handler.ts` | Bridges OpenCode session/message events into mission continuation, recovery, and cleanup paths. |
 | Chat hook | `src/plugin-handlers/chat-message-handler.ts` | Tracks user activity and routes slash-command text through the local hook registry. |
 
@@ -66,8 +66,6 @@ Current option readers:
 | `modelConcurrency` | `src/core/agents/concurrency-config.ts` | Model-level concurrency overrides. |
 | `defaultConcurrency` | `src/core/agents/concurrency-config.ts` | Default fallback concurrency. |
 | `missionLoop.*` | `src/core/config/plugin-options.ts` | Runtime mission memory and evidence controls. |
-
-Backward compatibility remains for top-level concurrency keys, but the plugin tuple is the preferred location.
 
 ## 4. Permission Model
 

@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import { createConfigHandler } from "../../src/plugin-handlers/config-handler.js";
 import { AGENT_NAMES } from "../../src/shared/index.js";
 
@@ -117,8 +117,7 @@ describe("createConfigHandler", () => {
         expect(config.agent[AGENT_NAMES.COMMANDER].prompt).not.toContain("<project_rules");
     });
 
-    it("reports legacy top-level concurrency config to the runtime callback", async () => {
-        const onConcurrencyConfig = vi.fn();
+    it("does not treat top-level OpenCode config as orchestrator plugin options", async () => {
         const config = {
             agentConcurrency: {
                 commander: 1,
@@ -135,13 +134,14 @@ describe("createConfigHandler", () => {
             defaultConcurrency: 4,
         };
 
-        await createConfigHandler({ onConcurrencyConfig })(config);
+        await createConfigHandler()(config);
 
-        expect(onConcurrencyConfig).toHaveBeenCalledWith({
-            agentConcurrency: config.agentConcurrency,
-            modelConcurrency: config.modelConcurrency,
-            providerConcurrency: config.providerConcurrency,
-            defaultConcurrency: 4,
+        expect(config.agent[AGENT_NAMES.COMMANDER].mode).toBe("primary");
+        expect(config.agentConcurrency).toEqual({
+            commander: 1,
+            planner: 10,
+            worker: 10,
+            reviewer: 10,
         });
     });
 });
