@@ -1,12 +1,51 @@
+import { ID_PREFIX, TASK_STATUS } from "../../shared/index.js";
+import type { ParallelTaskStatus } from "../../shared/task/types.js";
+
 /**
  * Task Store - Hierarchy data management
  */
 
-import type { TaskHierarchy } from "./interfaces/task-hierarchy.js";
-import type { TaskInput } from "./interfaces/task-input.js";
-import type { TaskNode, TaskStatus } from "./interfaces/task-node.js";
-import type { TaskProgress } from "./interfaces/task-progress.js";
-import { ID_PREFIX, TASK_STATUS } from "../../shared/index.js";
+export type TaskStatus = ParallelTaskStatus;
+
+export interface TaskNode {
+    id: string;
+    description: string;
+    level: number;
+    parent?: string;
+    children: string[];
+    status: TaskStatus;
+    agent?: string;
+    parallelGroup?: string;
+    dependsOn: string[];
+    createdAt: Date;
+    startedAt?: Date;
+    completedAt?: Date;
+    result?: string;
+}
+
+export interface TaskHierarchy {
+    rootId: string;
+    nodes: Map<string, TaskNode>;
+    parallelGroups: Map<string, string[]>;
+}
+
+export interface TaskInput {
+    description: string;
+    level: number;
+    parentId?: string;
+    agent?: string;
+    parallelGroup?: string;
+    dependsOn?: string[];
+}
+
+export interface TaskProgress {
+    total: number;
+    pending: number;
+    running: number;
+    completed: number;
+    failed: number;
+    percentage: number;
+}
 
 // Store task hierarchies by session
 const hierarchies = new Map<string, TaskHierarchy>();

@@ -4,11 +4,14 @@
  * Automatically decomposes complex tasks into hierarchical subtasks
  */
 
-// Re-export interfaces
-export type { TaskStatus, TaskNode } from "./interfaces/task-node.js";
-export type { TaskHierarchy } from "./interfaces/task-hierarchy.js";
-export type { TaskProgress } from "./interfaces/task-progress.js";
-export type { TaskInput } from "./interfaces/task-input.js";
+// Re-export store-owned contracts
+export type {
+    TaskStatus,
+    TaskNode,
+    TaskHierarchy,
+    TaskProgress,
+    TaskInput,
+} from "./store.js";
 
 // Re-export store operations
 export {

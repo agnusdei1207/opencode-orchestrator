@@ -2,7 +2,7 @@
  * Task Scheduler - Execution order and dependencies
  */
 
-import type { TaskNode } from "./interfaces/task-node.js";
+import type { TaskNode } from "./store.js";
 import { getHierarchy } from "./store.js";
 import { TASK_STATUS } from "../../shared/index.js";
 
