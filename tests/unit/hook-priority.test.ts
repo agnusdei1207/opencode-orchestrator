@@ -5,7 +5,7 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { HookRegistry } from "../../src/hooks/registry";
 import { HOOK_ACTIONS } from "../../src/hooks/constants";
-import type { ChatMessageHook, HookContext } from "../../src/hooks/types";
+import type { ChatMessageHook, HookContext, PostToolUseHook } from "../../src/hooks/types";
 
 describe("Hook Registry (Priority & Dependencies)", () => {
     let registry: HookRegistry;
@@ -90,6 +90,18 @@ describe("Hook Registry (Priority & Dependencies)", () => {
         }).toThrow();
     });
 
+    it("should throw error on missing dependencies", async () => {
+        const hook: ChatMessageHook = { name: "needs-missing", execute: vi.fn() };
+
+        registry.registerChat(hook, {
+            name: "needs-missing",
+            dependencies: ["missing-hook"],
+        });
+
+        await expect(registry.executeChat(mockContext, "test"))
+            .rejects.toThrow("Missing hook dependency: missing-hook");
+    });
+
     it("should respect errorHandling: stop", async () => {
         const hook1: ChatMessageHook = {
             name: "fail",
@@ -104,5 +116,19 @@ describe("Hook Registry (Priority & Dependencies)", () => {
         registry.registerChat(hook2, { name: "second", priority: 100 });
 
         await expect(registry.executeChat(mockContext, "test")).rejects.toThrow("Abort");
+    });
+
+    it("should preserve empty string output from post-tool hooks", async () => {
+        const hook: PostToolUseHook = {
+            name: "redact-all",
+            execute: async () => ({ output: "" }),
+        };
+        const output = { title: "tool", output: "secret output", metadata: {} };
+
+        registry.registerPostTool(hook);
+
+        await registry.executePostTool(mockContext, "tool", {}, output);
+
+        expect(output.output).toBe("");
     });
 });

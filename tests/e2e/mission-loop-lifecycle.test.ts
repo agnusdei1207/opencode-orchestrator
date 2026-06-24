@@ -180,7 +180,7 @@ describe("Mission Loop Lifecycle E2E", () => {
                 const prompt = generateMissionContinuationPrompt(state);
 
                 expect(prompt).toContain("Implement observability");
-                expect(prompt).toContain("todo progress: 2/5");
+                expect(prompt).toContain("progress: 2/5");
                 expect(prompt).toContain("verification: TODO incomplete: 3 remaining");
                 expect(prompt).toContain("continuation reason: stagnation_intervention");
                 expect(prompt).toContain("stagnation: 2 unchanged check(s)");

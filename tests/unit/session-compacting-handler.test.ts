@@ -115,8 +115,8 @@ describe("Session Compacting Handler", () => {
         const { ParallelAgentManager } = await import("../../src/core/agents/manager");
         vi.mocked(ParallelAgentManager.getInstance).mockReturnValue({
             getTasksByParent: vi.fn(() => [
-                { id: "t1", description: "Build UI", agent: "worker", status: "running" },
-                { id: "t2", description: "Write tests", agent: "worker", status: "running" },
+                { id: "t1", sessionID: "s1", description: "Build UI", agent: "worker", status: "running" },
+                { id: "t2", sessionID: "s2", description: "Write tests", agent: "worker", status: "running" },
             ]),
         } as any);
 
@@ -125,8 +125,11 @@ describe("Session Compacting Handler", () => {
 
         await handler(input, output);
 
-        expect(output.context.some(c => c.includes("RUNNING BACKGROUND TASKS"))).toBe(true);
-        expect(output.context.some(c => c.includes("Build UI"))).toBe(true);
+        expect(output.context.some(c => c.includes("Running background tasks"))).toBe(true);
+        const context = output.context.find(c => c.includes("background_tasks_context"));
+        expect(context).toContain("t1 session=s1 agent=worker status=running desc=Build UI");
+        expect(context).toContain("t2 session=s2 agent=worker status=running desc=Write tests");
+        expect(context).toContain("Wait for completion before finalizing.");
     });
 
     it("should not modify output when no relevant context exists", async () => {

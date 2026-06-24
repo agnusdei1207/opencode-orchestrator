@@ -2,6 +2,16 @@
  * Tool types and interfaces (consolidated)
  */
 
+import type {
+    SessionCreateData,
+    SessionCreateResponse,
+    SessionMessagesData,
+    SessionMessagesResponse,
+    SessionPromptData,
+    SessionStatusData,
+    SessionStatusResponse,
+} from "@opencode-ai/sdk";
+
 /**
  * AST Search Result Interface
  */
@@ -89,9 +99,8 @@ export interface PollResult {
  */
 
 export interface SessionClient {
-    create: (opts: { body: { parentID: string; title: string }; query: { directory: string } }) => Promise<{ data?: { id: string }; error?: string }>;
-    prompt: (opts: { path: { id: string }; body: { agent: string; tools?: Record<string, boolean>; parts: { type: string; text: string }[] } }) => Promise<{ error?: string }>;
-    messages: (opts: { path: { id: string } }) => Promise<{ data?: unknown[]; error?: string }>;
-    status: () => Promise<{ data?: Record<string, { type: string }> }>;
+    create: (opts: Omit<SessionCreateData, "url">) => Promise<{ data?: SessionCreateResponse; error?: unknown }>;
+    prompt: (opts: Omit<SessionPromptData, "url">) => Promise<{ error?: unknown }>;
+    messages: (opts: Omit<SessionMessagesData, "url">) => Promise<{ data?: SessionMessagesResponse; error?: unknown }>;
+    status: (opts?: Omit<SessionStatusData, "url">) => Promise<{ data?: SessionStatusResponse; error?: unknown }>;
 }
-

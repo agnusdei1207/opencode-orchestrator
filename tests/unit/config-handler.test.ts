@@ -88,7 +88,11 @@ describe("createConfigHandler", () => {
 
         expect(config.agent[AGENT_NAMES.COMMANDER]).not.toHaveProperty("maxTokens");
         expect(config.agent[AGENT_NAMES.COMMANDER]).not.toHaveProperty("thinking");
+        expect(config.agent[AGENT_NAMES.COMMANDER]).not.toHaveProperty("tools");
         expect(config.agent[AGENT_NAMES.PLANNER]).not.toHaveProperty("maxTokens");
+        expect(config.agent[AGENT_NAMES.PLANNER]).not.toHaveProperty("tools");
+        expect(config.agent[AGENT_NAMES.WORKER]).not.toHaveProperty("tools");
+        expect(config.agent[AGENT_NAMES.REVIEWER]).not.toHaveProperty("tools");
     });
 
     it("keeps blocked-clarification guidance compatible with question permission", async () => {

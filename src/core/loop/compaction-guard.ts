@@ -1,8 +1,9 @@
 /**
  * Compaction Guard - Prevents post-compaction Resume Errors
  * 
- * After session compaction, continuation prompts may reference deleted context.
- * This guard ensures continuation only happens after a newer compaction epoch.
+ * After session compaction, previously scheduled continuation prompts may
+ * reference deleted context. This guard blocks continuations scheduled before
+ * the latest compaction epoch.
  */
 
 import { log } from "../agents/logger.js";
@@ -52,16 +53,16 @@ export function armCompactionGuard(sessionID: string, timestamp: number): number
     return timestamp;
 }
 
-export function isCompactionSafe(sessionID: string, currentEpoch: number): boolean {
+export function isCompactionSafe(sessionID: string, scheduledEpoch: number): boolean {
     const state = compactionStates.get(sessionID);
     if (!state) return true;
     
     state.lastAccessedAt = Date.now();
     
-    if (currentEpoch > state.compactionEpoch) {
-        log(`[compaction-guard] Unsafe: newer compaction exists`, {
+    if (scheduledEpoch < state.compactionEpoch) {
+        log(`[compaction-guard] Unsafe: compaction occurred after continuation was scheduled`, {
             sessionID,
-            currentEpoch,
+            scheduledEpoch,
             compactionEpoch: state.compactionEpoch,
         });
         return false;

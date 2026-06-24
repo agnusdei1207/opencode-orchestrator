@@ -16,15 +16,19 @@ describe("SessionPool (Reset & Isolation)", () => {
             session: {
                 create: vi.fn().mockResolvedValue({ data: { id: "new-session-id" } }),
                 delete: vi.fn().mockResolvedValue({}),
-                compact: vi.fn().mockResolvedValue({}),
-            }
+            },
+            v2: {
+                session: {
+                    compact: vi.fn().mockResolvedValue({}),
+                },
+            },
         };
         // @ts-ignore
         SessionPool._instance = null;
         pool = SessionPool.getInstance(mockClient, directory);
     });
 
-    it("should compact session upon release", async () => {
+    it("should compact session through the OpenCode v2 API upon release", async () => {
         // 1. Acquire
         const session = await pool.acquire("worker", "parent", "task");
         const sessionId = session.id;
@@ -32,9 +36,8 @@ describe("SessionPool (Reset & Isolation)", () => {
         // 2. Release
         await pool.release(sessionId);
 
-        // Verify compact was called
-        expect(mockClient.session.compact).toHaveBeenCalledWith({
-            path: { id: sessionId }
+        expect(mockClient.v2.session.compact).toHaveBeenCalledWith({
+            sessionID: sessionId,
         });
 
         // Verify metadata update
@@ -42,8 +45,22 @@ describe("SessionPool (Reset & Isolation)", () => {
         expect(session.health).toBe("healthy");
     });
 
+    it("invalidates sessions instead of reusing them when no compact API is available", async () => {
+        mockClient.v2.session.compact = undefined;
+
+        const session = await pool.acquire("worker", "parent", "task");
+
+        await pool.release(session.id);
+
+        expect(session.health).toBe("degraded");
+        expect(mockClient.session.delete).toHaveBeenCalledWith({
+            path: { id: session.id }
+        });
+        expect(pool.getStats().totalSessions).toBe(0);
+    });
+
     it("should invalidate session if compact fails", async () => {
-        mockClient.session.compact.mockRejectedValue(new Error("Compact failed"));
+        mockClient.v2.session.compact.mockRejectedValue(new Error("Compact failed"));
 
         const session = await pool.acquire("worker", "parent", "task");
         await pool.release(session.id);

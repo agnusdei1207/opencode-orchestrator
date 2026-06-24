@@ -8,6 +8,7 @@ import { TaskStore } from "../task-store.js";
 import { log } from "../logger.js";
 import type { ParallelTask } from "../interfaces/index.js";
 import type { ResumeInput } from "../interfaces/resume-input.interface.js";
+import { buildRoutedAgentPrompt } from "./prompt-routing.js";
 
 type OpencodeClient = PluginInput["client"];
 
@@ -44,25 +45,33 @@ export class TaskResumer {
 
         log(`Resuming task ${existingTask.id} in session ${existingTask.sessionID}`);
 
-        // Send new prompt to existing session
-        this.client.session.prompt({
-            path: { id: existingTask.sessionID },
-            body: {
-                agent: existingTask.agent,
-                parts: [{ type: PART_TYPES.TEXT, text: input.prompt }]
-            },
-        }).catch((error) => {
-            log(`Resume prompt error for ${existingTask.id}:`, error);
-            existingTask.status = TASK_STATUS.ERROR;
-            existingTask.error = error instanceof Error ? error.message : String(error);
-            existingTask.completedAt = new Date();
-            this.store.untrackPending(input.parentSessionID, existingTask.id);
-            this.store.queueNotification(existingTask);
-            this.notifyParentIfAllComplete(input.parentSessionID).catch(() => { });
-
-
+        this.sendResumePrompt(existingTask, input.prompt).catch((error) => {
+            this.handlePromptError(existingTask, input.parentSessionID, error);
         });
 
         return existingTask;
+    }
+
+    private async sendResumePrompt(task: ParallelTask, prompt: string): Promise<void> {
+        const routedPrompt = await buildRoutedAgentPrompt(task.agent, prompt);
+
+        await this.client.session.prompt({
+            path: { id: task.sessionID },
+            body: {
+                agent: routedPrompt.wireAgent,
+                tools: routedPrompt.tools,
+                parts: [{ type: PART_TYPES.TEXT, text: routedPrompt.text }]
+            },
+        });
+    }
+
+    private handlePromptError(task: ParallelTask, parentSessionID: string, error: unknown): void {
+        log(`Resume prompt error for ${task.id}:`, error);
+        task.status = TASK_STATUS.ERROR;
+        task.error = error instanceof Error ? error.message : String(error);
+        task.completedAt = new Date();
+        this.store.untrackPending(parentSessionID, task.id);
+        this.store.queueNotification(task);
+        this.notifyParentIfAllComplete(parentSessionID).catch(() => { });
     }
 }

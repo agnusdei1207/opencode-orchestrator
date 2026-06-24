@@ -32,22 +32,22 @@ describe("CompactionGuard", () => {
         expect(safe).toBe(true);
     });
 
-    it("isCompactionSafe returns true when currentEpoch equals saved epoch", () => {
+    it("isCompactionSafe returns true when scheduled epoch equals saved epoch", () => {
         armCompactionGuard(TEST_SESSION, 1000);
         const safe = isCompactionSafe(TEST_SESSION, 1000);
         expect(safe).toBe(true);
     });
 
-    it("isCompactionSafe returns false when currentEpoch is newer", () => {
+    it("isCompactionSafe returns true when continuation was scheduled after compaction", () => {
         armCompactionGuard(TEST_SESSION, 1000);
         const safe = isCompactionSafe(TEST_SESSION, 2000);
-        expect(safe).toBe(false);
+        expect(safe).toBe(true);
     });
 
-    it("isCompactionSafe returns true when currentEpoch is older", () => {
+    it("isCompactionSafe returns false when compaction happened after scheduling", () => {
         armCompactionGuard(TEST_SESSION, 2000);
         const safe = isCompactionSafe(TEST_SESSION, 1000);
-        expect(safe).toBe(true);
+        expect(safe).toBe(false);
     });
 
     it("armCompactionGuard updates existing epoch", () => {
@@ -79,8 +79,8 @@ describe("CompactionGuard", () => {
         armCompactionGuard(TEST_SESSION_2, 2000);
 
         expect(isCompactionSafe(TEST_SESSION, 1000)).toBe(true);
-        expect(isCompactionSafe(TEST_SESSION, 2000)).toBe(false);
-        expect(isCompactionSafe(TEST_SESSION_2, 1000)).toBe(true);
+        expect(isCompactionSafe(TEST_SESSION, 2000)).toBe(true);
+        expect(isCompactionSafe(TEST_SESSION_2, 1000)).toBe(false);
         expect(isCompactionSafe(TEST_SESSION_2, 2000)).toBe(true);
     });
 
@@ -94,13 +94,14 @@ describe("CompactionGuard", () => {
         expect(getCompactionState(TEST_SESSION_2)).toBeUndefined();
     });
 
-    it("isCompactionSafe allows continuation after re-arm with newer epoch", () => {
+    it("isCompactionSafe blocks stale schedules and allows schedules after re-arm", () => {
         armCompactionGuard(TEST_SESSION, 1000);
-        expect(isCompactionSafe(TEST_SESSION, 2000)).toBe(false);
+        expect(isCompactionSafe(TEST_SESSION, 500)).toBe(false);
 
         armCompactionGuard(TEST_SESSION, 2000);
+        expect(isCompactionSafe(TEST_SESSION, 1000)).toBe(false);
         expect(isCompactionSafe(TEST_SESSION, 2000)).toBe(true);
-        expect(isCompactionSafe(TEST_SESSION, 3000)).toBe(false);
+        expect(isCompactionSafe(TEST_SESSION, 3000)).toBe(true);
     });
 
     it("returns correct state shape", () => {

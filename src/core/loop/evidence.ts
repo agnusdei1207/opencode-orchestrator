@@ -41,6 +41,9 @@ const SHELL_TOOLS = new Set(["bash", "shell", "run_command", "run_background"]);
 const VERIFY_HINT =
     /\b(test|spec|vitest|jest|pytest|build|tsc|typecheck|lint|eslint|clippy|cargo\s+test|npm\s+test|go\s+test|check)\b/i;
 
+const FILE_ARG_KEYS = ["filePath", "filepath", "file_path", "path", "file", "directory", "dir"] as const;
+const FILE_ARRAY_ARG_KEYS = ["files", "filePaths", "file_paths", "paths"] as const;
+
 function ensure(sessionID: string): SessionEvidence {
     let evidence = store.get(sessionID);
     if (!evidence) {
@@ -48,6 +51,32 @@ function ensure(sessionID: string): SessionEvidence {
         store.set(sessionID, evidence);
     }
     return evidence;
+}
+
+function collectFileCandidates(args: Record<string, unknown> | undefined): string[] {
+    if (!args || args.dry_run === true || args.dryRun === true) return [];
+
+    const candidates: string[] = [];
+    for (const key of FILE_ARG_KEYS) {
+        const value = args[key];
+        if (typeof value === "string") {
+            candidates.push(value);
+        }
+    }
+
+    for (const key of FILE_ARRAY_ARG_KEYS) {
+        const value = args[key];
+        if (!Array.isArray(value)) continue;
+        for (const item of value) {
+            if (typeof item === "string") {
+                candidates.push(item);
+            } else if (item && typeof item === "object") {
+                candidates.push(...collectFileCandidates(item as Record<string, unknown>));
+            }
+        }
+    }
+
+    return candidates;
 }
 
 export function recordChangedFile(sessionID: string, filePath: string, now: number = Date.now()): void {
@@ -74,8 +103,9 @@ export function recordToolEvidence(
     if (!sessionID || !tool) return;
     const name = tool.toLowerCase();
     if (WRITE_TOOLS.has(name)) {
-        const candidate = args?.filePath ?? args?.path ?? args?.file;
-        if (typeof candidate === "string") recordChangedFile(sessionID, candidate, now);
+        for (const candidate of collectFileCandidates(args)) {
+            recordChangedFile(sessionID, candidate, now);
+        }
     } else if (SHELL_TOOLS.has(name)) {
         const command = String(args?.command ?? args?.cmd ?? "");
         if (VERIFY_HINT.test(command)) recordVerification(sessionID, now);

@@ -27,7 +27,8 @@ vi.mock("../../src/shared", async (importOriginal) => {
 
 import { handleMissionIdle, cleanupSession } from "../../src/core/loop/mission-loop-handler";
 import { startMissionLoop, readLoopState } from "../../src/core/loop/mission-loop";
-import { PATHS } from "../../src/shared";
+import { armCompactionGuard } from "../../src/core/loop/compaction-guard";
+import { CHECKLIST } from "../../src/shared";
 
 describe("Mission Loop Persistence E2E", () => {
     let testDir: string;
@@ -85,6 +86,66 @@ describe("Mission Loop Persistence E2E", () => {
         expect(promptCall.body.parts[0].text).toContain("Runtime status:");
         expect(promptCall.body.parts[0].text).toContain("continuation reason: verification_failed");
         expect(promptCall.body.parts[0].text).toContain("Completion rule:");
+    });
+
+    it("should skip stale scheduled continuation after compaction but allow a later reschedule", async () => {
+        vi.setSystemTime(new Date("2026-01-01T00:00:00.000Z"));
+        startMissionLoop(testDir, testSessionID, "Test compaction reschedule", { maxIterations: 3 });
+        fs.writeFileSync(path.join(testDir, ".opencode", "todo.md"), "- [ ] Incomplete task\n", "utf-8");
+
+        const mockClient = {
+            session: {
+                messages: vi.fn().mockResolvedValue({ data: [] }),
+                prompt: vi.fn().mockResolvedValue({}),
+                todo: vi.fn().mockResolvedValue({ data: [] }),
+            }
+        } as any;
+
+        await handleMissionIdle(mockClient, testDir, testSessionID);
+        armCompactionGuard(testSessionID, Date.now() + 1);
+
+        await vi.runAllTimersAsync();
+        expect(mockClient.session.prompt).not.toHaveBeenCalled();
+
+        await vi.advanceTimersByTimeAsync(3100);
+        await handleMissionIdle(mockClient, testDir, testSessionID);
+        await vi.runAllTimersAsync();
+
+        expect(mockClient.session.prompt).toHaveBeenCalledTimes(1);
+    });
+
+    it("should persist checklist progress when todo progress is empty", async () => {
+        startMissionLoop(testDir, testSessionID, "Test checklist progress", { maxIterations: 3 });
+        fs.writeFileSync(
+            path.join(testDir, CHECKLIST.FILE),
+            [
+                "# Verification Checklist",
+                "## Build Verification",
+                "- [x] Build passed",
+                "- [ ] Tests passed",
+                "",
+            ].join("\n"),
+            "utf-8",
+        );
+
+        const mockClient = {
+            session: {
+                messages: vi.fn().mockResolvedValue({ data: [] }),
+                prompt: vi.fn().mockResolvedValue({}),
+                todo: vi.fn().mockResolvedValue({ data: [] }),
+            }
+        } as any;
+
+        await handleMissionIdle(mockClient, testDir, testSessionID);
+        const state = readLoopState(testDir);
+
+        expect(state?.lastProgress).toContain("Checklist: 1/2");
+        expect(state?.lastVerificationSummary).toContain("Checklist: 1/2");
+
+        await vi.runAllTimersAsync();
+        const promptCall = mockClient.session.prompt.mock.calls[0][0];
+        expect(promptCall.body.parts[0].text).toContain("progress: [Verification");
+        expect(promptCall.body.parts[0].text).toContain("Checklist: 1/2");
     });
 
     it("should clear loop state only if verification passes", async () => {

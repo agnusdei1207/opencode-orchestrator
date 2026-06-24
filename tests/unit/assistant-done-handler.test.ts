@@ -22,10 +22,12 @@ describe("handleCompletedAssistantMessage", () => {
         executeDone.mockResolvedValue({ action: "inject", prompts: ["Continue mission"] });
 
         const message = vi.fn().mockResolvedValue({
-            parts: [
-                { type: "text", text: "Done" },
-                { type: "reasoning", text: "Verified" },
-            ],
+            data: {
+                parts: [
+                    { type: "text", text: "Done" },
+                    { type: "reasoning", text: "Verified" },
+                ],
+            },
         });
         const prompt = vi.fn().mockResolvedValue({});
         const ctx = {

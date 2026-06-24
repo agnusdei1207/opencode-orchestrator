@@ -3,26 +3,14 @@
  * Uses OpenCode TUI's showToast API for actual UI display
  */
 
-import type { ToastMessage, ToastOptions, ToastVariant } from "../../shared/index.js";
+import type { ToastMessage, ToastOptions } from "../../shared/index.js";
 import type { PluginInput } from "@opencode-ai/plugin";
+import type { TuiShowToastData } from "@opencode-ai/sdk";
 import { HISTORY, LIMITS } from "../../shared/index.js";
 import { sanitizeToastMessage, sanitizeToastTitle } from "./toast-sanitizer.js";
 
 type OpencodeClient = PluginInput["client"];
-type ToastTuiClient = {
-    tui?: {
-        showToast?: (opts: unknown) => Promise<unknown> | unknown;
-    };
-};
-type ToastShowPayload = {
-    body: {
-        title: string;
-        message: string;
-        variant: ToastVariant;
-        duration: number;
-    };
-    signal?: AbortSignal;
-};
+type ToastShowPayload = Omit<TuiShowToastData, "url"> & { signal?: AbortSignal };
 
 // Store the OpenCode client for TUI access
 let tuiClient: OpencodeClient | null = null;
@@ -94,8 +82,7 @@ export function show(options: ToastOptions): ToastMessage {
 
     // Show in OpenCode TUI if available
     if (tuiClient) {
-        const client = tuiClient as unknown as ToastTuiClient;
-        if (client.tui?.showToast) {
+        if (tuiClient.tui?.showToast) {
             try {
                 // AbortController provides a cancel mechanism for async operations
                 const ac = new AbortController();
@@ -119,7 +106,7 @@ export function show(options: ToastOptions): ToastMessage {
                     signal: ac.signal,
                 };
 
-                Promise.resolve(client.tui.showToast(payload)).finally(() => {
+                Promise.resolve(tuiClient.tui.showToast(payload)).finally(() => {
                     clearTimeout(timer);
                 }).catch(() => {
                     // swallow errors from toast display

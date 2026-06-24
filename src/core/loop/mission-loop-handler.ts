@@ -19,13 +19,14 @@ import {
 } from "./mission-loop.js";
 import type { MissionLoopState } from "../../shared/loop/types.js";
 import { STAGNATION_INTERVENTION } from "../../shared/constants/system-messages.js";
-import { PART_TYPES, LOOP, TOAST_DURATION, STATUS_LABEL, TOAST_VARIANTS, MISSION_CONTROL } from "../../shared/index.js";
+import { PART_TYPES, LOOP, TOAST_DURATION, STATUS_LABEL, TOAST_VARIANTS, MISSION_CONTROL, type ToastVariant } from "../../shared/index.js";
 import { isSessionRecovering } from "../recovery/session-recovery.js";
 import { ParallelAgentManager } from "../agents/manager.js";
 import { sendNotification } from "../notification/os-notify/notifier.js";
 import { playSound } from "../notification/os-notify/sound-player.js";
 import { detectPlatform, getDefaultSoundPath } from "../notification/os-notify/platform.js";
 import { verifyMissionCompletion, buildVerificationSummary } from "./verification.js";
+import type { VerificationResult } from "./verification.js";
 import { syncMissionMemory } from "../knowledge/mission-memory.js";
 import { appendMissionLedgerEvent } from "./mission-ledger.js";
 import { createSessionStateStore } from "./session-state-store.js";
@@ -38,17 +39,40 @@ type OpencodeClient = PluginInput["client"];
 
 const sessionStateStore = createSessionStateStore();
 
+interface ContinuationInjectionRequest {
+    client: OpencodeClient;
+    directory: string;
+    sessionID: string;
+    loopState: MissionLoopState;
+    scheduledAt: number;
+    customPrompt?: string;
+}
+
+function parseRemainingFromProgress(progress: string): number {
+    const match = progress.match(/^(\d+)\/(\d+)$/);
+    if (!match) return 0;
+    const completed = Number(match[1]);
+    const total = Number(match[2]);
+    if (!Number.isFinite(completed) || !Number.isFinite(total)) return 0;
+    return Math.max(total - completed, 0);
+}
+
+function getVerificationRemainingCount(verification: VerificationResult): number {
+    const checklistRemaining = parseRemainingFromProgress(verification.checklistProgress);
+    const syncRemaining = verification.syncIssuesEmpty ? 0 : Math.max(verification.syncIssuesCount, 1);
+    return verification.todoIncomplete + checklistRemaining + syncRemaining;
+}
+
 async function showToastSafely(
     client: OpencodeClient,
     title: string,
     message: string,
-    variant: string,
+    variant: ToastVariant,
     duration: number
 ): Promise<void> {
     try {
-        const tui = (client as unknown as { tui?: { showToast?: (opts: unknown) => Promise<unknown> } })?.tui;
-        if (tui?.showToast) {
-            await tui.showToast({
+        if (client.tui?.showToast) {
+            await client.tui.showToast({
                 body: { title, message, variant, duration },
             });
         }
@@ -96,13 +120,8 @@ async function showCompletedToast(
     );
 }
 
-async function injectContinuation(
-    client: OpencodeClient,
-    directory: string,
-    sessionID: string,
-    loopState: MissionLoopState,
-    customPrompt?: string
-): Promise<void> {
+async function injectContinuation(request: ContinuationInjectionRequest): Promise<void> {
+    const { client, directory, sessionID, loopState, scheduledAt, customPrompt } = request;
     const state = sessionStateStore.getState(sessionID);
 
     if (state.isAborting) return;
@@ -113,9 +132,8 @@ async function injectContinuation(
         return;
     }
 
-    const currentEpoch = Date.now();
-    if (!isCompactionSafe(sessionID, currentEpoch)) {
-        log(`[mission-loop-handler] Skipped: post-compaction unsafe`, { sessionID, currentEpoch });
+    if (!isCompactionSafe(sessionID, scheduledAt)) {
+        log(`[mission-loop-handler] Skipped: post-compaction unsafe`, { sessionID, scheduledAt });
         return;
     }
 
@@ -267,8 +285,9 @@ export async function handleMissionIdle(
         return;
     }
 
-    const currentProgress = verification.todoProgress;
-    const progressResult = trackProgress(sessionID, verification.todoIncomplete);
+    const currentProgress = buildVerificationSummary(verification);
+    const remainingVerificationCount = getVerificationRemainingCount(verification);
+    const progressResult = trackProgress(sessionID, remainingVerificationCount);
 
     if (progressResult.hasProgressed) {
         log(`[${MISSION_CONTROL.LOG_SOURCE}-handler] Progress made`, {
@@ -287,7 +306,8 @@ export async function handleMissionIdle(
     newState.stagnationCount = stagnant ? (newState.stagnationCount ?? 0) + 1 : 0;
     newState.lastVerificationSummary = verificationSummary;
     newState.lastContinuationReason = stagnant ? "stagnation_intervention" : "verification_failed";
-    newState.lastContinuationAt = new Date().toISOString();
+    const continuationScheduledAt = Date.now();
+    newState.lastContinuationAt = new Date(continuationScheduledAt).toISOString();
     writeLoopState(directory, newState);
     appendMissionLedgerEvent(directory, {
         type: "verification_failed",
@@ -310,7 +330,14 @@ export async function handleMissionIdle(
 
     state.countdownTimer = setTimeout(async () => {
         sessionStateStore.cancelCountdown(sessionID);
-        await injectContinuation(client, directory, sessionID, newState, stagnant ? STAGNATION_INTERVENTION : undefined);
+        await injectContinuation({
+            client,
+            directory,
+            sessionID,
+            loopState: newState,
+            scheduledAt: continuationScheduledAt,
+            customPrompt: stagnant ? STAGNATION_INTERVENTION : undefined,
+        });
     }, MISSION_CONTROL.DEFAULT_COUNTDOWN_SECONDS * 1000);
 }
 

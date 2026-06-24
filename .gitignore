@@ -18,4 +18,5 @@ dist/
 
 # Korean internal docs (not for public)
 docs/OPENCODE.md
+docs/architecture/prompt-architecture.html
 .opencode/

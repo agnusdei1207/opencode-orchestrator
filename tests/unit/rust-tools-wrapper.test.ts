@@ -9,14 +9,18 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { lspDiagnosticsTool } from "../../src/tools/lsp/index.js";
 import { astSearchTool, astReplaceTool } from "../../src/tools/ast/index.js";
 import {
-    grepSearchTool,
-    globSearchTool,
-    mgrepTool,
+    diffTool,
     fileStatsTool,
     gitDiffTool,
     gitStatusTool,
-    httpTool
+    grepSearchTool,
+    globSearchTool,
+    httpTool,
+    jqTool,
+    mgrepTool,
+    sedReplaceTool,
 } from "../../src/tools/search.js";
+import { TOOL_NAMES } from "../../src/shared/index.js";
 
 // Mock callRustTool
 vi.mock("../../src/tools/rust.js", () => ({
@@ -54,7 +58,7 @@ describe("Rust Tool Wrappers", () => {
             const args = { file: "src/test.ts" };
             await lspDiagnosticsTool(testDir).execute(args, {} as any);
 
-            expect(callRustTool).toHaveBeenCalledWith("lsp_diagnostics", expect.objectContaining({
+            expect(callRustTool).toHaveBeenCalledWith(TOOL_NAMES.LSP_DIAGNOSTICS, expect.objectContaining({
                 directory: testDir,
                 file: "src/test.ts"
             }));
@@ -66,9 +70,20 @@ describe("Rust Tool Wrappers", () => {
             const args = { pattern: "const $X = 1", lang: "typescript" };
             await astSearchTool(testDir).execute(args, {} as any);
 
-            expect(callRustTool).toHaveBeenCalledWith("ast_search", expect.objectContaining({
+            expect(callRustTool).toHaveBeenCalledWith(TOOL_NAMES.AST_SEARCH, expect.objectContaining({
                 directory: testDir,
                 pattern: "const $X = 1"
+            }));
+        });
+
+        it("should call Rust ast_replace", async () => {
+            const args = { pattern: "const $X = 1", rewrite: "const $X = 2" };
+            await astReplaceTool(testDir).execute(args, {} as any);
+
+            expect(callRustTool).toHaveBeenCalledWith(TOOL_NAMES.AST_REPLACE, expect.objectContaining({
+                directory: testDir,
+                pattern: "const $X = 1",
+                rewrite: "const $X = 2"
             }));
         });
     });
@@ -78,26 +93,81 @@ describe("Rust Tool Wrappers", () => {
             const args = { pattern: "TODO" };
             await grepSearchTool(testDir).execute(args, {} as any);
 
-            expect(callRustTool).toHaveBeenCalledWith("grep_search", expect.objectContaining({
+            expect(callRustTool).toHaveBeenCalledWith(TOOL_NAMES.GREP_SEARCH, expect.objectContaining({
                 directory: testDir,
                 pattern: "TODO"
             }));
+        });
+
+        it("should call Rust glob_search", async () => {
+            const args = { pattern: "src/**/*.ts" };
+            await globSearchTool(testDir).execute(args, {} as any);
+
+            expect(callRustTool).toHaveBeenCalledWith(TOOL_NAMES.GLOB_SEARCH, expect.objectContaining({
+                directory: testDir,
+                pattern: "src/**/*.ts"
+            }));
+        });
+
+        it("should call Rust mgrep", async () => {
+            const args = { patterns: ["TODO", "FIXME"], max_results_per_pattern: 3 };
+            await mgrepTool(testDir).execute(args, {} as any);
+
+            expect(callRustTool).toHaveBeenCalledWith(TOOL_NAMES.MGREP, expect.objectContaining({
+                directory: testDir,
+                patterns: ["TODO", "FIXME"],
+                max_results_per_pattern: 3
+            }));
+        });
+
+        it("should call Rust sed_replace", async () => {
+            const args = { pattern: "old", replacement: "new", file: "src/test.ts" };
+            await sedReplaceTool(testDir).execute(args, {} as any);
+
+            expect(callRustTool).toHaveBeenCalledWith(TOOL_NAMES.SED_REPLACE, expect.objectContaining({
+                pattern: "old",
+                replacement: "new",
+                file: "src/test.ts"
+            }));
+        });
+
+        it("should call Rust diff", async () => {
+            const args = { content1: "a", content2: "b" };
+            await diffTool().execute(args, {} as any);
+
+            expect(callRustTool).toHaveBeenCalledWith(TOOL_NAMES.DIFF, args);
+        });
+
+        it("should call Rust jq", async () => {
+            const args = { json_input: "{\"a\":1}", expression: ".a" };
+            await jqTool().execute(args, {} as any);
+
+            expect(callRustTool).toHaveBeenCalledWith(TOOL_NAMES.JQ, args);
         });
 
         it("should call Rust file_stats", async () => {
             const args = { max_depth: 2 };
             await fileStatsTool(testDir).execute(args, {} as any);
 
-            expect(callRustTool).toHaveBeenCalledWith("file_stats", expect.objectContaining({
+            expect(callRustTool).toHaveBeenCalledWith(TOOL_NAMES.FILE_STATS, expect.objectContaining({
                 directory: testDir,
                 max_depth: 2
+            }));
+        });
+
+        it("should call Rust git_diff", async () => {
+            await gitDiffTool(testDir).execute({ staged_only: true }, {} as any);
+
+            expect(callRustTool).toHaveBeenCalledWith(TOOL_NAMES.GIT_DIFF, expect.objectContaining({
+                directory: testDir,
+                staged_only: true
             }));
         });
 
         it("should call Rust git_status", async () => {
             await gitStatusTool(testDir).execute({}, {} as any);
 
-            expect(callRustTool).toHaveBeenCalledWith("git_status", expect.objectContaining({
+            expect(callRustTool).toHaveBeenCalledWith(TOOL_NAMES.GIT_STATUS, expect.objectContaining({
                 directory: testDir
             }));
         });
@@ -108,7 +178,7 @@ describe("Rust Tool Wrappers", () => {
             const args = { url: "https://example.com" };
             await httpTool().execute(args, {} as any);
 
-            expect(callRustTool).toHaveBeenCalledWith("http", expect.objectContaining({
+            expect(callRustTool).toHaveBeenCalledWith(TOOL_NAMES.HTTP, expect.objectContaining({
                 url: "https://example.com"
             }));
         });

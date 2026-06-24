@@ -19,8 +19,8 @@ describe("dependency compatibility", () => {
         const pluginVersion = manifest.dependencies?.["@opencode-ai/plugin"];
         const sdkVersion = manifest.dependencies?.["@opencode-ai/sdk"];
 
-        expect(pluginVersion).toBe("1.17.4");
-        expect(sdkVersion).toBe("1.17.4");
+        expect(pluginVersion).toBe("1.17.9");
+        expect(sdkVersion).toBe("1.17.9");
     });
 
     it("requires Node.js 24 or newer", () => {

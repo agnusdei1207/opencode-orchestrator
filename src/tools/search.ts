@@ -1,4 +1,5 @@
 import { tool, type ToolDefinition } from "@opencode-ai/plugin";
+import { TOOL_NAMES } from "../shared/index.js";
 import { callRustTool } from "./rust.js";
 
 /**
@@ -14,7 +15,7 @@ export const grepSearchTool = (directory: string): ToolDefinition => tool({
         timeout_ms: tool.schema.number().optional().describe("Timeout in milliseconds (default: 30000)"),
     },
     async execute(args) {
-        return callRustTool("grep_search", {
+        return callRustTool(TOOL_NAMES.GREP_SEARCH, {
             pattern: args.pattern,
             directory: args.dir || directory,
             max_results: args.max_results,
@@ -34,7 +35,7 @@ export const globSearchTool = (directory: string): ToolDefinition => tool({
         dir: tool.schema.string().optional().describe("Directory to search (defaults to project root)"),
     },
     async execute(args) {
-        return callRustTool("glob_search", {
+        return callRustTool(TOOL_NAMES.GLOB_SEARCH, {
             pattern: args.pattern,
             directory: args.dir || directory,
         });
@@ -54,7 +55,7 @@ export const mgrepTool = (directory: string): ToolDefinition => tool({
         timeout_ms: tool.schema.number().optional().describe("Timeout in milliseconds (default: 60000)"),
     },
     async execute(args) {
-        return callRustTool("mgrep", {
+        return callRustTool(TOOL_NAMES.MGREP, {
             patterns: args.patterns,
             directory: args.dir || directory,
             max_results_per_pattern: args.max_results_per_pattern,
@@ -79,7 +80,7 @@ export const sedReplaceTool = (directory: string): ToolDefinition => tool({
         timeout_ms: tool.schema.number().optional().describe("Timeout in milliseconds"),
     },
     async execute(args) {
-        return callRustTool("sed_replace", {
+        return callRustTool(TOOL_NAMES.SED_REPLACE, {
             pattern: args.pattern,
             replacement: args.replacement,
             file: args.file,
@@ -104,7 +105,7 @@ export const diffTool = (): ToolDefinition => tool({
         ignore_whitespace: tool.schema.boolean().optional().describe("Ignore whitespace differences"),
     },
     async execute(args) {
-        return callRustTool("diff", args);
+        return callRustTool(TOOL_NAMES.DIFF, args);
     },
 });
 
@@ -120,7 +121,7 @@ export const jqTool = (): ToolDefinition => tool({
         raw_output: tool.schema.boolean().optional().describe("Raw output (no JSON encoding for strings)"),
     },
     async execute(args) {
-        return callRustTool("jq", args);
+        return callRustTool(TOOL_NAMES.JQ, args);
     },
 });
 
@@ -137,7 +138,7 @@ export const httpTool = (): ToolDefinition => tool({
         timeout_ms: tool.schema.number().optional().describe("Request timeout in milliseconds"),
     },
     async execute(args) {
-        return callRustTool("http", args);
+        return callRustTool(TOOL_NAMES.HTTP, args);
     },
 });
 
@@ -151,7 +152,7 @@ export const fileStatsTool = (directory: string): ToolDefinition => tool({
         max_depth: tool.schema.number().optional().describe("Maximum directory depth to analyze"),
     },
     async execute(args) {
-        return callRustTool("file_stats", {
+        return callRustTool(TOOL_NAMES.FILE_STATS, {
             directory: args.dir || directory,
             max_depth: args.max_depth,
         });
@@ -168,7 +169,7 @@ export const gitDiffTool = (directory: string): ToolDefinition => tool({
         staged_only: tool.schema.boolean().optional().describe("Show only staged changes"),
     },
     async execute(args) {
-        return callRustTool("git_diff", {
+        return callRustTool(TOOL_NAMES.GIT_DIFF, {
             directory: args.dir || directory,
             staged_only: args.staged_only,
         });
@@ -184,7 +185,7 @@ export const gitStatusTool = (directory: string): ToolDefinition => tool({
         dir: tool.schema.string().optional().describe("Repository directory (defaults to project root)"),
     },
     async execute(args) {
-        return callRustTool("git_status", {
+        return callRustTool(TOOL_NAMES.GIT_STATUS, {
             directory: args.dir || directory,
         });
     },

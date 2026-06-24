@@ -72,18 +72,7 @@ class BackgroundTaskManager {
             task.process = proc;
 
             // Cleanup function to remove all listeners
-            const cleanup = () => {
-                if (task.timeoutHandle) {
-                    clearTimeout(task.timeoutHandle);
-                    task.timeoutHandle = undefined;
-                }
-                proc.stdout?.removeAllListeners();
-                proc.stderr?.removeAllListeners();
-                proc.removeAllListeners();
-                proc.stdout?.unpipe();
-                proc.stderr?.unpipe();
-                task.process = undefined;
-            };
+            const cleanup = () => this.cleanupTaskResources(task);
 
             proc.stdout?.on("data", (data: Buffer) => {
                 task.output += data.toString();
@@ -96,7 +85,9 @@ class BackgroundTaskManager {
             proc.on("close", (code: number | null) => {
                 task.exitCode = code;
                 task.endTime = Date.now();
-                task.status = code === 0 ? STATUS_LABEL.DONE : STATUS_LABEL.ERROR;
+                if (task.status === STATUS_LABEL.RUNNING) {
+                    task.status = code === 0 ? STATUS_LABEL.DONE : STATUS_LABEL.ERROR;
+                }
                 cleanup(); // GUARANTEED cleanup
                 this.debug(id, `Done (code=${code})`);
             });
@@ -157,6 +148,7 @@ class BackgroundTaskManager {
             task.status = STATUS_LABEL.ERROR;
             task.errorOutput += "\nKilled by user";
             task.endTime = Date.now();
+            this.cleanupTaskResources(task);
             return true;
         }
         return false;
@@ -186,11 +178,26 @@ class BackgroundTaskManager {
                     // Process might already be dead
                 }
             }
-            if (task.timeoutHandle) {
-                clearTimeout(task.timeoutHandle);
-            }
+            this.cleanupTaskResources(task);
         }
         this.tasks.clear();
+    }
+
+    private cleanupTaskResources(task: BackgroundTask): void {
+        if (task.timeoutHandle) {
+            clearTimeout(task.timeoutHandle);
+            task.timeoutHandle = undefined;
+        }
+
+        const proc = task.process;
+        if (!proc) return;
+
+        proc.stdout?.removeAllListeners();
+        proc.stderr?.removeAllListeners();
+        proc.removeAllListeners();
+        proc.stdout?.unpipe();
+        proc.stderr?.unpipe();
+        task.process = undefined;
     }
 
 }

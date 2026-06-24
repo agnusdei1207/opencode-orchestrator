@@ -81,7 +81,7 @@ describe("ParallelAgentManager Features", () => {
 
             handler.handle({
                 type: "session.deleted",
-                properties: { sessionID: task.sessionID },
+                properties: { info: { id: task.sessionID } },
             });
 
             await vi.waitFor(() => {

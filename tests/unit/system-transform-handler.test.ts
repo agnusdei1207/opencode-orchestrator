@@ -193,6 +193,54 @@ describe("System Transform Handler", () => {
         }
     });
 
+    it("should route knowledge RAG ordering through the active agent role", async () => {
+        const testDir = mkdtempSync(path.join(tmpdir(), "oco-system-transform-role-"));
+        mkdirSync(path.join(testDir, "docs"), { recursive: true });
+        writeFileSync(
+            path.join(testDir, "docs", "Seed.md"),
+            "---\ntags: [routingrole]\n---\n[[GraphTarget]]",
+            "utf8",
+        );
+        writeFileSync(
+            path.join(testDir, "docs", "GraphTarget.md"),
+            "Graph target context selected through planning dependency links.",
+            "utf8",
+        );
+        writeFileSync(
+            path.join(testDir, "docs", "LexicalTarget.md"),
+            "routingrole routingrole exact implementation context.",
+            "utf8",
+        );
+
+        try {
+            mockContext.directory = testDir;
+            handler = createSystemTransformHandler(mockContext);
+            vi.mocked(readLoopState).mockReturnValue({
+                active: true,
+                iteration: 1,
+                maxIterations: 10,
+                prompt: "routingrole",
+                sessionID: "test-session",
+                startedAt: new Date().toISOString(),
+            });
+
+            const workerOutput: SystemTransformOutput = { system: [] };
+            await handler({ sessionID: "test-session", agent: "Worker" }, workerOutput);
+            const workerKnowledge = findKnowledgePrompt(workerOutput);
+
+            const plannerOutput: SystemTransformOutput = { system: [] };
+            await handler({ sessionID: "test-session", agent: "Planner" }, plannerOutput);
+            const plannerKnowledge = findKnowledgePrompt(plannerOutput);
+
+            expect(resultRank(workerKnowledge, "LexicalTarget"))
+                .toBeLessThan(resultRank(workerKnowledge, "GraphTarget"));
+            expect(resultRank(plannerKnowledge, "GraphTarget"))
+                .toBeLessThan(resultRank(plannerKnowledge, "LexicalTarget"));
+        } finally {
+            rmSync(testDir, { recursive: true, force: true });
+        }
+    });
+
     it("should inject mission scratchpad snapshot when present", async () => {
         const testDir = mkdtempSync(path.join(tmpdir(), "oco-system-transform-scratchpad-"));
         mkdirSync(path.join(testDir, ".opencode", "docs", "brain"), { recursive: true });
@@ -235,3 +283,15 @@ describe("System Transform Handler", () => {
         }
     });
 });
+
+function findKnowledgePrompt(output: SystemTransformOutput): string {
+    const prompt = output.system.find(s => s.includes("<knowledge_rag_context>"));
+    expect(prompt).toBeDefined();
+    return prompt ?? "";
+}
+
+function resultRank(prompt: string, noteName: string): number {
+    const match = prompt.match(new RegExp(`\\n(\\d+)\\. ${noteName} \\[`));
+    expect(match).not.toBeNull();
+    return Number(match?.[1] ?? Number.POSITIVE_INFINITY);
+}

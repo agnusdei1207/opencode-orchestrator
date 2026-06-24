@@ -10,6 +10,8 @@ import type { Model } from "@opencode-ai/sdk";
 export interface SystemTransformInput {
     /** Session ID for the chat (optional per opencode Plugin type) */
     sessionID?: string;
+    /** Active agent name when exposed by the OpenCode hook */
+    agent?: string;
     /** Active model metadata exposed by the OpenCode hook */
     model?: Model;
 }

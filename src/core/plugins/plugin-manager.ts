@@ -4,6 +4,7 @@
 
 import * as fs from "fs/promises";
 import * as path from "path";
+import { pathToFileURL } from "node:url";
 import type { ToolDefinition } from "@opencode-ai/plugin";
 import { CustomPlugin, PluginContext } from "./interfaces.js";
 import { log } from "../agents/logger.js";
@@ -26,6 +27,10 @@ export class PluginManager {
     }
 
     public async initialize(directory: string): Promise<void> {
+        if (this.plugins.size > 0 || Object.keys(this.dynamicTools).length > 0) {
+            await this.shutdown();
+        }
+
         this.directory = directory;
         await this.loadPlugins();
     }
@@ -54,7 +59,7 @@ export class PluginManager {
     private async loadPlugin(pluginPath: string): Promise<void> {
         try {
             // Use dynamic import for ES modules
-            const module = await import(`file://${pluginPath}`);
+            const module = await import(pathToFileURL(pluginPath).href);
             const plugin: CustomPlugin = module.default || module;
 
             if (!plugin.name) {
@@ -113,9 +118,21 @@ export class PluginManager {
                 log(`[${LOG_PREFIX.PLUGIN_MANAGER}] Cleaned up plugin: ${name}`);
             } catch (error) {
                 log(`[${LOG_PREFIX.PLUGIN_MANAGER}] Error cleaning up plugin ${name}: ${error}`);
+            } finally {
+                this.unregisterPluginHooks(plugin);
             }
         }
         this.plugins.clear();
         this.dynamicTools = {};
+    }
+
+    private unregisterPluginHooks(plugin: CustomPlugin): void {
+        if (!plugin.hooks) return;
+
+        const registry = HookRegistry.getInstance();
+        if (plugin.hooks.preTool) registry.unregisterPreTool(plugin.hooks.preTool);
+        if (plugin.hooks.postTool) registry.unregisterPostTool(plugin.hooks.postTool);
+        if (plugin.hooks.chat) registry.unregisterChat(plugin.hooks.chat);
+        if (plugin.hooks.done) registry.unregisterDone(plugin.hooks.done);
     }
 }

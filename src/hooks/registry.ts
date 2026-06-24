@@ -61,6 +61,30 @@ export class HookRegistry {
         this.sortHooks(this.doneHooks);
     }
 
+    unregisterPreTool(hook: PreToolUseHook): boolean {
+        return this.unregisterHook(this.preToolHooks, hook);
+    }
+
+    unregisterPostTool(hook: PostToolUseHook): boolean {
+        return this.unregisterHook(this.postToolHooks, hook);
+    }
+
+    unregisterChat(hook: ChatMessageHook): boolean {
+        return this.unregisterHook(this.chatHooks, hook);
+    }
+
+    unregisterDone(hook: AssistantDoneHook): boolean {
+        return this.unregisterHook(this.doneHooks, hook);
+    }
+
+    private unregisterHook<T>(registrations: HookRegistration<T>[], hook: T): boolean {
+        const originalLength = registrations.length;
+        const remaining = registrations.filter(registration => registration.hook !== hook);
+        registrations.length = 0;
+        registrations.push(...remaining);
+        return registrations.length !== originalLength;
+    }
+
     private prepareMetadata(name: string, metadata?: Partial<HookMetadata>): HookMetadata {
         return {
             name: metadata?.name || name,
@@ -125,7 +149,19 @@ export class HookRegistry {
         return sorted;
     }
 
+    private validateDependencies<T>(registrations: HookRegistration<T>[]): void {
+        const knownNames = new Set(registrations.map(r => r.metadata.name));
+        for (const reg of registrations) {
+            for (const dep of reg.metadata.dependencies || []) {
+                if (!knownNames.has(dep)) {
+                    throw new Error(`Missing hook dependency: ${dep}`);
+                }
+            }
+        }
+    }
+
     async executePreTool(ctx: HookContext, tool: string, args: ToolInput): Promise<PreToolResult> {
+        this.validateDependencies(this.preToolHooks);
         for (const { hook, metadata } of this.preToolHooks) {
             try {
                 const result = await hook.execute(ctx, tool, args);
@@ -142,10 +178,11 @@ export class HookRegistry {
     }
 
     async executePostTool(ctx: HookContext, tool: string, input: ToolInput, output: ToolOutput) {
+        this.validateDependencies(this.postToolHooks);
         for (const { hook, metadata } of this.postToolHooks) {
             try {
                 const result = await hook.execute(ctx, tool, input, output);
-                if (result?.output) {
+                if (result && typeof result.output === "string") {
                     output.output = result.output;
                 }
             } catch (e) {
@@ -156,6 +193,7 @@ export class HookRegistry {
     }
 
     async executeChat(ctx: HookContext, message: string): Promise<ChatMessageResult> {
+        this.validateDependencies(this.chatHooks);
         let currentMessage = message;
 
         for (const { hook, metadata } of this.chatHooks) {
@@ -179,6 +217,7 @@ export class HookRegistry {
     }
 
     async executeDone(ctx: HookContext, finalText: string): Promise<HookResult> {
+        this.validateDependencies(this.doneHooks);
         for (const { hook, metadata } of this.doneHooks) {
             try {
                 const result = await hook.execute(ctx, finalText);

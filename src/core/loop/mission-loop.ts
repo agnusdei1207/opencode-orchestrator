@@ -233,7 +233,7 @@ Objective:
 ${context.objective}
 
 Runtime status:
-- todo progress: ${context.progress}
+- progress: ${context.progress}
 - verification: ${context.verification}
 - stagnation: ${context.stagnation}
 - continuation reason: ${context.reason}

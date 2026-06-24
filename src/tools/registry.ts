@@ -109,6 +109,18 @@ function registerCoreTools(): Record<string, ToolDefinition> {
     };
 }
 
+function assertNoToolConflicts(
+    registeredTools: Record<string, ToolDefinition>,
+    candidateTools: Record<string, ToolDefinition>,
+    source: string
+): void {
+    for (const name of Object.keys(candidateTools)) {
+        if (registeredTools[name]) {
+            throw new Error(`${source} tool conflicts with registered tool: ${name}`);
+        }
+    }
+}
+
 /**
  * Register all tools in one place
  * @param directory - Working directory
@@ -121,7 +133,7 @@ export function registerAllTools(
     asyncAgentTools: Record<string, ToolDefinition>,
     dynamicTools: Record<string, ToolDefinition>
 ): Record<string, ToolDefinition> {
-    return {
+    const baseTools = {
         ...registerCoreTools(),
         ...registerSearchTools(directory),
         ...registerGitTools(directory),
@@ -129,7 +141,19 @@ export function registerAllTools(
         ...registerWebTools(),
         ...registerAstTools(directory),
         ...registerLspTools(directory),
+    };
+
+    assertNoToolConflicts(baseTools, asyncAgentTools, "Async agent");
+
+    const registeredTools = {
+        ...baseTools,
         ...asyncAgentTools,
+    };
+
+    assertNoToolConflicts(registeredTools, dynamicTools, "Dynamic");
+
+    return {
+        ...registeredTools,
         ...dynamicTools,
     };
 }

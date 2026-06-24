@@ -27,6 +27,27 @@ function emitTextResponse(process: FakeRustProcess, request: string, text: strin
     }) + "\n"));
 }
 
+function emitErrorResponse(process: FakeRustProcess, request: string): void {
+    const { id } = JSON.parse(request) as { id: number };
+    process.stdout.emit("data", Buffer.from(JSON.stringify({
+        jsonrpc: "2.0",
+        id,
+        error: {
+            code: -32603,
+            message: "internal tool failure",
+        },
+    }) + "\n"));
+}
+
+function emitResultResponse(process: FakeRustProcess, request: string, result: unknown): void {
+    const { id } = JSON.parse(request) as { id: number };
+    process.stdout.emit("data", Buffer.from(JSON.stringify({
+        jsonrpc: "2.0",
+        id,
+        result,
+    }) + "\n"));
+}
+
 function createPool(
     processes: FakeRustProcess[],
     requestTimeoutMs = 5,
@@ -133,6 +154,60 @@ describe("RustToolPool timeout recovery", () => {
         expect(process.stdin.write).toHaveBeenCalledTimes(2);
         expect(process.stdout.listenerCount("data")).toBe(0);
         expect(pool.getStats()).toEqual({ total: 1, busy: 0, idle: 1 });
+
+        await pool.shutdown();
+    });
+
+    it("returns a JSON string for JSON-RPC error responses", async () => {
+        const process = new FakeRustProcess();
+        process.onWrite = (request) => {
+            emitErrorResponse(process, request);
+        };
+        const pool = createPool([process]);
+
+        await expect(pool.call("git_status", {})).resolves.toBe(JSON.stringify({
+            code: -32603,
+            message: "internal tool failure",
+        }));
+        expect(process.stdout.listenerCount("data")).toBe(0);
+        expect(pool.getStats()).toEqual({ total: 1, busy: 0, idle: 1 });
+
+        await pool.shutdown();
+    });
+
+    it("preserves empty text result content as an empty string", async () => {
+        const process = new FakeRustProcess();
+        process.onWrite = (request) => {
+            emitTextResponse(process, request, "");
+        };
+        const pool = createPool([process]);
+
+        await expect(pool.call("git_status", {})).resolves.toBe("");
+        expect(process.stdout.listenerCount("data")).toBe(0);
+        expect(pool.getStats()).toEqual({ total: 1, busy: 0, idle: 1 });
+
+        await pool.shutdown();
+    });
+
+    it("resolves valid JSON-RPC responses with falsy result payloads", async () => {
+        const process = new FakeRustProcess();
+        process.onWrite = (request) => {
+            const payload = JSON.parse(request) as {
+                params: { name: string };
+            };
+            const resultByToolName: Record<string, unknown> = {
+                null_result: null,
+                false_result: false,
+                zero_result: 0,
+            };
+            emitResultResponse(process, request, resultByToolName[payload.params.name]);
+        };
+        const pool = createPool([process]);
+
+        await expect(pool.call("null_result", {})).resolves.toBe("null");
+        await expect(pool.call("false_result", {})).resolves.toBe("false");
+        await expect(pool.call("zero_result", {})).resolves.toBe("0");
+        expect(process.stdout.listenerCount("data")).toBe(0);
 
         await pool.shutdown();
     });

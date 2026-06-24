@@ -12,7 +12,7 @@ interface Todo {
 export async function hasIncompleteTodos(client: PluginInput["client"], sessionID: string): Promise<boolean> {
     try {
         const response = await client.session.todo({ path: { id: sessionID } });
-        const todos = (response.data ?? response) as Todo[];
+        const todos = response.data as Todo[];
         if (!todos || todos.length === 0) return false;
         return todos.some((t) => t.status !== TODO_STATUS.COMPLETED && t.status !== TODO_STATUS.CANCELLED);
     } catch {

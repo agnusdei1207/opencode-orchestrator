@@ -124,13 +124,18 @@ ORCHESTRATOR STATE:
 /**
  * Build background tasks context string
  */
-function buildBackgroundTasksContext(tasks: Array<{ id: string; description: string; agent: string; status: string }>): string {
-    const taskList = tasks.map(t => `  - [${t.agent}] ${t.description}`).join("\n");
+function buildBackgroundTasksContext(
+    tasks: Array<{ id: string; sessionID?: string; description: string; agent: string; status: string }>
+): string {
+    const taskList = tasks.map(t => {
+        const session = t.sessionID ? ` session=${t.sessionID}` : "";
+        return `- ${t.id}${session} agent=${t.agent} status=${t.status} desc=${t.description}`;
+    }).join("\n");
 
     return `<background_tasks_context>
-RUNNING BACKGROUND TASKS (${tasks.length}):
+Running background tasks (${tasks.length}):
 ${taskList}
 
-Wait for these tasks to complete before concluding the mission.
+Wait for completion before finalizing.
 </background_tasks_context>`;
 }

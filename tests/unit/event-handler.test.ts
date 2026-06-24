@@ -6,6 +6,7 @@ import * as ContextMonitor from "../../src/core/context";
 import * as TodoContinuation from "../../src/core/loop/todo-continuation";
 import * as MissionLoopHandler from "../../src/core/loop/mission-loop-handler";
 import * as MissionLoop from "../../src/core/loop/mission-loop";
+import * as Toast from "../../src/core/notification/toast";
 import type { EventHandlerContext } from "../../src/plugin-handlers/interfaces";
 
 vi.mock("../../src/core/agents/manager", () => ({
@@ -90,16 +91,16 @@ describe("createEventHandler", () => {
             event: {
                 type: "message.updated",
                 properties: {
-                    sessionID: "session-1",
                     info: {
                         id: "message-1",
                         sessionID: "session-1",
                         role: "assistant",
                         time: { completed: Date.now() },
-                    },
-                    usage: {
-                        inputTokens: 10,
-                        outputTokens: 5,
+                        tokens: {
+                            input: 10,
+                            output: 5,
+                            reasoning: 0,
+                        },
                     },
                 },
             },
@@ -109,6 +110,39 @@ describe("createEventHandler", () => {
         expect(ContextMonitor.checkContextWindow).toHaveBeenCalledWith("session-1", 15);
         expect(handleCompletedAssistantMessage).toHaveBeenCalledWith(ctx, "session-1", "message-1");
         expect(ctx.sessions.get("session-1").lastAssistantCompletedAt).toBeGreaterThan(0);
+    });
+
+    it("reads SDK session ids from info.id for created and deleted events", async () => {
+        const handler = createEventHandler(ctx);
+
+        await handler({
+            event: {
+                type: "session.created",
+                properties: {
+                    info: {
+                        id: "session-created",
+                    },
+                },
+            },
+        });
+
+        await handler({
+            event: {
+                type: "session.deleted",
+                properties: {
+                    info: {
+                        id: "session-1",
+                    },
+                },
+            },
+        });
+
+        expect(Toast.presets.missionStarted).toHaveBeenCalledWith("Session session-crea...");
+        expect(ctx.sessions.has("session-1")).toBe(false);
+        expect(SessionRecovery.cleanupSessionRecovery).toHaveBeenCalledWith("session-1");
+        expect(TodoContinuation.cleanupSession).toHaveBeenCalledWith("session-1");
+        expect(MissionLoopHandler.cleanupSession).toHaveBeenCalledWith("session-1");
+        expect(ContextMonitor.cleanupSession).toHaveBeenCalledWith("session-1");
     });
 
     it("treats idle without an assistant completion after the user turn as an abort", async () => {

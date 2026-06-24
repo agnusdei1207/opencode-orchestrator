@@ -18,9 +18,37 @@ describe("mission evidence (wiring gate)", () => {
         expect(getUnverifiedChangeCount(S)).toBe(2);
     });
 
+    it("records changed files from alternate file argument shapes", () => {
+        recordToolEvidence(S, "write", { file_path: "src/a.ts" }, 1);
+        recordToolEvidence(S, "multiedit", { files: ["src/b.ts", { path: "src/c.ts" }] }, 2);
+        recordToolEvidence(S, "sed_replace", { directory: "src/features" }, 3);
+
+        expect(getChangedFiles(S).sort()).toEqual([
+            "src/a.ts",
+            "src/b.ts",
+            "src/c.ts",
+            "src/features",
+        ]);
+        expect(getUnverifiedChangeCount(S)).toBe(4);
+    });
+
+    it("does not record dry-run write-like tool calls as changes", () => {
+        recordToolEvidence(S, "sed_replace", {
+            file: "src/a.ts",
+            dry_run: true,
+        }, 1);
+        recordToolEvidence(S, "sed_replace", {
+            file: "src/b.ts",
+            dryRun: true,
+        }, 2);
+
+        expect(getChangedFiles(S)).toEqual([]);
+        expect(getUnverifiedChangeCount(S)).toBe(0);
+    });
+
     it("clears the gap once a verification command runs after the change", () => {
         recordToolEvidence(S, "write", { filePath: "src/a.ts" }, 1);
-        expect(getUnverifiedChangeCount(S)).toBe(2 - 1); // 1 unverified
+        expect(getUnverifiedChangeCount(S)).toBe(1);
         recordToolEvidence(S, "bash", { command: "npm test" }, 2);
         expect(getUnverifiedChangeCount(S)).toBe(0);
     });

@@ -5,6 +5,7 @@
  */
 
 import { tool, type ToolDefinition } from "@opencode-ai/plugin";
+import { TOOL_NAMES } from "../../shared/index.js";
 import { callRustTool } from "../rust.js";
 import { diagnosticsCache } from "./diagnostics-cache.js";
 
@@ -33,7 +34,7 @@ Runs TypeScript compiler and/or ESLint to find issues.
         if (cached) return cached;
 
         // Call Rust tool
-        const result = await callRustTool("lsp_diagnostics", {
+        const result = await callRustTool(TOOL_NAMES.LSP_DIAGNOSTICS, {
             directory,
             file: args.file,
             include_warnings: args.include_warnings,

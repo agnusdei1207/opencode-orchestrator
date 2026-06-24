@@ -8,8 +8,6 @@ import {
   TASK_STATUS,
   PART_TYPES,
   PARALLEL_TASK,
-  TOOL_NAMES,
-  AGENT_NAMES,
 } from "../../../shared/index.js";
 import { ConcurrencyController } from "../concurrency.js";
 import { TaskStore } from "../task-store.js";
@@ -22,9 +20,8 @@ import { SessionPool } from "../session-pool.js";
 import { handleError } from "../../recovery/auto-recovery.js";
 import type { ErrorContext } from "../../recovery/interfaces.js";
 import { log } from "../logger.js";
-import { MemoryManager } from "../../memory/memory-manager.js";
-import { AgentRegistry } from "../agent-registry.js";
 import { taskPool } from "../../pool/task-pool.js";
+import { buildRoutedAgentPrompt } from "./prompt-routing.js";
 
 type OpencodeClient = PluginInput["client"];
 
@@ -32,7 +29,6 @@ export class TaskLauncher {
 
   constructor(
     private client: OpencodeClient,
-    private directory: string,
     private store: TaskStore,
     private concurrency: ConcurrencyController,
     private sessionPool: SessionPool,
@@ -158,40 +154,14 @@ export class TaskLauncher {
           // WAL already logged in prepareTask - skip duplicate
 
           // 2. Fire prompt with timeout
-          const agentRegistry = AgentRegistry.getInstance();
-          await agentRegistry.ready();
-          const agentDef = agentRegistry.getAgent(task.agent);
-          let finalPrompt = task.prompt;
-
-          // If it's a custom agent (or if we want to ensure system prompt is used)
-          if (agentDef) {
-            finalPrompt = `### AGENT ROLE: ${agentDef.id}\n${agentDef.description}\n\n${agentDef.systemPrompt}\n\n${finalPrompt}`;
-          }
-
-          const memory = MemoryManager.getInstance().getContext(finalPrompt);
-          const injectedPrompt = memory
-            ? `${memory}\n\n${finalPrompt}`
-            : finalPrompt;
-
-          // Resolve "wire" agent name for OpenCode server
-          const knownAgents = Object.values(AGENT_NAMES) as string[];
-          const wireAgent = knownAgents.includes(task.agent)
-            ? task.agent
-            : AGENT_NAMES.COMMANDER;
+          const routedPrompt = await buildRoutedAgentPrompt(task.agent, task.prompt);
 
           const promptPromise = this.client.session.prompt({
             path: { id: task.sessionID },
             body: {
-              agent: wireAgent,
-              tools: {
-                [TOOL_NAMES.DELEGATE_TASK]: true,
-                [TOOL_NAMES.GET_TASK_RESULT]: true,
-                [TOOL_NAMES.LIST_TASKS]: true,
-                [TOOL_NAMES.CANCEL_TASK]: true,
-                [TOOL_NAMES.SKILL]: true,
-                [TOOL_NAMES.RUN_COMMAND]: true,
-              },
-              parts: [{ type: PART_TYPES.TEXT, text: injectedPrompt }],
+              agent: routedPrompt.wireAgent,
+              tools: routedPrompt.tools,
+              parts: [{ type: PART_TYPES.TEXT, text: routedPrompt.text }],
             },
           });
 

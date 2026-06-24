@@ -14,7 +14,41 @@ import {
     generateContinuationPrompt,
     formatProgress,
 } from "../../src/core/loop/formatters.js";
+import {
+    cleanupSession,
+    handleSessionIdle,
+    hasPendingContinuation,
+} from "../../src/core/loop/todo-continuation.js";
 import type { Todo } from "../../src/core/loop/interfaces.js";
+
+const mocks = vi.hoisted(() => ({
+    getTasksByParent: vi.fn(() => []),
+    isSessionRecovering: vi.fn(() => false),
+    verifyMissionCompletion: vi.fn(() => ({
+        passed: true,
+        todoIncomplete: 0,
+        checklistProgress: "0/0",
+        checklistComplete: true,
+    })),
+    buildTodoIncompletePrompt: vi.fn(() => "<todo_incomplete>file work remains</todo_incomplete>"),
+}));
+
+vi.mock("../../src/core/agents/manager.js", () => ({
+    ParallelAgentManager: {
+        getInstance: vi.fn(() => ({
+            getTasksByParent: mocks.getTasksByParent,
+        })),
+    },
+}));
+
+vi.mock("../../src/core/recovery/session-recovery.js", () => ({
+    isSessionRecovering: mocks.isSessionRecovering,
+}));
+
+vi.mock("../../src/core/loop/verification.js", () => ({
+    verifyMissionCompletion: mocks.verifyMissionCompletion,
+    buildTodoIncompletePrompt: mocks.buildTodoIncompletePrompt,
+}));
 
 describe("TodoContinuation", () => {
     describe("incomplete detection", () => {
@@ -126,6 +160,96 @@ describe("TodoContinuation", () => {
             // If state.isAborting is true, continuation should skip
             const isAborting = true;
             expect(isAborting).toBe(true); // Would skip
+        });
+    });
+
+    describe("handleSessionIdle", () => {
+        const sessionID = "session-todo-continuation";
+        const directory = "/tmp/todo-continuation";
+
+        beforeEach(() => {
+            vi.useFakeTimers();
+            cleanupSession(sessionID);
+            mocks.getTasksByParent.mockReturnValue([]);
+            mocks.isSessionRecovering.mockReturnValue(false);
+            mocks.verifyMissionCompletion.mockReturnValue({
+                passed: true,
+                todoIncomplete: 0,
+                checklistProgress: "0/0",
+                checklistComplete: true,
+            });
+            mocks.buildTodoIncompletePrompt.mockReturnValue("<todo_incomplete>file work remains</todo_incomplete>");
+        });
+
+        afterEach(() => {
+            cleanupSession(sessionID);
+            vi.useRealTimers();
+            vi.clearAllMocks();
+        });
+
+        it("injects a continuation prompt after the countdown when SDK-shaped todos remain", async () => {
+            const todo = {
+                id: "T1",
+                content: "Finish implementation",
+                status: "pending",
+                priority: "high",
+                createdAt: new Date().toISOString(),
+            };
+            const client = {
+                session: {
+                    todo: vi.fn().mockResolvedValue({ data: [todo] }),
+                    prompt: vi.fn().mockResolvedValue({ data: {} }),
+                },
+                tui: {
+                    showToast: vi.fn().mockResolvedValue({ data: true }),
+                },
+            };
+
+            await handleSessionIdle(client as unknown as Parameters<typeof handleSessionIdle>[0], directory, sessionID, sessionID);
+
+            expect(client.session.todo).toHaveBeenCalledWith({ path: { id: sessionID } });
+            expect(client.tui.showToast).toHaveBeenCalledWith({
+                body: expect.objectContaining({
+                    title: "📋 Todo Continuation",
+                    variant: "warning",
+                }),
+            });
+            expect(hasPendingContinuation(sessionID)).toBe(true);
+            expect(client.session.prompt).not.toHaveBeenCalled();
+
+            await vi.advanceTimersByTimeAsync(2000);
+
+            expect(client.session.prompt).toHaveBeenCalledWith({
+                path: { id: sessionID },
+                body: {
+                    parts: [{
+                        type: "text",
+                        text: expect.stringContaining("todo_continuation"),
+                    }],
+                },
+            });
+            expect(hasPendingContinuation(sessionID)).toBe(false);
+        });
+
+        it("skips todo fetching and prompt injection while background tasks are running", async () => {
+            mocks.getTasksByParent.mockReturnValue([{ status: "running" }]);
+            const client = {
+                session: {
+                    todo: vi.fn().mockResolvedValue({ data: [] }),
+                    prompt: vi.fn().mockResolvedValue({ data: {} }),
+                },
+                tui: {
+                    showToast: vi.fn().mockResolvedValue({ data: true }),
+                },
+            };
+
+            await handleSessionIdle(client as unknown as Parameters<typeof handleSessionIdle>[0], directory, sessionID, sessionID);
+            await vi.advanceTimersByTimeAsync(2000);
+
+            expect(client.session.todo).not.toHaveBeenCalled();
+            expect(client.session.prompt).not.toHaveBeenCalled();
+            expect(client.tui.showToast).not.toHaveBeenCalled();
+            expect(hasPendingContinuation(sessionID)).toBe(false);
         });
     });
 });

@@ -20,7 +20,12 @@ import type {
 
 type OpencodeClient = PluginInput["client"] & {
     session: {
-        compact?: (opts: { path: { id: string } }) => Promise<void>;
+        compact?: (opts: { path: { id: string } }) => Promise<unknown>;
+    };
+    v2?: {
+        session?: {
+            compact?: (parameters: { sessionID: string }) => Promise<unknown>;
+        };
     };
 };
 
@@ -260,8 +265,11 @@ export class SessionPool implements ISessionPool {
         try {
             // Use compaction to clear context while preserving essential mission state
             // (The session-compacting-handler hook will deal with what to keep)
-            if (this.client.session.compact) {
-                await this.client.session.compact({ path: { id: sessionId } });
+            const compacted = await this.compactSession(sessionId);
+            if (!compacted) {
+                log(`[SessionPool] No session compaction API available for ${sessionId.slice(0, 8)}; invalidating instead of reusing`);
+                session.health = "degraded";
+                return false;
             }
             session.lastResetAt = new Date();
             session.health = "healthy";
@@ -271,6 +279,15 @@ export class SessionPool implements ISessionPool {
             session.health = "degraded";
             return false;
         }
+    }
+
+    private async compactSession(sessionId: string): Promise<boolean> {
+        if (this.client.v2?.session?.compact) {
+            await this.client.v2.session.compact({ sessionID: sessionId });
+            return true;
+        }
+
+        return false;
     }
 
     private getPoolKey(agentName: string): string {

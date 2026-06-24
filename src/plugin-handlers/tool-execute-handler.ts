@@ -8,11 +8,9 @@
  */
 
 import { log } from "../core/agents/logger.js";
-import { state } from "../core/orchestrator/index.js";
 import { recordToolCall } from "../core/loop/circuit-breaker.js";
 import { recordToolEvidence } from "../core/loop/evidence.js";
 import { formatElapsedTime, formatTimestamp } from "../utils/common.js";
-import { TOOL_NAMES } from "../shared/index.js";
 import { HookRegistry } from "../hooks/registry.js"; // Import Registry
 import type { ToolExecuteHandlerContext, ToolHookInput, ToolHookOutput } from "./interfaces/index.js";
 
@@ -43,7 +41,9 @@ export function createToolExecuteAfterHandler(ctx: ToolExecuteHandlerContext) {
             session.tokens = { totalInput: 0, totalOutput: 0, estimatedCost: 0 };
         }
 
-        const stateSession = state.sessions.get(toolInput.sessionID);
+        const toolArguments = toolInput.arguments || {};
+        recordToolCall(toolInput.sessionID, toolInput.tool);
+        recordToolEvidence(toolInput.sessionID, toolInput.tool, toolArguments);
 
         // Execute Hooks
         await hooks.executePostTool(
@@ -53,12 +53,9 @@ export function createToolExecuteAfterHandler(ctx: ToolExecuteHandlerContext) {
                 sessions
             },
             toolInput.tool,
-            toolInput.arguments || {},
+            toolArguments,
             toolOutput
         );
-
-        recordToolCall(toolInput.sessionID, toolInput.tool);
-        recordToolEvidence(toolInput.sessionID, toolInput.tool, toolInput.arguments || {});
 
         log(`[tool.execute.after] Completed ${toolInput.tool}`, {
             sessionID: toolInput.sessionID,

@@ -1,31 +1,21 @@
-/**
- * Session Recovery Tests
- */
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import {
+    cleanupSessionRecovery,
+    handleSessionError,
+    isSessionRecovering,
+    markRecoveryComplete,
+} from "../../src/core/recovery/session-recovery";
+import { detectErrorType, ERROR_TYPE } from "../../src/shared";
 
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-
-// Mock the log function
-vi.mock("../src/core/agents/logger.js", () => ({
-    log: vi.fn(),
-}));
-
-// Mock toast presets
-vi.mock("../src/core/notification/presets.js", () => ({
-    presets: {
-        errorRecovery: vi.fn(),
-        warningMaxRetries: vi.fn(),
-    },
-}));
-
-// Types for testing
-interface MockClient {
-    session: {
-        prompt: ReturnType<typeof vi.fn>;
-    };
-}
+vi.mock("../../src/core/agents/logger", () => ({ log: vi.fn() }));
 
 describe("SessionRecovery", () => {
-    let mockClient: MockClient;
+    const touchedSessions: string[] = [];
+    let mockClient: {
+        session: {
+            prompt: ReturnType<typeof vi.fn>;
+        };
+    };
 
     beforeEach(() => {
         mockClient = {
@@ -36,124 +26,62 @@ describe("SessionRecovery", () => {
     });
 
     afterEach(() => {
+        for (const sessionID of touchedSessions.splice(0)) {
+            cleanupSessionRecovery(sessionID);
+        }
         vi.clearAllMocks();
     });
 
-    describe("error type detection", () => {
-        it("should detect tool_result_missing errors", () => {
-            const errorPatterns = [
-                "tool_result_missing",
-                "tool result is missing",
-                "Tool Result Missing",
-            ];
-
-            errorPatterns.forEach((pattern) => {
-                expect(detectErrorType(pattern)).toBe("TOOL_RESULT_MISSING");
-            });
-        });
-
-        it("should detect rate_limit errors", () => {
-            const errorPatterns = [
-                "rate limit exceeded",
-                "too many requests",
-                "429 Too Many Requests",
-                "rate_limit",
-            ];
-
-            errorPatterns.forEach((pattern) => {
-                expect(detectErrorType(pattern)).toBe("RATE_LIMIT");
-            });
-        });
-
-        it("should detect thinking_block_order errors", () => {
-            const errorPatterns = [
-                "thinking_block_order",
-                "thinking block order issue",
-            ];
-
-            errorPatterns.forEach((pattern) => {
-                expect(detectErrorType(pattern)).toBe("THINKING_BLOCK_ORDER");
-            });
-        });
-
-        it("should return null for unknown errors", () => {
-            expect(detectErrorType("random error message")).toBeNull();
-            expect(detectErrorType("something went wrong")).toBeNull();
-        });
+    it("detects recovery-supported error types using the shared detector", () => {
+        expect(detectErrorType("tool_result_missing")).toBe(ERROR_TYPE.TOOL_RESULT_MISSING);
+        expect(detectErrorType("429 Too Many Requests")).toBe(ERROR_TYPE.RATE_LIMIT);
+        expect(detectErrorType("thinking_block_order")).toBe(ERROR_TYPE.THINKING_BLOCK_ORDER);
+        expect(detectErrorType("random error message")).toBeNull();
     });
 
-    describe("recovery state management", () => {
-        it("should track recovery state per session", () => {
-            const sessionID = "test-session-1";
+    it("injects a compact tool-crash recovery prompt through the OpenCode session API", async () => {
+        const sessionID = "session-recovery-tool";
+        touchedSessions.push(sessionID);
 
-            // Initial state should not be recovering
-            expect(isSessionRecovering(sessionID)).toBe(false);
+        const recovered = await handleSessionError(
+            mockClient as unknown as Parameters<typeof handleSessionError>[0],
+            sessionID,
+            new Error("tool_result_missing"),
+        );
 
-            // Mark as recovering (internal state)
-            // This would be set by handleSessionError
+        expect(recovered).toBe(true);
+        expect(mockClient.session.prompt).toHaveBeenCalledWith({
+            path: { id: sessionID },
+            body: {
+                parts: [{
+                    type: "text",
+                    text: expect.stringContaining('<recovery type="tool_crash">'),
+                }],
+            },
         });
-
-        it("should cleanup session recovery state", () => {
-            const sessionID = "test-session-cleanup";
-
-            // Cleanup should not throw
-            expect(() => cleanupSessionRecovery(sessionID)).not.toThrow();
-        });
-
-        it("should mark recovery complete", () => {
-            const sessionID = "test-session-complete";
-
-            // Should not throw
-            expect(() => markRecoveryComplete(sessionID)).not.toThrow();
-        });
+        expect(isSessionRecovering(sessionID)).toBe(false);
     });
 
-    describe("recovery attempt limits", () => {
-        it("should limit recovery attempts to 3 per session", async () => {
-            const sessionID = "test-session-limits";
-            const error = new Error("tool_result_missing");
+    it("does not inject a recovery prompt for unknown errors", async () => {
+        const sessionID = "session-recovery-unknown";
+        touchedSessions.push(sessionID);
 
-            // Attempt 1-3 should try recovery
-            // Attempt 4+ should fail and show max retries warning
+        const recovered = await handleSessionError(
+            mockClient as unknown as Parameters<typeof handleSessionError>[0],
+            sessionID,
+            new Error("unmatched failure"),
+        );
 
-            // This would need the actual implementation to test properly
-            // For now, just verify the function signature works
-        });
+        expect(recovered).toBe(false);
+        expect(mockClient.session.prompt).not.toHaveBeenCalled();
+    });
+
+    it("cleans and resets recovery state without throwing", () => {
+        const sessionID = "session-recovery-cleanup";
+        touchedSessions.push(sessionID);
+
+        expect(() => markRecoveryComplete(sessionID)).not.toThrow();
+        expect(() => cleanupSessionRecovery(sessionID)).not.toThrow();
+        expect(isSessionRecovering(sessionID)).toBe(false);
     });
 });
-
-// Helper functions to test (extracted from session-recovery.ts)
-function detectErrorType(error: unknown): string | null {
-    const ERROR_PATTERNS = {
-        TOOL_RESULT_MISSING: /tool_result_missing|tool result.*missing/i,
-        THINKING_BLOCK_ORDER: /thinking.*block.*order|thinking_block_order/i,
-        THINKING_DISABLED: /thinking.*disabled|thinking_disabled_violation/i,
-        RATE_LIMIT: /rate.?limit|too.?many.?requests|429/i,
-        CONTEXT_OVERFLOW: /context.?length|token.?limit|maximum.?context/i,
-        MESSAGE_ABORTED: /MessageAbortedError|AbortError/i,
-    } as const;
-
-    const errorStr = typeof error === "string"
-        ? error
-        : (error as { message?: string })?.message || String(error);
-
-    for (const [type, pattern] of Object.entries(ERROR_PATTERNS)) {
-        if (pattern.test(errorStr)) {
-            return type;
-        }
-    }
-    return null;
-}
-
-function isSessionRecovering(sessionID: string): boolean {
-    // Simplified - actual implementation uses a Map
-    return false;
-}
-
-function cleanupSessionRecovery(sessionID: string): void {
-    // Simplified - actual implementation clears Map entry
-}
-
-function markRecoveryComplete(sessionID: string): void {
-    // Simplified - actual implementation resets state
-}

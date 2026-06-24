@@ -5,6 +5,7 @@
  */
 
 import { tool, type ToolDefinition } from "@opencode-ai/plugin";
+import { TOOL_NAMES } from "../../shared/index.js";
 import { callRustTool } from "../rust.js";
 
 /**
@@ -26,7 +27,7 @@ Find code patterns based on syntax (e.g., 'function $NAME($$$ARGS) { $$$BODY }')
         include: tool.schema.string().optional().describe("Glob pattern for files to include"),
     },
     async execute(args) {
-        return callRustTool("ast_search", {
+        return callRustTool(TOOL_NAMES.AST_SEARCH, {
             pattern: args.pattern,
             directory,
             lang: args.lang,
@@ -49,7 +50,7 @@ Safely refactor code across files using syntax patterns.`,
         include: tool.schema.string().optional().describe("Glob pattern for files"),
     },
     async execute(args) {
-        return callRustTool("ast_replace", {
+        return callRustTool(TOOL_NAMES.AST_REPLACE, {
             pattern: args.pattern,
             rewrite: args.rewrite,
             directory,

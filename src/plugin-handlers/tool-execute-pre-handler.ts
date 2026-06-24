@@ -40,10 +40,22 @@ export function createToolExecuteBeforeHandler(ctx: ToolExecuteHandlerContext) {
         }
 
         if (result.action === HOOK_ACTIONS.MODIFY && result.modifiedArgs) {
-            // Mutate arguments in place if the framework allows reference mutation.
-            // Usually input.arguments is a reference to the actual object being passed to the tool.
-            if (!toolInput.arguments) toolInput.arguments = {};
-            Object.assign(toolInput.arguments, result.modifiedArgs);
+            replaceToolArguments(toolInput, result.modifiedArgs);
         }
     };
+}
+
+function replaceToolArguments(
+    toolInput: ToolHookInput,
+    modifiedArgs: Record<string, unknown>,
+): void {
+    if (!toolInput.arguments) {
+        toolInput.arguments = {};
+    }
+
+    for (const key of Object.keys(toolInput.arguments)) {
+        delete toolInput.arguments[key];
+    }
+
+    Object.assign(toolInput.arguments, modifiedArgs);
 }

@@ -33,6 +33,14 @@ interface RustToolPoolOptions {
     spawnProcess?: typeof spawn;
 }
 
+function hasOwnProperty(value: object, property: string): boolean {
+    return Object.prototype.hasOwnProperty.call(value, property);
+}
+
+function stringifyJsonRpcPayload(value: unknown): string {
+    return JSON.stringify(value) ?? String(value);
+}
+
 export class RustToolPool {
     private processes: PooledProcess[] = [];
     private maxSize = 4;
@@ -237,9 +245,17 @@ export class RustToolPool {
                 for (let i = lines.length - 1; i >= 0; i--) {
                     try {
                         const response = JSON.parse(lines[i]);
-                        if (response.id === requestId && (response.result || response.error)) {
+                        if (response.id === requestId && (hasOwnProperty(response, "result") || hasOwnProperty(response, "error"))) {
                             const text = response?.result?.content?.[0]?.text;
-                            succeed(text || JSON.stringify(response.result));
+                            if (text !== undefined) {
+                                succeed(String(text));
+                                return;
+                            }
+                            if (hasOwnProperty(response, "result")) {
+                                succeed(stringifyJsonRpcPayload(response.result));
+                                return;
+                            }
+                            succeed(stringifyJsonRpcPayload(response.error));
                             return;
                         }
                     } catch {

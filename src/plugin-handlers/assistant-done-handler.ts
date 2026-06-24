@@ -11,6 +11,7 @@ import { HookRegistry } from "../hooks/registry.js";
 import type { AssistantDoneHandlerContext } from "./interfaces/index.js";
 
 type OpencodeClient = PluginInput["client"];
+type AssistantMessagePart = { type: string; text?: string };
 
 export type { AssistantDoneHandlerContext } from "./interfaces/index.js";
 
@@ -68,9 +69,10 @@ async function readAssistantText(
     try {
         const response = await client.session.message({
             path: { id: sessionID, messageID },
-        }) as { parts?: Array<{ type: string; text?: string }> };
+        });
+        const parts = extractMessageParts(response);
 
-        return (response.parts ?? [])
+        return parts
             .filter(part => part.type === PART_TYPES.TEXT || part.type === PART_TYPES.REASONING)
             .map(part => part.text ?? "")
             .join("\n");
@@ -78,4 +80,20 @@ async function readAssistantText(
         log("[assistant-done-handler] Failed to read assistant message", { sessionID, messageID, error });
         return "";
     }
+}
+
+function extractMessageParts(response: unknown): AssistantMessagePart[] {
+    if (!isRecord(response)) return [];
+
+    const data = response.data;
+    if (!isRecord(data) || !Array.isArray(data.parts)) return [];
+    return data.parts.filter(isMessagePart);
+}
+
+function isMessagePart(value: unknown): value is AssistantMessagePart {
+    return isRecord(value) && typeof value.type === "string";
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+    return typeof value === "object" && value !== null;
 }

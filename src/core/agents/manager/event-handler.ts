@@ -49,7 +49,7 @@ export class EventHandler {
 
         // Handle session.deleted - cleanup resources immediately
         if (event.type === SESSION_EVENTS.DELETED) {
-            const sessionID = props?.info?.id ?? props?.sessionID;
+            const sessionID = props?.info?.id;
             if (!sessionID) return;
 
             const task = this.findBySession(sessionID);

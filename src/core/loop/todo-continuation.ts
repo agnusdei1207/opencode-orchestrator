@@ -132,9 +132,8 @@ async function showCountdownToast(
     incompleteCount: number
 ): Promise<void> {
     try {
-        const tuiClient = client as unknown as { tui?: { showToast?: (opts: unknown) => Promise<void> } };
-        if (tuiClient.tui?.showToast) {
-            await tuiClient.tui.showToast({
+        if (client.tui?.showToast) {
+            await client.tui.showToast({
                 body: {
                     title: "📋 Todo Continuation",
                     message: `Resuming in ${secondsRemaining}s... (${incompleteCount} tasks remaining)`,
@@ -273,7 +272,7 @@ export async function handleSessionIdle(
     let todos: Todo[] = [];
     try {
         const response = await client.session.todo({ path: { id: sessionID } });
-        todos = parseTodos(response.data ?? response);
+        todos = parseTodos(response.data);
     } catch (error) {
         log("[todo-continuation] Failed to fetch todos", { sessionID, error });
         return;
@@ -316,7 +315,7 @@ export async function handleSessionIdle(
         // Re-fetch todos to ensure they're still incomplete
         try {
             const freshResponse = await client.session.todo({ path: { id: sessionID } });
-            const freshTodos = parseTodos(freshResponse.data ?? freshResponse);
+            const freshTodos = parseTodos(freshResponse.data);
 
             // Re-verify file work
             let freshFileWork = false;

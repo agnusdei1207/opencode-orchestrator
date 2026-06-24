@@ -60,7 +60,6 @@ describe("TaskLauncher", () => {
 
         launcher = new TaskLauncher(
             mockClient,
-            "/test/dir",
             store,
             concurrency,
             sessionPool,
@@ -140,7 +139,7 @@ describe("TaskLauncher", () => {
     it("should respect concurrency limits in background", async () => {
         // Limit is 1
         concurrency = new ConcurrencyController({ defaultConcurrency: 1 });
-        launcher = new TaskLauncher(mockClient, "/dir", store, concurrency, sessionPool, onTaskError, startPolling);
+        launcher = new TaskLauncher(mockClient, store, concurrency, sessionPool, onTaskError, startPolling);
 
         const inputs = [
             { description: "T1", prompt: "P1", agent: "a", parentSessionID: "p" },

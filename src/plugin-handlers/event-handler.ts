@@ -40,14 +40,13 @@ export function createEventHandler(ctx: EventHandlerContext) {
 
         // session.created
         if (event.type === SESSION_EVENTS.CREATED) {
-            const sessionID = event.properties?.id as string || "";
+            const sessionID = readSessionID(event.properties);
             Toast.presets.missionStarted(`Session ${sessionID.slice(0, 12)}...`);
         }
 
         // session.deleted
         if (event.type === SESSION_EVENTS.DELETED) {
-            const sessionID = (event.properties?.id as string) ||
-                (event.properties as { info?: { id?: string } })?.info?.id || "";
+            const sessionID = readSessionID(event.properties);
             const session = sessions.get(sessionID);
             if (session) {
                 const totalTime = Date.now() - session.startTime;
@@ -69,7 +68,7 @@ export function createEventHandler(ctx: EventHandlerContext) {
 
         // session.error
         if (event.type === SESSION_EVENTS.ERROR) {
-            const sessionID = event.properties?.sessionId as string || event.properties?.sessionID as string || "";
+            const sessionID = event.properties?.sessionID as string || "";
             const error = event.properties?.error;
 
             if (sessionID) {
@@ -90,26 +89,29 @@ export function createEventHandler(ctx: EventHandlerContext) {
         // message.updated
         if (event.type === MESSAGE_EVENTS.UPDATED) {
             const messageProperties = event.properties as {
-                sessionID?: string;
                 info?: {
                     id?: string;
                     sessionID?: string;
                     role?: string;
                     time?: { completed?: number };
+                    tokens?: {
+                        input?: number;
+                        output?: number;
+                        reasoning?: number;
+                    };
                 };
-                usage?: { totalTokens?: number; inputTokens?: number; outputTokens?: number };
             };
 
             const messageInfo = messageProperties?.info;
-            const sessionID = messageProperties.sessionID || messageInfo?.sessionID;
+            const sessionID = messageInfo?.sessionID;
             const role = messageInfo?.role;
 
             // Context Window Monitoring integration
-            // Use the usage data from the event to check against thresholds
-            if (sessionID && messageProperties?.usage) {
-                const totalTokens = messageProperties.usage.totalTokens ??
-                    ((messageProperties.usage.inputTokens ?? 0) + (messageProperties.usage.outputTokens ?? 0));
-
+            // Use the SDK message token data from the event to check against thresholds
+            if (sessionID && messageInfo?.tokens) {
+                const totalTokens = (messageInfo.tokens.input ?? 0) +
+                    (messageInfo.tokens.output ?? 0) +
+                    (messageInfo.tokens.reasoning ?? 0);
                 if (totalTokens > 0) {
                     // This function has built-in cooldowns so it won't spam
                     ContextMonitor.checkContextWindow(sessionID, totalTokens);
@@ -146,6 +148,20 @@ export function createEventHandler(ctx: EventHandlerContext) {
             }
         }
     };
+}
+
+function readSessionID(properties: Record<string, unknown> | undefined): string {
+    const info = properties?.info;
+    if (!isRecord(info)) return "";
+    return readString(info.id) ?? "";
+}
+
+function readString(value: unknown): string | undefined {
+    return typeof value === "string" ? value : undefined;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+    return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 function markAssistantCompleted(sessions: Map<string, SessionState>, sessionID: string): void {

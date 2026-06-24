@@ -60,12 +60,8 @@ function readStringField(source: UnknownRecord, key: string): string | undefined
 
 function readCreatedSessionID(properties: unknown): string | undefined {
     if (!isRecord(properties)) return undefined;
-
-    const directID = readStringField(properties, "sessionID") ?? readStringField(properties, "id");
-    if (directID) return directID;
-
     const info = properties.info;
-    return isRecord(info) ? readStringField(info, "sessionID") : undefined;
+    return isRecord(info) ? readStringField(info, "id") : undefined;
 }
 
 const OrchestratorPlugin: Plugin = async (input, options) => {

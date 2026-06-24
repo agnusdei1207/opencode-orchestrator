@@ -13,7 +13,7 @@ import { ConcurrencyController } from "../concurrency.js";
 import { CONFIG } from "../config.js";
 import { log } from "../logger.js";
 import { SessionPool } from "../session-pool.js";
-import { buildNotificationMessage, formatDuration } from "../format.js";
+import { buildAgentTaskCompletionMessage, buildAgentTaskProgressMessage, formatDuration } from "../format.js";
 import { getTaskToastManager, type TaskCompletionInfo } from "../../notification/task-toast-manager.js";
 import * as sessionStore from "../../session/store.js";
 
@@ -117,19 +117,12 @@ export class TaskCleaner {
             }
         }
 
-        // Build message with different levels of detail
+        // User-facing toast details stay separate from compact agent-to-agent prompts.
         let message: string;
         if (allComplete) {
-            // Comprehensive summary for AI to process
-            message = buildNotificationMessage(notifications);
-            message += `\n\n**ACTION REQUIRED:** All background tasks are complete. ` +
-                `Use \`get_task_result(taskId)\` to retrieve outputs and continue with the mission.`;
+            message = buildAgentTaskCompletionMessage(notifications);
         } else {
-            // Brief update - more tasks pending
-            const completedCount = notifications.length;
-            message = `[BACKGROUND UPDATE] ${completedCount} task(s) completed, ${pendingCount} still running.\n` +
-                `Completed: ${notifications.map(t => `\`${t.id}\``).join(", ")}\n` +
-                `You will be notified when ALL tasks complete. Continue productive work.`;
+            message = buildAgentTaskProgressMessage(notifications, pendingCount);
         }
 
         try {

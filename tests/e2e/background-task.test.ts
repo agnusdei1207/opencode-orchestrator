@@ -197,6 +197,26 @@ describe("BackgroundTaskManager E2E", () => {
             expect(updated?.status).toBe("error");
         });
 
+        it("should preserve killed status after process close", async () => {
+            const task = backgroundTaskManager.run({
+                command: "sleep 10",
+                cwd: process.cwd(),
+            });
+            createdTaskIds.push(task.id);
+
+            await new Promise(resolve => setTimeout(resolve, 100));
+
+            expect(backgroundTaskManager.kill(task.id)).toBe(true);
+
+            await new Promise(resolve => setTimeout(resolve, 300));
+
+            const updated = backgroundTaskManager.get(task.id);
+            expect(updated?.status).toBe("error");
+            expect(updated?.errorOutput).toContain("Killed by user");
+            expect(updated?.timeoutHandle).toBeUndefined();
+            expect(updated?.process).toBeUndefined();
+        });
+
         it("should return false for unknown task", () => {
             const killed = backgroundTaskManager.kill("job_unknown");
             expect(killed).toBe(false);

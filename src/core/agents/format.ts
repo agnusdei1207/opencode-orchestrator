@@ -13,17 +13,25 @@ export function formatDuration(start: Date, end?: Date): string {
     return `${seconds}s`;
 }
 
-export function buildNotificationMessage(tasks: Array<{ id: string; description: string; status: string }>): string {
+export function buildAgentTaskCompletionMessage(tasks: Array<{ id: string; agent: string; status: string }>): string {
     const summary = tasks.map(t => {
-        const status = t.status === TASK_STATUS.COMPLETED ? "✅" : "❌";
-        return `${status} \`${t.id}\`: ${t.description}`;
+        const status = t.status === TASK_STATUS.COMPLETED ? "done" : t.status;
+        return `- ${t.id} | ${t.agent} | ${status}`;
     }).join("\n");
 
     return `<system-notification>
-**All Parallel Tasks Complete**
+Background tasks complete.
 
 ${summary}
 
-Use \`get_task_result({ taskId: "task_xxx" })\` to retrieve results.
+Next: call get_task_result with the task id(s) you need.
 </system-notification>`;
+}
+
+export function buildAgentTaskProgressMessage(
+    completedTasks: Array<{ id: string }>,
+    pendingCount: number,
+): string {
+    return `[BACKGROUND UPDATE] completed=${completedTasks.length} pending=${pendingCount}\n` +
+        `ids=${completedTasks.map(t => t.id).join(",")}`;
 }

@@ -345,6 +345,68 @@ async fn handle_request(request: &Value) -> Option<Value> {
                         }
                     },
                     {
+                        "name": tool::JQ,
+                        "description": "Query and manipulate JSON using jq expressions",
+                        "inputSchema": {
+                            "type": "object",
+                            "properties": {
+                                "json_input": {"type": "string", "description": "JSON string to query"},
+                                "file": {"type": "string", "description": "JSON file to query"},
+                                "expression": {"type": "string", "description": "jq expression"},
+                                "raw_output": {"type": "boolean", "description": "Return raw string output"}
+                            },
+                            "required": ["expression"]
+                        }
+                    },
+                    {
+                        "name": tool::HTTP,
+                        "description": "Make HTTP requests",
+                        "inputSchema": {
+                            "type": "object",
+                            "properties": {
+                                "url": {"type": "string", "description": "URL to request"},
+                                "method": {"type": "string", "description": "HTTP method"},
+                                "headers": {"type": "object", "description": "Request headers"},
+                                "body": {"type": "string", "description": "Request body"},
+                                "timeout_ms": {"type": "number", "description": "Timeout in milliseconds"}
+                            },
+                            "required": ["url"]
+                        }
+                    },
+                    {
+                        "name": tool::FILE_STATS,
+                        "description": "Analyze file and directory statistics",
+                        "inputSchema": {
+                            "type": "object",
+                            "properties": {
+                                "directory": {"type": "string", "description": "Directory to analyze"},
+                                "max_depth": {"type": "number", "description": "Maximum directory depth"}
+                            },
+                            "required": ["directory"]
+                        }
+                    },
+                    {
+                        "name": tool::GIT_DIFF,
+                        "description": "Show git diff of uncommitted changes",
+                        "inputSchema": {
+                            "type": "object",
+                            "properties": {
+                                "directory": {"type": "string", "description": "Repository directory"},
+                                "staged_only": {"type": "boolean", "description": "Show only staged changes"}
+                            }
+                        }
+                    },
+                    {
+                        "name": tool::GIT_STATUS,
+                        "description": "Show git repository status",
+                        "inputSchema": {
+                            "type": "object",
+                            "properties": {
+                                "directory": {"type": "string", "description": "Repository directory"}
+                            }
+                        }
+                    },
+                    {
                         "name": tool::LSP_DIAGNOSTICS,
                         "description": "Get LSP diagnostics (errors/warnings) for files",
                         "inputSchema": {
@@ -483,8 +545,30 @@ mod tests {
         });
         let resp = handle_request(&req).await.unwrap();
         let tools = resp[field::RESULT]["tools"].as_array().unwrap();
-        assert!(tools.iter().any(|t| t["name"] == tool::GREP_SEARCH));
-        assert!(tools.iter().any(|t| t["name"] == tool::MGREP));
+        let listed_names: Vec<&str> = tools.iter().filter_map(|t| t["name"].as_str()).collect();
+
+        for expected in [
+            tool::GREP_SEARCH,
+            tool::GLOB_SEARCH,
+            tool::MGREP,
+            tool::SED_REPLACE,
+            tool::DIFF,
+            tool::JQ,
+            tool::HTTP,
+            tool::FILE_STATS,
+            tool::GIT_DIFF,
+            tool::GIT_STATUS,
+            tool::LSP_DIAGNOSTICS,
+            tool::AST_SEARCH,
+            tool::AST_REPLACE,
+            tool::LIST_AGENTS,
+            tool::LIST_HOOKS,
+        ] {
+            assert!(
+                listed_names.contains(&expected),
+                "missing tool in tools/list: {expected}"
+            );
+        }
     }
 
     #[tokio::test]

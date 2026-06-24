@@ -278,14 +278,7 @@ If your task is too complex, please:
 3. Complete your assigned file directly without delegation`;
         }
 
-        const sessionClient = client as {
-            session: {
-                create: (opts: { body: { parentID: string; title: string }; query: { directory: string } }) => Promise<{ data?: { id: string }; error?: string }>;
-                prompt: (opts: { path: { id: string }; body: { agent: string; tools?: Record<string, boolean>; parts: { type: string; text: string }[] } }) => Promise<{ error?: string }>;
-                messages: (opts: { path: { id: string } }) => Promise<{ data?: unknown[]; error?: string }>;
-                status: () => Promise<{ data?: Record<string, { type: string }> }>;
-            }
-        };
+        const sessionClient = client as { session: SessionClient };
 
         if (background === undefined) {
             return `${OUTPUT_LABEL.ERROR} 'background' parameter is REQUIRED.`;
@@ -296,26 +289,19 @@ If your task is too complex, please:
         // =========================================
         if (resume) {
             try {
-                const input = {
+                const resumeInput = {
                     sessionId: resume,
                     prompt,
                     parentSessionID: ctx.sessionID,
-                    agent,
-                    description,
-                    mode: mode as "normal" | "race" | "fractal" | undefined,
-                    groupID,
-                    depth: parentDepth,
                 };
-                const launchResult = await manager.launch(input);
-                const task = (Array.isArray(launchResult) ? launchResult[0] : launchResult) as ParallelTask;
+                const task = await manager.resume(resumeInput);
 
                 if (!task) {
-                    return `Failed to launch task: ${input.description}`;
+                    return `Failed to resume task: ${description}`;
                 }
 
                 const taskId = task.id;
                 if (background === true) {
-                    const message = `Launched ${input.agent} task: ${input.description}\nTask ID: ${taskId}\nSession: ${task.sessionID}`;
                     return `${OUTPUT_LABEL.RESUME} task: \`${taskId}\` (${task.agent}) in session \`${task.sessionID}\`\n\n` +
                         `Previous context preserved. Use \`${TOOL_NAMES.GET_TASK_RESULT}({ taskId: "${taskId}" })\` when complete.`;
                 }

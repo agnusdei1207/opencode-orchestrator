@@ -99,7 +99,6 @@ export class ParallelAgentManager {
         // Initialize launcher
         this.launcher = new TaskLauncher(
             client,
-            directory,
             this.store,
             this.concurrency,
             this.sessionPool,
@@ -309,12 +308,8 @@ export class ParallelAgentManager {
                 await this.launch({
                     agent: AGENT_NAMES.REVIEWER,
                     description: `Unit Review: ${task.description}`,
-                    prompt: `Perform a Unit Review (verification) for the completed task (\`${task.description}\`).\n` +
-                        `Key Checklist:\n` +
-                        `1. Verify if unit test code for the module is written and passes.\n` +
-                        `2. Check for code quality and modularity compliance.\n` +
-                        `3. Instruct immediate correction of found defects or report them.\n\n` +
-                        `This task ensures the completeness of the unit before global integration.`,
+                    prompt: `Review completed task: ${task.description}\n` +
+                        `Check tests, code quality, and integration risks. Return findings only.`,
                     parentSessionID: task.parentSessionID,
                     depth: task.depth,
                     groupID: task.groupID || task.id, // Group reviews with their origins

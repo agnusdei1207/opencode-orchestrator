@@ -64,14 +64,14 @@ export function createSystemTransformHandler(ctx: EventHandlerContext) {
         }
 
         // 3. Knowledge graph RAG context for orchestrated sessions.
-        // The orchestrated session runs as the Commander; passing the role lets
-        // retrieval bias by role (Commander is neutral, but subagent sessions
-        // routed through the same provider get their role-specific weighting).
+        // Keep retrieval role-aware so the prompt context follows the active
+        // agent's job: planners favor graph structure, workers favor exact hits.
+        const retrievalRole = readRetrievalRole(input);
         const knowledgePrompt = buildKnowledgeContextPrompt(
             directory,
             loopState,
             state.sessions.get(sessionID)?.currentTask,
-            "commander",
+            retrievalRole,
         );
         if (knowledgePrompt) {
             systemAdditions.push(knowledgePrompt);
@@ -96,6 +96,10 @@ export function createSystemTransformHandler(ctx: EventHandlerContext) {
             output.system.unshift(...systemAdditions); // unshift to put core instructions first
         }
     };
+}
+
+function readRetrievalRole(input: SystemTransformInput): string {
+    return input.agent?.trim() || "commander";
 }
 
 function buildKnowledgeContextPrompt(

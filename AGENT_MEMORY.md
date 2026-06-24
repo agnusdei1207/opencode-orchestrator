@@ -2,69 +2,70 @@
 
 ## Current Task
 
-Shipped Builder-learnings adoption as minor `1.6.0` (after the 1.5.x audit/refactor line).
-Surveyed ../builder-private (25 crates/185K LOC), wrote an adoption assessment, then applied
-all recommended items A–H phase by phase, each verified green and committed: prompt
-registry+snapshots (A/B), tolerant safeJsonParse (F), memory horizons + role-aware retrieval
-(E), mission evidence + wiring-gate nudge (C), completion self-review + stagnation escalation
-(D), Zod schema-driven options + generated schema.json + shared→core layering guard (G/H).
-WATCH/SKIP items left to OpenCode (providers/permissions/turn-loop). Tests 713→747.
+User requested exhaustive routing, prompt architecture, SDK/plugin compatibility, minimal agent-to-agent communication, documentation ignore handling, and full commit/push completion.
 
 ## Last Completed Step
 
-1. `1.5.2`: synced Cargo workspace version to npm (`0.1.0`→`1.5.2`) + guard test; removed the
-   verified-dead Rust `config` module.
-2. `1.5.3`: Phase 4 hygiene (`.gitattributes` eol=lf, removed `noImplicitAny:false`, resilient
-   `build.mjs` + source maps, `ci.yml` with fmt/clippy/tsc/test gates, `.gitignore` aligned,
-   `cargo fmt`) and Phase 5 Rust robustness (`tools/process.rs::run_with_timeout` applied to
-   ast/git/jq/http; fixed `http.rs` curl exit-status bug; Rust tests 24→35).
-3. Withdrew Phase 2 (`event-handler.ts:194` already dispatches idle continuation mutually
-   exclusively) and Phase 6 (`release-hardening.test.ts:92-93` locks the amend/tag-f design).
-4. Verified green: `tsc`, `npm run build`, `cargo fmt --check`, `cargo clippy -D warnings`,
-   `cargo test` (35), `npm test` (713). Committed and pushed `v1.5.2` and `v1.5.3`.
-5. Ran `npm run release:minor`, which created release commit `afe616e` and tag `v1.5.0`.
-6. Fixed `scripts/release-sync-artifacts.mjs` path parsing and amended the `1.5.0` release commit before publish.
-7. Published `opencode-orchestrator@1.5.0` to npm with the `latest` tag.
-8. Pushed `main` and `v1.5.0` to origin.
+Completed final SDK migration pass with no legacy/fallback SDK routing left in the audited paths:
 
-## Verification Observed
-
-1. `npm run release:minor` preflight ran build, tests, Rust tests, audit, and package dry-run.
-2. Docker Linux x64 and Linux arm64 Rust release artifact builds completed.
-3. `npm publish --access public` succeeded for `opencode-orchestrator@1.5.0`.
-4. `npm view opencode-orchestrator version --json` returned `1.5.0`.
-5. `npm view opencode-orchestrator@1.5.0 version --json` returned `1.5.0`.
-6. `git push origin main` succeeded.
-7. `git push origin v1.5.0` succeeded.
+- `session.created` and `session.deleted` now read the official OpenCode SDK `properties.info.id` shape only.
+- `message.updated` now reads `properties.info.sessionID` and `properties.info.tokens` only.
+- Session pool compaction now uses the current OpenCode SDK v2 `client.v2.session.compact({ sessionID })` path only.
+- Todo continuation and OS notify todo checks now read SDK `response.data` only.
+- Assistant-done message extraction now reads SDK `response.data.parts` only.
+- Agent-to-agent task completion and progress notifications are compact; rich task details stay in user-facing toast UI.
+- `docs/architecture/prompt-architecture.html` is ignored by `.gitignore`.
 
 ## Next Exact Step
 
-1. Rotate the previously exposed GitHub credential if it is still valid.
-2. If needed, verify install from npm in a clean environment with `npm install -g opencode-orchestrator@1.5.0`.
+No in-repo implementation step remains. If work resumes, start by checking the latest branch state and user request.
 
-## Incomplete Items and Why
+## Incomplete Items And Why
 
-- No incomplete release work remains for `1.5.0`.
+None known after the latest verification pass.
 
 ## Key Decisions
 
-1. Final release type is minor, published as `1.5.0`.
-2. Shell-listener remains CLI-only, not LLM tool-callable.
-3. Remote binds require `--allow-remote`.
-4. SDK/plugin dependencies are exact-pinned to `1.17.4`.
+- Removed SDK backwards-compatibility fallback paths because the user explicitly requested complete migration instead of compatibility complexity.
+- Kept `session.idle` and `session.status` on `properties.sessionID` because that is the official SDK event shape.
+- Kept parent-agent task notifications minimal: ids, agent, status, and exact next action only.
+- Kept user-facing notifications separate from agent-to-agent prompts.
 
 ## Rejected Alternatives
 
-1. Publishing `1.4.1` was stopped after the user clarified minor release.
-2. Re-running `release:minor` after partial failure was rejected because it would create another version bump; the existing `1.5.0` release commit was recovered instead.
+- Rejected mixed legacy/current SDK event and response parsing.
+- Rejected sending verbose task descriptions to parent agents.
+- Rejected reusing sessions when compaction API is absent.
 
 ## Known Risks
 
-- A local remote URL had an embedded credential earlier in the session. Treat that credential as exposed and rotate it.
+- The change is intentionally tied to OpenCode SDK/plugin `1.17.9`; older SDK event/response shapes are no longer supported in the audited paths.
+- There is existing repository debt with broad compatibility comments/modules outside this specific SDK routing migration.
 
-## Open These Files First Next Session
+## Verification Observed
+
+- `npm run build`: passed.
+- `npm test`: passed, 96 files and 803 tests.
+- `cargo fmt --check`: passed.
+- `cargo test -p orchestrator-cli -p orchestrator-core`: passed, CLI 12 tests and core 35 tests.
+- `git diff --check`: passed.
+- `git check-ignore -v docs/architecture/prompt-architecture.html`: `.gitignore:21` matched.
+- Fallback search passed with no matches:
+  - `?? response`
+  - `response.data ?? response`
+  - `client.session.compact`
+  - `legacy compact`
+  - `messageProperties.sessionID`
+  - `event.properties?.sessionId`
+  - `Array.isArray(response.parts)`
+
+## Files To Open First Next Session
 
 1. `AGENT_MEMORY.md`
-2. `docs/release/2026-06-12-1.5.0-publish.md`
-3. `crates/orchestrator-cli/src/shell_listener.rs`
-4. `scripts/release-sync-artifacts.mjs`
+2. `git status --short`
+3. `src/plugin-handlers/event-handler.ts`
+4. `src/core/agents/session-pool.ts`
+5. `src/core/loop/todo-continuation.ts`
+6. `src/plugin-handlers/assistant-done-handler.ts`
+7. `tests/unit/event-handler.test.ts`
+8. `tests/unit/session-pool-reset.test.ts`
