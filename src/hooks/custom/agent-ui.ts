@@ -7,7 +7,7 @@
  * - Task ID tracking
  */
 
-import type { PostToolUseHook, HookContext, PostToolResult, ToolInput, ToolOutput } from "../types.js";
+import type { PostToolUseHook, HookContext, PostToolResult, ToolInput, ToolOutput } from "../registry.js";
 import { TOOL_NAMES } from "../../shared/index.js";
 import { HOOK_NAMES } from "../constants.js";
 import { updateCurrentTask } from "../../core/orchestrator/session-manager.js";

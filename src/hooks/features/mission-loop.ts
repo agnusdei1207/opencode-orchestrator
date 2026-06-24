@@ -7,7 +7,7 @@
  * - Auto-continuation injection (Loop)
  * - User cancellation detection
  */
-import type { AssistantDoneHook, ChatMessageHook, ChatMessageResult, HookContext, HookResult } from "../types.js";
+import type { AssistantDoneHook, ChatMessageHook, ChatMessageResult, HookContext, HookResult } from "../registry.js";
 import { log } from "../../core/agents/logger.js";
 import {
     startMissionLoop,

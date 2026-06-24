@@ -14,7 +14,7 @@ import type {
     PostToolResult,
     ToolInput,
     ToolOutput,
-} from "../types.js";
+} from "../registry.js";
 import { log } from "../../core/agents/logger.js";
 import { HOOK_ACTIONS, HOOK_NAMES } from "../constants.js";
 import {

@@ -6,7 +6,7 @@
  * This prevents leaking secrets into the context window or logs.
  */
 
-import type { PostToolUseHook, HookContext, PostToolResult, ToolInput, ToolOutput } from "../types.js";
+import type { PostToolUseHook, HookContext, PostToolResult, ToolInput, ToolOutput } from "../registry.js";
 import { HOOK_NAMES } from "../constants.js";
 import { SECURITY_PATTERNS } from "../../shared/constants/security-patterns.js";
 import { MISSION_MESSAGES } from "../../shared/constants/system-messages.js";

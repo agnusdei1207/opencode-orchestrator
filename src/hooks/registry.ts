@@ -4,20 +4,83 @@
  */
 
 import { log } from "../core/agents/logger.js";
-import type {
-    PreToolUseHook,
-    PostToolUseHook,
-    ChatMessageHook,
-    AssistantDoneHook,
-    HookContext,
-    HookResult,
-    HookMetadata,
-    ChatMessageResult,
-    PreToolResult,
-    ToolInput,
-    ToolOutput
-} from "./types.js";
 import { HOOK_ACTIONS } from "./constants.js";
+
+export interface HookContext {
+    sessionID: string;
+    agent?: string;
+    directory: string;
+    sessions: Map<string, unknown>;
+}
+
+export interface HookMetadata {
+    name: string;
+    priority: number;
+    phase?: "early" | "normal" | "late";
+    dependencies?: string[];
+    errorHandling?: "continue" | "stop" | "retry";
+}
+
+export type HookResult =
+    | { action: typeof HOOK_ACTIONS.CONTINUE }
+    | { action: typeof HOOK_ACTIONS.STOP; reason?: string }
+    | { action: typeof HOOK_ACTIONS.INJECT; prompts: string[] };
+
+export type ToolInput = Record<string, unknown>;
+
+export interface ToolOutput {
+    title: string;
+    output: string;
+    metadata: Record<string, unknown>;
+}
+
+export type PreToolResult = {
+    action: typeof HOOK_ACTIONS.ALLOW | typeof HOOK_ACTIONS.BLOCK | typeof HOOK_ACTIONS.MODIFY;
+    modifiedArgs?: ToolInput;
+    reason?: string;
+};
+
+export type PostToolResult = { output?: string };
+
+export type ChatMessageResult = {
+    action: typeof HOOK_ACTIONS.PROCESS | typeof HOOK_ACTIONS.INTERCEPT;
+    modifiedMessage?: string;
+};
+
+export interface PreToolUseHook {
+    name: string;
+    execute(
+        context: HookContext,
+        tool: string,
+        args: ToolInput
+    ): Promise<PreToolResult>;
+}
+
+export interface PostToolUseHook {
+    name: string;
+    execute(
+        context: HookContext,
+        tool: string,
+        input: ToolInput,
+        output: ToolOutput
+    ): Promise<PostToolResult>;
+}
+
+export interface ChatMessageHook {
+    name: string;
+    execute(
+        context: HookContext,
+        message: string
+    ): Promise<ChatMessageResult>;
+}
+
+export interface AssistantDoneHook {
+    name: string;
+    execute(
+        context: HookContext,
+        finalText: string
+    ): Promise<HookResult>;
+}
 
 interface HookRegistration<T> {
     hook: T;

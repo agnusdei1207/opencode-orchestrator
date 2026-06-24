@@ -3,9 +3,13 @@
  */
 
 import { describe, it, expect, beforeEach, vi } from "vitest";
-import { HookRegistry } from "../../src/hooks/registry";
+import {
+    HookRegistry,
+    type ChatMessageHook,
+    type HookContext,
+    type PostToolUseHook,
+} from "../../src/hooks/registry";
 import { HOOK_ACTIONS } from "../../src/hooks/constants";
-import type { ChatMessageHook, HookContext, PostToolUseHook } from "../../src/hooks/types";
 
 describe("Hook Registry (Priority & Dependencies)", () => {
     let registry: HookRegistry;

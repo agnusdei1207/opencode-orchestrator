@@ -11,7 +11,7 @@ import type {
     PostToolResult,
     ToolInput,
     ToolOutput,
-} from "../types.js";
+} from "../registry.js";
 import { checkOutputSanity, RECOVERY_PROMPT, ESCALATION_PROMPT } from "../../utils/sanity/index.js";
 import { TOOL_NAMES } from "../../shared/index.js";
 import { HOOK_ACTIONS, HOOK_NAMES } from "../constants.js";

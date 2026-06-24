@@ -12,7 +12,7 @@ import type {
     PreToolResult,
     ToolInput,
     ToolOutput,
-} from "../types.js";
+} from "../registry.js";
 import { MetricsCollector } from "../../core/metrics/collector.js";
 import { HOOK_ACTIONS } from "../constants.js";
 import { HOOK_NAMES } from "../../shared/index.js";

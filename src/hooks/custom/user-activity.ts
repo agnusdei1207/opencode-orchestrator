@@ -6,7 +6,7 @@
  * and update activity timestamps.
  */
 
-import type { ChatMessageHook, ChatMessageResult, HookContext } from "../types.js";
+import type { ChatMessageHook, ChatMessageResult, HookContext } from "../registry.js";
 import { HOOK_ACTIONS, HOOK_NAMES } from "../constants.js";
 import * as TodoContinuation from "../../core/loop/todo-continuation.js";
 

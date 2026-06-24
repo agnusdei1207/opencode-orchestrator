@@ -10,7 +10,7 @@ import type {
     PostToolResult,
     ToolInput,
     ToolOutput,
-} from "../types.js";
+} from "../registry.js";
 import { MemoryLevel, MemoryManager } from "../../core/memory/memory-manager.js";
 import { HOOK_ACTIONS } from "../constants.js";
 import { MEMORY_CONSTANTS, HOOK_NAMES } from "../../shared/index.js";

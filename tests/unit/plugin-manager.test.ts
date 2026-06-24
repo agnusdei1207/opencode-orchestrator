@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { PluginManager } from "../../src/core/plugins/plugin-manager";
 import { HookRegistry } from "../../src/hooks/registry";
-import type { HookContext, ToolOutput } from "../../src/hooks/types";
+import type { HookContext, ToolOutput } from "../../src/hooks/registry";
 
 interface PluginTestState {
     postCalls: number;

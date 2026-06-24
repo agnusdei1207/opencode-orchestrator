@@ -11,7 +11,7 @@ import type {
     ChatMessageHook,
     PostToolUseHook,
     PreToolUseHook,
-} from "../../hooks/types.js";
+} from "../../hooks/registry.js";
 import { log } from "../agents/logger.js";
 import { HookRegistry } from "../../hooks/registry.js";
 import { PATHS, LOG_PREFIX } from "../../shared/index.js";

@@ -7,7 +7,7 @@
  * - Reviewer: Cannot write code (only review).
  */
 
-import type { PreToolUseHook, HookContext, PreToolResult, ToolInput } from "../types.js";
+import type { PreToolUseHook, HookContext, PreToolResult, ToolInput } from "../registry.js";
 import { TOOL_NAMES } from "../../shared/index.js";
 import { HOOK_ACTIONS, HOOK_NAMES } from "../constants.js";
 import { SECURITY_PATTERNS } from "../../shared/constants/security-patterns.js";

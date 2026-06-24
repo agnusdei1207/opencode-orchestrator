@@ -21,7 +21,7 @@ import { TOOL_NAMES, type VerificationResult } from "../../src/shared";
 import { state } from "../../src/core/orchestrator/state";
 import { updateSessionTokens, recordAnomaly } from "../../src/core/orchestrator/session-manager";
 import { MISSION_MESSAGES } from "../../src/shared/constants/system-messages.js";
-import type { HookContext } from "../../src/hooks/types";
+import type { HookContext } from "../../src/hooks/registry";
 import type { SessionState } from "../../src/core/orchestrator/state";
 
 // Mock dependencies
