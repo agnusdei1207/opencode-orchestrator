@@ -14,11 +14,6 @@ import {
     hasConcurrencyConfig,
 } from "../core/agents/concurrency-config.js";
 
-/**
- * Create config handler for OpenCode
- */
-import { findClaudeRules } from "../utils/compatibility/claude.js";
-
 type UnknownRecord = Record<string, unknown>;
 type PermissionAction = "ask" | "allow" | "deny";
 type AgentConfig = UnknownRecord & {
@@ -90,17 +85,10 @@ export function createConfigHandler(options: ConfigHandlerOptions = {}) {
             options.onConcurrencyConfig?.(extractConcurrencyConfig(config));
         }
 
-        // Load Claude Code compatibility rules
-        const claudeRules = findClaudeRules();
-        const injectRules = (prompt: string) => {
-            if (!claudeRules) return prompt;
-            return `${prompt}\n\n${claudeRules}`;
-        };
-
-        const commanderPrompt = injectRules(AGENTS[AGENT_NAMES.COMMANDER]?.systemPrompt || "");
-        const plannerPrompt = injectRules(AGENTS[AGENT_NAMES.PLANNER]?.systemPrompt || "");
-        const workerPrompt = injectRules(AGENTS[AGENT_NAMES.WORKER]?.systemPrompt || "");
-        const reviewerPrompt = injectRules(AGENTS[AGENT_NAMES.REVIEWER]?.systemPrompt || "");
+        const commanderPrompt = AGENTS[AGENT_NAMES.COMMANDER]?.systemPrompt || "";
+        const plannerPrompt = AGENTS[AGENT_NAMES.PLANNER]?.systemPrompt || "";
+        const workerPrompt = AGENTS[AGENT_NAMES.WORKER]?.systemPrompt || "";
+        const reviewerPrompt = AGENTS[AGENT_NAMES.REVIEWER]?.systemPrompt || "";
 
         const existingCommands = mutableConfig.command ?? {};
         const existingAgents = mutableConfig.agent ?? {};

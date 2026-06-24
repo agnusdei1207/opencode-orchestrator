@@ -73,6 +73,8 @@ Backward compatibility remains for top-level concurrency keys, but the plugin tu
 
 `src/plugin-handlers/config-handler.ts` copies the global OpenCode `permission` block into each generated agent and then merges same-name agent overrides on top. That keeps permission-gated tools such as `question` available when the user explicitly allows them, while still letting `agent.commander.permission` or similar narrow policy for a single agent.
 
+Project instruction files are not copied into generated agent prompts by the plugin. OpenCode owns the rules layer through `AGENTS.md`, `opencode.json` `instructions`, and its documented Claude Code fallback behavior, so the config hook stays limited to command and agent registration.
+
 ## 5. Mission Loop Control Plane
 
 Mission loop state is file-backed under `.opencode/`:
@@ -136,8 +138,8 @@ The current implementation writes these artifacts through `src/core/knowledge/mi
 Current verified release baseline:
 
 1. Node.js `24+`
-2. `@opencode-ai/plugin` `1.17.4`
-3. `@opencode-ai/sdk` `1.17.4`
+2. `@opencode-ai/plugin` `1.17.9`
+3. `@opencode-ai/sdk` `1.17.9`
 4. GitHub Actions build matrix for Linux x64/arm64, macOS x64/arm64, and Windows x64 in `.github/workflows/release.yml`
 
 Public support links should point to GitHub issues. Package metadata already uses:

@@ -108,6 +108,15 @@ describe("createConfigHandler", () => {
         expect(config.agent[AGENT_NAMES.COMMANDER].prompt).not.toContain("without asking questions");
     });
 
+    it("leaves Claude rule fallback to OpenCode instead of embedding compatibility prompts", async () => {
+        const config = {};
+
+        await createConfigHandler()(config);
+
+        expect(config.agent[AGENT_NAMES.COMMANDER].prompt).not.toContain("<claude_compatibility>");
+        expect(config.agent[AGENT_NAMES.COMMANDER].prompt).not.toContain("<project_rules");
+    });
+
     it("reports legacy top-level concurrency config to the runtime callback", async () => {
         const onConcurrencyConfig = vi.fn();
         const config = {

@@ -2,63 +2,63 @@
 
 ## Current Task
 
-User requested repeated fresh exhaustive audit passes, with commit and push after each pass. Current pass completed: 12. The broader requested target remains active beyond this session.
+User requested repeated fresh exhaustive audit passes, with commit and push after each pass. Current pass completed: 13. The broader requested target remains active beyond this session.
 
 ## Last Completed Step
 
-Completed audit pass 12 after reopening the pass-12 files and current worktree state.
+Completed audit pass 13 after reopening the pass-13 files and current worktree state.
 
-- Confirmed `main` was aligned with `origin/main` at `fc27a24` before pass 12 changes.
-- Reopened `AGENT_MEMORY.md`, `AGENTS.md`, `src/core/loop/verification.ts`, `src/core/loop/todo-manager.ts`, `src/core/notification/task-toast-manager.ts`, `src/hooks/compatibility/external-plugin.ts`, `src/core/todo/todo-manager.ts`, `src/hooks/index.ts`, `src/core/notification/toast.ts`, `src/core/agents/manager/task-cleaner.ts`, and related tests.
-- Confirmed `src/core/loop/todo-manager.ts` was an unreferenced legacy wrapper around the canonical MVCC todo manager at `src/core/todo/todo-manager.ts`.
-- Confirmed `src/hooks/compatibility/external-plugin.ts` exported an unregistered no-op compatibility hook with no consumers.
-- Migrated `VerificationResult` consumers from `src/core/loop/verification.ts` type re-exports to shared verification types.
-- Migrated task toast type consumers from `src/core/notification/task-toast-manager.ts` type re-exports to shared notification/core types.
-- Removed the unused `TASK_STATUS` import from `src/core/notification/task-toast-manager.ts`.
-- Deleted `src/core/loop/todo-manager.ts` and `src/hooks/compatibility/external-plugin.ts`.
+- Confirmed `main` was aligned with `origin/main` at `8f33d32` before pass 13 changes.
+- Reopened `AGENT_MEMORY.md`, `AGENTS.md`, `src/utils/compatibility/claude.ts`, `src/plugin-handlers/config-handler.ts`, `tests/unit/dependency-compatibility.test.ts`, `src/index.ts`, `tests/unit/config-handler.test.ts`, `docs/SYSTEM_ARCHITECTURE.md`, `README.md`, and related system-transform/cache files.
+- Checked current official OpenCode docs: plugin modules receive plugin context and return hooks; rules are OpenCode-owned through `AGENTS.md`, `opencode.json` `instructions`, and Claude Code fallback behavior.
+- Removed the plugin-level Claude compatibility prompt injection from `src/plugin-handlers/config-handler.ts`.
+- Deleted `src/utils/compatibility/claude.ts`; no files remain under `src/utils/compatibility`.
+- Added a config-handler regression test proving generated prompts no longer embed `<claude_compatibility>` or `<project_rules>` wrappers.
+- Updated `README.md` and `docs/SYSTEM_ARCHITECTURE.md` from OpenCode SDK/plugin `1.17.4` to the current package/test baseline `1.17.9`.
+- Documented that project instruction files are not copied into generated agent prompts by the plugin; OpenCode owns the rules layer.
 
 ## Next Exact Step
 
-Start audit pass 13 from current state:
+Start audit pass 14 from current state:
 
 1. Open `AGENT_MEMORY.md`.
 2. Run `git status --branch --short`.
-3. Reopen the pass-13 target files listed below.
-4. Continue compatibility-shim removal from fresh owners, starting with the Claude compatibility utility and any remaining runtime compatibility paths.
+3. Reopen the pass-14 target files listed below.
+4. Continue compatibility-shim removal from fresh owners, starting with legacy top-level concurrency config and deprecated cache/shared constants wrappers.
 
 ## Incomplete Items And Why
 
-The full requested repeated-pass objective is not complete. Pass 12 is complete and ready to commit/push.
+The full requested repeated-pass objective is not complete. Pass 13 is complete and ready to commit/push.
 
 ## Key Decisions
 
-- Type ownership belongs in `src/shared/index.ts` domain exports; feature modules should not re-export shared types for compatibility.
-- Todo updates should use `src/core/todo/todo-manager.ts` directly; the loop-level TodoManager wrapper had no consumers and was removed.
-- Placeholder compatibility hooks should not remain unless they perform registered behavior; the external plugin hook was unregistered and deleted.
-- User-facing toast behavior and compact agent-to-agent task completion prompts remain separate; this pass changed type import ownership only.
+- Rules loading belongs to OpenCode, not to the orchestrator config hook. The config hook should register commands/agents and forward plugin options only.
+- Historical release notes under `docs/release` still mention older versions and were not rewritten because they are dated records, not current baseline docs.
+- Avoid `process.chdir()` in Vitest tests; it can perturb unrelated parallel test files that use process-relative paths.
 
 ## Rejected Alternatives
 
-- Rejected preserving `src/core/loop/todo-manager.ts` as a shim because all observed consumers already use the canonical todo manager.
-- Rejected keeping `ExternalPluginCompatHook` as a future placeholder because it had no registration, behavior, or consumer.
-- Rejected keeping type re-exports in verification/task-toast modules because direct shared imports are simpler and already available.
+- Rejected keeping `findClaudeRules()` because OpenCode already documents native `AGENTS.md` and `CLAUDE.md` precedence.
+- Rejected preserving plugin-side `<claude_compatibility>` prompt wrappers because they duplicate the host rules layer and add prompt hierarchy ambiguity.
+- Rejected a stronger temp-directory test that changes cwd because it caused cross-file test risk.
 
 ## Known Risks
 
 - The broader 100/1000-pass objective is intentionally not marked complete.
-- The first full Vitest run in pass 12 had one isolated `tests/unit/document-cache.test.ts` beforeEach timeout; the same test passed when rerun alone and the full suite passed on the next run.
-- Remaining runtime compatibility surfaces include `src/utils/compatibility/claude.ts` and its config-handler integration; these need a fresh pass before removal or migration decisions.
+- Remaining compatibility/debt surfaces include legacy top-level concurrency config in `src/core/agents/concurrency-config.ts`, README/SYSTEM_ARCHITECTURE references to that legacy path, `src/core/cache/constants.ts`, `src/shared/loop/constants.ts`, `src/shared/lifecycle/shutdown-manager.ts`, `tests/unit/layering.test.ts`, and legacy comments in `src/plugin-handlers/chat-message-handler.ts`.
+- The first full Vitest run in pass 13 hit a `document-cache.test.ts` timeout. A temporary `process.chdir()` test was removed, then focused document-cache tests and the full suite passed.
 
 ## Verification Observed
 
-- Baseline focused tests passed before edits: `tests/unit/verification.test.ts`, `tests/unit/hooks.test.ts`, `tests/unit/task-toast-manager.test.ts`, `tests/unit/task-cleaner.test.ts`, and `tests/unit/todo-manager-mvcc.test.ts`, 5 files and 48 tests.
+- Baseline focused tests passed before edits: `tests/unit/config-handler.test.ts`, `tests/unit/dependency-compatibility.test.ts`, and `tests/unit/system-transform-handler.test.ts`, 3 files and 16 tests.
 - Baseline `npm run build --silent`: passed.
-- Focused tests passed after edits: the same 5 files and 48 tests.
+- `node -p` confirmed `@opencode-ai/plugin`, `@opencode-ai/sdk`, and Node engine baseline as `1.17.9`, `1.17.9`, and `>=24`.
+- Focused tests after edits passed: `tests/unit/config-handler.test.ts`, `tests/unit/dependency-compatibility.test.ts`, `tests/unit/system-transform-handler.test.ts`, and `tests/unit/document-cache.test.ts`, 4 files and 29 tests.
 - `npm run build --silent`: passed after edits.
-- `rg -n "core/loop/todo-manager|ExternalPluginCompatHook|external-plugin|from \"./verification.js\"|from \".*core/loop/verification|type TaskCompletionInfo|type TrackedTask|type TaskStatus" src tests -g '*.ts'` showed no deleted-file references; remaining matches were canonical function imports and owned type definitions.
-- `find src/hooks/compatibility -maxdepth 2 -type f -print` returned no files.
-- Runtime-code compatibility phrase search only found an archived proposal under `docs/histories`.
-- First `npx vitest run --reporter=dot` produced one `document-cache.test.ts` timeout, then `npx vitest run tests/unit/document-cache.test.ts --reporter=dot` passed 12 tests and the repeated full `npx vitest run --reporter=dot` passed 96 files and 807 tests.
+- `rg -n "compatibility/claude|findClaudeRules|claude_compatibility|<project_rules|Claude Code Compatibility Mode|Loaded CLAUDE|1\\.17\\.4" src tests README.md docs/SYSTEM_ARCHITECTURE.md package.json package-lock.json -g '*.{ts,md,json}'` only matched the intentional negative assertions in `tests/unit/config-handler.test.ts`.
+- `test ! -e src/utils/compatibility/claude.ts && echo deleted`: printed `deleted`.
+- `find src/utils/compatibility -maxdepth 2 -type f -print`: returned no files.
+- Final `npx vitest run --reporter=dot`: passed, 96 files and 808 tests.
 - `cargo fmt --check`: passed.
 - `cargo test -p orchestrator-cli -p orchestrator-core --quiet`: passed, CLI 12 tests and core 35 tests.
 - `git diff --check`: passed.
@@ -67,9 +67,11 @@ The full requested repeated-pass objective is not complete. Pass 12 is complete 
 
 1. `AGENT_MEMORY.md`
 2. `git status --branch --short`
-3. `src/utils/compatibility/claude.ts`
-4. `src/plugin-handlers/config-handler.ts`
-5. `tests/unit/dependency-compatibility.test.ts`
-6. `src/core/notification/toast.ts`
-7. `src/shared/notification/index.ts`
-8. `src/shared/verification/index.ts`
+3. `src/core/agents/concurrency-config.ts`
+4. `tests/unit/concurrency-config.test.ts`
+5. `src/core/config/plugin-options.ts`
+6. `src/index.ts`
+7. `README.md`
+8. `docs/SYSTEM_ARCHITECTURE.md`
+9. `src/core/cache/constants.ts`
+10. `src/core/cache/operations.ts`
