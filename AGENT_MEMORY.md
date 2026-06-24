@@ -2,73 +2,76 @@
 
 ## Current Task
 
-User requested repeated fresh exhaustive audit passes, with commit and push after each pass. Current pass completed: 8. The broader requested target remains active beyond this session.
+User requested repeated fresh exhaustive audit passes, with commit and push after each pass. Current pass completed: 9. The broader requested target remains active beyond this session.
 
 ## Last Completed Step
 
-Completed audit pass 8 after reopening the pass-8 files and current worktree state.
+Completed audit pass 9 after reopening the pass-9 files and current worktree state.
 
-- Confirmed `main` was aligned with `origin/main` at `1e79c18` before pass 8 changes.
-- Reopened `AGENT_MEMORY.md`, `AGENTS.md`, `tests/e2e/multi-agent-coordination.test.ts`, `tests/unit/integration.test.ts`, `tests/harness/builders.ts`, `tests/unit/harness-builders.test.ts`, `src/shared/index.ts`, `src/shared/task/index.ts`, `src/shared/task/types.ts`, `src/shared/task/constants.ts`, `src/shared/command/index.ts`, `src/shared/command/types.ts`, `src/shared/loop/index.ts`, and `src/shared/loop/types.ts`.
-- Reopened and traced `src/core/cache/document-cache.ts`, `src/core/cache/operations.ts`, `src/core/cache/utils.ts`, `src/core/cache/interfaces/index.ts`, `src/core/progress/formatters.ts`, `src/core/progress/store.ts`, `src/core/progress/tracker.ts`, `src/core/progress/interfaces/index.ts`, `src/core/task/parser.ts`, `src/core/task/scheduler.ts`, `src/core/task/store.ts`, `src/core/task/task-decomposer.ts`, and `src/core/task/interfaces/index.ts`.
-- Found type-only tests still importing removed or stale deep task paths while `src/shared` already exports the canonical task, command, and loop types.
-- Found top-level compatibility barrels in `src/core/cache/interfaces.ts`, `src/core/progress/interfaces.ts`, and `src/core/task/interfaces.ts`.
-- Migrated cache/progress/task internal imports from `./interfaces.js` to `./interfaces/index.js`.
-- Migrated test and harness type imports to `../../src/shared`.
+- Confirmed `main` was aligned with `origin/main` at `911833d` before pass 9 changes.
+- Reopened `AGENT_MEMORY.md`, `AGENTS.md`, official OpenCode plugin/SDK docs search results, and all pass-9 target files.
+- Reopened and traced `src/core/recovery/interfaces.ts`, `src/core/recovery/interfaces/index.ts`, `src/core/recovery/handler.ts`, `src/core/recovery/patterns.ts`, `src/core/recovery/session-recovery.ts`, `src/core/recovery/auto-recovery.ts`, `src/core/recovery/constants.ts`, and `src/core/recovery/retry.ts`.
+- Reopened and traced `src/core/session/interfaces.ts`, `src/core/session/interfaces/index.ts`, `src/core/session/store.ts`, `src/core/session/shared-context.ts`, `src/core/session/summary.ts`, and the shared-context leaf interfaces.
+- Reopened and traced `src/core/loop/interfaces.ts`, `src/core/loop/interfaces/index.ts`, `src/core/loop/types/index.ts`, `src/core/loop/formatters.ts`, `src/core/loop/parser.ts`, `src/core/loop/stats.ts`, `src/core/loop/todo-continuation.ts`, and `src/core/loop/todo-enforcer.ts`.
+- Found top-level compatibility barrels in `src/core/recovery/interfaces.ts`, `src/core/session/interfaces.ts`, and `src/core/loop/interfaces.ts`.
+- Migrated recovery/session/loop internal imports from `./interfaces.js` to `./interfaces/index.js`.
+- Migrated `TaskLauncher` from `../../recovery/interfaces.js` to `../../recovery/interfaces/index.js` after build exposed that external consumer.
+- Split `todo-enforcer` re-exports between `interfaces/index.js` and `types/index.js`.
+- Migrated `tests/unit/todo-continuation.test.ts` type import to `core/loop/interfaces/index.js`.
 - Deleted the three top-level compatibility interface barrels after tracing consumers.
 
 ## Next Exact Step
 
-Start audit pass 9 from current state:
+Start audit pass 10 from current state:
 
 1. Open `AGENT_MEMORY.md`.
 2. Run `git status --branch --short`.
-3. Reopen the pass-9 target files listed below.
-4. Continue compatibility-shim removal from fresh owners, starting with recovery/session/loop interface barrels or `src/utils/common.ts`.
+3. Reopen the pass-10 target files listed below.
+4. Continue compatibility-shim removal from fresh owners, starting with `src/utils/common.ts`, `src/core/memory/interfaces.ts`, or `src/core/plugins/interfaces.ts`.
 
 ## Incomplete Items And Why
 
-The full requested repeated-pass objective is not complete. Pass 8 is complete and ready to commit/push.
+The full requested repeated-pass objective is not complete. Pass 9 is complete and ready to commit/push.
 
 ## Key Decisions
 
-- Canonical shared task/command/loop types should be imported from `src/shared`, not from historical deep paths that no longer exist as real source files.
-- For cache/progress/task internal interfaces, the canonical source is each domain's `interfaces/index.ts`.
-- Top-level `interfaces.ts` compatibility files with no remaining consumers should be deleted rather than preserved.
+- Recovery/session/loop top-level `interfaces.ts` files were compatibility-only and should be deleted once consumers use canonical index files.
+- `todo-enforcer` can preserve its public `type Todo` export without depending on the deleted loop top-level barrel.
+- Build output is treated as authoritative for hidden TypeScript consumers; it found `TaskLauncher` after the initial scoped search missed it.
 
 ## Rejected Alternatives
 
-- Rejected leaving `src/core/cache/interfaces.ts`, `src/core/progress/interfaces.ts`, and `src/core/task/interfaces.ts` as compatibility shims because every traced consumer can use `interfaces/index.ts` directly.
-- Rejected broad removal of unrelated recovery/session/loop/plugin/memory compatibility paths in this pass because their consumers and public surfaces need separate file ownership and verification.
+- Rejected keeping the three interface barrels because all traced consumers can target canonical leaf/index modules directly.
+- Rejected removing `src/core/recovery/constants.ts` in this pass because it is a value export compatibility file with separate consumers and risk from runtime constants.
+- Rejected broad removal of memory/plugin compatibility paths in this pass because those need separate owner tracing and tests.
 
 ## Known Risks
 
 - The broader 100/1000-pass objective is intentionally not marked complete.
-- Other compatibility shims remain outside this pass, including recovery/session/loop, `src/utils/common.ts`, and progress convenience functions.
-- `document-cache.test.ts` showed one transient timeout in the focused bundle after edits; the file passed on direct rerun and the focused bundle passed on rerun.
+- Other compatibility shims remain outside this pass, including `src/utils/common.ts`, `src/core/memory/interfaces.ts`, `src/core/plugins/interfaces.ts`, `src/core/recovery/constants.ts`, and progress convenience functions.
 
 ## Verification Observed
 
-- Baseline focused tests passed before edits: `tests/unit/document-cache.test.ts`, `tests/unit/progress-tracker.test.ts`, `tests/unit/task-decomposer.test.ts`, `tests/e2e/multi-agent-coordination.test.ts`, `tests/unit/integration.test.ts`, and `tests/unit/harness-builders.test.ts` with 70 tests.
-- Initial focused rerun after edits had one `document-cache.test.ts` timeout; `tests/unit/document-cache.test.ts` then passed directly with 12 tests.
-- Final focused rerun passed: 6 files and 70 tests.
+- Baseline focused tests passed before edits: `tests/unit/auto-recovery.test.ts`, `tests/unit/session-recovery.test.ts`, `tests/unit/shared-context.test.ts`, `tests/unit/todo-continuation.test.ts`, and `tests/unit/todo-enforcer.test.ts` with 59 tests.
+- Initial `npm run build --silent` after edits failed on `src/core/agents/manager/task-launcher.ts` importing `../../recovery/interfaces.js`; that consumer was opened, migrated, and retested.
+- Final focused tests passed: the above five tests plus `tests/unit/task-launcher.test.ts`, 6 files and 63 tests.
 - `npm run build --silent`: passed.
 - `npx vitest run --reporter=dot`: passed, 96 files and 807 tests.
 - `cargo fmt --check`: passed.
 - `cargo test -p orchestrator-cli -p orchestrator-core --quiet`: passed, CLI 12 tests and core 35 tests.
 - `git diff --check`: passed.
-- `rg -n "core/(cache|progress|task)/interfaces|core/agents/interfaces/parallel-task|shared/task/interfaces/parallel-task|shared/task/types/parallel-task-status|shared/command/interfaces/background-task|shared/command/types/background-task-status|shared/loop/interfaces/todo|shared/loop/types/todo-status|shared/loop/types/todo-priority" src tests -g '*.ts'` showed no remaining references to the deleted pass-8 paths.
+- `rg -n "recovery/interfaces\\.js|session/interfaces\\.js|loop/interfaces\\.js|core/(recovery|session|loop)/interfaces\\.js" src tests -g '*.ts'` showed no remaining references to the deleted pass-9 paths.
 
 ## Files To Open First Next Session
 
 1. `AGENT_MEMORY.md`
 2. `git status --branch --short`
-3. `src/core/recovery/interfaces.ts`
-4. `src/core/recovery/interfaces/index.ts`
-5. `src/core/recovery/handler.ts`
-6. `src/core/recovery/patterns.ts`
-7. `src/core/recovery/session-recovery.ts`
-8. `src/core/recovery/auto-recovery.ts`
-9. `src/core/session/interfaces.ts`
-10. `src/core/loop/interfaces.ts`
-11. `src/utils/common.ts`
+3. `src/utils/common.ts`
+4. `src/utils/index.ts`
+5. `src/core/memory/interfaces.ts`
+6. `src/core/memory/interfaces/index.ts`
+7. `src/core/memory/memory-manager.ts`
+8. `src/core/plugins/interfaces.ts`
+9. `src/core/plugins/interfaces/index.ts`
+10. `src/core/plugins/plugin-manager.ts`
+11. `src/core/recovery/constants.ts`

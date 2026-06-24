@@ -4,7 +4,7 @@
 
 import { MAX_RETRIES, BASE_DELAY } from "./constants.js";
 import * as Toast from "../notification/toast.js";
-import type { ErrorPattern, ErrorContext, RecoveryAction } from "./interfaces.js";
+import type { ErrorPattern, ErrorContext, RecoveryAction } from "./interfaces/index.js";
 
 /**
  * Error patterns and their recovery strategies

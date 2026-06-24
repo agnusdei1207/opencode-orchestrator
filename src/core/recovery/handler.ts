@@ -4,7 +4,7 @@
 
 import { MAX_RETRIES, BASE_DELAY, MAX_HISTORY } from "./constants.js";
 import { errorPatterns } from "./patterns.js";
-import type { ErrorContext, RecoveryAction, RecoveryRecord, RecoveryStats } from "./interfaces.js";
+import type { ErrorContext, RecoveryAction, RecoveryRecord, RecoveryStats } from "./interfaces/index.js";
 
 // Error tracking
 const errorCounts = new Map<string, number>();

@@ -2,7 +2,7 @@
  * Todo Stats - Statistics and queries
  */
 
-import type { Todo, TodoStats } from "./interfaces.js";
+import type { Todo, TodoStats } from "./interfaces/index.js";
 import { TODO_STATUS, STATUS_LABEL } from "../../shared/index.js";
 
 /**

@@ -18,7 +18,7 @@ import type { LaunchInput } from "../interfaces/launch-input.interface.js";
 
 import { SessionPool } from "../session-pool.js";
 import { handleError } from "../../recovery/auto-recovery.js";
-import type { ErrorContext } from "../../recovery/interfaces.js";
+import type { ErrorContext } from "../../recovery/interfaces/index.js";
 import { log } from "../logger.js";
 import { taskPool } from "../../pool/task-pool.js";
 import { buildRoutedAgentPrompt } from "./prompt-routing.js";

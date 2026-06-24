@@ -15,7 +15,7 @@ import { PART_TYPES, BACKGROUND_TASK, RECOVERY, detectErrorType, getRetryDelay, 
 import { log } from "../agents/logger.js";
 import { presets } from "../../shared/index.js";
 import { handleError } from "./handler.js";
-import type { ErrorContext } from "./interfaces.js";
+import type { ErrorContext } from "./interfaces/index.js";
 
 type OpencodeClient = PluginInput["client"];
 
