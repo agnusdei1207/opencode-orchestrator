@@ -2,7 +2,7 @@
 
 ## Current Task
 
-User requested exhaustive project audit/refactoring, OpenCode SDK/plugin checking 10 times, then commit and push. User then requested installing missing tools if needed and rerunning checks 10 times. Current pass completed: 40, with environment-complete verification rerun finished.
+User requested exhaustive project audit/refactoring, OpenCode SDK/plugin checking 10 times, then commit and push. User then requested installing missing tools if needed, rerunning checks 10 times, and upgrading the default Node runtime to 24. Current pass completed: 40, with environment-complete verification rerun and default Node 24 upgrade finished.
 
 ## Last Completed Step
 
@@ -19,6 +19,8 @@ Completed audit pass 40 by deleting an unused shared recovery type compatibility
 - Installed missing verification tooling: `file` via apt and Rust stable toolchain via `rustup default stable`.
 - Verified Node 24 execution through `npx -p node@24`; Node 24 path was used for all post-install JavaScript checks.
 - Reran the full verification bundle 10 times after environment setup; every run passed.
+- Upgraded the shell default Node runtime from `/usr/bin/node` `v22.22.1` to `/usr/local/bin/node` `v24.18.0` using `n`.
+- Verified the project with the default `node` now resolving to Node 24.
 
 ## Next Exact Step
 
@@ -31,7 +33,7 @@ Start audit pass 41 from current state:
 
 ## Incomplete Items And Why
 
-The broader repeated-pass objective remains active beyond this session. Pass 40, the requested OpenCode SDK/plugin checks, and the follow-up 10 full verification reruns are complete.
+The broader repeated-pass objective remains active beyond this session. Pass 40, the requested OpenCode SDK/plugin checks, the follow-up 10 full verification reruns, and the default Node 24 upgrade are complete.
 
 ## Key Decisions
 
@@ -49,7 +51,7 @@ The broader repeated-pass objective remains active beyond this session. Pass 40,
 ## Known Risks
 
 - External unpublished consumers importing `src/shared/recovery/types.ts` must stop using that internal path.
-- The shell default `node` remains `v22.22.1`; use the `npx -p node@24` path prefix for Node 24 checks unless the default runtime is upgraded.
+- Default shell `node`, `npm`, and `npx` now resolve to `/usr/local/bin` and report Node `v24.18.0` with npm/npx `11.16.0`.
 - Remaining type candidates observed with `rg --files src | rg '/interfaces/|/types/index\\.ts$|/types/.*\\.ts$|/types\\.ts$' | sort`: `src/shared/agent/types.ts`, `src/shared/command/types.ts`, `src/shared/loop/types.ts`, `src/shared/notification/os-notify/types.ts`, `src/shared/notification/types.ts`, `src/shared/os/types.ts`, `src/shared/task/types.ts`, `src/shared/tool/types.ts`, and `src/shared/verification/types.ts`.
 
 ## Verification Observed
@@ -79,6 +81,10 @@ The broader repeated-pass objective remains active beyond this session. Pass 40,
 - Tool verification after setup: Node `v24.18.0`, `file-5.46`, `cargo 1.96.0`, and `rustc 1.96.0`.
 - Single environment-complete verification passed: `npm run build --silent`, full `node ./node_modules/vitest/vitest.mjs run --reporter=dot` under Node 24 with 96 files and 806 tests, `cargo fmt --check`, and `cargo test -p orchestrator-cli -p orchestrator-core --quiet` with CLI 12 tests and core 35 tests.
 - Full verification loop ran 10 times after installing missing tools; each run passed `npm run build --silent`, full Vitest under Node 24 with 96 files and 806 tests, `cargo fmt --check`, and `cargo test -p orchestrator-cli -p orchestrator-core --quiet` with CLI 12 tests and core 35 tests.
+- `sudo npm install -g n && sudo n 24.18.0`: installed Node `v24.18.0` to `/usr/local/bin/node` with npm `11.16.0`.
+- `hash -r`, then `which node && node --version`, `which npm && npm --version`, and a fresh `bash -lc` check confirmed default Node `v24.18.0`, npm `11.16.0`, and npx `11.16.0`.
+- `CI=true XDG_CONFIG_HOME="$(mktemp -d)" HOME="$(mktemp -d)" node --experimental-strip-types scripts/postinstall.ts`: passed and skipped plugin registration in CI mode.
+- Default-Node-24 verification passed: `npm run build --silent`, full `node ./node_modules/vitest/vitest.mjs run --reporter=dot` with 96 files and 806 tests, `cargo fmt --check`, and `cargo test -p orchestrator-cli -p orchestrator-core --quiet` with CLI 12 tests and core 35 tests.
 
 ## Files To Open First Next Session
 
