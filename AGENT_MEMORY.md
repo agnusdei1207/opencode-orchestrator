@@ -2,7 +2,7 @@
 
 ## Current Task
 
-User requested exhaustive project audit/refactoring, OpenCode SDK/plugin checking 10 times, then commit and push. Current pass completed: 40.
+User requested exhaustive project audit/refactoring, OpenCode SDK/plugin checking 10 times, then commit and push. User then requested installing missing tools if needed and rerunning checks 10 times. Current pass completed: 40, with environment-complete verification rerun finished.
 
 ## Last Completed Step
 
@@ -15,6 +15,10 @@ Completed audit pass 40 by deleting an unused shared recovery type compatibility
 - Confirmed `src/shared/recovery/types.ts` exported a different unused string-union recovery contract and had no consumers outside its own barrel.
 - Removed `export * from "./types.js";` from `src/shared/recovery/index.ts`.
 - Deleted `src/shared/recovery/types.ts`.
+- Pushed commit `1e76a05 refactor: remove unused shared recovery types`.
+- Installed missing verification tooling: `file` via apt and Rust stable toolchain via `rustup default stable`.
+- Verified Node 24 execution through `npx -p node@24`; Node 24 path was used for all post-install JavaScript checks.
+- Reran the full verification bundle 10 times after environment setup; every run passed.
 
 ## Next Exact Step
 
@@ -27,13 +31,7 @@ Start audit pass 41 from current state:
 
 ## Incomplete Items And Why
 
-The broader repeated-pass objective remains active beyond this session. Pass 40 and the requested 10 OpenCode SDK/plugin checks are complete.
-
-Full Vitest did not pass in this container because of environment/tooling gaps unrelated to the recovery refactor:
-
-- `tests/unit/binary.test.ts` failed because the `file` command is not installed.
-- `tests/unit/install-hooks.test.ts` failures reproduced with Node `v22.22.1`; `node --experimental-strip-types scripts/postinstall.ts` exits with `ERR_NO_TYPESCRIPT`, while `package.json` requires Node `>=24`.
-- `cargo` is not installed, so Rust format and Rust tests could not run.
+The broader repeated-pass objective remains active beyond this session. Pass 40, the requested OpenCode SDK/plugin checks, and the follow-up 10 full verification reruns are complete.
 
 ## Key Decisions
 
@@ -51,7 +49,7 @@ Full Vitest did not pass in this container because of environment/tooling gaps u
 ## Known Risks
 
 - External unpublished consumers importing `src/shared/recovery/types.ts` must stop using that internal path.
-- Full test verification needs a Node 24+ runtime with TypeScript stripping support, the `file` utility, and `cargo` installed.
+- The shell default `node` remains `v22.22.1`; use the `npx -p node@24` path prefix for Node 24 checks unless the default runtime is upgraded.
 - Remaining type candidates observed with `rg --files src | rg '/interfaces/|/types/index\\.ts$|/types/.*\\.ts$|/types\\.ts$' | sort`: `src/shared/agent/types.ts`, `src/shared/command/types.ts`, `src/shared/loop/types.ts`, `src/shared/notification/os-notify/types.ts`, `src/shared/notification/types.ts`, `src/shared/os/types.ts`, `src/shared/task/types.ts`, `src/shared/tool/types.ts`, and `src/shared/verification/types.ts`.
 
 ## Verification Observed
@@ -74,6 +72,13 @@ Full Vitest did not pass in this container because of environment/tooling gaps u
 - `node --experimental-strip-types scripts/postinstall.ts`: failed with `ERR_NO_TYPESCRIPT`.
 - `cargo fmt --check` and `cargo test -p orchestrator-cli -p orchestrator-core --quiet`: failed to start because `cargo` was not found.
 - Final `npm run build --silent`: passed.
+- Follow-up environment check found `cargo` and `rustup` in `/home/agent/.cargo/bin`, but no default Rust toolchain was configured.
+- `sudo apt-get update && sudo apt-get install -y file`: installed `file-5.46`.
+- `rustup default stable`: installed and selected `rustc 1.96.0 (ac68faa20 2026-05-25)`.
+- `npx -y -p node@24 node --version`: printed `v24.18.0`.
+- Tool verification after setup: Node `v24.18.0`, `file-5.46`, `cargo 1.96.0`, and `rustc 1.96.0`.
+- Single environment-complete verification passed: `npm run build --silent`, full `node ./node_modules/vitest/vitest.mjs run --reporter=dot` under Node 24 with 96 files and 806 tests, `cargo fmt --check`, and `cargo test -p orchestrator-cli -p orchestrator-core --quiet` with CLI 12 tests and core 35 tests.
+- Full verification loop ran 10 times after installing missing tools; each run passed `npm run build --silent`, full Vitest under Node 24 with 96 files and 806 tests, `cargo fmt --check`, and `cargo test -p orchestrator-cli -p orchestrator-core --quiet` with CLI 12 tests and core 35 tests.
 
 ## Files To Open First Next Session
 
