@@ -125,9 +125,9 @@ Builder files inspected directly:
 - `Cargo.toml`
 - `package.json`
 - `CLAUDE.md`
-- `docs/plans/2026-06-10/INDEX.md`
-- `docs/plans/2026-06-10/PLAN_Orchestration_Pentest_Migration_2026-06-10-2133.md`
-- `docs/plans/2026-06-10/REPORT_Integrated_Migration_Verification_2026-06-10-2155.md`
+- `/home/user/builder-private/docs/plans/2026-06-10/INDEX.md`
+- `/home/user/builder-private/docs/plans/2026-06-10/PLAN_Orchestration_Pentest_Migration_2026-06-10-2133.md`
+- `/home/user/builder-private/docs/plans/2026-06-10/REPORT_Integrated_Migration_Verification_2026-06-10-2155.md`
 - `.builder/agents/coordinator.md`
 - `.builder/agents/investigator.md`
 - `.builder/agents/operator.md`
