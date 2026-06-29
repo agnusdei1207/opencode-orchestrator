@@ -1,22 +1,36 @@
 use anyhow::{Context, Result, bail};
-use std::collections::{BTreeMap, VecDeque};
-use std::fs::{self, OpenOptions};
-use std::io::{self, BufRead, Read, Write};
-use std::net::{IpAddr, Shutdown, SocketAddr, TcpListener, TcpStream};
-use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::mpsc::{self, Receiver, Sender};
-use std::sync::{Arc, Mutex};
-use std::thread;
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use std::fs;
+use std::io::{self, BufRead, Write};
+use std::net::{IpAddr, SocketAddr, TcpListener};
+use std::path::PathBuf;
+use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+use std::sync::mpsc;
+use std::time::Duration;
+
+mod accept;
+mod control;
+mod control_socket;
+mod fd_budget;
+mod pending;
+mod prompt_detect;
+mod reader;
+mod registry;
+mod session;
+mod terminal;
+mod writer;
+
+use accept::spawn_accept_loop;
+use control::{ControlOp, ControlRequest, print_control_response};
+use control_socket::{ControlEnvelope, send_control_request, spawn_control_server};
+use fd_budget::{ActiveSessionCounter, FdAccounting, default_budget};
+use registry::{CommandOutcome, SessionRegistry};
 
 const DEFAULT_BIND: &str = "127.0.0.1";
 const DEFAULT_PORT: u16 = 4444;
-const MAX_BUFFER_LINES: usize = 200;
-const PTY_HELPER: &str =
-    "python3 -c 'import os,pty; pty.spawn(os.environ.get(\"SHELL\",\"/bin/sh\"))'\n";
-
-type SharedState = Arc<Mutex<ListenerState>>;
+const DEFAULT_LOG_DIR: &str = ".opencode-orchestrator/shell-listener";
+const DEFAULT_CONTROL_SOCKET: &str = "control.sock";
+const TUI_TICK: Duration = Duration::from_millis(100);
 
 #[derive(Debug, Clone)]
 struct ListenerConfig {
@@ -24,47 +38,17 @@ struct ListenerConfig {
     port: u16,
     allow_remote: bool,
     log_dir: PathBuf,
+    control_socket: Option<PathBuf>,
     no_tui: bool,
+    no_control: bool,
     show_help: bool,
 }
 
 #[derive(Debug)]
-struct ListenerState {
-    next_id: u64,
-    active_id: Option<u64>,
-    sessions: BTreeMap<u64, SessionInfo>,
-}
-
-#[derive(Debug)]
-struct SessionInfo {
-    peer: SocketAddr,
-    log_path: PathBuf,
-    writer: Arc<Mutex<TcpStream>>,
-    output: VecDeque<String>,
-    closed: bool,
-}
-
-#[derive(Debug)]
-enum ListenerEvent {
-    Connected(u64, SocketAddr),
-    Output(u64, String),
-    Closed(u64),
-    Error(String),
-}
-
-#[derive(Debug, PartialEq, Eq)]
-enum OperatorCommand {
-    Empty,
-    Help,
-    Sessions,
-    Redraw,
-    Use(u64),
-    Detach,
-    Pty,
-    Close(Option<u64>),
-    Quit,
-    Send(String),
-    Run(String),
+struct ShellSessionArgs {
+    socket: PathBuf,
+    request: ControlRequest,
+    json: bool,
 }
 
 pub fn run(args: &[String]) -> Result<()> {
@@ -76,27 +60,78 @@ pub fn run(args: &[String]) -> Result<()> {
 
     config.validate()?;
     fs::create_dir_all(&config.log_dir)?;
-    let listener = TcpListener::bind(config.socket_addr())?;
+    let bind_addr = config.socket_addr();
+    let listener = TcpListener::bind(bind_addr)
+        .with_context(|| format!("failed to bind shell listener on {bind_addr}"))?;
     listener.set_nonblocking(true)?;
-    print_startup(&config, listener.local_addr()?);
+    let local_addr = listener.local_addr()?;
+    print_startup(&config, local_addr);
 
-    let state = Arc::new(Mutex::new(ListenerState::new()));
-    let shutdown = Arc::new(AtomicBool::new(false));
-    let (tx, rx) = mpsc::channel();
-    spawn_accept_loop(
-        listener,
-        config.log_dir.clone(),
-        state.clone(),
-        tx,
-        shutdown.clone(),
+    let stop = Arc::new(AtomicBool::new(false));
+    let next_id = Arc::new(AtomicU64::new(1));
+    let (event_tx, event_rx) = mpsc::channel();
+    let (control_tx, control_rx) = mpsc::channel::<ControlEnvelope>();
+    let accounting = FdAccounting::new(
+        default_budget(fd_budget::current_nofile_soft_limit()),
+        ActiveSessionCounter::new(),
     );
 
-    if config.no_tui {
-        run_event_printer(rx, shutdown);
+    let accept_handle = spawn_accept_loop(
+        listener,
+        config.log_dir.clone(),
+        event_tx.clone(),
+        stop.clone(),
+        next_id,
+        accounting.clone(),
+    );
+    let control_handle = if config.no_control {
+        None
+    } else {
+        Some(spawn_control_server(
+            config.resolved_control_socket(),
+            config.log_dir.join("audit.jsonl"),
+            control_tx,
+            stop.clone(),
+        )?)
+    };
+
+    let result = if config.no_tui {
+        run_event_log(local_addr, event_rx, control_rx, accounting)
+    } else {
+        run_operator_loop(local_addr, event_rx, control_rx, stop.clone(), accounting)
+    };
+
+    stop.store(true, Ordering::Release);
+    let _ = accept_handle.join();
+    if let Some(handle) = control_handle {
+        let _ = handle.join();
+    }
+    result
+}
+
+pub fn run_session_command(args: &[String]) -> Result<()> {
+    let parsed = ShellSessionArgs::parse(args)?;
+    if parsed.request.op == ControlOp::Help {
+        print_shell_session_help();
         return Ok(());
     }
-
-    run_operator_loop(state, rx, shutdown)
+    let response = send_control_request(&parsed.socket, &parsed.request)?;
+    if parsed.json {
+        println!("{}", serde_json::to_string_pretty(&response)?);
+    } else {
+        print_control_response(&response);
+    }
+    if response.ok {
+        Ok(())
+    } else {
+        bail!(
+            "{}",
+            response
+                .error
+                .as_deref()
+                .unwrap_or("shell-session command failed")
+        )
+    }
 }
 
 impl Default for ListenerConfig {
@@ -105,8 +140,10 @@ impl Default for ListenerConfig {
             bind: DEFAULT_BIND.parse().expect("valid default bind"),
             port: DEFAULT_PORT,
             allow_remote: false,
-            log_dir: PathBuf::from(".opencode-orchestrator/shell-listener"),
+            log_dir: PathBuf::from(DEFAULT_LOG_DIR),
+            control_socket: None,
             no_tui: false,
+            no_control: false,
             show_help: false,
         }
     }
@@ -117,7 +154,7 @@ impl ListenerConfig {
         let mut config = Self::default();
         let mut index = 0;
         while index < args.len() {
-            index = parse_flag(args, index, &mut config)?;
+            index = parse_listener_flag(args, index, &mut config)?;
         }
         Ok(config)
     }
@@ -132,45 +169,59 @@ impl ListenerConfig {
     fn socket_addr(&self) -> SocketAddr {
         SocketAddr::new(self.bind, self.port)
     }
+
+    fn resolved_control_socket(&self) -> PathBuf {
+        self.control_socket
+            .clone()
+            .unwrap_or_else(|| self.log_dir.join(DEFAULT_CONTROL_SOCKET))
+    }
 }
 
-impl ListenerState {
-    fn new() -> Self {
-        Self {
-            next_id: 1,
-            active_id: None,
-            sessions: BTreeMap::new(),
+impl ShellSessionArgs {
+    fn parse(args: &[String]) -> Result<Self> {
+        if args.is_empty() || matches!(args[0].as_str(), "--help" | "-h" | "help") {
+            return Ok(Self {
+                socket: default_control_socket(),
+                request: ControlRequest::new(ControlOp::Help),
+                json: false,
+            });
         }
-    }
 
-    fn add_session(
-        &mut self,
-        peer: SocketAddr,
-        writer: Arc<Mutex<TcpStream>>,
-        log_path: PathBuf,
-    ) -> u64 {
-        let id = self.next_id;
-        self.next_id += 1;
-        self.active_id.get_or_insert(id);
-        self.sessions
-            .insert(id, SessionInfo::new(peer, writer, log_path));
-        id
-    }
-}
-
-impl SessionInfo {
-    fn new(peer: SocketAddr, writer: Arc<Mutex<TcpStream>>, log_path: PathBuf) -> Self {
-        Self {
-            peer,
-            log_path,
-            writer,
-            output: VecDeque::new(),
-            closed: false,
+        let mut socket = default_control_socket();
+        let mut json = false;
+        let mut filtered = Vec::new();
+        let mut index = 0;
+        while index < args.len() {
+            match args[index].as_str() {
+                "--socket" => {
+                    socket = PathBuf::from(require_value(args, index, "--socket")?);
+                    index += 2;
+                }
+                "--json" => {
+                    json = true;
+                    index += 1;
+                }
+                value => {
+                    filtered.push(value.to_string());
+                    index += 1;
+                }
+            }
         }
+
+        let request = parse_shell_session_request(&filtered)?;
+        Ok(Self {
+            socket,
+            request,
+            json,
+        })
     }
 }
 
-fn parse_flag(args: &[String], index: usize, config: &mut ListenerConfig) -> Result<usize> {
+fn parse_listener_flag(
+    args: &[String],
+    index: usize,
+    config: &mut ListenerConfig,
+) -> Result<usize> {
     match args[index].as_str() {
         "--bind" => {
             config.bind = require_value(args, index, "--bind")?.parse()?;
@@ -184,12 +235,24 @@ fn parse_flag(args: &[String], index: usize, config: &mut ListenerConfig) -> Res
             config.log_dir = PathBuf::from(require_value(args, index, "--log-dir")?);
             Ok(index + 2)
         }
+        "--control-socket" => {
+            config.control_socket = Some(PathBuf::from(require_value(
+                args,
+                index,
+                "--control-socket",
+            )?));
+            Ok(index + 2)
+        }
         "--allow-remote" => {
             config.allow_remote = true;
             Ok(index + 1)
         }
         "--no-tui" => {
             config.no_tui = true;
+            Ok(index + 1)
+        }
+        "--no-control" => {
+            config.no_control = true;
             Ok(index + 1)
         }
         "--help" | "-h" => {
@@ -200,398 +263,197 @@ fn parse_flag(args: &[String], index: usize, config: &mut ListenerConfig) -> Res
     }
 }
 
-fn require_value<'a>(args: &'a [String], index: usize, flag: &str) -> Result<&'a str> {
-    args.get(index + 1)
-        .map(String::as_str)
-        .filter(|value| !value.starts_with("--"))
-        .with_context(|| format!("{flag} requires a value"))
+fn parse_shell_session_request(args: &[String]) -> Result<ControlRequest> {
+    let command = args.first().map(String::as_str).unwrap_or("help");
+    match command {
+        "health" => Ok(ControlRequest::new(ControlOp::Health)),
+        "list" | "sessions" => Ok(ControlRequest::new(ControlOp::List)),
+        "fdstat" => Ok(ControlRequest::new(ControlOp::Fdstat)),
+        "lifecycle" => Ok(ControlRequest::new(ControlOp::Lifecycle)),
+        "info" => Ok(ControlRequest::new(ControlOp::Info).selector(required_arg(
+            args,
+            1,
+            "info <session>",
+        )?)),
+        "tail" => {
+            let mut request = ControlRequest::new(ControlOp::Tail).selector(required_arg(
+                args,
+                1,
+                "tail <session>",
+            )?);
+            if let Some(bytes) = parse_flag_value(args, "--bytes")? {
+                request.limit_bytes = Some(bytes.parse()?);
+            }
+            Ok(request)
+        }
+        "send" => Ok(ControlRequest::new(ControlOp::Send)
+            .selector(required_arg(args, 1, "send <session> <text>")?)
+            .text(join_from(args, 2, "send <session> <text>")?)),
+        "raw" => Ok(ControlRequest::new(ControlOp::Raw)
+            .selector(required_arg(args, 1, "raw <session> <text>")?)
+            .text(join_from(args, 2, "raw <session> <text>")?)),
+        "run" => {
+            let selector = required_arg(args, 1, "run <session> [--timeout-ms n] <command>")?;
+            let mut command_parts = Vec::new();
+            let mut timeout_ms = None;
+            let mut index = 2;
+            while index < args.len() {
+                if args[index] == "--timeout-ms" {
+                    timeout_ms = Some(required_value(args, index, "--timeout-ms")?.parse()?);
+                    index += 2;
+                } else {
+                    command_parts.push(args[index].clone());
+                    index += 1;
+                }
+            }
+            if command_parts.is_empty() {
+                bail!("run <session> requires a command");
+            }
+            let mut request = ControlRequest::new(ControlOp::Run)
+                .selector(selector)
+                .text(command_parts.join(" "));
+            request.timeout_ms = timeout_ms;
+            Ok(request)
+        }
+        "close" => {
+            let mut request = ControlRequest::new(ControlOp::Close).selector(required_arg(
+                args,
+                1,
+                "close <session>",
+            )?);
+            if args.len() > 2 {
+                request.reason = Some(args[2..].join(" "));
+            }
+            Ok(request)
+        }
+        "revoke" => {
+            let mut request = ControlRequest::new(ControlOp::Revoke).selector(required_arg(
+                args,
+                1,
+                "revoke <session>",
+            )?);
+            if args.len() > 2 {
+                request.reason = Some(args[2..].join(" "));
+            }
+            Ok(request)
+        }
+        "help" | "--help" | "-h" => Ok(ControlRequest::new(ControlOp::Help)),
+        other => bail!("unknown shell-session command: {other}"),
+    }
+}
+
+fn run_event_log(
+    local_addr: SocketAddr,
+    event_rx: mpsc::Receiver<registry::ListenerEvent>,
+    control_rx: mpsc::Receiver<ControlEnvelope>,
+    accounting: FdAccounting,
+) -> Result<()> {
+    println!("OpenCode Orchestrator shell listener");
+    println!("listening: {local_addr}");
+    println!("event-log mode is non-interactive");
+    let mut registry = SessionRegistry::new(accounting);
+    loop {
+        match event_rx.recv_timeout(TUI_TICK) {
+            Ok(event) => {
+                let message = registry.apply_event(event);
+                if !message.is_empty() {
+                    println!("{message}");
+                }
+            }
+            Err(mpsc::RecvTimeoutError::Timeout) => {}
+            Err(mpsc::RecvTimeoutError::Disconnected) => break,
+        }
+        while let Ok(envelope) = control_rx.try_recv() {
+            registry.handle_control_envelope(envelope);
+        }
+        registry.expire_pending_runs();
+    }
+    Ok(())
+}
+
+fn run_operator_loop(
+    local_addr: SocketAddr,
+    event_rx: mpsc::Receiver<registry::ListenerEvent>,
+    control_rx: mpsc::Receiver<ControlEnvelope>,
+    stop: Arc<AtomicBool>,
+    accounting: FdAccounting,
+) -> Result<()> {
+    let mut registry = SessionRegistry::new(accounting);
+    let stdin = io::stdin();
+    println!("OpenCode Orchestrator shell listener");
+    println!("listening: {local_addr}");
+    println!("type 'help' for TUI commands");
+    print_prompt();
+
+    for line in stdin.lock().lines() {
+        while let Ok(event) = event_rx.try_recv() {
+            let message = registry.apply_event(event);
+            if !message.is_empty() {
+                println!("\r{message}");
+            }
+        }
+        while let Ok(envelope) = control_rx.try_recv() {
+            registry.handle_control_envelope(envelope);
+        }
+        registry.expire_pending_runs();
+
+        let command = line?;
+        match registry.execute_operator_command(command.trim())? {
+            CommandOutcome::Continue(message) => {
+                if !message.is_empty() {
+                    println!("{message}");
+                }
+            }
+            CommandOutcome::Quit => break,
+        }
+        print_prompt();
+    }
+
+    stop.store(true, Ordering::Release);
+    Ok(())
 }
 
 fn print_startup(config: &ListenerConfig, local_addr: SocketAddr) {
     println!("OpenCode Orchestrator shell listener");
     println!("listening: {local_addr}");
     println!("logs: {}", config.log_dir.display());
-    println!("type 'help' for TUI commands");
+    if !config.no_control {
+        println!("control: {}", config.resolved_control_socket().display());
+    }
 }
 
 fn print_shell_help() {
     println!("Usage: orchestrator shell-listener [options]");
     println!();
     println!("Options:");
-    println!("  --bind <ip>        Bind address (default: {DEFAULT_BIND})");
-    println!("  --port <port>      Bind port (default: {DEFAULT_PORT})");
-    println!("  --allow-remote     Permit non-loopback bind addresses");
-    println!("  --log-dir <path>   Raw stream log directory");
-    println!("  --no-tui           Print connection events without operator input");
+    println!("  --bind <ip>             Bind address (default: {DEFAULT_BIND})");
+    println!("  --port <port>           Bind port (default: {DEFAULT_PORT})");
+    println!("  --allow-remote          Permit non-loopback bind addresses");
+    println!("  --log-dir <path>        Raw stream log directory");
+    println!("  --control-socket <path> Local JSONL control socket");
+    println!("  --no-control            Disable local control socket");
+    println!("  --no-tui                Print connection events without operator input");
     println!();
-    println!("TUI commands: sessions, use <id>, send <text>, run <cmd>, pty, close [id], quit");
+    println!(
+        "TUI commands: sessions, use <id>, detach, send <text>, raw <text>, run <cmd>, tail [id], fdstat, lifecycle, pty, close [id], revoke [id], quit"
+    );
 }
 
-fn spawn_accept_loop(
-    listener: TcpListener,
-    log_dir: PathBuf,
-    state: SharedState,
-    tx: Sender<ListenerEvent>,
-    shutdown: Arc<AtomicBool>,
-) {
-    thread::spawn(move || accept_loop(listener, log_dir, state, tx, shutdown));
-}
-
-fn accept_loop(
-    listener: TcpListener,
-    log_dir: PathBuf,
-    state: SharedState,
-    tx: Sender<ListenerEvent>,
-    shutdown: Arc<AtomicBool>,
-) {
-    while !shutdown.load(Ordering::SeqCst) {
-        match listener.accept() {
-            Ok((stream, peer)) => register_stream(stream, peer, &log_dir, &state, &tx),
-            Err(err) if err.kind() == io::ErrorKind::WouldBlock => sleep_tick(),
-            Err(err) => emit(&tx, ListenerEvent::Error(format!("accept failed: {err}"))),
-        }
-    }
-}
-
-fn register_stream(
-    stream: TcpStream,
-    peer: SocketAddr,
-    log_dir: &Path,
-    state: &SharedState,
-    tx: &Sender<ListenerEvent>,
-) {
-    match prepare_session(stream, peer, log_dir, state) {
-        Ok((id, reader, log_path)) => {
-            emit(tx, ListenerEvent::Connected(id, peer));
-            spawn_reader(id, reader, log_path, state.clone(), tx.clone());
-        }
-        Err(err) => emit(
-            tx,
-            ListenerEvent::Error(format!("session setup failed: {err}")),
-        ),
-    }
-}
-
-fn prepare_session(
-    stream: TcpStream,
-    peer: SocketAddr,
-    log_dir: &Path,
-    state: &SharedState,
-) -> Result<(u64, TcpStream, PathBuf)> {
-    stream.set_nonblocking(true)?;
-    let writer = Arc::new(Mutex::new(stream.try_clone()?));
-    let log_path = log_path_for(log_dir, peer);
-    let id =
-        state
-            .lock()
-            .expect("listener state poisoned")
-            .add_session(peer, writer, log_path.clone());
-    Ok((id, stream, log_path))
-}
-
-fn spawn_reader(
-    id: u64,
-    stream: TcpStream,
-    log_path: PathBuf,
-    state: SharedState,
-    tx: Sender<ListenerEvent>,
-) {
-    thread::spawn(move || receive_loop(id, stream, log_path, state, tx));
-}
-
-fn receive_loop(
-    id: u64,
-    mut stream: TcpStream,
-    log_path: PathBuf,
-    state: SharedState,
-    tx: Sender<ListenerEvent>,
-) {
-    let mut buffer = [0_u8; 4096];
-    loop {
-        match stream.read(&mut buffer) {
-            Ok(0) => break,
-            Ok(size) => handle_input_chunk(id, &buffer[..size], &log_path, &state, &tx),
-            Err(err) if err.kind() == io::ErrorKind::WouldBlock => sleep_tick(),
-            Err(err) => {
-                emit(
-                    &tx,
-                    ListenerEvent::Error(format!("session {id} read failed: {err}")),
-                );
-                break;
-            }
-        }
-    }
-    mark_closed(id, &state);
-    emit(&tx, ListenerEvent::Closed(id));
-}
-
-fn handle_input_chunk(
-    id: u64,
-    bytes: &[u8],
-    log_path: &Path,
-    state: &SharedState,
-    tx: &Sender<ListenerEvent>,
-) {
-    if let Err(err) = append_raw_log(log_path, bytes) {
-        emit(
-            tx,
-            ListenerEvent::Error(format!("session {id} log failed: {err}")),
-        );
-    }
-    let preview = sanitize_preview(&String::from_utf8_lossy(bytes));
-    append_preview(id, &preview, state);
-    emit(tx, ListenerEvent::Output(id, preview));
-}
-
-fn run_operator_loop(
-    state: SharedState,
-    rx: Receiver<ListenerEvent>,
-    shutdown: Arc<AtomicBool>,
-) -> Result<()> {
-    spawn_event_renderer(rx, state.clone(), shutdown.clone());
-    let stdin = io::stdin();
-    print_prompt();
-    for line in stdin.lock().lines() {
-        let command = parse_operator_command(&line?)?;
-        if handle_operator_command(command, &state, &shutdown)? {
-            break;
-        }
-        print_prompt();
-    }
-    shutdown.store(true, Ordering::SeqCst);
-    Ok(())
-}
-
-fn spawn_event_renderer(
-    rx: Receiver<ListenerEvent>,
-    state: SharedState,
-    shutdown: Arc<AtomicBool>,
-) {
-    thread::spawn(move || {
-        while !shutdown.load(Ordering::SeqCst) {
-            if let Ok(event) = rx.recv_timeout(Duration::from_millis(200)) {
-                print_event(event, &state);
-            }
-        }
-    });
-}
-
-fn run_event_printer(rx: Receiver<ListenerEvent>, shutdown: Arc<AtomicBool>) {
-    while !shutdown.load(Ordering::SeqCst) {
-        if let Ok(event) = rx.recv_timeout(Duration::from_millis(500)) {
-            println!("{}", event_line(&event));
-        }
-    }
-}
-
-fn handle_operator_command(
-    command: OperatorCommand,
-    state: &SharedState,
-    shutdown: &Arc<AtomicBool>,
-) -> Result<bool> {
-    match command {
-        OperatorCommand::Empty => Ok(false),
-        OperatorCommand::Help => {
-            print_shell_help();
-            Ok(false)
-        }
-        OperatorCommand::Sessions | OperatorCommand::Redraw => {
-            print_dashboard(state);
-            Ok(false)
-        }
-        OperatorCommand::Use(id) => set_active_session(id, state).map(|_| false),
-        OperatorCommand::Detach => detach_session(state).map(|_| false),
-        OperatorCommand::Pty => send_to_active(state, PTY_HELPER.as_bytes()).map(|_| false),
-        OperatorCommand::Close(id) => close_session(id, state).map(|_| false),
-        OperatorCommand::Send(text) => {
-            send_to_active(state, as_line(&text).as_bytes()).map(|_| false)
-        }
-        OperatorCommand::Run(cmd) => run_with_sentinel(state, &cmd).map(|_| false),
-        OperatorCommand::Quit => {
-            shutdown.store(true, Ordering::SeqCst);
-            Ok(true)
-        }
-    }
-}
-
-fn parse_operator_command(line: &str) -> Result<OperatorCommand> {
-    let trimmed = line.trim();
-    if trimmed.is_empty() {
-        return Ok(OperatorCommand::Empty);
-    }
-    let (head, tail) = split_head(trimmed);
-    match head {
-        "help" => Ok(OperatorCommand::Help),
-        "sessions" => Ok(OperatorCommand::Sessions),
-        "redraw" => Ok(OperatorCommand::Redraw),
-        "use" => Ok(OperatorCommand::Use(parse_required_id(tail, "use")?)),
-        "detach" => Ok(OperatorCommand::Detach),
-        "pty" => Ok(OperatorCommand::Pty),
-        "close" => Ok(OperatorCommand::Close(parse_optional_id(tail)?)),
-        "quit" | "exit" => Ok(OperatorCommand::Quit),
-        "send" => Ok(OperatorCommand::Send(tail.to_string())),
-        "run" => Ok(OperatorCommand::Run(tail.to_string())),
-        _ => Ok(OperatorCommand::Send(trimmed.to_string())),
-    }
-}
-
-fn split_head(input: &str) -> (&str, &str) {
-    input
-        .split_once(char::is_whitespace)
-        .map(|(head, tail)| (head, tail.trim()))
-        .unwrap_or((input, ""))
-}
-
-fn parse_required_id(value: &str, command: &str) -> Result<u64> {
-    if value.is_empty() {
-        bail!("{command} requires a session id");
-    }
-    Ok(value.parse()?)
-}
-
-fn parse_optional_id(value: &str) -> Result<Option<u64>> {
-    if value.is_empty() {
-        return Ok(None);
-    }
-    Ok(Some(value.parse()?))
-}
-
-fn set_active_session(id: u64, state: &SharedState) -> Result<()> {
-    let mut guard = state.lock().expect("listener state poisoned");
-    if !guard.sessions.contains_key(&id) {
-        bail!("session {id} does not exist");
-    }
-    guard.active_id = Some(id);
-    println!("active session: {id}");
-    Ok(())
-}
-
-fn detach_session(state: &SharedState) -> Result<()> {
-    state.lock().expect("listener state poisoned").active_id = None;
-    println!("active session cleared");
-    Ok(())
-}
-
-fn close_session(id: Option<u64>, state: &SharedState) -> Result<()> {
-    let id = id.or_else(|| state.lock().ok()?.active_id);
-    let writer = session_writer(state, id.context("no active session")?)?;
-    writer
-        .lock()
-        .expect("session writer poisoned")
-        .shutdown(Shutdown::Both)?;
-    Ok(())
-}
-
-fn send_to_active(state: &SharedState, bytes: &[u8]) -> Result<()> {
-    let id = state
-        .lock()
-        .expect("listener state poisoned")
-        .active_id
-        .context("no active session")?;
-    send_to_session(state, id, bytes)
-}
-
-fn send_to_session(state: &SharedState, id: u64, bytes: &[u8]) -> Result<()> {
-    let writer = session_writer(state, id)?;
-    writer
-        .lock()
-        .expect("session writer poisoned")
-        .write_all(bytes)
-        .with_context(|| format!("failed to write to session {id}"))
-}
-
-fn session_writer(state: &SharedState, id: u64) -> Result<Arc<Mutex<TcpStream>>> {
-    let guard = state.lock().expect("listener state poisoned");
-    let session = guard
-        .sessions
-        .get(&id)
-        .with_context(|| format!("session {id} does not exist"))?;
-    Ok(session.writer.clone())
-}
-
-fn run_with_sentinel(state: &SharedState, command: &str) -> Result<()> {
-    if command.trim().is_empty() {
-        bail!("run requires a command");
-    }
-    let sentinel = sentinel_token();
-    let wrapped = wrap_with_sentinel(command, &sentinel);
-    println!("sentinel: {sentinel}");
-    send_to_active(state, wrapped.as_bytes())
-}
-
-fn wrap_with_sentinel(command: &str, sentinel: &str) -> String {
-    format!("{}\necho {}\n", command.trim_end(), sentinel)
-}
-
-fn sentinel_token() -> String {
-    let millis = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .unwrap_or_default()
-        .as_millis();
-    format!("__OCO_DONE_{millis}__")
-}
-
-fn append_preview(id: u64, preview: &str, state: &SharedState) {
-    let mut guard = state.lock().expect("listener state poisoned");
-    if let Some(session) = guard.sessions.get_mut(&id) {
-        for line in preview.lines() {
-            session.output.push_back(line.to_string());
-            while session.output.len() > MAX_BUFFER_LINES {
-                session.output.pop_front();
-            }
-        }
-    }
-}
-
-fn mark_closed(id: u64, state: &SharedState) {
-    let mut guard = state.lock().expect("listener state poisoned");
-    if let Some(session) = guard.sessions.get_mut(&id) {
-        session.closed = true;
-    }
-    if guard.active_id == Some(id) {
-        guard.active_id = None;
-    }
-}
-
-fn append_raw_log(path: &Path, bytes: &[u8]) -> Result<()> {
-    let mut file = OpenOptions::new().create(true).append(true).open(path)?;
-    file.write_all(bytes)?;
-    Ok(())
-}
-
-fn print_event(event: ListenerEvent, state: &SharedState) {
-    println!("\r{}", event_line(&event));
-    if matches!(event, ListenerEvent::Connected(_, _)) {
-        print_dashboard(state);
-    }
-    print_prompt();
-}
-
-fn event_line(event: &ListenerEvent) -> String {
-    match event {
-        ListenerEvent::Connected(id, peer) => format!("[session_{id}] connected from {peer}"),
-        ListenerEvent::Output(id, text) => format!("[session_{id}] {text}"),
-        ListenerEvent::Closed(id) => format!("[session_{id}] closed"),
-        ListenerEvent::Error(message) => format!("[error] {message}"),
-    }
-}
-
-fn print_dashboard(state: &SharedState) {
-    let guard = state.lock().expect("listener state poisoned");
-    println!("sessions:");
-    for (id, session) in &guard.sessions {
-        let active = if guard.active_id == Some(*id) {
-            "*"
-        } else {
-            " "
-        };
-        let status = if session.closed { "closed" } else { "open" };
-        println!(
-            "{active} session_{id} {status} peer={} log={}",
-            session.peer,
-            session.log_path.display()
-        );
-    }
+fn print_shell_session_help() {
+    println!("Usage: orchestrator shell-session [--socket <path>] [--json] <command>");
+    println!();
+    println!("Commands:");
+    println!("  health");
+    println!("  list");
+    println!("  info <session>");
+    println!("  tail <session> [--bytes n]");
+    println!("  send <session> <text>");
+    println!("  raw <session> <text>");
+    println!("  run <session> [--timeout-ms n] <command>");
+    println!("  close <session> [reason]");
+    println!("  revoke <session> [reason]");
+    println!("  fdstat");
+    println!("  lifecycle");
 }
 
 fn print_prompt() {
@@ -599,124 +461,88 @@ fn print_prompt() {
     let _ = io::stdout().flush();
 }
 
-fn sanitize_preview(input: &str) -> String {
-    let mut output = String::new();
-    let mut escaping = false;
-    for ch in input.chars() {
-        update_sanitized_char(ch, &mut escaping, &mut output);
-    }
-    output
+fn default_control_socket() -> PathBuf {
+    PathBuf::from(DEFAULT_LOG_DIR).join(DEFAULT_CONTROL_SOCKET)
 }
 
-fn update_sanitized_char(ch: char, escaping: &mut bool, output: &mut String) {
-    if *escaping {
-        *escaping = !ch.is_ascii_alphabetic();
-        return;
-    }
-    if ch == '\u{1b}' {
-        *escaping = true;
-        return;
-    }
-    if ch == '\n' || ch == '\r' || ch == '\t' || !ch.is_control() {
-        output.push(ch);
-    }
+fn require_value<'a>(args: &'a [String], index: usize, flag: &str) -> Result<&'a str> {
+    args.get(index + 1)
+        .map(String::as_str)
+        .filter(|value| !value.starts_with("--"))
+        .with_context(|| format!("{flag} requires a value"))
 }
 
-fn as_line(text: &str) -> String {
-    if text.ends_with('\n') {
-        text.to_string()
-    } else {
-        format!("{text}\n")
+fn required_value<'a>(args: &'a [String], index: usize, flag: &str) -> Result<&'a str> {
+    args.get(index + 1)
+        .map(String::as_str)
+        .with_context(|| format!("{flag} requires a value"))
+}
+
+fn required_arg(args: &[String], index: usize, usage: &str) -> Result<String> {
+    args.get(index)
+        .filter(|value| !value.trim().is_empty())
+        .cloned()
+        .with_context(|| format!("usage: {usage}"))
+}
+
+fn join_from(args: &[String], index: usize, usage: &str) -> Result<String> {
+    if args.len() <= index {
+        bail!("usage: {usage}");
     }
+    Ok(args[index..].join(" "))
 }
 
-fn log_path_for(log_dir: &Path, peer: SocketAddr) -> PathBuf {
-    let peer_name = peer.to_string().replace([':', '.'], "_");
-    log_dir.join(format!("session_{peer_name}.raw.log"))
-}
-
-fn emit(tx: &Sender<ListenerEvent>, event: ListenerEvent) {
-    let _ = tx.send(event);
-}
-
-fn sleep_tick() {
-    thread::sleep(Duration::from_millis(50));
+fn parse_flag_value<'a>(args: &'a [String], flag: &str) -> Result<Option<&'a str>> {
+    let Some(index) = args.iter().position(|value| value == flag) else {
+        return Ok(None);
+    };
+    Ok(Some(required_value(args, index, flag)?))
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    fn parse(values: &[&str]) -> ListenerConfig {
-        let args = values
-            .iter()
-            .map(|value| value.to_string())
-            .collect::<Vec<_>>();
-        ListenerConfig::parse(&args).expect("config parses")
+    fn strings(values: &[&str]) -> Vec<String> {
+        values.iter().map(|value| value.to_string()).collect()
     }
 
     #[test]
-    fn default_bind_is_loopback() {
-        let config = parse(&[]);
+    fn listener_default_bind_is_loopback() {
+        let config = ListenerConfig::parse(&[]).unwrap();
         assert_eq!(config.bind.to_string(), DEFAULT_BIND);
-        assert_eq!(config.port, DEFAULT_PORT);
         assert!(config.validate().is_ok());
     }
 
     #[test]
-    fn remote_bind_requires_explicit_flag() {
-        let config = parse(&["--bind", "0.0.0.0"]);
+    fn listener_remote_bind_requires_explicit_flag() {
+        let config = ListenerConfig::parse(&strings(&["--bind", "0.0.0.0"])).unwrap();
         assert!(config.validate().is_err());
-    }
-
-    #[test]
-    fn remote_bind_accepts_allow_remote() {
-        let config = parse(&["--bind", "0.0.0.0", "--allow-remote"]);
+        let config =
+            ListenerConfig::parse(&strings(&["--bind", "0.0.0.0", "--allow-remote"])).unwrap();
         assert!(config.validate().is_ok());
     }
 
     #[test]
-    fn parse_send_and_run_commands() {
-        assert_eq!(
-            parse_operator_command("send whoami").unwrap(),
-            OperatorCommand::Send("whoami".to_string())
-        );
-        assert_eq!(
-            parse_operator_command("run id").unwrap(),
-            OperatorCommand::Run("id".to_string())
-        );
-    }
+    fn shell_session_run_request_parses_timeout_and_command() {
+        let parsed = ShellSessionArgs::parse(&strings(&[
+            "--socket",
+            "/tmp/oco.sock",
+            "--json",
+            "run",
+            "7",
+            "--timeout-ms",
+            "250",
+            "echo",
+            "ok",
+        ]))
+        .unwrap();
 
-    #[test]
-    fn parse_plain_text_as_send() {
-        assert_eq!(
-            parse_operator_command("docker login registry.example").unwrap(),
-            OperatorCommand::Send("docker login registry.example".to_string())
-        );
-    }
-
-    #[test]
-    fn sentinel_wrapper_appends_done_marker() {
-        let wrapped = wrap_with_sentinel("whoami", "__OCO_DONE_TEST__");
-        assert_eq!(wrapped, "whoami\necho __OCO_DONE_TEST__\n");
-    }
-
-    #[test]
-    fn run_command_requires_non_empty_text() {
-        let state = Arc::new(Mutex::new(ListenerState::new()));
-        assert!(run_with_sentinel(&state, "   ").is_err());
-    }
-
-    #[test]
-    fn sanitize_preview_removes_escape_sequences() {
-        let clean = sanitize_preview("\u{1b}[31mred\u{1b}[0m\r\nok");
-        assert_eq!(clean, "red\r\nok");
-    }
-
-    #[test]
-    fn log_path_sanitizes_peer_name() {
-        let peer: SocketAddr = "127.0.0.1:4444".parse().unwrap();
-        let path = log_path_for(Path::new("logs"), peer);
-        assert_eq!(path, PathBuf::from("logs/session_127_0_0_1_4444.raw.log"));
+        assert_eq!(parsed.socket, PathBuf::from("/tmp/oco.sock"));
+        assert!(parsed.json);
+        assert_eq!(parsed.request.op, ControlOp::Run);
+        assert_eq!(parsed.request.selector.as_deref(), Some("7"));
+        assert_eq!(parsed.request.timeout_ms, Some(250));
+        assert_eq!(parsed.request.text.as_deref(), Some("echo ok"));
     }
 }

@@ -43,4 +43,25 @@ describe("module layering", () => {
         }
         expect(offenders).toEqual([]);
     });
+
+    it("does not expose shell session control through model-callable tools", () => {
+        const registry = readFileSync(path.resolve(__dirname, "../../src/tools/registry.ts"), "utf8");
+        const toolNames = readFileSync(
+            path.resolve(__dirname, "../../src/shared/tool/tool-names.ts"),
+            "utf8"
+        );
+        const forbidden = [
+            "shell_session",
+            "shell-session",
+            "shell_listener",
+            "shell-listener",
+            "session_control",
+            "pty_upgrade",
+        ];
+
+        for (const token of forbidden) {
+            expect(registry).not.toContain(token);
+            expect(toolNames).not.toContain(token);
+        }
+    });
 });

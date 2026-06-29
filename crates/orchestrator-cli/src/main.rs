@@ -48,6 +48,7 @@ async fn main() -> Result<()> {
         Some("hooks") => list_hooks(),
         Some("agents") => list_agents(),
         Some("shell-listener") => shell_listener::run(&args[2..]),
+        Some("shell-session") => shell_listener::run_session_command(&args[2..]),
         Some("install") => install().await,
         Some("uninstall") => uninstall().await,
         Some("--version") | Some("-V") => {
@@ -75,6 +76,7 @@ fn print_help() {
     eprintln!("  hooks      List available hooks");
     eprintln!("  agents     List available agents");
     eprintln!("  shell-listener  Run authorized lab TCP session TUI");
+    eprintln!("  shell-session   Control an authorized shell listener session");
     eprintln!("  serve      Run tool server (called by OpenCode)");
     eprintln!("  install    Register plugin with OpenCode");
     eprintln!("  uninstall  Remove plugin from OpenCode");
@@ -485,6 +487,32 @@ mod tests {
         let tools = resp[field::RESULT]["tools"].as_array().unwrap();
         assert!(tools.iter().any(|t| t["name"] == tool::GREP_SEARCH));
         assert!(tools.iter().any(|t| t["name"] == tool::MGREP));
+    }
+
+    #[tokio::test]
+    async fn test_handle_tools_list_does_not_expose_shell_control() {
+        let req = json!({
+            "jsonrpc": rpc::VERSION,
+            field::ID: 1,
+            field::METHOD: rpc::TOOLS_LIST
+        });
+        let resp = handle_request(&req).await.unwrap();
+        let tools = resp[field::RESULT]["tools"].as_array().unwrap();
+        let names = tools
+            .iter()
+            .filter_map(|tool| tool["name"].as_str())
+            .collect::<Vec<_>>();
+
+        for forbidden in [
+            "shell-session",
+            "shell_session",
+            "shell-listener",
+            "shell_listener",
+            "session_control",
+            "pty_upgrade",
+        ] {
+            assert!(!names.contains(&forbidden));
+        }
     }
 
     #[tokio::test]

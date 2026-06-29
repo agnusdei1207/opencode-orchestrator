@@ -107,19 +107,23 @@ Runtime flow:
 1. `main.rs` dispatches the explicit `shell-listener` command.
 2. `shell_listener.rs` binds a TCP listener with `127.0.0.1:4444` as the default address.
 3. Non-loopback binds are rejected unless the operator passes `--allow-remote`.
-4. Each accepted TCP stream receives a stable session id, peer metadata, a writer handle, an in-memory preview buffer, and a raw log path.
-5. Reader threads append raw bytes to `.opencode-orchestrator/shell-listener/` and send sanitized preview events to the line-mode TUI.
-6. Operator commands select sessions, send prompt responses, run sentinel-marked one-shot commands, request a manual PTY helper, or close sessions.
+4. Admission is capped by an `RLIMIT_NOFILE`-derived fd budget so connection pressure cannot exhaust process resources.
+5. Each accepted TCP stream receives a stable session id, peer metadata, lifecycle timestamps, a writer channel, a runtime close handle, an in-memory preview buffer, and a raw log path.
+6. Reader threads append redacted raw bytes to `.opencode-orchestrator/shell-listener/` and send sanitized preview events to the line-mode TUI.
+7. Operator commands select sessions, send prompt responses, run sentinel-marked one-shot commands, request a manual PTY helper, inspect fd/lifecycle state, close sessions, or hard-revoke sessions.
+8. The optional local JSONL control socket powers `orchestrator shell-session ...` for operator scripts and tests; it is not part of the OpenCode plugin tool registry.
 
 The design separates three concerns:
 
 | Concern | Owner | Boundary |
 | --- | --- | --- |
-| Connection acceptance | Listener thread | TCP socket accept and session registration. |
-| Session I/O | Per-session reader plus writer handle | Raw bytes are logged; preview bytes are sanitized for display. |
-| Human operation | Line-mode TUI | The operator decides what to send and when to send it. |
+| Connection acceptance | Listener thread | TCP socket accept, fd admission, and session registration. |
+| Session I/O | Per-session reader/writer threads | Raw bytes are logged; preview bytes are sanitized and known sensitive values are redacted. |
+| Session lifecycle | Registry | `open`, `idle`, `busy`, `stale`, `closing`, `closed`, and `archived` state; closed sessions release runtime close handles. |
+| Structured control | Local Unix socket | Versioned JSONL requests for `health`, `list`, `info`, `tail`, `send`, `raw`, `run`, `close`, `revoke`, `fdstat`, and `lifecycle`. |
+| Human operation | Line-mode TUI or `shell-session` CLI | The operator decides what to send and when to send it. |
 
-Completion detection remains heuristic because shells do not emit a universal "command finished" event. The `run <cmd>` path appends a unique sentinel marker. Long-running or interactive programs should stay in `send <text>` mode so the operator can answer prompts directly.
+Completion detection remains marker-based because shells do not emit a universal "command finished" event. The `run <cmd>` path records a pending run with a start cursor, timeout, sentinel marker, bounded output, and structured result. Long-running or interactive programs should stay in `send <text>` mode so the operator can answer prompts directly. Prompt detection is metadata only; it never authorizes automatic input.
 
 ## 8. Builder-Inspired Memory Surface
 

@@ -346,6 +346,7 @@ name = "orchestrator-cli"
 version = "1.6.6"
 dependencies = [
  "anyhow",
+ "libc",
  "orchestrator-core",
  "serde",
  "serde_json",
