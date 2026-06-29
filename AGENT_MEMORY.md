@@ -2,76 +2,88 @@
 
 ## Current Task
 
-User requested repeated fresh exhaustive audit passes, with commit and push after each pass. Current pass completed: 39. The broader requested target remains active beyond this session.
+User requested exhaustive project audit/refactoring, OpenCode SDK/plugin checking 10 times, then commit and push. Current pass completed: 40.
 
 ## Last Completed Step
 
-Completed audit pass 39 after moving hook system contracts into the hook registry owner and deleting the hook types compatibility file.
+Completed audit pass 40 by deleting an unused shared recovery type compatibility file and keeping recovery constants as the only shared recovery export.
 
-- Confirmed `main` was aligned with `origin/main` at `83087a2` before pass 39 changes.
-- Reopened `AGENT_MEMORY.md`, `AGENTS.md`, `src/hooks/types.ts`, `src/hooks/registry.ts`, `src/hooks/index.ts`, every hook implementation under `src/hooks/features/*` and `src/hooks/custom/*`, `src/core/plugins/plugin-manager.ts`, `tests/unit/hooks.test.ts`, `tests/unit/hook-priority.test.ts`, and `tests/unit/plugin-manager.test.ts`.
-- Traced all hook type consumers with `rg`.
-- Confirmed `src/hooks/registry.ts` owns hook registration, metadata preparation, dependency sorting, hook execution, and result routing.
-- Confirmed `src/core/plugins/plugin-manager.ts` consumes hook contracts only to register dynamic plugin hooks into `HookRegistry`.
-- Moved `HookContext`, `HookMetadata`, `HookResult`, `ToolInput`, `ToolOutput`, `PreToolResult`, `PostToolResult`, `ChatMessageResult`, `PreToolUseHook`, `PostToolUseHook`, `ChatMessageHook`, and `AssistantDoneHook` into `src/hooks/registry.ts`.
-- Updated hook implementations, plugin manager, and hook tests to import hook contracts from `src/hooks/registry.ts`.
-- Deleted `src/hooks/types.ts`.
+- Started from clean `main` aligned with `origin/main`.
+- Reopened `AGENT_MEMORY.md`, `AGENTS.md`, `package.json`, `tsconfig.json`, `vitest.config.ts`, `src/shared/recovery/types.ts`, `src/shared/recovery/index.ts`, `src/shared/recovery/constants.ts`, `src/core/recovery/handler.ts`, `src/core/recovery/auto-recovery.ts`, `src/core/recovery/patterns.ts`, `src/core/recovery/session-recovery.ts`, `src/core/agents/manager/task-launcher.ts`, `src/shared/index.ts`, recovery tests, and OpenCode SDK/plugin integration files.
+- Confirmed `src/core/recovery/handler.ts` owns the real `ErrorContext`, `RecoveryAction`, `RecoveryRecord`, and `RecoveryStats` contracts.
+- Confirmed `src/core/recovery/auto-recovery.ts` re-exports the recovery contracts consumed outside the recovery owner.
+- Confirmed `src/shared/recovery/types.ts` exported a different unused string-union recovery contract and had no consumers outside its own barrel.
+- Removed `export * from "./types.js";` from `src/shared/recovery/index.ts`.
+- Deleted `src/shared/recovery/types.ts`.
 
 ## Next Exact Step
 
-Start audit pass 40 from current state:
+Start audit pass 41 from current state:
 
 1. Open `AGENT_MEMORY.md`.
 2. Run `git status --branch --short`.
-3. Reopen the pass-40 target files listed below.
-4. Continue compatibility/debt removal from fresh evidence, starting with `src/shared/recovery/types.ts`; determine whether its contracts are true shared domain contracts or can be moved into recovery owner modules.
+3. Reopen the pass-41 target files listed below.
+4. Continue compatibility/debt removal from fresh evidence, starting with `src/shared/agent/types.ts`; determine whether its contracts are true shared domain contracts or can be moved into the owning agent modules.
 
 ## Incomplete Items And Why
 
-The full requested repeated-pass objective is not complete. Pass 39 is complete and ready to commit/push.
+The broader repeated-pass objective remains active beyond this session. Pass 40 and the requested 10 OpenCode SDK/plugin checks are complete.
+
+Full Vitest did not pass in this container because of environment/tooling gaps unrelated to the recovery refactor:
+
+- `tests/unit/binary.test.ts` failed because the `file` command is not installed.
+- `tests/unit/install-hooks.test.ts` failures reproduced with Node `v22.22.1`; `node --experimental-strip-types scripts/postinstall.ts` exits with `ERR_NO_TYPESCRIPT`, while `package.json` requires Node `>=24`.
+- `cargo` is not installed, so Rust format and Rust tests could not run.
 
 ## Key Decisions
 
-- `src/hooks/registry.ts` is the owner for hook system contracts because it registers hooks, prepares metadata defaults, sorts dependencies, executes each hook phase, and routes result shapes.
-- Dynamic plugin hook contracts are still public to internal plugin loading, but their export source is now the registry owner rather than a standalone compatibility type file.
-- `src/hooks/types.ts` was deleted instead of kept as a compatibility path because the user explicitly prefers complete migration over compatibility shims.
+- Kept recovery runtime contracts in `src/core/recovery/handler.ts` because it creates recovery records, returns recovery actions, records history, and computes recovery stats.
+- Kept the internal `auto-recovery.ts` re-export path because `src/core/agents/manager/task-launcher.ts` consumes `ErrorContext` from that compatibility surface.
+- Deleted `src/shared/recovery/types.ts` instead of moving it because its action shape did not match the real handler action union and no consumer used it.
+- Did not change recovery behavior; this pass removed dead shared exports only.
 
 ## Rejected Alternatives
 
-- Rejected leaving `src/hooks/types.ts` as a compatibility barrel because it duplicated the registry-owned hook execution contract.
-- Rejected moving hook contracts into individual feature hooks because `HookRegistry` needs all four hook categories and metadata contracts centrally.
-- Rejected changing hook ordering, dependency sorting, error handling, or result behavior because this pass was a contract ownership migration only.
+- Rejected keeping `src/shared/recovery/types.ts` as a compatibility barrel because it exposed an unused and incompatible recovery action shape.
+- Rejected moving handler contracts into `src/shared/recovery/types.ts` because recovery action production and history ownership live in `core/recovery/handler.ts`.
+- Rejected broad recovery behavior cleanup in the same pass because the goal was a refactor/dead-code removal with behavior unchanged.
 
 ## Known Risks
 
-- The broader 100/1000-pass objective is intentionally not marked complete.
-- External consumers importing deleted `src/hooks/types.ts` must import hook contracts from `src/hooks/registry.ts`.
-- Remaining type-contract files are under `src/shared/*/types.ts`; each needs fresh analysis before changing because some may be legitimate shared domain owners.
+- External unpublished consumers importing `src/shared/recovery/types.ts` must stop using that internal path.
+- Full test verification needs a Node 24+ runtime with TypeScript stripping support, the `file` utility, and `cargo` installed.
+- Remaining type candidates observed with `rg --files src | rg '/interfaces/|/types/index\\.ts$|/types/.*\\.ts$|/types\\.ts$' | sort`: `src/shared/agent/types.ts`, `src/shared/command/types.ts`, `src/shared/loop/types.ts`, `src/shared/notification/os-notify/types.ts`, `src/shared/notification/types.ts`, `src/shared/os/types.ts`, `src/shared/task/types.ts`, `src/shared/tool/types.ts`, and `src/shared/verification/types.ts`.
 
 ## Verification Observed
 
-- Baseline focused tests before edits: `tests/unit/hooks.test.ts`, `tests/unit/hook-priority.test.ts`, `tests/unit/plugin-manager.test.ts`, and `tests/unit/install-hooks.test.ts` passed, 4 files and 34 tests.
-- Baseline `npm run build --silent`: passed.
-- Post-edit `rg -n "src/hooks/types|hooks/types|\\.\\./types\\.js|\\.\\/types\\.js|../../src/hooks/types" src/hooks src/core/plugins tests -g '*.ts'`: no matches.
-- `test ! -e src/hooks/types.ts && echo deleted`: printed `deleted`.
-- Focused hook tests after edits: 4 files and 34 tests passed.
-- Focused `tests/unit/hook-priority.test.ts` after import cleanup: 1 file and 7 tests passed.
-- `npm run build --silent`: passed after edits.
+- Initial `npm run build --silent` failed before dependency install because `esbuild` was missing.
+- Initial focused Vitest failed before dependency install because local `vitest/config` was missing.
+- `npm ci` failed in postinstall under Node `v22.22.1` with `ERR_NO_TYPESCRIPT`.
+- `npm ci --ignore-scripts` completed with engine warnings and 0 vulnerabilities.
+- Baseline `npm run build --silent`: passed after dependency install.
+- Baseline focused recovery/plugin tests passed: 5 files and 26 tests.
+- Post-edit `rg -n "shared/recovery/types|\\.\\/types\\.js|RecoveryAction|RecoveryRecord|ErrorContext" src/shared src/core src/plugin-handlers tests -g '*.ts'` showed recovery contracts only in `core/recovery` and task-launcher consumers, with no deleted shared recovery type path.
+- `test ! -e src/shared/recovery/types.ts && echo 'src/shared/recovery/types.ts deleted'`: printed `src/shared/recovery/types.ts deleted`.
+- Post-edit focused recovery/plugin tests passed: 5 files and 26 tests.
+- Post-edit `npm run build --silent`: passed.
+- OpenCode SDK/plugin check loop ran 10 times; each run passed 4 files and 15 tests covering `dependency-compatibility`, `plugin-manager`, `tool-registry`, and `config-handler`.
 - `git diff --check`: passed.
-- Full `npx vitest run --reporter=dot`: passed, 96 files and 806 tests.
-- `cargo fmt --check`: passed.
-- `cargo test -p orchestrator-cli -p orchestrator-core --quiet`: passed, CLI 12 tests and core 35 tests.
-- Remaining type candidates observed with `rg --files src | rg '/interfaces/|/types/index\\.ts$|/types/.*\\.ts$|/types\\.ts$' | sort`: `src/shared/agent/types.ts`, `src/shared/command/types.ts`, `src/shared/loop/types.ts`, `src/shared/notification/os-notify/types.ts`, `src/shared/notification/types.ts`, `src/shared/os/types.ts`, `src/shared/recovery/types.ts`, `src/shared/task/types.ts`, `src/shared/tool/types.ts`, and `src/shared/verification/types.ts`.
+- Full `npx vitest run --reporter=dot`: failed with 2 files failed and 94 passed; observed 11 failed and 795 passed out of 806 tests.
+- `command -v file`: no output; `file bin/orchestrator-linux-x64` failed with `file: command not found`.
+- `node --version`: `v22.22.1`; `node -e "console.log(process.versions.typescript || 'no-typescript-runtime')"` printed `no-typescript-runtime`.
+- `node --experimental-strip-types scripts/postinstall.ts`: failed with `ERR_NO_TYPESCRIPT`.
+- `cargo fmt --check` and `cargo test -p orchestrator-cli -p orchestrator-core --quiet`: failed to start because `cargo` was not found.
+- Final `npm run build --silent`: passed.
 
 ## Files To Open First Next Session
 
 1. `AGENT_MEMORY.md`
 2. `git status --branch --short`
-3. `src/shared/recovery/types.ts`
-4. `src/shared/recovery/index.ts`
-5. `src/shared/recovery/constants.ts`
-6. `src/core/recovery/handler.ts`
-7. `src/core/recovery/session-recovery.ts`
-8. `src/core/recovery/auto-recovery.ts`
-9. `src/core/recovery/patterns.ts`
-10. `src/core/agents/manager/task-launcher.ts`
+3. `src/shared/agent/types.ts`
+4. `src/shared/agent/index.ts`
+5. `src/shared/agent/constants.ts`
+6. `src/core/agents/manager.ts`
+7. `src/core/agents/config.ts`
+8. `src/agents/definitions.ts`
+9. `src/shared/index.ts`
+10. relevant tests found by `rg -n "Agent|AGENT_NAMES|shared/agent" tests src -g '*.ts'`
