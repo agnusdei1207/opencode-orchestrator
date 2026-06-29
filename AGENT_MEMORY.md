@@ -2,7 +2,7 @@
 
 ## Current Task
 
-User requested exhaustive project audit/refactoring, OpenCode SDK/plugin checking 10 times, then commit and push. User then requested installing missing tools if needed, rerunning checks 10 times, and upgrading the default Node runtime to 24. Current pass completed: 40, with environment-complete verification rerun and default Node 24 upgrade finished.
+User requested exhaustive project audit/refactoring, OpenCode SDK/plugin checking 10 times, then commit and push. User then requested installing missing tools if needed, rerunning checks 10 times, upgrading the default Node runtime to 24, and upgrading the apt-managed `/usr/bin/node` package too. Current pass completed: 40, with environment-complete verification rerun and system Node 24 upgrade finished.
 
 ## Last Completed Step
 
@@ -21,6 +21,8 @@ Completed audit pass 40 by deleting an unused shared recovery type compatibility
 - Reran the full verification bundle 10 times after environment setup; every run passed.
 - Upgraded the shell default Node runtime from `/usr/bin/node` `v22.22.1` to `/usr/local/bin/node` `v24.18.0` using `n`.
 - Verified the project with the default `node` now resolving to Node 24.
+- Added the NodeSource `node_24.x` apt repository and upgraded the apt-managed `nodejs` package from Ubuntu `22.22.1+dfsg+~cs22.19.15-1ubuntu1` to NodeSource `24.18.0-1nodesource1`.
+- Verified `/usr/bin/node` now reports `v24.18.0`.
 
 ## Next Exact Step
 
@@ -33,7 +35,7 @@ Start audit pass 41 from current state:
 
 ## Incomplete Items And Why
 
-The broader repeated-pass objective remains active beyond this session. Pass 40, the requested OpenCode SDK/plugin checks, the follow-up 10 full verification reruns, and the default Node 24 upgrade are complete.
+The broader repeated-pass objective remains active beyond this session. Pass 40, the requested OpenCode SDK/plugin checks, the follow-up 10 full verification reruns, the default Node 24 upgrade, and the apt-managed Node 24 upgrade are complete.
 
 ## Key Decisions
 
@@ -51,7 +53,8 @@ The broader repeated-pass objective remains active beyond this session. Pass 40,
 ## Known Risks
 
 - External unpublished consumers importing `src/shared/recovery/types.ts` must stop using that internal path.
-- Default shell `node`, `npm`, and `npx` now resolve to `/usr/local/bin` and report Node `v24.18.0` with npm/npx `11.16.0`.
+- Default shell `node`, `npm`, and `npx` resolve to `/usr/local/bin` and report Node `v24.18.0` with npm/npx `11.16.0`.
+- Apt-managed `/usr/bin/node` also reports `v24.18.0`; `apt-cache policy nodejs` shows installed/candidate `24.18.0-1nodesource1`.
 - Remaining type candidates observed with `rg --files src | rg '/interfaces/|/types/index\\.ts$|/types/.*\\.ts$|/types\\.ts$' | sort`: `src/shared/agent/types.ts`, `src/shared/command/types.ts`, `src/shared/loop/types.ts`, `src/shared/notification/os-notify/types.ts`, `src/shared/notification/types.ts`, `src/shared/os/types.ts`, `src/shared/task/types.ts`, `src/shared/tool/types.ts`, and `src/shared/verification/types.ts`.
 
 ## Verification Observed
@@ -85,6 +88,13 @@ The broader repeated-pass objective remains active beyond this session. Pass 40,
 - `hash -r`, then `which node && node --version`, `which npm && npm --version`, and a fresh `bash -lc` check confirmed default Node `v24.18.0`, npm `11.16.0`, and npx `11.16.0`.
 - `CI=true XDG_CONFIG_HOME="$(mktemp -d)" HOME="$(mktemp -d)" node --experimental-strip-types scripts/postinstall.ts`: passed and skipped plugin registration in CI mode.
 - Default-Node-24 verification passed: `npm run build --silent`, full `node ./node_modules/vitest/vitest.mjs run --reporter=dot` with 96 files and 806 tests, `cargo fmt --check`, and `cargo test -p orchestrator-cli -p orchestrator-core --quiet` with CLI 12 tests and core 35 tests.
+- Before apt-managed upgrade, direct check showed default `node` was `v24.18.0` but `/usr/bin/node` was still `v22.22.1`; `dpkg -S /usr/bin/node` mapped it to package `nodejs`.
+- Ubuntu apt policy initially showed only `nodejs` `22.22.1+dfsg+~cs22.19.15-1ubuntu1`.
+- Downloaded and inspected `https://deb.nodesource.com/setup_24.x`; it configures `https://deb.nodesource.com/node_24.x` with `nodistro` and pins `nodejs` from NodeSource.
+- `sudo bash /tmp/tmp.lSViBi4K23 && sudo apt-get install -y nodejs`: upgraded apt-managed `nodejs` to `24.18.0-1nodesource1`.
+- After apt upgrade, `/usr/bin/node --version`: `v24.18.0`; `apt-cache policy nodejs` showed installed/candidate `24.18.0-1nodesource1`.
+- `/usr/bin/node --experimental-strip-types scripts/postinstall.ts` in CI mode passed.
+- Post-apt-upgrade verification passed: `npm run build --silent`, full `node ./node_modules/vitest/vitest.mjs run --reporter=dot` with 96 files and 806 tests, `cargo fmt --check`, and `cargo test -p orchestrator-cli -p orchestrator-core --quiet` with CLI 12 tests and core 35 tests.
 
 ## Files To Open First Next Session
 
