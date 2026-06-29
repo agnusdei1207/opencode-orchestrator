@@ -2,15 +2,24 @@
  * Tool Hook Interfaces
  */
 
-export interface ToolHookInput {
+export type ToolArgs = Record<string, unknown>;
+
+export interface ToolHookBaseInput {
     tool: string;
     sessionID: string;
     callID: string;
-    arguments?: Record<string, unknown>;
+}
+
+export interface ToolBeforeHookOutput {
+    args: ToolArgs;
+}
+
+export interface ToolAfterHookInput extends ToolHookBaseInput {
+    args?: ToolArgs;
 }
 
 export interface ToolHookOutput {
     title: string;
     output: string;
-    metadata: Record<string, unknown>;
+    metadata: ToolArgs;
 }

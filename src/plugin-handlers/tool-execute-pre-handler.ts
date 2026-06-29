@@ -7,7 +7,12 @@
  */
 
 import { HookRegistry } from "../hooks/registry.js";
-import type { ToolExecuteHandlerContext, ToolHookInput } from "./interfaces/index.js";
+import type {
+    ToolArgs,
+    ToolBeforeHookOutput,
+    ToolExecuteHandlerContext,
+    ToolHookBaseInput,
+} from "./interfaces/index.js";
 import { log } from "../core/agents/logger.js";
 import { HOOK_ACTIONS } from "../hooks/constants.js";
 
@@ -16,34 +21,40 @@ export function createToolExecuteBeforeHandler(ctx: ToolExecuteHandlerContext) {
     const hooks = HookRegistry.getInstance();
 
     return async (
-        toolInput: ToolHookInput
+        toolInput: ToolHookBaseInput,
+        toolOutput: ToolBeforeHookOutput,
     ) => {
         const session = sessions.get(toolInput.sessionID);
-        if (!session?.active) return; // or proceed? If not active, maybe we don't care, or we default allow.
+        if (!session?.active) return;
+        const args = readToolArgs(toolOutput);
 
-        // Execute Pre-Tool Hooks
         const result = await hooks.executePreTool(
             {
                 sessionID: toolInput.sessionID,
                 directory,
                 sessions,
-                // In future, try to resolve 'agent' from session state if possible
             },
             toolInput.tool,
-            toolInput.arguments || {}
+            args
         );
 
         if (result.action === HOOK_ACTIONS.BLOCK) {
             log(`[PreToolHandler] Blocked tool ${toolInput.tool} in session ${toolInput.sessionID}: ${result.reason}`);
-            // Throwing error captures the block in most agent runtimes
             throw new Error(`🚫 Action Blocked: ${result.reason || "Policy violation"}`);
         }
 
         if (result.action === HOOK_ACTIONS.MODIFY && result.modifiedArgs) {
-            // Mutate arguments in place if the framework allows reference mutation.
-            // Usually input.arguments is a reference to the actual object being passed to the tool.
-            if (!toolInput.arguments) toolInput.arguments = {};
-            Object.assign(toolInput.arguments, result.modifiedArgs);
+            Object.assign(args, result.modifiedArgs);
+            toolOutput.args = args;
         }
     };
+}
+
+function readToolArgs(output: ToolBeforeHookOutput): ToolArgs {
+    if (typeof output.args === "object" && output.args !== null && !Array.isArray(output.args)) {
+        return output.args;
+    }
+
+    output.args = {};
+    return output.args;
 }
