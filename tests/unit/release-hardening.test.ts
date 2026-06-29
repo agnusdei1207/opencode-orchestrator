@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 
 const repoRoot = path.resolve(__dirname, "../..");
@@ -32,31 +32,24 @@ describe("issue #27 release hardening", () => {
         expect(workflow).toContain('file bin/orchestrator-linux-arm64 | grep -F "ARM aarch64"');
     });
 
-    it("keeps the Docker x64 build pinned to a Linux amd64 target and artifact name", () => {
-        const compose = readRepoFile("compose.yml");
-
-        expect(compose).toContain("platform: linux/amd64");
-        expect(compose).toContain("rustup target add x86_64-unknown-linux-gnu");
-        expect(compose).toContain("cargo build --release --target x86_64-unknown-linux-gnu");
-        expect(compose).toContain(
-            "cp target/x86_64-unknown-linux-gnu/release/orchestrator bin/orchestrator-linux-x64",
-        );
-    });
-
-    it("routes local release scripts through Docker Rust artifact rebuilds", () => {
+    it("keeps local release scripts independent of Docker", () => {
         const packageJson = JSON.parse(readRepoFile("package.json")) as {
             scripts: Record<string, string>;
         };
+        const scripts = Object.entries(packageJson.scripts);
 
-        expect(packageJson.scripts["docker:rust-dist"]).toContain("docker compose run --rm dev");
-        expect(packageJson.scripts["docker:rust-dist"]).toContain("docker compose run --rm rust-arm64");
+        expect(scripts.some(([name]) => name.startsWith("docker:"))).toBe(false);
+        expect(scripts.some(([, script]) => script.includes("docker compose"))).toBe(false);
+        expect(existsSync(path.join(repoRoot, "compose.yml"))).toBe(false);
+        expect(existsSync(path.join(repoRoot, "Dockerfile"))).toBe(false);
+        expect(existsSync(path.join(repoRoot, "Dockerfile.windows"))).toBe(false);
         expect(packageJson.scripts["release:preflight"]).toContain("scripts/release-preflight.mjs");
-        expect(packageJson.scripts["release:patch"]).toContain("npm run docker:rust-dist");
-        expect(packageJson.scripts["release:minor"]).toContain("npm run docker:rust-dist");
-        expect(packageJson.scripts["release:major"]).toContain("npm run docker:rust-dist");
-        expect(packageJson.scripts["release:patch"]).toContain("scripts/release-sync-artifacts.mjs");
-        expect(packageJson.scripts["release:minor"]).toContain("scripts/release-sync-artifacts.mjs");
-        expect(packageJson.scripts["release:major"]).toContain("scripts/release-sync-artifacts.mjs");
+        expect(packageJson.scripts["release:patch"]).not.toContain("docker");
+        expect(packageJson.scripts["release:minor"]).not.toContain("docker");
+        expect(packageJson.scripts["release:major"]).not.toContain("docker");
+        expect(packageJson.scripts["release:patch"]).not.toContain("scripts/release-sync-artifacts.mjs");
+        expect(packageJson.scripts["release:minor"]).not.toContain("scripts/release-sync-artifacts.mjs");
+        expect(packageJson.scripts["release:major"]).not.toContain("scripts/release-sync-artifacts.mjs");
         expect(packageJson.scripts["release:patch"]).toContain("scripts/release-auth-check.mjs");
         expect(packageJson.scripts["release:minor"]).toContain("scripts/release-auth-check.mjs");
         expect(packageJson.scripts["release:major"]).toContain("scripts/release-auth-check.mjs");
@@ -83,16 +76,6 @@ describe("issue #27 release hardening", () => {
         expect(workflow).toContain("NPM_TOKEN secret is not configured; skipping public npm publish.");
     });
 
-    it("keeps local release artifact sync restricted to generated Linux binaries", () => {
-        const script = readRepoFile("scripts/release-sync-artifacts.mjs");
-
-        expect(script).toContain("bin/orchestrator-linux-arm64");
-        expect(script).toContain("bin/orchestrator-linux-x64");
-        expect(script).toContain("Unexpected dirty release paths");
-        expect(script).toContain("git\", [\"commit\", \"--amend\", \"--no-edit\"]");
-        expect(script).toContain("git\", [\"tag\", \"-f\", `v${readVersion()}`]");
-    });
-
     it("uses cross-platform Node build and clean scripts for local packaging", () => {
         const packageJson = JSON.parse(readRepoFile("package.json")) as {
             scripts: Record<string, string>;
@@ -101,6 +84,7 @@ describe("issue #27 release hardening", () => {
         expect(packageJson.scripts.build).toBe("node scripts/build.mjs");
         expect(packageJson.scripts.build).not.toContain("rm -rf");
         expect(packageJson.scripts.build).not.toContain("mkdir -p");
-        expect(packageJson.scripts["release:clean"]).toContain("shx rm -rf dist bin");
+        expect(packageJson.scripts["build:all"]).toBe("npm run build");
+        expect(packageJson.scripts["release:clean"]).toBe("shx rm -rf dist");
     });
 });

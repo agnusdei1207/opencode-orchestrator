@@ -2,69 +2,83 @@
 
 ## Current Task
 
-Shipped Builder-learnings adoption as minor `1.6.0` (after the 1.5.x audit/refactor line).
-Surveyed ../builder-private (25 crates/185K LOC), wrote an adoption assessment, then applied
-all recommended items A–H phase by phase, each verified green and committed: prompt
-registry+snapshots (A/B), tolerant safeJsonParse (F), memory horizons + role-aware retrieval
-(E), mission evidence + wiring-gate nudge (C), completion self-review + stagnation escalation
-(D), Zod schema-driven options + generated schema.json + shared→core layering guard (G/H).
-WATCH/SKIP items left to OpenCode (providers/permissions/turn-loop). Tests 713→747.
+Removed Docker/Compose local build plumbing because OpenCode Orchestrator does not need repository-local Docker files for runtime, local build, or local release flow.
 
 ## Last Completed Step
 
-1. `1.5.2`: synced Cargo workspace version to npm (`0.1.0`→`1.5.2`) + guard test; removed the
-   verified-dead Rust `config` module.
-2. `1.5.3`: Phase 4 hygiene (`.gitattributes` eol=lf, removed `noImplicitAny:false`, resilient
-   `build.mjs` + source maps, `ci.yml` with fmt/clippy/tsc/test gates, `.gitignore` aligned,
-   `cargo fmt`) and Phase 5 Rust robustness (`tools/process.rs::run_with_timeout` applied to
-   ast/git/jq/http; fixed `http.rs` curl exit-status bug; Rust tests 24→35).
-3. Withdrew Phase 2 (`event-handler.ts:194` already dispatches idle continuation mutually
-   exclusively) and Phase 6 (`release-hardening.test.ts:92-93` locks the amend/tag-f design).
-4. Verified green: `tsc`, `npm run build`, `cargo fmt --check`, `cargo clippy -D warnings`,
-   `cargo test` (35), `npm test` (713). Committed and pushed `v1.5.2` and `v1.5.3`.
-5. Ran `npm run release:minor`, which created release commit `afe616e` and tag `v1.5.0`.
-6. Fixed `scripts/release-sync-artifacts.mjs` path parsing and amended the `1.5.0` release commit before publish.
-7. Published `opencode-orchestrator@1.5.0` to npm with the `latest` tag.
-8. Pushed `main` and `v1.5.0` to origin.
+1. Confirmed Docker/Compose files were release/build helpers, not plugin runtime requirements:
+   - `compose.yml`
+   - `Dockerfile`
+   - `Dockerfile.windows`
+2. Removed Docker/Compose files:
+   - `compose.yml`
+   - `Dockerfile`
+   - `Dockerfile.windows`
+3. Removed the now-unused local artifact sync helper:
+   - `scripts/release-sync-artifacts.mjs`
+4. Updated `package.json`:
+   - removed all `docker:*` scripts
+   - changed `build:all` to `npm run build`
+   - removed Docker artifact rebuild and artifact sync from `release:patch|minor|major`
+   - changed `release:clean` to preserve tracked `bin/` artifacts and remove only `dist`
+5. Updated `tests/unit/release-hardening.test.ts`:
+   - removed Docker compose expectations
+   - asserted local release scripts do not call Docker
+   - asserted removed Docker files are absent
+   - kept GitHub Actions release workflow artifact checks intact
 
 ## Verification Observed
 
-1. `npm run release:minor` preflight ran build, tests, Rust tests, audit, and package dry-run.
-2. Docker Linux x64 and Linux arm64 Rust release artifact builds completed.
-3. `npm publish --access public` succeeded for `opencode-orchestrator@1.5.0`.
-4. `npm view opencode-orchestrator version --json` returned `1.5.0`.
-5. `npm view opencode-orchestrator@1.5.0 version --json` returned `1.5.0`.
-6. `git push origin main` succeeded.
-7. `git push origin v1.5.0` succeeded.
+1. `npx vitest run tests/unit/release-hardening.test.ts tests/unit/binary.test.ts --reporter=verbose` passed:
+   - 2 files passed.
+   - 10 tests passed.
+2. `npm run build` passed.
+3. `git diff --check -- package.json tests/unit/release-hardening.test.ts compose.yml Dockerfile Dockerfile.windows scripts/release-sync-artifacts.mjs` passed.
+4. `rg --files | rg -i '(^|/)(compose\\.ya?ml|dockerfile(\\..*)?)$|release-sync-artifacts' || true` produced no file results.
+5. Remaining Docker mentions are generic discovery/verification text, historical release notes, or tests asserting Docker is absent; no active `package.json` or script execution path calls Docker.
 
 ## Next Exact Step
 
-1. Rotate the previously exposed GitHub credential if it is still valid.
-2. If needed, verify install from npm in a clean environment with `npm install -g opencode-orchestrator@1.5.0`.
+If continuing, decide whether to also update historical docs that mention prior Docker local release behavior. They are historical records, so leave them alone unless the user asks.
 
 ## Incomplete Items and Why
 
-- No incomplete release work remains for `1.5.0`.
+- Full `npm test` was not rerun after Docker removal; focused release/binary tests and build passed.
+- `.github/workflows/release.yml` still builds release binaries via GitHub Actions matrix without Docker; this was intentionally left unchanged.
+- Existing unrelated uncommitted SDK plumbing changes remain from the prior task:
+  - `src/plugin-handlers/interfaces/index.ts`
+  - `src/plugin-handlers/interfaces/tool-hook.ts`
+  - `src/plugin-handlers/tool-execute-handler.ts`
+  - `src/plugin-handlers/tool-execute-pre-handler.ts`
+  - `tests/unit/tool-execute-handler.test.ts`
+- Earlier docs/history consolidation remains in the workspace:
+  - moved `docs/plans/2026-06-19/...` into `docs/histories/2026/06/19/`
+  - moved `docs/plans/2026-06-21/...` into `docs/histories/2026/06/21/`
+  - added `docs/histories/2026/06/24/REPORT_EbbinghausMemorySearchCurrentState_2026-06-24.md`
+- `AGENTS.md` is deleted in the current worktree; it was already shown deleted during this task and was not restored.
 
 ## Key Decisions
 
-1. Final release type is minor, published as `1.5.0`.
-2. Shell-listener remains CLI-only, not LLM tool-callable.
-3. Remote binds require `--allow-remote`.
-4. SDK/plugin dependencies are exact-pinned to `1.17.4`.
+1. Removed Docker local release/build path rather than keeping unused infrastructure files.
+2. Preserved tracked `bin/` artifacts by changing `release:clean` to remove only `dist`.
+3. Kept GitHub Actions release matrix because it already builds Linux/macOS/Windows artifacts without repository Docker files.
+4. Left generic Docker detection prompts and historical docs unchanged because they are not active local Docker plumbing.
 
 ## Rejected Alternatives
 
-1. Publishing `1.4.1` was stopped after the user clarified minor release.
-2. Re-running `release:minor` after partial failure was rejected because it would create another version bump; the existing `1.5.0` release commit was recovered instead.
+1. Keeping `compose.yml` only for optional local cross-compilation was rejected because the user stated it is unnecessary here.
+2. Removing `bin/` in `release:clean` was rejected because Docker removal leaves no local script that rebuilds all package binaries.
 
 ## Known Risks
 
-- A local remote URL had an embedded credential earlier in the session. Treat that credential as exposed and rotate it.
+- Local `release:patch|minor|major` no longer rebuilds Linux x64/arm64 artifacts before publishing. It publishes whatever tracked/current `bin/` artifacts are present.
+- Cross-platform artifact production remains the responsibility of `.github/workflows/release.yml`.
+- Worktree contains unrelated changes; inspect `git status --short` before further edits.
 
 ## Open These Files First Next Session
 
 1. `AGENT_MEMORY.md`
-2. `docs/release/2026-06-12-1.5.0-publish.md`
-3. `crates/orchestrator-cli/src/shell_listener.rs`
-4. `scripts/release-sync-artifacts.mjs`
+2. `package.json`
+3. `tests/unit/release-hardening.test.ts`
+4. `.github/workflows/release.yml`
+5. `src/utils/binary.ts`
