@@ -148,4 +148,31 @@ describe("HybridSearch - BM25 + Tag + Graph Fusion RAG", () => {
         expect(results.map(result => result.noteName)).toContain("safe-memory");
         expect(results.map(result => result.noteName)).not.toContain("sensitive-memory");
     });
+
+    it("should apply role-specific cognitive memory-kind bias", () => {
+        const content = "memory kind routing repeatable deployment verification";
+        search.indexContent("semantic-memory", content, {
+            memory_kind: "semantic",
+            event_time: "2026-06-19T00:00:00Z",
+            ingestion_time: "2026-06-19T01:00:00Z",
+        });
+        search.indexContent("procedural-memory", content, {
+            memory_kind: "procedural",
+            event_time: "2026-06-19T00:00:00Z",
+            ingestion_time: "2026-06-19T01:00:00Z",
+        });
+
+        expect(search.search("memory kind routing", 2, {
+            lexical: 1,
+            tag: 1,
+            graph: 1,
+            kind: { semantic: 1.2 },
+        })[0].noteName).toBe("semantic-memory");
+        expect(search.search("memory kind routing", 2, {
+            lexical: 1,
+            tag: 1,
+            graph: 1,
+            kind: { procedural: 1.2 },
+        })[0].noteName).toBe("procedural-memory");
+    });
 });

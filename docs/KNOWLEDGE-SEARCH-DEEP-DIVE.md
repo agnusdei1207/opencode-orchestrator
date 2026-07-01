@@ -751,7 +751,7 @@ keep: true                   ← assigned only when importance ≥ 0.9 (PIN_IMPO
 level: "project"
 horizon: "strategic"         ← horizonForLevel("project")
 importance: 0.950
-memory_kind: "fact"          ← decayProfileForLevel(level).kind
+memory_kind: "semantic"      ← decayProfileForLevel(level).kind
 decay_lambda: 0.006          ← decayProfileForLevel(level).lambda (explicit λ)
 session: "sess-001"
 recorded_at: "2026-06-19T10:30:00Z"
@@ -765,7 +765,9 @@ This allows an expiration policy to be applied according to the horizon during m
 
 A generated memory note is **not unconditionally pinned.** If `importance` is below `PIN_IMPORTANCE_THRESHOLD` (`0.9`), the `keep` line is omitted so that the note participates in the Ebbinghaus decay model. This makes the README's "fade when unused" actually apply to generated data as well.
 
-In addition, each level records a valid `memory_kind` and an **explicit** `decay_lambda` via `decayProfileForLevel()` (`project→fact/0.006`, `mission→workflow/0.02`, `task→episode/0.07`). Thanks to the explicit `decay_lambda`, `memoryStrength()` does not fall back to the `0.03` default for unknown kind strings.
+In addition, each level records a cognitive `memory_kind` and an **explicit** `decay_lambda` via `decayProfileForLevel()` (`project→semantic/0.006`, `mission→procedural/0.02`, `task→episodic/0.07`). Thanks to the explicit `decay_lambda`, `memoryStrength()` preserves the shipped decay behavior while retrieval can still apply kind-aware role bias.
+
+Mission completion also writes one coalesced `episodic-*` note per objective. The note captures the ledger evidence trail and increments `episode_count` / `success_count` when the same objective completes again. Opt-in memory maintenance promotes repeated episodes into `semantic-*` and `procedural-*` notes, redacting secrets, timestamps, and session identifiers before writing generalized memory. Original episodic notes are preserved.
 
 **Disk reflection of decay is opt-in.** Tier demotion, archival, and tombstone supersession occur only through `runMemoryMaintenancePass()`, and `CleanupScheduler` runs it on a 6-hour cycle only when `OPENCODE_MEMORY_MAINTENANCE=1` (OFF by default, no physical file movement). Strength weighting at search time (`score × memoryStrength`) is always applied, so even without disk cleanup, decayed memories naturally sink toward the bottom of search results.
 

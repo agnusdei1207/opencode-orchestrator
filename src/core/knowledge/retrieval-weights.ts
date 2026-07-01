@@ -12,11 +12,14 @@
  * behavior unchanged.
  */
 
+import type { MemoryKindWeights } from "./memory-kind.js";
+
 /** Relative multipliers applied to each hybrid-search engine's RRF contribution. */
 export interface EngineWeights {
     lexical: number;
     tag: number;
     graph: number;
+    kind?: MemoryKindWeights;
 }
 
 export const NEUTRAL_WEIGHTS: EngineWeights = { lexical: 1, tag: 1, graph: 1 };
@@ -27,11 +30,11 @@ export const NEUTRAL_WEIGHTS: EngineWeights = { lexical: 1, tag: 1, graph: 1 };
  */
 export const ROLE_WEIGHTS: Record<string, EngineWeights> = {
     // Planner reasons about dependencies/architecture -> favor structure.
-    planner: { lexical: 0.8, tag: 1.1, graph: 1.3 },
+    planner: { lexical: 0.8, tag: 1.1, graph: 1.3, kind: { semantic: 1.15, procedural: 1.05 } },
     // Worker implements concrete changes -> favor exact lexical hits.
-    worker: { lexical: 1.3, tag: 1.0, graph: 0.7 },
+    worker: { lexical: 1.3, tag: 1.0, graph: 0.7, kind: { procedural: 1.2, semantic: 1.05 } },
     // Reviewer needs breadth of evidence -> favor tag/topic coverage.
-    reviewer: { lexical: 1.0, tag: 1.2, graph: 1.0 },
+    reviewer: { lexical: 1.0, tag: 1.2, graph: 1.0, kind: { semantic: 1.1, episodic: 1.05 } },
     // Commander coordinates -> neutral.
     commander: { lexical: 1, tag: 1, graph: 1 },
 };

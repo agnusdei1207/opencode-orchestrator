@@ -123,11 +123,11 @@ independently.
 
 ## 4. DoD
 
-- [ ] `memory_kind` axis present and kind-aware in scoring + retrieval; existing prompt snapshots unchanged.
-- [ ] Mission completion writes exactly one coalesced episodic memory note.
-- [ ] Promotion path redacts run-specific/secret strings before a semantic note is written.
-- [ ] Promotion loop gated on repeat/success thresholds, off by default, originals preserved.
-- [ ] Full suite green (`tsc`/`build`/`test`, `CI=true`).
+- [x] `memory_kind` axis present and kind-aware in scoring + retrieval; existing prompt snapshots unchanged.
+- [x] Mission completion writes exactly one coalesced episodic memory note.
+- [x] Promotion path redacts run-specific/secret strings before a semantic note is written.
+- [x] Promotion loop gated on repeat/success thresholds, off by default, originals preserved.
+- [x] Full suite green (`tsc`/`build`/`test`, `CI=true`).
 
 ---
 

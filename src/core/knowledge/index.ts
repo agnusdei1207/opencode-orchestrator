@@ -16,11 +16,15 @@ export {
     getMissionScratchpadPath,
     syncMissionMemory,
 } from "./mission-memory.js";
+export { syncMissionEpisodeMemory } from "./mission-episode.js";
+export type { CognitiveMemoryKind, MemoryKindWeights } from "./memory-kind.js";
 export { SafetyGuards } from "./safety-guards.js";
 export type { WriteQueue } from "./safety-guards.js";
 export { MemoryConsolidation } from "./memory-consolidation.js";
 export { MemoryLifecycle, runMemoryMaintenance } from "./memory-lifecycle.js";
 export { collectMemoryNotePaths, runMemoryMaintenancePass } from "./memory-maintenance-runner.js";
+export { promoteEpisodicMemories, redactPromotionText } from "./memory-promotion.js";
+export type { MemoryMaintenancePassResult } from "./memory-maintenance-runner.js";
 export type {
     MemoryLayer,
     MemoryLifecyclePlan,

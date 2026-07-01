@@ -136,8 +136,8 @@ The current implementation writes these artifacts through `src/core/knowledge/mi
 Current verified release baseline:
 
 1. Node.js `24+`
-2. `@opencode-ai/plugin` `1.17.9`
-3. `@opencode-ai/sdk` `1.17.9`
+2. `@opencode-ai/plugin` `1.17.12`
+3. `@opencode-ai/sdk` `1.17.12`
 4. GitHub Actions build matrix for Linux x64/arm64, macOS x64/arm64, and Windows x64 in `.github/workflows/release.yml`
 
 Public support links should point to GitHub issues. Package metadata already uses:

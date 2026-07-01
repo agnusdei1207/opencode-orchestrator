@@ -5,6 +5,7 @@ import type { MissionLoopState } from "../../shared/loop/types.js";
 import { readMissionLedger, type MissionLedgerEvent } from "../loop/mission-ledger.js";
 import { getMissionRuntimeOptions } from "../loop/mission-runtime-options.js";
 import { MemoryLevel, MemoryManager, type MemoryEntry } from "../memory/memory-manager.js";
+import { syncMissionEpisodeMemory } from "./mission-episode.js";
 import { horizonForLevel } from "./retrieval-weights.js";
 import { TagIndexer, type FrontmatterData } from "./tag-indexer.js";
 
@@ -58,6 +59,7 @@ export function syncMissionMemory(directory: string, state: MissionLoopState): b
         writeScratchpad(directory, state, events);
         writeCanvas(directory, state, events);
         syncMissionMemoryNotes(directory, state);
+        syncMissionEpisodeMemory(getMissionMemoryNotesDirPath(directory), state, events);
         return true;
     } catch {
         return false;
@@ -142,10 +144,14 @@ function syncMissionMemoryNotes(directory: string, state: MissionLoopState): voi
 
     for (const entry of readdirSync(notesDir, { withFileTypes: true })) {
         if (!entry.isFile() || !entry.name.endsWith(".md")) continue;
-        if (!expectedFiles.has(entry.name)) {
+        if (!expectedFiles.has(entry.name) && isMemoryProjectionNote(entry.name)) {
             unlinkSync(join(notesDir, entry.name));
         }
     }
+}
+
+function isMemoryProjectionNote(fileName: string): boolean {
+    return fileName.startsWith("project-") || fileName.startsWith("mission-") || fileName.startsWith("task-");
 }
 
 function buildCanvasNodes(state: MissionLoopState, events: MissionLedgerEvent[]): CanvasNode[] {
@@ -328,21 +334,20 @@ function numberMeta(value: unknown): number | undefined {
 }
 
 /**
- * Map a memory level to a valid `KIND_DECAY` kind and an explicit per-day decay
- * rate. Writing `decay_lambda` directly keeps `memoryStrength()` from falling
- * back to the generic 0.03 default when `memory_kind` would otherwise be an
- * unrecognized level string (the Finding E regression).
+ * Map a memory level to the cognitive memory-kind axis and an explicit per-day
+ * decay rate. The explicit lambda preserves the shipped level-specific decay
+ * behavior while `memory_kind` now carries the Tulving-style kind.
  */
 function decayProfileForLevel(level: MemoryLevel): { kind: string; lambda: number } {
     switch (level) {
         case MemoryLevel.PROJECT:
-            return { kind: "fact", lambda: 0.006 };
+            return { kind: "semantic", lambda: 0.006 };
         case MemoryLevel.MISSION:
-            return { kind: "workflow", lambda: 0.02 };
+            return { kind: "procedural", lambda: 0.02 };
         case MemoryLevel.TASK:
-            return { kind: "episode", lambda: 0.07 };
+            return { kind: "episodic", lambda: 0.07 };
         default:
-            return { kind: "fact", lambda: 0.03 };
+            return { kind: "semantic", lambda: 0.03 };
     }
 }
 

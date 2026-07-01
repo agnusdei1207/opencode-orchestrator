@@ -8,6 +8,7 @@ vi.mock("../../src/core/agents/logger", () => ({
 }));
 
 import { startMissionLoop, readLoopState } from "../../src/core/loop/mission-loop.js";
+import { appendMissionLedgerEvent } from "../../src/core/loop/mission-ledger.js";
 import { configureMissionRuntimeOptions, DEFAULT_MISSION_RUNTIME_OPTIONS } from "../../src/core/loop/mission-runtime-options.js";
 import { KnowledgeContextProvider } from "../../src/core/knowledge/context-provider.js";
 import { getMissionMemoryNotesDirPath, syncMissionMemory } from "../../src/core/knowledge/mission-memory.js";
@@ -92,7 +93,7 @@ describe("mission memory knowledge integration", () => {
         expect(accessedNote).toContain("last_accessed:");
     });
 
-    it("emits a valid decay profile (memory_kind + decay_lambda) on generated notes", () => {
+    it("emits a cognitive decay profile (memory_kind + decay_lambda) on generated notes", () => {
         MemoryManager.getInstance().add(
             MemoryLevel.MISSION,
             "Mission scoped decision about retrieval grounding workflow.",
@@ -101,7 +102,7 @@ describe("mission memory knowledge integration", () => {
         startMissionLoop(testDir, "decay-profile-session", "Investigate retrieval grounding");
 
         const note = readNoteByPrefix(getMissionMemoryNotesDirPath(testDir), "mission-");
-        expect(note).toContain('memory_kind: "workflow"');
+        expect(note).toContain('memory_kind: "procedural"');
         expect(note).toContain("decay_lambda: 0.02");
         expect(note).not.toContain('memory_kind: "mission"');
     });
@@ -166,11 +167,58 @@ describe("mission memory knowledge integration", () => {
             importance: 0.7,
             confidence: 1,
             access_count: 1,
-            memory_kind: "episode",
+            memory_kind: "episodic",
             decay_lambda: 0.07,
             ingestion_time: "2026-04-22T00:00:00Z",
             last_accessed: "2026-04-22T00:00:00Z",
         };
         expect(memoryStrength(stale, now)).toBeLessThan(0.9);
+    });
+
+    it("coalesces completed missions into one episodic note per objective", () => {
+        const objective = "Adopt cognitive memory kind";
+        const started = startMissionLoop(testDir, "episode-session-1", objective);
+        expect(started).toBe(true);
+        appendMissionLedgerEvent(testDir, {
+            type: "mission_completed",
+            sessionID: "episode-session-1",
+            iteration: 1,
+            objective,
+            summary: "Mission verification passed with ghp_000000000000000000000000000000000000",
+        });
+
+        const state = readLoopState(testDir);
+        if (!state) throw new Error("expected active state");
+        syncMissionMemory(testDir, {
+            ...state,
+            active: false,
+            lastVerificationSummary: "Mission verification passed",
+            lastContinuationReason: "mission_completed",
+        });
+
+        const notesDir = getMissionMemoryNotesDirPath(testDir);
+        const episodicFiles = fs.readdirSync(notesDir).filter(file => file.startsWith("episodic-"));
+        expect(episodicFiles).toHaveLength(1);
+        const firstNote = fs.readFileSync(path.join(notesDir, episodicFiles[0]), "utf8");
+        expect(firstNote).toContain('memory_kind: "episodic"');
+        expect(firstNote).toContain("episode_count: 1");
+
+        appendMissionLedgerEvent(testDir, {
+            type: "mission_completed",
+            sessionID: "episode-session-2",
+            iteration: 1,
+            objective,
+            summary: "Mission verification passed",
+        });
+        syncMissionMemory(testDir, {
+            ...state,
+            sessionID: "episode-session-2",
+            active: false,
+            lastContinuationReason: "mission_completed",
+        });
+
+        const afterFiles = fs.readdirSync(notesDir).filter(file => file.startsWith("episodic-"));
+        expect(afterFiles).toEqual(episodicFiles);
+        expect(fs.readFileSync(path.join(notesDir, afterFiles[0]), "utf8")).toContain("episode_count: 2");
     });
 });

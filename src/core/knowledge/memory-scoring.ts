@@ -18,6 +18,7 @@
  */
 
 import type { FrontmatterData } from "./tag-indexer.js";
+import { decayLambdaForMetadata } from "./memory-kind.js";
 
 export type MemoryLayer = "hot" | "warm" | "cold" | "archive";
 
@@ -26,15 +27,7 @@ export const MIN_MEMORY_STRENGTH = 0.05;
 /** Multiplier applied when a record's `valid_to` is in the past. */
 export const EXPIRED_MEMORY_MULTIPLIER = 0.35;
 
-/** Per-kind exponential decay rate (λ, per day). */
-export const KIND_DECAY: Record<string, number> = {
-    sop: 0.006,
-    workflow: 0.01,
-    fact: 0.018,
-    preference: 0.02,
-    gotcha: 0.03,
-    episode: 0.07,
-};
+export { KIND_DECAY } from "./memory-kind.js";
 
 /** Strength → memory layer thresholds, evaluated in order. */
 export const LAYER_THRESHOLDS: Array<[MemoryLayer, number]> = [
@@ -79,7 +72,7 @@ export function memoryStrength(metadata: FrontmatterData | undefined, now = Date
 
     const lastSeen = timestampMillis(metadata.last_accessed ?? metadata.ingestion_time) ?? now;
     const ageDays = Math.max(0, (now - lastSeen) / 86_400_000);
-    const lambda = numberOr(metadata.decay_lambda, KIND_DECAY[metadata.memory_kind ?? "fact"] ?? 0.03);
+    const lambda = decayLambdaForMetadata(metadata);
     const access = numberOr(metadata.access_ema, numberOr(metadata.access_count, 0));
     const quality = Math.max(0.1, numberOr(metadata.importance, 1) * numberOr(metadata.confidence, 1));
     const reinforcement = 1 + Math.log1p(access) / 4;

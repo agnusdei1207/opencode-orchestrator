@@ -2,109 +2,96 @@
 
 ## Current Task
 
-User requested exhaustive project audit/refactoring, OpenCode SDK/plugin checking 10 times, then commit and push. User then requested installing missing tools if needed, rerunning checks 10 times, upgrading the default Node runtime to 24, and upgrading the apt-managed `/usr/bin/node` package too. Current pass completed: 40, with environment-complete verification rerun and system Node 24 upgrade finished.
+Implement `docs/histories/2026/07/01/PLAN_CognitiveMemoryKindAndEpisodicAdoption_2026-07-01.md`: adopt cognitive memory kinds, add completed-mission episodic memory, promote repeated episodes to semantic/procedural memory, verify OpenCode plugin compatibility, perform plumbing/full audit/refactor passes, then commit, minor release, and push.
 
 ## Last Completed Step
 
-Completed audit pass 40 by deleting an unused shared recovery type compatibility file and keeping recovery constants as the only shared recovery export.
+Completed implementation and verification before commit/release.
 
-- Started from clean `main` aligned with `origin/main`.
-- Reopened `AGENT_MEMORY.md`, `AGENTS.md`, `package.json`, `tsconfig.json`, `vitest.config.ts`, `src/shared/recovery/types.ts`, `src/shared/recovery/index.ts`, `src/shared/recovery/constants.ts`, `src/core/recovery/handler.ts`, `src/core/recovery/auto-recovery.ts`, `src/core/recovery/patterns.ts`, `src/core/recovery/session-recovery.ts`, `src/core/agents/manager/task-launcher.ts`, `src/shared/index.ts`, recovery tests, and OpenCode SDK/plugin integration files.
-- Confirmed `src/core/recovery/handler.ts` owns the real `ErrorContext`, `RecoveryAction`, `RecoveryRecord`, and `RecoveryStats` contracts.
-- Confirmed `src/core/recovery/auto-recovery.ts` re-exports the recovery contracts consumed outside the recovery owner.
-- Confirmed `src/shared/recovery/types.ts` exported a different unused string-union recovery contract and had no consumers outside its own barrel.
-- Removed `export * from "./types.js";` from `src/shared/recovery/index.ts`.
-- Deleted `src/shared/recovery/types.ts`.
-- Pushed commit `1e76a05 refactor: remove unused shared recovery types`.
-- Installed missing verification tooling: `file` via apt and Rust stable toolchain via `rustup default stable`.
-- Verified Node 24 execution through `npx -p node@24`; Node 24 path was used for all post-install JavaScript checks.
-- Reran the full verification bundle 10 times after environment setup; every run passed.
-- Upgraded the shell default Node runtime from `/usr/bin/node` `v22.22.1` to `/usr/local/bin/node` `v24.18.0` using `n`.
-- Verified the project with the default `node` now resolving to Node 24.
-- Added the NodeSource `node_24.x` apt repository and upgraded the apt-managed `nodejs` package from Ubuntu `22.22.1+dfsg+~cs22.19.15-1ubuntu1` to NodeSource `24.18.0-1nodesource1`.
-- Verified `/usr/bin/node` now reports `v24.18.0`.
+- Read `AGENT_MEMORY.md`, the requested plan, package metadata, OpenCode plugin entrypoint, knowledge-memory modules, mission-loop modules, cleanup scheduler, and related tests.
+- Verified current OpenCode plugin usage against official OpenCode plugin and SDK docs plus local `@opencode-ai/plugin` type definitions.
+- Updated `@opencode-ai/plugin` and `@opencode-ai/sdk` to exact `1.17.12` in `package.json` and `package-lock.json`; synchronized compatibility tests and architecture docs.
+- Added cognitive memory kind normalization and decay handling in `src/core/knowledge/memory-kind.ts`.
+- Wired memory kind scoring into lifecycle scoring and hybrid retrieval role weights.
+- Added completed mission episodic memory coalescing in `src/core/knowledge/mission-episode.ts`.
+- Preserved non-projection memory notes while cleaning generated mission memory projections.
+- Added repeated successful episode promotion to semantic/procedural notes in `src/core/knowledge/memory-promotion.ts`.
+- Updated maintenance runner changed-file reporting to include promotion outputs.
+- Routed assistant done-hook mission completion through mission ledger and memory sync before state cleanup.
+- Updated focused tests for dependency compatibility, hybrid search kind bias, maintenance promotion, and mission memory knowledge.
+- Updated knowledge docs and marked the requested plan checklist complete.
+- Reopened changed files and traced affected connections across producer fields, consumers, exports, generated note cleanup, maintenance changed files, mission completion, and tests.
+- Completed five refactor/audit passes:
+  1. Maintenance changed-file contract includes promotion outputs.
+  2. Import/export and function wiring scan for new memory-kind, episode, promotion, and mission completion paths.
+  3. Strengthened changed-file tests for promotion source and generated files.
+  4. Rechecked OpenCode plugin hook surface and default plugin export against local `@opencode-ai/plugin@1.17.12`.
+  5. Ran release dry-run and addressed the only observed transient Rust test failure by direct rerun and full dry-run rerun.
 
 ## Next Exact Step
 
-Start audit pass 41 from current state:
-
-1. Open `AGENT_MEMORY.md`.
-2. Run `git status --branch --short`.
-3. Reopen the pass-41 target files listed below.
-4. Continue compatibility/debt removal from fresh evidence, starting with `src/shared/agent/types.ts`; determine whether its contracts are true shared domain contracts or can be moved into the owning agent modules.
+1. Commit implementation changes.
+2. Run `npm run release:minor` from a clean worktree.
+3. Push `main` and release tags.
+4. Report commit hashes, release result, verification results, and confidence.
 
 ## Incomplete Items And Why
 
-The broader repeated-pass objective remains active beyond this session. Pass 40, the requested OpenCode SDK/plugin checks, the follow-up 10 full verification reruns, the default Node 24 upgrade, and the apt-managed Node 24 upgrade are complete.
+- Commit, actual minor release, publish, and push are not yet complete because this snapshot is written immediately before those steps.
+- One `npm run release:dry-run` attempt observed a transient failure in `tools::lsp::tests::local_tsc_uses_timeout_without_npx_install`; the same test passed when rerun directly, `cargo test --workspace --all-targets --quiet` passed, and a second `npm run release:dry-run` passed.
 
 ## Key Decisions
 
-- Kept recovery runtime contracts in `src/core/recovery/handler.ts` because it creates recovery records, returns recovery actions, records history, and computes recovery stats.
-- Kept the internal `auto-recovery.ts` re-export path because `src/core/agents/manager/task-launcher.ts` consumes `ErrorContext` from that compatibility surface.
-- Deleted `src/shared/recovery/types.ts` instead of moving it because its action shape did not match the real handler action union and no consumer used it.
-- Did not change recovery behavior; this pass removed dead shared exports only.
+- Kept unknown or legacy `memory_kind` values compatible by normalizing known aliases and falling back to neutral scoring.
+- Preserved existing episodic notes and only removed generated projection notes prefixed with `project-`, `mission-`, or `task-`.
+- Used deterministic file names for episodic, semantic, and procedural memory outputs so repeated syncs coalesce instead of duplicating.
+- Kept promotion source episodes intact and generated generalized semantic/procedural notes with secret/session/timestamp redaction.
+- Kept OpenCode dependency pins exact at `1.17.12` because the repo compatibility test checks exact known-good versions.
+- Kept `index.html` synchronized with canonical `public/index.html` after the build script changed it.
 
 ## Rejected Alternatives
 
-- Rejected keeping `src/shared/recovery/types.ts` as a compatibility barrel because it exposed an unused and incompatible recovery action shape.
-- Rejected moving handler contracts into `src/shared/recovery/types.ts` because recovery action production and history ownership live in `core/recovery/handler.ts`.
-- Rejected broad recovery behavior cleanup in the same pass because the goal was a refactor/dead-code removal with behavior unchanged.
+- Rejected deleting or rewriting legacy memory notes during projection cleanup because that would risk user-authored memory loss.
+- Rejected making cognitive kind scoring mandatory because old notes and external memory files may not have migrated metadata.
+- Rejected changing public plugin export shape because official OpenCode docs and local package types still expect a default plugin function.
+- Rejected proceeding after the first release dry-run failure without reproducing or rerunning the failing Rust test.
 
 ## Known Risks
 
-- External unpublished consumers importing `src/shared/recovery/types.ts` must stop using that internal path.
-- Default shell `node`, `npm`, and `npx` resolve to `/usr/local/bin` and report Node `v24.18.0` with npm/npx `11.16.0`.
-- Apt-managed `/usr/bin/node` also reports `v24.18.0`; `apt-cache policy nodejs` shows installed/candidate `24.18.0-1nodesource1`.
-- Remaining type candidates observed with `rg --files src | rg '/interfaces/|/types/index\\.ts$|/types/.*\\.ts$|/types\\.ts$' | sort`: `src/shared/agent/types.ts`, `src/shared/command/types.ts`, `src/shared/loop/types.ts`, `src/shared/notification/os-notify/types.ts`, `src/shared/notification/types.ts`, `src/shared/os/types.ts`, `src/shared/task/types.ts`, `src/shared/tool/types.ts`, and `src/shared/verification/types.ts`.
+- Release publishing still depends on local npm authentication, Docker availability for release artifacts, and remote push permissions.
+- The transient Rust timeout assertion did not reproduce on direct rerun or second dry-run, but it indicates a preexisting timing-sensitive test path.
+- `index.html` is generated/synchronized from `public/index.html`; future edits should change the canonical public file or run the sync script knowingly.
 
 ## Verification Observed
 
-- Initial `npm run build --silent` failed before dependency install because `esbuild` was missing.
-- Initial focused Vitest failed before dependency install because local `vitest/config` was missing.
-- `npm ci` failed in postinstall under Node `v22.22.1` with `ERR_NO_TYPESCRIPT`.
-- `npm ci --ignore-scripts` completed with engine warnings and 0 vulnerabilities.
-- Baseline `npm run build --silent`: passed after dependency install.
-- Baseline focused recovery/plugin tests passed: 5 files and 26 tests.
-- Post-edit `rg -n "shared/recovery/types|\\.\\/types\\.js|RecoveryAction|RecoveryRecord|ErrorContext" src/shared src/core src/plugin-handlers tests -g '*.ts'` showed recovery contracts only in `core/recovery` and task-launcher consumers, with no deleted shared recovery type path.
-- `test ! -e src/shared/recovery/types.ts && echo 'src/shared/recovery/types.ts deleted'`: printed `src/shared/recovery/types.ts deleted`.
-- Post-edit focused recovery/plugin tests passed: 5 files and 26 tests.
-- Post-edit `npm run build --silent`: passed.
-- OpenCode SDK/plugin check loop ran 10 times; each run passed 4 files and 15 tests covering `dependency-compatibility`, `plugin-manager`, `tool-registry`, and `config-handler`.
+- `npm ci`: passed after dependency install.
+- Baseline `npm run build --silent`: passed.
+- Baseline focused tests: 16 files and 84 tests passed.
+- `npm view @opencode-ai/plugin version`: `1.17.12`.
+- `npm view @opencode-ai/sdk version`: `1.17.12`.
+- `npm install @opencode-ai/plugin@1.17.12 @opencode-ai/sdk@1.17.12`: passed with 0 vulnerabilities.
+- `npm install --package-lock-only --ignore-scripts`: passed with 0 vulnerabilities.
+- Focused post-edit tests for knowledge, mission memory/runtime, dependency/plugin/tool/config: passed.
 - `git diff --check`: passed.
-- Full `npx vitest run --reporter=dot`: failed with 2 files failed and 94 passed; observed 11 failed and 795 passed out of 806 tests.
-- `command -v file`: no output; `file bin/orchestrator-linux-x64` failed with `file: command not found`.
-- `node --version`: `v22.22.1`; `node -e "console.log(process.versions.typescript || 'no-typescript-runtime')"` printed `no-typescript-runtime`.
-- `node --experimental-strip-types scripts/postinstall.ts`: failed with `ERR_NO_TYPESCRIPT`.
-- `cargo fmt --check` and `cargo test -p orchestrator-cli -p orchestrator-core --quiet`: failed to start because `cargo` was not found.
-- Final `npm run build --silent`: passed.
-- Follow-up environment check found `cargo` and `rustup` in `/home/agent/.cargo/bin`, but no default Rust toolchain was configured.
-- `sudo apt-get update && sudo apt-get install -y file`: installed `file-5.46`.
-- `rustup default stable`: installed and selected `rustc 1.96.0 (ac68faa20 2026-05-25)`.
-- `npx -y -p node@24 node --version`: printed `v24.18.0`.
-- Tool verification after setup: Node `v24.18.0`, `file-5.46`, `cargo 1.96.0`, and `rustc 1.96.0`.
-- Single environment-complete verification passed: `npm run build --silent`, full `node ./node_modules/vitest/vitest.mjs run --reporter=dot` under Node 24 with 96 files and 806 tests, `cargo fmt --check`, and `cargo test -p orchestrator-cli -p orchestrator-core --quiet` with CLI 12 tests and core 35 tests.
-- Full verification loop ran 10 times after installing missing tools; each run passed `npm run build --silent`, full Vitest under Node 24 with 96 files and 806 tests, `cargo fmt --check`, and `cargo test -p orchestrator-cli -p orchestrator-core --quiet` with CLI 12 tests and core 35 tests.
-- `sudo npm install -g n && sudo n 24.18.0`: installed Node `v24.18.0` to `/usr/local/bin/node` with npm `11.16.0`.
-- `hash -r`, then `which node && node --version`, `which npm && npm --version`, and a fresh `bash -lc` check confirmed default Node `v24.18.0`, npm `11.16.0`, and npx `11.16.0`.
-- `CI=true XDG_CONFIG_HOME="$(mktemp -d)" HOME="$(mktemp -d)" node --experimental-strip-types scripts/postinstall.ts`: passed and skipped plugin registration in CI mode.
-- Default-Node-24 verification passed: `npm run build --silent`, full `node ./node_modules/vitest/vitest.mjs run --reporter=dot` with 96 files and 806 tests, `cargo fmt --check`, and `cargo test -p orchestrator-cli -p orchestrator-core --quiet` with CLI 12 tests and core 35 tests.
-- Before apt-managed upgrade, direct check showed default `node` was `v24.18.0` but `/usr/bin/node` was still `v22.22.1`; `dpkg -S /usr/bin/node` mapped it to package `nodejs`.
-- Ubuntu apt policy initially showed only `nodejs` `22.22.1+dfsg+~cs22.19.15-1ubuntu1`.
-- Downloaded and inspected `https://deb.nodesource.com/setup_24.x`; it configures `https://deb.nodesource.com/node_24.x` with `nodistro` and pins `nodejs` from NodeSource.
-- `sudo bash /tmp/tmp.lSViBi4K23 && sudo apt-get install -y nodejs`: upgraded apt-managed `nodejs` to `24.18.0-1nodesource1`.
-- After apt upgrade, `/usr/bin/node --version`: `v24.18.0`; `apt-cache policy nodejs` showed installed/candidate `24.18.0-1nodesource1`.
-- `/usr/bin/node --experimental-strip-types scripts/postinstall.ts` in CI mode passed.
-- Post-apt-upgrade verification passed: `npm run build --silent`, full `node ./node_modules/vitest/vitest.mjs run --reporter=dot` with 96 files and 806 tests, `cargo fmt --check`, and `cargo test -p orchestrator-cli -p orchestrator-core --quiet` with CLI 12 tests and core 35 tests.
+- `npm run build --silent`: passed.
+- `npx vitest run --reporter=dot`: 96 files and 809 tests passed.
+- `cargo fmt --check`: passed.
+- `cargo test -p orchestrator-cli -p orchestrator-core --quiet`: CLI 12 tests and core 35 tests passed.
+- First `npm run release:dry-run`: failed in `cargo test --workspace --all-targets` at `tools::lsp::tests::local_tsc_uses_timeout_without_npx_install`.
+- `cargo test --workspace --all-targets local_tsc_uses_timeout_without_npx_install -- --nocapture`: passed.
+- `cargo test --workspace --all-targets --quiet`: passed.
+- Second `npm run release:dry-run`: passed.
+- `cmp -s index.html public/index.html`: exit code 0.
 
 ## Files To Open First Next Session
 
 1. `AGENT_MEMORY.md`
 2. `git status --branch --short`
-3. `src/shared/agent/types.ts`
-4. `src/shared/agent/index.ts`
-5. `src/shared/agent/constants.ts`
-6. `src/core/agents/manager.ts`
-7. `src/core/agents/config.ts`
-8. `src/agents/definitions.ts`
-9. `src/shared/index.ts`
-10. relevant tests found by `rg -n "Agent|AGENT_NAMES|shared/agent" tests src -g '*.ts'`
+3. `package.json`
+4. `src/core/knowledge/memory-kind.ts`
+5. `src/core/knowledge/mission-episode.ts`
+6. `src/core/knowledge/memory-promotion.ts`
+7. `src/core/knowledge/memory-maintenance-runner.ts`
+8. `src/core/knowledge/mission-memory.ts`
+9. `src/hooks/features/mission-loop.ts`
+10. `tests/unit/mission-memory-knowledge.test.ts`

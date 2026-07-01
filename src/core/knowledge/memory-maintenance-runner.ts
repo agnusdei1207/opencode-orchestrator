@@ -11,6 +11,11 @@ import { existsSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { getMissionMemoryNotesDirPath } from "./mission-memory.js";
 import { runMemoryMaintenance, type MemoryMaintenanceResult } from "./memory-lifecycle.js";
+import { promoteEpisodicMemories, type MemoryPromotionResult } from "./memory-promotion.js";
+
+export interface MemoryMaintenancePassResult extends MemoryMaintenanceResult {
+    promotions: MemoryPromotionResult;
+}
 
 /** Collect generated memory note paths under the mission memories directory. */
 export function collectMemoryNotePaths(directory: string): string[] {
@@ -32,12 +37,21 @@ export function collectMemoryNotePaths(directory: string): string[] {
 export function runMemoryMaintenancePass(
     directory: string,
     opts: { apply?: boolean; now?: Date } = {},
-): MemoryMaintenanceResult {
-    return runMemoryMaintenance({
+): MemoryMaintenancePassResult {
+    const filePaths = collectMemoryNotePaths(directory);
+    const lifecycleResult = runMemoryMaintenance({
         root: directory,
-        filePaths: collectMemoryNotePaths(directory),
+        filePaths,
         dryRun: !opts.apply,
         applyArchives: false,
         now: opts.now,
     });
+    const promotions = opts.apply
+        ? promoteEpisodicMemories(filePaths, opts.now)
+        : { changedFiles: [], semanticPromotions: [], proceduralPromotions: [] };
+    const changedFiles = Array.from(new Set([
+        ...lifecycleResult.changedFiles,
+        ...promotions.changedFiles,
+    ])).sort();
+    return { ...lifecycleResult, changedFiles, promotions };
 }

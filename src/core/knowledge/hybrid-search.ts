@@ -8,6 +8,7 @@ import type { FrontmatterData } from "./tag-indexer.js";
 import type { GraphParser } from "./graph-parser.js";
 import { type EngineWeights, NEUTRAL_WEIGHTS } from "./retrieval-weights.js";
 import { isPromptSafeMemory, memoryStrength } from "./memory-scoring.js";
+import { memoryKindWeight } from "./memory-kind.js";
 
 /** Unified search result with provenance tracking. */
 export interface SearchResult {
@@ -171,12 +172,17 @@ export class HybridSearch {
         return Array.from(fused.entries())
             .map(([noteName, { score, matchType }]) => ({
                 noteName,
-                score: score * memoryStrength(this.metadataMap.get(noteName)),
+                score: this.weightMemoryScore(noteName, score, weights),
                 matchType,
             }))
             .filter(result => result.score > 0 && isPromptSafeMemory(this.metadataMap.get(result.noteName)))
             .sort((a, b) => b.score - a.score)
             .slice(0, limit);
+    }
+
+    private weightMemoryScore(noteName: string, score: number, weights: EngineWeights): number {
+        const metadata = this.metadataMap.get(noteName);
+        return score * memoryStrength(metadata) * memoryKindWeight(metadata, weights.kind);
     }
 
     /**

@@ -45,6 +45,8 @@ import {
     buildTodoIncompletePrompt,
     buildVerificationSummary,
 } from "../../core/loop/verification.js";
+import { appendMissionLedgerEvent } from "../../core/loop/mission-ledger.js";
+import { syncMissionMemory } from "../../core/knowledge/mission-memory.js";
 import { parallelAgentManager } from "../../core/agents/manager.js";
 
 // OS Notification
@@ -152,7 +154,7 @@ export class MissionControlHook implements AssistantDoneHook, ChatMessageHook {
 
         if (verification.passed) {
             // ✅ Verification PASSED - all tasks done
-            return this.handleMissionComplete(directory, verification);
+            return this.handleMissionComplete(ctx, verification);
         }
 
         // 4. Detect stagnation
@@ -223,8 +225,13 @@ export class MissionControlHook implements AssistantDoneHook, ChatMessageHook {
     // -------------------------------------------------------------------------------
     // 5. Helper: Handle Mission Complete
     // -------------------------------------------------------------------------------
-    private async handleMissionComplete(directory: string, verification: VerificationResult): Promise<HookResult> {
+    private async handleMissionComplete(ctx: HookContext, verification: VerificationResult): Promise<HookResult> {
+        const { directory, sessionID } = ctx;
         log(MISSION_MESSAGES.COMPLETE_LOG + " " + buildVerificationSummary(verification));
+        const loopState = readLoopState(directory);
+        if (loopState?.sessionID === sessionID) {
+            this.syncCompletedMissionMemory(directory, loopState);
+        }
         const cleared = clearLoopState(directory);
         parallelAgentManager.cleanup();
 
@@ -251,6 +258,23 @@ export class MissionControlHook implements AssistantDoneHook, ChatMessageHook {
         }
 
         return { action: HOOK_ACTIONS.STOP, reason: "Mission Verified and Complete" };
+    }
+
+    private syncCompletedMissionMemory(directory: string, state: MissionLoopState): void {
+        const completedState = {
+            ...state,
+            active: false,
+            lastVerificationSummary: "Mission verification passed",
+            lastContinuationReason: "mission_completed",
+        };
+        appendMissionLedgerEvent(directory, {
+            type: "mission_completed",
+            sessionID: state.sessionID,
+            iteration: state.iteration,
+            objective: state.objective,
+            summary: "Mission verification passed",
+        });
+        syncMissionMemory(directory, completedState);
     }
 
     // -------------------------------------------------------------------------------
