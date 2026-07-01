@@ -2,11 +2,11 @@
 
 ## Current Task
 
-Implement `docs/histories/2026/07/01/PLAN_CognitiveMemoryKindAndEpisodicAdoption_2026-07-01.md`: adopt cognitive memory kinds, add completed-mission episodic memory, promote repeated episodes to semantic/procedural memory, verify OpenCode plugin compatibility, perform plumbing/full audit/refactor passes, then commit, minor release, and push.
+Completed `docs/histories/2026/07/01/PLAN_CognitiveMemoryKindAndEpisodicAdoption_2026-07-01.md`: adopted cognitive memory kinds, added completed-mission episodic memory, promoted repeated episodes to semantic/procedural memory, verified OpenCode plugin compatibility, performed plumbing/full audit/refactor passes, committed, published minor release `1.7.0`, and prepared push.
 
 ## Last Completed Step
 
-Completed implementation and verification before commit/release.
+Completed implementation, verification, commit, and release.
 
 - Read `AGENT_MEMORY.md`, the requested plan, package metadata, OpenCode plugin entrypoint, knowledge-memory modules, mission-loop modules, cleanup scheduler, and related tests.
 - Verified current OpenCode plugin usage against official OpenCode plugin and SDK docs plus local `@opencode-ai/plugin` type definitions.
@@ -27,17 +27,19 @@ Completed implementation and verification before commit/release.
   3. Strengthened changed-file tests for promotion source and generated files.
   4. Rechecked OpenCode plugin hook surface and default plugin export against local `@opencode-ai/plugin@1.17.12`.
   5. Ran release dry-run and addressed the only observed transient Rust test failure by direct rerun and full dry-run rerun.
+- Committed implementation as `e02d6c1 feat(memory): adopt cognitive episodic memory`.
+- Ran `npm run release:minor`; release preflight passed, Docker Rust artifacts were rebuilt, release commit was amended to `8f5ffff 1.7.0`, tag `v1.7.0` points at `8f5ffff`, and npm publish returned `+ opencode-orchestrator@1.7.0`.
+- Confirmed `npm view opencode-orchestrator version` returns `1.7.0`.
 
 ## Next Exact Step
 
-1. Commit implementation changes.
-2. Run `npm run release:minor` from a clean worktree.
-3. Push `main` and release tags.
-4. Report commit hashes, release result, verification results, and confidence.
+1. Commit this final memory snapshot.
+2. Push `main` and `v1.7.0`.
+3. Report commit hashes, release result, verification results, and confidence.
 
 ## Incomplete Items And Why
 
-- Commit, actual minor release, publish, and push are not yet complete because this snapshot is written immediately before those steps.
+- Remote push is the only remaining action at the time this snapshot is written.
 - One `npm run release:dry-run` attempt observed a transient failure in `tools::lsp::tests::local_tsc_uses_timeout_without_npx_install`; the same test passed when rerun directly, `cargo test --workspace --all-targets --quiet` passed, and a second `npm run release:dry-run` passed.
 
 ## Key Decisions
@@ -58,7 +60,7 @@ Completed implementation and verification before commit/release.
 
 ## Known Risks
 
-- Release publishing still depends on local npm authentication, Docker availability for release artifacts, and remote push permissions.
+- Remote push still depends on repository write permission and network availability.
 - The transient Rust timeout assertion did not reproduce on direct rerun or second dry-run, but it indicates a preexisting timing-sensitive test path.
 - `index.html` is generated/synchronized from `public/index.html`; future edits should change the canonical public file or run the sync script knowingly.
 
@@ -82,6 +84,8 @@ Completed implementation and verification before commit/release.
 - `cargo test --workspace --all-targets --quiet`: passed.
 - Second `npm run release:dry-run`: passed.
 - `cmp -s index.html public/index.html`: exit code 0.
+- `npm run release:minor`: passed; npm publish returned `+ opencode-orchestrator@1.7.0`.
+- `npm view opencode-orchestrator version`: `1.7.0`.
 
 ## Files To Open First Next Session
 
