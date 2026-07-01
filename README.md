@@ -17,6 +17,7 @@
 - **A mission loop, not a single prompt.** Commander, Planner, Worker, and Reviewer agents share one mission. The runtime — not the model — decides when work is *done*: it adjudicates at the idle boundary, nudges for missing verification, and on stagnation escalates `DECOMPOSE → RE-PLAN → ASK` instead of looping blindly.
 - **Pluggable agent profiles.** Built-in roles plus your own agents defined in `.opencode/agents.json`, with system prompts composed from modular fragments. Retrieval re-weights itself per active role, so a Planner, a Worker, and a Reviewer search the same vault through different lenses.
 - **Local-first, human-like memory.** An on-disk Ebbinghaus model with no external vector DB: notes gain strength when recalled and fade when unused, are *de-referenced rather than deleted* (recoverable), and separate when a fact was true (`event_time`) from when it was learned (`ingestion_time`).
+- **Memory organized the way yours is.** Notes carry a *kind* — **episodic** (what happened on a mission), **semantic** (facts that outlive it), **procedural** (reusable playbooks with failure pivots). Recurring episodes are promoted into facts and procedures, so the agent recognizes what it already learned instead of re-deriving it.
 - **Retrieval by complementary senses.** BM25 lexical + tag + wiki-link graph, fused with Reciprocal Rank Fusion and biased by the active role — and a faded memory naturally sinks while a frequently recalled one rises, so search and memory are one model.
 - **Auditable by design.** A bounded mission ledger, a live scratchpad, and an Obsidian-compatible knowledge-map canvas make every decision and piece of evidence inspectable.
 - **Safe by default.** Disk writes and destructive maintenance are opt-in; sensitive or malicious memories never enter the prompt.
@@ -195,6 +196,18 @@ These are merged with Reciprocal Rank Fusion (RRF), which combines by rank posit
 **Whoever is searching changes the weighting.** Retrieval is role-aware: a Planner leans on graph/tag structure, a Worker on exact lexical hits, a Reviewer on tag breadth (`src/core/knowledge/retrieval-weights.ts`). Swap the active agent profile and the same query is searched through a different blend of senses; custom profiles can be added via `.opencode/agents.json`. Each memory note also carries a relevance `horizon` (strategic / execution / closure) that tunes how long it stays in play.
 
 Forgetting then feeds back into retrieval — the memory-strength multiplier (below) makes a faded memory sink in the ranking while a frequently recalled one rises, so search and memory behave as one retrieval model rather than two systems.
+
+### Three Kinds of Memory — Episodic, Semantic, Procedural
+
+Not all knowledge is the same *kind* of knowledge, so the store doesn't treat it as one undifferentiated pile. Following how human memory is organized, every note carries a kind:
+
+- **Episodic** — *what happened on a mission*: the objective, the sequence of tool actions, and the outcome. Captured automatically at mission completion from the mission ledger, keyed by objective and the files it touched.
+- **Semantic** — *facts that outlive any one mission*: where this repo's auth flow lives, which build step fails without which dependency. Time- and mission-independent.
+- **Procedural** — *how to get something done*: a reusable playbook with prerequisites, commands, verification steps, and — the part that matters most — **failure pivots** (what to try when a step fails).
+
+**Kinds are promoted, not merely stored.** When the same episode recurs, it condenses into a semantic fact; when a sequence of steps succeeds repeatedly, it graduates into a procedure. The agent stops re-deriving what it has already learned and starts *recognizing* it — the way expertise forms. Promotion runs inside the opt-in maintenance pass and strips mission-specific detail (paths, secrets) first, so what gets promoted actually generalizes and no secret is embedded in shared knowledge.
+
+Kind also steers retrieval and forgetting: a Worker reaches for procedures, a Planner for semantic facts, and episodic detail fades fast while procedures stay sticky — which is exactly what the strength model below does.
 
 ### Ebbinghaus-Inspired Memory
 
