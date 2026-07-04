@@ -51,12 +51,6 @@ export const TASK_METADATA = {
  */
 const PARALLEL_LABEL = "parallel";
 
-export const TASK_MODE = {
-    NORMAL: "normal",
-    RACE: "race",       // Speculative execution: First to finish wins
-    FRACTAL: "fractal", // Recursive execution: Task can spawn sub-missions
-} as const;
-
 export const PARALLEL_TASK = {
     // Task lifecycle (24 hours for long tasks)
     TTL_MS: 24 * TIME.HOUR,

@@ -32,7 +32,6 @@ interface TrackerState {
 }
 
 export const DEFAULT_STAGNATION_THRESHOLD = 3;
-export const PROGRESS_GRACE_PERIOD_MS = 5000;
 
 const TRACKER_TTL_MS = 10 * 60 * 1000;
 const PRUNE_INTERVAL_MS = 2 * 60 * 1000;
@@ -231,28 +230,6 @@ export function isStagnant(sessionID: string, threshold: number = DEFAULT_STAGNA
 export function getStagnationCount(sessionID: string): number {
     const state = sessionStates.get(sessionID);
     return state?.stagnationCount ?? 0;
-}
-
-export interface ProgressTracker {
-    trackProgress: typeof trackProgress;
-    resetProgress: typeof resetProgress;
-    clearSession: typeof clearSession;
-    hashTodos: typeof hashTodos;
-    isStagnant: typeof isStagnant;
-    getStagnationCount: typeof getStagnationCount;
-    markInjectionPerformed: typeof markInjectionPerformed;
-}
-
-export function createProgressTracker(): ProgressTracker {
-    return {
-        trackProgress,
-        resetProgress,
-        clearSession,
-        hashTodos,
-        isStagnant,
-        getStagnationCount,
-        markInjectionPerformed,
-    };
 }
 
 startPruneTimer();

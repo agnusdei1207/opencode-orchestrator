@@ -1,7 +1,7 @@
 /**
  * Notification presets
  */
-import { PATHS, STATUS_LABEL, TOAST_DURATION, TOAST_VARIANTS } from "../../shared/index.js";
+import { STATUS_LABEL, TOAST_DURATION, TOAST_VARIANTS } from "../../shared/index.js";
 import { show } from "./toast-core.js";
 
 export const taskStarted = (taskId: string, agent: string) => show({
@@ -25,22 +25,8 @@ export const taskFailed = (taskId: string, error: string) => show({
     duration: 0,
 });
 
-export const allTasksComplete = (count: number) => show({
-    title: "All Tasks Complete",
-    message: `${count} tasks finished successfully`,
-    variant: TOAST_VARIANTS.SUCCESS,
-    duration: 5000,
-});
-
 export const sessionCreated = (sessionId: string, agent: string) => show({
     title: "Session Created",
-    message: `${agent} - ${sessionId.slice(0, 12)}...`,
-    variant: STATUS_LABEL.INFO,
-    duration: TOAST_DURATION.SHORT,
-});
-
-export const sessionResumed = (sessionId: string, agent: string) => show({
-    title: "Session Resumed",
     message: `${agent} - ${sessionId.slice(0, 12)}...`,
     variant: STATUS_LABEL.INFO,
     duration: TOAST_DURATION.SHORT,
@@ -53,60 +39,11 @@ export const sessionCompleted = (sessionId: string, duration: string) => show({
     duration: TOAST_DURATION.MEDIUM,
 });
 
-export const parallelTasksLaunched = (count: number, agents: string[]) => show({
-    title: "Parallel Tasks Launched",
-    message: `${count} tasks: ${agents.join(", ")}`,
-    variant: "info",
-    duration: TOAST_DURATION.DEFAULT,
-});
-
-export const concurrencyAcquired = (agent: string, slot: string) => show({
-    title: "Concurrency Slot",
-    message: `${agent} acquired ${slot}`,
-    variant: "info",
-    duration: TOAST_DURATION.SHORT,
-});
-
-export const concurrencyReleased = (agent: string) => show({
-    title: "Slot Released",
-    message: agent,
-    variant: "info",
-    duration: TOAST_DURATION.EXTRA_SHORT,
-});
-
-export const missionComplete = (summary: string) => show({
-    title: "Mission Complete",
-    message: summary,
-    variant: TOAST_VARIANTS.SUCCESS,
-    duration: 0,
-});
-
 export const missionStarted = (description: string) => show({
     title: "Mission Started",
     message: description.slice(0, 100),
     variant: TOAST_VARIANTS.INFO,
     duration: 4000,
-});
-
-export const toolExecuted = (toolName: string, target: string) => show({
-    title: toolName,
-    message: target.slice(0, 80),
-    variant: "info",
-    duration: TOAST_DURATION.SHORT,
-});
-
-export const documentCached = (filename: string) => show({
-    title: "Document Cached",
-    message: `${PATHS.DOCS}/${filename}`,
-    variant: "info",
-    duration: TOAST_DURATION.SHORT,
-});
-
-export const researchStarted = (topic: string) => show({
-    title: "Research Started",
-    message: topic,
-    variant: "info",
-    duration: TOAST_DURATION.MEDIUM,
 });
 
 export const warningRateLimited = () => show({
@@ -121,13 +58,6 @@ export const errorRecovery = (action: string) => show({
     message: `Attempting: ${action}`,
     variant: "warning",
     duration: TOAST_DURATION.MEDIUM,
-});
-
-export const warningMaxDepth = (depth: number) => show({
-    title: "Max Depth Reached",
-    message: `Recursion blocked at depth ${depth}`,
-    variant: "warning",
-    duration: TOAST_DURATION.LONG,
 });
 
 export const warningMaxRetries = () => show({

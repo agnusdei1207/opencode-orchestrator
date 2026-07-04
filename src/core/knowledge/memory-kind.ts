@@ -2,12 +2,6 @@ import type { FrontmatterData } from "./tag-indexer.js";
 
 export type CognitiveMemoryKind = "episodic" | "semantic" | "procedural";
 
-export const COGNITIVE_MEMORY_KINDS: readonly CognitiveMemoryKind[] = [
-    "episodic",
-    "semantic",
-    "procedural",
-];
-
 export const DEFAULT_MEMORY_DECAY_LAMBDA = 0.03;
 
 /** Per-kind exponential decay rate (lambda, per day). */

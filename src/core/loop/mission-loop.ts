@@ -293,18 +293,3 @@ function normalizeContinuationContext(
         escalate: stagnationCount >= ESCALATION_STAGNATION_THRESHOLD,
     };
 }
-
-/**
- * Generate completion notification
- */
-export function generateCompletionNotification(state: MissionLoopState): string {
-    const duration = new Date().getTime() - new Date(state.startedAt).getTime();
-    const minutes = Math.floor(duration / 60000);
-    const seconds = Math.floor((duration % 60000) / 1000);
-
-    return `🎖️ **MISSION COMPLETE**
-
- - Iterations: ${state.iteration}/${state.maxIterations}
- - Duration: ${minutes}m ${seconds}s
- - Status: Verified`;
-}

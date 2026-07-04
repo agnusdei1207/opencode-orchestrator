@@ -40,17 +40,6 @@ const toasts: ToastMessage[] = [];
 const handlers: Array<(toast: ToastMessage) => void> = [];
 
 /**
- * Register a notification handler
- */
-export function onToast(handler: (toast: ToastMessage) => void): () => void {
-    handlers.push(handler);
-    return () => {
-        const index = handlers.indexOf(handler);
-        if (index > -1) handlers.splice(index, 1);
-    };
-}
-
-/**
  * Show a toast notification (both in TUI and internal storage)
  */
 export function show(options: ToastOptions): ToastMessage {
@@ -128,13 +117,6 @@ export function dismiss(toastId: string): void {
     if (toast) {
         toast.dismissed = true;
     }
-}
-
-/**
- * Get active (non-dismissed) toasts
- */
-export function getActive(): ToastMessage[] {
-    return toasts.filter(t => !t.dismissed);
 }
 
 /**

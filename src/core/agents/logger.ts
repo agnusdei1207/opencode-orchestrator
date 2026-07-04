@@ -9,7 +9,3 @@
 export function log(..._args: unknown[]): void {
     // No-op: Logging disabled for performance
 }
-
-export function getLogPath(): string {
-    return "";
-}

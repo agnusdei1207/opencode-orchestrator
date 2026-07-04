@@ -51,11 +51,6 @@ const sessionStates = new Map<string, MonitorState>();
 // Core Functions
 // ============================================================
 
-// Export for Hooks
-export function getMonitorState(sessionID: string): MonitorState {
-    return getState(sessionID);
-}
-
 function getState(sessionID: string): MonitorState {
     let state = sessionStates.get(sessionID);
     if (!state) {

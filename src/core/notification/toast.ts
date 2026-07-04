@@ -8,7 +8,7 @@
 export type { ToastVariant, ToastMessage, ToastOptions } from "../../shared/index.js";
 
 // Re-export core functions
-export { show, dismiss, getActive, getHistory, clear, onToast, initToastClient } from "./toast-core.js";
+export { show, dismiss, getHistory, clear, initToastClient } from "./toast-core.js";
 
 // Re-export presets
 export * as presets from "./presets.js";

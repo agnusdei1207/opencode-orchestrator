@@ -45,17 +45,6 @@ export const CLI_NAME = {
     SH: "sh",
 } as const;
 
-/**
- * Node Process Events
- */
-export const PROC_EVENT = {
-    CLOSE: "close",
-    ERROR: "error",
-    EXIT: "exit",
-    DATA: "data",
-    MESSAGE: "message",
-    DISCONNECT: "disconnect",
-} as const;
 
 /**
  * ID Prefixes
@@ -392,20 +381,4 @@ export const TODO_CONSTANTS = {
     }
 } as const;
 
-export const TUI_CONSTANTS = {
-    BAR_WIDTH: 30,
-    COLORS: {
-        PROGRESS: "\x1b[36m",
-        AGENT: "\x1b[32m",
-        RESET: "\x1b[0m",
-        BOLD: "\x1b[1m",
-        DIM: "\x1b[2m",
-    },
-    LABELS: {
-        IDLE: "Idle",
-        WAITING: "Waiting for tasks...",
-        PROGRESS_TITLE: "MISSION PROGRESS",
-        AGENT_TITLE: "ACTIVE AGENTS",
-    }
-} as const;
 

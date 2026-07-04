@@ -20,17 +20,6 @@ export const PROMPTS = {
 } as const;
 
 /**
- * Slash Commands (with slash prefix)
- */
-export const SLASH_COMMANDS = {
-    TASK: "/task",
-    PLAN: "/plan",
-    STATUS: "/status",
-    STOP: "/stop",
-    CANCEL: "/cancel",
-} as const;
-
-/**
  * Command Names (without slash prefix, for comparison after parsing)
  */
 export const COMMAND_NAMES = {
