@@ -34,7 +34,7 @@ import { SessionPool } from "./session-pool.js";
 import { getTaskToastManager } from "../notification/task-toast-manager.js";
 import { progressNotifier } from "../progress/progress-notifier.js";
 import { MemoryLevel, MemoryManager } from "../memory/memory-manager.js";
-import { CORE_PHILOSOPHY } from "../../agents/prompts/01_philosophy/core.js";
+import { CORE_PHILOSOPHY } from "../../agents/prompts/shared/philosophy.js";
 import { AgentRegistry } from "./agent-registry.js";
 import { TodoManager } from "../todo/todo-manager.js";
 import type { ConcurrencyConfig } from "./concurrency.js";
