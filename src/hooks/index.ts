@@ -96,11 +96,16 @@ export function initializeHooks() {
         phase: "normal"
     });
 
+    // NOTE: metrics-post must NOT declare a dependency on metrics-pre.
+    // metrics-pre lives in the pre-tool phase array and pre-tool hooks always
+    // run before post-tool hooks by the execution flow, so the ordering is
+    // already guaranteed. validateDependencies only resolves names within the
+    // same phase array, so a cross-phase dependency here throws
+    // "Missing hook dependency: metrics-pre" on every post-tool call (#32).
     registry.registerPostTool(metricsHook, {
         name: "metrics-post",
         priority: 90,
-        phase: "late",
-        dependencies: ["metrics-pre"]
+        phase: "late"
     });
 
     // 4. Register Done Hooks

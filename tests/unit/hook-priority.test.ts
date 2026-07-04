@@ -10,6 +10,7 @@ import {
     type PostToolUseHook,
 } from "../../src/hooks/registry";
 import { HOOK_ACTIONS } from "../../src/hooks/constants";
+import { initializeHooks } from "../../src/hooks/index";
 
 describe("Hook Registry (Priority & Dependencies)", () => {
     let registry: HookRegistry;
@@ -120,6 +121,52 @@ describe("Hook Registry (Priority & Dependencies)", () => {
         registry.registerChat(hook2, { name: "second", priority: 100 });
 
         await expect(registry.executeChat(mockContext, "test")).rejects.toThrow("Abort");
+    });
+
+    it("should not throw a cross-phase dependency error after initializeHooks", async () => {
+        // Regression for #32: metrics-post declared a dependency on metrics-pre,
+        // which lives in the pre-tool phase array. validateDependencies only sees
+        // same-phase names, so every post-tool execution threw
+        // "Missing hook dependency: metrics-pre".
+        initializeHooks();
+
+        const output = { title: "read", output: "file contents", metadata: {} };
+
+        await expect(
+            registry.executePostTool(mockContext, "read", { path: "/tmp/x" }, output)
+        ).resolves.not.toThrow();
+    });
+
+    it("every default hook dependency resolves within its own phase (guards #32-class cross-phase wiring)", () => {
+        // The real defect behind #32 was invisible to the suite because no test
+        // exercised the actual initializeHooks() wiring — only the registry
+        // primitives in isolation. validateDependencies resolves dependency
+        // names ONLY within the same phase array, so any default hook that
+        // depends on a name registered in a different phase silently breaks
+        // every execution of that phase at runtime. Assert that invariant
+        // directly across all four phase arrays.
+        initializeHooks();
+
+        const phases: [string, Array<{ metadata: { name: string; dependencies?: string[] } }>][] = [
+            ["preTool", (registry as any).preToolHooks],
+            ["postTool", (registry as any).postToolHooks],
+            ["chat", (registry as any).chatHooks],
+            ["done", (registry as any).doneHooks],
+        ];
+
+        for (const [phase, regs] of phases) {
+            const namesInPhase = new Set(regs.map((r) => r.metadata.name));
+            for (const reg of regs) {
+                for (const dep of reg.metadata.dependencies || []) {
+                    expect(
+                        namesInPhase.has(dep),
+                        `Hook "${reg.metadata.name}" in phase "${phase}" depends on "${dep}", ` +
+                            `which is not registered in the same phase. validateDependencies ` +
+                            `will throw "Missing hook dependency: ${dep}" on every ${phase} execution.`
+                    ).toBe(true);
+                }
+            }
+        }
     });
 
     it("should preserve empty string output from post-tool hooks", async () => {
