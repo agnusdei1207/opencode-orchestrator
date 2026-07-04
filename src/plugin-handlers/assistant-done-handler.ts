@@ -31,7 +31,7 @@ export async function handleCompletedAssistantMessage(
     session.lastCompletedMessageID = messageID;
 
     const result = await hooks.executeDone(
-        { sessionID, directory, sessions },
+        { sessionID, agent: session.agent, directory, sessions },
         textContent,
     );
 

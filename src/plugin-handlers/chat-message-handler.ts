@@ -39,10 +39,18 @@ export function createChatMessageHandler(ctx: ChatMessageHandlerContext) {
         log("[chat-message-handler] hook triggered", { sessionID, agent: agentName, textLength: originalText.length });
         markUserMessage(sessions, sessionID);
 
+        // Remember which agent owns this session so later phases (post-tool,
+        // assistant-done) can attribute work without re-deriving it.
+        if (agentName) {
+            const session = sessions.get(sessionID);
+            if (session) session.agent = agentName;
+        }
+
         // Execute Chat Hooks
         const hooks = HookRegistry.getInstance();
         const hookContext = {
             sessionID,
+            agent: agentName || undefined,
             directory,
             sessions: sessions as Map<string, unknown>
         };

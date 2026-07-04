@@ -27,6 +27,8 @@ import { registerAllTools } from "./tools/registry.js";
 import { SHUTDOWN_HANDLERS, SESSION_EVENTS, PLUGIN_HOOKS } from "./shared/index.js";
 import { parseOrchestratorPluginOptions } from "./core/config/plugin-options.js";
 import { configureMissionRuntimeOptions } from "./core/loop/mission-runtime-options.js";
+import { shutdownCircuitBreaker } from "./core/loop/circuit-breaker.js";
+import { shutdownCompactionGuard } from "./core/loop/compaction-guard.js";
 
 // Import modularized handlers
 import { createToolExecuteBeforeHandler } from "./plugin-handlers/tool-execute-pre-handler.js";
@@ -120,6 +122,10 @@ const OrchestratorPlugin: Plugin = async (input, options) => {
     shutdownManager.register(SHUTDOWN_HANDLERS.PLUGIN_MANAGER, async () => {
         await pluginManager.shutdown().catch(() => {});
     }, 40);
+    // Module-load prune timers + per-session state that would otherwise leak
+    // on plugin dispose/hot-reload (both intervals .unref(), so low impact).
+    shutdownManager.register(SHUTDOWN_HANDLERS.CIRCUIT_BREAKER, () => shutdownCircuitBreaker(), 45);
+    shutdownManager.register(SHUTDOWN_HANDLERS.COMPACTION_GUARD, () => shutdownCompactionGuard(), 45);
 
     // =========================================================================
     // Create Handler Contexts

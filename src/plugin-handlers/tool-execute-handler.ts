@@ -52,6 +52,7 @@ export function createToolExecuteAfterHandler(ctx: ToolExecuteHandlerContext) {
         await hooks.executePostTool(
             {
                 sessionID: toolInput.sessionID,
+                agent: session.agent,
                 directory,
                 sessions
             },

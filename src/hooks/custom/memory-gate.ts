@@ -85,7 +85,8 @@ export class MemoryGateHook implements PostToolUseHook, AssistantDoneHook {
             const importance = finalText.includes(KEYWORDS.ERROR) ? IMPORTANCE.CRITICAL : IMPORTANCE.HIGH;
             const summary = finalText.length > 500 ? finalText.substring(0, 500) + "..." : finalText;
 
-            this.memoryManager.add(MemoryLevel.MISSION, `Agent [${context.agent}] turn summary: ${summary}`, importance);
+            const agent = context.agent ?? "unknown";
+            this.memoryManager.add(MemoryLevel.MISSION, `Agent [${agent}] turn summary: ${summary}`, importance);
         }
 
         return { action: HOOK_ACTIONS.CONTINUE };

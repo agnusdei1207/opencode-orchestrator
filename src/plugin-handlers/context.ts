@@ -9,6 +9,8 @@ export type OpencodeClient = PluginInput["client"];
 
 export interface PluginSessionState {
     active: boolean;
+    /** Agent that owns this session (lowercased), captured from chat.message. */
+    agent?: string;
     step: number;
     timestamp: number;
     startTime: number;

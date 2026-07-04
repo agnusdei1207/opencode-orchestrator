@@ -314,6 +314,12 @@ export const SHUTDOWN_HANDLERS = {
 
     /** PluginManager - Manages dynamic plugin lifecycle */
     PLUGIN_MANAGER: "PluginManager",
+
+    /** CircuitBreaker - Prune timer + per-session breaker state */
+    CIRCUIT_BREAKER: "CircuitBreaker",
+
+    /** CompactionGuard - Prune timer + per-session compaction state */
+    COMPACTION_GUARD: "CompactionGuard",
 } as const;
 
 /** Type for shutdown handler names */

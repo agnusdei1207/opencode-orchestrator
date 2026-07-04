@@ -30,6 +30,7 @@ export function createToolExecuteBeforeHandler(ctx: ToolExecuteHandlerContext) {
         const result = await hooks.executePreTool(
             {
                 sessionID: toolInput.sessionID,
+                agent: session.agent,
                 directory,
                 sessions,
             },
