@@ -12,6 +12,7 @@ import { composePrompt } from "./prompts/registry.js";
 import {
    // Common
    CORE_PHILOSOPHY,
+   ROLE_MATRIX,
    ENVIRONMENT_DISCOVERY,
    ANTI_HALLUCINATION_CORE,
    TODO_RULES,
@@ -21,12 +22,12 @@ import {
    SHARED_WORKSPACE,
    // Commander-specific
    COMMANDER_ROLE,
-   COMMANDER_IDENTITY,
    COMMANDER_FORBIDDEN,
    COMMANDER_REQUIRED,
    SEARCH_TOOLS,
    COMMANDER_EXECUTION,
    COMMANDER_PARALLEL,
+   HYPER_PARALLEL_ENFORCEMENT,
    DELEGATION_RULES,
    COMMANDER_TODO_FORMAT,
    // Loop & sync handling
@@ -39,18 +40,22 @@ import {
 } from "./prompts/index.js";
 
 /**
- * Compose Commander system prompt from modular fragments
+ * Compose Commander system prompt from modular fragments.
+ * Sections tagged verbose are dropped under the `compact` profile.
  */
 const systemPrompt = composePrompt([
    CORE_PHILOSOPHY,
    COMMANDER_ROLE,
-   COMMANDER_IDENTITY,
+   ROLE_MATRIX,
    COMMANDER_FORBIDDEN,
    COMMANDER_REQUIRED,
    ENVIRONMENT_DISCOVERY,
    SEARCH_TOOLS,
    COMMANDER_EXECUTION,
    COMMANDER_PARALLEL,
+   // HPFA is Commander-only: it mandates parallel spawning, which terminal
+   // agents are forbidden to do.
+   { body: HYPER_PARALLEL_ENFORCEMENT, verbose: true },
    DELEGATION_RULES,
    TODO_RULES,
    COMMANDER_TODO_FORMAT,
@@ -58,8 +63,8 @@ const systemPrompt = composePrompt([
    COMMANDER_LOOP_CONTINUATION,
    COMMANDER_SYNC_HANDLING,
    COMMANDER_RECOVERY,
-   SHARED_LSP_TOOLS,
-   SHARED_AST_TOOLS,
+   { body: SHARED_LSP_TOOLS, verbose: true },
+   { body: SHARED_AST_TOOLS, verbose: true },
    SHARED_WORKSPACE,
    ANTI_HALLUCINATION_CORE,
    COMPLETION_CONDITIONS,

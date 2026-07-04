@@ -1,6 +1,11 @@
 import { AGENT_NAMES, PATHS, WORK_STATUS } from "../../../shared/index.js";
 
 export const MISSION_STATUS_FORMAT = `
+## MISSION STATUS TRACKING
+
+At the END of every loop iteration, OVERWRITE ${PATHS.STATUS} with the template
+below (no history — current state only). The next loop iteration reads it first.
+
 # Mission Status
 
 ## Progress

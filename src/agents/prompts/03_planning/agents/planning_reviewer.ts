@@ -26,18 +26,19 @@ The completion state MUST propagate from the innermost subtasks up to the root g
 ## Update Example (Recursive Resolution)
 BEFORE:
 \`\`\`markdown
-## P1.2: [Implementation Block] | status: ${WORK_STATUS.TODO_STATUS.IN_PROGRESS}
-#### P1.2.1: [Sub-module A]
-- [ ] T1.2.1.1: [Draft code] | size:M
-- [x] T1.2.1.2: [Tests for A] | ${WORK_STATUS.TODO_STATUS.VERIFIED}
+## M1: [Milestone] | status: ${WORK_STATUS.TODO_STATUS.IN_PROGRESS}
+### T1.2: [Implementation Block] | status: ${WORK_STATUS.TODO_STATUS.IN_PROGRESS}
+#### T1.2.1: [Sub-module A]
+- [ ] S1.2.1.1: [Draft code] | size:M
+- [x] S1.2.1.2: [Tests for A] | ${WORK_STATUS.TODO_STATUS.VERIFIED}
 \`\`\`
 
-AFTER (T1.2.1.1 verified):
+AFTER (S1.2.1.1 verified):
 \`\`\`markdown
-## P1.2: [Implementation Block] | status: ${WORK_STATUS.TODO_STATUS.IN_PROGRESS}
-#### P1.2.1: [Sub-module A] | status: ${WORK_STATUS.TODO_STATUS.COMPLETE}
-- [x] T1.2.1.1: [Draft code] | ${WORK_STATUS.TODO_STATUS.VERIFIED}
-- [x] T1.2.1.2: [Tests for A] | ${WORK_STATUS.TODO_STATUS.VERIFIED}
+### T1.2: [Implementation Block] | status: ${WORK_STATUS.TODO_STATUS.IN_PROGRESS}
+#### T1.2.1: [Sub-module A] | status: ${WORK_STATUS.TODO_STATUS.COMPLETE}
+- [x] S1.2.1.1: [Draft code] | ${WORK_STATUS.TODO_STATUS.VERIFIED}
+- [x] S1.2.1.2: [Tests for A] | ${WORK_STATUS.TODO_STATUS.VERIFIED}
 \`\`\`
 
 ## FORBIDDEN

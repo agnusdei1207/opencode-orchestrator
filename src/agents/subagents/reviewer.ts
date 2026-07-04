@@ -11,6 +11,7 @@ import type { AgentDefinition } from "../../shared/agent/index.js";
 import { composePrompt } from "../prompts/registry.js";
 import {
     // Common (no philosophy - Commander handles that)
+    ROLE_MATRIX,
     SHARED_WORKSPACE,
     VERIFICATION_REQUIREMENTS,
     // Reviewer-specific
@@ -24,23 +25,24 @@ import {
     REVIEWER_ASYNC_MONITORING,
     REVIEWER_INTEGRATION_TESTING,
     REVIEWER_SYNC_VERIFICATION,
-    // LSP Tools
+    // LSP Tools (Reviewer-specific gatekeeper workflow; SHARED_LSP_TOOLS
+    // would duplicate the same diagnostics rule)
     REVIEWER_LSP_TOOLS,
     // Advanced Tools
-    SHARED_LSP_TOOLS,
     SHARED_AST_TOOLS,
     MODULARITY_ENFORCEMENT,
-    HYPER_PARALLEL_ENFORCEMENT,
 } from "../prompts/index.js";
 
 /**
- * Compose Reviewer system prompt from modular fragments
- * NOTE: No CORE_PHILOSOPHY - Commander holds the philosophy and delegates clear tasks
+ * Compose Reviewer system prompt from modular fragments.
+ * NOTE: No CORE_PHILOSOPHY - Commander holds the philosophy and delegates clear tasks.
+ * NOTE: No HPFA - Reviewer is a terminal agent and must not be told to spawn in parallel.
+ * Sections tagged verbose are dropped under the `compact` profile.
  */
 const systemPrompt = composePrompt([
     REVIEWER_ROLE,
-    MODULARITY_ENFORCEMENT,
-    HYPER_PARALLEL_ENFORCEMENT,
+    ROLE_MATRIX,
+    { body: MODULARITY_ENFORCEMENT, verbose: true },
     REVIEWER_FORBIDDEN,
     REVIEWER_REQUIRED,
     REVIEWER_VERIFICATION,
@@ -51,8 +53,7 @@ const systemPrompt = composePrompt([
     REVIEWER_INTEGRATION_TESTING,
     REVIEWER_SYNC_VERIFICATION,
     REVIEWER_LSP_TOOLS,
-    SHARED_LSP_TOOLS,
-    SHARED_AST_TOOLS,
+    { body: SHARED_AST_TOOLS, verbose: true },
     EVIDENCE_FORMAT,
     SHARED_WORKSPACE,
 ]);

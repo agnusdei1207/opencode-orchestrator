@@ -37,7 +37,7 @@ ${PATHS.OPENCODE}/
 - Status: ${WORK_STATUS.STATUS.PENDING} | ${WORK_STATUS.STATUS.IN_PROGRESS} | ${WORK_STATUS.STATUS.DONE}
 - Test: ${WORK_STATUS.TEST_RESULT.PASS} | ${WORK_STATUS.TEST_RESULT.FAIL}
 
-## ${PATHS.WORK_LOG} FORMAT:
+## ${PATHS.WORK_LOG} FORMAT (canonical — every agent uses THIS schema):
 \`\`\`markdown
 # Work Log
 
@@ -45,14 +45,16 @@ ${PATHS.OPENCODE}/
 - [ ] ${ID_PREFIX.SESSION}1 (${AGENT_NAMES.WORKER}): \`src/auth/login.ts\` - ${WORK_STATUS.STATUS.IN_PROGRESS}
 - [x] ${ID_PREFIX.SESSION}2 (${AGENT_NAMES.WORKER}): \`src/utils/hash.ts\` - ${WORK_STATUS.SESSION.COMPLETED}
 
-## Completed Units (Ready for Integration)
-| File | Session | Unit Test | Timestamp |
-|------|---------|-----------|-----------|
-| src/utils/hash.ts | ${ID_PREFIX.SESSION}2 | ${WORK_STATUS.TEST_RESULT.PASS} | 2026-01-18T09:00:00 |
+## File Status
+| File | Action | Status | Session | Unit Test | Timestamp | Issue |
+|------|--------|--------|---------|-----------|-----------|-------|
+| src/utils/hash.ts | ${WORK_STATUS.ACTION.CREATE} | ${WORK_STATUS.STATUS.DONE} | ${ID_PREFIX.SESSION}2 | ${WORK_STATUS.TEST_RESULT.PASS} | 2026-01-18T09:00:00 | - |
+| src/auth/login.ts | ${WORK_STATUS.ACTION.CREATE} | ${WORK_STATUS.STATUS.IN_PROGRESS} | ${ID_PREFIX.SESSION}1 | - | - | - |
 
 ## Pending Integration
 - src/utils/hash.ts
 \`\`\`
+(The Issue column holds a ${ID_PREFIX.SYNC_ISSUE}N reference when the row is a sync fix, otherwise "-".)
 
 ## PATH NOTES:
 - File paths use forward slash '/' in examples

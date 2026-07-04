@@ -6,8 +6,8 @@
 
 import { PROMPT_TAGS } from "../../../shared/index.js";
 
-export const MODULARITY_ENFORCEMENT = `${PROMPT_TAGS.QUALITY_CHECKLIST.open}
-🏗️ UNIVERSAL ARCHITECTURAL MODULARITY (Language-Agnostic)
+export const MODULARITY_ENFORCEMENT = `${PROMPT_TAGS.MODULARITY.open}
+UNIVERSAL ARCHITECTURAL MODULARITY (Language-Agnostic)
 
 To maintain a scalable and maintainable codebase, follow these structural principles regardless of the programming language:
 
@@ -31,4 +31,4 @@ If a single unit of code (file or module) starts to handle multiple distinct con
 ### 4. Code "Mass" Limits
 -   Keep individual files concise and focused on a single responsibility. 
 -   If you have to scroll through "screens of code" to find a different type of logic, it belongs in a new file or sub-folder.
-${PROMPT_TAGS.QUALITY_CHECKLIST.close}`;
+${PROMPT_TAGS.MODULARITY.close}`;

@@ -11,6 +11,7 @@ import type { AgentDefinition } from "../../shared/agent/index.js";
 import { composePrompt } from "../prompts/registry.js";
 import {
     // Common (no philosophy - Commander handles that)
+    ROLE_MATRIX,
     ANTI_HALLUCINATION_CORE,
     SHARED_WORKSPACE,
     VERIFICATION_REQUIREMENTS,
@@ -25,24 +26,23 @@ import {
     WORKER_ISOLATION_TESTING,
     // File assignment
     WORKER_FILE_ASSIGNMENT,
-    // LSP Tools
-    WORKER_LSP_TOOLS,
     // Advanced Tools
     SHARED_LSP_TOOLS,
     SHARED_AST_TOOLS,
     MODULARITY_ENFORCEMENT,
-    HYPER_PARALLEL_ENFORCEMENT,
     SKILLS_CAPABILITIES,
 } from "../prompts/index.js";
 
 /**
- * Compose Worker system prompt from modular fragments
- * NOTE: No CORE_PHILOSOPHY - Commander holds the philosophy and delegates clear tasks
+ * Compose Worker system prompt from modular fragments.
+ * NOTE: No CORE_PHILOSOPHY - Commander holds the philosophy and delegates clear tasks.
+ * NOTE: No HPFA - Worker is a terminal agent and must not be told to spawn in parallel.
+ * Sections tagged verbose are dropped under the `compact` profile.
  */
 const systemPrompt = composePrompt([
     WORKER_ROLE,
-    MODULARITY_ENFORCEMENT,
-    HYPER_PARALLEL_ENFORCEMENT,
+    ROLE_MATRIX,
+    { body: MODULARITY_ENFORCEMENT, verbose: true },
     WORKER_FORBIDDEN,
     WORKER_REQUIRED,
     ANTI_HALLUCINATION_CORE,
@@ -53,10 +53,9 @@ const systemPrompt = composePrompt([
     // TDD-based isolated work
     WORKER_TDD_WORKFLOW,
     WORKER_ISOLATION_TESTING,
-    WORKER_LSP_TOOLS,
     SHARED_LSP_TOOLS,
-    SHARED_AST_TOOLS,
-    SKILLS_CAPABILITIES,
+    { body: SHARED_AST_TOOLS, verbose: true },
+    { body: SKILLS_CAPABILITIES, verbose: true },
     VERIFICATION_REQUIREMENTS,
     SHARED_WORKSPACE,
 ]);

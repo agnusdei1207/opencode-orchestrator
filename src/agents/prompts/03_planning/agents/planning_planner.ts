@@ -7,18 +7,20 @@ import { AGENT_NAMES, PATHS, PROMPT_TAGS, WORK_STATUS } from "../../../../shared
 export const PLANNER_TODO_FORMAT = `${PROMPT_TAGS.PLANNING_FORMAT.open}
 OUTPUT TO: ${PATHS.TODO}
 
-## Hierarchical Task Decomposition
+## Hierarchical Task Decomposition (Canonical M/T/S Schema)
 Break down the complex request into as many levels as needed to achieve atomic work units.
-Each level must be clearly indented and uniquely numbered.
+Use the SAME schema all agents share: **M**ilestone → **T**ask → **S**ubtask.
 
-### Level N - Parent Task/Epic/Story
-- Represents a high-level goal or a logical grouping of work.
-- Status: ${WORK_STATUS.TODO_STATUS.PENDING} | [dependencies]
-- **COMPLETION RULE**: Satisfied only when ALL child tasks are marked as [x].
+### M — Milestone (Grade 1): \`## M[N]\`
+- High-level phase of the mission.
+- **COMPLETION RULE**: Satisfied only when ALL child tasks are marked [x].
 
-### Level N+1 - Actionable Subtasks
-- Represents specific, atomic actions (15-60 min).
-- Format: \`- [ ] ID: [description] | agent:[Name] | [metadata]\`
+### T — Task (Grade 2): \`### T[N.N]\` (nest deeper as \`#### T[N.N.N]\` when needed)
+- Feature or module grouping. Status: ${WORK_STATUS.TODO_STATUS.PENDING} | [dependencies]
+
+### S — Subtask (Grade 3, leaf): \`- [ ] S[id]: ...\`
+- Specific, atomic actions (15-60 min).
+- Format: \`- [ ] S[id]: [description] | agent:[Name] | [metadata]\`
 - Metadata options: \`depends:[ID]\`, \`file:[path]\`, \`size:[XS/S/M/L]\`
 
 ## Template Example
@@ -28,23 +30,23 @@ Each level must be clearly indented and uniquely numbered.
 ## Project Context
 ...
 
-## G1: [The Goal] | status: ${WORK_STATUS.TODO_STATUS.PENDING}
-### P1.1: [Feature Project] | agent:${AGENT_NAMES.PLANNER}
-- [ ] T1.1.1: [Atomic Research] | size:S
-- [ ] T1.1.2: [Detailed Design] | size:M
+## M1: [First Milestone] | status: ${WORK_STATUS.TODO_STATUS.PENDING}
+### T1.1: [Research & Design] | agent:${AGENT_NAMES.PLANNER}
+- [ ] S1.1.1: [Atomic Research] | size:S
+- [ ] S1.1.2: [Detailed Design] | size:M
 
-### P1.2: [Implementation Block] | agent:${AGENT_NAMES.WORKER} | depends:P1.1
-#### P1.2.1: [Sub-module A]
-- [ ] T1.2.1.1: [Draft code] | file:src/a.ts | size:M
-- [ ] T1.2.1.2: [Tests for A] | file:tests/a.test.ts | size:S
+### T1.2: [Implementation Block] | agent:${AGENT_NAMES.WORKER} | depends:T1.1
+#### T1.2.1: [Sub-module A]
+- [ ] S1.2.1.1: [Draft code] | file:src/a.ts | size:M
+- [ ] S1.2.1.2: [Tests for A] | file:tests/a.test.ts | size:S
 
-#### P1.2.2: [Sub-module B] | depends:P1.2.1
-- [ ] T1.2.2.1: [Draft code] | file:src/b.ts | size:M
-- [ ] T1.2.2.2: [Tests for B] | file:tests/b.test.ts | size:S
+#### T1.2.2: [Sub-module B] | depends:T1.2.1
+- [ ] S1.2.2.1: [Draft code] | file:src/b.ts | size:M
+- [ ] S1.2.2.2: [Tests for B] | file:tests/b.test.ts | size:S
 
-### P1.3: [Final Quality Pass] | agent:${AGENT_NAMES.REVIEWER} | depends:P1.2
-- [ ] T1.3.1: [Visual E2E] | size:M
-- [ ] T1.3.2: [Release Build] | size:S
+### T1.3: [Final Quality Pass] | agent:${AGENT_NAMES.REVIEWER} | depends:T1.2
+- [ ] S1.3.1: [Visual E2E] | size:M
+- [ ] S1.3.2: [Release Build] | size:S
 \`\`\`
 
 ## Planning Rules

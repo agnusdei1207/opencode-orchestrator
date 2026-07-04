@@ -20,11 +20,11 @@ cat ${PATHS.TODO}           # Task list
 \`\`\`
 
 ### Step 2: Add Fix Tasks
-Add NEW subtasks for sync fixes:
+Add NEW subtasks for sync fixes under the current milestone (canonical M/T/S schema):
 \`\`\`markdown
-### T3: Sync Fixes | parallel-group:3
-- [ ] S3.1: ${WORK_STATUS.ACTION.FIX} \`src/auth/login.ts\` | issue:${ID_PREFIX.SYNC_ISSUE}1
-- [ ] S3.2: ${WORK_STATUS.ACTION.FIX} \`src/api/users.ts\` | issue:${ID_PREFIX.SYNC_ISSUE}1
+### T1.3: Sync Fixes | parallel-group:3
+- [ ] S1.3.1: ${WORK_STATUS.ACTION.FIX} \`src/auth/login.ts\` | issue:${ID_PREFIX.SYNC_ISSUE}1
+- [ ] S1.3.2: ${WORK_STATUS.ACTION.FIX} \`src/api/users.ts\` | issue:${ID_PREFIX.SYNC_ISSUE}1
 \`\`\`
 
 ---

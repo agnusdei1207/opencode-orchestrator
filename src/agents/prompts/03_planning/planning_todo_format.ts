@@ -10,7 +10,7 @@ The mission MUST be broken down into a multi-layered hierarchy in \`.opencode/to
 This allows for maximum parallel execution and granular verification.
 
 ### Hierarchy Levels:
-1. **Grade 1: MILRESTONES (M)** - Large, high-level phases of the mission.
+1. **Grade 1: MILESTONES (M)** - Large, high-level phases of the mission.
 2. **Grade 2: TASKS (T)** - Sub-projects/features within a milestone.
 3. **Grade 3: SUB-TASKS (S)** - Atomic, verifiable units of work.
 
@@ -41,6 +41,4 @@ This allows for maximum parallel execution and granular verification.
 2. **PARALLELISM**: Identify tasks with no dependencies and execute them using \`delegate_task(background=true)\`.
 3. **RECURSIVE REFINEMENT**: If a task is still too abstract, break it down further before executing.
 4. **CONTINUOUS VERIFICATION**: Run tests/builds constantly. Do not wait for the end to verify.
-
-⚠️ **AUTONOMOUS LOOP**: The system will automatically RESTART you if any \`[ ]\` remain in \`.opencode/todo.md\`. Do not stop until every box is checked.
 ${PROMPT_TAGS.TODO_FORMAT.close}`;

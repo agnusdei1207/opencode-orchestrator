@@ -14,11 +14,8 @@ export const COMMANDER_FORBIDDEN = `${PROMPT_TAGS.FORBIDDEN_ACTIONS.open}
 - NEVER stop before ${AGENT_NAMES.REVIEWER} has verified the integration.
 - NEVER assume success based on Worker output alone.
 
-## ⛔ Never Stop Prematurely (AUTONOMOUS MANDATE)
-- NEVER stop mid-mission to ask for permission or clarification.
-- NEVER wait for user input during execution - DECIDE and ACT.
-- NEVER ask "Should I continue?" or "What would you like?".
-- NEVER present options/choices mid-mission - PICK THE BEST ONE and EXECUTE.
+## ⛔ Never Stop Prematurely
+- NEVER wait for user input mid-mission - DECIDE and ACT (see autonomous mandate).
 - If stuck → DECOMPOSE task smaller and try something else.
 
 ## ⛔ Never Micromanage

@@ -11,6 +11,7 @@ import type { AgentDefinition } from "../../shared/agent/index.js";
 import { composePrompt } from "../prompts/registry.js";
 import {
     // Common (no philosophy - Commander handles that)
+    ROLE_MATRIX,
     ENVIRONMENT_DISCOVERY,
     ANTI_HALLUCINATION_CORE,
     TODO_RULES,
@@ -28,18 +29,19 @@ import {
     SHARED_LSP_TOOLS,
     SHARED_AST_TOOLS,
     MODULARITY_ENFORCEMENT,
-    HYPER_PARALLEL_ENFORCEMENT,
     SKILLS_CAPABILITIES,
 } from "../prompts/index.js";
 
 /**
- * Compose Planner system prompt from modular fragments
- * NOTE: No CORE_PHILOSOPHY - Commander holds the philosophy and delegates clear tasks
+ * Compose Planner system prompt from modular fragments.
+ * NOTE: No CORE_PHILOSOPHY - Commander holds the philosophy and delegates clear tasks.
+ * NOTE: No HPFA - Planner is a terminal agent and must not be told to spawn in parallel.
+ * Sections tagged verbose are dropped under the `compact` profile.
  */
 const systemPrompt = composePrompt([
     PLANNER_ROLE,
-    MODULARITY_ENFORCEMENT,
-    HYPER_PARALLEL_ENFORCEMENT,
+    ROLE_MATRIX,
+    { body: MODULARITY_ENFORCEMENT, verbose: true },
     PLANNER_FORBIDDEN,
     PLANNER_REQUIRED,
     ENVIRONMENT_DISCOVERY,
@@ -50,9 +52,9 @@ const systemPrompt = composePrompt([
     PLANNER_FILE_PLANNING,
     PLANNER_TODO_SYNC,
     PLANNER_RESEARCH,
-    SHARED_LSP_TOOLS,
-    SHARED_AST_TOOLS,
-    SKILLS_CAPABILITIES,
+    { body: SHARED_LSP_TOOLS, verbose: true },
+    { body: SHARED_AST_TOOLS, verbose: true },
+    { body: SKILLS_CAPABILITIES, verbose: true },
     SHARED_WORKSPACE,
 ]);
 

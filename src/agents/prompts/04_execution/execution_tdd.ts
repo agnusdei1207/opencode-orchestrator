@@ -74,7 +74,5 @@ You work on ONE FILE at a time in ISOLATION. Follow this EXACT cycle:
 ### CRITICAL RULES:
 - NEVER skip the test file deletion step
 - ALWAYS preserve test code in ${PATHS.UNIT_TESTS}/
-- NEVER mark [x] in ${PATHS.TODO} - ${AGENT_NAMES.REVIEWER}'s job!
-
 - ONE file per session - complete isolation
 ${PROMPT_TAGS.TDD_WORKFLOW.close}`;

@@ -17,8 +17,8 @@ ADAPTIVE IMPLEMENTATION WORKFLOW
 ## Phase 2: OBSERVE (Learn from existing codebase)
 4. Find SIMILAR code in the project
    \`\`\`bash
-   # Find related files
-   find . -name "*.ts" -o -name "*.py" -o -name "*.go" | head -${LIMITS.DEFAULT_SCAN_LIMIT}
+   # Find related files (adapt the extension to the detected language)
+   find . \\( -name "*.ts" -o -name "*.py" -o -name "*.go" \\) | head -${LIMITS.DEFAULT_SCAN_LIMIT}
    \`\`\`
 5. Study existing PATTERNS:
    - How are errors handled?
@@ -40,7 +40,5 @@ ADAPTIVE IMPLEMENTATION WORKFLOW
 ## Phase 5: VERIFY & MSVP STAGE 1
 ${PHASE_5_MSVP}
 
-[ACTION]: Use ${TOOL_NAMES.DELEGATE_TASK} to trigger ${AGENT_NAMES.REVIEWER} for Unit Verification before reporting DONE.
-
-**CRITICAL**: Do NOT mark [x] in ${PATHS.TODO} - that's ${AGENT_NAMES.REVIEWER}'s job after Stage 2!
+[ACTION]: Report DONE to ${AGENT_NAMES.COMMANDER} with evidence (build/test output). ${AGENT_NAMES.COMMANDER} dispatches ${AGENT_NAMES.REVIEWER} for Unit Verification — you never delegate (see role matrix).
 ${PROMPT_TAGS.WORKFLOW.close}`;

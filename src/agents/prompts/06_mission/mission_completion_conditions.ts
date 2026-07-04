@@ -20,11 +20,6 @@ Finalize only when ALL of the following are true:
 3. **Execution Gate**: The Reviewer MUST run the full build and E2E test suite.
 4. **Correction**: If Reviewer reports failure, address it immediately. Do not claim completion.
 
-### Autonomous Loop Enforcement
-- THE SYSTEM MONITOR: An autonomous process monitors ${PATHS.TODO} and ${PATHS.CONTEXT}.
-- FORCED RESTART: If you attempt to stop while \`[ ]\` remain, the system will automatically inject a continuation prompt and increment the loop counter.
-- RESOLUTION: You are only "released" when the system verifies 100% check-off of the hierarchical plan.
-
 ### DO NOT
 - ❌ Declare mission success based on partial output.
 - ❌ Stop if any Grade 1, 2, or 3 items are still \`[ ]\`.

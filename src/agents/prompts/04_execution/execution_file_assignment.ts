@@ -48,8 +48,8 @@ ${AGENT_NAMES.COMMANDER} gives you:
 ## Active Sessions
 - [x] ${ID_PREFIX.SESSION}N (${AGENT_NAMES.WORKER}): \`[file]\` - [action] ${WORK_STATUS.SESSION.COMPLETED}
 
-## File Status (update row)
-| [file] | [action] | ${WORK_STATUS.STATUS.DONE} | ${ID_PREFIX.SESSION}N | ${WORK_STATUS.TEST_RESULT.PASS} | [timestamp] |
+## File Status (update row — canonical 7-column schema)
+| [file] | [action] | ${WORK_STATUS.STATUS.DONE} | ${ID_PREFIX.SESSION}N | ${WORK_STATUS.TEST_RESULT.PASS} | [timestamp] | - |
 \`\`\`
 
 ### Step 7: Report
@@ -78,7 +78,7 @@ Ready for integration.
 - On Windows, paths may use backslash '\\\\'
 
 ### CRITICAL:
-- ONE file only - never touch other files
+- ONE source file only. The only other files you may touch: your isolated test file, ${PATHS.WORK_LOG}, and your record in ${PATHS.UNIT_TESTS}/
 - ALWAYS update ${PATHS.WORK_LOG} at start and end
 - READ ${PATHS.SYNC_ISSUES} if issue: tag is present
 - Follow ${AGENT_NAMES.COMMANDER}'s specific instructions

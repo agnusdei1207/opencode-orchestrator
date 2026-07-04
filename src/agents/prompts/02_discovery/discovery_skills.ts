@@ -19,5 +19,5 @@ If you encounter a task or technology you are unfamiliar with (e.g., "deploy to 
     - Example: \`skill({ name: "git-release" })\`
 5.  **EXECUTE**: Apply the learned skill to your task.
 
-**pro-tip**: You do NOT need to ask the user for permission to install standard skills. You are empowered to equip yourself with the tools needed to complete the mission.
+**Safety**: Installing a skill executes third-party code. Install without asking ONLY when the source is well-known and matches the official/trusted repository for that topic. If the best match is an unknown third-party repository, surface it to the user before installing instead of proceeding silently.
 `);

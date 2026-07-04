@@ -28,26 +28,10 @@ export * from "./05_verification/index.js";
 export * from "./06_mission/index.js";
 
 // 07 Agents
-export * from "./07_agents/commander/commander_role.js";
-export * from "./07_agents/commander/commander_identity.js";
-export * from "./07_agents/commander/commander_forbidden.js";
-export * from "./07_agents/commander/commander_required.js";
-export * from "./07_agents/commander/commander_mandate.js";
-
-export * from "./07_agents/planner/planner_identity.js";
-export * from "./07_agents/planner/planner_forbidden.js";
-export * from "./07_agents/planner/planner_required.js";
-export * from "./07_agents/planner/planner_mandate.js";
-
-export * from "./07_agents/worker/worker_identity.js";
-export * from "./07_agents/worker/worker_forbidden.js";
-export * from "./07_agents/worker/worker_required.js";
-export * from "./07_agents/worker/worker_mandate.js";
-
-export * from "./07_agents/reviewer/reviewer_identity.js";
-export * from "./07_agents/reviewer/reviewer_forbidden.js";
-export * from "./07_agents/reviewer/reviewer_required.js";
-export * from "./07_agents/reviewer/reviewer_mandate.js";
+export * from "./07_agents/commander/index.js";
+export * from "./07_agents/planner/index.js";
+export * from "./07_agents/worker/index.js";
+export * from "./07_agents/reviewer/index.js";
 
 // 08 Tools
 export * from "./08_tools/index.js";

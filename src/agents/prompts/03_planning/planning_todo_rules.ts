@@ -15,11 +15,11 @@ TODO MANAGEMENT - ADAPTIVE HIERARCHICAL STRUCTURE
 2. Study existing code organization
 3. Plan parallel execution groups based on actual dependencies
 
-## Recursive Hierarchy (Adapt to Project)
-Break down work into as many nested levels as necessary.
-- **Root**: The main Mission/Goal.
-- **Branch**: Parent tasks representing modules, features, or epics.
-- **Leaf**: Atomic work units (15-60 min) with checkboxes \`[ ]\`.
+## Recursive Hierarchy (Canonical M/T/S Schema)
+Break down work into as many nested levels as necessary, always using the shared schema:
+- **M — Milestone** (\`## M[N]\`): high-level phase of the mission.
+- **T — Task** (\`### T[N.N]\`, nestable): modules, features, or epics.
+- **S — Subtask** (\`- [ ] S[id]:\`): atomic work units (15-60 min) with checkboxes \`[ ]\`.
 
 ## Completion & Propagation Rules
 - **Leaf Tasks**: Mark \`[x]\` ONLY when verified by ${AGENT_NAMES.REVIEWER} with evidence (build/test/lsp).
@@ -32,16 +32,16 @@ Break down work into as many nested levels as necessary.
 \`\`\`markdown
 # Mission: [goal]
 
-## G1: [Goal Name] | status: ${WORK_STATUS.TODO_STATUS.IN_PROGRESS}
-### P1.1: [Project Name] | agent:${AGENT_NAMES.WORKER}
-- [ ] T1.1.1: [subtask] | size:S
-- [ ] T1.1.2: [subtask] | size:S
+## M1: [Milestone Name] | status: ${WORK_STATUS.TODO_STATUS.IN_PROGRESS}
+### T1.1: [Task Name] | agent:${AGENT_NAMES.WORKER}
+- [ ] S1.1.1: [subtask] | size:S
+- [ ] S1.1.2: [subtask] | size:S
 
-#### P1.1.3: [Sub-component]
-- [ ] T1.1.3.1: [Nested task] | size:M
+#### T1.1.3: [Sub-component]
+- [ ] S1.1.3.1: [Nested subtask] | size:M
 
-### P1.2: [Review Block] | agent:${AGENT_NAMES.REVIEWER} | depends:P1.1
-- [ ] T1.2.1: [Final Verification] | size:S
+### T1.2: [Review Block] | agent:${AGENT_NAMES.REVIEWER} | depends:T1.1
+- [ ] S1.2.1: [Final Verification] | size:S
 \`\`\`
 
 ## Status Indicators

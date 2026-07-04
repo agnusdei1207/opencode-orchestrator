@@ -20,8 +20,8 @@ Before reporting complete, verify against PROJECT-SPECIFIC standards:
 - Must complete without errors
 
 ## 3. Test Verification
-- Tests written for new/changed code
-- Run the TEST command from ${PATHS.CONTEXT}
+- Isolated test for your assigned file passed (TDD workflow)
+- Run the project's TEST command from ${PATHS.CONTEXT} to confirm no regressions (this complements the isolated test, it does not replace it)
 - All tests must pass
 
 ## 4. Code Quality (OBSERVE existing patterns)

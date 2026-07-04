@@ -30,40 +30,37 @@ Write to ${PATHS.TODO}:
 | ${WORK_STATUS.ACTION.CREATE} | src/types/auth.ts | Auth types | - |
 | ${WORK_STATUS.ACTION.DELETE} | src/old-auth.ts | Remove deprecated | - |
 
-## Work Assignments (File-Level)
+## Work Assignments (File-Level, canonical M/T/S schema)
 Each ${AGENT_NAMES.WORKER} gets ONE file:
 
-### T1: Auth Module | parallel-group:1
-- [ ] S1.1: ${WORK_STATUS.ACTION.CREATE} \`src/types/auth.ts\` | agent:${AGENT_NAMES.WORKER} | file:src/types/auth.ts
-- [ ] S1.2: ${WORK_STATUS.ACTION.CREATE} \`src/auth/login.ts\` | agent:${AGENT_NAMES.WORKER} | file:src/auth/login.ts
-- [ ] S1.3: ${WORK_STATUS.ACTION.CREATE} \`src/auth/logout.ts\` | agent:${AGENT_NAMES.WORKER} | file:src/auth/logout.ts
+## M1: Auth Feature
+### T1.1: Auth Module | parallel-group:1
+- [ ] S1.1.1: ${WORK_STATUS.ACTION.CREATE} \`src/types/auth.ts\` | agent:${AGENT_NAMES.WORKER} | file:src/types/auth.ts
+- [ ] S1.1.2: ${WORK_STATUS.ACTION.CREATE} \`src/auth/login.ts\` | agent:${AGENT_NAMES.WORKER} | file:src/auth/login.ts
+- [ ] S1.1.3: ${WORK_STATUS.ACTION.CREATE} \`src/auth/logout.ts\` | agent:${AGENT_NAMES.WORKER} | file:src/auth/logout.ts
 
-### T2: Integration | parallel-group:2 | depends:T1
-- [ ] S2.1: ${WORK_STATUS.ACTION.MODIFY} \`src/index.ts\` | agent:${AGENT_NAMES.WORKER} | file:src/index.ts
+### T1.2: Integration | parallel-group:2 | depends:T1.1
+- [ ] S1.2.1: ${WORK_STATUS.ACTION.MODIFY} \`src/index.ts\` | agent:${AGENT_NAMES.WORKER} | file:src/index.ts
 \`\`\`
 
 ### Step 3: Initialize Work Log
-Create ${PATHS.WORK_LOG}:
+Create ${PATHS.WORK_LOG} using the canonical schema from <shared_workspace>:
 
 \`\`\`markdown
 # Work Log
 
-## File Status
-| File | Action | Status | ${AGENT_NAMES.WORKER} | Unit Test | Timestamp |
-|------|--------|--------|--------|-----------|-----------|
-| src/types/auth.ts | ${WORK_STATUS.ACTION.CREATE} | ${WORK_STATUS.STATUS.PENDING} | - | - | - |
-| src/auth/login.ts | ${WORK_STATUS.ACTION.CREATE} | ${WORK_STATUS.STATUS.PENDING} | - | - | - |
-| src/auth/logout.ts | ${WORK_STATUS.ACTION.CREATE} | ${WORK_STATUS.STATUS.PENDING} | - | - | - |
-| src/index.ts | ${WORK_STATUS.ACTION.MODIFY} | ${WORK_STATUS.STATUS.PENDING} | - | - | - |
-
-
 ## Active Sessions
 (none yet)
 
-## Completed Units
-(none yet)
+## File Status
+| File | Action | Status | Session | Unit Test | Timestamp | Issue |
+|------|--------|--------|---------|-----------|-----------|-------|
+| src/types/auth.ts | ${WORK_STATUS.ACTION.CREATE} | ${WORK_STATUS.STATUS.PENDING} | - | - | - | - |
+| src/auth/login.ts | ${WORK_STATUS.ACTION.CREATE} | ${WORK_STATUS.STATUS.PENDING} | - | - | - | - |
+| src/auth/logout.ts | ${WORK_STATUS.ACTION.CREATE} | ${WORK_STATUS.STATUS.PENDING} | - | - | - | - |
+| src/index.ts | ${WORK_STATUS.ACTION.MODIFY} | ${WORK_STATUS.STATUS.PENDING} | - | - | - | - |
 
-## Sync Issues
+## Pending Integration
 (none yet)
 \`\`\`
 

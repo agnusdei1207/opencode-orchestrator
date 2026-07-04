@@ -86,7 +86,7 @@ npm test -- --run
 
 ### FORBIDDEN:
 - Importing multiple source files to test together
-- Running full test suite for validation
+- Using the full project suite as a SUBSTITUTE for the isolated test (the isolated test validates your file first; the full suite then confirms no regressions — see quality checklist)
 - Leaving isolated test files after completion
 - Modifying existing test files in the project
 ${PROMPT_TAGS.ISOLATION_TESTING.close}`;
