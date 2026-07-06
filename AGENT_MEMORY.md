@@ -2,100 +2,86 @@
 
 ## Current Task
 
-Completed `docs/histories/2026/07/01/PLAN_CognitiveMemoryKindAndEpisodicAdoption_2026-07-01.md`: adopted cognitive memory kinds, added completed-mission episodic memory, promoted repeated episodes to semantic/procedural memory, verified OpenCode plugin compatibility, performed plumbing/full audit/refactor passes, committed, published minor release `1.7.0`, and prepared push.
+Completed an unnecessary-complexity refactor and plumbing audit for the OpenCode Orchestrator repository. The main code change split the oversized plugin event handler into smaller event-specific helpers without changing the public hook contract. Full-suite verification also exposed two existing test-instability issues, which were stabilized.
 
 ## Last Completed Step
 
-Completed implementation, verification, commit, and release.
+Completed survey, implementation, verification, and post-work audit.
 
-- Read `AGENT_MEMORY.md`, the requested plan, package metadata, OpenCode plugin entrypoint, knowledge-memory modules, mission-loop modules, cleanup scheduler, and related tests.
-- Verified current OpenCode plugin usage against official OpenCode plugin and SDK docs plus local `@opencode-ai/plugin` type definitions.
-- Updated `@opencode-ai/plugin` and `@opencode-ai/sdk` to exact `1.17.12` in `package.json` and `package-lock.json`; synchronized compatibility tests and architecture docs.
-- Added cognitive memory kind normalization and decay handling in `src/core/knowledge/memory-kind.ts`.
-- Wired memory kind scoring into lifecycle scoring and hybrid retrieval role weights.
-- Added completed mission episodic memory coalescing in `src/core/knowledge/mission-episode.ts`.
-- Preserved non-projection memory notes while cleaning generated mission memory projections.
-- Added repeated successful episode promotion to semantic/procedural notes in `src/core/knowledge/memory-promotion.ts`.
-- Updated maintenance runner changed-file reporting to include promotion outputs.
-- Routed assistant done-hook mission completion through mission ledger and memory sync before state cleanup.
-- Updated focused tests for dependency compatibility, hybrid search kind bias, maintenance promotion, and mission memory knowledge.
-- Updated knowledge docs and marked the requested plan checklist complete.
-- Reopened changed files and traced affected connections across producer fields, consumers, exports, generated note cleanup, maintenance changed files, mission completion, and tests.
-- Completed five refactor/audit passes:
-  1. Maintenance changed-file contract includes promotion outputs.
-  2. Import/export and function wiring scan for new memory-kind, episode, promotion, and mission completion paths.
-  3. Strengthened changed-file tests for promotion source and generated files.
-  4. Rechecked OpenCode plugin hook surface and default plugin export against local `@opencode-ai/plugin@1.17.12`.
-  5. Ran release dry-run and addressed the only observed transient Rust test failure by direct rerun and full dry-run rerun.
-- Committed implementation as `e02d6c1 feat(memory): adopt cognitive episodic memory`.
-- Ran `npm run release:minor`; release preflight passed, Docker Rust artifacts were rebuilt, release commit was amended to `8f5ffff 1.7.0`, tag `v1.7.0` points at `8f5ffff`, and npm publish returned `+ opencode-orchestrator@1.7.0`.
-- Confirmed `npm view opencode-orchestrator version` returns `1.7.0`.
+- Read `AGENT_MEMORY.md`, `AGENTS.md`, `package.json`, `tsconfig.json`, `Cargo.toml`, `vitest.config.ts`, the plugin entrypoint, handler barrel exports, event-handler implementation, event-handler tests, context types, shared event/status constants, and directly called session/recovery/loop/context modules.
+- Ran an AST complexity survey over `src/**/*.ts`; `src/plugin-handlers/event-handler.ts` was the top complexity candidate at complexity 29 and 125 lines for `createEventHandler`.
+- Confirmed baseline stability before implementation:
+  - `npm run build --silent`: passed.
+  - `npx vitest run tests/unit/event-handler.test.ts tests/unit/plumbing-wiring.test.ts --reporter=dot`: 2 files and 10 tests passed.
+- Refactored `src/plugin-handlers/event-handler.ts` so `createEventHandler` now delegates to event-specific helpers for session creation/deletion/error, message updates, idle, and status-idle handling.
+- Preserved manager event forwarding, todo sync entrypoint behavior, assistant done-hook routing, session cleanup, recovery, context monitoring, and guarded idle continuation behavior.
+- Re-ran the same AST metric; the changed file now has maximum helper complexity 7 and the longest helper is 31 lines.
+- Full Vitest initially exposed two existing unstable tests:
+  - `tests/unit/knowledge/hybrid-search.test.ts` depended on date-sensitive memory decay while asserting kind weighting.
+  - `tests/unit/dist-integrity.test.ts` used the default 5s timeout for a dist import smoke test that passes in isolation but can exceed 5s under the full suite.
+- Stabilized the hybrid-search test by setting equal `decay_lambda: 0` on the kind-bias fixtures so the test isolates kind weighting.
+- Stabilized the dist integrity smoke test by adding a named `DIST_ENTRYPOINT_LOAD_TIMEOUT_MS` timeout constant.
+- Reopened and reread every changed file from start to finish.
+- Re-traced the affected connections:
+  - `src/index.ts` still imports `createEventHandler` through `src/plugin-handlers/index.ts`.
+  - `EventHandlerContext` remains an alias of `PluginHandlerContext` for system-transform and session-compacting consumers.
+  - `SESSION_STATUS.IDLE` is exported through `src/shared/message/index.ts` and `src/shared/index.ts`.
+  - Hybrid ranking still flows through `HybridSearch.weightMemoryScore() -> memoryStrength() -> memoryKindWeight()`.
+  - Dist integrity still imports `dist/index.js` and asserts a default plugin function.
 
 ## Next Exact Step
 
-1. Commit this final memory snapshot.
-2. Push `main` and `v1.7.0`.
-3. Report commit hashes, release result, verification results, and confidence.
+1. Commit the current changes.
+2. Push `main` to `origin`.
+3. Report commit hash, push result, verification results, and confidence.
 
 ## Incomplete Items And Why
 
-- Remote push is the only remaining action at the time this snapshot is written.
-- One `npm run release:dry-run` attempt observed a transient failure in `tools::lsp::tests::local_tsc_uses_timeout_without_npx_install`; the same test passed when rerun directly, `cargo test --workspace --all-targets --quiet` passed, and a second `npm run release:dry-run` passed.
+- Commit and push are still pending at the time this memory snapshot is written.
 
 ## Key Decisions
 
-- Kept unknown or legacy `memory_kind` values compatible by normalizing known aliases and falling back to neutral scoring.
-- Preserved existing episodic notes and only removed generated projection notes prefixed with `project-`, `mission-`, or `task-`.
-- Used deterministic file names for episodic, semantic, and procedural memory outputs so repeated syncs coalesce instead of duplicating.
-- Kept promotion source episodes intact and generated generalized semantic/procedural notes with secret/session/timestamp redaction.
-- Kept OpenCode dependency pins exact at `1.17.12` because the repo compatibility test checks exact known-good versions.
-- Kept `index.html` synchronized with canonical `public/index.html` after the build script changed it.
+- Kept the OpenCode plugin event hook contract unchanged: `createEventHandler(ctx)(payload)` still returns an async handler and the public export remains the same.
+- Used helper extraction instead of changing event semantics; event-specific branches now live in small functions with the same side effects as before.
+- Replaced the local `"idle"` status string with the existing `SESSION_STATUS.IDLE` constant after verifying the export path.
+- Treated the hybrid-search and dist-integrity failures as test stability fixes discovered during the full-suite audit, not behavior changes.
+- Kept test stabilization scoped to fixture metadata and timeout budget only.
 
 ## Rejected Alternatives
 
-- Rejected deleting or rewriting legacy memory notes during projection cleanup because that would risk user-authored memory loss.
-- Rejected making cognitive kind scoring mandatory because old notes and external memory files may not have migrated metadata.
-- Rejected changing public plugin export shape because official OpenCode docs and local package types still expect a default plugin function.
-- Rejected proceeding after the first release dry-run failure without reproducing or rerunning the failing Rust test.
+- Rejected broad refactoring across multiple high-complexity modules because the first pass should stay incremental and verifiable.
+- Rejected changing hybrid-search production scoring because the failing assertion was caused by the test mixing decay behavior with kind weighting.
+- Rejected ignoring the full-suite failures after focused tests passed because completion requires observed verification results.
 
 ## Known Risks
 
-- Remote push still depends on repository write permission and network availability.
-- The transient Rust timeout assertion did not reproduce on direct rerun or second dry-run, but it indicates a preexisting timing-sensitive test path.
-- `index.html` is generated/synchronized from `public/index.html`; future edits should change the canonical public file or run the sync script knowingly.
+- `dist/index.js` import timing can still vary under heavy host load, but the smoke test now has explicit headroom and passed in isolation and in the full suite.
+- The event handler still schedules idle continuation through a timer, so timer behavior remains covered by fake-timer unit tests rather than synchronous checks.
+- Remote push still depends on network and repository write access.
 
 ## Verification Observed
 
-- `npm ci`: passed after dependency install.
 - Baseline `npm run build --silent`: passed.
-- Baseline focused tests: 16 files and 84 tests passed.
-- `npm view @opencode-ai/plugin version`: `1.17.12`.
-- `npm view @opencode-ai/sdk version`: `1.17.12`.
-- `npm install @opencode-ai/plugin@1.17.12 @opencode-ai/sdk@1.17.12`: passed with 0 vulnerabilities.
-- `npm install --package-lock-only --ignore-scripts`: passed with 0 vulnerabilities.
-- Focused post-edit tests for knowledge, mission memory/runtime, dependency/plugin/tool/config: passed.
+- Baseline `npx vitest run tests/unit/event-handler.test.ts tests/unit/plumbing-wiring.test.ts --reporter=dot`: 2 files and 10 tests passed.
+- Post-refactor `npm run build --silent`: passed.
+- Post-refactor `npx vitest run tests/unit/event-handler.test.ts tests/unit/plumbing-wiring.test.ts --reporter=dot`: 2 files and 10 tests passed.
+- AST complexity check for `src/plugin-handlers/event-handler.ts`: maximum helper complexity 7 after refactor.
+- `npx vitest run tests/unit/knowledge/hybrid-search.test.ts --reporter=verbose`: 1 file and 10 tests passed.
+- `npx vitest run tests/unit/dist-integrity.test.ts --reporter=verbose`: 1 file and 8 tests passed.
+- `npx vitest run --reporter=dot`: 99 files and 830 tests passed.
 - `git diff --check`: passed.
-- `npm run build --silent`: passed.
-- `npx vitest run --reporter=dot`: 96 files and 809 tests passed.
+- `npx tsc --noEmit`: passed.
 - `cargo fmt --check`: passed.
+- Final `npm run build --silent`: passed.
 - `cargo test -p orchestrator-cli -p orchestrator-core --quiet`: CLI 12 tests and core 35 tests passed.
-- First `npm run release:dry-run`: failed in `cargo test --workspace --all-targets` at `tools::lsp::tests::local_tsc_uses_timeout_without_npx_install`.
-- `cargo test --workspace --all-targets local_tsc_uses_timeout_without_npx_install -- --nocapture`: passed.
-- `cargo test --workspace --all-targets --quiet`: passed.
-- Second `npm run release:dry-run`: passed.
-- `cmp -s index.html public/index.html`: exit code 0.
-- `npm run release:minor`: passed; npm publish returned `+ opencode-orchestrator@1.7.0`.
-- `npm view opencode-orchestrator version`: `1.7.0`.
 
 ## Files To Open First Next Session
 
 1. `AGENT_MEMORY.md`
 2. `git status --branch --short`
-3. `package.json`
-4. `src/core/knowledge/memory-kind.ts`
-5. `src/core/knowledge/mission-episode.ts`
-6. `src/core/knowledge/memory-promotion.ts`
-7. `src/core/knowledge/memory-maintenance-runner.ts`
-8. `src/core/knowledge/mission-memory.ts`
-9. `src/hooks/features/mission-loop.ts`
-10. `tests/unit/mission-memory-knowledge.test.ts`
+3. `src/plugin-handlers/event-handler.ts`
+4. `src/index.ts`
+5. `src/plugin-handlers/index.ts`
+6. `tests/unit/event-handler.test.ts`
+7. `tests/unit/knowledge/hybrid-search.test.ts`
+8. `tests/unit/dist-integrity.test.ts`

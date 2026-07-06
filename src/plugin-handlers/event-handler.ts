@@ -14,139 +14,198 @@ import * as TodoContinuation from "../core/loop/todo-continuation.js";
 import * as MissionLoopHandler from "../core/loop/mission-loop-handler.js";
 import { isLoopActive } from "../core/loop/mission-loop.js";
 import * as ContextMonitor from "../core/context/index.js";
-import { SESSION_EVENTS, MESSAGE_EVENTS, MESSAGE_ROLES } from "../shared/index.js";
+import { SESSION_EVENTS, MESSAGE_EVENTS, MESSAGE_ROLES, SESSION_STATUS } from "../shared/index.js";
 import type { PluginHandlerContext, PluginSessionState } from "./context.js";
 import { handleCompletedAssistantMessage } from "./assistant-done-handler.js";
 
 export type EventHandlerContext = PluginHandlerContext;
 
+type PluginEvent = {
+    type: string;
+    properties?: Record<string, unknown>;
+};
+
+type EventInput = {
+    event: PluginEvent;
+};
+
+type MessageUpdatedInfo = {
+    id?: string;
+    sessionID?: string;
+    role?: string;
+    time?: { completed?: number };
+    tokens?: {
+        input?: number;
+        output?: number;
+        reasoning?: number;
+    };
+};
+
+const SESSION_ID_PREVIEW_LENGTH = 12;
+const ERROR_PREVIEW_LENGTH = 50;
+const IDLE_CONTINUATION_DELAY_MS = 500;
+const SECOND_MS = 1000;
+const SECONDS_PER_MINUTE = 60;
+const MINUTE_MS = SECONDS_PER_MINUTE * SECOND_MS;
+
 /**
  * Create event handler for session events
  */
 export function createEventHandler(ctx: EventHandlerContext) {
-    const { client, directory, sessions, state } = ctx;
-
-    return async (input: { event: { type: string; properties?: Record<string, unknown> } }) => {
+    return async (input: EventInput) => {
         const { event } = input;
 
-        // Pass events to ParallelAgentManager
-        try {
-            const manager = ParallelAgentManager.getInstance();
-            manager.handleEvent(event as { type: string; properties?: { sessionID?: string; info?: { id?: string } } });
-        } catch {
-            // Manager not initialized
-        }
-
-        // session.created
-        if (event.type === SESSION_EVENTS.CREATED) {
-            const sessionID = readSessionID(event.properties);
-            Toast.presets.missionStarted(`Session ${sessionID.slice(0, 12)}...`);
-        }
-
-        // session.deleted
-        if (event.type === SESSION_EVENTS.DELETED) {
-            const sessionID = readSessionID(event.properties);
-            const session = sessions.get(sessionID);
-            if (session) {
-                const totalTime = Date.now() - session.startTime;
-                const duration = totalTime < 60000
-                    ? `${Math.round(totalTime / 1000)}s`
-                    : `${Math.round(totalTime / 60000)}m`;
-
-                sessions.delete(sessionID);
-                state.sessions.delete(sessionID);
-                ProgressTracker.clearSession(sessionID);
-                SessionRecovery.cleanupSessionRecovery(sessionID);
-                TodoContinuation.cleanupSession(sessionID);
-                MissionLoopHandler.cleanupSession(sessionID);
-                ContextMonitor.cleanupSession(sessionID);
-
-                Toast.presets.sessionCompleted(sessionID, duration);
-            }
-        }
-
-        // session.error
-        if (event.type === SESSION_EVENTS.ERROR) {
-            const sessionID = readSessionID(event.properties);
-            const error = event.properties?.error;
-
-            if (sessionID) {
-                TodoContinuation.handleSessionError(sessionID, error);
-                MissionLoopHandler.handleAbort(sessionID);
-            }
-
-            if (sessionID && error) {
-                const recovered = await SessionRecovery.handleSessionError(
-                    client, sessionID, error, event.properties
-                );
-                if (recovered) return;
-            }
-
-            Toast.presets.taskFailed("session", String(error).slice(0, 50));
-        }
-
-        // message.updated
-        if (event.type === MESSAGE_EVENTS.UPDATED) {
-            const messageProperties = event.properties as {
-                info?: {
-                    id?: string;
-                    sessionID?: string;
-                    role?: string;
-                    time?: { completed?: number };
-                    tokens?: {
-                        input?: number;
-                        output?: number;
-                        reasoning?: number;
-                    };
-                };
-            };
-
-            const messageInfo = messageProperties?.info;
-            const sessionID = messageInfo?.sessionID;
-            const role = messageInfo?.role;
-
-            // Context Window Monitoring integration
-            // Use the SDK message token data from the event to check against thresholds
-            if (sessionID && messageInfo?.tokens) {
-                const totalTokens = (messageInfo.tokens.input ?? 0) +
-                    (messageInfo.tokens.output ?? 0) +
-                    (messageInfo.tokens.reasoning ?? 0);
-                if (totalTokens > 0) {
-                    // This function has built-in cooldowns so it won't spam
-                    ContextMonitor.checkContextWindow(sessionID, totalTokens);
-                }
-            }
-
-            if (sessionID && role === MESSAGE_ROLES.ASSISTANT) {
-                SessionRecovery.markRecoveryComplete(sessionID);
-                if (messageInfo?.id && messageInfo.time?.completed) {
-                    markAssistantCompleted(sessions, sessionID);
-                    await handleCompletedAssistantMessage(ctx, sessionID, messageInfo.id);
-                }
-            }
-
-            if (sessionID && role === MESSAGE_ROLES.USER) {
-                TodoContinuation.handleUserMessage(sessionID);
-                MissionLoopHandler.handleUserMessage(sessionID);
-            }
-        }
-
-        // session.idle
-        if (event.type === SESSION_EVENTS.IDLE) {
-            const sessionID = readSessionID(event.properties);
-            if (sessionID) {
-                scheduleIdleContinuation(ctx, sessionID);
-            }
-        }
-
-        if (event.type === SESSION_EVENTS.STATUS) {
-            const properties = event.properties as { sessionID?: string; status?: { type?: string } } | undefined;
-            const sessionID = readSessionID(event.properties);
-            if (sessionID && properties?.status?.type === "idle") {
-                scheduleIdleContinuation(ctx, sessionID);
-            }
-        }
+        notifyParallelAgentManager(event);
+        await handlePluginEvent(ctx, event);
     };
+}
+
+async function handlePluginEvent(ctx: EventHandlerContext, event: PluginEvent): Promise<void> {
+    switch (event.type) {
+        case SESSION_EVENTS.CREATED:
+            handleSessionCreated(event);
+            return;
+        case SESSION_EVENTS.DELETED:
+            handleSessionDeleted(ctx, event);
+            return;
+        case SESSION_EVENTS.ERROR:
+            await handleSessionError(ctx, event);
+            return;
+        case MESSAGE_EVENTS.UPDATED:
+            await handleMessageUpdated(ctx, event);
+            return;
+        case SESSION_EVENTS.IDLE:
+            handleSessionIdle(ctx, event);
+            return;
+        case SESSION_EVENTS.STATUS:
+            handleSessionStatus(ctx, event);
+            return;
+    }
+}
+
+function notifyParallelAgentManager(event: PluginEvent): void {
+    try {
+        const manager = ParallelAgentManager.getInstance();
+        manager.handleEvent(event as { type: string; properties?: { sessionID?: string; info?: { id?: string } } });
+    } catch {
+        // Manager not initialized
+    }
+}
+
+function handleSessionCreated(event: PluginEvent): void {
+    const sessionID = readSessionID(event.properties);
+    Toast.presets.missionStarted(`Session ${sessionID.slice(0, SESSION_ID_PREVIEW_LENGTH)}...`);
+}
+
+function handleSessionDeleted(ctx: EventHandlerContext, event: PluginEvent): void {
+    const { sessions, state } = ctx;
+    const sessionID = readSessionID(event.properties);
+    const session = sessions.get(sessionID);
+    if (!session) return;
+
+    const duration = formatSessionDuration(Date.now() - session.startTime);
+
+    sessions.delete(sessionID);
+    state.sessions.delete(sessionID);
+    ProgressTracker.clearSession(sessionID);
+    SessionRecovery.cleanupSessionRecovery(sessionID);
+    TodoContinuation.cleanupSession(sessionID);
+    MissionLoopHandler.cleanupSession(sessionID);
+    ContextMonitor.cleanupSession(sessionID);
+
+    Toast.presets.sessionCompleted(sessionID, duration);
+}
+
+function formatSessionDuration(totalTime: number): string {
+    return totalTime < MINUTE_MS
+        ? `${Math.round(totalTime / SECOND_MS)}s`
+        : `${Math.round(totalTime / MINUTE_MS)}m`;
+}
+
+async function handleSessionError(ctx: EventHandlerContext, event: PluginEvent): Promise<void> {
+    const sessionID = readSessionID(event.properties);
+    const error = event.properties?.error;
+
+    if (sessionID) {
+        TodoContinuation.handleSessionError(sessionID, error);
+        MissionLoopHandler.handleAbort(sessionID);
+    }
+
+    if (sessionID && error) {
+        const recovered = await SessionRecovery.handleSessionError(
+            ctx.client, sessionID, error, event.properties
+        );
+        if (recovered) return;
+    }
+
+    Toast.presets.taskFailed("session", String(error).slice(0, ERROR_PREVIEW_LENGTH));
+}
+
+async function handleMessageUpdated(ctx: EventHandlerContext, event: PluginEvent): Promise<void> {
+    const messageInfo = readMessageUpdatedInfo(event.properties);
+    const sessionID = messageInfo?.sessionID;
+    if (!sessionID) return;
+
+    checkContextUsage(sessionID, messageInfo);
+
+    if (messageInfo.role === MESSAGE_ROLES.ASSISTANT) {
+        await handleAssistantMessageUpdated(ctx, sessionID, messageInfo);
+        return;
+    }
+
+    if (messageInfo.role === MESSAGE_ROLES.USER) {
+        TodoContinuation.handleUserMessage(sessionID);
+        MissionLoopHandler.handleUserMessage(sessionID);
+    }
+}
+
+function readMessageUpdatedInfo(properties: Record<string, unknown> | undefined): MessageUpdatedInfo | undefined {
+    const info = properties?.info;
+    return isRecord(info) ? info as MessageUpdatedInfo : undefined;
+}
+
+function checkContextUsage(sessionID: string, messageInfo: MessageUpdatedInfo): void {
+    const totalTokens = readTotalTokens(messageInfo);
+    if (totalTokens > 0) {
+        ContextMonitor.checkContextWindow(sessionID, totalTokens);
+    }
+}
+
+function readTotalTokens(messageInfo: MessageUpdatedInfo): number {
+    return (messageInfo.tokens?.input ?? 0) +
+        (messageInfo.tokens?.output ?? 0) +
+        (messageInfo.tokens?.reasoning ?? 0);
+}
+
+async function handleAssistantMessageUpdated(
+    ctx: EventHandlerContext,
+    sessionID: string,
+    messageInfo: MessageUpdatedInfo,
+): Promise<void> {
+    SessionRecovery.markRecoveryComplete(sessionID);
+    if (!messageInfo.id || !messageInfo.time?.completed) return;
+
+    markAssistantCompleted(ctx.sessions, sessionID);
+    await handleCompletedAssistantMessage(ctx, sessionID, messageInfo.id);
+}
+
+function handleSessionIdle(ctx: EventHandlerContext, event: PluginEvent): void {
+    const sessionID = readSessionID(event.properties);
+    if (sessionID) {
+        scheduleIdleContinuation(ctx, sessionID);
+    }
+}
+
+function handleSessionStatus(ctx: EventHandlerContext, event: PluginEvent): void {
+    const sessionID = readSessionID(event.properties);
+    if (sessionID && readSessionStatusType(event.properties) === SESSION_STATUS.IDLE) {
+        scheduleIdleContinuation(ctx, sessionID);
+    }
+}
+
+function readSessionStatusType(properties: Record<string, unknown> | undefined): string | undefined {
+    const status = properties?.status;
+    return isRecord(status) ? readString(status.type) : undefined;
 }
 
 function readSessionID(properties: Record<string, unknown> | undefined): string {
@@ -227,5 +286,5 @@ function scheduleIdleContinuation(ctx: EventHandlerContext, sessionID: string): 
         } catch {
             // Continuation failures must not break the OpenCode event pipeline.
         }
-    }, 500);
+    }, IDLE_CONTINUATION_DELAY_MS);
 }

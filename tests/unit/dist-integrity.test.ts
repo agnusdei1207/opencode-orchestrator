@@ -7,6 +7,7 @@ import { describe, expect, it } from "vitest";
 
 const repoRoot = path.resolve(__dirname, "../..");
 const distDir = path.join(repoRoot, "dist");
+const DIST_ENTRYPOINT_LOAD_TIMEOUT_MS = 15_000;
 
 // Every bundle that ships to npm (package.json "files" → dist) and is loaded
 // at runtime on end-user machines, where only "dependencies" are installed.
@@ -117,5 +118,5 @@ describe.skipIf(!existsSync(path.join(distDir, "index.js")))("dist bundle integr
         const mod = await import(pathToFileURL(path.join(distDir, "index.js")).href);
 
         expect(typeof mod.default).toBe("function");
-    });
+    }, DIST_ENTRYPOINT_LOAD_TIMEOUT_MS);
 });

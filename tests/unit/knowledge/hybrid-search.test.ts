@@ -151,15 +151,18 @@ describe("HybridSearch - BM25 + Tag + Graph Fusion RAG", () => {
 
     it("should apply role-specific cognitive memory-kind bias", () => {
         const content = "memory kind routing repeatable deployment verification";
+        // Keep decay neutral so this test isolates role-specific kind weighting.
         search.indexContent("semantic-memory", content, {
             memory_kind: "semantic",
             event_time: "2026-06-19T00:00:00Z",
             ingestion_time: "2026-06-19T01:00:00Z",
+            decay_lambda: 0,
         });
         search.indexContent("procedural-memory", content, {
             memory_kind: "procedural",
             event_time: "2026-06-19T00:00:00Z",
             ingestion_time: "2026-06-19T01:00:00Z",
+            decay_lambda: 0,
         });
 
         expect(search.search("memory kind routing", 2, {
