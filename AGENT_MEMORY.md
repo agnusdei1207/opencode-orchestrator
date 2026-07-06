@@ -2,11 +2,11 @@
 
 ## Current Task
 
-Completed a second unnecessary-complexity refactor and plumbing audit pass for the OpenCode Orchestrator repository. This pass focused on retryable-error detection in the recovery layer.
+Completed and pushed a second unnecessary-complexity refactor and plumbing audit pass for the OpenCode Orchestrator repository. This pass focused on retryable-error detection in the recovery layer.
 
 ## Last Completed Step
 
-Completed survey, implementation, verification, and post-work audit.
+Completed survey, implementation, verification, post-work audit, commit, and push.
 
 - Read `AGENT_MEMORY.md`, `AGENTS.md`, `package.json`, `tsconfig.json`, `vitest.config.ts`, `src/core/recovery/retry.ts`, `tests/unit/retry.test.ts`, `src/shared/errors/retry.ts`, `src/shared/errors/index.ts`, and the dist-integrity test when a verification race appeared.
 - Confirmed the worktree started clean and `main` matched `origin/main`.
@@ -30,16 +30,16 @@ Completed survey, implementation, verification, and post-work audit.
   - `src/shared/errors/retry.ts` is a separate error-pattern retry helper and was not changed.
   - No barrel export exists for `src/core/recovery/retry.ts`; public named exports remain unchanged from the source module.
 - Observed and diagnosed one self-induced verification race: running `npm run build` and full Vitest concurrently caused dist-integrity to read `dist` while build had removed and was rebuilding it. After build completed, `tests/unit/dist-integrity.test.ts` and the full suite passed sequentially.
+- Committed the refactor/audit changes as `0fbd515 refactor: simplify retry detection`.
+- Pushed `main` to `origin` successfully (`a92c8c8..0fbd515`).
 
 ## Next Exact Step
 
-1. Commit the current changes.
-2. Push `main` to `origin`.
-3. Report commit hash, push result, verification results, and confidence.
+1. Report commit hash, push result, verification results, and confidence.
 
 ## Incomplete Items And Why
 
-- Commit and push are still pending at the time this snapshot is written.
+- No implementation, verification, commit, or push items remain for this task.
 
 ## Key Decisions
 
@@ -58,7 +58,7 @@ Completed survey, implementation, verification, and post-work audit.
 
 - `isRetryable` intentionally preserves loose provider payload matching, including truthy JSON `error` payloads, to avoid changing retry behavior for unknown provider server errors.
 - Dist integrity tests must be run after build completes; running build and tests concurrently can create a temporary missing-dist race.
-- Remote push still depends on network and repository write access.
+- Future pushes still depend on network and repository write access.
 
 ## Verification Observed
 
@@ -73,6 +73,8 @@ Completed survey, implementation, verification, and post-work audit.
 - `npx vitest run tests/unit/dist-integrity.test.ts --reporter=verbose`: 1 file and 8 tests passed after build completion.
 - Final sequential `npx vitest run --reporter=dot`: 99 files and 834 tests passed.
 - `cargo test -p orchestrator-cli -p orchestrator-core --quiet`: CLI 12 tests and core 35 tests passed.
+- `git commit -m "refactor: simplify retry detection"`: created `0fbd515`.
+- `git push origin main`: pushed `a92c8c8..0fbd515`.
 
 ## Files To Open First Next Session
 
