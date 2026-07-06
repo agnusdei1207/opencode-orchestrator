@@ -2,11 +2,11 @@
 
 ## Current Task
 
-Completed a third unnecessary-complexity refactor and plumbing audit pass for the OpenCode Orchestrator repository. This pass focused on the todo auto-continuation idle path.
+Completed and pushed a third unnecessary-complexity refactor and plumbing audit pass for the OpenCode Orchestrator repository. This pass focused on the todo auto-continuation idle path.
 
 ## Last Completed Step
 
-Completed survey, implementation, verification, and post-work audit.
+Completed survey, implementation, verification, post-work audit, commit, and push.
 
 - Read `AGENT_MEMORY.md`, `AGENTS.md`, `package.json`, `src/core/loop/todo-continuation.ts`, `tests/unit/todo-continuation.test.ts`, `tests/unit/loop/todo-continuation.test.ts`, `src/plugin-handlers/event-handler.ts`, `src/hooks/custom/user-activity.ts`, `src/core/loop/stats.ts`, `src/core/loop/formatters.ts`, `src/core/loop/verification.ts`, and shared loop types/constants.
 - Confirmed the worktree started clean and `main` matched `origin/main`.
@@ -33,16 +33,16 @@ Completed survey, implementation, verification, and post-work audit.
   - `src/hooks/custom/user-activity.ts` still calls `TodoContinuation.handleUserMessage` only; no API change was made.
   - `hasFileBasedWork` preserves the same `verifyMissionCompletion` predicate used before in both initial idle check and countdown re-check.
   - `injectContinuation` still sends a text part through `client.session.prompt` and keeps the original fire-and-forget behavior.
+- Committed the refactor/audit changes as `09124c2 refactor: simplify todo continuation idle flow`.
+- Pushed `main` to `origin` successfully (`bd9e40c..09124c2`).
 
 ## Next Exact Step
 
-1. Commit the current changes.
-2. Push `main` to `origin`.
-3. Report commit hash, push result, verification results, and confidence.
+1. Report commit hash, push result, verification results, and confidence.
 
 ## Incomplete Items And Why
 
-- Commit and push are still pending at the time this snapshot is written.
+- No implementation, verification, commit, or push items remain for this task.
 
 ## Key Decisions
 
@@ -61,7 +61,7 @@ Completed survey, implementation, verification, and post-work audit.
 
 - The continuation timer remains asynchronous and is primarily covered by fake-timer tests.
 - File-based work detection still relies on filesystem state read by `verifyMissionCompletion`, which can differ by directory contents at runtime.
-- Remote push still depends on network and repository write access.
+- Future pushes still depend on network and repository write access.
 
 ## Verification Observed
 
@@ -75,6 +75,8 @@ Completed survey, implementation, verification, and post-work audit.
 - `cargo fmt --check`: passed.
 - Final sequential `npx vitest run --reporter=dot`: 99 files and 835 tests passed.
 - `cargo test -p orchestrator-cli -p orchestrator-core --quiet`: CLI 12 tests and core 35 tests passed.
+- `git commit -m "refactor: simplify todo continuation idle flow"`: created `09124c2`.
+- `git push origin main`: pushed `bd9e40c..09124c2`.
 
 ## Files To Open First Next Session
 
