@@ -2,43 +2,45 @@
 
 ## Current Task
 
-Completed and pushed another unnecessary-complexity optimization/refactor/plumbing audit pass. This pass focused on progress snapshot storage after a full AST complexity survey identified `src/core/progress/store.ts:recordSnapshot` as a top remaining narrow-scope candidate.
+Completed and pushed another unnecessary-complexity optimization/refactor/plumbing audit pass. This pass focused on output sanity checking after an AST complexity survey identified `src/utils/sanity/checker.ts:checkOutputSanity` as a narrow high-complexity candidate.
 
 ## Last Completed Step
 
 Completed survey, baseline verification, implementation, post-work verification, refactor commit, push, and memory update.
 
-- Read `AGENT_MEMORY.md`, `AGENTS.md`, `package.json`, `src/core/progress/store.ts`, `src/core/progress/tracker.ts`, `src/core/progress/formatters.ts`, `src/core/progress/calculator.ts`, `tests/unit/progress-tracker.test.ts`, `src/shared/recovery/constants.ts`, `src/shared/core/constants.ts`, `src/shared/index.ts`, `src/plugin-handlers/event-handler.ts`, and `src/hooks/features/mission-loop.ts`.
+- Read `AGENT_MEMORY.md`, `AGENTS.md`, `package.json`, `src/utils/sanity/checker.ts`, `src/hooks/features/sanity-check.ts`, `src/utils/sanity/index.ts`, `src/utils/sanity/constants/index.ts`, `src/utils/sanity/constants/severity.ts`, `src/utils/sanity/constants/recovery-prompt.ts`, `src/utils/sanity/constants/escalation-prompt.ts`, and `tests/unit/hooks.test.ts`.
 - Confirmed the worktree started clean and `main` matched `origin/main`.
 - Ran an AST complexity survey over `src/**/*.ts`; top candidates included:
   - `src/core/loop/verification.ts:verifyMissionCompletion` complexity 19,
-  - `src/core/progress/store.ts:recordSnapshot` complexity 19,
-  - `src/core/loop/mission-loop-handler.ts:handleMissionIdle` complexity 18.
-- Selected `src/core/progress/store.ts` because `recordSnapshot` was a narrow, low-risk target with calculation and history-pruning responsibilities mixed into one function.
+  - `src/core/loop/mission-loop-handler.ts:handleMissionIdle` complexity 18,
+  - `src/utils/sanity/checker.ts:checkOutputSanity` complexity 18.
+- Selected `src/utils/sanity/checker.ts` because it was a narrow, low-risk target with multiple anomaly detectors and response construction mixed into one function.
 - Confirmed baseline stability before implementation:
   - `npm run build`: passed.
-  - `npx vitest run tests/unit/progress-tracker.test.ts --reporter=verbose`: 1 file and 13 tests passed.
-- Refactored `recordSnapshot` without changing public exports or snapshot shape:
-  - extracted `buildSnapshot`,
-  - extracted `buildTodoProgress`,
-  - extracted `buildTaskProgress`,
-  - extracted `buildStepProgress`,
-  - extracted `calculatePercentage`,
-  - extracted `readCount`,
-  - extracted `appendSnapshot`.
-- Added focused tests for:
-  - task progress percentage where failed tasks count as finished,
-  - progress history pruning at `HISTORY.MAX_PROGRESS`.
-- Re-ran the local AST metric for `src/core/progress/store.ts`; `recordSnapshot` complexity dropped from 19 to 2, and maximum function complexity in the file is now 3.
+  - `npx vitest run tests/unit/hooks.test.ts --reporter=verbose`: 1 file and 10 tests passed.
+- Refactored `checkOutputSanity` without changing public exports, return shape, detector ordering, reason strings, or severity values:
+  - extracted a `SanityDetector` pipeline,
+  - named threshold and regex constants,
+  - extracted detector helpers for single-character repetition, short pattern loops, low information density, visual gibberish, line repetition, and CJK spam,
+  - extracted `countMatches`, `healthyResult`, and `unhealthyResult`.
+- Added direct checker tests in `tests/unit/sanity-checker.test.ts` for:
+  - short/empty healthy output,
+  - single-character repetition,
+  - short repeated pattern loops,
+  - low information density,
+  - box-drawing visual gibberish,
+  - excessive line repetition warning,
+  - CJK spam,
+  - varied long healthy output.
+- Re-ran the local AST metric for `src/utils/sanity/checker.ts`; `checkOutputSanity` complexity dropped from 18 to 5, and maximum function complexity in the file is now 5.
 - Reopened and reread both changed files from start to finish after editing.
 - Re-traced affected connections:
-  - `src/core/progress/tracker.ts` still re-exports `recordSnapshot`, `getLatest`, `getHistory`, and related types from `store.ts`.
-  - `src/core/progress/formatters.ts` still consumes `ProgressSnapshot` shape unchanged.
-  - `src/core/progress/calculator.ts` still consumes `getLatest` snapshots unchanged.
-  - `src/plugin-handlers/event-handler.ts` still only calls `ProgressTracker.clearSession`.
-  - `src/hooks/features/mission-loop.ts` still calls `ProgressTracker.startSession`, `clearSession`, and `getLatest`; public names and return shapes are unchanged.
-- Committed the refactor/test changes as `d540b7e refactor: simplify progress snapshot storage`.
-- Pushed `main` to `origin` successfully (`0299400..d540b7e`).
+  - `src/utils/sanity/index.ts` still re-exports `checkOutputSanity`, `SanityResult`, and constants.
+  - `src/hooks/features/sanity-check.ts` still calls `checkOutputSanity` for `CallAgent` tool output and final assistant text.
+  - `SanityCheckHook` still consumes `isHealthy` and `reason`; returned producer fields still match.
+  - `tests/unit/hooks.test.ts` still mocks the barrel export and validates hook behavior separately.
+- Committed the refactor/test changes as `fafa71e refactor: simplify output sanity checks`.
+- Pushed `main` to `origin` successfully (`19d0bd6..fafa71e`).
 
 ## Next Exact Step
 
@@ -50,45 +52,45 @@ Completed survey, baseline verification, implementation, post-work verification,
 
 ## Key Decisions
 
-- Kept implementation behavior and public API unchanged; all changes are internal helper extraction plus focused tests.
-- Kept `data.maxSteps || Infinity` behavior through `UNLIMITED_STEPS` to avoid changing the existing `0 -> Infinity` fallback semantics.
-- Kept count fallback semantics through `readCount` to preserve existing missing/falsy numeric defaults.
-- Added tests around task failed-count progress and history pruning because those were the main non-obvious behaviors moved out of `recordSnapshot`.
-- Avoided refactoring broader progress formatter/calculator modules because the selected task was scoped to storage complexity.
+- Kept implementation behavior and public API unchanged; all changes are internal helper extraction plus direct tests.
+- Preserved detector order so overlapping pathological output still returns the same first matching reason.
+- Kept threshold values unchanged by moving them to named constants rather than tuning them.
+- Added direct tests for the checker because existing hook tests mocked `checkOutputSanity` and did not cover detector branches.
+- Avoided tackling broader loop/verification complexity in this same pass because those modules have wider behavior surfaces and need separate audits.
 
 ## Rejected Alternatives
 
-- Rejected changing percentage/count fallback semantics because this pass is a refactor, not a behavior change.
-- Rejected tackling `verifyMissionCompletion` in this same pass because it has a wider filesystem/checklist/TODO/sync-issues behavior surface and deserves its own focused audit.
-- Rejected introducing a class or new module for progress storage; local helpers removed the complexity without adding module plumbing.
+- Rejected changing anomaly thresholds or reason text because this pass is a refactor, not a behavior change.
+- Rejected introducing new modules for each detector; local helpers removed the complexity without adding file-level plumbing.
+- Rejected modifying `SanityCheckHook` because its consumer contract already matched the checker return shape.
 
 ## Known Risks
 
-- `readCount` preserves the previous falsy-number behavior; stricter numeric validation would be a behavior change and was intentionally not done.
-- Progress store remains in module-level memory; this pass did not change lifecycle or persistence behavior.
+- The regex-based detector semantics are intentionally unchanged; any improvement to false-positive/false-negative behavior should be a separate behavior-change task.
+- `SanityCheckHook` still ignores severity and branches only on `isHealthy`; this was existing behavior and was intentionally not changed.
 - Future pushes still depend on network and repository write access.
 
 ## Verification Observed
 
 - Baseline `npm run build`: passed.
-- Baseline `npx vitest run tests/unit/progress-tracker.test.ts --reporter=verbose`: 1 file and 13 tests passed.
-- Focused post-refactor `npx vitest run tests/unit/progress-tracker.test.ts --reporter=verbose`: 1 file and 15 tests passed.
+- Baseline `npx vitest run tests/unit/hooks.test.ts --reporter=verbose`: 1 file and 10 tests passed.
+- Focused post-refactor `npx vitest run tests/unit/sanity-checker.test.ts tests/unit/hooks.test.ts --reporter=verbose`: 2 files and 18 tests passed.
 - Post-refactor `npm run build`: passed.
-- AST complexity check for `src/core/progress/store.ts`: `recordSnapshot` complexity 2; maximum file function complexity 3.
-- `npm test`: 99 files and 850 tests passed.
+- AST complexity check for `src/utils/sanity/checker.ts`: `checkOutputSanity` complexity 5; maximum file function complexity 5.
+- `npm test`: 100 files and 858 tests passed.
 - `git diff --check`: passed.
+- `npx tsc --noEmit`: passed.
 - `cargo fmt --all --check`: passed.
 - `cargo test --workspace`: CLI 12 tests and core 35 tests passed.
-- `npx tsc --noEmit`: passed.
-- `git commit -m "refactor: simplify progress snapshot storage"`: created `d540b7e`.
-- `git push origin main`: pushed `0299400..d540b7e`.
+- `git commit -m "refactor: simplify output sanity checks"`: created `fafa71e`.
+- `git push origin main`: pushed `19d0bd6..fafa71e`.
 
 ## Files To Open First Next Session
 
 1. `AGENT_MEMORY.md`
 2. `git status --branch --short`
-3. `src/core/progress/store.ts`
-4. `tests/unit/progress-tracker.test.ts`
-5. `src/core/progress/tracker.ts`
-6. `src/core/progress/formatters.ts`
-7. `src/core/progress/calculator.ts`
+3. `src/utils/sanity/checker.ts`
+4. `tests/unit/sanity-checker.test.ts`
+5. `src/hooks/features/sanity-check.ts`
+6. `src/utils/sanity/index.ts`
+7. `src/utils/sanity/constants/severity.ts`
