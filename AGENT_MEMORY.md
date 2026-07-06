@@ -2,93 +2,93 @@
 
 ## Current Task
 
-Completed a test coverage hardening pass for the `delegate_task` tool after the prior execution refactor. The user asked whether tests fully corresponded to the refactored branches, then requested that all missing coverage be added.
+Completed and pushed another unnecessary-complexity optimization/refactor/plumbing audit pass. This pass focused on progress snapshot storage after a full AST complexity survey identified `src/core/progress/store.ts:recordSnapshot` as a top remaining narrow-scope candidate.
 
 ## Last Completed Step
 
-Completed survey, baseline verification, test implementation, post-work verification, test commit, push, and memory update.
+Completed survey, baseline verification, implementation, post-work verification, refactor commit, push, and memory update.
 
-- Read `AGENT_MEMORY.md`, `AGENTS.md`, `package.json`, `src/tools/parallel/delegate-task.ts`, `tests/unit/delegate-task.test.ts`, `src/tools/parallel/index.ts`, `src/shared/tool/types.ts`, `src/shared/task/types.ts`, `src/shared/tool/constants.ts`, `src/shared/message/constants.ts`, and relevant notification toast exports.
+- Read `AGENT_MEMORY.md`, `AGENTS.md`, `package.json`, `src/core/progress/store.ts`, `src/core/progress/tracker.ts`, `src/core/progress/formatters.ts`, `src/core/progress/calculator.ts`, `tests/unit/progress-tracker.test.ts`, `src/shared/recovery/constants.ts`, `src/shared/core/constants.ts`, `src/shared/index.ts`, `src/plugin-handlers/event-handler.ts`, and `src/hooks/features/mission-loop.ts`.
 - Confirmed the worktree started clean and `main` matched `origin/main`.
-- Verified before editing:
+- Ran an AST complexity survey over `src/**/*.ts`; top candidates included:
+  - `src/core/loop/verification.ts:verifyMissionCompletion` complexity 19,
+  - `src/core/progress/store.ts:recordSnapshot` complexity 19,
+  - `src/core/loop/mission-loop-handler.ts:handleMissionIdle` complexity 18.
+- Selected `src/core/progress/store.ts` because `recordSnapshot` was a narrow, low-risk target with calculation and history-pruning responsibilities mixed into one function.
+- Confirmed baseline stability before implementation:
   - `npm run build`: passed.
-  - `npx vitest run tests/unit/delegate-task.test.ts --reporter=verbose`: 1 file and 2 tests passed.
-- Expanded `tests/unit/delegate-task.test.ts` from 2 tests to 15 tests.
-- Added helper plumbing for typed task fixtures, manager mocks, client mocks, assistant text/reasoning/tool messages, and fake-timer polling waits.
-- Added branch coverage for public `createDelegateTaskTool().execute` behavior:
-  - resume background dispatch payload and no launch fallback,
-  - sync timeout when message fetch fails,
-  - terminal-depth delegation guard,
-  - required `background` parameter guard,
-  - background launch success with depth/mode/group payload and toast notification,
-  - background launch failure,
-  - resume failure,
-  - missing resumed task,
-  - resumed sync success with reasoning output,
-  - resumed sync timeout with no assistant content,
-  - sync launch success after transient status error, missing status, busy status, idle status, valid output, and stable completion,
-  - assistant tool activity as valid output,
-  - final extraction failure placeholder after stable completion,
-  - sync launch returning no task,
-  - sync launch rejection.
-- Confirmed `@vitest/coverage-v8` is not installed, so no numeric coverage percentage was generated without adding a dependency.
-- Reopened and reread `tests/unit/delegate-task.test.ts` from start to finish after editing.
-- Re-traced the affected connections:
-  - `tests/unit/delegate-task.test.ts` imports `createDelegateTaskTool` directly.
-  - `src/tools/parallel/index.ts` still registers `createDelegateTaskTool(manager, client)` under `[TOOL_NAMES.DELEGATE_TASK]`.
-  - `src/tools/parallel/delegate-task.ts` still calls `manager.resume`, `manager.launch`, `session.status`, `session.messages`, and `presets.taskStarted`; tests now mock/verify those boundaries.
-- Committed the test hardening changes as `cdddf0f test: cover delegate task execution branches`.
-- Pushed `main` to `origin` successfully (`a231784..cdddf0f`).
+  - `npx vitest run tests/unit/progress-tracker.test.ts --reporter=verbose`: 1 file and 13 tests passed.
+- Refactored `recordSnapshot` without changing public exports or snapshot shape:
+  - extracted `buildSnapshot`,
+  - extracted `buildTodoProgress`,
+  - extracted `buildTaskProgress`,
+  - extracted `buildStepProgress`,
+  - extracted `calculatePercentage`,
+  - extracted `readCount`,
+  - extracted `appendSnapshot`.
+- Added focused tests for:
+  - task progress percentage where failed tasks count as finished,
+  - progress history pruning at `HISTORY.MAX_PROGRESS`.
+- Re-ran the local AST metric for `src/core/progress/store.ts`; `recordSnapshot` complexity dropped from 19 to 2, and maximum function complexity in the file is now 3.
+- Reopened and reread both changed files from start to finish after editing.
+- Re-traced affected connections:
+  - `src/core/progress/tracker.ts` still re-exports `recordSnapshot`, `getLatest`, `getHistory`, and related types from `store.ts`.
+  - `src/core/progress/formatters.ts` still consumes `ProgressSnapshot` shape unchanged.
+  - `src/core/progress/calculator.ts` still consumes `getLatest` snapshots unchanged.
+  - `src/plugin-handlers/event-handler.ts` still only calls `ProgressTracker.clearSession`.
+  - `src/hooks/features/mission-loop.ts` still calls `ProgressTracker.startSession`, `clearSession`, and `getLatest`; public names and return shapes are unchanged.
+- Committed the refactor/test changes as `d540b7e refactor: simplify progress snapshot storage`.
+- Pushed `main` to `origin` successfully (`0299400..d540b7e`).
 
 ## Next Exact Step
 
-1. Report commit hash, push result, verification results, coverage caveat, and confidence.
+1. Report commit hash, push result, verification results, and confidence.
 
 ## Incomplete Items And Why
 
-- No implementation, verification, test commit, test push, or memory update items remain for this task.
+- No implementation, verification, refactor commit, refactor push, or memory update items remain for this task.
 
 ## Key Decisions
 
-- Kept implementation code unchanged; only tests were modified.
-- Tested through the public tool `execute` method instead of exporting private helpers.
-- Mocked `../../src/core/notification/toast` so background-task notification behavior can be asserted without side effects.
-- Used fake timers to exercise sync polling without real waits.
-- Did not add a coverage provider dependency solely to produce a percentage; branch correspondence was validated through explicit public-path tests and observed command results.
+- Kept implementation behavior and public API unchanged; all changes are internal helper extraction plus focused tests.
+- Kept `data.maxSteps || Infinity` behavior through `UNLIMITED_STEPS` to avoid changing the existing `0 -> Infinity` fallback semantics.
+- Kept count fallback semantics through `readCount` to preserve existing missing/falsy numeric defaults.
+- Added tests around task failed-count progress and history pruning because those were the main non-obvious behaviors moved out of `recordSnapshot`.
+- Avoided refactoring broader progress formatter/calculator modules because the selected task was scoped to storage complexity.
 
 ## Rejected Alternatives
 
-- Rejected exporting internal helper functions from `delegate-task.ts` because that would expand the public surface only for tests.
-- Rejected changing polling constants or implementation behavior to make tests easier because the user requested test coverage, not behavior changes.
-- Rejected dependency installation for `@vitest/coverage-v8` because this task can be satisfied by focused tests without package churn.
+- Rejected changing percentage/count fallback semantics because this pass is a refactor, not a behavior change.
+- Rejected tackling `verifyMissionCompletion` in this same pass because it has a wider filesystem/checklist/TODO/sync-issues behavior surface and deserves its own focused audit.
+- Rejected introducing a class or new module for progress storage; local helpers removed the complexity without adding module plumbing.
 
 ## Known Risks
 
-- Numeric coverage percentage is unavailable until the repo adds a Vitest coverage provider.
-- Tests use fake timers and mocked session responses; real OpenCode client timing can still differ, but public branch contracts are now covered.
+- `readCount` preserves the previous falsy-number behavior; stricter numeric validation would be a behavior change and was intentionally not done.
+- Progress store remains in module-level memory; this pass did not change lifecycle or persistence behavior.
 - Future pushes still depend on network and repository write access.
 
 ## Verification Observed
 
 - Baseline `npm run build`: passed.
-- Baseline `npx vitest run tests/unit/delegate-task.test.ts --reporter=verbose`: 1 file and 2 tests passed.
-- First expanded focused run: `npx vitest run tests/unit/delegate-task.test.ts --reporter=verbose`: 1 file and 14 tests passed after fixing the null-result helper.
-- Final focused run: `npx vitest run tests/unit/delegate-task.test.ts --reporter=verbose`: 1 file and 15 tests passed.
-- Final `npm run build`: passed.
-- Final `npm test`: 99 files and 848 tests passed.
+- Baseline `npx vitest run tests/unit/progress-tracker.test.ts --reporter=verbose`: 1 file and 13 tests passed.
+- Focused post-refactor `npx vitest run tests/unit/progress-tracker.test.ts --reporter=verbose`: 1 file and 15 tests passed.
+- Post-refactor `npm run build`: passed.
+- AST complexity check for `src/core/progress/store.ts`: `recordSnapshot` complexity 2; maximum file function complexity 3.
+- `npm test`: 99 files and 850 tests passed.
 - `git diff --check`: passed.
 - `cargo fmt --all --check`: passed.
 - `cargo test --workspace`: CLI 12 tests and core 35 tests passed.
-- `test -d node_modules/@vitest/coverage-v8 && echo coverage-v8-present || echo coverage-v8-missing`: reported `coverage-v8-missing`.
-- `git commit -m "test: cover delegate task execution branches"`: created `cdddf0f`.
-- `git push origin main`: pushed `a231784..cdddf0f`.
+- `npx tsc --noEmit`: passed.
+- `git commit -m "refactor: simplify progress snapshot storage"`: created `d540b7e`.
+- `git push origin main`: pushed `0299400..d540b7e`.
 
 ## Files To Open First Next Session
 
 1. `AGENT_MEMORY.md`
 2. `git status --branch --short`
-3. `tests/unit/delegate-task.test.ts`
-4. `src/tools/parallel/delegate-task.ts`
-5. `src/tools/parallel/index.ts`
-6. `src/shared/message/constants.ts`
-7. `src/core/notification/toast.ts`
+3. `src/core/progress/store.ts`
+4. `tests/unit/progress-tracker.test.ts`
+5. `src/core/progress/tracker.ts`
+6. `src/core/progress/formatters.ts`
+7. `src/core/progress/calculator.ts`
