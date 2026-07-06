@@ -2,95 +2,112 @@
 
 ## Current Task
 
-Completed and pushed another unnecessary-complexity optimization/refactor/plumbing audit pass. This pass focused on output sanity checking after an AST complexity survey identified `src/utils/sanity/checker.ts:checkOutputSanity` as a narrow high-complexity candidate.
+Completed a repository-wide unnecessary-complexity/plumbing survey without code refactoring. This pass gathered metrics, opened the top runtime candidates, traced tests and wiring, and verified the current repository state.
 
 ## Last Completed Step
 
-Completed survey, baseline verification, implementation, post-work verification, refactor commit, push, and memory update.
+Completed survey, validation, and memory update.
 
-- Read `AGENT_MEMORY.md`, `AGENTS.md`, `package.json`, `src/utils/sanity/checker.ts`, `src/hooks/features/sanity-check.ts`, `src/utils/sanity/index.ts`, `src/utils/sanity/constants/index.ts`, `src/utils/sanity/constants/severity.ts`, `src/utils/sanity/constants/recovery-prompt.ts`, `src/utils/sanity/constants/escalation-prompt.ts`, and `tests/unit/hooks.test.ts`.
+- Read `AGENT_MEMORY.md`, `AGENTS.md`, `package.json`, `tsconfig.json`, and `Cargo.toml`.
 - Confirmed the worktree started clean and `main` matched `origin/main`.
-- Ran an AST complexity survey over `src/**/*.ts`; top candidates included:
-  - `src/core/loop/verification.ts:verifyMissionCompletion` complexity 19,
-  - `src/core/loop/mission-loop-handler.ts:handleMissionIdle` complexity 18,
-  - `src/utils/sanity/checker.ts:checkOutputSanity` complexity 18.
-- Selected `src/utils/sanity/checker.ts` because it was a narrow, low-risk target with multiple anomaly detectors and response construction mixed into one function.
-- Confirmed baseline stability before implementation:
+- Listed tracked files and counted active implementation/test/script/crate files:
+  - `src`: 286 files,
+  - `tests`: 104 files,
+  - `scripts`: 11 files,
+  - `crates`: 22 files.
+- Ran a TypeScript AST metric pass over `src/**/*.ts`, `tests/**/*.ts`, and TS scripts:
+  - 285 TypeScript source files,
+  - 104 TypeScript test files,
+  - 2,986 functions measured,
+  - 35 functions with cyclomatic complexity above 10,
+  - 206 functions longer than 40 lines,
+  - 4 functions with more than 4 parameters,
+  - 7 functions with nesting depth above 3,
+  - 63 explicit `any` keywords,
+  - no cycles in the relative `src` import/export graph.
+- Top runtime complexity candidates from the AST pass:
+  - `src/core/loop/verification.ts:verifyMissionCompletion` complexity 19, 100 lines,
+  - `src/core/loop/mission-loop-handler.ts:handleMissionIdle` complexity 18, 115 lines,
+  - `src/core/recovery/session-recovery.ts:handleSessionError` complexity 17, 119 lines,
+  - `src/tools/web/websearch.ts:searchDuckDuckGo` complexity 17, 73 lines,
+  - `src/core/agents/manager/task-poller.ts:updateTaskProgress` complexity 17, 68 lines,
+  - `src/core/loop/progress-tracker.ts:trackProgress` complexity 16, 98 lines,
+  - `src/tools/rust-pool.ts:sendRequest` complexity 16, 97 lines.
+- Opened and directly read the main high-complexity runtime candidates:
+  - `src/core/loop/verification.ts`,
+  - `src/core/loop/mission-loop-handler.ts`,
+  - `src/core/recovery/session-recovery.ts`,
+  - `src/tools/web/websearch.ts`,
+  - `src/core/agents/manager/task-poller.ts`,
+  - `src/tools/rust-pool.ts`,
+  - `src/core/loop/progress-tracker.ts`.
+- Traced test and consumer references with `rg`:
+  - `verifyMissionCompletion` is directly covered by `tests/unit/verification.test.ts` and used by mission-loop hooks/continuation paths.
+  - `handleMissionIdle` is directly covered by `tests/e2e/mission-loop-persistence.test.ts` and mocked/guarded by event-handler tests.
+  - `handleSessionError` is directly covered by `tests/unit/session-recovery.test.ts` and wired through `src/plugin-handlers/event-handler.ts`.
+  - `trackProgress` has direct coverage in `tests/unit/loop/progress-tracker.test.ts`.
+  - `createSystemTransformHandler` has direct coverage in `tests/unit/system-transform-handler.test.ts`.
+  - web provider internals are not directly covered by name in tests because they are private helpers behind `websearchTool`.
+- Ran targeted scans for TODO/FIXME/HACK/ts-ignore/eslint-disable markers, explicit `any`, Rust `unwrap`/`expect`, and relative imports.
+- Confirmed `node_modules/@vitest/coverage-v8` is not installed, so numeric coverage percentage cannot be claimed from this environment.
+- Verified current repository stability:
   - `npm run build`: passed.
-  - `npx vitest run tests/unit/hooks.test.ts --reporter=verbose`: 1 file and 10 tests passed.
-- Refactored `checkOutputSanity` without changing public exports, return shape, detector ordering, reason strings, or severity values:
-  - extracted a `SanityDetector` pipeline,
-  - named threshold and regex constants,
-  - extracted detector helpers for single-character repetition, short pattern loops, low information density, visual gibberish, line repetition, and CJK spam,
-  - extracted `countMatches`, `healthyResult`, and `unhealthyResult`.
-- Added direct checker tests in `tests/unit/sanity-checker.test.ts` for:
-  - short/empty healthy output,
-  - single-character repetition,
-  - short repeated pattern loops,
-  - low information density,
-  - box-drawing visual gibberish,
-  - excessive line repetition warning,
-  - CJK spam,
-  - varied long healthy output.
-- Re-ran the local AST metric for `src/utils/sanity/checker.ts`; `checkOutputSanity` complexity dropped from 18 to 5, and maximum function complexity in the file is now 5.
-- Reopened and reread both changed files from start to finish after editing.
-- Re-traced affected connections:
-  - `src/utils/sanity/index.ts` still re-exports `checkOutputSanity`, `SanityResult`, and constants.
-  - `src/hooks/features/sanity-check.ts` still calls `checkOutputSanity` for `CallAgent` tool output and final assistant text.
-  - `SanityCheckHook` still consumes `isHealthy` and `reason`; returned producer fields still match.
-  - `tests/unit/hooks.test.ts` still mocks the barrel export and validates hook behavior separately.
-- Committed the refactor/test changes as `fafa71e refactor: simplify output sanity checks`.
-- Pushed `main` to `origin` successfully (`19d0bd6..fafa71e`).
+  - `npx tsc --noEmit`: passed.
+  - `npm test`: 100 files and 858 tests passed.
+  - `cargo fmt --all --check`: passed.
+  - `cargo test --workspace`: CLI 12 tests and core 35 tests passed.
+  - `cargo clippy --workspace --all-targets -- -D warnings`: passed.
 
 ## Next Exact Step
 
-1. Report commit hash, push result, verification results, and confidence.
+1. If asked to refactor next, start with `src/core/loop/verification.ts` and open its direct consumers/tests before editing.
 
 ## Incomplete Items And Why
 
-- No implementation, verification, refactor commit, refactor push, or memory update items remain for this task.
+- No code refactor was performed in this pass because the user asked only for `전수조사`.
+- Numeric test coverage percentage remains unknown because the Vitest coverage provider is not installed.
+- Heuristic dead-export and direct-test-reference lists were collected but require file-by-file verification before deletion or test claims.
 
 ## Key Decisions
 
-- Kept implementation behavior and public API unchanged; all changes are internal helper extraction plus direct tests.
-- Preserved detector order so overlapping pathological output still returns the same first matching reason.
-- Kept threshold values unchanged by moving them to named constants rather than tuning them.
-- Added direct tests for the checker because existing hook tests mocked `checkOutputSanity` and did not cover detector branches.
-- Avoided tackling broader loop/verification complexity in this same pass because those modules have wider behavior surfaces and need separate audits.
+- Treated this pass as analysis-only and did not modify source code.
+- Prioritized runtime candidates over test-only long `describe` blocks because production complexity has higher maintenance risk.
+- Classified `src/core/loop/verification.ts` as the best next narrow refactor target: high complexity, direct unit coverage, clear producer/consumer shape, and isolated file I/O/data aggregation responsibilities.
+- Classified `src/core/loop/mission-loop-handler.ts` as higher-risk than `verification.ts` because it schedules timers, writes loop state, updates mission ledger, and injects prompts.
+- Did not treat direct-test-reference absence as proof of missing coverage; prompt fragments and barrel exports are covered indirectly by prompt snapshot/consistency tests.
 
 ## Rejected Alternatives
 
-- Rejected changing anomaly thresholds or reason text because this pass is a refactor, not a behavior change.
-- Rejected introducing new modules for each detector; local helpers removed the complexity without adding file-level plumbing.
-- Rejected modifying `SanityCheckHook` because its consumer contract already matched the checker return shape.
+- Rejected making code changes during the survey because the latest request did not explicitly ask for refactor/commit/push.
+- Rejected claiming 100% test coverage because no coverage report was generated.
+- Rejected deleting heuristic unreferenced exports without opening each producer and consumer path.
 
 ## Known Risks
 
-- The regex-based detector semantics are intentionally unchanged; any improvement to false-positive/false-negative behavior should be a separate behavior-change task.
-- `SanityCheckHook` still ignores severity and branches only on `isHealthy`; this was existing behavior and was intentionally not changed.
-- Future pushes still depend on network and repository write access.
+- The AST metric is a local approximation of cyclomatic complexity, not a configured repository linter.
+- Direct test-reference mapping is heuristic and over-reports prompt fragments/barrel-exported modules as untested.
+- `websearchTool` depends on live external HTML/API behavior; unit tests may not fully exercise provider parsing resilience.
+- Several runtime functions still exceed the AGENTS.md complexity/length preferences and should be handled incrementally.
 
 ## Verification Observed
 
-- Baseline `npm run build`: passed.
-- Baseline `npx vitest run tests/unit/hooks.test.ts --reporter=verbose`: 1 file and 10 tests passed.
-- Focused post-refactor `npx vitest run tests/unit/sanity-checker.test.ts tests/unit/hooks.test.ts --reporter=verbose`: 2 files and 18 tests passed.
-- Post-refactor `npm run build`: passed.
-- AST complexity check for `src/utils/sanity/checker.ts`: `checkOutputSanity` complexity 5; maximum file function complexity 5.
-- `npm test`: 100 files and 858 tests passed.
-- `git diff --check`: passed.
+- `git status --short --branch`: `## main...origin/main`.
+- TypeScript AST survey completed with the metrics listed above.
+- Relative import cycle scan: none.
+- `node_modules/@vitest/coverage-v8` check: missing.
+- `npm run build`: passed.
 - `npx tsc --noEmit`: passed.
+- `npm test`: 100 files and 858 tests passed.
 - `cargo fmt --all --check`: passed.
 - `cargo test --workspace`: CLI 12 tests and core 35 tests passed.
-- `git commit -m "refactor: simplify output sanity checks"`: created `fafa71e`.
-- `git push origin main`: pushed `19d0bd6..fafa71e`.
+- `cargo clippy --workspace --all-targets -- -D warnings`: passed.
 
 ## Files To Open First Next Session
 
 1. `AGENT_MEMORY.md`
 2. `git status --branch --short`
-3. `src/utils/sanity/checker.ts`
-4. `tests/unit/sanity-checker.test.ts`
-5. `src/hooks/features/sanity-check.ts`
-6. `src/utils/sanity/index.ts`
-7. `src/utils/sanity/constants/severity.ts`
+3. `src/core/loop/verification.ts`
+4. `tests/unit/verification.test.ts`
+5. `src/hooks/features/mission-loop.ts`
+6. `src/core/loop/todo-continuation.ts`
+7. `src/core/loop/mission-loop-handler.ts`
