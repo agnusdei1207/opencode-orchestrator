@@ -92,6 +92,29 @@ describe("Retry Utilities", () => {
             expect(reason).toBe("Too Many Requests");
         });
 
+        it("should detect provider overload from JSON code", () => {
+            const reason = isRetryable({
+                message: JSON.stringify({ code: "provider_unavailable" }),
+            });
+            expect(reason).toBe("Provider is overloaded");
+        });
+
+        it("should detect rate_limit from nested JSON error code", () => {
+            const reason = isRetryable({
+                message: JSON.stringify({ type: "error", error: { code: "provider_rate_limit" } }),
+            });
+            expect(reason).toBe("Rate Limited");
+        });
+
+        it("should detect provider server errors from JSON error payloads", () => {
+            expect(isRetryable({
+                message: JSON.stringify({ error: { message: "cache no_kv_space remaining" } }),
+            })).toBe("Provider Server Error");
+            expect(isRetryable({
+                message: JSON.stringify({ type: "error", error: { type: "server_error" } }),
+            })).toBe("Provider Server Error");
+        });
+
         it("should detect rate limit in plain message", () => {
             const reason = isRetryable({ message: "You hit the rate limit" });
             expect(reason).toBe("Rate Limited");
@@ -100,6 +123,11 @@ describe("Retry Utilities", () => {
         it("should detect overloaded from message", () => {
             const reason = isRetryable({ message: "Server overloaded, try again" });
             expect(reason).toBe("Provider is overloaded");
+        });
+
+        it("should detect timeout from plain message", () => {
+            const reason = isRetryable({ message: "request timeout while streaming" });
+            expect(reason).toBe("Request Timeout");
         });
 
         it("should return undefined for non-retryable errors", () => {

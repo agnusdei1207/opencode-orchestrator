@@ -46,6 +46,29 @@ export interface RetryConfig {
     backoffFactor?: number;
 }
 
+interface ResolvedRetryConfig {
+    maxAttempts: number;
+    initialDelay: number;
+    maxDelay: number;
+    backoffFactor: number;
+}
+
+const RETRY_REASONS = {
+    OVERLOADED: "Provider is overloaded",
+    TOO_MANY_REQUESTS: "Too Many Requests",
+    RATE_LIMITED: "Rate Limited",
+    SERVER_ERROR: "Provider Server Error",
+    TIMEOUT: "Request Timeout",
+} as const;
+
+const JSON_ERROR_TYPE = "error";
+const JSON_TOO_MANY_REQUESTS = "too_many_requests";
+const JSON_SERVER_ERROR = "server_error";
+const NO_KV_SPACE = "no_kv_space";
+const EXHAUSTED = "exhausted";
+const UNAVAILABLE = "unavailable";
+const RATE_LIMIT = "rate_limit";
+
 // ============================================================================
 // Core Functions
 // ============================================================================
@@ -127,64 +150,104 @@ export function calculateDelay(attempt: number, errorData?: APIErrorData): numbe
  * Returns a human-readable reason if retryable, undefined otherwise.
  */
 export function isRetryable(error: unknown): string | undefined {
-    // Check if error has retryable flag
-    if (typeof error === "object" && error !== null) {
-        const errorObj = error as Record<string, unknown>;
+    if (!isRecord(error)) return undefined;
 
-        // Direct isRetryable flag
-        if (errorObj.isRetryable === true) {
-            const message = String(errorObj.message || "");
-            return message.includes("Overloaded") ? "Provider is overloaded" : message;
-        }
+    return retryableFlagReason(error)
+        ?? retryableDataReason(error.data)
+        ?? retryableMessageReason(readMessage(error));
+}
 
-        // Check nested data
-        if (typeof errorObj.data === "object" && errorObj.data !== null) {
-            const data = errorObj.data as Record<string, unknown>;
-            if (data.isRetryable === true) {
-                const message = String(data.message || "");
-                return message.includes("Overloaded") ? "Provider is overloaded" : message;
-            }
-        }
+function retryableFlagReason(error: Record<string, unknown>): string | undefined {
+    return error.isRetryable === true ? formatRetryableFlagMessage(error.message) : undefined;
+}
 
-        // Try parsing message as JSON
-        const message = String(errorObj.message || "");
-        try {
-            const json = JSON.parse(message);
+function retryableDataReason(data: unknown): string | undefined {
+    if (!isRecord(data) || data.isRetryable !== true) return undefined;
+    return formatRetryableFlagMessage(data.message);
+}
 
-            if (json.type === "error" && json.error?.type === "too_many_requests") {
-                return "Too Many Requests";
-            }
+function formatRetryableFlagMessage(value: unknown): string {
+    const message = String(value || "");
+    return message.includes("Overloaded") ? RETRY_REASONS.OVERLOADED : message;
+}
 
-            if (json.code?.includes?.("exhausted") || json.code?.includes?.("unavailable")) {
-                return "Provider is overloaded";
-            }
-
-            if (json.type === "error" && json.error?.code?.includes?.("rate_limit")) {
-                return "Rate Limited";
-            }
-
-            if (
-                json.error?.message?.includes?.("no_kv_space") ||
-                (json.type === "error" && json.error?.type === "server_error") ||
-                !!json.error
-            ) {
-                return "Provider Server Error";
-            }
-        } catch {
-            // Not JSON, check raw message
-            if (message.includes("rate") && message.includes("limit")) {
-                return "Rate Limited";
-            }
-            if (message.includes("overloaded") || message.includes("503")) {
-                return "Provider is overloaded";
-            }
-            if (message.includes("timeout")) {
-                return "Request Timeout";
-            }
-        }
+function retryableMessageReason(message: string): string | undefined {
+    try {
+        return retryableJsonReason(JSON.parse(message));
+    } catch {
+        return retryableRawMessageReason(message);
     }
+}
 
+function retryableJsonReason(json: unknown): string | undefined {
+    if (!isRecord(json)) return undefined;
+
+    const error = json.error;
+    return jsonTooManyRequestsReason(json, error)
+        ?? jsonProviderCodeReason(json)
+        ?? jsonRateLimitReason(json, error)
+        ?? jsonServerErrorReason(json, error);
+}
+
+function jsonTooManyRequestsReason(json: Record<string, unknown>, error: unknown): string | undefined {
+    if (json.type === JSON_ERROR_TYPE && isRecord(error) && error.type === JSON_TOO_MANY_REQUESTS) {
+        return RETRY_REASONS.TOO_MANY_REQUESTS;
+    }
     return undefined;
+}
+
+function jsonProviderCodeReason(json: Record<string, unknown>): string | undefined {
+    if (valueIncludes(json.code, EXHAUSTED) || valueIncludes(json.code, UNAVAILABLE)) {
+        return RETRY_REASONS.OVERLOADED;
+    }
+    return undefined;
+}
+
+function jsonRateLimitReason(json: Record<string, unknown>, error: unknown): string | undefined {
+    if (json.type === JSON_ERROR_TYPE && isRecord(error) && valueIncludes(error.code, RATE_LIMIT)) {
+        return RETRY_REASONS.RATE_LIMITED;
+    }
+    return undefined;
+}
+
+function jsonServerErrorReason(json: Record<string, unknown>, error: unknown): string | undefined {
+    if (isProviderServerError(json, error)) {
+        return RETRY_REASONS.SERVER_ERROR;
+    }
+    return undefined;
+}
+
+function isProviderServerError(json: Record<string, unknown>, error: unknown): boolean {
+    return (isRecord(error) && valueIncludes(error.message, NO_KV_SPACE))
+        || (json.type === JSON_ERROR_TYPE && isRecord(error) && error.type === JSON_SERVER_ERROR)
+        || Boolean(error);
+}
+
+function retryableRawMessageReason(message: string): string | undefined {
+    if (message.includes("rate") && message.includes("limit")) {
+        return RETRY_REASONS.RATE_LIMITED;
+    }
+    if (message.includes("overloaded") || message.includes("503")) {
+        return RETRY_REASONS.OVERLOADED;
+    }
+    if (message.includes("timeout")) {
+        return RETRY_REASONS.TIMEOUT;
+    }
+    return undefined;
+}
+
+function readMessage(error: Record<string, unknown>): string {
+    return String(error.message || "");
+}
+
+function valueIncludes(value: unknown, search: string): boolean {
+    if (value === null || value === undefined) return false;
+    const candidate = value as { includes?: (needle: string) => boolean };
+    return candidate.includes?.(search) === true;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+    return typeof value === "object" && value !== null;
 }
 
 /**
@@ -195,14 +258,10 @@ export async function withRetry<T>(
     config: RetryConfig = {},
     signal?: AbortSignal
 ): Promise<T> {
-    const maxAttempts = config.maxAttempts ?? MAX_RETRY_ATTEMPTS;
-    const initialDelay = config.initialDelay ?? RETRY_INITIAL_DELAY;
-    const maxDelay = config.maxDelay ?? RETRY_MAX_DELAY_NO_HEADERS;
-    const backoffFactor = config.backoffFactor ?? RETRY_BACKOFF_FACTOR;
-
+    const retryConfig = resolveRetryConfig(config);
     let lastError: unknown;
 
-    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    for (let attempt = 1; attempt <= retryConfig.maxAttempts; attempt++) {
         try {
             return await operation();
         } catch (error) {
@@ -215,22 +274,32 @@ export async function withRetry<T>(
             }
 
             // Last attempt, throw
-            if (attempt >= maxAttempts) {
+            if (attempt >= retryConfig.maxAttempts) {
                 throw error;
             }
 
-            // Calculate delay
-            const delay = Math.min(
-                initialDelay * Math.pow(backoffFactor, attempt - 1),
-                maxDelay
-            );
-
             // Wait before retry
-            await sleep(delay, signal);
+            await sleep(calculateRetryDelay(attempt, retryConfig), signal);
         }
     }
 
     throw lastError;
+}
+
+function resolveRetryConfig(config: RetryConfig): ResolvedRetryConfig {
+    return {
+        maxAttempts: config.maxAttempts ?? MAX_RETRY_ATTEMPTS,
+        initialDelay: config.initialDelay ?? RETRY_INITIAL_DELAY,
+        maxDelay: config.maxDelay ?? RETRY_MAX_DELAY_NO_HEADERS,
+        backoffFactor: config.backoffFactor ?? RETRY_BACKOFF_FACTOR,
+    };
+}
+
+function calculateRetryDelay(attempt: number, config: ResolvedRetryConfig): number {
+    return Math.min(
+        config.initialDelay * Math.pow(config.backoffFactor, attempt - 1),
+        config.maxDelay
+    );
 }
 
 /**
