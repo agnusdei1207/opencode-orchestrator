@@ -2,11 +2,11 @@
 
 ## Current Task
 
-Completed an unnecessary-complexity refactor and plumbing audit for the OpenCode Orchestrator repository. The main code change split the oversized plugin event handler into smaller event-specific helpers without changing the public hook contract. Full-suite verification also exposed two existing test-instability issues, which were stabilized.
+Completed and pushed an unnecessary-complexity refactor and plumbing audit for the OpenCode Orchestrator repository. The main code change split the oversized plugin event handler into smaller event-specific helpers without changing the public hook contract. Full-suite verification also exposed two existing test-instability issues, which were stabilized.
 
 ## Last Completed Step
 
-Completed survey, implementation, verification, and post-work audit.
+Completed survey, implementation, verification, post-work audit, commit, and push.
 
 - Read `AGENT_MEMORY.md`, `AGENTS.md`, `package.json`, `tsconfig.json`, `Cargo.toml`, `vitest.config.ts`, the plugin entrypoint, handler barrel exports, event-handler implementation, event-handler tests, context types, shared event/status constants, and directly called session/recovery/loop/context modules.
 - Ran an AST complexity survey over `src/**/*.ts`; `src/plugin-handlers/event-handler.ts` was the top complexity candidate at complexity 29 and 125 lines for `createEventHandler`.
@@ -28,16 +28,16 @@ Completed survey, implementation, verification, and post-work audit.
   - `SESSION_STATUS.IDLE` is exported through `src/shared/message/index.ts` and `src/shared/index.ts`.
   - Hybrid ranking still flows through `HybridSearch.weightMemoryScore() -> memoryStrength() -> memoryKindWeight()`.
   - Dist integrity still imports `dist/index.js` and asserts a default plugin function.
+- Committed the refactor/audit changes as `ee6be12 refactor: simplify event handler plumbing`.
+- Pushed `main` to `origin` successfully (`2fa180b..ee6be12`).
 
 ## Next Exact Step
 
-1. Commit the current changes.
-2. Push `main` to `origin`.
-3. Report commit hash, push result, verification results, and confidence.
+1. Report commit hash, push result, verification results, and confidence.
 
 ## Incomplete Items And Why
 
-- Commit and push are still pending at the time this memory snapshot is written.
+- No implementation, verification, commit, or push items remain for this task.
 
 ## Key Decisions
 
@@ -57,7 +57,7 @@ Completed survey, implementation, verification, and post-work audit.
 
 - `dist/index.js` import timing can still vary under heavy host load, but the smoke test now has explicit headroom and passed in isolation and in the full suite.
 - The event handler still schedules idle continuation through a timer, so timer behavior remains covered by fake-timer unit tests rather than synchronous checks.
-- Remote push still depends on network and repository write access.
+- Future pushes still depend on network and repository write access.
 
 ## Verification Observed
 
@@ -74,6 +74,8 @@ Completed survey, implementation, verification, and post-work audit.
 - `cargo fmt --check`: passed.
 - Final `npm run build --silent`: passed.
 - `cargo test -p orchestrator-cli -p orchestrator-core --quiet`: CLI 12 tests and core 35 tests passed.
+- `git commit -m "refactor: simplify event handler plumbing"`: created `ee6be12`.
+- `git push origin main`: pushed `2fa180b..ee6be12`.
 
 ## Files To Open First Next Session
 
