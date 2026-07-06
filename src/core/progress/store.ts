@@ -49,6 +49,9 @@ export interface SnapshotInput {
 const progressHistory = new Map<string, ProgressSnapshot[]>();
 const sessionStartTimes = new Map<string, Date>();
 
+const DEFAULT_COUNT = 0;
+const UNLIMITED_STEPS = Infinity;
+
 /**
  * Start tracking a session
  */
@@ -70,35 +73,71 @@ export function getSessionStart(sessionId: string): Date | undefined {
 export function recordSnapshot(sessionId: string, data: SnapshotInput): ProgressSnapshot {
     const startedAt = sessionStartTimes.get(sessionId) || new Date();
     const now = new Date();
+    const snapshot = buildSnapshot(sessionId, data, startedAt, now);
 
-    const snapshot: ProgressSnapshot = {
+    appendSnapshot(sessionId, snapshot);
+    return snapshot;
+}
+
+function buildSnapshot(
+    sessionId: string,
+    data: SnapshotInput,
+    startedAt: Date,
+    now: Date,
+): ProgressSnapshot {
+    return {
         sessionId,
         timestamp: now,
-        todos: {
-            total: data.todoTotal || 0,
-            completed: data.todoCompleted || 0,
-            pending: (data.todoTotal || 0) - (data.todoCompleted || 0),
-            percentage: data.todoTotal
-                ? Math.round((data.todoCompleted || 0) / data.todoTotal * 100)
-                : 0,
-        },
-        tasks: {
-            total: data.taskTotal || 0,
-            running: data.taskRunning || 0,
-            completed: data.taskCompleted || 0,
-            failed: data.taskFailed || 0,
-            percentage: data.taskTotal
-                ? Math.round(((data.taskCompleted || 0) + (data.taskFailed || 0)) / data.taskTotal * 100)
-                : 0,
-        },
-        steps: {
-            current: data.currentStep || 0,
-            max: data.maxSteps || Infinity,
-        },
+        todos: buildTodoProgress(data),
+        tasks: buildTaskProgress(data),
+        steps: buildStepProgress(data),
         startedAt,
         elapsedMs: now.getTime() - startedAt.getTime(),
     };
+}
 
+function buildTodoProgress(data: SnapshotInput): TodoProgress {
+    const total = readCount(data.todoTotal);
+    const completed = readCount(data.todoCompleted);
+
+    return {
+        total,
+        completed,
+        pending: total - completed,
+        percentage: calculatePercentage(completed, total),
+    };
+}
+
+function buildTaskProgress(data: SnapshotInput): TaskProgress {
+    const total = readCount(data.taskTotal);
+    const completed = readCount(data.taskCompleted);
+    const failed = readCount(data.taskFailed);
+
+    return {
+        total,
+        running: readCount(data.taskRunning),
+        completed,
+        failed,
+        percentage: calculatePercentage(completed + failed, total),
+    };
+}
+
+function buildStepProgress(data: SnapshotInput): StepProgress {
+    return {
+        current: readCount(data.currentStep),
+        max: data.maxSteps || UNLIMITED_STEPS,
+    };
+}
+
+function calculatePercentage(completed: number, total: number): number {
+    return total ? Math.round(completed / total * 100) : DEFAULT_COUNT;
+}
+
+function readCount(value: number | undefined): number {
+    return value || DEFAULT_COUNT;
+}
+
+function appendSnapshot(sessionId: string, snapshot: ProgressSnapshot): void {
     const history = progressHistory.get(sessionId) || [];
     history.push(snapshot);
 
@@ -107,7 +146,6 @@ export function recordSnapshot(sessionId: string, data: SnapshotInput): Progress
     }
 
     progressHistory.set(sessionId, history);
-    return snapshot;
 }
 
 /**

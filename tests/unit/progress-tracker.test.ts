@@ -5,6 +5,7 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import * as ProgressTracker from "../../src/core/progress/tracker";
 import { formatSnapshot, formatCompact } from "../../src/core/progress/formatters";
+import { HISTORY } from "../../src/shared/index";
 
 describe("ProgressTracker", () => {
     const TEST_SESSION = "session_test";
@@ -26,6 +27,23 @@ describe("ProgressTracker", () => {
             expect(snapshot.todos.total).toBe(10);
             expect(snapshot.todos.completed).toBe(3);
             expect(snapshot.todos.percentage).toBe(30);
+        });
+
+        it("should calculate task progress with failed tasks counted as finished", () => {
+            ProgressTracker.startSession(TEST_SESSION);
+
+            const snapshot = ProgressTracker.recordSnapshot(TEST_SESSION, {
+                taskTotal: 4,
+                taskRunning: 1,
+                taskCompleted: 1,
+                taskFailed: 1,
+            });
+
+            expect(snapshot.tasks.total).toBe(4);
+            expect(snapshot.tasks.running).toBe(1);
+            expect(snapshot.tasks.completed).toBe(1);
+            expect(snapshot.tasks.failed).toBe(1);
+            expect(snapshot.tasks.percentage).toBe(50);
         });
     });
 
@@ -67,6 +85,18 @@ describe("ProgressTracker", () => {
 
             const history = ProgressTracker.getHistory(TEST_SESSION, 3);
             expect(history.length).toBe(3);
+        });
+
+        it("should prune stored history to the maximum progress entries", () => {
+            ProgressTracker.startSession(TEST_SESSION);
+
+            for (let i = 0; i < HISTORY.MAX_PROGRESS + 5; i++) {
+                ProgressTracker.recordSnapshot(TEST_SESSION, { todoCompleted: i });
+            }
+
+            const history = ProgressTracker.getHistory(TEST_SESSION, HISTORY.MAX_PROGRESS + 10);
+            expect(history.length).toBe(HISTORY.MAX_PROGRESS);
+            expect(history[0]?.todos.completed).toBe(5);
         });
     });
 
