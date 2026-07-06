@@ -2,39 +2,35 @@
 
 ## Current Task
 
-Completed and pushed a third unnecessary-complexity refactor and plumbing audit pass for the OpenCode Orchestrator repository. This pass focused on the todo auto-continuation idle path.
+Completed and pushed a fourth unnecessary-complexity refactor and plumbing audit pass for the OpenCode Orchestrator repository. This pass focused on the `delegate_task` tool execution and sync polling path.
 
 ## Last Completed Step
 
-Completed survey, implementation, verification, post-work audit, commit, and push.
+Completed survey, implementation, verification, post-work audit, refactor commit, push, and memory update.
 
-- Read `AGENT_MEMORY.md`, `AGENTS.md`, `package.json`, `src/core/loop/todo-continuation.ts`, `tests/unit/todo-continuation.test.ts`, `tests/unit/loop/todo-continuation.test.ts`, `src/plugin-handlers/event-handler.ts`, `src/hooks/custom/user-activity.ts`, `src/core/loop/stats.ts`, `src/core/loop/formatters.ts`, `src/core/loop/verification.ts`, and shared loop types/constants.
+- Read `AGENT_MEMORY.md`, `AGENTS.md`, `package.json`, `src/tools/parallel/delegate-task.ts`, `tests/unit/delegate-task.test.ts`, `src/tools/parallel/index.ts`, shared task/tool constants and types, `src/core/agents/manager.ts`, `src/core/agents/manager/task-launcher.ts`, and `src/core/agents/manager/task-resumer.ts`.
 - Confirmed the worktree started clean and `main` matched `origin/main`.
-- Ran the AST complexity survey over `src/**/*.ts`; after the previous retry pass, the top remaining candidate was `src/core/loop/todo-continuation.ts:handleSessionIdle` at complexity 25 and 116 lines.
+- Ran the AST complexity survey over `src/**/*.ts`; the top remaining candidate was `src/tools/parallel/delegate-task.ts:createDelegateTaskTool` and its `execute` method at complexity 21.
 - Confirmed baseline stability before implementation:
-  - `npm run build --silent`: passed.
-  - `npx vitest run tests/unit/todo-continuation.test.ts tests/unit/loop/todo-continuation.test.ts tests/unit/event-handler.test.ts --reporter=dot`: 3 files and 36 tests passed.
-- Refactored `handleSessionIdle` into explicit helpers for:
-  - idle rate limiting,
-  - main-session filtering,
-  - recovery skip,
-  - recent abort skip,
-  - running background task skip,
-  - SDK todo fetching,
-  - file-based work detection,
-  - countdown scheduling,
-  - countdown re-check and prompt injection.
-- Refactored `injectContinuation` into helpers for injection skip checks, prompt construction, and fire-and-forget prompt delivery so the changed file stays within local function length and complexity limits.
-- Added a focused test for the file-based continuation path where SDK todos are complete but file TODO/checklist work remains.
-- Re-ran the AST metric for `src/core/loop/todo-continuation.ts`; maximum function complexity is now 9, `handleSessionIdle` complexity is 5, and `handleSessionIdle` is 33 lines.
-- Reopened and reread every changed file from start to finish.
+  - `npm run build`: passed.
+  - `npx vitest run tests/unit/delegate-task.test.ts --reporter=verbose`: 1 file and 2 tests passed.
+- Refactored `delegate-task.ts` without changing public exports or output contracts:
+  - Moved the tool description and args schema out of `createDelegateTaskTool`.
+  - Added local typed structures for delegate args, context, runtime, session messages, and polling state.
+  - Split `execute` into explicit resume, background launch, sync launch, terminal guard, task launch, wait, and formatting helpers.
+  - Split session-output validation into assistant-message and output-part predicates.
+  - Split safe polling into loop control, one-poll handling, valid-output detection, stable-completion detection, timeout result construction, progress logging, and delay helpers.
+  - Removed the unused `STATUS_LABEL` import from `delegate-task.ts`.
+- Re-ran the AST metric for `src/tools/parallel/delegate-task.ts`; maximum local function complexity is now 6, `createDelegateTaskTool` complexity is 5, and `execute` complexity is 5.
+- Reopened and reread the changed file from start to finish after editing.
 - Re-traced the affected connections:
-  - `src/plugin-handlers/event-handler.ts` still calls `TodoContinuation.handleSessionIdle(client, directory, sessionID, sessionID)` from the guarded idle continuation path.
-  - `src/hooks/custom/user-activity.ts` still calls `TodoContinuation.handleUserMessage` only; no API change was made.
-  - `hasFileBasedWork` preserves the same `verifyMissionCompletion` predicate used before in both initial idle check and countdown re-check.
-  - `injectContinuation` still sends a text part through `client.session.prompt` and keeps the original fire-and-forget behavior.
-- Committed the refactor/audit changes as `09124c2 refactor: simplify todo continuation idle flow`.
-- Pushed `main` to `origin` successfully (`bd9e40c..09124c2`).
+  - `src/tools/parallel/index.ts` still registers `[TOOL_NAMES.DELEGATE_TASK]` through `createDelegateTaskTool(manager, client)`.
+  - `tests/unit/delegate-task.test.ts` still directly exercises resume routing and sync polling failure behavior.
+  - `manager.resume` still receives `{ sessionId, prompt, parentSessionID }`.
+  - `manager.launch` still receives `{ agent, description, prompt, parentSessionID, mode, groupID, depth }`.
+  - Sync wait paths still call `pollWithSafetyLimits` and then `extractSessionResult`.
+- Committed the refactor/audit changes as `9b720aa refactor: simplify delegate task execution`.
+- Pushed `main` to `origin` successfully (`83f7f57..9b720aa`).
 
 ## Next Exact Step
 
@@ -42,48 +38,51 @@ Completed survey, implementation, verification, post-work audit, commit, and pus
 
 ## Incomplete Items And Why
 
-- No implementation, verification, commit, or push items remain for this task.
+- No implementation, verification, refactor commit, refactor push, or memory update items remain for this task.
 
 ## Key Decisions
 
-- Kept all public todo-continuation exports unchanged: `handleSessionIdle`, `handleUserMessage`, `handleSessionError`, `handleAbort`, `cleanupSession`, and `hasPendingContinuation`.
-- Preserved the original idle processing order: rate limit, set `lastIdleTime`, cancel existing countdown, skip checks, todo fetch, work detection, toast, timer, re-fetch, prompt injection.
-- Kept duplicate file-work verification behavior because the code intentionally checks once before scheduling and once immediately before injecting.
-- Kept prompt injection fire-and-forget to avoid changing event-loop blocking behavior.
+- Kept the public export surface unchanged: `createDelegateTaskTool` remains the only export from `src/tools/parallel/delegate-task.ts`.
+- Preserved execution order in `execute`: parse args, find parent depth, log call, terminal-depth guard, background-required check, resume path, background launch path, sync launch path.
+- Preserved output labels and return string shapes for resume, background launch, sync completion, sync timeout, terminal guard, and error paths.
+- Kept polling elapsed-time semantics based on the elapsed value captured before the polling delay, matching the previous loop behavior.
+- Kept manager launch/resume payload fields unchanged to avoid changing task depth, routing, or session context behavior.
 
 ## Rejected Alternatives
 
-- Rejected changing continuation semantics or countdown timing because this pass is a refactor, not a behavior change.
-- Rejected merging todo continuation with mission-loop continuation because those paths have different state stores and verification contracts.
-- Rejected broad cleanup of older explanatory tests in `tests/unit/todo-continuation.test.ts`; only the new public behavior branch needed coverage for this pass.
+- Rejected changing timeout, polling interval, stable-poll thresholds, or terminal-depth behavior because this pass is a refactor, not a behavior change.
+- Rejected moving helper functions to a new module because only `delegate-task.ts` uses them and a new module would add plumbing without reducing coupling.
+- Rejected expanding tests beyond the existing focused delegate-task tests because no public behavior was added.
 
 ## Known Risks
 
-- The continuation timer remains asynchronous and is primarily covered by fake-timer tests.
-- File-based work detection still relies on filesystem state read by `verifyMissionCompletion`, which can differ by directory contents at runtime.
+- The sync polling path still depends on timing and session status responses from the OpenCode client; fake-timer coverage verifies the timeout/failure branch but not every real client timing scenario.
+- `ParallelAgentManager.launch` can still return a missing task at runtime despite the public type, so the existing sync failure guard was preserved.
 - Future pushes still depend on network and repository write access.
 
 ## Verification Observed
 
-- Baseline `npm run build --silent`: passed.
-- Baseline `npx vitest run tests/unit/todo-continuation.test.ts tests/unit/loop/todo-continuation.test.ts tests/unit/event-handler.test.ts --reporter=dot`: 3 files and 36 tests passed.
-- `npx tsc --noEmit`: passed.
-- Focused post-refactor `npx vitest run tests/unit/todo-continuation.test.ts tests/unit/loop/todo-continuation.test.ts tests/unit/event-handler.test.ts --reporter=dot`: 3 files and 37 tests passed.
-- AST complexity check for `src/core/loop/todo-continuation.ts`: maximum complexity 9; `handleSessionIdle` complexity 5; `handleSessionIdle` 33 lines.
+- Baseline `npm run build`: passed.
+- Baseline `npx vitest run tests/unit/delegate-task.test.ts --reporter=verbose`: 1 file and 2 tests passed.
+- Focused post-refactor `npx vitest run tests/unit/delegate-task.test.ts --reporter=verbose`: 1 file and 2 tests passed.
+- `npm run build`: passed.
+- AST complexity check for `src/tools/parallel/delegate-task.ts`: maximum complexity 6; `createDelegateTaskTool` complexity 5; `execute` complexity 5.
+- `rg -n "createDelegateTaskTool|TOOL_NAMES\\.DELEGATE_TASK|pollWithSafetyLimits|validateSessionHasOutput" src tests`: confirmed registration, tests, and internal helper call sites.
 - `git diff --check`: passed.
-- `npm run build --silent`: passed.
-- `cargo fmt --check`: passed.
-- Final sequential `npx vitest run --reporter=dot`: 99 files and 835 tests passed.
-- `cargo test -p orchestrator-cli -p orchestrator-core --quiet`: CLI 12 tests and core 35 tests passed.
-- `git commit -m "refactor: simplify todo continuation idle flow"`: created `09124c2`.
-- `git push origin main`: pushed `bd9e40c..09124c2`.
+- Final `npx vitest run tests/unit/delegate-task.test.ts --reporter=verbose`: 1 file and 2 tests passed.
+- Final `npm run build`: passed.
+- Final `npm test`: 99 files and 835 tests passed.
+- `cargo fmt --all --check`: passed.
+- `cargo test --workspace`: CLI 12 tests and core 35 tests passed.
+- `git commit -m "refactor: simplify delegate task execution"`: created `9b720aa`.
+- `git push origin main`: pushed `83f7f57..9b720aa`.
 
 ## Files To Open First Next Session
 
 1. `AGENT_MEMORY.md`
 2. `git status --branch --short`
-3. `src/core/loop/todo-continuation.ts`
-4. `tests/unit/todo-continuation.test.ts`
-5. `tests/unit/loop/todo-continuation.test.ts`
-6. `src/plugin-handlers/event-handler.ts`
-7. `src/core/loop/verification.ts`
+3. `src/tools/parallel/delegate-task.ts`
+4. `tests/unit/delegate-task.test.ts`
+5. `src/tools/parallel/index.ts`
+6. `src/shared/tool/types.ts`
+7. `src/shared/task/types.ts`
