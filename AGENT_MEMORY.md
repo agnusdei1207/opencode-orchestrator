@@ -2,86 +2,86 @@
 
 ## Current Task
 
-Completed and pushed a second unnecessary-complexity refactor and plumbing audit pass for the OpenCode Orchestrator repository. This pass focused on retryable-error detection in the recovery layer.
+Completed a third unnecessary-complexity refactor and plumbing audit pass for the OpenCode Orchestrator repository. This pass focused on the todo auto-continuation idle path.
 
 ## Last Completed Step
 
-Completed survey, implementation, verification, post-work audit, commit, and push.
+Completed survey, implementation, verification, and post-work audit.
 
-- Read `AGENT_MEMORY.md`, `AGENTS.md`, `package.json`, `tsconfig.json`, `vitest.config.ts`, `src/core/recovery/retry.ts`, `tests/unit/retry.test.ts`, `src/shared/errors/retry.ts`, `src/shared/errors/index.ts`, and the dist-integrity test when a verification race appeared.
+- Read `AGENT_MEMORY.md`, `AGENTS.md`, `package.json`, `src/core/loop/todo-continuation.ts`, `tests/unit/todo-continuation.test.ts`, `tests/unit/loop/todo-continuation.test.ts`, `src/plugin-handlers/event-handler.ts`, `src/hooks/custom/user-activity.ts`, `src/core/loop/stats.ts`, `src/core/loop/formatters.ts`, `src/core/loop/verification.ts`, and shared loop types/constants.
 - Confirmed the worktree started clean and `main` matched `origin/main`.
-- Ran the AST complexity survey over `src/**/*.ts`; after the previous event-handler pass, the top remaining candidate was `src/core/recovery/retry.ts:isRetryable` at complexity 28 and 60 lines.
+- Ran the AST complexity survey over `src/**/*.ts`; after the previous retry pass, the top remaining candidate was `src/core/loop/todo-continuation.ts:handleSessionIdle` at complexity 25 and 116 lines.
 - Confirmed baseline stability before implementation:
   - `npm run build --silent`: passed.
-  - `npx vitest run tests/unit/retry.test.ts tests/unit/error-patterns.test.ts --reporter=dot`: 2 files and 42 tests passed.
-- Refactored `isRetryable` into explicit helpers for direct retryable flags, nested `data`, JSON message payloads, raw message payloads, provider server errors, and includes-style matching.
-- Extracted retry reason strings and JSON sentinel values into local constants.
-- Refactored `withRetry` configuration resolution and retry-delay calculation into helpers so the changed file stays within local function length and complexity limits.
-- Added focused tests for previously unpinned retryable branches:
-  - JSON provider unavailable/exhausted code.
-  - nested JSON rate-limit code.
-  - JSON provider server error payloads.
-  - raw timeout message.
-- Re-ran the AST metric for `src/core/recovery/retry.ts`; the maximum function complexity is now 8, `isRetryable` is 4, and `withRetry` is 32 lines.
+  - `npx vitest run tests/unit/todo-continuation.test.ts tests/unit/loop/todo-continuation.test.ts tests/unit/event-handler.test.ts --reporter=dot`: 3 files and 36 tests passed.
+- Refactored `handleSessionIdle` into explicit helpers for:
+  - idle rate limiting,
+  - main-session filtering,
+  - recovery skip,
+  - recent abort skip,
+  - running background task skip,
+  - SDK todo fetching,
+  - file-based work detection,
+  - countdown scheduling,
+  - countdown re-check and prompt injection.
+- Refactored `injectContinuation` into helpers for injection skip checks, prompt construction, and fire-and-forget prompt delivery so the changed file stays within local function length and complexity limits.
+- Added a focused test for the file-based continuation path where SDK todos are complete but file TODO/checklist work remains.
+- Re-ran the AST metric for `src/core/loop/todo-continuation.ts`; maximum function complexity is now 9, `handleSessionIdle` complexity is 5, and `handleSessionIdle` is 33 lines.
 - Reopened and reread every changed file from start to finish.
 - Re-traced the affected connections:
-  - `withRetry` still calls exported `isRetryable`.
-  - `tests/unit/retry.test.ts` remains the only direct repository consumer of exported retry utilities.
-  - `src/shared/errors/retry.ts` is a separate error-pattern retry helper and was not changed.
-  - No barrel export exists for `src/core/recovery/retry.ts`; public named exports remain unchanged from the source module.
-- Observed and diagnosed one self-induced verification race: running `npm run build` and full Vitest concurrently caused dist-integrity to read `dist` while build had removed and was rebuilding it. After build completed, `tests/unit/dist-integrity.test.ts` and the full suite passed sequentially.
-- Committed the refactor/audit changes as `0fbd515 refactor: simplify retry detection`.
-- Pushed `main` to `origin` successfully (`a92c8c8..0fbd515`).
+  - `src/plugin-handlers/event-handler.ts` still calls `TodoContinuation.handleSessionIdle(client, directory, sessionID, sessionID)` from the guarded idle continuation path.
+  - `src/hooks/custom/user-activity.ts` still calls `TodoContinuation.handleUserMessage` only; no API change was made.
+  - `hasFileBasedWork` preserves the same `verifyMissionCompletion` predicate used before in both initial idle check and countdown re-check.
+  - `injectContinuation` still sends a text part through `client.session.prompt` and keeps the original fire-and-forget behavior.
 
 ## Next Exact Step
 
-1. Report commit hash, push result, verification results, and confidence.
+1. Commit the current changes.
+2. Push `main` to `origin`.
+3. Report commit hash, push result, verification results, and confidence.
 
 ## Incomplete Items And Why
 
-- No implementation, verification, commit, or push items remain for this task.
+- Commit and push are still pending at the time this snapshot is written.
 
 ## Key Decisions
 
-- Kept retry utility public exports unchanged: `sleep`, `calculateDelay`, `isRetryable`, `withRetry`, `formatDelay`, constants, and exported interfaces remain available from `src/core/recovery/retry.ts`.
-- Kept behavior unchanged for existing direct flag, nested flag, JSON, and raw-message retry detection; tests now cover more of those branches.
-- Did not merge `src/core/recovery/retry.ts` with `src/shared/errors/retry.ts` because they serve different contracts and consumers.
-- Treated the dist-integrity failure as a command-ordering issue, not a source defect, after verifying `dist/scripts/postinstall.js` and `dist/scripts/preuninstall.js` existed after build completed.
+- Kept all public todo-continuation exports unchanged: `handleSessionIdle`, `handleUserMessage`, `handleSessionError`, `handleAbort`, `cleanupSession`, and `hasPendingContinuation`.
+- Preserved the original idle processing order: rate limit, set `lastIdleTime`, cancel existing countdown, skip checks, todo fetch, work detection, toast, timer, re-fetch, prompt injection.
+- Kept duplicate file-work verification behavior because the code intentionally checks once before scheduling and once immediately before injecting.
+- Kept prompt injection fire-and-forget to avoid changing event-loop blocking behavior.
 
 ## Rejected Alternatives
 
-- Rejected refactoring larger mission-loop or delegate-task modules in this pass because `retry.ts` was the highest complexity target with a narrow, verifiable surface.
-- Rejected changing return reason strings because callers/tests treat them as user-facing explanations.
-- Rejected broad recovery-layer consolidation because this request was a refactor pass, not a behavior or architecture migration.
+- Rejected changing continuation semantics or countdown timing because this pass is a refactor, not a behavior change.
+- Rejected merging todo continuation with mission-loop continuation because those paths have different state stores and verification contracts.
+- Rejected broad cleanup of older explanatory tests in `tests/unit/todo-continuation.test.ts`; only the new public behavior branch needed coverage for this pass.
 
 ## Known Risks
 
-- `isRetryable` intentionally preserves loose provider payload matching, including truthy JSON `error` payloads, to avoid changing retry behavior for unknown provider server errors.
-- Dist integrity tests must be run after build completes; running build and tests concurrently can create a temporary missing-dist race.
-- Future pushes still depend on network and repository write access.
+- The continuation timer remains asynchronous and is primarily covered by fake-timer tests.
+- File-based work detection still relies on filesystem state read by `verifyMissionCompletion`, which can differ by directory contents at runtime.
+- Remote push still depends on network and repository write access.
 
 ## Verification Observed
 
 - Baseline `npm run build --silent`: passed.
-- Baseline `npx vitest run tests/unit/retry.test.ts tests/unit/error-patterns.test.ts --reporter=dot`: 2 files and 42 tests passed.
+- Baseline `npx vitest run tests/unit/todo-continuation.test.ts tests/unit/loop/todo-continuation.test.ts tests/unit/event-handler.test.ts --reporter=dot`: 3 files and 36 tests passed.
 - `npx tsc --noEmit`: passed.
-- Focused post-refactor `npx vitest run tests/unit/retry.test.ts tests/unit/error-patterns.test.ts --reporter=verbose`: 2 files and 46 tests passed.
-- AST complexity check for `src/core/recovery/retry.ts`: maximum complexity 8; `isRetryable` complexity 4; `withRetry` 32 lines.
+- Focused post-refactor `npx vitest run tests/unit/todo-continuation.test.ts tests/unit/loop/todo-continuation.test.ts tests/unit/event-handler.test.ts --reporter=dot`: 3 files and 37 tests passed.
+- AST complexity check for `src/core/loop/todo-continuation.ts`: maximum complexity 9; `handleSessionIdle` complexity 5; `handleSessionIdle` 33 lines.
 - `git diff --check`: passed.
 - `npm run build --silent`: passed.
 - `cargo fmt --check`: passed.
-- `npx vitest run tests/unit/dist-integrity.test.ts --reporter=verbose`: 1 file and 8 tests passed after build completion.
-- Final sequential `npx vitest run --reporter=dot`: 99 files and 834 tests passed.
+- Final sequential `npx vitest run --reporter=dot`: 99 files and 835 tests passed.
 - `cargo test -p orchestrator-cli -p orchestrator-core --quiet`: CLI 12 tests and core 35 tests passed.
-- `git commit -m "refactor: simplify retry detection"`: created `0fbd515`.
-- `git push origin main`: pushed `a92c8c8..0fbd515`.
 
 ## Files To Open First Next Session
 
 1. `AGENT_MEMORY.md`
 2. `git status --branch --short`
-3. `src/core/recovery/retry.ts`
-4. `tests/unit/retry.test.ts`
-5. `tests/unit/error-patterns.test.ts`
-6. `scripts/build.mjs`
-7. `tests/unit/dist-integrity.test.ts`
+3. `src/core/loop/todo-continuation.ts`
+4. `tests/unit/todo-continuation.test.ts`
+5. `tests/unit/loop/todo-continuation.test.ts`
+6. `src/plugin-handlers/event-handler.ts`
+7. `src/core/loop/verification.ts`

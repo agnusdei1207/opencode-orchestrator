@@ -33,6 +33,19 @@ interface ContinuationState {
     lastAccessedAt: number;
 }
 
+interface SessionIdleRequest {
+    client: OpencodeClient;
+    directory: string;
+    sessionID: string;
+    mainSessionID?: string;
+}
+
+interface ContinuationCountdownInput {
+    todos: Todo[];
+    hasBuiltinWork: boolean;
+    scheduledAt: number;
+}
+
 const CONTINUATION_TTL_MS = 10 * 60 * 1000;
 const PRUNE_INTERVAL_MS = 2 * 60 * 1000;
 
@@ -157,44 +170,53 @@ async function injectContinuation(
     todos: Todo[]
 ): Promise<void> {
     const state = getState(sessionID);
+    if (shouldSkipInjection(state, sessionID)) return;
 
-    // Double-check conditions before injecting
-    if (state.isAborting) {
-        log("[todo-continuation] Skipped: user is aborting", { sessionID });
-        return;
-    }
-
-    if (hasRunningBackgroundTasks(sessionID)) {
-        log("[todo-continuation] Skipped: background tasks running", { sessionID });
-        return;
-    }
-
-    if (isSessionRecovering(sessionID)) {
-        log("[todo-continuation] Skipped: session is recovering from error", { sessionID });
-        return;
-    }
-
-    // Generate continuation prompt
-    let prompt = generateContinuationPrompt(todos);
-
-    // [Improvement]: If no built-in prompt, check for file-based TODOs
-    if (!prompt) {
-        try {
-            // Use specialized hook-style prompt for file-based todos
-            const v = verifyMissionCompletion(directory);
-            if (!v.passed && (v.todoIncomplete > 0 || (v.checklistProgress !== "0/0" && !v.checklistComplete))) {
-                prompt = buildTodoIncompletePrompt(v);
-            }
-        } catch (err) {
-            log("[todo-continuation] Failed to generate file-based prompt", err);
-        }
-    }
-
+    const prompt = buildContinuationPrompt(directory, todos);
     if (!prompt) {
         log("[todo-continuation] Skipped: no continuation prompt needed", { sessionID });
         return;
     }
 
+    sendContinuationPrompt(client, sessionID, prompt, todos);
+}
+
+function shouldSkipInjection(state: ContinuationState, sessionID: string): boolean {
+    if (state.isAborting) {
+        log("[todo-continuation] Skipped: user is aborting", { sessionID });
+        return true;
+    }
+    if (hasRunningBackgroundTasks(sessionID)) {
+        log("[todo-continuation] Skipped: background tasks running", { sessionID });
+        return true;
+    }
+    if (isSessionRecovering(sessionID)) {
+        log("[todo-continuation] Skipped: session is recovering from error", { sessionID });
+        return true;
+    }
+
+    return false;
+}
+
+function buildContinuationPrompt(directory: string, todos: Todo[]): string {
+    const prompt = generateContinuationPrompt(todos);
+    if (prompt) return prompt;
+
+    try {
+        const verification = verifyMissionCompletion(directory);
+        return hasFileBasedWork(verification) ? buildTodoIncompletePrompt(verification) : "";
+    } catch (err) {
+        log("[todo-continuation] Failed to generate file-based prompt", err);
+        return "";
+    }
+}
+
+function sendContinuationPrompt(
+    client: OpencodeClient,
+    sessionID: string,
+    prompt: string,
+    todos: Todo[]
+): void {
     try {
         // Fire and forget: Do NOT await prompt injection.
         // Prevents blocking the plugin's main event loop during idle-triggered resumptions.
@@ -226,115 +248,167 @@ export async function handleSessionIdle(
     sessionID: string,
     mainSessionID?: string
 ): Promise<void> {
+    const request = { client, directory, sessionID, mainSessionID };
     const state = getState(sessionID);
     const now = Date.now();
 
-    // Rate limit: don't continue too frequently
-    if (state.lastIdleTime && (now - state.lastIdleTime) < MIN_TIME_BETWEEN_CONTINUATIONS_MS) {
-        log("[todo-continuation] Skipped: too soon since last check", { sessionID });
-        return;
-    }
-    state.lastIdleTime = now;
-
-    // Cancel any existing countdown
-    cancelCountdown(sessionID);
-
-    // Skip if not the main session (or if we're a background task session)
-    if (mainSessionID && sessionID !== mainSessionID) {
-        log("[todo-continuation] Skipped: not main session", { sessionID, mainSessionID });
+    if (shouldSkipIdleRequest(request, state, now)) {
         return;
     }
 
-    // Skip if recovering from error
-    if (isSessionRecovering(sessionID)) {
-        log("[todo-continuation] Skipped: in recovery mode", { sessionID });
+    const todos = await fetchTodosForIdle(client, sessionID);
+    if (!todos) {
         return;
     }
 
-    // Skip if abort was detected recently
-    if (state.abortDetectedAt) {
-        const timeSinceAbort = Date.now() - state.abortDetectedAt;
-        if (timeSinceAbort < ABORT_WINDOW_MS) {
-            log("[todo-continuation] Skipped: abort detected recently", { sessionID, timeSinceAbort });
-            state.abortDetectedAt = undefined;  // Clear after checking
-            return;
-        }
-        state.abortDetectedAt = undefined;  // Clear stale abort
-    }
-
-    // Skip if background tasks are running
-    if (hasRunningBackgroundTasks(sessionID)) {
-        log("[todo-continuation] Skipped: background tasks running", { sessionID });
-        return;
-    }
-
-    // Fetch todos
-    let todos: Todo[] = [];
-    try {
-        const response = await client.session.todo({ path: { id: sessionID } });
-        todos = parseTodos(response.data);
-    } catch (error) {
-        log("[todo-continuation] Failed to fetch todos", { sessionID, error });
-        return;
-    }
-
-    // Check if there are incomplete todos
     const hasBuiltinWork = hasRemainingWork(todos);
-
-    // [Improvement]: Also check for file-based TODOs
-    let hasFileWork = false;
-    try {
-        const verification = verifyMissionCompletion(directory);
-        hasFileWork = !verification.passed && (verification.todoIncomplete > 0 || (verification.checklistProgress !== "0/0" && !verification.checklistComplete));
-    } catch (err) {
-        log("[todo-continuation] Failed to check file-based todos", err);
-    }
+    const hasFileWork = checkFileWorkForIdle(directory);
 
     if (!hasBuiltinWork && !hasFileWork) {
         log("[todo-continuation] All work complete (built-in and file-based)", { sessionID });
         return;
     }
 
+    await startContinuationCountdown(request, state, {
+        todos,
+        hasBuiltinWork,
+        scheduledAt: now,
+    });
+}
+
+function shouldSkipIdleRequest(
+    request: SessionIdleRequest,
+    state: ContinuationState,
+    now: number
+): boolean {
+    if (isIdleRateLimited(state, request.sessionID, now)) return true;
+    state.lastIdleTime = now;
+    cancelCountdown(request.sessionID);
+
+    return shouldSkipNonMainSession(request)
+        || shouldSkipRecoveringSession(request.sessionID)
+        || shouldSkipRecentAbort(state, request.sessionID)
+        || shouldSkipRunningBackgroundTasks(request.sessionID);
+}
+
+function isIdleRateLimited(state: ContinuationState, sessionID: string, now: number): boolean {
+    if (!state.lastIdleTime || (now - state.lastIdleTime) >= MIN_TIME_BETWEEN_CONTINUATIONS_MS) {
+        return false;
+    }
+
+    log("[todo-continuation] Skipped: too soon since last check", { sessionID });
+    return true;
+}
+
+function shouldSkipNonMainSession(request: SessionIdleRequest): boolean {
+    const { sessionID, mainSessionID } = request;
+    if (!mainSessionID || sessionID === mainSessionID) return false;
+
+    log("[todo-continuation] Skipped: not main session", { sessionID, mainSessionID });
+    return true;
+}
+
+function shouldSkipRecoveringSession(sessionID: string): boolean {
+    if (!isSessionRecovering(sessionID)) return false;
+
+    log("[todo-continuation] Skipped: in recovery mode", { sessionID });
+    return true;
+}
+
+function shouldSkipRecentAbort(state: ContinuationState, sessionID: string): boolean {
+    if (!state.abortDetectedAt) return false;
+
+    const timeSinceAbort = Date.now() - state.abortDetectedAt;
+    state.abortDetectedAt = undefined;
+    if (timeSinceAbort >= ABORT_WINDOW_MS) return false;
+
+    log("[todo-continuation] Skipped: abort detected recently", { sessionID, timeSinceAbort });
+    return true;
+}
+
+function shouldSkipRunningBackgroundTasks(sessionID: string): boolean {
+    if (!hasRunningBackgroundTasks(sessionID)) return false;
+
+    log("[todo-continuation] Skipped: background tasks running", { sessionID });
+    return true;
+}
+
+async function fetchTodosForIdle(
+    client: OpencodeClient,
+    sessionID: string
+): Promise<Todo[] | undefined> {
+    try {
+        const response = await client.session.todo({ path: { id: sessionID } });
+        return parseTodos(response.data);
+    } catch (error) {
+        log("[todo-continuation] Failed to fetch todos", { sessionID, error });
+        return undefined;
+    }
+}
+
+function checkFileWorkForIdle(directory: string): boolean {
+    try {
+        return hasFileBasedWork(verifyMissionCompletion(directory));
+    } catch (err) {
+        log("[todo-continuation] Failed to check file-based todos", err);
+        return false;
+    }
+}
+
+function hasFileBasedWork(verification: ReturnType<typeof verifyMissionCompletion>): boolean {
+    return !verification.passed
+        && (verification.todoIncomplete > 0 ||
+            (verification.checklistProgress !== "0/0" && !verification.checklistComplete));
+}
+
+async function startContinuationCountdown(
+    request: SessionIdleRequest,
+    state: ContinuationState,
+    input: ContinuationCountdownInput
+): Promise<void> {
+    const { todos, hasBuiltinWork, scheduledAt } = input;
     const incompleteCount = hasBuiltinWork ? getIncompleteCount(todos) : 0;
-    const fileIncompleteCount = hasFileWork ? 1 : 0; // Simplified
     const nextPending = getNextPending(todos);
     log("[todo-continuation] Starting countdown", {
-        sessionID,
+        sessionID: request.sessionID,
         incompleteCount,
         nextPending: nextPending?.id,
     });
 
-    // Show initial countdown toast
-    await showCountdownToast(client, COUNTDOWN_SECONDS, incompleteCount);
-    state.countdownStartedAt = now;
+    await showCountdownToast(request.client, COUNTDOWN_SECONDS, incompleteCount);
+    state.countdownStartedAt = scheduledAt;
+    state.countdownTimer = setTimeout(
+        () => runContinuationCountdown(request),
+        COUNTDOWN_SECONDS * TIME.SECOND
+    );
+}
 
-    // Start countdown timer
-    state.countdownTimer = setTimeout(async () => {
-        cancelCountdown(sessionID);
+async function runContinuationCountdown(request: SessionIdleRequest): Promise<void> {
+    const { client, directory, sessionID } = request;
+    cancelCountdown(sessionID);
 
-        // Re-fetch todos to ensure they're still incomplete
-        try {
-            const freshResponse = await client.session.todo({ path: { id: sessionID } });
-            const freshTodos = parseTodos(freshResponse.data);
+    try {
+        const freshResponse = await client.session.todo({ path: { id: sessionID } });
+        const freshTodos = parseTodos(freshResponse.data);
+        const freshFileWork = checkFileWorkForCountdown(directory, sessionID);
 
-            // Re-verify file work
-            let freshFileWork = false;
-            try {
-                const v = verifyMissionCompletion(directory);
-                freshFileWork = !v.passed && (v.todoIncomplete > 0 || (v.checklistProgress !== "0/0" && !v.checklistComplete));
-            } catch (err) {
-                log("[todo-continuation] Failed to verify file work", { sessionID, error: err });
-            }
-
-            if (hasRemainingWork(freshTodos) || freshFileWork) {
-                await injectContinuation(client, directory, sessionID, freshTodos);
-            } else {
-                log("[todo-continuation] All work completed during countdown", { sessionID });
-            }
-        } catch {
-            log("[todo-continuation] Failed to re-fetch todos for continuation", { sessionID });
+        if (hasRemainingWork(freshTodos) || freshFileWork) {
+            await injectContinuation(client, directory, sessionID, freshTodos);
+        } else {
+            log("[todo-continuation] All work completed during countdown", { sessionID });
         }
-    }, COUNTDOWN_SECONDS * TIME.SECOND);
+    } catch {
+        log("[todo-continuation] Failed to re-fetch todos for continuation", { sessionID });
+    }
+}
+
+function checkFileWorkForCountdown(directory: string, sessionID: string): boolean {
+    try {
+        return hasFileBasedWork(verifyMissionCompletion(directory));
+    } catch (err) {
+        log("[todo-continuation] Failed to verify file work", { sessionID, error: err });
+        return false;
+    }
 }
 
 /**

@@ -251,5 +251,49 @@ describe("TodoContinuation", () => {
             expect(client.tui.showToast).not.toHaveBeenCalled();
             expect(hasPendingContinuation(sessionID)).toBe(false);
         });
+
+        it("injects a file-based continuation when SDK todos are complete but file work remains", async () => {
+            mocks.verifyMissionCompletion.mockReturnValue({
+                passed: false,
+                todoIncomplete: 1,
+                todoProgress: "0/1",
+                todoComplete: false,
+                checklistProgress: "0/0",
+                checklistComplete: false,
+                syncIssuesEmpty: true,
+                syncIssuesCount: 0,
+                errors: ["TODO incomplete"],
+            });
+            const completedTodo = {
+                id: "T1",
+                content: "Already done",
+                status: "completed",
+                priority: "medium",
+                createdAt: new Date().toISOString(),
+            };
+            const client = {
+                session: {
+                    todo: vi.fn().mockResolvedValue({ data: [completedTodo] }),
+                    prompt: vi.fn().mockResolvedValue({ data: {} }),
+                },
+                tui: {
+                    showToast: vi.fn().mockResolvedValue({ data: true }),
+                },
+            };
+
+            await handleSessionIdle(client as unknown as Parameters<typeof handleSessionIdle>[0], directory, sessionID, sessionID);
+            await vi.advanceTimersByTimeAsync(2000);
+
+            expect(client.session.prompt).toHaveBeenCalledWith({
+                path: { id: sessionID },
+                body: {
+                    parts: [{
+                        type: "text",
+                        text: "<todo_incomplete>file work remains</todo_incomplete>",
+                    }],
+                },
+            });
+            expect(mocks.buildTodoIncompletePrompt).toHaveBeenCalled();
+        });
     });
 });
