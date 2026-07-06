@@ -2,87 +2,93 @@
 
 ## Current Task
 
-Completed and pushed a fourth unnecessary-complexity refactor and plumbing audit pass for the OpenCode Orchestrator repository. This pass focused on the `delegate_task` tool execution and sync polling path.
+Completed a test coverage hardening pass for the `delegate_task` tool after the prior execution refactor. The user asked whether tests fully corresponded to the refactored branches, then requested that all missing coverage be added.
 
 ## Last Completed Step
 
-Completed survey, implementation, verification, post-work audit, refactor commit, push, and memory update.
+Completed survey, baseline verification, test implementation, post-work verification, test commit, push, and memory update.
 
-- Read `AGENT_MEMORY.md`, `AGENTS.md`, `package.json`, `src/tools/parallel/delegate-task.ts`, `tests/unit/delegate-task.test.ts`, `src/tools/parallel/index.ts`, shared task/tool constants and types, `src/core/agents/manager.ts`, `src/core/agents/manager/task-launcher.ts`, and `src/core/agents/manager/task-resumer.ts`.
+- Read `AGENT_MEMORY.md`, `AGENTS.md`, `package.json`, `src/tools/parallel/delegate-task.ts`, `tests/unit/delegate-task.test.ts`, `src/tools/parallel/index.ts`, `src/shared/tool/types.ts`, `src/shared/task/types.ts`, `src/shared/tool/constants.ts`, `src/shared/message/constants.ts`, and relevant notification toast exports.
 - Confirmed the worktree started clean and `main` matched `origin/main`.
-- Ran the AST complexity survey over `src/**/*.ts`; the top remaining candidate was `src/tools/parallel/delegate-task.ts:createDelegateTaskTool` and its `execute` method at complexity 21.
-- Confirmed baseline stability before implementation:
+- Verified before editing:
   - `npm run build`: passed.
   - `npx vitest run tests/unit/delegate-task.test.ts --reporter=verbose`: 1 file and 2 tests passed.
-- Refactored `delegate-task.ts` without changing public exports or output contracts:
-  - Moved the tool description and args schema out of `createDelegateTaskTool`.
-  - Added local typed structures for delegate args, context, runtime, session messages, and polling state.
-  - Split `execute` into explicit resume, background launch, sync launch, terminal guard, task launch, wait, and formatting helpers.
-  - Split session-output validation into assistant-message and output-part predicates.
-  - Split safe polling into loop control, one-poll handling, valid-output detection, stable-completion detection, timeout result construction, progress logging, and delay helpers.
-  - Removed the unused `STATUS_LABEL` import from `delegate-task.ts`.
-- Re-ran the AST metric for `src/tools/parallel/delegate-task.ts`; maximum local function complexity is now 6, `createDelegateTaskTool` complexity is 5, and `execute` complexity is 5.
-- Reopened and reread the changed file from start to finish after editing.
+- Expanded `tests/unit/delegate-task.test.ts` from 2 tests to 15 tests.
+- Added helper plumbing for typed task fixtures, manager mocks, client mocks, assistant text/reasoning/tool messages, and fake-timer polling waits.
+- Added branch coverage for public `createDelegateTaskTool().execute` behavior:
+  - resume background dispatch payload and no launch fallback,
+  - sync timeout when message fetch fails,
+  - terminal-depth delegation guard,
+  - required `background` parameter guard,
+  - background launch success with depth/mode/group payload and toast notification,
+  - background launch failure,
+  - resume failure,
+  - missing resumed task,
+  - resumed sync success with reasoning output,
+  - resumed sync timeout with no assistant content,
+  - sync launch success after transient status error, missing status, busy status, idle status, valid output, and stable completion,
+  - assistant tool activity as valid output,
+  - final extraction failure placeholder after stable completion,
+  - sync launch returning no task,
+  - sync launch rejection.
+- Confirmed `@vitest/coverage-v8` is not installed, so no numeric coverage percentage was generated without adding a dependency.
+- Reopened and reread `tests/unit/delegate-task.test.ts` from start to finish after editing.
 - Re-traced the affected connections:
-  - `src/tools/parallel/index.ts` still registers `[TOOL_NAMES.DELEGATE_TASK]` through `createDelegateTaskTool(manager, client)`.
-  - `tests/unit/delegate-task.test.ts` still directly exercises resume routing and sync polling failure behavior.
-  - `manager.resume` still receives `{ sessionId, prompt, parentSessionID }`.
-  - `manager.launch` still receives `{ agent, description, prompt, parentSessionID, mode, groupID, depth }`.
-  - Sync wait paths still call `pollWithSafetyLimits` and then `extractSessionResult`.
-- Committed the refactor/audit changes as `9b720aa refactor: simplify delegate task execution`.
-- Pushed `main` to `origin` successfully (`83f7f57..9b720aa`).
+  - `tests/unit/delegate-task.test.ts` imports `createDelegateTaskTool` directly.
+  - `src/tools/parallel/index.ts` still registers `createDelegateTaskTool(manager, client)` under `[TOOL_NAMES.DELEGATE_TASK]`.
+  - `src/tools/parallel/delegate-task.ts` still calls `manager.resume`, `manager.launch`, `session.status`, `session.messages`, and `presets.taskStarted`; tests now mock/verify those boundaries.
+- Committed the test hardening changes as `cdddf0f test: cover delegate task execution branches`.
+- Pushed `main` to `origin` successfully (`a231784..cdddf0f`).
 
 ## Next Exact Step
 
-1. Report commit hash, push result, verification results, and confidence.
+1. Report commit hash, push result, verification results, coverage caveat, and confidence.
 
 ## Incomplete Items And Why
 
-- No implementation, verification, refactor commit, refactor push, or memory update items remain for this task.
+- No implementation, verification, test commit, test push, or memory update items remain for this task.
 
 ## Key Decisions
 
-- Kept the public export surface unchanged: `createDelegateTaskTool` remains the only export from `src/tools/parallel/delegate-task.ts`.
-- Preserved execution order in `execute`: parse args, find parent depth, log call, terminal-depth guard, background-required check, resume path, background launch path, sync launch path.
-- Preserved output labels and return string shapes for resume, background launch, sync completion, sync timeout, terminal guard, and error paths.
-- Kept polling elapsed-time semantics based on the elapsed value captured before the polling delay, matching the previous loop behavior.
-- Kept manager launch/resume payload fields unchanged to avoid changing task depth, routing, or session context behavior.
+- Kept implementation code unchanged; only tests were modified.
+- Tested through the public tool `execute` method instead of exporting private helpers.
+- Mocked `../../src/core/notification/toast` so background-task notification behavior can be asserted without side effects.
+- Used fake timers to exercise sync polling without real waits.
+- Did not add a coverage provider dependency solely to produce a percentage; branch correspondence was validated through explicit public-path tests and observed command results.
 
 ## Rejected Alternatives
 
-- Rejected changing timeout, polling interval, stable-poll thresholds, or terminal-depth behavior because this pass is a refactor, not a behavior change.
-- Rejected moving helper functions to a new module because only `delegate-task.ts` uses them and a new module would add plumbing without reducing coupling.
-- Rejected expanding tests beyond the existing focused delegate-task tests because no public behavior was added.
+- Rejected exporting internal helper functions from `delegate-task.ts` because that would expand the public surface only for tests.
+- Rejected changing polling constants or implementation behavior to make tests easier because the user requested test coverage, not behavior changes.
+- Rejected dependency installation for `@vitest/coverage-v8` because this task can be satisfied by focused tests without package churn.
 
 ## Known Risks
 
-- The sync polling path still depends on timing and session status responses from the OpenCode client; fake-timer coverage verifies the timeout/failure branch but not every real client timing scenario.
-- `ParallelAgentManager.launch` can still return a missing task at runtime despite the public type, so the existing sync failure guard was preserved.
+- Numeric coverage percentage is unavailable until the repo adds a Vitest coverage provider.
+- Tests use fake timers and mocked session responses; real OpenCode client timing can still differ, but public branch contracts are now covered.
 - Future pushes still depend on network and repository write access.
 
 ## Verification Observed
 
 - Baseline `npm run build`: passed.
 - Baseline `npx vitest run tests/unit/delegate-task.test.ts --reporter=verbose`: 1 file and 2 tests passed.
-- Focused post-refactor `npx vitest run tests/unit/delegate-task.test.ts --reporter=verbose`: 1 file and 2 tests passed.
-- `npm run build`: passed.
-- AST complexity check for `src/tools/parallel/delegate-task.ts`: maximum complexity 6; `createDelegateTaskTool` complexity 5; `execute` complexity 5.
-- `rg -n "createDelegateTaskTool|TOOL_NAMES\\.DELEGATE_TASK|pollWithSafetyLimits|validateSessionHasOutput" src tests`: confirmed registration, tests, and internal helper call sites.
-- `git diff --check`: passed.
-- Final `npx vitest run tests/unit/delegate-task.test.ts --reporter=verbose`: 1 file and 2 tests passed.
+- First expanded focused run: `npx vitest run tests/unit/delegate-task.test.ts --reporter=verbose`: 1 file and 14 tests passed after fixing the null-result helper.
+- Final focused run: `npx vitest run tests/unit/delegate-task.test.ts --reporter=verbose`: 1 file and 15 tests passed.
 - Final `npm run build`: passed.
-- Final `npm test`: 99 files and 835 tests passed.
+- Final `npm test`: 99 files and 848 tests passed.
+- `git diff --check`: passed.
 - `cargo fmt --all --check`: passed.
 - `cargo test --workspace`: CLI 12 tests and core 35 tests passed.
-- `git commit -m "refactor: simplify delegate task execution"`: created `9b720aa`.
-- `git push origin main`: pushed `83f7f57..9b720aa`.
+- `test -d node_modules/@vitest/coverage-v8 && echo coverage-v8-present || echo coverage-v8-missing`: reported `coverage-v8-missing`.
+- `git commit -m "test: cover delegate task execution branches"`: created `cdddf0f`.
+- `git push origin main`: pushed `a231784..cdddf0f`.
 
 ## Files To Open First Next Session
 
 1. `AGENT_MEMORY.md`
 2. `git status --branch --short`
-3. `src/tools/parallel/delegate-task.ts`
-4. `tests/unit/delegate-task.test.ts`
+3. `tests/unit/delegate-task.test.ts`
+4. `src/tools/parallel/delegate-task.ts`
 5. `src/tools/parallel/index.ts`
-6. `src/shared/tool/types.ts`
-7. `src/shared/task/types.ts`
+6. `src/shared/message/constants.ts`
+7. `src/core/notification/toast.ts`
