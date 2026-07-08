@@ -54,6 +54,27 @@ describe("Session Manager", () => {
         expect(session.tokens).toEqual({ totalInput: 0, totalOutput: 0, estimatedCost: 0 });
     });
 
+    it("normalizes non-finite numeric fields and token counters", () => {
+        const existing: Record<string, unknown> = {
+            active: true,
+            step: Number.NaN,
+            timestamp: Infinity,
+            startTime: -Infinity,
+            lastStepTime: "bad",
+            tokens: { totalInput: Number.NaN, totalOutput: 3, estimatedCost: Infinity },
+        };
+        const sessions = new Map<string, unknown>([["session-1", existing]]);
+
+        const session = ensureSessionInitialized(sessions, "session-1");
+
+        expect(session).toBe(existing);
+        expect(session.step).toBe(0);
+        expect(Number.isFinite(session.timestamp)).toBe(true);
+        expect(Number.isFinite(session.startTime)).toBe(true);
+        expect(Number.isFinite(session.lastStepTime)).toBe(true);
+        expect(session.tokens).toEqual({ totalInput: 0, totalOutput: 0, estimatedCost: 0 });
+    });
+
     it("rehydrates step and start time from persisted mission loop state", () => {
         const directory = createTempDir(tempDirs);
         const startedAt = "2026-06-11T00:00:00.000Z";

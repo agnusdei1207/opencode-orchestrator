@@ -194,23 +194,25 @@ function createManagedSession(): ManagedSessionState {
 function normalizeManagedSession(session: Record<string, unknown>): ManagedSessionState {
     const now = Date.now();
     if (typeof session.active !== "boolean") session.active = true;
-    if (typeof session.step !== "number") session.step = 0;
-    if (typeof session.timestamp !== "number") session.timestamp = now;
-    if (typeof session.startTime !== "number") session.startTime = now;
-    if (typeof session.lastStepTime !== "number") session.lastStepTime = now;
+    if (!isFiniteNumber(session.step)) session.step = 0;
+    if (!isFiniteNumber(session.timestamp)) session.timestamp = now;
+    if (!isFiniteNumber(session.startTime)) session.startTime = now;
+    if (!isFiniteNumber(session.lastStepTime)) session.lastStepTime = now;
     if (!isTokenUsage(session.tokens)) {
         session.tokens = { totalInput: 0, totalOutput: 0, estimatedCost: 0 };
     }
-    return session as unknown as ManagedSessionState;
+    if (isManagedSessionState(session)) return session;
+
+    throw new Error("Failed to normalize managed session state");
 }
 
 function isManagedSessionState(value: unknown): value is ManagedSessionState {
     return isRecord(value)
         && typeof value.active === "boolean"
-        && typeof value.step === "number"
-        && typeof value.timestamp === "number"
-        && typeof value.startTime === "number"
-        && typeof value.lastStepTime === "number"
+        && isFiniteNumber(value.step)
+        && isFiniteNumber(value.timestamp)
+        && isFiniteNumber(value.startTime)
+        && isFiniteNumber(value.lastStepTime)
         && isTokenUsage(value.tokens);
 }
 
@@ -220,9 +222,13 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function isTokenUsage(value: unknown): value is ManagedSessionState["tokens"] {
     if (!isRecord(value)) return false;
-    return typeof value.totalInput === "number"
-        && typeof value.totalOutput === "number"
-        && typeof value.estimatedCost === "number";
+    return isFiniteNumber(value.totalInput)
+        && isFiniteNumber(value.totalOutput)
+        && isFiniteNumber(value.estimatedCost);
+}
+
+function isFiniteNumber(value: unknown): value is number {
+    return typeof value === "number" && Number.isFinite(value);
 }
 
 /**

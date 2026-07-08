@@ -99,7 +99,7 @@ This audit records 100 concrete code smells found during the July 8, 2026 refact
 91. `queued` `src/core/todo/todo-manager.ts` - temporary file suffix uses `Math.random`.
 92. `queued` `src/core/todo/todo-manager.ts` - change-log failures are swallowed.
 93. `queued` `src/core/sync/todo-sync-service.ts` - file-handle close failures are ignored.
-94. `queued` `src/core/orchestrator/session-manager.ts` - session state is returned through `as unknown as ManagedSessionState`.
+94. `fixed` `src/core/orchestrator/session-manager.ts` - session state normalization now verifies the narrowed shape before returning it.
 95. `fixed` `src/core/loop/mission-ledger.ts` - ledger JSON lines are cast to events with minimal validation.
 96. `fixed` `src/core/loop/mission-loop.ts` - persisted loop state is parsed from JSON without schema validation.
 97. `queued` `src/core/knowledge/mission-memory.ts` - memory file IO and parsing are synchronous and concentrated in a large module.
