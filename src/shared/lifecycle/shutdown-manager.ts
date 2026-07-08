@@ -10,6 +10,7 @@ import type { CleanupRegistration } from "./registration.js";
 
 export type CleanupFunction = () => void | Promise<void>;
 type ShutdownLogger = (...args: unknown[]) => void;
+const CLEANUP_TIMEOUT_MS = 5_000;
 
 export class ShutdownManager {
     private cleanupHandlers: CleanupRegistration[] = [];
@@ -58,13 +59,7 @@ export class ShutdownManager {
             try {
                 this.log(`[${LOG_PREFIX.SHUTDOWN_MANAGER}] Cleaning up: ${handler.name}`);
 
-                // Race between cleanup and 5s timeout
-                await Promise.race([
-                    Promise.resolve(handler.fn()),
-                    new Promise((_, reject) =>
-                        setTimeout(() => reject(new Error(`Timeout`)), 5000)
-                    )
-                ]);
+                await runWithCleanupTimeout(handler.fn, CLEANUP_TIMEOUT_MS);
 
                 this.log(`[${LOG_PREFIX.SHUTDOWN_MANAGER}] ✓ ${handler.name} completed`);
             } catch (error) {
@@ -82,5 +77,23 @@ export class ShutdownManager {
      */
     isShutdown(): boolean {
         return this.isShuttingDown;
+    }
+}
+
+async function runWithCleanupTimeout(fn: CleanupFunction, timeoutMs: number): Promise<void> {
+    let timeoutId: ReturnType<typeof setTimeout> | undefined;
+    const timeout = new Promise<never>((_, reject) => {
+        timeoutId = setTimeout(() => reject(new Error("Timeout")), timeoutMs);
+    });
+
+    try {
+        await Promise.race([
+            Promise.resolve(fn()),
+            timeout,
+        ]);
+    } finally {
+        if (timeoutId) {
+            clearTimeout(timeoutId);
+        }
     }
 }
