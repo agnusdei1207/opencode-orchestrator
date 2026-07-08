@@ -43,6 +43,10 @@ interface CircuitBreaker {
     successCount: number;  // For half-open testing
 }
 
+function normalizeLimit(limit: number): number {
+    return limit === 0 ? Infinity : limit;
+}
+
 export class ConcurrencyController {
     private counts: Map<string, number> = new Map();
     private queues: Map<string, QueuedTask[]> = new Map();
@@ -84,26 +88,22 @@ export class ConcurrencyController {
     getConcurrencyLimit(key: string): number {
         const explicitLimit = this.limits.get(key);
         if (explicitLimit !== undefined) {
-            return explicitLimit === 0 ? Infinity : explicitLimit;
+            return normalizeLimit(explicitLimit);
         }
 
-        if (this.config.modelConcurrency?.[key] !== undefined) {
-            const limit = this.config.modelConcurrency[key];
-            return limit === 0 ? Infinity : limit;
-        }
-
-        const provider = key.split("/")[0];
-        if (this.config.providerConcurrency?.[provider] !== undefined) {
-            const limit = this.config.providerConcurrency[provider];
-            return limit === 0 ? Infinity : limit;
-        }
-
-        if (this.config.agentConcurrency?.[key] !== undefined) {
-            const limit = this.config.agentConcurrency[key];
-            return limit === 0 ? Infinity : limit;
+        const configuredLimit = this.getConfiguredLimit(key);
+        if (configuredLimit !== undefined) {
+            return normalizeLimit(configuredLimit);
         }
 
         return this.config.defaultConcurrency ?? PARALLEL_TASK.DEFAULT_CONCURRENCY;
+    }
+
+    private getConfiguredLimit(key: string): number | undefined {
+        const provider = key.split("/")[0];
+        return this.config.modelConcurrency?.[key]
+            ?? this.config.providerConcurrency?.[provider]
+            ?? this.config.agentConcurrency?.[key];
     }
 
     getLimit(key: string): number {

@@ -108,6 +108,12 @@ describe("ConcurrencyController", () => {
 
             expect(controller.getConcurrencyLimit("fast-model")).toBe(Infinity);
         });
+
+        it("should return Infinity when explicit limit is 0", () => {
+            controller.setLimit("agent-a", 0);
+
+            expect(controller.getConcurrencyLimit("agent-a")).toBe(Infinity);
+        });
     });
 
     // ========================================================================
