@@ -168,7 +168,7 @@ function retryableDataReason(data: unknown): string | undefined {
 
 function formatRetryableFlagMessage(value: unknown): string {
     const message = String(value || "");
-    return message.includes("Overloaded") ? RETRY_REASONS.OVERLOADED : message;
+    return message.toLowerCase().includes("overloaded") ? RETRY_REASONS.OVERLOADED : message;
 }
 
 function retryableMessageReason(message: string): string | undefined {
@@ -224,13 +224,14 @@ function isProviderServerError(json: Record<string, unknown>, error: unknown): b
 }
 
 function retryableRawMessageReason(message: string): string | undefined {
-    if (message.includes("rate") && message.includes("limit")) {
+    const normalized = message.toLowerCase();
+    if (normalized.includes("rate") && normalized.includes("limit")) {
         return RETRY_REASONS.RATE_LIMITED;
     }
-    if (message.includes("overloaded") || message.includes("503")) {
+    if (normalized.includes("overloaded") || normalized.includes("503")) {
         return RETRY_REASONS.OVERLOADED;
     }
-    if (message.includes("timeout")) {
+    if (normalized.includes("timeout")) {
         return RETRY_REASONS.TIMEOUT;
     }
     return undefined;
@@ -242,8 +243,7 @@ function readMessage(error: Record<string, unknown>): string {
 
 function valueIncludes(value: unknown, search: string): boolean {
     if (value === null || value === undefined) return false;
-    const candidate = value as { includes?: (needle: string) => boolean };
-    return candidate.includes?.(search) === true;
+    return String(value).toLowerCase().includes(search.toLowerCase());
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

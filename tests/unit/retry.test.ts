@@ -80,6 +80,11 @@ describe("Retry Utilities", () => {
             expect(reason).toBe("Provider is overloaded");
         });
 
+        it("should detect overloaded provider regardless of message case", () => {
+            const reason = isRetryable({ isRetryable: true, message: "provider overloaded" });
+            expect(reason).toBe("Provider is overloaded");
+        });
+
         it("should detect nested retryable errors", () => {
             const reason = isRetryable({ data: { isRetryable: true, message: "Retry me" } });
             expect(reason).toBe("Retry me");
@@ -120,6 +125,11 @@ describe("Retry Utilities", () => {
             expect(reason).toBe("Rate Limited");
         });
 
+        it("should detect uppercase rate limit in plain message", () => {
+            const reason = isRetryable({ message: "RATE LIMIT exceeded" });
+            expect(reason).toBe("Rate Limited");
+        });
+
         it("should detect overloaded from message", () => {
             const reason = isRetryable({ message: "Server overloaded, try again" });
             expect(reason).toBe("Provider is overloaded");
@@ -127,6 +137,11 @@ describe("Retry Utilities", () => {
 
         it("should detect timeout from plain message", () => {
             const reason = isRetryable({ message: "request timeout while streaming" });
+            expect(reason).toBe("Request Timeout");
+        });
+
+        it("should detect mixed-case timeout from plain message", () => {
+            const reason = isRetryable({ message: "Request Timeout while streaming" });
             expect(reason).toBe("Request Timeout");
         });
 
