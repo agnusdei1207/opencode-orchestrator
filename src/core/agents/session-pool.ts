@@ -209,8 +209,10 @@ export class SessionPool {
         const session = this.sessionsById.get(sessionId);
         if (!session) return;
 
-        await this.deleteSession(sessionId);
-        log(`[SessionPool] Invalidated session ${sessionId.slice(0, 8)}...`);
+        const deleted = await this.deleteSession(sessionId);
+        if (deleted) {
+            log(`[SessionPool] Invalidated session ${sessionId.slice(0, 8)}...`);
+        }
     }
 
     /**
@@ -253,8 +255,10 @@ export class SessionPool {
 
             const idle = now - session.lastUsedAt.getTime();
             if (idle > this.config.idleTimeoutMs) {
-                await this.deleteSession(sessionId);
-                cleanedCount++;
+                const deleted = await this.deleteSession(sessionId);
+                if (deleted) {
+                    cleanedCount++;
+                }
             }
         }
 
@@ -381,11 +385,18 @@ export class SessionPool {
         return session;
     }
 
-    private async deleteSession(sessionId: string): Promise<void> {
+    private async deleteSession(sessionId: string): Promise<boolean> {
         const session = this.sessionsById.get(sessionId);
-        if (!session) return;
+        if (!session) return false;
 
-        // Remove from maps
+        try {
+            await this.client.session.delete({ path: { id: sessionId } });
+        } catch (error) {
+            session.health = "unhealthy";
+            log(`[SessionPool] Failed to delete session from server ${sessionId.slice(0, 8)}...`, error);
+            return false;
+        }
+
         this.sessionsById.delete(sessionId);
 
         const poolKey = this.getPoolKey(session.agentName);
@@ -400,12 +411,7 @@ export class SessionPool {
             }
         }
 
-        // Delete from server
-        try {
-            await this.client.session.delete({ path: { id: sessionId } });
-        } catch (error) {
-            log(`[SessionPool] Failed to delete session from server ${sessionId.slice(0, 8)}...`, error);
-        }
+        return true;
     }
 
     private startHealthCheck(): void {

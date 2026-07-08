@@ -64,7 +64,7 @@ This audit records 100 concrete code smells found during the July 8, 2026 refact
 56. `queued` `src/core/agents/session-pool.ts` - singleton state makes isolated tests and multiple clients harder.
 57. `queued` `src/core/agents/session-pool.ts` - constructor starts a health-check timer as a side effect.
 58. `queued` `src/core/agents/session-pool.ts` - lack of compact API invalidates every released session, defeating pooling.
-59. `queued` `src/core/agents/session-pool.ts` - sessions are removed from local maps before remote delete succeeds.
+59. `fixed` `src/core/agents/session-pool.ts` - sessions are now removed from local maps only after remote delete succeeds.
 60. `queued` `src/core/agents/session-pool.ts` - pool-size enforcement sorts available sessions on every release.
 61. `fixed` `src/core/agents/manager.ts` - session-store cleanup failures were swallowed.
 62. `fixed` `src/core/agents/manager.ts` - session-pool shutdown failures were swallowed.

@@ -81,4 +81,14 @@ describe("SessionPool (Reset & Isolation)", () => {
         // Should be deleted, not just released
         expect(mockClient.session.delete).toHaveBeenCalled();
     });
+
+    it("keeps failed remote deletes indexed and marks them unhealthy", async () => {
+        mockClient.session.delete.mockRejectedValueOnce(new Error("delete failed"));
+        const session = await pool.acquire("worker", "parent", "task");
+
+        await pool.invalidate(session.id);
+
+        expect(session.health).toBe("unhealthy");
+        expect(pool.getStats().totalSessions).toBe(1);
+    });
 });
