@@ -124,6 +124,25 @@ describe("ParallelAgentManager Features", () => {
         });
     });
 
+    describe("poller timer lifecycle", () => {
+        it("starts and stops the scheduled poll timer", () => {
+            const poller = new TaskPoller(
+                { session: { status: vi.fn().mockResolvedValue({ data: {} }) } } as never,
+                store,
+                concurrency,
+                vi.fn().mockResolvedValue(undefined),
+                vi.fn(),
+                vi.fn(),
+            );
+
+            poller.start();
+            expect(poller.isRunning()).toBe(true);
+
+            poller.stop();
+            expect(poller.isRunning()).toBe(false);
+        });
+    });
+
     // ========================================================================
     // Session Event Handling
     // ========================================================================

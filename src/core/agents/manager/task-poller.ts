@@ -18,7 +18,7 @@ type OpencodeClient = PluginInput["client"];
 type SessionStatusInfo = { type?: string; messageCount?: number };
 
 export class TaskPoller {
-    private pollingInterval?: ReturnType<typeof setInterval>;
+    private pollingTimer?: ReturnType<typeof setTimeout>;
     private messageCache: Map<string, { count: number; lastChecked: Date }> = new Map();
 
     // Adaptive polling
@@ -37,7 +37,7 @@ export class TaskPoller {
     ) { }
 
     start(): void {
-        if (this.pollingInterval) return;
+        if (this.pollingTimer) return;
         log("[task-poller.ts] start() - polling started (adaptive)");
 
         // Adaptive polling: adjust interval based on load
@@ -45,30 +45,30 @@ export class TaskPoller {
     }
 
     stop(): void {
-        if (this.pollingInterval) {
-            clearInterval(this.pollingInterval);
-            this.pollingInterval = undefined;
+        if (this.pollingTimer) {
+            clearTimeout(this.pollingTimer);
+            this.pollingTimer = undefined;
         }
     }
 
     isRunning(): boolean {
-        return !!this.pollingInterval;
+        return !!this.pollingTimer;
     }
 
     /**
      * Schedule next poll with adaptive interval
      */
     private scheduleNextPoll(): void {
-        this.pollingInterval = setTimeout(() => {
+        this.pollingTimer = setTimeout(() => {
             this.poll().then(() => {
                 if (this.isRunning()) {
                     this.scheduleNextPoll();
                 }
             });
-        }, this.currentPollInterval) as ReturnType<typeof setInterval>;
+        }, this.currentPollInterval);
 
-        if (this.pollingInterval?.unref) {
-            this.pollingInterval.unref();
+        if (this.pollingTimer?.unref) {
+            this.pollingTimer.unref();
         }
     }
 
