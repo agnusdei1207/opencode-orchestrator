@@ -73,6 +73,14 @@ describe("RustToolPool timeout recovery", () => {
         vi.useRealTimers();
     });
 
+    it("rejects invalid pool sizes before callers can wait forever", async () => {
+        const pool = createPool([], 5);
+        await pool.shutdown();
+
+        expect(() => new RustToolPool(0)).toThrow("maxSize must be a positive integer");
+        expect(() => new RustToolPool(-1)).toThrow("maxSize must be a positive integer");
+    });
+
     it("kills and removes a process whose request times out", async () => {
         const process = new FakeRustProcess();
         const pool = createPool([process]);

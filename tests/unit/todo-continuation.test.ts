@@ -252,6 +252,31 @@ describe("TodoContinuation", () => {
             expect(hasPendingContinuation(sessionID)).toBe(false);
         });
 
+        it("ignores malformed SDK todos instead of converting them into pending work", async () => {
+            const client = {
+                session: {
+                    todo: vi.fn().mockResolvedValue({
+                        data: [
+                            { id: "missing-status" },
+                            { id: 42, status: "pending" },
+                            { id: "invalid-status", status: "todo" },
+                        ],
+                    }),
+                    prompt: vi.fn().mockResolvedValue({ data: {} }),
+                },
+                tui: {
+                    showToast: vi.fn().mockResolvedValue({ data: true }),
+                },
+            };
+
+            await handleSessionIdle(client as unknown as Parameters<typeof handleSessionIdle>[0], directory, sessionID, sessionID);
+            await vi.advanceTimersByTimeAsync(2000);
+
+            expect(client.session.prompt).not.toHaveBeenCalled();
+            expect(client.tui.showToast).not.toHaveBeenCalled();
+            expect(hasPendingContinuation(sessionID)).toBe(false);
+        });
+
         it("injects a file-based continuation when SDK todos are complete but file work remains", async () => {
             mocks.verifyMissionCompletion.mockReturnValue({
                 passed: false,

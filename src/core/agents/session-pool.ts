@@ -60,6 +60,23 @@ const DEFAULT_CONFIG: SessionPoolConfig = {
     healthCheckIntervalMs: 60_000, // 1 minute
 };
 
+function requirePositiveInteger(name: keyof SessionPoolConfig, value: number): number {
+    if (!Number.isInteger(value) || value < 1) {
+        throw new Error(`SessionPool ${name} must be a positive integer, got ${value}`);
+    }
+    return value;
+}
+
+function normalizeConfig(config: Partial<SessionPoolConfig>): SessionPoolConfig {
+    const normalized = { ...DEFAULT_CONFIG, ...config };
+    return {
+        maxPoolSizePerAgent: requirePositiveInteger("maxPoolSizePerAgent", normalized.maxPoolSizePerAgent),
+        idleTimeoutMs: requirePositiveInteger("idleTimeoutMs", normalized.idleTimeoutMs),
+        maxReuseCount: requirePositiveInteger("maxReuseCount", normalized.maxReuseCount),
+        healthCheckIntervalMs: requirePositiveInteger("healthCheckIntervalMs", normalized.healthCheckIntervalMs),
+    };
+}
+
 export class SessionPool {
     private static _instance: SessionPool;
 
@@ -83,7 +100,7 @@ export class SessionPool {
     ) {
         this.client = client;
         this.directory = directory;
-        this.config = { ...DEFAULT_CONFIG, ...config };
+        this.config = normalizeConfig(config);
 
         // Start periodic health check
         this.startHealthCheck();
@@ -149,7 +166,6 @@ export class SessionPool {
 
         const now = Date.now();
         const age = now - session.createdAt.getTime();
-        const idle = now - session.lastUsedAt.getTime();
 
         // Check if session should be retired
         if (
@@ -263,7 +279,9 @@ export class SessionPool {
 
         // Delete all sessions
         const deletePromises = Array.from(this.sessionsById.keys()).map(id =>
-            this.deleteSession(id).catch(() => { /* ignore */ })
+            this.deleteSession(id).catch((error) => {
+                log(`[SessionPool] Failed to delete session during shutdown ${id.slice(0, 8)}...`, error);
+            })
         );
 
         await Promise.all(deletePromises);
@@ -385,14 +403,16 @@ export class SessionPool {
         // Delete from server
         try {
             await this.client.session.delete({ path: { id: sessionId } });
-        } catch {
-            // Session might already be gone
+        } catch (error) {
+            log(`[SessionPool] Failed to delete session from server ${sessionId.slice(0, 8)}...`, error);
         }
     }
 
     private startHealthCheck(): void {
         this.healthCheckInterval = setInterval(() => {
-            this.cleanup().catch(() => { /* ignore */ });
+            this.cleanup().catch((error) => {
+                log("[SessionPool] Health check cleanup failed", error);
+            });
         }, this.config.healthCheckIntervalMs);
 
         // Don't keep process alive just for health checks

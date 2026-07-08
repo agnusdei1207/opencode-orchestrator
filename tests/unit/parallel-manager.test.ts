@@ -95,6 +95,32 @@ describe("ParallelAgentManager Features", () => {
             expect(task.hasStartedOutputting).not.toBe(true);
         });
 
+        it("treats assistant tool_use parts as valid output", async () => {
+            const task = createMockTask();
+            const poller = new TaskPoller(
+                {
+                    session: {
+                        messages: vi.fn().mockResolvedValue({
+                            data: [{
+                                info: { role: "assistant" },
+                                parts: [{ type: "tool_use", name: "grep" }],
+                            }],
+                        }),
+                    },
+                } as never,
+                store,
+                concurrency,
+                vi.fn().mockResolvedValue(undefined),
+                vi.fn(),
+                vi.fn(),
+            );
+
+            const hasOutput = await poller.validateSessionHasOutput(task.sessionID, task);
+
+            expect(hasOutput).toBe(true);
+            expect(task.hasStartedOutputting).toBe(true);
+        });
+
         it("reuses one session status snapshot when polling multiple running tasks", async () => {
             const taskA = createMockTask({ id: "task-a", sessionID: "session-a" });
             const taskB = createMockTask({ id: "task-b", sessionID: "session-b" });

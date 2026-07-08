@@ -9,13 +9,30 @@ import { CONFIG } from "../config.js";
 import { log } from "../logger.js";
 import { formatDuration } from "../format.js";
 import { presets } from "../../notification/toast.js";
-import { TASK_STATUS, PART_TYPES, MESSAGE_ROLES, SESSION_STATUS } from "../../../shared/index.js";
+import { TASK_STATUS, PART_TYPES, MESSAGE_ROLES, SESSION_STATUS, AGENT_NAMES } from "../../../shared/index.js";
 import type { ParallelTask } from "../../../shared/index.js";
 import { progressNotifier } from "../../progress/progress-notifier.js";
 import { finishTaskConcurrency } from "./task-lifecycle.js";
 
 type OpencodeClient = PluginInput["client"];
 type SessionStatusInfo = { type?: string; messageCount?: number };
+type SessionMessagePart = { type?: string; tool?: string; name?: string; text?: string };
+type SessionMessage = { info?: { role?: string }; parts?: SessionMessagePart[] };
+
+const POLL_UTILIZATION_KEYS = [
+    AGENT_NAMES.PLANNER,
+    AGENT_NAMES.WORKER,
+    AGENT_NAMES.REVIEWER,
+    AGENT_NAMES.COMMANDER,
+];
+
+function hasOutputPart(part: SessionMessagePart): boolean {
+    const hasText = part.type === PART_TYPES.TEXT && Boolean(part.text?.trim());
+    return hasText ||
+        part.type === PART_TYPES.TOOL ||
+        part.type === PART_TYPES.TOOL_USE ||
+        Boolean(part.tool);
+}
 
 export class TaskPoller {
     private pollingTimer?: ReturnType<typeof setTimeout>;
@@ -61,6 +78,11 @@ export class TaskPoller {
     private scheduleNextPoll(): void {
         this.pollingTimer = setTimeout(() => {
             this.poll().then(() => {
+                if (this.isRunning()) {
+                    this.scheduleNextPoll();
+                }
+            }).catch((error) => {
+                log("[task-poller.ts] Scheduled poll failed", error);
                 if (this.isRunning()) {
                     this.scheduleNextPoll();
                 }
@@ -133,8 +155,11 @@ export class TaskPoller {
     async validateSessionHasOutput(sessionID: string, task?: ParallelTask): Promise<boolean> {
         try {
             const response = await this.client.session.messages({ path: { id: sessionID } });
-            const messages = (response.data ?? []) as Array<{ info?: { role?: string }; parts?: Array<{ type?: string; text?: string }> }>;
-            const hasOutput = messages.some(m => m.info?.role === MESSAGE_ROLES.ASSISTANT && m.parts?.some(p => (p.type === PART_TYPES.TEXT && p.text?.trim()) || p.type === PART_TYPES.TOOL));
+            const messages = (response.data ?? []) as SessionMessage[];
+            const hasOutput = messages.some(m =>
+                m.info?.role === MESSAGE_ROLES.ASSISTANT &&
+                m.parts?.some(hasOutputPart)
+            );
 
             if (hasOutput && task) {
                 task.hasStartedOutputting = true;
@@ -195,10 +220,7 @@ export class TaskPoller {
 
             if (result.error) return;
 
-            const messages = (result.data ?? []) as Array<{
-                info?: { role?: string };
-                parts?: Array<{ type?: string; tool?: string; name?: string; text?: string }>;
-            }>;
+            const messages = (result.data ?? []) as SessionMessage[];
 
             const assistantMsgs = messages.filter(m => m.info?.role === MESSAGE_ROLES.ASSISTANT);
             let toolCalls = 0;
@@ -225,19 +247,11 @@ export class TaskPoller {
                 lastUpdate: new Date(),
             };
 
-            // Stability detection handled via cache check above or here
-            if (task.lastMsgCount === currentMsgCount) {
-                // Redundant if handled by cache check, but safe to keep logic consistent
-                // Actually if cache hit, we returned early.
-                // If we are here, it means things CHANGED.
-                task.stablePolls = 0;
-            } else {
-                task.stablePolls = 0;
-            }
+            task.stablePolls = 0;
             task.lastMsgCount = currentMsgCount;
 
-        } catch {
-            // Ignore errors in progress tracking
+        } catch (error) {
+            log("[task-poller.ts] Failed to update task progress", { taskId: task.id, error });
         }
     }
 
@@ -261,8 +275,8 @@ export class TaskPoller {
         let totalActive = 0;
         let totalLimit = 0;
 
-        // Sample a few concurrency keys to estimate utilization
-        for (const key of ["planner", "worker", "reviewer", "commander"]) {
+        // Sample known built-in agent keys to estimate utilization.
+        for (const key of POLL_UTILIZATION_KEYS) {
             const active = this.concurrency.getActiveCount(key);
             const limit = this.concurrency.getConcurrencyLimit(key);
 

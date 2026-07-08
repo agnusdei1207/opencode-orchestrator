@@ -127,7 +127,7 @@ async function validateSessionHasOutput(
 ): Promise<boolean> {
     try {
         const messages = await readSessionMessages(session, sessionID);
-        return hasAssistantMessage(messages) && hasAssistantContent(messages);
+        return hasValidAssistantOutput(messages);
     } catch (error) {
         log(`${PARALLEL_LOG.DELEGATE_TASK} Error validating session output:`, error);
         return false;
@@ -155,6 +155,10 @@ function hasAssistantContent(messages: SessionMessage[]): boolean {
     );
 }
 
+function hasValidAssistantOutput(messages: SessionMessage[]): boolean {
+    return hasAssistantMessage(messages) && hasAssistantContent(messages);
+}
+
 function hasOutputPart(part: SessionMessagePart): boolean {
     return hasTextOutput(part) || part.type === PART_TYPES.TOOL || part.type === PART_TYPES.TOOL_USE || Boolean(part.tool);
 }
@@ -177,7 +181,7 @@ async function pollWithSafetyLimits(
 
     while (state.pollCount < MAX_POLL_COUNT) {
         state.pollCount++;
-        const elapsed = Date.now() - startTime;
+        let elapsed = Date.now() - startTime;
 
         if (elapsed >= SYNC_TIMEOUT_MS) {
             return buildTimeoutResult(state, elapsed);
@@ -185,6 +189,7 @@ async function pollWithSafetyLimits(
 
         logPollingProgress(state, elapsed);
         await delay(POLL_INTERVAL_MS);
+        elapsed = Date.now() - startTime;
 
         const result = await pollSessionOnce(session, sessionID, state, elapsed);
         if (result) return result;
@@ -250,25 +255,25 @@ async function pollSessionOnce(
             return null;
         }
 
-        const outputDetected = await ensureValidOutput(session, sessionID, state, elapsed);
+        const messages = await readSessionMessages(session, sessionID);
+        const outputDetected = ensureValidOutput(messages, state, elapsed);
         if (!outputDetected) return null;
 
-        return detectStableCompletion(session, sessionID, state, elapsed);
+        return detectStableCompletion(messages, state, elapsed);
     } catch (error) {
         log(`${PARALLEL_LOG.DELEGATE_TASK} Poll error (continuing):`, error);
         return null;
     }
 }
 
-async function ensureValidOutput(
-    session: SessionClient,
-    sessionID: string,
+function ensureValidOutput(
+    messages: SessionMessage[],
     state: PollState,
     elapsed: number,
-): Promise<boolean> {
+): boolean {
     if (state.hasValidOutput) return true;
 
-    state.hasValidOutput = await validateSessionHasOutput(session, sessionID);
+    state.hasValidOutput = hasValidAssistantOutput(messages);
     if (state.hasValidOutput) {
         log(`${PARALLEL_LOG.DELEGATE_TASK} Valid output detected`, { pollCount: state.pollCount, elapsed });
     }
@@ -276,13 +281,11 @@ async function ensureValidOutput(
     return state.hasValidOutput;
 }
 
-async function detectStableCompletion(
-    session: SessionClient,
-    sessionID: string,
+function detectStableCompletion(
+    messages: SessionMessage[],
     state: PollState,
     elapsed: number,
-): Promise<PollResult | null> {
-    const messages = await readSessionMessages(session, sessionID);
+): PollResult | null {
     const count = messages.length;
 
     if (count !== state.lastMsgCount) {
@@ -329,14 +332,49 @@ async function extractSessionResult(
 
 function readDelegateTaskArgs(args: Record<string, unknown>): DelegateTaskArgs {
     return {
-        agent: args[PARALLEL_PARAMS.AGENT] as string,
-        description: args[PARALLEL_PARAMS.DESCRIPTION] as string,
-        prompt: args[PARALLEL_PARAMS.PROMPT] as string,
-        background: args[PARALLEL_PARAMS.BACKGROUND] as boolean | undefined,
-        resume: args[PARALLEL_PARAMS.RESUME] as string | undefined,
-        mode: args[PARALLEL_PARAMS.MODE] as DelegateMode | undefined,
-        groupID: args[PARALLEL_PARAMS.GROUP_ID] as string | undefined,
+        agent: readRequiredString(args, PARALLEL_PARAMS.AGENT),
+        description: readRequiredString(args, PARALLEL_PARAMS.DESCRIPTION),
+        prompt: readRequiredString(args, PARALLEL_PARAMS.PROMPT),
+        background: readOptionalBoolean(args, PARALLEL_PARAMS.BACKGROUND),
+        resume: readOptionalString(args, PARALLEL_PARAMS.RESUME),
+        mode: readOptionalMode(args, PARALLEL_PARAMS.MODE),
+        groupID: readOptionalString(args, PARALLEL_PARAMS.GROUP_ID),
     };
+}
+
+function readRequiredString(args: Record<string, unknown>, key: string): string {
+    const value = args[key];
+    if (typeof value !== "string" || value.trim().length === 0) {
+        throw new Error(`'${key}' must be a non-empty string`);
+    }
+    return value;
+}
+
+function readOptionalString(args: Record<string, unknown>, key: string): string | undefined {
+    const value = args[key];
+    if (value === undefined) return undefined;
+    if (typeof value !== "string" || value.trim().length === 0) {
+        throw new Error(`'${key}' must be a non-empty string when provided`);
+    }
+    return value;
+}
+
+function readOptionalBoolean(args: Record<string, unknown>, key: string): boolean | undefined {
+    const value = args[key];
+    if (value === undefined) return undefined;
+    if (typeof value !== "boolean") {
+        throw new Error(`'${key}' must be a boolean when provided`);
+    }
+    return value;
+}
+
+function readOptionalMode(args: Record<string, unknown>, key: string): DelegateMode | undefined {
+    const value = args[key];
+    if (value === undefined) return undefined;
+    if (value === "normal" || value === "race" || value === "fractal") {
+        return value;
+    }
+    throw new Error(`'${key}' must be one of: normal, race, fractal`);
 }
 
 function findParentDepth(manager: ParallelAgentManager, parentSessionID: string): number {
@@ -441,7 +479,7 @@ async function launchDelegateTask(
         depth: parentDepth,
     });
 
-    return (Array.isArray(launchResult) ? launchResult[0] : launchResult) as ParallelTask | null;
+    return Array.isArray(launchResult) ? launchResult[0] ?? null : launchResult ?? null;
 }
 
 async function waitForResumedTask(session: SessionClient, task: ParallelTask): Promise<string> {
@@ -508,7 +546,13 @@ export const createDelegateTaskTool = (manager: ParallelAgentManager, client: un
     description: DELEGATE_TASK_DESCRIPTION,
     args: DELEGATE_TASK_ARGS,
     async execute(args, context) {
-        const taskArgs = readDelegateTaskArgs(args as Record<string, unknown>);
+        let taskArgs: DelegateTaskArgs;
+        try {
+            taskArgs = readDelegateTaskArgs(args as Record<string, unknown>);
+        } catch (error) {
+            return `${OUTPUT_LABEL.ERROR} Invalid arguments: ${formatError(error)}`;
+        }
+
         const ctx = context as DelegateTaskContext;
         const parentDepth = findParentDepth(manager, ctx.sessionID);
 

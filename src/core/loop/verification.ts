@@ -200,10 +200,10 @@ const TODO_INCOMPLETE_PATTERN = /^[-*]\s*\[\s*\]/gm;
 const TODO_COMPLETE_PATTERN = /^[-*]\s*\[[xX]\]/gm;
 
 const SYNC_ISSUE_PATTERNS = [
-    /^[-*]\s+\S/gm,
-    /ERROR/gi,
-    /FAIL/gi,
-    /CONFLICT/gi,
+    /^[-*]\s+\S/m,
+    /ERROR/i,
+    /FAIL/i,
+    /CONFLICT/i,
 ];
 
 
@@ -312,7 +312,9 @@ function applySyncIssueVerification(directory: string, result: VerificationResul
             }
         } catch (error) {
             log(`[verification] Failed to read sync issues file: ${error}`);
-            result.syncIssuesEmpty = true;
+            result.syncIssuesEmpty = false;
+            result.syncIssuesCount = 1;
+            result.errors.push(`Failed to read sync issues: ${error}`);
         }
     }
 }

@@ -253,7 +253,11 @@ export class ParallelAgentManager {
         this.store.clear();
         MemoryManager.getInstance().clearTaskMemory();
         // TerminalMonitor.getInstance().stop();
-        import("../session/store.js").then(store => store.clearAll()).catch(() => { });
+        void import("../session/store.js")
+            .then(store => store.clearAll())
+            .catch((error) => {
+                log("[ParallelAgentManager] Failed to clear session store", error);
+            });
     }
 
     /**
@@ -261,8 +265,7 @@ export class ParallelAgentManager {
      */
     async shutdown(): Promise<void> {
         this.cleanup();
-        // Release session pool
-        await this.sessionPool.shutdown().catch(() => {});
+        await this.sessionPool.shutdown();
     }
 
     formatDuration = formatDuration;
@@ -331,8 +334,8 @@ export const parallelAgentManager = {
     cleanup: () => {
         try {
             ParallelAgentManager.getInstance().cleanup();
-        } catch {
-            // Not initialized, ignore
+        } catch (error) {
+            log("[ParallelAgentManager] cleanup skipped or failed", error);
         }
     },
 };

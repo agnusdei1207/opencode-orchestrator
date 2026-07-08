@@ -18,7 +18,6 @@ interface PooledProcess {
     destroyed: boolean;
     lastUsed: number;
     requestId: number;
-    pendingResolve?: (value: string) => void;
     pendingReject?: (error: Error) => void;
     pendingCleanup?: () => void;
     stdout: string;
@@ -41,6 +40,40 @@ function stringifyJsonRpcPayload(value: unknown): string {
     return JSON.stringify(value) ?? String(value);
 }
 
+function validatePoolSize(maxSize: number): number {
+    if (!Number.isInteger(maxSize) || maxSize < 1) {
+        throw new Error(`RustToolPool maxSize must be a positive integer, got ${maxSize}`);
+    }
+    return maxSize;
+}
+
+function parseJsonLine(line: string): Record<string, unknown> | null {
+    try {
+        const parsed = JSON.parse(line);
+        return parsed && typeof parsed === "object" ? parsed as Record<string, unknown> : null;
+    } catch (error) {
+        log(`[${LOG_PREFIX.RUST_POOL}] Ignoring malformed JSON-RPC line`, { line, error });
+        return null;
+    }
+}
+
+function responseBelongsToRequest(response: Record<string, unknown>, requestId: number): boolean {
+    return response.id === requestId &&
+        (hasOwnProperty(response, "result") || hasOwnProperty(response, "error"));
+}
+
+function extractResponseText(response: Record<string, unknown>): string {
+    const result = response.result as { content?: Array<{ text?: unknown }> } | undefined;
+    const text = result?.content?.[0]?.text;
+    if (text !== undefined) {
+        return String(text);
+    }
+    if (hasOwnProperty(response, "result")) {
+        return stringifyJsonRpcPayload(response.result);
+    }
+    return stringifyJsonRpcPayload(response.error);
+}
+
 export class RustToolPool {
     private processes: PooledProcess[] = [];
     private maxSize = 4;
@@ -54,7 +87,7 @@ export class RustToolPool {
     private shuttingDown = false;
 
     constructor(maxSize: number = 4, options: RustToolPoolOptions = {}) {
-        this.maxSize = maxSize;
+        this.maxSize = validatePoolSize(maxSize);
         this.binaryPath = options.binaryPath ?? getBinaryPath;
         this.exists = options.exists ?? existsSync;
         this.idleTimeout = options.idleTimeoutMs ?? this.idleTimeout;
@@ -113,19 +146,43 @@ export class RustToolPool {
      */
     private async waitForAvailable(binary: string): Promise<PooledProcess> {
         return new Promise((resolve, reject) => {
-            const interval = setInterval(() => {
+            const waitTimeoutMs = this.requestTimeout + this.processReadyDelay + 1_000;
+            let settled = false;
+            let interval: NodeJS.Timeout | undefined;
+            let timeout: NodeJS.Timeout | undefined;
+            const settle = (callback: () => void): void => {
+                if (settled) {
+                    return;
+                }
+                settled = true;
+                if (interval) clearInterval(interval);
+                if (timeout) clearTimeout(timeout);
+                callback();
+            };
+            interval = setInterval(() => {
+                if (this.shuttingDown) {
+                    settle(() => reject(new Error("Pool is shutting down")));
+                    return;
+                }
+
                 const available = this.getAvailable();
                 if (available) {
-                    clearInterval(interval);
-                    resolve(available);
+                    settle(() => resolve(available));
                     return;
                 }
 
                 if (this.processes.length < this.maxSize) {
-                    clearInterval(interval);
-                    this.createProcess(binary).then(resolve, reject);
+                    settle(() => {
+                        this.createProcess(binary).then(resolve, reject);
+                    });
                 }
             }, 10);
+            timeout = setTimeout(() => {
+                settle(() => reject(new Error(`Timed out waiting for available Rust tool process after ${waitTimeoutMs}ms`)));
+            }, waitTimeoutMs);
+
+            interval.unref?.();
+            timeout.unref?.();
         });
     }
 
@@ -230,7 +287,6 @@ export class RustToolPool {
             }, this.requestTimeout);
             const cleanup = () => {
                 clearTimeout(timeout);
-                pooled.pendingResolve = undefined;
                 pooled.pendingReject = undefined;
                 pooled.pendingCleanup = undefined;
                 pooled.proc.stdout?.removeListener("data", onData);
@@ -240,26 +296,19 @@ export class RustToolPool {
             const onData = (data: Buffer) => {
                 pooled.stdout += data.toString();
 
-                // Try to parse complete JSON response
-                const lines = pooled.stdout.trim().split("\n");
-                for (let i = lines.length - 1; i >= 0; i--) {
-                    try {
-                        const response = JSON.parse(lines[i]);
-                        if (response.id === requestId && (hasOwnProperty(response, "result") || hasOwnProperty(response, "error"))) {
-                            const text = response?.result?.content?.[0]?.text;
-                            if (text !== undefined) {
-                                succeed(String(text));
-                                return;
-                            }
-                            if (hasOwnProperty(response, "result")) {
-                                succeed(stringifyJsonRpcPayload(response.result));
-                                return;
-                            }
-                            succeed(stringifyJsonRpcPayload(response.error));
-                            return;
-                        }
-                    } catch {
+                let newlineIndex = pooled.stdout.indexOf("\n");
+                while (newlineIndex !== -1) {
+                    const line = pooled.stdout.slice(0, newlineIndex).trim();
+                    pooled.stdout = pooled.stdout.slice(newlineIndex + 1);
+                    newlineIndex = pooled.stdout.indexOf("\n");
+                    if (!line) {
                         continue;
+                    }
+
+                    const response = parseJsonLine(line);
+                    if (response && responseBelongsToRequest(response, requestId)) {
+                        succeed(extractResponseText(response));
+                        return;
                     }
                 }
             };
@@ -310,8 +359,8 @@ export class RustToolPool {
         if (kill) {
             try {
                 pooled.proc.kill();
-            } catch {
-                // Ignore
+            } catch (error) {
+                log(`[${LOG_PREFIX.RUST_POOL}] Failed to kill process`, error);
             }
         }
 
@@ -344,7 +393,7 @@ export class RustToolPool {
             }
         }, 10_000);
 
-        this.cleanupInterval.unref();
+        this.cleanupInterval.unref?.();
     }
 
     /**

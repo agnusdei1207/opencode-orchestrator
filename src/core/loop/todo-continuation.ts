@@ -47,6 +47,8 @@ interface ContinuationCountdownInput {
     scheduledAt: number;
 }
 
+type TodoRecord = Record<string, unknown> & { id: string; status: Todo["status"] };
+
 const CONTINUATION_TTL_MS = 10 * 60 * 1000;
 const PRUNE_INTERVAL_MS = 2 * 60 * 1000;
 
@@ -58,6 +60,17 @@ const TOAST_DURATION_MS = TOAST_DURATION.EXTRA_SHORT;
 const MIN_TIME_BETWEEN_CONTINUATIONS_MS = LOOP.MIN_TIME_BETWEEN_CHECKS_MS;
 const COUNTDOWN_GRACE_PERIOD_MS = LOOP.COUNTDOWN_GRACE_PERIOD_MS;
 const ABORT_WINDOW_MS = LOOP.ABORT_WINDOW_MS;
+const TODO_STATUSES = new Set<Todo["status"]>([
+    STATUS_LABEL.PENDING,
+    STATUS_LABEL.IN_PROGRESS,
+    STATUS_LABEL.COMPLETED,
+    STATUS_LABEL.CANCELLED,
+]);
+const TODO_PRIORITIES = new Set<Todo["priority"]>([
+    STATUS_LABEL.HIGH,
+    STATUS_LABEL.MEDIUM,
+    STATUS_LABEL.LOW,
+]);
 
 const pruneTimer = createPruneTimer({
     intervalMs: PRUNE_INTERVAL_MS,
@@ -106,15 +119,38 @@ function cancelCountdown(sessionID: string): void {
  */
 function parseTodos(data: unknown): Todo[] {
     if (!Array.isArray(data)) return [];
-    return data.filter((item): item is Todo =>
-        item && typeof item === "object" && "id" in item && "status" in item
-    ).map(item => ({
+    return data.filter(isTodoRecord).map(item => ({
         id: item.id,
-        content: item.content || "",
-        status: item.status || STATUS_LABEL.PENDING,
-        priority: item.priority || STATUS_LABEL.MEDIUM,
-        createdAt: item.createdAt ? new Date(item.createdAt) : new Date(),
+        content: typeof item.content === "string" ? item.content : "",
+        status: item.status,
+        priority: readTodoPriority(item.priority),
+        createdAt: readTodoDate(item.createdAt),
     }));
+}
+
+function isTodoRecord(item: unknown): item is TodoRecord {
+    if (!item || typeof item !== "object") return false;
+    const record = item as Record<string, unknown>;
+    return typeof record.id === "string" && isTodoStatus(record.status);
+}
+
+function isTodoStatus(status: unknown): status is Todo["status"] {
+    return typeof status === "string" && TODO_STATUSES.has(status as Todo["status"]);
+}
+
+function readTodoPriority(priority: unknown): Todo["priority"] {
+    return typeof priority === "string" && TODO_PRIORITIES.has(priority as Todo["priority"])
+        ? priority as Todo["priority"]
+        : STATUS_LABEL.MEDIUM;
+}
+
+function readTodoDate(value: unknown): Date {
+    if (typeof value !== "string" && typeof value !== "number" && !(value instanceof Date)) {
+        return new Date();
+    }
+
+    const date = new Date(value);
+    return Number.isNaN(date.getTime()) ? new Date() : date;
 }
 
 /**
@@ -173,7 +209,7 @@ async function injectContinuation(
         return;
     }
 
-    sendContinuationPrompt(client, sessionID, prompt, todos);
+    await sendContinuationPrompt(client, sessionID, prompt, todos);
 }
 
 function shouldSkipInjection(state: ContinuationState, sessionID: string): boolean {
@@ -206,31 +242,27 @@ function buildContinuationPrompt(directory: string, todos: Todo[]): string {
     }
 }
 
-function sendContinuationPrompt(
+async function sendContinuationPrompt(
     client: OpencodeClient,
     sessionID: string,
     prompt: string,
     todos: Todo[]
-): void {
+): Promise<void> {
     try {
-        // Fire and forget: Do NOT await prompt injection.
-        // Prevents blocking the plugin's main event loop during idle-triggered resumptions.
-        client.session.prompt({
+        await client.session.prompt({
             path: { id: sessionID },
             body: {
                 parts: [{ type: PART_TYPES.TEXT, text: prompt }],
             },
-        }).catch(error => {
-            log("[todo-continuation] Failed to inject continuation", { sessionID, error });
         });
 
-        log("[todo-continuation] Injected continuation prompt (async)", {
+        log("[todo-continuation] Injected continuation prompt", {
             sessionID,
             incompleteCount: getIncompleteCount(todos),
             progress: formatProgress(todos),
         });
     } catch (error) {
-        log("[todo-continuation] Failed to trigger async continuation", { sessionID, error });
+        log("[todo-continuation] Failed to inject continuation", { sessionID, error });
     }
 }
 
@@ -276,14 +308,17 @@ function shouldSkipIdleRequest(
     state: ContinuationState,
     now: number
 ): boolean {
-    if (isIdleRateLimited(state, request.sessionID, now)) return true;
-    state.lastIdleTime = now;
-    cancelCountdown(request.sessionID);
-
-    return shouldSkipNonMainSession(request)
+    const shouldSkip = shouldSkipNonMainSession(request)
         || shouldSkipRecoveringSession(request.sessionID)
         || shouldSkipRecentAbort(state, request.sessionID)
         || shouldSkipRunningBackgroundTasks(request.sessionID);
+
+    if (shouldSkip) return true;
+    if (isIdleRateLimited(state, request.sessionID, now)) return true;
+
+    state.lastIdleTime = now;
+    cancelCountdown(request.sessionID);
+    return false;
 }
 
 function isIdleRateLimited(state: ContinuationState, sessionID: string, now: number): boolean {
@@ -392,8 +427,8 @@ async function runContinuationCountdown(request: SessionIdleRequest): Promise<vo
         } else {
             log("[todo-continuation] All work completed during countdown", { sessionID });
         }
-    } catch {
-        log("[todo-continuation] Failed to re-fetch todos for continuation", { sessionID });
+    } catch (error) {
+        log("[todo-continuation] Failed to re-fetch todos for continuation", { sessionID, error });
     }
 }
 
@@ -439,14 +474,20 @@ export function handleUserMessage(sessionID: string): void {
  */
 export function handleSessionError(sessionID: string, error: unknown): void {
     const state = getState(sessionID);
-    const errorObj = error as { name?: string } | undefined;
+    const errorName = getErrorName(error);
 
-    if (errorObj?.name === "MessageAbortedError" || errorObj?.name === "AbortError") {
+    if (errorName === "MessageAbortedError" || errorName === "AbortError") {
         state.abortDetectedAt = Date.now();
-        log("[todo-continuation] Abort detected", { sessionID, errorName: errorObj.name });
+        log("[todo-continuation] Abort detected", { sessionID, errorName });
     }
 
     cancelCountdown(sessionID);
+}
+
+function getErrorName(error: unknown): string | undefined {
+    if (!error || typeof error !== "object" || !("name" in error)) return undefined;
+    const name = (error as { name?: unknown }).name;
+    return typeof name === "string" ? name : undefined;
 }
 
 /**

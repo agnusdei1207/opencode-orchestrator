@@ -439,7 +439,6 @@ describe("createDelegateTaskTool", () => {
             .mockResolvedValueOnce(output)
             .mockResolvedValueOnce(output)
             .mockResolvedValueOnce(output)
-            .mockResolvedValueOnce(output)
             .mockRejectedValueOnce(new Error("extract unavailable"));
         const manager = createManager({ launchResult: task });
         const delegateTask = createTool(manager, createClient(status, messages));

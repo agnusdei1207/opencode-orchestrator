@@ -176,6 +176,17 @@ describe("Mission Verification", () => {
 
                 expect(result.syncIssuesEmpty).toBe(false);
             });
+
+            it("should fail closed when sync-issues path cannot be read", () => {
+                writeFileSync(join(opencodeDir, "todo.md"), "- [x] Done");
+                mkdirSync(join(opencodeDir, "sync-issues.md"));
+
+                const result = verifyMissionCompletion(testDir);
+
+                expect(result.syncIssuesEmpty).toBe(false);
+                expect(result.passed).toBe(false);
+                expect(result.errors.join("\n")).toContain("Failed to read sync issues");
+            });
         });
 
         describe("Overall verification", () => {
