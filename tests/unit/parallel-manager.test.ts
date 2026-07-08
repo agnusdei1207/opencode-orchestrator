@@ -29,7 +29,11 @@ import { TaskStore } from "../../src/core/agents/task-store";
 import { ConcurrencyController } from "../../src/core/agents/concurrency";
 import { EventHandler } from "../../src/core/agents/manager/event-handler";
 import { TaskPoller } from "../../src/core/agents/manager/task-poller";
-import { buildUnitReviewPrompt, resolveWorkStealingWorkers } from "../../src/core/agents/manager";
+import {
+    buildUnitReviewPrompt,
+    isCancellableTaskStatus,
+    resolveWorkStealingWorkers,
+} from "../../src/core/agents/manager";
 import { TASK_STATUS, type ParallelTask } from "../../src/shared";
 
 // Create mock task for testing
@@ -91,6 +95,15 @@ describe("ParallelAgentManager Features", () => {
                 Reviewer: 4,
                 custom: 3,
             });
+        });
+    });
+
+    describe("task cancellation status", () => {
+        it("allows pending and running tasks to be cancelled", () => {
+            expect(isCancellableTaskStatus(TASK_STATUS.PENDING)).toBe(true);
+            expect(isCancellableTaskStatus(TASK_STATUS.RUNNING)).toBe(true);
+            expect(isCancellableTaskStatus(TASK_STATUS.COMPLETED)).toBe(false);
+            expect(isCancellableTaskStatus(TASK_STATUS.ERROR)).toBe(false);
         });
     });
 

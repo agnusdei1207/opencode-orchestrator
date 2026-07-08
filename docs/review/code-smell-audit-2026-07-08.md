@@ -69,7 +69,7 @@ This audit records 100 concrete code smells found during the July 8, 2026 refact
 61. `fixed` `src/core/agents/manager.ts` - session-store cleanup failures were swallowed.
 62. `fixed` `src/core/agents/manager.ts` - session-pool shutdown failures were swallowed.
 63. `fixed` `src/core/agents/manager.ts` - exported cleanup ignored all initialization and cleanup errors.
-64. `queued` `src/core/agents/manager.ts` - `cancelTask` cannot cancel pending tasks.
+64. `fixed` `src/core/agents/manager.ts` - `cancelTask` now cancels pending and running tasks.
 65. `queued` `src/core/agents/manager.ts` - `getResult` mixes remote fetch, message parsing, and result-cache mutation.
 66. `queued` `src/core/agents/manager.ts` - constructor initializes memory, registry, todo manager, session pool, launcher, resumer, poller, cleaner, and event handler.
 67. `queued` `src/core/agents/manager.ts` - static singleton hides lifecycle ownership.

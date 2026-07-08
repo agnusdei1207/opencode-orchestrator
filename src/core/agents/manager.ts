@@ -198,13 +198,15 @@ export class ParallelAgentManager {
 
     async cancelTask(taskId: string): Promise<boolean> {
         const task = this.store.get(taskId);
-        if (!task || task.status !== TASK_STATUS.RUNNING) return false;
+        if (!task || !isCancellableTaskStatus(task.status)) return false;
 
         task.status = TASK_STATUS.ERROR;
         task.error = "Cancelled by user";
         task.completedAt = new Date();
 
-        finishTaskConcurrency(task, this.concurrency, false);
+        if (task.concurrencyKey) {
+            finishTaskConcurrency(task, this.concurrency, false);
+        }
         this.store.untrackPending(task.parentSessionID, taskId);
 
         await this.sessionPool.invalidate(task.sessionID);
@@ -341,6 +343,10 @@ export class ParallelAgentManager {
     }
 
 
+}
+
+export function isCancellableTaskStatus(status: string): boolean {
+    return status === TASK_STATUS.RUNNING || status === TASK_STATUS.PENDING;
 }
 
 export const parallelAgentManager = {
