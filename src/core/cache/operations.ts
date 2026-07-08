@@ -6,6 +6,7 @@ import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { CACHE, PATHS } from "../../shared/index.js";
 import { ensureCacheDir, urlToFilename, readMetadata, writeMetadata, type CacheDocumentEntry } from "./utils.js";
+import { log } from "../agents/logger.js";
 
 export interface CachedDocument extends CacheDocumentEntry {
     content: string;
@@ -43,7 +44,8 @@ export async function get(url: string): Promise<CachedDocument | null> {
         const filepath = path.join(PATHS.DOCS, filename);
         const content = await fs.readFile(filepath, "utf-8");
         return { ...entry, content };
-    } catch {
+    } catch (error) {
+        log(`[DocumentCache] Failed to read cached document ${filename}: ${error}`);
         return null;
     }
 }
@@ -61,7 +63,8 @@ export async function getByFilename(filename: string): Promise<CachedDocument | 
         const filepath = path.join(PATHS.DOCS, filename);
         const content = await fs.readFile(filepath, "utf-8");
         return { ...entry, content };
-    } catch {
+    } catch (error) {
+        log(`[DocumentCache] Failed to read cached document ${filename}: ${error}`);
         return null;
     }
 }
@@ -104,16 +107,28 @@ export async function set(
 export async function remove(url: string): Promise<boolean> {
     const filename = urlToFilename(url);
     const filepath = path.join(PATHS.DOCS, filename);
+    let removedFile = false;
 
     try {
         await fs.unlink(filepath);
-        const metadata = await readMetadata();
+        removedFile = true;
+    } catch (error) {
+        if (!isNotFoundError(error)) {
+            log(`[DocumentCache] Failed to remove cached document ${filename}: ${error}`);
+        }
+    }
+
+    const metadata = await readMetadata();
+    const hadMetadata = Object.hasOwn(metadata.documents, filename);
+    if (hadMetadata) {
         delete metadata.documents[filename];
         await writeMetadata(metadata);
-        return true;
-    } catch {
+    }
+
+    if (!removedFile && !hadMetadata) {
         return false;
     }
+    return true;
 }
 
 /**
@@ -141,8 +156,8 @@ export async function clear(): Promise<number> {
         const filepath = path.join(PATHS.DOCS, filename);
         try {
             await fs.unlink(filepath);
-        } catch {
-            // Ignore
+        } catch (error) {
+            log(`[DocumentCache] Failed to delete cached document ${filename}: ${error}`);
         }
     }
 
@@ -159,12 +174,18 @@ export async function cleanExpired(): Promise<number> {
 
     for (const doc of docs) {
         if (doc.expired) {
-            await remove(doc.url);
-            cleaned++;
+            if (await remove(doc.url)) cleaned++;
         }
     }
 
     return cleaned;
+}
+
+function isNotFoundError(error: unknown): boolean {
+    return typeof error === "object"
+        && error !== null
+        && "code" in error
+        && (error as { code?: unknown }).code === "ENOENT";
 }
 
 /**

@@ -2,10 +2,14 @@
  * Document Cache Unit Tests
  */
 
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import * as DocumentCache from "../../src/core/cache/document-cache";
+import { log } from "../../src/core/agents/logger.js";
+import { PATHS } from "../../src/shared/index.js";
+
+vi.mock("../../src/core/agents/logger.js", () => ({ log: vi.fn() }));
 
 describe("DocumentCache", () => {
     const TEST_CACHE_DIR = ".opencode/docs";
@@ -15,12 +19,13 @@ describe("DocumentCache", () => {
 
     beforeEach(async () => {
         // Clean up before each test
-        await DocumentCache.clear();
+        vi.clearAllMocks();
+        await fs.rm(TEST_CACHE_DIR, { recursive: true, force: true });
     });
 
     afterEach(async () => {
         // Clean up after each test
-        await DocumentCache.clear();
+        await fs.rm(TEST_CACHE_DIR, { recursive: true, force: true });
     });
 
     describe("set and get", () => {
@@ -148,6 +153,40 @@ describe("DocumentCache", () => {
         it("should return null for non-existent filename", async () => {
             const doc = await DocumentCache.getByFilename("nonexistent.md");
             expect(doc).toBeNull();
+        });
+
+        it("should log stale metadata entries when the document file is missing", async () => {
+            const filename = "missing_doc.md";
+            await fs.mkdir(PATHS.DOCS, { recursive: true });
+            await fs.writeFile(PATHS.DOC_METADATA, JSON.stringify({
+                documents: {
+                    [filename]: {
+                        url: "https://example.com/missing",
+                        title: "Missing",
+                        fetchedAt: new Date().toISOString(),
+                        expiresAt: new Date(Date.now() + 60_000).toISOString(),
+                        size: 10,
+                    },
+                },
+                lastUpdated: new Date().toISOString(),
+            }));
+
+            const doc = await DocumentCache.getByFilename(filename);
+
+            expect(doc).toBeNull();
+            expect(log).toHaveBeenCalledWith(expect.stringContaining("Failed to read cached document missing_doc.md"));
+        });
+    });
+
+    describe("metadata recovery", () => {
+        it("should log corrupted metadata before falling back to an empty cache", async () => {
+            await fs.mkdir(PATHS.DOCS, { recursive: true });
+            await fs.writeFile(PATHS.DOC_METADATA, "{not valid json");
+
+            const docs = await DocumentCache.list();
+
+            expect(docs).toEqual([]);
+            expect(log).toHaveBeenCalledWith(expect.stringContaining("Failed to parse cache metadata"));
         });
     });
 });
