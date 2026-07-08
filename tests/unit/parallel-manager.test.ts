@@ -178,6 +178,33 @@ describe("ParallelAgentManager Features", () => {
             expect(status).toHaveBeenCalledTimes(1);
             expect(messages).toHaveBeenCalledTimes(2);
         });
+
+        it("fetches messages when status omits messageCount", async () => {
+            const task = createMockTask({ id: "task-missing-count", sessionID: "session-missing-count" });
+            store.set(task.id, task);
+
+            const status = vi.fn().mockResolvedValue({
+                data: {
+                    "session-missing-count": { type: "busy" },
+                },
+            });
+            const messages = vi.fn().mockResolvedValue({ data: [] });
+            const poller = new TaskPoller(
+                { session: { status, messages } } as never,
+                store,
+                concurrency,
+                vi.fn().mockResolvedValue(undefined),
+                vi.fn(),
+                vi.fn(),
+            );
+
+            await poller.poll();
+            await poller.poll();
+
+            expect(status).toHaveBeenCalledTimes(2);
+            expect(messages).toHaveBeenCalledTimes(2);
+            expect(task.stablePolls).toBe(1);
+        });
     });
 
     describe("poller timer lifecycle", () => {

@@ -34,9 +34,16 @@ function hasOutputPart(part: SessionMessagePart): boolean {
         Boolean(part.tool);
 }
 
+function getReportedMessageCount(sessionInfo?: SessionStatusInfo): number | undefined {
+    const messageCount = sessionInfo?.messageCount;
+    return typeof messageCount === "number" && Number.isFinite(messageCount)
+        ? messageCount
+        : undefined;
+}
+
 export class TaskPoller {
     private pollingTimer?: ReturnType<typeof setTimeout>;
-    private messageCache: Map<string, { count: number; lastChecked: Date }> = new Map();
+    private messageCache: Map<string, { count: number }> = new Map();
 
     // Adaptive polling
     private currentPollInterval: number = CONFIG.POLL_INTERVAL_MS; // Start at default (2000ms)
@@ -204,10 +211,9 @@ export class TaskPoller {
     private async updateTaskProgress(task: ParallelTask, sessionInfo?: SessionStatusInfo): Promise<void> {
         try {
             const cached = this.messageCache.get(task.sessionID);
+            const reportedMsgCount = getReportedMessageCount(sessionInfo);
 
-            const currentMsgCount = sessionInfo?.messageCount ?? 0;
-
-            if (cached && cached.count === currentMsgCount) {
+            if (cached && reportedMsgCount !== undefined && cached.count === reportedMsgCount) {
                 // No change, skip heavy fetch
                 // But still increment stable polls if needed
                 task.stablePolls = (task.stablePolls ?? 0) + 1;
@@ -216,12 +222,14 @@ export class TaskPoller {
 
             // Change detected or first fetch
             const result = await this.client.session.messages({ path: { id: task.sessionID } });
-            // Update cache
-            this.messageCache.set(task.sessionID, { count: currentMsgCount, lastChecked: new Date() });
-
             if (result.error) return;
 
             const messages = (result.data ?? []) as SessionMessage[];
+            const currentMsgCount = reportedMsgCount ?? messages.length;
+            const messageCountChanged = cached?.count !== currentMsgCount;
+
+            // Update cache
+            this.messageCache.set(task.sessionID, { count: currentMsgCount });
 
             const assistantMsgs = messages.filter(m => m.info?.role === MESSAGE_ROLES.ASSISTANT);
             let toolCalls = 0;
@@ -248,7 +256,7 @@ export class TaskPoller {
                 lastUpdate: new Date(),
             };
 
-            task.stablePolls = 0;
+            task.stablePolls = messageCountChanged ? 0 : (task.stablePolls ?? 0) + 1;
             task.lastMsgCount = currentMsgCount;
 
         } catch (error) {

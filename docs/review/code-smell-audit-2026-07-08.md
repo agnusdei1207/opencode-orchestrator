@@ -34,8 +34,8 @@ This audit records 100 concrete code smells found during the July 8, 2026 refact
 26. `fixed` `src/core/agents/manager/task-poller.ts` - message cache entries are not explicitly purged when tasks finish.
 27. `queued` `src/core/agents/manager/task-poller.ts` - `session.status()` failures only log and leave all tasks unchanged.
 28. `queued` `src/core/agents/manager/task-poller.ts` - `onTaskComplete` is fire-and-forget, so review-launch failures cannot affect task completion.
-29. `queued` `src/core/agents/manager/task-poller.ts` - stability detection treats missing `messageCount` as zero.
-30. `queued` `src/core/agents/manager/task-poller.ts` - `lastChecked` is stored in the message cache but never used.
+29. `fixed` `src/core/agents/manager/task-poller.ts` - stability detection now fetches messages when `messageCount` is missing.
+30. `fixed` `src/core/agents/manager/task-poller.ts` - unused `lastChecked` cache state was removed.
 31. `fixed` `src/tools/parallel/delegate-task.ts` - sync polling passed stale elapsed time after sleeping.
 32. `fixed` `src/tools/parallel/delegate-task.ts` - idle polling fetched session messages twice per stable poll.
 33. `fixed` `src/tools/parallel/delegate-task.ts` - delegate args relied on direct casts instead of runtime checks.
