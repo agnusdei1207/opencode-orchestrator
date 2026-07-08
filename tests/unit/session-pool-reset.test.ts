@@ -91,4 +91,24 @@ describe("SessionPool (Reset & Isolation)", () => {
         expect(session.health).toBe("unhealthy");
         expect(pool.getStats().totalSessions).toBe(1);
     });
+
+    it("deletes the oldest available session when the agent pool is full", async () => {
+        (pool as unknown as { config: { maxPoolSizePerAgent: number } }).config.maxPoolSizePerAgent = 1;
+        mockClient.session.create
+            .mockResolvedValueOnce({ data: { id: "session-1" } })
+            .mockResolvedValueOnce({ data: { id: "session-2" } });
+
+        const oldest = await pool.acquire("worker", "parent", "first");
+        const newest = await pool.acquire("worker", "parent", "second");
+        oldest.lastUsedAt = new Date(0);
+        newest.lastUsedAt = new Date(1);
+
+        await pool.release(oldest.id);
+        await pool.release(newest.id);
+
+        expect(mockClient.session.delete).toHaveBeenCalledWith({
+            path: { id: oldest.id },
+        });
+        expect(pool.getStats().totalSessions).toBe(1);
+    });
 });

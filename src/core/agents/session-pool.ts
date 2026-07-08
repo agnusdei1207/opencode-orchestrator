@@ -179,16 +179,11 @@ export class SessionPool {
         // Check pool size
         const poolKey = this.getPoolKey(session.agentName);
         const agentPool = this.pool.get(poolKey) || [];
-        const availableCount = agentPool.filter(s => !s.inUse).length;
+        const available = this.getAvailableSessionSummary(agentPool);
 
-        if (availableCount >= this.config.maxPoolSizePerAgent) {
-            // Pool full, delete oldest available session
-            const oldest = agentPool
-                .filter(s => !s.inUse)
-                .sort((a, b) => a.lastUsedAt.getTime() - b.lastUsedAt.getTime())[0];
-
-            if (oldest) {
-                await this.deleteSession(oldest.id);
+        if (available.count >= this.config.maxPoolSizePerAgent) {
+            if (available.oldest) {
+                await this.deleteSession(available.oldest.id);
             }
         }
 
@@ -338,6 +333,25 @@ export class SessionPool {
 
     private getPoolKey(agentName: string): string {
         return agentName;
+    }
+
+    private getAvailableSessionSummary(agentPool: PooledSession[]): {
+        count: number;
+        oldest: PooledSession | undefined;
+    } {
+        let count = 0;
+        let oldest: PooledSession | undefined;
+
+        for (const session of agentPool) {
+            if (session.inUse) continue;
+
+            count++;
+            if (!oldest || session.lastUsedAt.getTime() < oldest.lastUsedAt.getTime()) {
+                oldest = session;
+            }
+        }
+
+        return { count, oldest };
     }
 
     private async createSession(
