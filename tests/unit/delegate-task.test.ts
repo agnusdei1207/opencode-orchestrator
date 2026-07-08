@@ -58,6 +58,7 @@ function makeTask(overrides: Partial<ParallelTask> = {}): ParallelTask {
 function createManager(options: ManagerOptions = {}) {
     const launch = vi.fn();
     const resume = vi.fn();
+    const tasks = options.tasks ?? [];
 
     if (options.launchError) {
         launch.mockRejectedValue(options.launchError);
@@ -76,7 +77,8 @@ function createManager(options: ManagerOptions = {}) {
     }
 
     return {
-        getAllTasks: vi.fn(() => options.tasks ?? []),
+        getAllTasks: vi.fn(() => tasks),
+        getTaskBySession: vi.fn((sessionID: string) => tasks.find(task => task.sessionID === sessionID)),
         launch,
         resume,
     };
@@ -203,6 +205,8 @@ describe("createDelegateTaskTool", () => {
 
         expect(result).toContain("Delegation blocked");
         expect(result).toContain("terminal node");
+        expect(manager.getTaskBySession).toHaveBeenCalledWith("parent-session");
+        expect(manager.getAllTasks).not.toHaveBeenCalled();
         expect(manager.launch).not.toHaveBeenCalled();
         expect(manager.resume).not.toHaveBeenCalled();
     });

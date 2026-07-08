@@ -196,6 +196,10 @@ export class ParallelAgentManager {
         return this.store.getByParent(parentSessionID);
     }
 
+    getTaskBySession(sessionID: string): ParallelTask | undefined {
+        return this.store.getBySession(sessionID);
+    }
+
     async cancelTask(taskId: string): Promise<boolean> {
         const task = this.store.get(taskId);
         if (!task || !isCancellableTaskStatus(task.status)) return false;
@@ -293,7 +297,7 @@ export class ParallelAgentManager {
     // ========================================================================
 
     private findBySession(sessionID: string): ParallelTask | undefined {
-        return this.store.getAll().find(t => t.sessionID === sessionID);
+        return this.store.getBySession(sessionID);
     }
 
     private configureWorkStealing(config?: ConcurrencyConfig): void {

@@ -16,6 +16,7 @@ import { taskPool } from "../pool/task-pool.js";
 
 export class TaskStore {
     private tasks: Map<string, ParallelTask> = new Map();
+    private taskIdsBySession: Map<string, string> = new Map();
     private pendingByParent: Map<string, Set<string>> = new Map();
     private notifications: Map<string, ParallelTask[]> = new Map();
     private archivedCount = 0;
@@ -26,7 +27,13 @@ export class TaskStore {
         task.status = stringPool.intern(task.status);
         if (task.mode) task.mode = stringPool.intern(task.mode);
 
+        const existing = this.tasks.get(id);
+        if (existing && existing.sessionID !== task.sessionID) {
+            this.taskIdsBySession.delete(existing.sessionID);
+        }
+
         this.tasks.set(id, task);
+        this.taskIdsBySession.set(task.sessionID, id);
 
         // Auto-GC if over limit
         if (this.tasks.size > MEMORY_LIMITS.MAX_TASKS_IN_MEMORY) {
@@ -42,6 +49,11 @@ export class TaskStore {
         return Array.from(this.tasks.values());
     }
 
+    getBySession(sessionID: string): ParallelTask | undefined {
+        const taskId = this.taskIdsBySession.get(sessionID);
+        return taskId ? this.tasks.get(taskId) : undefined;
+    }
+
     getRunning(): ParallelTask[] {
         return this.getAll().filter(t => t.status === TASK_STATUS.RUNNING || t.status === TASK_STATUS.PENDING);
     }
@@ -51,11 +63,16 @@ export class TaskStore {
     }
 
     delete(id: string): boolean {
+        const task = this.tasks.get(id);
+        if (task) {
+            this.taskIdsBySession.delete(task.sessionID);
+        }
         return this.tasks.delete(id);
     }
 
     clear(): void {
         this.tasks.clear();
+        this.taskIdsBySession.clear();
         this.pendingByParent.clear();
         this.notifications.clear();
     }
@@ -183,7 +200,7 @@ export class TaskStore {
         // Remove from memory and release to pool
         for (const id of toRemove) {
             const task = this.tasks.get(id);
-            this.tasks.delete(id);
+            this.delete(id);
 
             // Release task back to pool for reuse
             if (task) {
@@ -236,7 +253,7 @@ export class TaskStore {
 
         for (const id of toRemove) {
             const task = this.tasks.get(id);
-            this.tasks.delete(id);
+            this.delete(id);
 
             // Release to pool
             if (task) {

@@ -413,7 +413,7 @@ function readOptionalMode(args: Record<string, unknown>, key: string): DelegateM
 }
 
 function findParentDepth(manager: ParallelAgentManager, parentSessionID: string): number {
-    const parentTask = manager.getAllTasks().find((task) => task.sessionID === parentSessionID);
+    const parentTask = manager.getTaskBySession(parentSessionID);
     return parentTask?.depth ?? 0;
 }
 
