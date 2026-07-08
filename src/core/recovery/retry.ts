@@ -78,6 +78,11 @@ const RATE_LIMIT = "rate_limit";
  */
 export async function sleep(ms: number, signal?: AbortSignal): Promise<void> {
     return new Promise((resolve, reject) => {
+        if (signal?.aborted) {
+            reject(new DOMException("Aborted", "AbortError"));
+            return;
+        }
+
         const timeout = setTimeout(() => {
             if (signal) {
                 signal.removeEventListener("abort", abortHandler);

@@ -179,6 +179,14 @@ describe("Retry Utilities", () => {
 
             await expect(promise).rejects.toThrow("Aborted");
         });
+
+        it("should reject immediately when signal is already aborted", async () => {
+            const controller = new AbortController();
+            controller.abort();
+
+            await expect(sleep(10000, controller.signal)).rejects.toThrow("Aborted");
+            expect(vi.getTimerCount()).toBe(0);
+        });
     });
 
     describe("withRetry", () => {
