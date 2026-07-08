@@ -71,21 +71,39 @@ export function debounceAsync<TArgs extends unknown[], TResult>(
     delayMs: number
 ): (...args: TArgs) => Promise<TResult> {
     let timeoutId: ReturnType<typeof setTimeout> | undefined;
+    let latestArgs: TArgs;
+    let pending: Array<{
+        resolve: (value: TResult) => void;
+        reject: (reason: unknown) => void;
+    }> = [];
 
     return (...args: TArgs): Promise<TResult> => {
+        latestArgs = args;
         if (timeoutId) {
             clearTimeout(timeoutId);
         }
 
-        return new Promise<TResult>((resolve, reject) => {
-            timeoutId = setTimeout(async () => {
-                try {
-                    const result = await fn(...args);
-                    resolve(result);
-                } catch (error) {
-                    reject(error);
-                }
-            }, delayMs);
+        const promise = new Promise<TResult>((resolve, reject) => {
+            pending.push({ resolve, reject });
         });
+
+        timeoutId = setTimeout(async () => {
+            const callbacks = pending;
+            pending = [];
+            timeoutId = undefined;
+
+            try {
+                const result = await fn(...latestArgs);
+                for (const callback of callbacks) {
+                    callback.resolve(result);
+                }
+            } catch (error) {
+                for (const callback of callbacks) {
+                    callback.reject(error);
+                }
+            }
+        }, delayMs);
+
+        return promise;
     };
 }

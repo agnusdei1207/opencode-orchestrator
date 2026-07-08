@@ -131,20 +131,28 @@ describe("TaskLauncher", () => {
 
         // Ensure each create takes some time but happens in parallel
         let callCount = 0;
+        let inFlight = 0;
+        let maxInFlight = 0;
         mockClient.session.create.mockImplementation(async () => {
-            callCount++;
-            await new Promise(r => setTimeout(r, 10));
-            return { data: { id: `session-${callCount}` } };
+            const sessionNumber = ++callCount;
+            inFlight++;
+            maxInFlight = Math.max(maxInFlight, inFlight);
+            try {
+                await new Promise(r => setTimeout(r, 10));
+                return { data: { id: `session-${sessionNumber}` } };
+            } finally {
+                inFlight--;
+            }
         });
 
-        const startTime = Date.now();
-        const results = await launcher.launch(inputs) as any[];
-        const duration = Date.now() - startTime;
+        const results = await launcher.launch(inputs);
 
+        expect(Array.isArray(results)).toBe(true);
+        if (!Array.isArray(results)) {
+            throw new Error("Expected batch launch to return an array");
+        }
         expect(results).toHaveLength(3);
-        // If they were sequential, total time > 30ms. If parallel, around 10-20ms.
-        // (Note: In a mock environment this is subtle but helps verify the design).
-        expect(duration).toBeLessThan(30);
+        expect(maxInFlight).toBeGreaterThan(1);
 
         expect(results[0].status).toBe(TASK_STATUS.PENDING);
         expect(results[1].status).toBe(TASK_STATUS.PENDING);

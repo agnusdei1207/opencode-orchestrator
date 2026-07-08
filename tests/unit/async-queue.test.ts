@@ -230,20 +230,37 @@ describe("debounceAsync", () => {
 
             const first = debounced("first");
             const second = debounced("second");
-            let firstSettled = false;
-            first.finally(() => {
-                firstSettled = true;
-            });
 
             await vi.advanceTimersByTimeAsync(100);
 
+            await expect(first).resolves.toBe("SECOND");
             await expect(second).resolves.toBe("SECOND");
             expect(fn).toHaveBeenCalledTimes(1);
             expect(fn).toHaveBeenCalledWith("second");
+        } finally {
+            vi.useRealTimers();
+        }
+    });
 
-            // Superseded calls are not invoked by this debounce helper.
-            await Promise.resolve();
-            expect(firstSettled).toBe(false);
+    it("should reject all pending callers when the latest invocation fails", async () => {
+        vi.useFakeTimers();
+        try {
+            const error = new Error("failed");
+            const fn = vi.fn(async () => {
+                throw error;
+            });
+            const debounced = debounceAsync(fn, 100);
+
+            const first = debounced("first");
+            const second = debounced("second");
+            const firstExpectation = expect(first).rejects.toThrow("failed");
+            const secondExpectation = expect(second).rejects.toThrow("failed");
+
+            await vi.advanceTimersByTimeAsync(100);
+
+            await firstExpectation;
+            await secondExpectation;
+            expect(fn).toHaveBeenCalledTimes(1);
         } finally {
             vi.useRealTimers();
         }
