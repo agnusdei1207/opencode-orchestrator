@@ -98,4 +98,37 @@ describe("TodoManager (MVCC)", () => {
         expect(data.content).toContain("- [x] Task 1");
         expect(data.version.version).toBe(1);
     });
+
+    it("should not bump version for no-op updates", async () => {
+        const manager = TodoManager.getInstance(testDir);
+
+        const result = await manager.update(0, content => content, "agent-1");
+
+        expect(result).toEqual({ success: false, currentVersion: 0 });
+        const data = await manager.readWithVersion();
+        expect(data.version.version).toBe(0);
+        expect(data.content).toContain("Task 1");
+    });
+
+    it("should return false when updateItem does not find a matching task", async () => {
+        const manager = TodoManager.getInstance(testDir);
+
+        const success = await manager.updateItem("Missing task", "completed", "reviewer");
+
+        expect(success).toBe(false);
+        const data = await manager.readWithVersion();
+        expect(data.version.version).toBe(0);
+        expect(data.content).toContain("- [ ] Task 1");
+    });
+
+    it("should return false when addSubTask does not find the parent task", async () => {
+        const manager = TodoManager.getInstance(testDir);
+
+        const success = await manager.addSubTask("Missing parent", "Child task", "planner");
+
+        expect(success).toBe(false);
+        const data = await manager.readWithVersion();
+        expect(data.version.version).toBe(0);
+        expect(data.content).not.toContain("Child task");
+    });
 });

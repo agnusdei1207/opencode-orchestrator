@@ -126,6 +126,13 @@ export class TodoManager {
                 }
 
                 const newContent = updater(current.content);
+                if (newContent === current.content) {
+                    return {
+                        success: false,
+                        currentVersion: current.version.version
+                    };
+                }
+
                 const newVersion = current.version.version + 1;
                 const tmpPath = `${this.todoPath}.tmp.${Date.now()}.${Math.random().toString(36).slice(2)}`;
 
