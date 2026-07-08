@@ -44,7 +44,7 @@ This audit records 100 concrete code smells found during the July 8, 2026 refact
 36. `fixed` `src/tools/parallel/delegate-task.ts` - parent-depth lookup now uses the manager session index instead of scanning all tasks.
 37. `queued` `src/tools/parallel/delegate-task.ts` - tool metadata, validation, launch, resume, polling, and result extraction live in one large file.
 38. `fixed` `src/tools/parallel/delegate-task.ts` - resume flow now follows the manager's exception-based failure contract.
-39. `queued` `src/tools/parallel/delegate-task.ts` - long embedded tool description makes runtime code noisy.
+39. `fixed` `src/tools/parallel/delegate-task.ts` - delegate tool metadata now lives outside the runtime execution module.
 40. `queued` `src/tools/parallel/delegate-task.ts` - repeated poll failures only extend until timeout without escalating.
 41. `fixed` `src/core/loop/todo-continuation.ts` - todo API records were accepted with only `id` and `status` property presence.
 42. `fixed` `src/core/loop/todo-continuation.ts` - continuation prompt injection was fire-and-forget.
