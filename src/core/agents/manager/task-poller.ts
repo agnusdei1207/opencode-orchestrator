@@ -183,6 +183,7 @@ export class TaskPoller {
         this.store.queueNotification(task);
         await this.notifyParentIfAllComplete(task.parentSessionID);
         this.scheduleCleanup(task.id);
+        this.messageCache.delete(task.sessionID);
 
 
 

@@ -40,6 +40,60 @@ type MissionContinuationInput = string | MissionContinuationContext;
 
 const UNKNOWN_STATUS = "unknown";
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+    return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function isNonNegativeInteger(value: unknown): value is number {
+    return typeof value === "number" && Number.isInteger(value) && value >= 0;
+}
+
+function isPositiveInteger(value: unknown): value is number {
+    return typeof value === "number" && Number.isInteger(value) && value > 0;
+}
+
+function isOptionalString(value: unknown): value is string | undefined {
+    return value === undefined || typeof value === "string";
+}
+
+function isOptionalNonNegativeInteger(value: unknown): value is number | undefined {
+    return value === undefined || isNonNegativeInteger(value);
+}
+
+function parseLoopState(value: unknown): MissionLoopState | null {
+    if (!isRecord(value)) return null;
+    if (typeof value.active !== "boolean") return null;
+    if (!isNonNegativeInteger(value.iteration)) return null;
+    if (!isPositiveInteger(value.maxIterations)) return null;
+    if (typeof value.prompt !== "string") return null;
+    if (!isOptionalString(value.objective)) return null;
+    if (typeof value.sessionID !== "string") return null;
+    if (typeof value.startedAt !== "string") return null;
+    if (!isOptionalString(value.lastActivity)) return null;
+    if (!isOptionalString(value.lastProgress)) return null;
+    if (!isOptionalNonNegativeInteger(value.stagnationCount)) return null;
+    if (!isOptionalString(value.lastVerificationSummary)) return null;
+    if (!isOptionalString(value.lastContinuationReason)) return null;
+    if (!isOptionalString(value.lastContinuationAt)) return null;
+
+    const state: MissionLoopState = {
+        active: value.active,
+        iteration: value.iteration,
+        maxIterations: value.maxIterations,
+        prompt: value.prompt,
+        sessionID: value.sessionID,
+        startedAt: value.startedAt,
+    };
+    if (value.objective !== undefined) state.objective = value.objective;
+    if (value.lastActivity !== undefined) state.lastActivity = value.lastActivity;
+    if (value.lastProgress !== undefined) state.lastProgress = value.lastProgress;
+    if (value.stagnationCount !== undefined) state.stagnationCount = value.stagnationCount;
+    if (value.lastVerificationSummary !== undefined) state.lastVerificationSummary = value.lastVerificationSummary;
+    if (value.lastContinuationReason !== undefined) state.lastContinuationReason = value.lastContinuationReason;
+    if (value.lastContinuationAt !== undefined) state.lastContinuationAt = value.lastContinuationAt;
+    return state;
+}
+
 // ============================================================================
 // State Management
 // ============================================================================
@@ -63,7 +117,12 @@ export function readLoopState(directory: string): MissionLoopState | null {
 
     try {
         const content = readFileSync(filePath, "utf-8");
-        return JSON.parse(content) as MissionLoopState;
+        const state = parseLoopState(JSON.parse(content));
+        if (!state) {
+            log(`[${MISSION_CONTROL.LOG_SOURCE}] Ignoring invalid loop state`);
+            return null;
+        }
+        return state;
     } catch (error) {
         log(`[${MISSION_CONTROL.LOG_SOURCE}] Failed to read state: ${error}`);
         return null;

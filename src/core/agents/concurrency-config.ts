@@ -11,7 +11,7 @@ function readLimitMap(value: unknown): Record<string, number> | undefined {
 
     const result: Record<string, number> = {};
     for (const [key, limit] of Object.entries(value)) {
-        if (typeof limit === "number" && Number.isFinite(limit) && limit >= 0) {
+        if (isValidLimit(limit)) {
             result[key] = limit;
         }
     }
@@ -19,12 +19,27 @@ function readLimitMap(value: unknown): Record<string, number> | undefined {
     return Object.keys(result).length > 0 ? result : undefined;
 }
 
+function isValidLimit(value: unknown): value is number {
+    return typeof value === "number" &&
+        Number.isInteger(value) &&
+        value >= 0;
+}
+
+function isPositiveInteger(value: unknown): value is number {
+    return typeof value === "number" &&
+        Number.isInteger(value) &&
+        value > 0;
+}
+
 export function extractConcurrencyConfig(source: unknown): ConcurrencyConfig {
     if (!isRecord(source)) return {};
 
     const config: ConcurrencyConfig = {};
-    if (typeof source.defaultConcurrency === "number" && source.defaultConcurrency >= 0) {
+    if (isValidLimit(source.defaultConcurrency)) {
         config.defaultConcurrency = source.defaultConcurrency;
+    }
+    if (isPositiveInteger(source.acquisitionTimeoutMs)) {
+        config.acquisitionTimeoutMs = source.acquisitionTimeoutMs;
     }
 
     const agentConcurrency = readLimitMap(source.agentConcurrency);

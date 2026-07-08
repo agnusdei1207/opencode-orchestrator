@@ -43,8 +43,48 @@ interface CircuitBreaker {
     successCount: number;  // For half-open testing
 }
 
+const DEFAULT_ACQUISITION_TIMEOUT_MS = 300_000;
+
 function normalizeLimit(limit: number): number {
     return limit === 0 ? Infinity : limit;
+}
+
+function assertValidLimit(name: string, limit: number): number {
+    if (!Number.isInteger(limit) || limit < 0) {
+        throw new Error(`${name} must be a non-negative integer, got ${limit}`);
+    }
+    return limit;
+}
+
+function assertPositiveInteger(name: string, value: number): number {
+    if (!Number.isInteger(value) || value < 1) {
+        throw new Error(`${name} must be a positive integer, got ${value}`);
+    }
+    return value;
+}
+
+function normalizeLimitMap(name: string, limits?: Record<string, number>): Record<string, number> | undefined {
+    if (!limits) return undefined;
+
+    const normalized: Record<string, number> = {};
+    for (const [key, limit] of Object.entries(limits)) {
+        normalized[key] = assertValidLimit(`${name}.${key}`, limit);
+    }
+    return normalized;
+}
+
+function normalizeConfig(config: ConcurrencyConfig = {}): ConcurrencyConfig {
+    return {
+        defaultConcurrency: config.defaultConcurrency === undefined
+            ? undefined
+            : assertValidLimit("defaultConcurrency", config.defaultConcurrency),
+        acquisitionTimeoutMs: config.acquisitionTimeoutMs === undefined
+            ? undefined
+            : assertPositiveInteger("acquisitionTimeoutMs", config.acquisitionTimeoutMs),
+        agentConcurrency: normalizeLimitMap("agentConcurrency", config.agentConcurrency),
+        providerConcurrency: normalizeLimitMap("providerConcurrency", config.providerConcurrency),
+        modelConcurrency: normalizeLimitMap("modelConcurrency", config.modelConcurrency),
+    };
 }
 
 export class ConcurrencyController {
@@ -70,11 +110,11 @@ export class ConcurrencyController {
     private workerPools: Map<string, WorkStealingWorkerPool<QueuedTask>> = new Map();
 
     constructor(config?: ConcurrencyConfig) {
-        this.config = config ?? {};
+        this.config = normalizeConfig(config);
     }
 
     configure(config: ConcurrencyConfig): void {
-        this.config = config;
+        this.config = normalizeConfig(config);
     }
 
     getConfig(): ConcurrencyConfig {
@@ -82,7 +122,7 @@ export class ConcurrencyController {
     }
 
     setLimit(key: string, limit: number): void {
-        this.limits.set(key, limit);
+        this.limits.set(key, assertValidLimit(`limit for ${key}`, limit));
     }
 
     getConcurrencyLimit(key: string): number {
@@ -97,6 +137,10 @@ export class ConcurrencyController {
         }
 
         return this.config.defaultConcurrency ?? PARALLEL_TASK.DEFAULT_CONCURRENCY;
+    }
+
+    private getAcquisitionTimeoutMs(): number {
+        return this.config.acquisitionTimeoutMs ?? DEFAULT_ACQUISITION_TIMEOUT_MS;
     }
 
     private getConfiguredLimit(key: string): number | undefined {
@@ -139,11 +183,12 @@ export class ConcurrencyController {
         // Queue with priority
         return new Promise<void>((resolve, reject) => {
             const queue = this.queues.get(key) ?? [];
+            const timeoutMs = this.getAcquisitionTimeoutMs();
 
             const timeoutId = setTimeout(() => {
                 this.removeFromQueue(key, resolve);
-                reject(new Error(`Concurrency acquisition timed out after 300s for ${key}`));
-            }, 300_000);
+                reject(new Error(`Concurrency acquisition timed out after ${timeoutMs}ms for ${key}`));
+            }, timeoutMs);
 
             const task: QueuedTask = {
                 resolve,
@@ -293,7 +338,11 @@ export class ConcurrencyController {
             const index = queue.findIndex(item => item.resolve === resolve);
             if (index !== -1) {
                 queue.splice(index, 1);
-                this.queues.set(key, queue);
+                if (queue.length === 0) {
+                    this.queues.delete(key);
+                } else {
+                    this.queues.set(key, queue);
+                }
             }
         }
     }

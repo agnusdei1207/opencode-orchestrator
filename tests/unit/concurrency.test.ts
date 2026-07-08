@@ -9,7 +9,7 @@
  * - getConcurrencyInfo helper
  */
 
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { ConcurrencyController, type ConcurrencyConfig } from "../../src/core/agents/concurrency";
 
 describe("ConcurrencyController", () => {
@@ -17,6 +17,10 @@ describe("ConcurrencyController", () => {
 
     beforeEach(() => {
         controller = new ConcurrencyController();
+    });
+
+    afterEach(() => {
+        vi.useRealTimers();
     });
 
     // ========================================================================
@@ -114,6 +118,16 @@ describe("ConcurrencyController", () => {
 
             expect(controller.getConcurrencyLimit("agent-a")).toBe(Infinity);
         });
+
+        it("should reject invalid explicit limits", () => {
+            expect(() => controller.setLimit("agent-a", -1)).toThrow("non-negative integer");
+            expect(() => controller.setLimit("agent-a", 1.5)).toThrow("non-negative integer");
+        });
+
+        it("should reject invalid configured limits", () => {
+            expect(() => new ConcurrencyController({ defaultConcurrency: -1 })).toThrow("non-negative integer");
+            expect(() => new ConcurrencyController({ agentConcurrency: { worker: 2.5 } })).toThrow("non-negative integer");
+        });
     });
 
     // ========================================================================
@@ -134,6 +148,29 @@ describe("ConcurrencyController", () => {
 
             // Count should stay 0 (not tracked for infinite)
             expect(controller.getActiveCount("unlimited")).toBe(0);
+        });
+    });
+
+    describe("acquisition timeout", () => {
+        it("should use the configured acquisition timeout for queued tasks", async () => {
+            vi.useFakeTimers();
+            controller = new ConcurrencyController({ defaultConcurrency: 1, acquisitionTimeoutMs: 25 });
+
+            await controller.acquire("agent-a");
+            const queued = controller.acquire("agent-a");
+            const queuedExpectation = expect(queued).rejects.toThrow("after 25ms");
+
+            expect(controller.getQueueLength("agent-a")).toBe(1);
+
+            await vi.advanceTimersByTimeAsync(25);
+
+            await queuedExpectation;
+            expect(controller.getQueueLength("agent-a")).toBe(0);
+        });
+
+        it("should reject invalid acquisition timeout values", () => {
+            expect(() => new ConcurrencyController({ acquisitionTimeoutMs: 0 })).toThrow("positive integer");
+            expect(() => new ConcurrencyController({ acquisitionTimeoutMs: 1.5 })).toThrow("positive integer");
         });
     });
 

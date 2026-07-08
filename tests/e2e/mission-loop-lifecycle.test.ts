@@ -124,6 +124,21 @@ describe("Mission Loop Lifecycle E2E", () => {
             const state = readLoopState(testDir);
             expect(state).toBeNull();
         });
+
+        it("should ignore invalid persisted loop state", () => {
+            const statePath = path.join(testDir, ".opencode", MISSION_CONTROL.STATE_FILE);
+            fs.writeFileSync(statePath, JSON.stringify({
+                active: true,
+                iteration: "not-a-number",
+                maxIterations: 5,
+                prompt: "Broken state",
+                sessionID: testSessionID,
+                startedAt: new Date().toISOString(),
+            }), "utf-8");
+
+            expect(readLoopState(testDir)).toBeNull();
+            expect(incrementIteration(testDir)).toBeNull();
+        });
     });
 
     // ========================================================================

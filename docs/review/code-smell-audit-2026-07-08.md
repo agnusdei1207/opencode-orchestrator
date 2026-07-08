@@ -31,7 +31,7 @@ This audit records 100 concrete code smells found during the July 8, 2026 refact
 23. `fixed` `src/core/agents/manager/task-poller.ts` - scheduled poll rejection could stop future polling.
 24. `fixed` `src/core/agents/manager/task-poller.ts` - utilization sampling used lowercase agent names while built-in agent constants are capitalized.
 25. `queued` `src/core/agents/manager/task-poller.ts` - poll errors per task are logged but do not transition or quarantine stuck tasks.
-26. `queued` `src/core/agents/manager/task-poller.ts` - message cache entries are not explicitly purged when tasks finish.
+26. `fixed` `src/core/agents/manager/task-poller.ts` - message cache entries are not explicitly purged when tasks finish.
 27. `queued` `src/core/agents/manager/task-poller.ts` - `session.status()` failures only log and leave all tasks unchanged.
 28. `queued` `src/core/agents/manager/task-poller.ts` - `onTaskComplete` is fire-and-forget, so review-launch failures cannot affect task completion.
 29. `queued` `src/core/agents/manager/task-poller.ts` - stability detection treats missing `messageCount` as zero.
@@ -81,8 +81,8 @@ This audit records 100 concrete code smells found during the July 8, 2026 refact
 73. `queued` `src/core/agents/manager/task-launcher.ts` - prompt timeout does not cancel the underlying prompt request.
 74. `queued` `src/core/agents/manager/task-launcher.ts` - launch depth checks and stored depth increments are split across different concepts.
 75. `queued` `src/core/agents/manager/task-launcher.ts` - pooled task objects rely on every field being overwritten correctly.
-76. `queued` `src/core/agents/concurrency.ts` - `setLimit` does not reject negative or non-integer limits.
-77. `queued` `src/core/agents/concurrency.ts` - acquisition timeout is hardcoded to 300 seconds.
+76. `fixed` `src/core/agents/concurrency.ts` - `setLimit` does not reject negative or non-integer limits.
+77. `fixed` `src/core/agents/concurrency.ts` - acquisition timeout is hardcoded to 300 seconds.
 78. `queued` `src/core/agents/concurrency.ts` - circuit-breaker thresholds are embedded constants instead of configuration.
 79. `queued` `src/core/agents/concurrency.ts` - resource-pressure behavior rejects only low priority tasks without exposing metrics.
 80. `queued` `src/core/agents/concurrency-token.ts` - auto-release timer behavior is separated from controller shutdown ownership.
@@ -101,7 +101,7 @@ This audit records 100 concrete code smells found during the July 8, 2026 refact
 93. `queued` `src/core/sync/todo-sync-service.ts` - file-handle close failures are ignored.
 94. `queued` `src/core/orchestrator/session-manager.ts` - session state is returned through `as unknown as ManagedSessionState`.
 95. `queued` `src/core/loop/mission-ledger.ts` - ledger JSON lines are cast to events with minimal validation.
-96. `queued` `src/core/loop/mission-loop.ts` - persisted loop state is parsed from JSON without schema validation.
+96. `fixed` `src/core/loop/mission-loop.ts` - persisted loop state is parsed from JSON without schema validation.
 97. `queued` `src/core/knowledge/mission-memory.ts` - memory file IO and parsing are synchronous and concentrated in a large module.
 98. `queued` `src/core/knowledge/memory-lifecycle.ts` - lifecycle planning and archive writes are coupled in one class.
 99. `queued` `src/core/knowledge/context-provider.ts` - context collection performs synchronous traversal and reads.

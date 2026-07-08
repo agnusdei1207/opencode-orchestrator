@@ -8,10 +8,12 @@ describe("concurrency config helpers", () => {
     it("extracts supported concurrency settings from plugin options", () => {
         const config = extractConcurrencyConfig({
             defaultConcurrency: 6,
+            acquisitionTimeoutMs: 1500,
             agentConcurrency: {
                 commander: 1,
                 worker: 10,
                 invalid: -1,
+                fractional: 1.5,
             },
             providerConcurrency: {
                 anthropic: 3,
@@ -23,6 +25,7 @@ describe("concurrency config helpers", () => {
 
         expect(config).toEqual({
             defaultConcurrency: 6,
+            acquisitionTimeoutMs: 1500,
             agentConcurrency: {
                 commander: 1,
                 worker: 10,
