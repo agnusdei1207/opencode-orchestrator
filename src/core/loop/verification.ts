@@ -212,6 +212,20 @@ function countMatches(text: string, pattern: RegExp): number {
     return matches?.length ?? 0;
 }
 
+function createVerificationResult(): VerificationResult {
+    return {
+        passed: false,
+        todoComplete: false,
+        todoProgress: "0/0",
+        todoIncomplete: 0,
+        syncIssuesEmpty: true,
+        syncIssuesCount: 0,
+        checklistComplete: false,
+        checklistProgress: "0/0",
+        errors: []
+    };
+}
+
 
 function hasRealSyncIssues(content: string): boolean {
     const trimmed = content.trim();
@@ -231,20 +245,7 @@ function hasRealSyncIssues(content: string): boolean {
 }
 
 
-export function verifyMissionCompletion(directory: string): VerificationResult {
-    const result: VerificationResult = {
-        passed: false,
-        todoComplete: false,
-        todoProgress: "0/0",
-        todoIncomplete: 0,
-        syncIssuesEmpty: true,
-        syncIssuesCount: 0,
-        checklistComplete: false,
-        checklistProgress: "0/0",
-        errors: []
-    };
-
-    // 1. Check Verification Checklist (Primary gate if exists)
+function applyChecklistVerification(directory: string, result: VerificationResult): boolean {
     const checklistResult = verifyChecklist(directory);
     result.checklistComplete = checklistResult.passed;
     result.checklistProgress = checklistResult.progress;
@@ -260,7 +261,10 @@ export function verifyMissionCompletion(directory: string): VerificationResult {
         }
     }
 
-    // 2. Verify TODO completion (if no checklist, this is primary)
+    return hasChecklist;
+}
+
+function applyTodoVerification(directory: string, result: VerificationResult, hasChecklist: boolean): void {
     const todoPath = join(directory, PATHS.TODO);
     if (existsSync(todoPath)) {
         try {
@@ -288,8 +292,9 @@ export function verifyMissionCompletion(directory: string): VerificationResult {
     } else if (!hasChecklist) {
         result.errors.push(`TODO file not found at ${PATHS.TODO}`);
     }
+}
 
-    // 3. Verify sync issues are resolved (always checked)
+function applySyncIssueVerification(directory: string, result: VerificationResult): void {
     const syncPath = join(directory, PATHS.SYNC_ISSUES);
     if (existsSync(syncPath)) {
         try {
@@ -310,15 +315,22 @@ export function verifyMissionCompletion(directory: string): VerificationResult {
             result.syncIssuesEmpty = true;
         }
     }
+}
 
-    // Final pass determination:
-    // - If checklist exists: checklist must pass + sync issues must be empty
-    // - If no checklist: TODO must be complete + sync issues must be empty
-    if (hasChecklist) {
-        result.passed = result.checklistComplete && result.syncIssuesEmpty;
-    } else {
-        result.passed = result.todoComplete && result.syncIssuesEmpty;
-    }
+function isVerificationPassed(result: VerificationResult, hasChecklist: boolean): boolean {
+    return hasChecklist
+        ? result.checklistComplete && result.syncIssuesEmpty
+        : result.todoComplete && result.syncIssuesEmpty;
+}
+
+export function verifyMissionCompletion(directory: string): VerificationResult {
+    const result = createVerificationResult();
+    const hasChecklist = applyChecklistVerification(directory, result);
+
+    applyTodoVerification(directory, result, hasChecklist);
+    applySyncIssueVerification(directory, result);
+
+    result.passed = isVerificationPassed(result, hasChecklist);
 
     log("[verification] Mission verification result", {
         passed: result.passed,
