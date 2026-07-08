@@ -25,6 +25,9 @@ import { withTimeout } from "../../queue/async-utils.js";
 
 type OpencodeClient = PluginInput["client"];
 export type LaunchResult = ParallelTask | ParallelTask[] | null;
+type PrepareTaskResult =
+  | { task: ParallelTask }
+  | { input: LaunchInput; error: unknown };
 
 export class TaskLauncher {
   private readonly shutdownController = new AbortController();
@@ -57,11 +60,9 @@ export class TaskLauncher {
     // 1. Create and prepare sessions/tasks
     // 2. Background process execution
 
-    const tasks = await Promise.all(
-      taskInputs.map((input) => this.prepareTask(input).catch(() => null)),
-    );
+    const tasks = await Promise.all(taskInputs.map((input) => this.prepareTaskResult(input)));
 
-    const successfulTasks = tasks.filter((t): t is ParallelTask => t !== null);
+    const successfulTasks = tasks.flatMap((result) => "task" in result ? [result.task] : []);
 
     // Start background execution for each task
     successfulTasks.forEach((task) => {
@@ -89,6 +90,15 @@ export class TaskLauncher {
   /**
    * Prepare task: Create session and registration without blocking on concurrency
    */
+  private async prepareTaskResult(input: LaunchInput): Promise<PrepareTaskResult> {
+    try {
+      return { task: await this.prepareTask(input) };
+    } catch (error) {
+      log(`[TaskLauncher] Failed to prepare task for ${input.agent}: ${input.description}`, error);
+      return { input, error };
+    }
+  }
+
   private async prepareTask(input: LaunchInput): Promise<ParallelTask> {
     // HPFA: Depth Guard
     const currentDepth = input.depth ?? 0;

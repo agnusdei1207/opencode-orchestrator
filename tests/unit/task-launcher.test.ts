@@ -13,6 +13,11 @@ import { TaskLauncher } from "../../src/core/agents/manager/task-launcher";
 import { TaskStore } from "../../src/core/agents/task-store";
 import { ConcurrencyController } from "../../src/core/agents/concurrency";
 import { TASK_STATUS } from "../../src/shared";
+import { log } from "../../src/core/agents/logger";
+
+vi.mock("../../src/core/agents/logger", () => ({
+    log: vi.fn(),
+}));
 
 // Mock crypto.randomUUID
 if (!global.crypto) {
@@ -97,6 +102,10 @@ describe("TaskLauncher", () => {
         });
 
         expect(result).toBeNull();
+        expect(log).toHaveBeenCalledWith(
+            "[TaskLauncher] Failed to prepare task for builder: Test task",
+            expect.any(Error),
+        );
         expect(startPolling).not.toHaveBeenCalled();
         expect(store.getAll()).toEqual([]);
     });
