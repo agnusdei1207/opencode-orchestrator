@@ -131,4 +131,20 @@ describe("TodoManager (MVCC)", () => {
         expect(data.version.version).toBe(0);
         expect(data.content).not.toContain("Child task");
     });
+
+    it("should not bump version or leave temp files when replacing the todo file fails", async () => {
+        const todoPath = path.join(testDir, ".opencode/todo.md");
+        fs.rmSync(todoPath);
+        fs.mkdirSync(todoPath);
+        const manager = TodoManager.getInstance(testDir);
+
+        await expect(
+            manager.update(0, content => `${content}\n- [ ] Should fail`, "agent-1")
+        ).rejects.toThrow();
+
+        const data = await manager.readWithVersion();
+        expect(data.version.version).toBe(0);
+        const opencodeEntries = fs.readdirSync(path.join(testDir, ".opencode"));
+        expect(opencodeEntries.filter(entry => entry.includes(".tmp."))).toEqual([]);
+    });
 });

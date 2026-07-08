@@ -113,6 +113,8 @@ export class TodoManager {
         const RETRY_DELAY = 50;
 
         for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+            let tmpPath: string | undefined;
+            let versionTmpPath: string | undefined;
             try {
                 const current = await this.readWithVersion();
 
@@ -134,11 +136,16 @@ export class TodoManager {
                 }
 
                 const newVersion = current.version.version + 1;
-                const tmpPath = `${this.todoPath}.tmp.${Date.now()}.${Math.random().toString(36).slice(2)}`;
+                const tmpSuffix = `${Date.now()}.${Math.random().toString(36).slice(2)}`;
+                tmpPath = `${this.todoPath}.tmp.${tmpSuffix}`;
+                versionTmpPath = `${this.versionPath}.tmp.${tmpSuffix}`;
 
                 await fs.promises.writeFile(tmpPath, newContent, "utf-8");
+                await fs.promises.rename(tmpPath, this.todoPath);
+                tmpPath = undefined;
+
                 await fs.promises.writeFile(
-                    this.versionPath,
+                    versionTmpPath,
                     JSON.stringify({
                         version: newVersion,
                         timestamp: Date.now(),
@@ -146,8 +153,8 @@ export class TodoManager {
                     }),
                     "utf-8"
                 );
-
-                await fs.promises.rename(tmpPath, this.todoPath);
+                await fs.promises.rename(versionTmpPath, this.versionPath);
+                versionTmpPath = undefined;
 
                 this.logChange(newVersion, newContent, author).catch(() => { });
 
@@ -155,6 +162,8 @@ export class TodoManager {
                 return { success: true, currentVersion: newVersion };
 
             } catch (error) {
+                await cleanupTempFile(tmpPath);
+                await cleanupTempFile(versionTmpPath);
                 if (attempt === MAX_RETRIES - 1) throw error;
                 await new Promise(r => setTimeout(r, RETRY_DELAY));
             }
@@ -231,5 +240,15 @@ export class TodoManager {
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     private async logChange(_version: number, _content: string, _author: string) {
         // No-op: History logging disabled for performance
+    }
+}
+
+async function cleanupTempFile(filePath: string | undefined): Promise<void> {
+    if (!filePath) return;
+
+    try {
+        await fs.promises.rm(filePath, { force: true });
+    } catch {
+        // Best-effort cleanup only.
     }
 }
