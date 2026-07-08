@@ -15,6 +15,7 @@ import { ParallelAgentManager } from "../core/agents/manager.js";
 import { isMissionActive, ensureSessionInitialized } from "../core/orchestrator/session-manager.js";
 import { KnowledgeContextProvider } from "../core/knowledge/context-provider.js";
 import { readMissionScratchpadSnapshot } from "../core/knowledge/mission-memory.js";
+import { log } from "../core/agents/logger.js";
 
 const knowledgeContextProvider = new KnowledgeContextProvider();
 
@@ -89,8 +90,8 @@ export function createSystemTransformHandler(ctx: EventHandlerContext) {
             if (runningCount > 0 || pendingCount > 0) {
                 systemAdditions.push(buildBackgroundTasksPrompt(runningCount, pendingCount));
             }
-        } catch {
-            // Manager not available
+        } catch (error) {
+            log(`[system-transform] Failed to inspect background tasks for ${sessionID}: ${error}`);
         }
 
         // Inject additions

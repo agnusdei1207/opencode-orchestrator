@@ -17,6 +17,7 @@ import * as ContextMonitor from "../core/context/index.js";
 import { SESSION_EVENTS, MESSAGE_EVENTS, MESSAGE_ROLES, SESSION_STATUS } from "../shared/index.js";
 import type { PluginHandlerContext, PluginSessionState } from "./context.js";
 import { handleCompletedAssistantMessage } from "./assistant-done-handler.js";
+import { log } from "../core/agents/logger.js";
 
 export type EventHandlerContext = PluginHandlerContext;
 
@@ -87,8 +88,8 @@ function notifyParallelAgentManager(event: PluginEvent): void {
     try {
         const manager = ParallelAgentManager.getInstance();
         manager.handleEvent(event as { type: string; properties?: { sessionID?: string; info?: { id?: string } } });
-    } catch {
-        // Manager not initialized
+    } catch (error) {
+        log(`[event-handler] Parallel agent manager could not handle ${event.type}: ${error}`);
     }
 }
 
@@ -258,33 +259,32 @@ function markAbort(sessions: Map<string, PluginSessionState>, sessionID: string)
 }
 
 function scheduleIdleContinuation(ctx: EventHandlerContext, sessionID: string): void {
-    const { client, directory, sessions } = ctx;
+    const { sessions } = ctx;
     if (!sessions.has(sessionID)) return;
 
-    setTimeout(async () => {
-        const session = sessions.get(sessionID);
-        if (!shouldContinueAfterIdle(session)) {
-            markAbort(sessions, sessionID);
-            return;
-        }
+    scheduleDelayedHandler("idle continuation", sessionID, () => runIdleContinuation(ctx, sessionID));
+}
 
-        if (isLoopActive(directory, sessionID)) {
-            try {
-                await MissionLoopHandler.handleMissionIdle(
-                    client, directory, sessionID, sessionID
-                );
-            } catch {
-                // Continuation failures must not break the OpenCode event pipeline.
-            }
-            return;
-        }
+async function runIdleContinuation(ctx: EventHandlerContext, sessionID: string): Promise<void> {
+    const { client, directory, sessions } = ctx;
+    const session = sessions.get(sessionID);
+    if (!shouldContinueAfterIdle(session)) {
+        markAbort(sessions, sessionID);
+        return;
+    }
 
-        try {
-            await TodoContinuation.handleSessionIdle(
-                client, directory, sessionID, sessionID
-            );
-        } catch {
-            // Continuation failures must not break the OpenCode event pipeline.
-        }
+    if (isLoopActive(directory, sessionID)) {
+        await MissionLoopHandler.handleMissionIdle(client, directory, sessionID, sessionID);
+        return;
+    }
+
+    await TodoContinuation.handleSessionIdle(client, directory, sessionID, sessionID);
+}
+
+function scheduleDelayedHandler(label: string, sessionID: string, handler: () => Promise<void>): void {
+    setTimeout(() => {
+        handler().catch(error => {
+            log(`[event-handler] ${label} failed for ${sessionID}: ${error}`);
+        });
     }, IDLE_CONTINUATION_DELAY_MS);
 }

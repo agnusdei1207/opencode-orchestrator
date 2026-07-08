@@ -15,6 +15,7 @@ import type { EventHandlerContext } from "../../src/plugin-handlers/event-handle
 import { isMissionActive, ensureSessionInitialized } from "../../src/core/orchestrator/session-manager";
 import { readLoopState } from "../../src/core/loop/mission-loop";
 import { ParallelAgentManager } from "../../src/core/agents/manager";
+import { log } from "../../src/core/agents/logger";
 
 // Mock dependencies
 vi.mock("../../src/core/loop/mission-loop", () => ({
@@ -39,6 +40,8 @@ vi.mock("../../src/agents/commander", () => ({
         systemPrompt: "[COMMANDER_SYSTEM_PROMPT_MOCK]",
     },
 }));
+
+vi.mock("../../src/core/agents/logger", () => ({ log: vi.fn() }));
 
 describe("System Transform Handler", () => {
     let mockContext: EventHandlerContext;
@@ -285,6 +288,26 @@ describe("System Transform Handler", () => {
         } finally {
             rmSync(testDir, { recursive: true, force: true });
         }
+    });
+
+    it("should log background task lookup failures without aborting transform", async () => {
+        vi.mocked(readLoopState).mockReturnValue({
+            active: true,
+            iteration: 1,
+            maxIterations: 10,
+            prompt: "Task",
+            sessionID: "test-session",
+            startedAt: new Date().toISOString(),
+        });
+        vi.mocked(ParallelAgentManager.getInstance).mockImplementationOnce(() => {
+            throw new Error("manager unavailable");
+        });
+
+        const output: SystemTransformOutput = { system: [] };
+        await handler(createSystemInput(), output);
+
+        expect(output.system.length).toBeGreaterThan(0);
+        expect(log).toHaveBeenCalledWith(expect.stringContaining("Failed to inspect background tasks for test-session"));
     });
 });
 

@@ -14,6 +14,7 @@ import type { EventHandlerContext } from "./event-handler.js";
 import { ParallelAgentManager } from "../core/agents/manager.js";
 import { STATUS_LABEL } from "../shared/index.js";
 import { handleSessionCompacted } from "../core/loop/mission-loop-handler.js";
+import { log } from "../core/agents/logger.js";
 
 type SessionCompactingHook = NonNullable<Hooks["experimental.session.compacting"]>;
 export type SessionCompactingInput = Parameters<SessionCompactingHook>[0];
@@ -60,8 +61,8 @@ export function createSessionCompactingHandler(ctx: EventHandlerContext) {
             if (runningTasks.length > 0) {
                 contextItems.push(buildBackgroundTasksContext(runningTasks));
             }
-        } catch {
-            // Manager not initialized, skip
+        } catch (error) {
+            log(`[session-compacting] Failed to inspect background tasks for ${sessionID}: ${error}`);
         }
 
         // Inject context

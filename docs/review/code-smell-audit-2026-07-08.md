@@ -90,9 +90,9 @@ This audit records 100 concrete code smells found during the July 8, 2026 refact
 82. `fixed` `src/core/cache/utils.ts` - metadata read, parse, and shape failures are logged before empty-cache recovery.
 83. `fixed` `src/core/notification/os-notify/platform-resolver.ts` - command lookup failures are logged before returning no command path.
 84. `fixed` `src/core/notification/os-notify/notifier.ts` - notification skip branches now log missing commands, WSL skips, and unsupported platforms.
-85. `queued` `src/plugin-handlers/event-handler.ts` - delayed event handling uses raw `setTimeout` and scattered catch blocks.
-86. `queued` `src/plugin-handlers/system-transform-handler.ts` - transform failure handling is silent in at least one path.
-87. `queued` `src/plugin-handlers/session-compacting-handler.ts` - compacting hook catch blocks hide parse or state errors.
+85. `fixed` `src/plugin-handlers/event-handler.ts` - delayed idle continuation now runs through one logging scheduler helper.
+86. `fixed` `src/plugin-handlers/system-transform-handler.ts` - background task lookup failures are logged without aborting transform.
+87. `fixed` `src/plugin-handlers/session-compacting-handler.ts` - background task lookup failures are logged without aborting compaction.
 88. `queued` `src/core/cleanup/cleanup-scheduler.ts` - scheduler mixes history rotation, session cleanup, package cleanup, and reporting.
 89. `queued` `src/core/cleanup/cleanup-scheduler.ts` - cleanup scheduler has a TODO for history rotation timing.
 90. `queued` `src/core/cleanup/cleanup-scheduler.ts` - scheduler performs synchronous filesystem work in timer-driven maintenance.

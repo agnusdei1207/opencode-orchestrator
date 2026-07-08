@@ -7,6 +7,7 @@ import * as TodoContinuation from "../../src/core/loop/todo-continuation";
 import * as MissionLoopHandler from "../../src/core/loop/mission-loop-handler";
 import * as MissionLoop from "../../src/core/loop/mission-loop";
 import * as Toast from "../../src/core/notification/toast";
+import { log } from "../../src/core/agents/logger";
 import type { EventHandlerContext } from "../../src/plugin-handlers/event-handler";
 
 vi.mock("../../src/core/agents/manager", () => ({
@@ -54,6 +55,7 @@ vi.mock("../../src/core/context", () => ({
 vi.mock("../../src/plugin-handlers/assistant-done-handler", () => ({
     handleCompletedAssistantMessage: vi.fn(),
 }));
+vi.mock("../../src/core/agents/logger", () => ({ log: vi.fn() }));
 
 describe("createEventHandler", () => {
     let ctx: EventHandlerContext;
@@ -78,6 +80,7 @@ describe("createEventHandler", () => {
             },
         };
         vi.clearAllMocks();
+        vi.mocked(MissionLoop.isLoopActive).mockReturnValue(false);
     });
 
     afterEach(() => {
@@ -260,5 +263,25 @@ describe("createEventHandler", () => {
             "session-1",
         );
         expect(TodoContinuation.handleSessionIdle).not.toHaveBeenCalled();
+    });
+
+    it("logs idle continuation failures without breaking the timer callback", async () => {
+        vi.useFakeTimers();
+        vi.mocked(TodoContinuation.handleSessionIdle).mockRejectedValueOnce(new Error("idle failed"));
+        const handler = createEventHandler(ctx);
+        const session = ctx.sessions.get("session-1");
+        session.lastUserMessageAt = Date.now();
+        session.lastAssistantCompletedAt = session.lastUserMessageAt + 1;
+
+        await handler({
+            event: {
+                type: "session.idle",
+                properties: { sessionID: "session-1" },
+            },
+        });
+
+        await vi.advanceTimersByTimeAsync(500);
+
+        expect(log).toHaveBeenCalledWith(expect.stringContaining("idle continuation failed for session-1"));
     });
 });

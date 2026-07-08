@@ -15,6 +15,8 @@ import {
     type SessionCompactingOutput,
 } from "../../src/plugin-handlers/session-compacting-handler";
 import type { EventHandlerContext } from "../../src/plugin-handlers/event-handler";
+import { ParallelAgentManager } from "../../src/core/agents/manager";
+import { log } from "../../src/core/agents/logger";
 
 // Mock dependencies
 vi.mock("../../src/core/loop/mission-loop", () => ({
@@ -28,6 +30,8 @@ vi.mock("../../src/core/agents/manager", () => ({
         })),
     },
 }));
+
+vi.mock("../../src/core/agents/logger", () => ({ log: vi.fn() }));
 
 describe("Session Compacting Handler", () => {
     let mockContext: EventHandlerContext;
@@ -158,5 +162,19 @@ describe("Session Compacting Handler", () => {
         await handler(input, output);
 
         expect(output.context.length).toBe(0);
+    });
+
+    it("should log background task lookup failures without aborting compaction", async () => {
+        vi.mocked(ParallelAgentManager.getInstance).mockImplementationOnce(() => {
+            throw new Error("manager unavailable");
+        });
+
+        const input: SessionCompactingInput = { sessionID: "test-session" };
+        const output: SessionCompactingOutput = { context: [] };
+
+        await handler(input, output);
+
+        expect(output.context.some(c => c.includes("SESSION PROGRESS"))).toBe(true);
+        expect(log).toHaveBeenCalledWith(expect.stringContaining("Failed to inspect background tasks for test-session"));
     });
 });
