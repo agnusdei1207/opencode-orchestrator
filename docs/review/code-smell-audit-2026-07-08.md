@@ -88,8 +88,8 @@ This audit records 100 concrete code smells found during the July 8, 2026 refact
 80. `queued` `src/core/agents/concurrency-token.ts` - auto-release timer behavior is separated from controller shutdown ownership.
 81. `fixed` `src/core/cache/operations.ts` - cache document read and cleanup failures now log the affected cache entry.
 82. `fixed` `src/core/cache/utils.ts` - metadata read, parse, and shape failures are logged before empty-cache recovery.
-83. `queued` `src/core/notification/os-notify/platform-resolver.ts` - platform detection errors are silently ignored.
-84. `queued` `src/core/notification/os-notify/notifier.ts` - notification send failures are swallowed in some branches.
+83. `fixed` `src/core/notification/os-notify/platform-resolver.ts` - command lookup failures are logged before returning no command path.
+84. `fixed` `src/core/notification/os-notify/notifier.ts` - notification skip branches now log missing commands, WSL skips, and unsupported platforms.
 85. `queued` `src/plugin-handlers/event-handler.ts` - delayed event handling uses raw `setTimeout` and scattered catch blocks.
 86. `queued` `src/plugin-handlers/system-transform-handler.ts` - transform failure handling is silent in at least one path.
 87. `queued` `src/plugin-handlers/session-compacting-handler.ts` - compacting hook catch blocks hide parse or state errors.

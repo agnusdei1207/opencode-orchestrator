@@ -11,6 +11,7 @@ import {
     type NotificationCommandKey,
 } from "../../../shared/notification/os-notify/index.js";
 import { PLATFORM } from "../../../shared/os/index.js";
+import { log } from "../../agents/logger.js";
 
 const execAsync = promisify(exec);
 
@@ -32,7 +33,8 @@ async function findCommand(commandName: string): Promise<string | null> {
     try {
         const { stdout } = await execAsync(`${cmd} ${commandName}`);
         return stdout.trim().split("\n")[0] || null;
-    } catch {
+    } catch (error) {
+        log(`[session-notify] Command lookup failed for ${commandName}: ${error}`);
         return null;
     }
 }

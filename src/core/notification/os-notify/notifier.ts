@@ -22,7 +22,10 @@ async function notifyDarwin(title: string, message: string): Promise<void> {
         NOTIFICATION_COMMAND_KEYS.OSASCRIPT,
         NOTIFICATION_COMMANDS.OSASCRIPT
     );
-    if (!path) return;
+    if (!path) {
+        logMissingCommand(NOTIFICATION_COMMANDS.OSASCRIPT, PLATFORM.DARWIN);
+        return;
+    }
     const escT = title.replace(/"/g, '\\"');
     const escM = message.replace(/"/g, '\\"');
     // Redirect both stdout and stderr to /dev/null to prevent any TUI output corruption
@@ -44,14 +47,22 @@ function isWSL(): boolean {
 async function notifyLinux(title: string, message: string): Promise<void> {
     // Skip notifications in WSL2: notify-send output leaks into the TUI terminal
     // causing visual corruption (issue #24)
-    if (isWSL()) return;
+    if (isWSL()) {
+        log("[session-notify] Skipping Linux notification in WSL");
+        return;
+    }
 
     const path = await resolveCommandPath(
         NOTIFICATION_COMMAND_KEYS.NOTIFY_SEND,
         NOTIFICATION_COMMANDS.NOTIFY_SEND
     );
     // Redirect both stdout and stderr to /dev/null to prevent TUI corruption
-    if (path) await execAsync(`${path} "${title}" "${message}" >/dev/null 2>/dev/null`);
+    if (!path) {
+        logMissingCommand(NOTIFICATION_COMMANDS.NOTIFY_SEND, PLATFORM.LINUX);
+        return;
+    }
+
+    await execAsync(`${path} "${title}" "${message}" >/dev/null 2>/dev/null`);
 }
 
 async function notifyWindows(title: string, message: string): Promise<void> {
@@ -59,7 +70,10 @@ async function notifyWindows(title: string, message: string): Promise<void> {
         NOTIFICATION_COMMAND_KEYS.POWERSHELL,
         NOTIFICATION_COMMANDS.POWERSHELL
     );
-    if (!ps) return;
+    if (!ps) {
+        logMissingCommand(NOTIFICATION_COMMANDS.POWERSHELL, PLATFORM.WIN32);
+        return;
+    }
     const psT = title.replace(/'/g, "''");
     const psM = message.replace(/'/g, "''");
     const script = `
@@ -83,9 +97,15 @@ export async function sendNotification(platform: Platform, title: string, messag
             case PLATFORM.DARWIN: return await notifyDarwin(title, message);
             case PLATFORM.LINUX: return await notifyLinux(title, message);
             case PLATFORM.WIN32: return await notifyWindows(title, message);
-            default: break;
+            default:
+                log(`[session-notify] Unsupported notification platform: ${platform}`);
+                break;
         }
     } catch (err) {
         log(`[session-notify] Error sending notification: ${err}`);
     }
+}
+
+function logMissingCommand(commandName: string, platform: Platform): void {
+    log(`[session-notify] Command not found for ${platform} notification: ${commandName}`);
 }

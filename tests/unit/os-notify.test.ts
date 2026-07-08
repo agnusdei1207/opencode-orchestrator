@@ -11,6 +11,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { detectPlatform, getDefaultSoundPath } from "../../src/core/notification/os-notify/platform";
 import { hasIncompleteTodos } from "../../src/core/notification/os-notify/todo-checker";
+import { log } from "../../src/core/agents/logger.js";
 import { PLATFORM } from "../../src/shared/os/index.js";
 import { TODO_STATUS } from "../../src/shared/loop/index.js";
 
@@ -143,6 +144,7 @@ describe("os-notify/notifier", () => {
     beforeEach(() => {
         mockExec.mockClear();
         mockResolveCommandPath.mockReset();
+        vi.mocked(log).mockClear();
         // Ensure WSL env vars are clean unless a test sets them
         delete process.env.WSL_DISTRO_NAME;
         delete process.env.WSLENV;
@@ -170,6 +172,7 @@ describe("os-notify/notifier", () => {
         await sendNotification(PLATFORM.DARWIN, "Title", "Message");
 
         expect(mockExec).not.toHaveBeenCalled();
+        expect(log).toHaveBeenCalledWith(expect.stringContaining("Command not found for darwin notification"));
     });
 
     it("[darwin] escapes double quotes in title and message", async () => {
@@ -204,6 +207,7 @@ describe("os-notify/notifier", () => {
         await sendNotification(PLATFORM.LINUX, "Title", "Msg");
 
         expect(mockExec).not.toHaveBeenCalled();
+        expect(log).toHaveBeenCalledWith(expect.stringContaining("Command not found for linux notification"));
     });
 
     // ── Linux WSL2 ───────────────────────────────────────────────────────────
@@ -216,6 +220,7 @@ describe("os-notify/notifier", () => {
         await sendNotification(PLATFORM.LINUX, "Title", "Msg");
 
         expect(mockExec).not.toHaveBeenCalled();
+        expect(log).toHaveBeenCalledWith(expect.stringContaining("Skipping Linux notification in WSL"));
         delete process.env.WSL_DISTRO_NAME;
     });
 
@@ -252,6 +257,7 @@ describe("os-notify/notifier", () => {
         await sendNotification(PLATFORM.WIN32, "Title", "Msg");
 
         expect(mockExec).not.toHaveBeenCalled();
+        expect(log).toHaveBeenCalledWith(expect.stringContaining("Command not found for win32 notification"));
     });
 
     it("[windows] escapes single quotes in title and message for PS", async () => {
@@ -274,6 +280,7 @@ describe("os-notify/notifier", () => {
         await sendNotification(PLATFORM.UNSUPPORTED as any, "Title", "Msg");
 
         expect(mockExec).not.toHaveBeenCalled();
+        expect(log).toHaveBeenCalledWith(expect.stringContaining("Unsupported notification platform"));
     });
 });
 
