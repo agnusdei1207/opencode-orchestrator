@@ -31,6 +31,13 @@ function isPositiveInteger(value: unknown): value is number {
         value > 0;
 }
 
+function isPercentage(value: unknown): value is number {
+    return typeof value === "number" &&
+        Number.isFinite(value) &&
+        value > 0 &&
+        value <= 100;
+}
+
 export function extractConcurrencyConfig(source: unknown): ConcurrencyConfig {
     if (!isRecord(source)) return {};
 
@@ -40,6 +47,18 @@ export function extractConcurrencyConfig(source: unknown): ConcurrencyConfig {
     }
     if (isPositiveInteger(source.acquisitionTimeoutMs)) {
         config.acquisitionTimeoutMs = source.acquisitionTimeoutMs;
+    }
+    if (isPositiveInteger(source.circuitFailureThreshold)) {
+        config.circuitFailureThreshold = source.circuitFailureThreshold;
+    }
+    if (isPositiveInteger(source.circuitRecoveryTimeoutMs)) {
+        config.circuitRecoveryTimeoutMs = source.circuitRecoveryTimeoutMs;
+    }
+    if (isPositiveInteger(source.halfOpenSuccessThreshold)) {
+        config.halfOpenSuccessThreshold = source.halfOpenSuccessThreshold;
+    }
+    if (isPercentage(source.resourcePressureMaxHeapPercent)) {
+        config.resourcePressureMaxHeapPercent = source.resourcePressureMaxHeapPercent;
     }
 
     const agentConcurrency = readLimitMap(source.agentConcurrency);

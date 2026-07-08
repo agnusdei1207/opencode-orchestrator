@@ -44,6 +44,18 @@ interface CircuitBreaker {
 }
 
 const DEFAULT_ACQUISITION_TIMEOUT_MS = 300_000;
+const DEFAULT_CIRCUIT_FAILURE_THRESHOLD = 5;
+const DEFAULT_CIRCUIT_RECOVERY_TIMEOUT_MS = 30_000;
+const DEFAULT_HALF_OPEN_SUCCESS_THRESHOLD = 2;
+const DEFAULT_RESOURCE_PRESSURE_MAX_HEAP_PERCENT = 80;
+
+export interface ResourcePressureStatus {
+    underPressure: boolean;
+    heapUsed: number;
+    heapTotal: number;
+    heapPercent: number;
+    maxHeapPercent: number;
+}
 
 function normalizeLimit(limit: number): number {
     return limit === 0 ? Infinity : limit;
@@ -59,6 +71,13 @@ function assertValidLimit(name: string, limit: number): number {
 function assertPositiveInteger(name: string, value: number): number {
     if (!Number.isInteger(value) || value < 1) {
         throw new Error(`${name} must be a positive integer, got ${value}`);
+    }
+    return value;
+}
+
+function assertPercentage(name: string, value: number): number {
+    if (!Number.isFinite(value) || value <= 0 || value > 100) {
+        throw new Error(`${name} must be a percentage between 0 and 100, got ${value}`);
     }
     return value;
 }
@@ -81,6 +100,18 @@ function normalizeConfig(config: ConcurrencyConfig = {}): ConcurrencyConfig {
         acquisitionTimeoutMs: config.acquisitionTimeoutMs === undefined
             ? undefined
             : assertPositiveInteger("acquisitionTimeoutMs", config.acquisitionTimeoutMs),
+        circuitFailureThreshold: config.circuitFailureThreshold === undefined
+            ? undefined
+            : assertPositiveInteger("circuitFailureThreshold", config.circuitFailureThreshold),
+        circuitRecoveryTimeoutMs: config.circuitRecoveryTimeoutMs === undefined
+            ? undefined
+            : assertPositiveInteger("circuitRecoveryTimeoutMs", config.circuitRecoveryTimeoutMs),
+        halfOpenSuccessThreshold: config.halfOpenSuccessThreshold === undefined
+            ? undefined
+            : assertPositiveInteger("halfOpenSuccessThreshold", config.halfOpenSuccessThreshold),
+        resourcePressureMaxHeapPercent: config.resourcePressureMaxHeapPercent === undefined
+            ? undefined
+            : assertPercentage("resourcePressureMaxHeapPercent", config.resourcePressureMaxHeapPercent),
         agentConcurrency: normalizeLimitMap("agentConcurrency", config.agentConcurrency),
         providerConcurrency: normalizeLimitMap("providerConcurrency", config.providerConcurrency),
         modelConcurrency: normalizeLimitMap("modelConcurrency", config.modelConcurrency),
@@ -99,12 +130,7 @@ export class ConcurrencyController {
 
     // Circuit breaker
     private circuits: Map<string, CircuitBreaker> = new Map();
-    private readonly CIRCUIT_THRESHOLD = 5;      // Failures before opening
-    private readonly CIRCUIT_TIMEOUT = 30_000;   // 30s recovery window
-    private readonly HALF_OPEN_SUCCESS = 2;      // Successes to close circuit
-
-    // Resource awareness
-    private readonly MAX_MEMORY_PERCENT = 80;    // Pause if memory > 80%
+    private activeTokens: Set<ConcurrencyToken> = new Set();
 
     // Work-stealing
     private workerPools: Map<string, WorkStealingWorkerPool<QueuedTask>> = new Map();
@@ -143,6 +169,22 @@ export class ConcurrencyController {
         return this.config.acquisitionTimeoutMs ?? DEFAULT_ACQUISITION_TIMEOUT_MS;
     }
 
+    private getCircuitFailureThreshold(): number {
+        return this.config.circuitFailureThreshold ?? DEFAULT_CIRCUIT_FAILURE_THRESHOLD;
+    }
+
+    private getCircuitRecoveryTimeoutMs(): number {
+        return this.config.circuitRecoveryTimeoutMs ?? DEFAULT_CIRCUIT_RECOVERY_TIMEOUT_MS;
+    }
+
+    private getHalfOpenSuccessThreshold(): number {
+        return this.config.halfOpenSuccessThreshold ?? DEFAULT_HALF_OPEN_SUCCESS_THRESHOLD;
+    }
+
+    private getResourcePressureMaxHeapPercent(): number {
+        return this.config.resourcePressureMaxHeapPercent ?? DEFAULT_RESOURCE_PRESSURE_MAX_HEAP_PERCENT;
+    }
+
     private getConfiguredLimit(key: string): number | undefined {
         const provider = key.split("/")[0];
         return this.config.modelConcurrency?.[key]
@@ -164,10 +206,14 @@ export class ConcurrencyController {
         }
 
         // Check resource pressure
-        if (this.isUnderResourcePressure()) {
+        const resourcePressure = this.getResourcePressureStatus();
+        if (resourcePressure.underPressure) {
             // Only block LOW priority tasks under pressure
             if (priority === TaskPriority.LOW) {
-                throw new Error(`Resource pressure detected. Low priority task rejected.`);
+                throw new Error(
+                    `Resource pressure detected (${resourcePressure.heapPercent.toFixed(1)}% heap used; ` +
+                    `limit ${resourcePressure.maxHeapPercent}%). Low priority task rejected.`
+                );
             }
         }
 
@@ -243,7 +289,7 @@ export class ConcurrencyController {
     private handleSuccess(key: string, circuit: CircuitBreaker): void {
         if (circuit.state === CircuitState.HALF_OPEN) {
             circuit.successCount++;
-            if (circuit.successCount >= this.HALF_OPEN_SUCCESS) {
+            if (circuit.successCount >= this.getHalfOpenSuccessThreshold()) {
                 circuit.state = CircuitState.CLOSED;
                 circuit.failureCount = 0;
                 circuit.successCount = 0;
@@ -274,7 +320,7 @@ export class ConcurrencyController {
             // Failed during recovery test - reopen circuit
             circuit.state = CircuitState.OPEN;
             circuit.successCount = 0;
-        } else if (circuit.failureCount >= this.CIRCUIT_THRESHOLD) {
+        } else if (circuit.failureCount >= this.getCircuitFailureThreshold()) {
             circuit.state = CircuitState.OPEN;
         }
 
@@ -297,7 +343,7 @@ export class ConcurrencyController {
 
         if (circuit.state === CircuitState.OPEN) {
             // Check if recovery window has passed
-            if (Date.now() - circuit.lastFailureTime > this.CIRCUIT_TIMEOUT) {
+            if (Date.now() - circuit.lastFailureTime > this.getCircuitRecoveryTimeoutMs()) {
                 circuit.state = CircuitState.HALF_OPEN;
                 circuit.successCount = 0;
                 return false;
@@ -322,13 +368,26 @@ export class ConcurrencyController {
         return circuit;
     }
 
-    private isUnderResourcePressure(): boolean {
+    getResourcePressureStatus(): ResourcePressureStatus {
+        const maxHeapPercent = this.getResourcePressureMaxHeapPercent();
         try {
             const usage = process.memoryUsage();
             const heapPercent = (usage.heapUsed / usage.heapTotal) * 100;
-            return heapPercent > this.MAX_MEMORY_PERCENT;
+            return {
+                underPressure: heapPercent > maxHeapPercent,
+                heapUsed: usage.heapUsed,
+                heapTotal: usage.heapTotal,
+                heapPercent,
+                maxHeapPercent,
+            };
         } catch {
-            return false;
+            return {
+                underPressure: false,
+                heapUsed: 0,
+                heapTotal: 0,
+                heapPercent: 0,
+                maxHeapPercent,
+            };
         }
     }
 
@@ -394,7 +453,12 @@ export class ConcurrencyController {
         autoReleaseMs: number = 600_000
     ): Promise<ConcurrencyToken> {
         await this.acquire(key, priority);
-        return new ConcurrencyToken(this, key, autoReleaseMs);
+        let token: ConcurrencyToken;
+        token = new ConcurrencyToken(this, key, autoReleaseMs, released => {
+            this.activeTokens.delete(released);
+        });
+        this.activeTokens.add(token);
+        return token;
     }
 
     /**
@@ -428,6 +492,11 @@ export class ConcurrencyController {
      * Shutdown - stops all worker pools
      */
     async shutdown(): Promise<void> {
+        for (const token of Array.from(this.activeTokens)) {
+            token.release();
+        }
+        this.activeTokens.clear();
+
         for (const [key, pool] of this.workerPools.entries()) {
             await pool.stop();
         }

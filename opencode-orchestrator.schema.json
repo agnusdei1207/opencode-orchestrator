@@ -40,6 +40,31 @@
       "exclusiveMinimum": 0,
       "maximum": 9007199254740991
     },
+    "acquisitionTimeoutMs": {
+      "type": "integer",
+      "exclusiveMinimum": 0,
+      "maximum": 9007199254740991
+    },
+    "circuitFailureThreshold": {
+      "type": "integer",
+      "exclusiveMinimum": 0,
+      "maximum": 9007199254740991
+    },
+    "circuitRecoveryTimeoutMs": {
+      "type": "integer",
+      "exclusiveMinimum": 0,
+      "maximum": 9007199254740991
+    },
+    "halfOpenSuccessThreshold": {
+      "type": "integer",
+      "exclusiveMinimum": 0,
+      "maximum": 9007199254740991
+    },
+    "resourcePressureMaxHeapPercent": {
+      "type": "number",
+      "exclusiveMinimum": 0,
+      "maximum": 100
+    },
     "missionLoop": {
       "default": {
         "ledger": true,

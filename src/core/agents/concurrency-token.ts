@@ -14,7 +14,8 @@ export class ConcurrencyToken {
     constructor(
         private controller: ConcurrencyController,
         private key: string,
-        private autoReleaseMs: number = 600_000 // 10 minutes default
+        private autoReleaseMs: number = 600_000, // 10 minutes default
+        private onRelease?: (token: ConcurrencyToken) => void,
     ) {
         // Auto-release after timeout as safety net
         this.autoReleaseTimer = setTimeout(() => {
@@ -43,6 +44,7 @@ export class ConcurrencyToken {
 
         // Release the slot
         this.controller.release(this.key);
+        this.onRelease?.(this);
     }
 
     /**

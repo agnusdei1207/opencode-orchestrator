@@ -36,6 +36,11 @@ export const OrchestratorOptionsSchema = z
         providerConcurrency: ConcurrencyMap.optional(),
         modelConcurrency: ConcurrencyMap.optional(),
         defaultConcurrency: z.number().int().positive().optional(),
+        acquisitionTimeoutMs: z.number().int().positive().optional(),
+        circuitFailureThreshold: z.number().int().positive().optional(),
+        circuitRecoveryTimeoutMs: z.number().int().positive().optional(),
+        halfOpenSuccessThreshold: z.number().int().positive().optional(),
+        resourcePressureMaxHeapPercent: z.number().positive().max(100).optional(),
         missionLoop: MissionLoopOptionsSchema.optional(),
     })
     .passthrough();

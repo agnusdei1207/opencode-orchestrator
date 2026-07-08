@@ -9,6 +9,10 @@ describe("concurrency config helpers", () => {
         const config = extractConcurrencyConfig({
             defaultConcurrency: 6,
             acquisitionTimeoutMs: 1500,
+            circuitFailureThreshold: 4,
+            circuitRecoveryTimeoutMs: 20_000,
+            halfOpenSuccessThreshold: 3,
+            resourcePressureMaxHeapPercent: 75,
             agentConcurrency: {
                 commander: 1,
                 worker: 10,
@@ -26,6 +30,10 @@ describe("concurrency config helpers", () => {
         expect(config).toEqual({
             defaultConcurrency: 6,
             acquisitionTimeoutMs: 1500,
+            circuitFailureThreshold: 4,
+            circuitRecoveryTimeoutMs: 20_000,
+            halfOpenSuccessThreshold: 3,
+            resourcePressureMaxHeapPercent: 75,
             agentConcurrency: {
                 commander: 1,
                 worker: 10,

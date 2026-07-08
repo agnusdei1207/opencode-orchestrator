@@ -10,7 +10,12 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
-import { ConcurrencyController, type ConcurrencyConfig } from "../../src/core/agents/concurrency";
+import {
+    CircuitState,
+    ConcurrencyController,
+    TaskPriority,
+    type ConcurrencyConfig,
+} from "../../src/core/agents/concurrency";
 
 describe("ConcurrencyController", () => {
     let controller: ConcurrencyController;
@@ -171,6 +176,88 @@ describe("ConcurrencyController", () => {
         it("should reject invalid acquisition timeout values", () => {
             expect(() => new ConcurrencyController({ acquisitionTimeoutMs: 0 })).toThrow("positive integer");
             expect(() => new ConcurrencyController({ acquisitionTimeoutMs: 1.5 })).toThrow("positive integer");
+        });
+    });
+
+    describe("circuit breaker configuration", () => {
+        it("should open the circuit at the configured failure threshold", () => {
+            controller = new ConcurrencyController({ circuitFailureThreshold: 2 });
+
+            controller.reportResult("agent-a", false);
+            expect(controller.getCircuitState("agent-a")).toBe(CircuitState.CLOSED);
+
+            controller.reportResult("agent-a", false);
+            expect(controller.getCircuitState("agent-a")).toBe(CircuitState.OPEN);
+        });
+
+        it("should close half-open circuits after the configured success threshold", async () => {
+            vi.useFakeTimers();
+            controller = new ConcurrencyController({
+                circuitFailureThreshold: 1,
+                circuitRecoveryTimeoutMs: 10,
+                halfOpenSuccessThreshold: 1,
+            });
+
+            controller.reportResult("agent-a", false);
+            await vi.advanceTimersByTimeAsync(11);
+            await controller.acquire("agent-a");
+
+            expect(controller.getCircuitState("agent-a")).toBe(CircuitState.HALF_OPEN);
+
+            controller.reportResult("agent-a", true);
+
+            expect(controller.getCircuitState("agent-a")).toBe(CircuitState.CLOSED);
+        });
+
+        it("should reject invalid circuit and resource pressure config", () => {
+            expect(() => new ConcurrencyController({ circuitFailureThreshold: 0 })).toThrow("positive integer");
+            expect(() => new ConcurrencyController({ circuitRecoveryTimeoutMs: 0 })).toThrow("positive integer");
+            expect(() => new ConcurrencyController({ halfOpenSuccessThreshold: 0 })).toThrow("positive integer");
+            expect(() => new ConcurrencyController({ resourcePressureMaxHeapPercent: 101 })).toThrow("percentage");
+        });
+    });
+
+    describe("resource pressure", () => {
+        it("should expose pressure metrics and include them in low-priority rejection", async () => {
+            const memorySpy = vi.spyOn(process, "memoryUsage").mockReturnValue({
+                rss: 100,
+                heapTotal: 100,
+                heapUsed: 91,
+                external: 0,
+                arrayBuffers: 0,
+            });
+            controller = new ConcurrencyController({ resourcePressureMaxHeapPercent: 90 });
+
+            const pressure = controller.getResourcePressureStatus();
+
+            expect(pressure).toMatchObject({
+                underPressure: true,
+                heapUsed: 91,
+                heapTotal: 100,
+                heapPercent: 91,
+                maxHeapPercent: 90,
+            });
+            await expect(controller.acquire("agent-low", TaskPriority.LOW))
+                .rejects.toThrow("91.0% heap used");
+            await expect(controller.acquire("agent-normal", TaskPriority.NORMAL))
+                .resolves.toBeUndefined();
+
+            memorySpy.mockRestore();
+        });
+    });
+
+    describe("token shutdown ownership", () => {
+        it("should release active tokens during controller shutdown", async () => {
+            controller = new ConcurrencyController({ defaultConcurrency: 1 });
+
+            const token = await controller.acquireToken("agent-a", TaskPriority.NORMAL, 60_000);
+
+            expect(controller.getActiveCount("agent-a")).toBe(1);
+
+            await controller.shutdown();
+
+            expect(token.isReleased()).toBe(true);
+            expect(controller.getActiveCount("agent-a")).toBe(0);
         });
     });
 

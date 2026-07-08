@@ -83,9 +83,9 @@ This audit records 100 concrete code smells found during the July 8, 2026 refact
 75. `queued` `src/core/agents/manager/task-launcher.ts` - pooled task objects rely on every field being overwritten correctly.
 76. `fixed` `src/core/agents/concurrency.ts` - `setLimit` does not reject negative or non-integer limits.
 77. `fixed` `src/core/agents/concurrency.ts` - acquisition timeout is hardcoded to 300 seconds.
-78. `queued` `src/core/agents/concurrency.ts` - circuit-breaker thresholds are embedded constants instead of configuration.
-79. `queued` `src/core/agents/concurrency.ts` - resource-pressure behavior rejects only low priority tasks without exposing metrics.
-80. `queued` `src/core/agents/concurrency-token.ts` - auto-release timer behavior is separated from controller shutdown ownership.
+78. `fixed` `src/core/agents/concurrency.ts` - circuit-breaker thresholds are configurable through `ConcurrencyConfig`.
+79. `fixed` `src/core/agents/concurrency.ts` - resource-pressure metrics are exposed and included in low-priority rejection errors.
+80. `fixed` `src/core/agents/concurrency-token.ts` - the controller tracks active tokens and releases them during shutdown.
 81. `fixed` `src/core/cache/operations.ts` - cache document read and cleanup failures now log the affected cache entry.
 82. `fixed` `src/core/cache/utils.ts` - metadata read, parse, and shape failures are logged before empty-cache recovery.
 83. `fixed` `src/core/notification/os-notify/platform-resolver.ts` - command lookup failures are logged before returning no command path.
