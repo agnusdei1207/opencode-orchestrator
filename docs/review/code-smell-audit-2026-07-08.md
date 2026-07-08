@@ -24,8 +24,8 @@ This audit records 100 concrete code smells found during the July 8, 2026 refact
 16. `queued` `src/core/loop/verification.ts` - verification logic and LLM failure-prompt rendering share one module.
 17. `queued` `src/core/loop/verification.ts` - checklist category detection is keyword-based and English-only.
 18. `queued` `src/core/loop/verification.ts` - runtime status strings embed presentation symbols directly in core logic.
-19. `queued` `src/core/loop/verification.ts` - excessive vertical whitespace makes the module harder to scan.
-20. `queued` `src/core/loop/verification.ts` - sync issue counting duplicates issue-pattern logic instead of reusing one classifier.
+19. `fixed` `src/core/loop/verification.ts` - excessive vertical whitespace was reduced around parser and prompt helpers.
+20. `fixed` `src/core/loop/verification.ts` - sync issue dirty checks and counts now share one line classifier.
 21. `fixed` `src/core/agents/manager/task-poller.ts` - assistant `tool_use` parts were not counted as valid output.
 22. `fixed` `src/core/agents/manager/task-poller.ts` - progress tracking errors were silently ignored.
 23. `fixed` `src/core/agents/manager/task-poller.ts` - scheduled poll rejection could stop future polling.

@@ -32,11 +32,9 @@ interface ChecklistReadResult {
 
 const CHECKLIST_READ_ERROR_PREFIX = "Failed to read verification checklist";
 
-
 // ============================================================================
 // Parsing Functions
 // ============================================================================
-
 
 function parseChecklistLine(line: string, currentCategory: ChecklistCategory): ChecklistItem | null {
     const trimmedLine = line.trim();
@@ -67,7 +65,6 @@ function parseChecklistLine(line: string, currentCategory: ChecklistCategory): C
     return null;
 }
 
-
 function detectCategory(headerLine: string): ChecklistCategory {
     const headerLower = headerLine.toLowerCase();
 
@@ -94,7 +91,6 @@ function detectCategory(headerLine: string): ChecklistCategory {
     return CHECKLIST_CATEGORIES.IDS.CUSTOM;
 }
 
-
 export function parseChecklist(content: string): ChecklistItem[] {
     const items: ChecklistItem[] = [];
     const lines = content.split('\n');
@@ -119,7 +115,6 @@ export function parseChecklist(content: string): ChecklistItem[] {
 
     return items;
 }
-
 
 function readChecklistWithDiagnostics(directory: string): ChecklistReadResult {
     const filePath = join(directory, CHECKLIST_FILE);
@@ -147,7 +142,6 @@ export function readChecklist(directory: string): ChecklistItem[] {
 // ============================================================================
 // Verification Functions
 // ============================================================================
-
 
 export function verifyChecklist(directory: string): ChecklistVerificationResult {
     const result: ChecklistVerificationResult = {
@@ -211,9 +205,6 @@ export function verifyChecklist(directory: string): ChecklistVerificationResult 
     return result;
 }
 
-
-
-
 interface TodoCompletionStats {
     complete: number;
     incomplete: number;
@@ -241,18 +232,7 @@ const TODO_INCOMPLETE_STATUSES = new Set([
     "error",
 ]);
 
-const SYNC_ISSUE_PATTERNS = [
-    /^[-*]\s+\S/m,
-    /ERROR/i,
-    /FAIL/i,
-    /CONFLICT/i,
-];
-
-
-function countMatches(text: string, pattern: RegExp): number {
-    const matches = text.match(pattern);
-    return matches?.length ?? 0;
-}
+const SYNC_ISSUES_HEADER_PATTERN = /^#+\s*Sync Issues\s*$/i;
 
 function normalizeTodoStatus(status: string): string {
     return status.trim().toLowerCase().replace(/-/g, "_");
@@ -311,24 +291,15 @@ function createVerificationResult(): VerificationResult {
     };
 }
 
-
-function hasRealSyncIssues(content: string): boolean {
+export function getSyncIssueLines(content: string): string[] {
     const trimmed = content.trim();
-    if (!trimmed) return false;
-    if (/^#\s*Sync Issues\s*$/i.test(trimmed)) return false;
+    if (!trimmed) return [];
 
-    for (const pattern of SYNC_ISSUE_PATTERNS) {
-        if (pattern.test(trimmed)) return true;
-    }
-
-    const lines = trimmed.split('\n').filter(l => {
-        const line = l.trim();
-        return line && !line.startsWith('#') && line !== '---';
-    });
-
-    return lines.length > 0;
+    return trimmed
+        .split('\n')
+        .map(line => line.trim())
+        .filter(line => line && line !== '---' && !SYNC_ISSUES_HEADER_PATTERN.test(line));
 }
-
 
 function applyChecklistVerification(directory: string, result: VerificationResult): boolean {
     const checklistResult = verifyChecklist(directory);
@@ -390,12 +361,10 @@ function applySyncIssueVerification(directory: string, result: VerificationResul
     if (existsSync(syncPath)) {
         try {
             const content = readFileSync(syncPath, 'utf-8');
-            result.syncIssuesEmpty = !hasRealSyncIssues(content);
+            const issueLines = getSyncIssueLines(content);
+            result.syncIssuesEmpty = issueLines.length === 0;
 
             if (!result.syncIssuesEmpty) {
-                const issueLines = content.split('\n').filter(l =>
-                    /^[-*]\s+\S/.test(l.trim()) || /ERROR|FAIL|CONFLICT/i.test(l)
-                );
                 result.syncIssuesCount = issueLines.length;
                 result.errors.push(
                     `Sync issues not resolved: ${result.syncIssuesCount} issue(s) remain`
@@ -441,7 +410,6 @@ export function verifyMissionCompletion(directory: string): VerificationResult {
     return result;
 }
 
-
 export function buildVerificationFailurePrompt(result: VerificationResult): string {
     const errorList = result.errors.map(e => `❌ ${e}`).join('\n');
     const hasChecklist = result.checklistProgress !== "0/0";
@@ -475,7 +443,6 @@ ${hasChecklist ? `1. **Complete Checklist**: \`cat ${CHECKLIST_FILE}\` - Check o
 </verification_failure>`;
 }
 
-
 export function buildTodoIncompletePrompt(result: VerificationResult): string {
     return `⚠️ **TODO Incomplete: ${result.todoProgress}**
 
@@ -489,8 +456,6 @@ cat .opencode/todo.md
 
 **DO NOT** try to finish until ALL items are [x].`;
 }
-
-
 
 export function buildVerificationSummary(result: VerificationResult): string {
     const status = result.passed ? "✅ PASSED" : "❌ FAILED";

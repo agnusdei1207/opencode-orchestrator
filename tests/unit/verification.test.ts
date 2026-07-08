@@ -193,6 +193,19 @@ describe("Mission Verification", () => {
                 expect(result.syncIssuesEmpty).toBe(false);
             });
 
+            it("should count free-form sync issue lines", () => {
+                writeFileSync(join(opencodeDir, "todo.md"), "- [x] Done");
+                writeFileSync(join(opencodeDir, "sync-issues.md"), `# Sync Issues
+
+Needs manual reconciliation
+`);
+
+                const result = verifyMissionCompletion(testDir);
+
+                expect(result.syncIssuesEmpty).toBe(false);
+                expect(result.syncIssuesCount).toBe(1);
+            });
+
             it("should fail closed when sync-issues path cannot be read", () => {
                 writeFileSync(join(opencodeDir, "todo.md"), "- [x] Done");
                 mkdirSync(join(opencodeDir, "sync-issues.md"));
