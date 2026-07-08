@@ -5,6 +5,7 @@
  */
 
 import { log } from "../agents/logger.js";
+import { createPruneTimer } from "./prune-timer.js";
 
 export interface SessionState {
     stagnationCount: number;
@@ -24,8 +25,6 @@ interface TrackedSession {
 export const SESSION_STATE_TTL_MS = 10 * 60 * 1000;
 export const PRUNE_INTERVAL_MS = 2 * 60 * 1000;
 
-type TimerHandle = ReturnType<typeof setInterval>;
-
 export interface SessionStateStore {
     getState: (sessionID: string) => SessionState;
     getExistingState: (sessionID: string) => SessionState | undefined;
@@ -38,21 +37,21 @@ export interface SessionStateStore {
 function createSessionStateStore(): SessionStateStore {
     const sessions = new Map<string, TrackedSession>();
 
-    let pruneInterval: TimerHandle | undefined;
-    pruneInterval = setInterval(() => {
-        const now = Date.now();
-        for (const [sessionID, tracked] of sessions.entries()) {
-            if (now - tracked.lastAccessedAt > SESSION_STATE_TTL_MS) {
-                cancelCountdownInternal(tracked.state);
-                sessions.delete(sessionID);
-                log(`[session-state-store] Pruned stale session`, { sessionID });
+    const pruneTimer = createPruneTimer({
+        intervalMs: PRUNE_INTERVAL_MS,
+        prune: () => {
+            const now = Date.now();
+            for (const [sessionID, tracked] of sessions.entries()) {
+                if (now - tracked.lastAccessedAt > SESSION_STATE_TTL_MS) {
+                    cancelCountdownInternal(tracked.state);
+                    sessions.delete(sessionID);
+                    log(`[session-state-store] Pruned stale session`, { sessionID });
+                }
             }
         }
-    }, PRUNE_INTERVAL_MS);
+    });
 
-    if (typeof pruneInterval === "object" && typeof pruneInterval.unref === "function") {
-        pruneInterval.unref();
-    }
+    pruneTimer.start();
 
     function getTrackedSession(sessionID: string): TrackedSession {
         const existing = sessions.get(sessionID);
@@ -117,9 +116,7 @@ function createSessionStateStore(): SessionStateStore {
     }
 
     function shutdown(): void {
-        if (pruneInterval !== undefined) {
-            clearInterval(pruneInterval);
-        }
+        pruneTimer.shutdown();
         cancelAllCountdowns();
         sessions.clear();
     }

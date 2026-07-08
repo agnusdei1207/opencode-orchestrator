@@ -7,6 +7,7 @@
  */
 
 import { log } from "../agents/logger.js";
+import { createPruneTimer } from "./prune-timer.js";
 
 export interface CompactionGuardState {
     compactionEpoch: number;
@@ -18,12 +19,9 @@ const PRUNE_INTERVAL_MS = 2 * 60 * 1000;
 
 const compactionStates = new Map<string, CompactionGuardState>();
 
-let pruneInterval: ReturnType<typeof setInterval> | undefined;
-
-function startPruneTimer(): void {
-    if (pruneInterval) return;
-    
-    pruneInterval = setInterval(() => {
+const pruneTimer = createPruneTimer({
+    intervalMs: PRUNE_INTERVAL_MS,
+    prune: () => {
         const now = Date.now();
         for (const [sessionID, state] of compactionStates.entries()) {
             if (now - state.lastAccessedAt > COMPACTION_TTL_MS) {
@@ -31,12 +29,8 @@ function startPruneTimer(): void {
                 log(`[compaction-guard] Pruned stale state`, { sessionID });
             }
         }
-    }, PRUNE_INTERVAL_MS);
-    
-    if (pruneInterval && typeof pruneInterval.unref === "function") {
-        pruneInterval.unref();
     }
-}
+});
 
 export function armCompactionGuard(sessionID: string, timestamp: number): number {
     let state = compactionStates.get(sessionID);
@@ -80,11 +74,8 @@ export function getCompactionState(sessionID: string): CompactionGuardState | un
 }
 
 export function shutdownCompactionGuard(): void {
-    if (pruneInterval) {
-        clearInterval(pruneInterval);
-        pruneInterval = undefined;
-    }
+    pruneTimer.shutdown();
     compactionStates.clear();
 }
 
-startPruneTimer();
+pruneTimer.start();

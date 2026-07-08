@@ -20,6 +20,7 @@ import type { Todo } from "../../shared/loop/types.js";
 import { ParallelAgentManager } from "../agents/manager.js";
 import { isSessionRecovering } from "../recovery/session-recovery.js";
 import { verifyMissionCompletion, buildTodoIncompletePrompt } from "./verification.js";
+import { createPruneTimer } from "./prune-timer.js";
 
 type OpencodeClient = PluginInput["client"];
 
@@ -50,7 +51,6 @@ const CONTINUATION_TTL_MS = 10 * 60 * 1000;
 const PRUNE_INTERVAL_MS = 2 * 60 * 1000;
 
 const sessionStates = new Map<string, ContinuationState>();
-let pruneInterval: ReturnType<typeof setInterval> | undefined;
 
 // Configuration (from shared constants)
 const COUNTDOWN_SECONDS = 2;  // Slightly shorter than mission-conclude for responsiveness
@@ -59,10 +59,9 @@ const MIN_TIME_BETWEEN_CONTINUATIONS_MS = LOOP.MIN_TIME_BETWEEN_CHECKS_MS;
 const COUNTDOWN_GRACE_PERIOD_MS = LOOP.COUNTDOWN_GRACE_PERIOD_MS;
 const ABORT_WINDOW_MS = LOOP.ABORT_WINDOW_MS;
 
-function startPruneTimer(): void {
-    if (pruneInterval) return;
-    
-    pruneInterval = setInterval(() => {
+const pruneTimer = createPruneTimer({
+    intervalMs: PRUNE_INTERVAL_MS,
+    prune: () => {
         const now = Date.now();
         for (const [sessionID, state] of sessionStates.entries()) {
             if (now - state.lastAccessedAt > CONTINUATION_TTL_MS) {
@@ -73,12 +72,8 @@ function startPruneTimer(): void {
                 log(`[todo-continuation] Pruned stale state`, { sessionID });
             }
         }
-    }, PRUNE_INTERVAL_MS);
-    
-    if (pruneInterval && typeof pruneInterval.unref === "function") {
-        pruneInterval.unref();
     }
-}
+});
 
 /**
  * Get or create continuation state for a session
@@ -480,4 +475,4 @@ export function hasPendingContinuation(sessionID: string): boolean {
     return !!sessionStates.get(sessionID)?.countdownTimer;
 }
 
-startPruneTimer();
+pruneTimer.start();

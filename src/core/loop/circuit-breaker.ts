@@ -6,6 +6,7 @@
  */
 
 import { log } from "../agents/logger.js";
+import { createPruneTimer } from "./prune-timer.js";
 
 export interface CircuitBreakerState {
     lastAccessedAt: number;
@@ -22,13 +23,9 @@ const PRUNE_INTERVAL_MS = 2 * 60 * 1000;
 
 const circuitStates = new Map<string, CircuitBreakerState>();
 
-// TTL-based pruning to prevent memory leaks
-let pruneInterval: ReturnType<typeof setInterval> | undefined;
-
-function startPruneTimer(): void {
-    if (pruneInterval) return;
-    
-    pruneInterval = setInterval(() => {
+const pruneTimer = createPruneTimer({
+    intervalMs: PRUNE_INTERVAL_MS,
+    prune: () => {
         const now = Date.now();
         for (const [sessionID, state] of circuitStates.entries()) {
             if (now - state.lastAccessedAt > CIRCUIT_TTL_MS) {
@@ -36,12 +33,8 @@ function startPruneTimer(): void {
                 log(`[circuit-breaker] Pruned stale state`, { sessionID });
             }
         }
-    }, PRUNE_INTERVAL_MS);
-    
-    if (pruneInterval && typeof pruneInterval.unref === "function") {
-        pruneInterval.unref();
     }
-}
+});
 
 function getState(sessionID: string): CircuitBreakerState {
     let state = circuitStates.get(sessionID);
@@ -128,12 +121,8 @@ export function getCircuitState(sessionID: string): CircuitBreakerState | undefi
 }
 
 export function shutdownCircuitBreaker(): void {
-    if (pruneInterval) {
-        clearInterval(pruneInterval);
-        pruneInterval = undefined;
-    }
+    pruneTimer.shutdown();
     circuitStates.clear();
 }
 
-// Start prune timer on module load
-startPruneTimer();
+pruneTimer.start();

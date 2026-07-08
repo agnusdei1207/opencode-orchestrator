@@ -6,6 +6,7 @@
  */
 
 import { log } from "../agents/logger.js";
+import { createPruneTimer } from "./prune-timer.js";
 
 export interface NormalizedTodo {
     id: string | null;
@@ -37,12 +38,10 @@ const TRACKER_TTL_MS = 10 * 60 * 1000;
 const PRUNE_INTERVAL_MS = 2 * 60 * 1000;
 
 const sessionStates = new Map<string, TrackerState>();
-let pruneInterval: ReturnType<typeof setInterval> | undefined;
 
-function startPruneTimer(): void {
-    if (pruneInterval) return;
-    
-    pruneInterval = setInterval(() => {
+const pruneTimer = createPruneTimer({
+    intervalMs: PRUNE_INTERVAL_MS,
+    prune: () => {
         const now = Date.now();
         for (const [sessionID, state] of sessionStates.entries()) {
             if (now - (state.lastAccessedAt ?? 0) > TRACKER_TTL_MS) {
@@ -50,12 +49,8 @@ function startPruneTimer(): void {
                 log(`[progress-tracker] Pruned stale state`, { sessionID });
             }
         }
-    }, PRUNE_INTERVAL_MS);
-    
-    if (pruneInterval && typeof pruneInterval.unref === "function") {
-        pruneInterval.unref();
     }
-}
+});
 
 export function hashTodos(todos: NormalizedTodo[]): string {
     const normalized = todos
@@ -232,4 +227,4 @@ export function getStagnationCount(sessionID: string): number {
     return state?.stagnationCount ?? 0;
 }
 
-startPruneTimer();
+pruneTimer.start();
