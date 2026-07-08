@@ -99,13 +99,7 @@ export class TaskLauncher {
   }
 
   private async prepareTask(input: LaunchInput): Promise<ParallelTask> {
-    // HPFA: Depth Guard
-    const currentDepth = input.depth ?? 0;
-    if (currentDepth >= PARALLEL_TASK.MAX_DEPTH) {
-      throw new Error(
-        `Maximum task depth (${PARALLEL_TASK.MAX_DEPTH}) reached. To prevent infinite recursion, no further sub-tasks can be spawned.`,
-      );
-    }
+    const childDepth = resolveChildDepth(input.depth);
 
     // Use SessionPool to acquire or create session
     const session = await this.sessionPool.acquire(
@@ -130,7 +124,7 @@ export class TaskLauncher {
     task.status = TASK_STATUS.PENDING;
     task.startedAt = new Date();
     task.concurrencyKey = input.agent;
-    task.depth = (input.depth ?? 0) + 1;
+    task.depth = childDepth;
     task.mode = input.mode || "normal";
     task.groupID = input.groupID;
 
@@ -237,6 +231,16 @@ export class TaskLauncher {
       token.release();
     }
   }
+}
+
+function resolveChildDepth(parentDepth = 0): number {
+  if (parentDepth >= PARALLEL_TASK.MAX_DEPTH) {
+    throw new Error(
+      `Maximum task depth (${PARALLEL_TASK.MAX_DEPTH}) reached. To prevent infinite recursion, no further sub-tasks can be spawned.`,
+    );
+  }
+
+  return parentDepth + 1;
 }
 
 function sleep(ms: number, abort: AbortSignal): Promise<void> {

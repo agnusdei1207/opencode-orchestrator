@@ -86,6 +86,7 @@ describe("TaskLauncher", () => {
 
         expect(task.status).toBe(TASK_STATUS.PENDING);
         expect(task.sessionID).toBe("new-session-id");
+        expect(task.depth).toBe(1);
         expect(store.get(task.id)).toBeDefined();
         expect(store.getPendingCount("parent-123")).toBe(1);
         expect(startPolling).toHaveBeenCalled();
@@ -108,6 +109,25 @@ describe("TaskLauncher", () => {
         );
         expect(startPolling).not.toHaveBeenCalled();
         expect(store.getAll()).toEqual([]);
+    });
+
+    it("rejects launches at max depth before acquiring a session", async () => {
+        const result = await launcher.launch({
+            description: "Too deep",
+            prompt: "Test prompt",
+            agent: "builder",
+            parentSessionID: "parent-123",
+            depth: 3,
+        });
+
+        expect(result).toBeNull();
+        expect(sessionPool.acquire).not.toHaveBeenCalled();
+        expect(log).toHaveBeenCalledWith(
+            "[TaskLauncher] Failed to prepare task for builder: Too deep",
+            expect.objectContaining({
+                message: expect.stringContaining("Maximum task depth"),
+            }),
+        );
     });
 
     it("should execute tasks background and transition to RUNNING", async () => {
