@@ -44,6 +44,10 @@ export class WorkStealingWorkerPool<T> {
         workerCount: number,
         executor: WorkExecutor<T>
     ) {
+        if (!Number.isInteger(workerCount) || workerCount < 1) {
+            throw new Error("WorkStealingWorkerPool requires at least one worker");
+        }
+
         this.executor = executor;
 
         // Create workers
