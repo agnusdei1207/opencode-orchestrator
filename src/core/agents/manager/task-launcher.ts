@@ -19,7 +19,7 @@ import { SessionPool } from "../session-pool.js";
 import { handleError } from "../../recovery/auto-recovery.js";
 import type { ErrorContext } from "../../recovery/auto-recovery.js";
 import { log } from "../logger.js";
-import { taskPool } from "../../pool/task-pool.js";
+import { acquireParallelTask } from "../../pool/task-pool.js";
 import { buildRoutedAgentPrompt } from "./prompt-routing.js";
 
 type OpencodeClient = PluginInput["client"];
@@ -111,22 +111,18 @@ export class TaskLauncher {
     const sessionID = session.id;
     const taskId = `${ID_PREFIX.TASK}${crypto.randomUUID().slice(0, 8)}`;
 
-    // Use task pool for memory efficiency
-    const task = taskPool.acquire();
-
-    // Initialize task fields
-    task.id = taskId;
-    task.sessionID = sessionID;
-    task.parentSessionID = input.parentSessionID;
-    task.description = input.description;
-    task.prompt = input.prompt;
-    task.agent = input.agent;
-    task.status = TASK_STATUS.PENDING;
-    task.startedAt = new Date();
-    task.concurrencyKey = input.agent;
-    task.depth = childDepth;
-    task.mode = input.mode || "normal";
-    task.groupID = input.groupID;
+    const task = acquireParallelTask({
+      id: taskId,
+      sessionID,
+      parentSessionID: input.parentSessionID,
+      description: input.description,
+      prompt: input.prompt,
+      agent: input.agent,
+      concurrencyKey: input.agent,
+      depth: childDepth,
+      mode: input.mode,
+      groupID: input.groupID,
+    });
 
     // State tracking
     this.store.set(taskId, task);

@@ -188,6 +188,48 @@ describe("TaskLauncher", () => {
         expect(results[2].status).toBe(TASK_STATUS.PENDING);
     });
 
+    it("clears stale optional fields when reusing pooled task objects", async () => {
+        const first = await launcher.launch({
+            description: "Race task",
+            prompt: "Prompt",
+            agent: "builder",
+            parentSessionID: "parent-123",
+            mode: "race",
+            groupID: "group-1",
+        });
+        const firstTask = Array.isArray(first) ? first[0] : first;
+        if (!firstTask) {
+            throw new Error("Expected first task to launch");
+        }
+        firstTask.completedAt = new Date("2026-01-01T00:00:00.000Z");
+        firstTask.error = "old error";
+        firstTask.result = "old result";
+        firstTask.lastMsgCount = 10;
+        firstTask.stablePolls = 3;
+        firstTask.hasStartedOutputting = true;
+        store.delete(firstTask.id);
+
+        const second = await launcher.launch({
+            description: "Normal task",
+            prompt: "Prompt",
+            agent: "builder",
+            parentSessionID: "parent-123",
+        });
+        const secondTask = Array.isArray(second) ? second[0] : second;
+        if (!secondTask) {
+            throw new Error("Expected second task to launch");
+        }
+
+        expect(secondTask.mode).toBe("normal");
+        expect(secondTask.groupID).toBeUndefined();
+        expect(secondTask.completedAt).toBeUndefined();
+        expect(secondTask.error).toBeUndefined();
+        expect(secondTask.result).toBeUndefined();
+        expect(secondTask.lastMsgCount).toBeUndefined();
+        expect(secondTask.stablePolls).toBeUndefined();
+        expect(secondTask.hasStartedOutputting).toBeUndefined();
+    });
+
     it("should respect concurrency limits in background", async () => {
         // Limit is 1
         concurrency = new ConcurrencyController({ defaultConcurrency: 1 });

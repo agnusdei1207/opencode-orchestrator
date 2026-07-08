@@ -80,7 +80,7 @@ This audit records 100 concrete code smells found during the July 8, 2026 refact
 72. `fixed` `src/core/agents/manager/task-launcher.ts` - retry sleeps now observe launcher shutdown.
 73. `fixed` `src/core/agents/manager/task-launcher.ts` - prompt timeout now aborts the underlying prompt request signal.
 74. `fixed` `src/core/agents/manager/task-launcher.ts` - launch depth validation and child-depth assignment now use one helper.
-75. `queued` `src/core/agents/manager/task-launcher.ts` - pooled task objects rely on every field being overwritten correctly.
+75. `fixed` `src/core/agents/manager/task-launcher.ts` - pooled task objects are now reset and initialized through one pool helper.
 76. `fixed` `src/core/agents/concurrency.ts` - `setLimit` does not reject negative or non-integer limits.
 77. `fixed` `src/core/agents/concurrency.ts` - acquisition timeout is hardcoded to 300 seconds.
 78. `fixed` `src/core/agents/concurrency.ts` - circuit-breaker thresholds are configurable through `ConcurrencyConfig`.
