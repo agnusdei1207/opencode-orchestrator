@@ -166,6 +166,28 @@ describe("RustToolPool timeout recovery", () => {
         await pool.shutdown();
     });
 
+    it("writes canonical JSON-RPC tool call requests", async () => {
+        const process = new FakeRustProcess();
+        process.onWrite = (request) => {
+            emitTextResponse(process, request, "ok");
+        };
+        const pool = createPool([process]);
+
+        await expect(pool.call("git_status", { porcelain: true })).resolves.toBe("ok");
+
+        expect(JSON.parse(process.requests[0])).toEqual({
+            jsonrpc: "2.0",
+            id: 1,
+            method: "tools/call",
+            params: {
+                name: "git_status",
+                arguments: { porcelain: true },
+            },
+        });
+
+        await pool.shutdown();
+    });
+
     it("returns a JSON string for JSON-RPC error responses", async () => {
         const process = new FakeRustProcess();
         process.onWrite = (request) => {

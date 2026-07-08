@@ -32,8 +32,35 @@ interface RustToolPoolOptions {
     spawnProcess?: typeof spawn;
 }
 
+interface JsonRpcToolCallRequest {
+    jsonrpc: "2.0";
+    id: number;
+    method: "tools/call";
+    params: {
+        name: string;
+        arguments: Record<string, unknown>;
+    };
+}
+
 function hasOwnProperty(value: object, property: string): boolean {
     return Object.prototype.hasOwnProperty.call(value, property);
+}
+
+function buildToolCallRequest(
+    requestId: number,
+    name: string,
+    args: Record<string, unknown>,
+): JsonRpcToolCallRequest {
+    return {
+        jsonrpc: "2.0",
+        id: requestId,
+        method: "tools/call",
+        params: { name, arguments: args },
+    };
+}
+
+function serializeToolCallRequest(request: JsonRpcToolCallRequest): string {
+    return JSON.stringify(request);
 }
 
 function stringifyJsonRpcPayload(value: unknown): string {
@@ -318,12 +345,7 @@ export class RustToolPool {
             pooled.proc.stdout?.on("data", onData);
 
             // Send request
-            const request = JSON.stringify({
-                jsonrpc: "2.0",
-                id: requestId,
-                method: "tools/call",
-                params: { name, arguments: args },
-            });
+            const request = serializeToolCallRequest(buildToolCallRequest(requestId, name, args));
 
             try {
                 const written = pooled.proc.stdin?.write(request + "\n");

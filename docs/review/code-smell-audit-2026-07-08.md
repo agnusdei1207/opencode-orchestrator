@@ -15,7 +15,7 @@ This audit records 100 concrete code smells found during the July 8, 2026 refact
 7. `fixed` `src/tools/rust-pool.ts` - cleanup timer assumed `unref` always exists.
 8. `fixed` `src/tools/rust-pool.ts` - process kill failures were silently ignored.
 9. `queued` `src/tools/rust-pool.ts` - the global singleton and reset lock make test isolation and multi-workspace use harder.
-10. `queued` `src/tools/rust-pool.ts` - JSON-RPC request construction is inline instead of centralized behind a small protocol helper.
+10. `fixed` `src/tools/rust-pool.ts` - JSON-RPC request construction now goes through a small protocol helper.
 11. `fixed` `src/core/loop/verification.ts` - global `g` regexes were reused with `.test()`, risking stateful false negatives.
 12. `fixed` `src/core/loop/verification.ts` - unreadable `sync-issues.md` was treated as clean.
 13. `fixed` `src/core/loop/verification.ts` - unreadable checklist files now fail closed with an explicit read error.
