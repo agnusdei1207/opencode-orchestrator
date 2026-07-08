@@ -77,7 +77,7 @@ This audit records 100 concrete code smells found during the July 8, 2026 refact
 69. `fixed` `src/core/agents/manager.ts` - task-error handling now awaits parent completion notification.
 70. `fixed` `src/core/agents/manager.ts` - `formatDuration` remains an export-only utility instead of an instance field.
 71. `queued` `src/core/agents/manager/task-launcher.ts` - task preparation maps failures to `null`, hiding why a launch failed.
-72. `queued` `src/core/agents/manager/task-launcher.ts` - retry sleeps cannot be aborted during shutdown.
+72. `fixed` `src/core/agents/manager/task-launcher.ts` - retry sleeps now observe launcher shutdown.
 73. `queued` `src/core/agents/manager/task-launcher.ts` - prompt timeout does not cancel the underlying prompt request.
 74. `queued` `src/core/agents/manager/task-launcher.ts` - launch depth checks and stored depth increments are split across different concepts.
 75. `queued` `src/core/agents/manager/task-launcher.ts` - pooled task objects rely on every field being overwritten correctly.

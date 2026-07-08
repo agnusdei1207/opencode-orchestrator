@@ -265,6 +265,7 @@ export class ParallelAgentManager {
     }
 
     cleanup(): void {
+        this.launcher.shutdown();
         this.poller.stop();
         this.store.clear();
         MemoryManager.getInstance().clearTaskMemory();

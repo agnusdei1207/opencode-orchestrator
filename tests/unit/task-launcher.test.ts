@@ -202,4 +202,31 @@ describe("TaskLauncher", () => {
             expect(events).toEqual(["handled"]);
         });
     });
+
+    it("aborts retry sleeps during shutdown", async () => {
+        vi.useFakeTimers();
+        mockClient.session.prompt.mockRejectedValue(new Error("ECONNREFUSED"));
+        launcher = new TaskLauncher(mockClient, store, concurrency, sessionPool, onTaskError, startPolling);
+
+        await launcher.launch({
+            description: "Retrying task",
+            prompt: "Prompt",
+            agent: "builder",
+            parentSessionID: "parent-123",
+        });
+
+        await vi.advanceTimersByTimeAsync(10);
+        expect(mockClient.session.prompt).toHaveBeenCalledTimes(1);
+
+        launcher.shutdown();
+        await vi.advanceTimersByTimeAsync(0);
+
+        await vi.waitFor(() => {
+            expect(onTaskError).toHaveBeenCalledTimes(1);
+        });
+        expect(onTaskError.mock.calls[0][1]).toMatchObject({
+            message: "Task launch retry aborted during shutdown",
+        });
+        expect(mockClient.session.prompt).toHaveBeenCalledTimes(1);
+    });
 });

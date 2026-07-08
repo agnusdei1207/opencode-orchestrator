@@ -27,6 +27,7 @@ type OpencodeClient = PluginInput["client"];
 export type LaunchResult = ParallelTask | ParallelTask[] | null;
 
 export class TaskLauncher {
+  private readonly shutdownController = new AbortController();
 
   constructor(
     private client: OpencodeClient,
@@ -79,6 +80,10 @@ export class TaskLauncher {
     }
 
     return isArray ? successfulTasks : successfulTasks[0] || null;
+  }
+
+  shutdown(): void {
+    this.shutdownController.abort();
   }
 
   /**
@@ -201,7 +206,7 @@ export class TaskLauncher {
               task.prompt += `\n\n${action.modifyPrompt}`;
             }
 
-            await new Promise((r) => setTimeout(r, action.delay));
+            await sleep(action.delay, this.shutdownController.signal);
             attempt++;
             continue;
           }
@@ -215,4 +220,25 @@ export class TaskLauncher {
       token.release();
     }
   }
+}
+
+function sleep(ms: number, abort: AbortSignal): Promise<void> {
+  if (abort.aborted) {
+    return Promise.reject(new Error("Task launch retry aborted during shutdown"));
+  }
+
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => {
+      cleanup();
+      resolve();
+    }, ms);
+    const onAbort = () => {
+      clearTimeout(timer);
+      cleanup();
+      reject(new Error("Task launch retry aborted during shutdown"));
+    };
+    const cleanup = () => abort.removeEventListener("abort", onAbort);
+
+    abort.addEventListener("abort", onAbort, { once: true });
+  });
 }
