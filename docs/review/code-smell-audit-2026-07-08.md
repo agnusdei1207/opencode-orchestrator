@@ -40,7 +40,7 @@ This audit records 100 concrete code smells found during the July 8, 2026 refact
 32. `fixed` `src/tools/parallel/delegate-task.ts` - idle polling fetched session messages twice per stable poll.
 33. `fixed` `src/tools/parallel/delegate-task.ts` - delegate args relied on direct casts instead of runtime checks.
 34. `fixed` `src/tools/parallel/delegate-task.ts` - launch results were force-cast instead of normalized by shape.
-35. `queued` `src/tools/parallel/delegate-task.ts` - polling delay has no abort signal support.
+35. `fixed` `src/tools/parallel/delegate-task.ts` - sync polling delays now respect the tool abort signal.
 36. `queued` `src/tools/parallel/delegate-task.ts` - parent-depth lookup scans all tasks for every delegate call.
 37. `queued` `src/tools/parallel/delegate-task.ts` - tool metadata, validation, launch, resume, polling, and result extraction live in one large file.
 38. `queued` `src/tools/parallel/delegate-task.ts` - resume flow still contains a defensive null branch that disagrees with the manager type.

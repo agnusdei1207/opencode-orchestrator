@@ -76,6 +76,7 @@ interface DelegateTaskArgs {
 
 interface DelegateTaskContext {
     sessionID: string;
+    abort?: AbortSignal;
 }
 
 interface DelegateTaskRuntime {
@@ -84,6 +85,7 @@ interface DelegateTaskRuntime {
     ctx: DelegateTaskContext;
     args: DelegateTaskArgs;
     parentDepth: number;
+    abort?: AbortSignal;
 }
 
 const DELEGATE_TASK_DESCRIPTION = `Delegate a task to an agent.
@@ -175,7 +177,8 @@ function hasTextOutput(part: SessionMessagePart): boolean {
 async function pollWithSafetyLimits(
     session: SessionClient,
     sessionID: string,
-    startTime: number
+    startTime: number,
+    abort?: AbortSignal,
 ): Promise<PollResult> {
     const state = createPollState();
 
@@ -188,7 +191,9 @@ async function pollWithSafetyLimits(
         }
 
         logPollingProgress(state, elapsed);
-        await delay(POLL_INTERVAL_MS);
+        if (await delay(POLL_INTERVAL_MS, abort)) {
+            return buildAbortedResult(state, Date.now() - startTime);
+        }
         elapsed = Date.now() - startTime;
 
         const result = await pollSessionOnce(session, sessionID, state, elapsed);
@@ -213,6 +218,21 @@ function createPollState(): PollState {
         lastMsgCount: 0,
         hasValidOutput: false,
         lastLogTime: 0,
+    };
+}
+
+function buildAbortedResult(state: PollState, elapsed: number): PollResult {
+    log(`${PARALLEL_LOG.DELEGATE_TASK} Polling aborted`, {
+        pollCount: state.pollCount,
+        elapsed,
+    });
+    return {
+        success: false,
+        timedOut: false,
+        aborted: true,
+        error: "Polling aborted",
+        pollCount: state.pollCount,
+        elapsedMs: elapsed,
     };
 }
 
@@ -305,8 +325,23 @@ function detectStableCompletion(
     return { success: true, timedOut: false, pollCount: state.pollCount, elapsedMs: elapsed };
 }
 
-function delay(ms: number): Promise<void> {
-    return new Promise((resolve) => setTimeout(resolve, ms));
+function delay(ms: number, abort?: AbortSignal): Promise<boolean> {
+    if (abort?.aborted) return Promise.resolve(true);
+
+    return new Promise((resolve) => {
+        const timer = setTimeout(() => {
+            cleanup();
+            resolve(false);
+        }, ms);
+        const onAbort = () => {
+            clearTimeout(timer);
+            cleanup();
+            resolve(true);
+        };
+        const cleanup = () => abort?.removeEventListener("abort", onAbort);
+
+        abort?.addEventListener("abort", onAbort, { once: true });
+    });
 }
 
 /**
@@ -407,7 +442,7 @@ If your task is too complex, please:
 }
 
 async function resumeDelegateTask(runtime: DelegateTaskRuntime): Promise<string> {
-    const { manager, session, ctx, args } = runtime;
+    const { manager, session, ctx, args, abort } = runtime;
 
     try {
         const task = await manager.resume({
@@ -424,7 +459,7 @@ async function resumeDelegateTask(runtime: DelegateTaskRuntime): Promise<string>
             return formatBackgroundResume(task);
         }
 
-        return waitForResumedTask(session, task);
+        return waitForResumedTask(session, task, abort);
     } catch (error) {
         return `${OUTPUT_LABEL.ERROR} Resume failed: ${formatError(error)}`;
     }
@@ -448,7 +483,7 @@ async function launchBackgroundDelegateTask(runtime: DelegateTaskRuntime): Promi
 }
 
 async function launchSyncDelegateTask(runtime: DelegateTaskRuntime): Promise<string> {
-    const { manager, session, ctx, args, parentDepth } = runtime;
+    const { manager, session, ctx, args, parentDepth, abort } = runtime;
 
     try {
         const task = await launchDelegateTask(manager, args, ctx.sessionID, parentDepth);
@@ -456,7 +491,7 @@ async function launchSyncDelegateTask(runtime: DelegateTaskRuntime): Promise<str
             return `${OUTPUT_LABEL.ERROR} Failed to launch task: ${args.description}`;
         }
 
-        return waitForLaunchedTask(session, task, args.agent);
+        return waitForLaunchedTask(session, task, args.agent, abort);
     } catch (error) {
         log(`${PARALLEL_LOG.DELEGATE_TASK} Sync: error`, error);
         return `${OUTPUT_LABEL.ERROR} Failed: ${formatError(error)}`;
@@ -482,7 +517,11 @@ async function launchDelegateTask(
     return Array.isArray(launchResult) ? launchResult[0] ?? null : launchResult ?? null;
 }
 
-async function waitForResumedTask(session: SessionClient, task: ParallelTask): Promise<string> {
+async function waitForResumedTask(
+    session: SessionClient,
+    task: ParallelTask,
+    abort?: AbortSignal,
+): Promise<string> {
     const startTime = Date.now();
 
     log(`${PARALLEL_LOG.DELEGATE_TASK} Resume: starting sync wait`, {
@@ -490,7 +529,10 @@ async function waitForResumedTask(session: SessionClient, task: ParallelTask): P
         sessionID: task.sessionID,
     });
 
-    const pollResult = await pollWithSafetyLimits(session, task.sessionID, startTime);
+    const pollResult = await pollWithSafetyLimits(session, task.sessionID, startTime, abort);
+    if (pollResult.aborted) {
+        return formatAbortedWait(task, pollResult);
+    }
     if (pollResult.timedOut) {
         return `${OUTPUT_LABEL.TIMEOUT} after ${Math.floor(pollResult.elapsedMs / 1000)}s (${pollResult.pollCount} polls)\n` +
             `Session: \`${task.sessionID}\` - Use get_task_result or resume later.`;
@@ -504,6 +546,7 @@ async function waitForLaunchedTask(
     session: SessionClient,
     task: ParallelTask,
     agent: string,
+    abort?: AbortSignal,
 ): Promise<string> {
     const startTime = Date.now();
 
@@ -513,7 +556,10 @@ async function waitForLaunchedTask(
         sessionID: task.sessionID,
     });
 
-    const pollResult = await pollWithSafetyLimits(session, task.sessionID, startTime);
+    const pollResult = await pollWithSafetyLimits(session, task.sessionID, startTime, abort);
+    if (pollResult.aborted) {
+        return formatAbortedWait(task, pollResult);
+    }
     if (pollResult.timedOut) {
         log(`${PARALLEL_LOG.DELEGATE_TASK} Sync: timed out`, pollResult);
         return `${OUTPUT_LABEL.TIMEOUT} after ${Math.floor(pollResult.elapsedMs / 1000)}s (${pollResult.pollCount} polls)\n` +
@@ -531,6 +577,12 @@ async function waitForLaunchedTask(
     return `${OUTPUT_LABEL.DONE} (${Math.floor(pollResult.elapsedMs / 1000)}s)\n` +
         `Task: \`${task.id}\`\n` +
         `Session: \`${task.sessionID}\` (save for resume)\n\n${text || "(No output)"}`;
+}
+
+function formatAbortedWait(task: ParallelTask, pollResult: PollResult): string {
+    return `${OUTPUT_LABEL.ERROR} Polling aborted after ${Math.floor(pollResult.elapsedMs / 1000)}s (${pollResult.pollCount} polls)\n` +
+        `Task: \`${task.id}\`\n` +
+        `Session: \`${task.sessionID}\` - Use ${TOOL_NAMES.GET_TASK_RESULT} or resume later.`;
 }
 
 function formatBackgroundResume(task: ParallelTask): string {
@@ -569,7 +621,14 @@ export const createDelegateTaskTool = (manager: ParallelAgentManager, client: un
             return `${OUTPUT_LABEL.ERROR} 'background' parameter is REQUIRED.`;
         }
 
-        const runtime = { manager, session: sessionClient.session, ctx, args: taskArgs, parentDepth };
+        const runtime = {
+            manager,
+            session: sessionClient.session,
+            ctx,
+            args: taskArgs,
+            parentDepth,
+            abort: ctx.abort,
+        };
 
         if (taskArgs.resume) {
             return resumeDelegateTask(runtime);

@@ -89,6 +89,7 @@ export interface LspCommandResult {
 export interface PollResult {
     success: boolean;
     timedOut: boolean;
+    aborted?: boolean;
     error?: string;
     pollCount: number;
     elapsedMs: number;

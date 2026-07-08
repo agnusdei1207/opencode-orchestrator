@@ -407,6 +407,32 @@ describe("createDelegateTaskTool", () => {
         expect(result).toContain("Final output");
     });
 
+    it("aborts sync polling before the next status check", async () => {
+        const controller = new AbortController();
+        const task = makeTask({ id: "task-abort", sessionID: "session-abort" });
+        const status = vi.fn().mockResolvedValue({ data: { "session-abort": { type: "busy" } } });
+        const messages = vi.fn().mockResolvedValue({ data: [] });
+        const manager = createManager({ launchResult: task });
+        const delegateTask = createTool(manager, createClient(status, messages));
+
+        const resultPromise = delegateTask.execute(
+            {
+                agent: "Worker",
+                description: "Abort sync task",
+                prompt: "Do sync work",
+                background: false,
+            },
+            { sessionID: "parent-session", abort: controller.signal },
+        );
+
+        controller.abort();
+        const result = await resultPromise;
+
+        expect(result).toContain("[ERROR] Polling aborted");
+        expect(status).not.toHaveBeenCalled();
+        expect(messages).not.toHaveBeenCalled();
+    });
+
     it("accepts assistant tool activity as valid sync output", async () => {
         vi.useFakeTimers();
         const task = makeTask({ id: "task-tool", sessionID: "session-tool" });
