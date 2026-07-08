@@ -205,6 +205,112 @@ describe("ParallelAgentManager Features", () => {
             expect(messages).toHaveBeenCalledTimes(2);
             expect(task.stablePolls).toBe(1);
         });
+
+        it("fails running tasks after repeated session status failures", async () => {
+            const task = createMockTask({ id: "task-status-fail", sessionID: "session-status-fail" });
+            await concurrency.acquire("builder");
+            store.set(task.id, task);
+            store.trackPending(task.parentSessionID, task.id);
+
+            const notifyParent = vi.fn().mockResolvedValue(undefined);
+            const scheduleCleanup = vi.fn();
+            const status = vi.fn().mockRejectedValue(new Error("status unavailable"));
+            const poller = new TaskPoller(
+                { session: { status } } as never,
+                store,
+                concurrency,
+                notifyParent,
+                scheduleCleanup,
+                vi.fn(),
+            );
+
+            await poller.poll();
+            await poller.poll();
+            await poller.poll();
+
+            expect(task.status).toBe(TASK_STATUS.ERROR);
+            expect(task.error).toContain("Session status polling failed 3 consecutive times");
+            expect(concurrency.getActiveCount("builder")).toBe(0);
+            expect(store.hasPending(task.parentSessionID)).toBe(false);
+            expect(scheduleCleanup).toHaveBeenCalledWith(task.id);
+            expect(notifyParent).toHaveBeenCalledWith(task.parentSessionID);
+        });
+
+        it("fails a task after repeated progress polling errors", async () => {
+            const task = createMockTask({ id: "task-progress-fail", sessionID: "session-progress-fail" });
+            await concurrency.acquire("builder");
+            store.set(task.id, task);
+            store.trackPending(task.parentSessionID, task.id);
+
+            const notifyParent = vi.fn().mockResolvedValue(undefined);
+            const scheduleCleanup = vi.fn();
+            const status = vi.fn().mockResolvedValue({
+                data: {
+                    "session-progress-fail": { type: "busy" },
+                },
+            });
+            const messages = vi.fn().mockResolvedValue({ error: "messages unavailable" });
+            const poller = new TaskPoller(
+                { session: { status, messages } } as never,
+                store,
+                concurrency,
+                notifyParent,
+                scheduleCleanup,
+                vi.fn(),
+            );
+
+            await poller.poll();
+            expect(task.status).toBe(TASK_STATUS.RUNNING);
+            expect(task.pollFailureCount).toBe(1);
+
+            await poller.poll();
+            await poller.poll();
+
+            expect(task.status).toBe(TASK_STATUS.ERROR);
+            expect(task.error).toContain("Task polling failed 3 consecutive times");
+            expect(concurrency.getActiveCount("builder")).toBe(0);
+            expect(store.hasPending(task.parentSessionID)).toBe(false);
+            expect(scheduleCleanup).toHaveBeenCalledWith(task.id);
+            expect(notifyParent).toHaveBeenCalledWith(task.parentSessionID);
+        });
+
+        it("waits for the task completion callback before resolving completion", async () => {
+            const task = createMockTask({ id: "task-complete-callback", sessionID: "session-complete-callback" });
+            store.set(task.id, task);
+
+            let releaseCallback!: () => void;
+            let callbackDone = false;
+            const onTaskComplete = vi.fn(() => new Promise<void>((resolve) => {
+                releaseCallback = () => {
+                    callbackDone = true;
+                    resolve();
+                };
+            }));
+            const completion = new TaskPoller(
+                { session: {} } as never,
+                store,
+                concurrency,
+                vi.fn().mockResolvedValue(undefined),
+                vi.fn(),
+                vi.fn(),
+                onTaskComplete,
+            ).completeTask(task);
+
+            await Promise.resolve();
+            let resolved = false;
+            completion.then(() => {
+                resolved = true;
+            });
+
+            expect(onTaskComplete).toHaveBeenCalledWith(task);
+            expect(resolved).toBe(false);
+
+            releaseCallback();
+            await completion;
+
+            expect(callbackDone).toBe(true);
+            expect(resolved).toBe(true);
+        });
     });
 
     describe("poller timer lifecycle", () => {

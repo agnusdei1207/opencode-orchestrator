@@ -11,9 +11,8 @@
  */
 
 import type { PluginInput } from "@opencode-ai/plugin";
-import { PART_TYPES, LOOP, TOAST_DURATION, TIME, STATUS_LABEL } from "../../shared/index.js";
+import { PART_TYPES, LOOP, TIME, STATUS_LABEL } from "../../shared/index.js";
 import { log } from "../agents/logger.js";
-import { presets } from "../notification/toast.js";
 import { getIncompleteCount, hasRemainingWork, getNextPending } from "./stats.js";
 import { generateContinuationPrompt, formatProgress } from "./formatters.js";
 import type { Todo } from "../../shared/loop/types.js";
@@ -21,6 +20,7 @@ import { ParallelAgentManager } from "../agents/manager.js";
 import { isSessionRecovering } from "../recovery/session-recovery.js";
 import { verifyMissionCompletion, buildTodoIncompletePrompt } from "./verification.js";
 import { createPruneTimer } from "./prune-timer.js";
+import { showContinuationCountdownToast } from "./continuation-toast.js";
 
 type OpencodeClient = PluginInput["client"];
 
@@ -56,7 +56,6 @@ const sessionStates = new Map<string, ContinuationState>();
 
 // Configuration (from shared constants)
 const COUNTDOWN_SECONDS = 2;  // Slightly shorter than mission-conclude for responsiveness
-const TOAST_DURATION_MS = TOAST_DURATION.EXTRA_SHORT;
 const MIN_TIME_BETWEEN_CONTINUATIONS_MS = LOOP.MIN_TIME_BETWEEN_CHECKS_MS;
 const COUNTDOWN_GRACE_PERIOD_MS = LOOP.COUNTDOWN_GRACE_PERIOD_MS;
 const ABORT_WINDOW_MS = LOOP.ABORT_WINDOW_MS;
@@ -87,11 +86,28 @@ const pruneTimer = createPruneTimer({
         }
     }
 });
+let pruneTimerStarted = false;
+
+function ensurePruneTimerStarted(): void {
+    if (pruneTimerStarted) return;
+
+    pruneTimer.start();
+    pruneTimerStarted = true;
+}
+
+function shutdownPruneTimerIfIdle(): void {
+    if (sessionStates.size > 0) return;
+
+    pruneTimer.shutdown();
+    pruneTimerStarted = false;
+}
 
 /**
  * Get or create continuation state for a session
  */
 function getState(sessionID: string): ContinuationState {
+    ensurePruneTimerStarted();
+
     let state = sessionStates.get(sessionID);
     if (!state) {
         state = { lastAccessedAt: Date.now() };
@@ -163,31 +179,7 @@ function hasRunningBackgroundTasks(parentSessionID: string): boolean {
         return tasks.some(t => t.status === STATUS_LABEL.RUNNING);
     } catch (err) {
         log("[todo-continuation] Failed to check background tasks", { sessionID: parentSessionID, error: err });
-        return false;
-    }
-}
-
-/**
- * Show countdown toast
- */
-async function showCountdownToast(
-    client: OpencodeClient,
-    secondsRemaining: number,
-    incompleteCount: number
-): Promise<void> {
-    try {
-        if (client.tui?.showToast) {
-            await client.tui.showToast({
-                body: {
-                    title: "📋 Todo Continuation",
-                    message: `Resuming in ${secondsRemaining}s... (${incompleteCount} tasks remaining)`,
-                    variant: "warning",
-                    duration: TOAST_DURATION_MS,
-                },
-            });
-        }
-    } catch (error) {
-        log(`[todo-continuation] Toast failed:`, error);
+        return true;
     }
 }
 
@@ -405,7 +397,7 @@ async function startContinuationCountdown(
         nextPending: nextPending?.id,
     });
 
-    await showCountdownToast(request.client, COUNTDOWN_SECONDS, incompleteCount);
+    await showContinuationCountdownToast(request.client, COUNTDOWN_SECONDS, incompleteCount);
     state.countdownStartedAt = scheduledAt;
     state.countdownTimer = setTimeout(
         () => runContinuationCountdown(request),
@@ -446,7 +438,8 @@ function checkFileWorkForCountdown(directory: string, sessionID: string): boolea
  * Uses grace period to avoid cancelling countdown from our own injected messages
  */
 export function handleUserMessage(sessionID: string): void {
-    const state = getState(sessionID);
+    const state = sessionStates.get(sessionID);
+    if (!state) return;
 
     // Grace period: ignore messages right after countdown starts
     // (our own continuation prompt injection)
@@ -507,6 +500,7 @@ export function handleAbort(sessionID: string): void {
 export function cleanupSession(sessionID: string): void {
     cancelCountdown(sessionID);
     sessionStates.delete(sessionID);
+    shutdownPruneTimerIfIdle();
 }
 
 /**
@@ -515,5 +509,3 @@ export function cleanupSession(sessionID: string): void {
 export function hasPendingContinuation(sessionID: string): boolean {
     return !!sessionStates.get(sessionID)?.countdownTimer;
 }
-
-pruneTimer.start();

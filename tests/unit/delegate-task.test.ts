@@ -180,10 +180,10 @@ describe("createDelegateTaskTool", () => {
             { sessionID: "parent-session" },
         );
 
-        await vi.advanceTimersByTimeAsync(5 * 60 * 1000);
+        await vi.advanceTimersByTimeAsync(16_000);
         const result = await resultPromise;
 
-        expect(result).toContain("TIMEOUT");
+        expect(result).toContain("[ERROR] Polling failed 3 consecutive times");
         expect(result).not.toContain("DONE");
         expect(client.session.messages).toHaveBeenCalled();
     });
@@ -409,6 +409,30 @@ describe("createDelegateTaskTool", () => {
         expect(result).toContain("[DONE]");
         expect(result).toContain("Task: `task-sync`");
         expect(result).toContain("Final output");
+    });
+
+    it("stops sync polling after repeated status failures", async () => {
+        vi.useFakeTimers();
+        const task = makeTask({ id: "task-sync-fail", sessionID: "session-sync-fail" });
+        const status = vi.fn().mockRejectedValue(new Error("status unavailable"));
+        const messages = vi.fn();
+        const manager = createManager({ launchResult: task });
+        const delegateTask = createTool(manager, createClient(status, messages));
+
+        const resultPromise = delegateTask.execute(
+            {
+                agent: "Worker",
+                description: "Run failing sync task",
+                prompt: "Do sync work",
+                background: false,
+            },
+            { sessionID: "parent-session" },
+        );
+
+        const result = await waitForPolling(resultPromise, 16_000);
+        expect(result).toContain("[ERROR] Polling failed 3 consecutive times");
+        expect(result).toContain("Task: `task-sync-fail`");
+        expect(messages).not.toHaveBeenCalled();
     });
 
     it("aborts sync polling before the next status check", async () => {

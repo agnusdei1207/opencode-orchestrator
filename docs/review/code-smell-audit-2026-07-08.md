@@ -21,19 +21,19 @@ This audit records 100 concrete code smells found during the July 8, 2026 refact
 13. `fixed` `src/core/loop/verification.ts` - unreadable checklist files now fail closed with an explicit read error.
 14. `fixed` `src/core/loop/verification.ts` - TODO verification now counts checkbox and hierarchy status items.
 15. `fixed` `src/core/loop/verification.ts` - checklist verification now still fails when existing TODO items are incomplete.
-16. `queued` `src/core/loop/verification.ts` - verification logic and LLM failure-prompt rendering share one module.
+16. `fixed` `src/core/loop/verification.ts` - verification logic and LLM failure-prompt rendering share one module.
 17. `queued` `src/core/loop/verification.ts` - checklist category detection is keyword-based and English-only.
-18. `queued` `src/core/loop/verification.ts` - runtime status strings embed presentation symbols directly in core logic.
+18. `fixed` `src/core/loop/verification.ts` - runtime status strings embed presentation symbols directly in core logic.
 19. `fixed` `src/core/loop/verification.ts` - excessive vertical whitespace was reduced around parser and prompt helpers.
 20. `fixed` `src/core/loop/verification.ts` - sync issue dirty checks and counts now share one line classifier.
 21. `fixed` `src/core/agents/manager/task-poller.ts` - assistant `tool_use` parts were not counted as valid output.
 22. `fixed` `src/core/agents/manager/task-poller.ts` - progress tracking errors were silently ignored.
 23. `fixed` `src/core/agents/manager/task-poller.ts` - scheduled poll rejection could stop future polling.
 24. `fixed` `src/core/agents/manager/task-poller.ts` - utilization sampling used lowercase agent names while built-in agent constants are capitalized.
-25. `queued` `src/core/agents/manager/task-poller.ts` - poll errors per task are logged but do not transition or quarantine stuck tasks.
+25. `fixed` `src/core/agents/manager/task-poller.ts` - poll errors per task are logged but do not transition or quarantine stuck tasks.
 26. `fixed` `src/core/agents/manager/task-poller.ts` - message cache entries are not explicitly purged when tasks finish.
-27. `queued` `src/core/agents/manager/task-poller.ts` - `session.status()` failures only log and leave all tasks unchanged.
-28. `queued` `src/core/agents/manager/task-poller.ts` - `onTaskComplete` is fire-and-forget, so review-launch failures cannot affect task completion.
+27. `fixed` `src/core/agents/manager/task-poller.ts` - `session.status()` failures only log and leave all tasks unchanged.
+28. `fixed` `src/core/agents/manager/task-poller.ts` - `onTaskComplete` is fire-and-forget, so review-launch failures cannot affect task completion.
 29. `fixed` `src/core/agents/manager/task-poller.ts` - stability detection now fetches messages when `messageCount` is missing.
 30. `fixed` `src/core/agents/manager/task-poller.ts` - unused `lastChecked` cache state was removed.
 31. `fixed` `src/tools/parallel/delegate-task.ts` - sync polling passed stale elapsed time after sleeping.
@@ -45,7 +45,7 @@ This audit records 100 concrete code smells found during the July 8, 2026 refact
 37. `queued` `src/tools/parallel/delegate-task.ts` - tool metadata, validation, launch, resume, polling, and result extraction live in one large file.
 38. `fixed` `src/tools/parallel/delegate-task.ts` - resume flow now follows the manager's exception-based failure contract.
 39. `fixed` `src/tools/parallel/delegate-task.ts` - delegate tool metadata now lives outside the runtime execution module.
-40. `queued` `src/tools/parallel/delegate-task.ts` - repeated poll failures only extend until timeout without escalating.
+40. `fixed` `src/tools/parallel/delegate-task.ts` - repeated poll failures only extend until timeout without escalating.
 41. `fixed` `src/core/loop/todo-continuation.ts` - todo API records were accepted with only `id` and `status` property presence.
 42. `fixed` `src/core/loop/todo-continuation.ts` - continuation prompt injection was fire-and-forget.
 43. `fixed` `src/core/loop/todo-continuation.ts` - idle-state mutation happened before skip checks.
@@ -53,9 +53,9 @@ This audit records 100 concrete code smells found during the July 8, 2026 refact
 45. `fixed` `src/core/loop/todo-continuation.ts` - abort detection cast arbitrary errors to `{ name?: string }`.
 46. `fixed` `src/core/loop/todo-continuation.ts` - malformed todo dates could become invalid `Date` values.
 47. `queued` `src/core/loop/todo-continuation.ts` - session continuation state is module-global mutable state.
-48. `queued` `src/core/loop/todo-continuation.ts` - prune timer starts as a load-time side effect.
-49. `queued` `src/core/loop/todo-continuation.ts` - toast rendering is coupled directly into continuation orchestration.
-50. `queued` `src/core/loop/todo-continuation.ts` - background-task lookup failure returns `false`, allowing continuation to proceed.
+48. `fixed` `src/core/loop/todo-continuation.ts` - prune timer starts as a load-time side effect.
+49. `fixed` `src/core/loop/todo-continuation.ts` - toast rendering is coupled directly into continuation orchestration.
+50. `fixed` `src/core/loop/todo-continuation.ts` - background-task lookup failure returns `false`, allowing continuation to proceed.
 51. `fixed` `src/core/agents/session-pool.ts` - session pool config accepted non-positive limits and intervals.
 52. `fixed` `src/core/agents/session-pool.ts` - `idle` was computed during release and never used.
 53. `fixed` `src/core/agents/session-pool.ts` - shutdown session deletion failures were ignored.
@@ -70,7 +70,7 @@ This audit records 100 concrete code smells found during the July 8, 2026 refact
 62. `fixed` `src/core/agents/manager.ts` - session-pool shutdown failures were swallowed.
 63. `fixed` `src/core/agents/manager.ts` - exported cleanup ignored all initialization and cleanup errors.
 64. `fixed` `src/core/agents/manager.ts` - `cancelTask` now cancels pending and running tasks.
-65. `queued` `src/core/agents/manager.ts` - `getResult` mixes remote fetch, message parsing, and result-cache mutation.
+65. `fixed` `src/core/agents/manager.ts` - `getResult` mixes remote fetch, message parsing, and result-cache mutation.
 66. `queued` `src/core/agents/manager.ts` - constructor initializes memory, registry, todo manager, session pool, launcher, resumer, poller, cleaner, and event handler.
 67. `queued` `src/core/agents/manager.ts` - static singleton hides lifecycle ownership.
 68. `fixed` `src/core/agents/manager.ts` - work-stealing worker counts are resolved from defaults plus `ConcurrencyConfig` overrides.

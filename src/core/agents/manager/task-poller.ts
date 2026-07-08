@@ -25,6 +25,8 @@ const POLL_UTILIZATION_KEYS = [
     AGENT_NAMES.REVIEWER,
     AGENT_NAMES.COMMANDER,
 ];
+const TASK_POLL_FAILURE_LIMIT = 3;
+const SESSION_STATUS_FAILURE_LIMIT = 3;
 
 function hasOutputPart(part: SessionMessagePart): boolean {
     const hasText = part.type === PART_TYPES.TEXT && Boolean(part.text?.trim());
@@ -44,6 +46,7 @@ function getReportedMessageCount(sessionInfo?: SessionStatusInfo): number | unde
 export class TaskPoller {
     private pollingTimer?: ReturnType<typeof setTimeout>;
     private messageCache: Map<string, { count: number }> = new Map();
+    private sessionStatusFailureCount = 0;
 
     // Adaptive polling
     private currentPollInterval: number = CONFIG.POLL_INTERVAL_MS; // Start at default (2000ms)
@@ -115,48 +118,126 @@ export class TaskPoller {
         // Adaptive interval adjustment
         this.adjustPollInterval(running.length);
 
-        try {
-            const statusResult = await this.client.session.status();
-            const allStatuses = (statusResult.data ?? {}) as Record<string, SessionStatusInfo>;
+        const allStatuses = await this.fetchSessionStatuses(running);
+        if (!allStatuses) return;
 
-            for (const task of running) {
-                try {
-                    // Skip tasks that haven't actually started running yet
-                    if (task.status === TASK_STATUS.PENDING) continue;
+        for (const task of running) {
+            try {
+                // Skip tasks that haven't actually started running yet
+                if (task.status === TASK_STATUS.PENDING) continue;
 
-                    const sessionStatus = allStatuses[task.sessionID];
+                const sessionStatus = allStatuses[task.sessionID];
 
-                    // If session is idle, try to complete
-                    if (sessionStatus?.type === SESSION_STATUS.IDLE) {
-                        const elapsed = Date.now() - task.startedAt.getTime();
-                        if (elapsed < CONFIG.MIN_STABILITY_MS) continue;
+                // If session is idle, try to complete
+                if (sessionStatus?.type === SESSION_STATUS.IDLE) {
+                    const elapsed = Date.now() - task.startedAt.getTime();
+                    if (elapsed < CONFIG.MIN_STABILITY_MS) continue;
 
-                        // Smart Polling optimization: Skip heavy message check if we already know it has output
-                        if (!task.hasStartedOutputting && !(await this.validateSessionHasOutput(task.sessionID, task))) continue;
-
-                        await this.completeTask(task);
+                    // Smart Polling optimization: Skip heavy message check if we already know it has output
+                    if (!task.hasStartedOutputting && !(await this.validateSessionHasOutput(task.sessionID, task))) {
+                        this.clearTaskPollFailure(task);
                         continue;
                     }
 
-                    // Update progress tracking
-                    await this.updateTaskProgress(task, sessionStatus);
-
-                    // Stability detection: complete when message count stable for 3 polls
-                    const elapsed = Date.now() - task.startedAt.getTime();
-                    if (elapsed >= CONFIG.MIN_STABILITY_MS && task.stablePolls && task.stablePolls >= 3) {
-                        if (task.hasStartedOutputting || await this.validateSessionHasOutput(task.sessionID, task)) {
-                            log(`Task ${task.id} stable for 3 polls, completing...`);
-                            await this.completeTask(task);
-                        }
-                    }
-                } catch (error) {
-                    log(`Poll error for task ${task.id}:`, error);
+                    await this.completeTask(task);
+                    this.clearTaskPollFailure(task);
+                    continue;
                 }
+
+                // Update progress tracking
+                await this.updateTaskProgress(task, sessionStatus);
+
+                // Stability detection: complete when message count stable for 3 polls
+                const elapsed = Date.now() - task.startedAt.getTime();
+                if (elapsed >= CONFIG.MIN_STABILITY_MS && task.stablePolls && task.stablePolls >= 3) {
+                    if (task.hasStartedOutputting || await this.validateSessionHasOutput(task.sessionID, task)) {
+                        log(`Task ${task.id} stable for 3 polls, completing...`);
+                        await this.completeTask(task);
+                    }
+                }
+
+                this.clearTaskPollFailure(task);
+            } catch (error) {
+                await this.handleTaskPollError(task, error);
             }
-            progressNotifier.update();
-        } catch (error) {
-            log("Polling error:", error);
         }
+        progressNotifier.update();
+    }
+
+    private async fetchSessionStatuses(running: ParallelTask[]): Promise<Record<string, SessionStatusInfo> | undefined> {
+        try {
+            const statusResult = await this.client.session.status();
+            this.sessionStatusFailureCount = 0;
+            return (statusResult.data ?? {}) as Record<string, SessionStatusInfo>;
+        } catch (error) {
+            this.sessionStatusFailureCount++;
+            log("Polling error:", {
+                error,
+                consecutiveFailures: this.sessionStatusFailureCount,
+                runningTasks: running.length,
+            });
+
+            if (this.sessionStatusFailureCount < SESSION_STATUS_FAILURE_LIMIT) {
+                return undefined;
+            }
+
+            await Promise.all(running.map(task => this.failTaskFromPoll(
+                task,
+                `Session status polling failed ${this.sessionStatusFailureCount} consecutive times: ${formatError(error)}`
+            )));
+            this.sessionStatusFailureCount = 0;
+            progressNotifier.update();
+            return undefined;
+        }
+    }
+
+    private async handleTaskPollError(task: ParallelTask, error: unknown): Promise<void> {
+        if (task.status !== TASK_STATUS.RUNNING) {
+            log(`Poll error for task ${task.id}:`, error);
+            return;
+        }
+
+        task.pollFailureCount = (task.pollFailureCount ?? 0) + 1;
+        log(`Poll error for task ${task.id}:`, {
+            error,
+            consecutiveFailures: task.pollFailureCount,
+        });
+
+        if (task.pollFailureCount < TASK_POLL_FAILURE_LIMIT) return;
+
+        await this.failTaskFromPoll(
+            task,
+            `Task polling failed ${task.pollFailureCount} consecutive times: ${formatError(error)}`
+        );
+    }
+
+    private clearTaskPollFailure(task: ParallelTask): void {
+        task.pollFailureCount = undefined;
+    }
+
+    private async failTaskFromPoll(task: ParallelTask, message: string): Promise<void> {
+        if (task.status !== TASK_STATUS.RUNNING) return;
+
+        task.status = TASK_STATUS.ERROR;
+        task.error = message;
+        task.completedAt = new Date();
+
+        finishTaskConcurrency(task, this.concurrency, false);
+        this.store.untrackPending(task.parentSessionID, task.id);
+        this.scheduleCleanup(task.id);
+        this.messageCache.delete(task.sessionID);
+
+        try {
+            await this.notifyParentIfAllComplete(task.parentSessionID);
+        } catch (error) {
+            log("[task-poller.ts] Failed to notify parent after poll failure", { taskId: task.id, error });
+        }
+
+        log("[task-poller.ts] Marked task as failed after repeated poll errors", {
+            taskId: task.id,
+            sessionID: task.sessionID,
+            error: message,
+        });
     }
 
     async validateSessionHasOutput(sessionID: string, task?: ParallelTask): Promise<boolean> {
@@ -194,10 +275,7 @@ export class TaskPoller {
 
 
 
-        // HPFA Trigger: Pipelined Review
-        if (this.onTaskComplete) {
-            Promise.resolve(this.onTaskComplete(task)).catch(err => log("Error in onTaskComplete callback:", err));
-        }
+        await this.runTaskCompleteCallback(task);
 
         const duration = formatDuration(task.startedAt, task.completedAt);
 
@@ -208,60 +286,67 @@ export class TaskPoller {
         progressNotifier.update();
     }
 
-    private async updateTaskProgress(task: ParallelTask, sessionInfo?: SessionStatusInfo): Promise<void> {
+    private async runTaskCompleteCallback(task: ParallelTask): Promise<void> {
+        if (!this.onTaskComplete) return;
+
         try {
-            const cached = this.messageCache.get(task.sessionID);
-            const reportedMsgCount = getReportedMessageCount(sessionInfo);
+            await this.onTaskComplete(task);
+        } catch (err) {
+            log("Error in onTaskComplete callback:", err);
+        }
+    }
 
-            if (cached && reportedMsgCount !== undefined && cached.count === reportedMsgCount) {
-                // No change, skip heavy fetch
-                // But still increment stable polls if needed
-                task.stablePolls = (task.stablePolls ?? 0) + 1;
-                return;
-            }
+    private async updateTaskProgress(task: ParallelTask, sessionInfo?: SessionStatusInfo): Promise<void> {
+        const cached = this.messageCache.get(task.sessionID);
+        const reportedMsgCount = getReportedMessageCount(sessionInfo);
 
-            // Change detected or first fetch
-            const result = await this.client.session.messages({ path: { id: task.sessionID } });
-            if (result.error) return;
+        if (cached && reportedMsgCount !== undefined && cached.count === reportedMsgCount) {
+            // No change, skip heavy fetch
+            // But still increment stable polls if needed
+            task.stablePolls = (task.stablePolls ?? 0) + 1;
+            return;
+        }
 
-            const messages = (result.data ?? []) as SessionMessage[];
-            const currentMsgCount = reportedMsgCount ?? messages.length;
-            const messageCountChanged = cached?.count !== currentMsgCount;
+        // Change detected or first fetch
+        const result = await this.client.session.messages({ path: { id: task.sessionID } });
+        if (result.error) {
+            throw new Error(`Failed to fetch session messages: ${formatError(result.error)}`);
+        }
 
-            // Update cache
-            this.messageCache.set(task.sessionID, { count: currentMsgCount });
+        const messages = (result.data ?? []) as SessionMessage[];
+        const currentMsgCount = reportedMsgCount ?? messages.length;
+        const messageCountChanged = cached?.count !== currentMsgCount;
 
-            const assistantMsgs = messages.filter(m => m.info?.role === MESSAGE_ROLES.ASSISTANT);
-            let toolCalls = 0;
-            let lastTool: string | undefined;
-            let lastMessage: string | undefined;
+        // Update cache
+        this.messageCache.set(task.sessionID, { count: currentMsgCount });
 
-            for (const msg of assistantMsgs) {
-                for (const part of msg.parts ?? []) {
-                    if (part.type === PART_TYPES.TOOL_USE || part.tool) {
-                        toolCalls++;
-                        lastTool = part.tool || part.name;
-                    }
-                    if (part.type === PART_TYPES.TEXT && part.text) {
-                        lastMessage = part.text;
-                    }
+        const assistantMsgs = messages.filter(m => m.info?.role === MESSAGE_ROLES.ASSISTANT);
+        let toolCalls = 0;
+        let lastTool: string | undefined;
+        let lastMessage: string | undefined;
+
+        for (const msg of assistantMsgs) {
+            for (const part of msg.parts ?? []) {
+                if (part.type === PART_TYPES.TOOL_USE || part.tool) {
+                    toolCalls++;
+                    lastTool = part.tool || part.name;
+                }
+                if (part.type === PART_TYPES.TEXT && part.text) {
+                    lastMessage = part.text;
                 }
             }
-
-            // Update progress
-            task.progress = {
-                toolCalls,
-                lastTool,
-                lastMessage: lastMessage?.slice(0, 100),
-                lastUpdate: new Date(),
-            };
-
-            task.stablePolls = messageCountChanged ? 0 : (task.stablePolls ?? 0) + 1;
-            task.lastMsgCount = currentMsgCount;
-
-        } catch (error) {
-            log("[task-poller.ts] Failed to update task progress", { taskId: task.id, error });
         }
+
+        // Update progress
+        task.progress = {
+            toolCalls,
+            lastTool,
+            lastMessage: lastMessage?.slice(0, 100),
+            lastUpdate: new Date(),
+        };
+
+        task.stablePolls = messageCountChanged ? 0 : (task.stablePolls ?? 0) + 1;
+        task.lastMsgCount = currentMsgCount;
     }
 
     /**
@@ -313,4 +398,8 @@ export class TaskPoller {
 
         log(`[AdaptivePoll] Running: ${runningCount}, Utilization: ${Math.round(utilization * 100)}%, Interval: ${this.currentPollInterval}ms`);
     }
+}
+
+function formatError(error: unknown): string {
+    return error instanceof Error ? error.message : String(error);
 }

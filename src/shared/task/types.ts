@@ -88,6 +88,7 @@ export interface ParallelTask extends Poolable {
     // Stability detection
     lastMsgCount?: number;
     stablePolls?: number;
+    pollFailureCount?: number;
 
     // Progress tracking
     progress?: TaskProgress;

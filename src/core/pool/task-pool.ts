@@ -56,6 +56,7 @@ function createParallelTask(): ParallelTask {
             this.groupID = undefined;
             this.lastMsgCount = undefined;
             this.stablePolls = undefined;
+            this.pollFailureCount = undefined;
             this.progress = undefined;
             this.hasStartedOutputting = undefined;
         }
@@ -94,6 +95,7 @@ export function acquireParallelTask(input: ParallelTaskPoolInput): ParallelTask 
     task.groupID = input.groupID;
     task.lastMsgCount = undefined;
     task.stablePolls = undefined;
+    task.pollFailureCount = undefined;
     task.progress = undefined;
     task.hasStartedOutputting = undefined;
 

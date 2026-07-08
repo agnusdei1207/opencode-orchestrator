@@ -43,6 +43,7 @@ const SYNC_TIMEOUT_MS = PARALLEL_TASK.SYNC_TIMEOUT_MS;
 const MAX_POLL_COUNT = PARALLEL_TASK.MAX_POLL_COUNT;
 const STABLE_POLLS_REQUIRED = PARALLEL_TASK.STABLE_POLLS_REQUIRED;
 const POLL_LOG_INTERVAL_MS = 10_000;
+const MAX_CONSECUTIVE_POLL_FAILURES = 3;
 
 // Session client interface and Poll result interface are now imported from shared
 
@@ -65,6 +66,7 @@ interface PollState {
     lastMsgCount: number;
     hasValidOutput: boolean;
     lastLogTime: number;
+    consecutiveFailures: number;
 }
 
 interface DelegateTaskArgs {
@@ -190,6 +192,7 @@ function createPollState(): PollState {
         lastMsgCount: 0,
         hasValidOutput: false,
         lastLogTime: 0,
+        consecutiveFailures: 0,
     };
 }
 
@@ -236,9 +239,14 @@ async function pollSessionOnce(
 ): Promise<PollResult | null> {
     try {
         const statusResult = await session.status();
+        if (statusResult.error) {
+            throw new Error(`Session status failed: ${formatError(statusResult.error)}`);
+        }
+
         const sessionStatus = statusResult.data?.[sessionID];
 
         if (!sessionStatus || sessionStatus.type !== SESSION_STATUS.IDLE) {
+            state.consecutiveFailures = 0;
             state.stablePolls = 0;
             return null;
         }
@@ -248,12 +256,26 @@ async function pollSessionOnce(
         }
 
         const messages = await readSessionMessages(session, sessionID);
+        state.consecutiveFailures = 0;
         const outputDetected = ensureValidOutput(messages, state, elapsed);
         if (!outputDetected) return null;
 
         return detectStableCompletion(messages, state, elapsed);
     } catch (error) {
-        log(`${PARALLEL_LOG.DELEGATE_TASK} Poll error (continuing):`, error);
+        state.consecutiveFailures++;
+        log(`${PARALLEL_LOG.DELEGATE_TASK} Poll error (continuing):`, {
+            error,
+            consecutiveFailures: state.consecutiveFailures,
+        });
+        if (state.consecutiveFailures >= MAX_CONSECUTIVE_POLL_FAILURES) {
+            return {
+                success: false,
+                timedOut: false,
+                error: `Polling failed ${state.consecutiveFailures} consecutive times: ${formatError(error)}`,
+                pollCount: state.pollCount,
+                elapsedMs: elapsed,
+            };
+        }
         return null;
     }
 }
@@ -505,6 +527,9 @@ async function waitForResumedTask(
         return `${OUTPUT_LABEL.TIMEOUT} after ${Math.floor(pollResult.elapsedMs / 1000)}s (${pollResult.pollCount} polls)\n` +
             `Session: \`${task.sessionID}\` - Use get_task_result or resume later.`;
     }
+    if (!pollResult.success) {
+        return formatFailedWait(task, pollResult);
+    }
 
     const text = await extractSessionResult(session, task.sessionID);
     return `${OUTPUT_LABEL.RESUMED_DONE} (${Math.floor(pollResult.elapsedMs / 1000)}s)\n\n${text || "(No output)"}`;
@@ -534,6 +559,9 @@ async function waitForLaunchedTask(
             `Task: \`${task.id}\`\n` +
             `Session: \`${task.sessionID}\` - Use ${TOOL_NAMES.GET_TASK_RESULT} or resume later.`;
     }
+    if (!pollResult.success) {
+        return formatFailedWait(task, pollResult);
+    }
 
     const text = await extractSessionResult(session, task.sessionID);
     log(`${PARALLEL_LOG.DELEGATE_TASK} Sync: completed`, {
@@ -549,6 +577,12 @@ async function waitForLaunchedTask(
 
 function formatAbortedWait(task: ParallelTask, pollResult: PollResult): string {
     return `${OUTPUT_LABEL.ERROR} Polling aborted after ${Math.floor(pollResult.elapsedMs / 1000)}s (${pollResult.pollCount} polls)\n` +
+        `Task: \`${task.id}\`\n` +
+        `Session: \`${task.sessionID}\` - Use ${TOOL_NAMES.GET_TASK_RESULT} or resume later.`;
+}
+
+function formatFailedWait(task: ParallelTask, pollResult: PollResult): string {
+    return `${OUTPUT_LABEL.ERROR} ${pollResult.error ?? "Polling failed"}\n` +
         `Task: \`${task.id}\`\n` +
         `Session: \`${task.sessionID}\` - Use ${TOOL_NAMES.GET_TASK_RESULT} or resume later.`;
 }

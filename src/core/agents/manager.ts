@@ -12,8 +12,6 @@
 import type { PluginInput } from "@opencode-ai/plugin";
 import {
     TASK_STATUS,
-    PART_TYPES,
-    MESSAGE_ROLES,
     AGENT_NAMES,
     type LaunchInput,
     type ResumeInput,
@@ -39,6 +37,7 @@ import { AgentRegistry } from "./agent-registry.js";
 import { TodoManager } from "../todo/todo-manager.js";
 import type { ConcurrencyConfig } from "./concurrency.js";
 import { finishTaskConcurrency } from "./manager/task-lifecycle.js";
+import { fetchTaskResultText } from "./manager/task-result.js";
 
 // Re-export
 export type { ParallelTask };
@@ -231,20 +230,9 @@ export class ParallelAgentManager {
         if (task.status === TASK_STATUS.ERROR) return `Error: ${task.error}`;
         if (task.status === TASK_STATUS.RUNNING) return null;
 
-        try {
-            const result = await this.client.session.messages({ path: { id: task.sessionID } });
-            if (result.error) return `Error: ${result.error}`;
-
-            const messages = (result.data ?? []) as Array<{ info?: { role?: string }; parts?: Array<{ type?: string; text?: string }> }>;
-            const lastMsg = messages.filter(m => m.info?.role === MESSAGE_ROLES.ASSISTANT).reverse()[0];
-            if (!lastMsg) return "(No response)";
-
-            const text = lastMsg.parts?.filter(p => p.type === PART_TYPES.TEXT || p.type === PART_TYPES.REASONING).map(p => p.text ?? "").filter(Boolean).join("\n") ?? "";
-            task.result = text;
-            return text;
-        } catch (error) {
-            return `Error: ${error instanceof Error ? error.message : String(error)}`;
-        }
+        const text = await fetchTaskResultText(this.client, task.sessionID);
+        task.result = text;
+        return text;
     }
 
     setConcurrencyLimit(agentType: string, limit: number): void {
