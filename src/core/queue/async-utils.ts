@@ -48,11 +48,19 @@ export async function withTimeout<T>(
     timeoutMs: number,
     errorMessage = "Operation timed out"
 ): Promise<T> {
+    let timeoutId: ReturnType<typeof setTimeout> | undefined;
     const timeout = new Promise<never>((_, reject) => {
-        setTimeout(() => reject(new Error(errorMessage)), timeoutMs);
+        timeoutId = setTimeout(() => reject(new Error(errorMessage)), timeoutMs);
+        timeoutId.unref?.();
     });
 
-    return Promise.race([promise, timeout]);
+    try {
+        return await Promise.race([promise, timeout]);
+    } finally {
+        if (timeoutId) {
+            clearTimeout(timeoutId);
+        }
+    }
 }
 
 /**

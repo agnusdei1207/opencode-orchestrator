@@ -21,6 +21,7 @@ import type { ErrorContext } from "../../recovery/auto-recovery.js";
 import { log } from "../logger.js";
 import { taskPool } from "../../pool/task-pool.js";
 import { buildRoutedAgentPrompt } from "./prompt-routing.js";
+import { withTimeout } from "../../queue/async-utils.js";
 
 type OpencodeClient = PluginInput["client"];
 
@@ -164,18 +165,11 @@ export class TaskLauncher {
             },
           });
 
-          await Promise.race([
+          await withTimeout(
             promptPromise,
-            new Promise((_, reject) =>
-              setTimeout(
-                () =>
-                  reject(
-                    new Error("Session prompt execution timed out after 600s"),
-                  ),
-                600000,
-              ),
-            ),
-          ]);
+            600_000,
+            "Session prompt execution timed out after 600s",
+          );
 
           // Success! Exit loop
           return;

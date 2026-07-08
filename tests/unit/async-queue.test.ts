@@ -2,7 +2,7 @@
  * AsyncQueue & Work Pool Unit Tests
  */
 
-import { describe, it, expect, vi } from "vitest";
+import { afterEach, describe, it, expect, vi } from "vitest";
 import {
     AsyncQueue,
     workPool,
@@ -192,6 +192,10 @@ describe("retryWithBackoff", () => {
 });
 
 describe("withTimeout", () => {
+    afterEach(() => {
+        vi.useRealTimers();
+    });
+
     it("should resolve if completes in time", async () => {
         const promise = new Promise<string>(r => setTimeout(() => r("done"), 10));
 
@@ -205,6 +209,15 @@ describe("withTimeout", () => {
         await expect(
             withTimeout(promise, 50, "Custom timeout message")
         ).rejects.toThrow("Custom timeout message");
+    });
+
+    it("should clear its timeout when the wrapped promise settles first", async () => {
+        vi.useFakeTimers();
+
+        const result = await withTimeout(Promise.resolve("done"), 1000);
+
+        expect(result).toBe("done");
+        expect(vi.getTimerCount()).toBe(0);
     });
 });
 

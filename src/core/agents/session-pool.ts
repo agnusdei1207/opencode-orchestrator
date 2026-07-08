@@ -11,6 +11,7 @@
 import type { PluginInput } from "@opencode-ai/plugin";
 import { PARALLEL_TASK } from "../../shared/index.js";
 import { log } from "./logger.js";
+import { withTimeout } from "../queue/async-utils.js";
 
 interface PooledSession {
     id: string;
@@ -324,7 +325,7 @@ export class SessionPool {
     ): Promise<PooledSession> {
         log(`[SessionPool] Creating new session for ${agentName}`);
 
-        const result = await Promise.race([
+        const result = await withTimeout(
             this.client.session.create({
                 body: {
                     parentID: parentSessionID,
@@ -332,10 +333,9 @@ export class SessionPool {
                 },
                 query: { directory: this.directory },
             }),
-            new Promise<never>((_, reject) =>
-                setTimeout(() => reject(new Error("Session creation timed out after 60s")), 60_000)
-            ),
-        ]);
+            60_000,
+            "Session creation timed out after 60s",
+        );
 
         if (result.error || !result.data?.id) {
             throw new Error(`Session creation failed: ${result.error || "No ID"}`);
