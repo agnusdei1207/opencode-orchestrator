@@ -4,13 +4,25 @@ import * as path from 'node:path';
 import * as zlib from 'node:zlib';
 import { promisify } from 'node:util';
 import { pipeline } from 'node:stream';
-import { parallelAgentManager } from "../agents/index.js";
 import * as DocumentCache from "../cache/document-cache.js";
 import { log } from "../agents/logger.js";
-import { TASK_STATUS } from "../../shared/index.js";
 import { runMemoryMaintenancePass } from "../knowledge/memory-maintenance-runner.js";
 
 const pipelineAsync = promisify(pipeline);
+const SECOND_MS = 1000;
+const MINUTE_MS = 60 * SECOND_MS;
+const HOUR_MS = 60 * MINUTE_MS;
+const DAY_MS = 24 * HOUR_MS;
+const SESSION_RETENTION_MS = 7 * DAY_MS;
+const HISTORY_RETENTION_MS = 30 * DAY_MS;
+const DOC_CACHE_MAX_BYTES = 10 * 1024 * 1024;
+const FILE_COUNT_LIMIT = 500;
+
+type CleanupTask = {
+    name: string;
+    intervalMs: number;
+    run: () => Promise<void>;
+};
 
 /** Opt-in flag for disk-mutating memory lifecycle maintenance. Default OFF. */
 function isMemoryMaintenanceEnabled(): boolean {
@@ -30,45 +42,41 @@ export class CleanupScheduler {
         // Immediate cleanup on start
         this.cleanNodeModules().catch(err => log(`[Cleanup] Initial node_modules cleanup failed: ${err}`));
 
-        // Session cleanup: every 5 minutes (AGGRESSIVE)
-        this.schedule('session-cleanup', () => this.cleanOldSessions(), 5 * 60 * 1000);
-
-        // WAL compaction: every 10 minutes
-        this.schedule('wal-compact', () => this.compactWAL(), 10 * 60 * 1000);
-
-        // Document cache cleanup: every 30 minutes (was 1 hour)
-        this.schedule('docs-clean', () => this.cleanDocs(), 30 * 60 * 1000);
-
-        // File count limit: every 5 minutes
-        this.schedule('file-count-limit', () => this.enforceFileLimit(), 5 * 60 * 1000);
-
-        // node_modules cleanup: every 30 minutes
-        this.schedule('node-modules-cleanup', () => this.cleanNodeModules(), 30 * 60 * 1000);
-
-        // TODO history rotation: every 6 hours (was 24 hours)
-        this.schedule('history-rotate', () => this.rotateHistory(), 6 * 60 * 60 * 1000);
-
-        // Memory lifecycle maintenance: every 6 hours, ONLY when explicitly
-        // opted in. Mutates generated memory note tiers on disk, so it stays off
-        // by default (set OPENCODE_MEMORY_MAINTENANCE=1 to enable).
-        if (isMemoryMaintenanceEnabled()) {
-            this.schedule('memory-maintenance', () => this.maintainMemory(), 6 * 60 * 60 * 1000);
-            log(`[Cleanup] Memory maintenance enabled (OPENCODE_MEMORY_MAINTENANCE)`);
+        for (const task of this.createScheduledTasks()) {
+            this.schedule(task);
         }
 
         log(`[Cleanup] Scheduler started with aggressive cleanup intervals`);
     }
 
-    private schedule(name: string, fn: () => Promise<void>, intervalMs: number) {
+    private createScheduledTasks(): CleanupTask[] {
+        const tasks: CleanupTask[] = [
+            { name: 'session-cleanup', run: () => this.cleanOldSessions(), intervalMs: 5 * MINUTE_MS },
+            { name: 'wal-compact', run: () => this.compactWAL(), intervalMs: 10 * MINUTE_MS },
+            { name: 'docs-clean', run: () => this.cleanDocs(), intervalMs: 30 * MINUTE_MS },
+            { name: 'file-count-limit', run: () => this.enforceFileLimit(), intervalMs: 5 * MINUTE_MS },
+            { name: 'node-modules-cleanup', run: () => this.cleanNodeModules(), intervalMs: 30 * MINUTE_MS },
+            { name: 'history-rotate', run: () => this.rotateHistory(), intervalMs: 6 * HOUR_MS },
+        ];
+
+        if (isMemoryMaintenanceEnabled()) {
+            tasks.push({ name: 'memory-maintenance', run: () => this.maintainMemory(), intervalMs: 6 * HOUR_MS });
+            log(`[Cleanup] Memory maintenance enabled (OPENCODE_MEMORY_MAINTENANCE)`);
+        }
+
+        return tasks;
+    }
+
+    private schedule(task: CleanupTask) {
         // Run immediately if it's maintenance? No, usually delayed. 
         // But maybe run once at startup with random delay to avoid stampede?
         // For now, strict interval.
         const timer = setInterval(() => {
-            fn().catch(err => log(`[Cleanup] ${name} failed:`, err));
-        }, intervalMs);
+            task.run().catch(err => log(`[Cleanup] ${task.name} failed:`, err));
+        }, task.intervalMs);
 
         if (timer.unref) timer.unref();
-        this.intervals.set(name, timer);
+        this.intervals.set(task.name, timer);
     }
 
     stop() {
@@ -101,22 +109,14 @@ export class CleanupScheduler {
 
     async cleanDocs(): Promise<void> {
         try {
-            // Remove expired docs
-            // DocumentCache might not have cleanExpired exposed directly on module if it's not exported
-            // I checked DocumentCache file, it had list/stats/get/clear.
-            // Wait, does it have cleanExpired?
-            // "src/core/cache/operations.ts" was referenced in doc. 
-            // I should check cleanExpired availability.
-            // If strictly following the file I saw (tools/web/cache-docs.ts imports * as DocumentCache from ...), I should verify 'cleanExpired' exists.
+            const expiredCount = await DocumentCache.cleanExpired();
+            if (expiredCount > 0) {
+                log(`[Cleanup] Removed ${expiredCount} expired cached document(s)`);
+            }
 
-            // Assume it exists based on doc, if not I might need to implement it.
-            // I'll trust the doc analysis or add a check.
-
-            // Also size-based cleaning (from plan)
             const stats = await DocumentCache.stats();
-            if (stats.totalSize > 10 * 1024 * 1024) { // 10MB
+            if (stats.totalSize > DOC_CACHE_MAX_BYTES) {
                 const allDocs = await DocumentCache.list();
-                // Sort by access time or fetch time? (fetchedAt)
                 allDocs.sort((a, b) => new Date(a.fetchedAt).getTime() - new Date(b.fetchedAt).getTime());
 
                 const toDelete = allDocs.slice(0, Math.floor(allDocs.length / 2));
@@ -126,14 +126,14 @@ export class CleanupScheduler {
                 log(`[Cleanup] Pruned ${toDelete.length} documents due to size limit`);
             }
         } catch (error) {
-            // log(`[Cleanup] Doc cleanup error: ${error}`);
+            log(`[Cleanup] Doc cleanup error: ${error}`);
         }
     }
 
     async rotateHistory(): Promise<void> {
         try {
             const historyPath = path.join(this.directory, '.opencode/archive/todo_history.jsonl');
-            if (!fs.existsSync(historyPath)) return;
+            if (!(await pathExists(historyPath))) return;
 
             const stat = await fs.promises.stat(historyPath);
             // Only rotate if file has non-zero size
@@ -164,7 +164,7 @@ export class CleanupScheduler {
             // Prune old archives (> 30 days)
             const archiveDir = path.dirname(historyPath);
             const files = await fs.promises.readdir(archiveDir);
-            const cutoff = Date.now() - 30 * 24 * 60 * 60 * 1000;
+            const cutoff = Date.now() - HISTORY_RETENTION_MS;
 
             for (const file of files) {
                 if (file.startsWith('todo_history.') && (file.endsWith('.jsonl') || file.endsWith('.gz'))) {
@@ -187,10 +187,10 @@ export class CleanupScheduler {
     async cleanOldSessions(): Promise<void> {
         try {
             const sessionArchivePath = path.join(this.directory, '.opencode/archive/tasks');
-            if (!fs.existsSync(sessionArchivePath)) return;
+            if (!(await pathExists(sessionArchivePath))) return;
 
             const files = await fs.promises.readdir(sessionArchivePath);
-            const cutoff = Date.now() - 7 * 24 * 60 * 60 * 1000; // 7 days
+            const cutoff = Date.now() - SESSION_RETENTION_MS;
             let cleanedCount = 0;
 
             for (const file of files) {
@@ -217,7 +217,7 @@ export class CleanupScheduler {
     async cleanNodeModules(): Promise<void> {
         try {
             const nodeModulesPath = path.join(this.directory, '.opencode/node_modules');
-            if (fs.existsSync(nodeModulesPath)) {
+            if (await pathExists(nodeModulesPath)) {
                 await fs.promises.rm(nodeModulesPath, { recursive: true, force: true });
                 log(`[Cleanup] Removed .opencode/node_modules`);
             }
@@ -227,15 +227,9 @@ export class CleanupScheduler {
             const lockFile = path.join(this.directory, '.opencode/bun.lock');
             const packageLock = path.join(this.directory, '.opencode/package-lock.json');
 
-            if (fs.existsSync(packageJson)) {
-                await fs.promises.unlink(packageJson);
-            }
-            if (fs.existsSync(lockFile)) {
-                await fs.promises.unlink(lockFile);
-            }
-            if (fs.existsSync(packageLock)) {
-                await fs.promises.unlink(packageLock);
-            }
+            await unlinkIfExists(packageJson);
+            await unlinkIfExists(lockFile);
+            await unlinkIfExists(packageLock);
         } catch (error) {
             log(`[Cleanup] node_modules cleanup error: ${error}`);
         }
@@ -247,14 +241,13 @@ export class CleanupScheduler {
     async enforceFileLimit(): Promise<void> {
         try {
             const opencodeDir = path.join(this.directory, '.opencode');
-            if (!fs.existsSync(opencodeDir)) return;
+            if (!(await pathExists(opencodeDir))) return;
 
             const files = await this.listAllFiles(opencodeDir);
-            const MAX_FILES = 500;
 
-            if (files.length <= MAX_FILES) return;
+            if (files.length <= FILE_COUNT_LIMIT) return;
 
-            log(`[Cleanup] File count (${files.length}) exceeds limit (${MAX_FILES}), pruning...`);
+            log(`[Cleanup] File count (${files.length}) exceeds limit (${FILE_COUNT_LIMIT}), pruning...`);
 
             // Get file stats with access time
             const fileStats = await Promise.all(
@@ -271,13 +264,13 @@ export class CleanupScheduler {
             const validStats = fileStats.filter((s): s is { path: string; atime: number } => s !== null);
             validStats.sort((a, b) => a.atime - b.atime); // Oldest first
 
-            const toDelete = validStats.slice(0, files.length - MAX_FILES);
+            const toDelete = validStats.slice(0, files.length - FILE_COUNT_LIMIT);
 
             for (const file of toDelete) {
                 try {
                     await fs.promises.unlink(file.path);
-                } catch {
-                    // Ignore errors (file might be in use)
+                } catch (error) {
+                    log(`[Cleanup] Failed to prune ${file.path}: ${error}`);
                 }
             }
 
@@ -306,4 +299,31 @@ export class CleanupScheduler {
 
         return result;
     }
+}
+
+async function pathExists(filePath: string): Promise<boolean> {
+    try {
+        await fs.promises.access(filePath);
+        return true;
+    } catch (error) {
+        if (isNotFoundError(error)) return false;
+        throw error;
+    }
+}
+
+async function unlinkIfExists(filePath: string): Promise<boolean> {
+    try {
+        await fs.promises.unlink(filePath);
+        return true;
+    } catch (error) {
+        if (isNotFoundError(error)) return false;
+        throw error;
+    }
+}
+
+function isNotFoundError(error: unknown): boolean {
+    return typeof error === "object"
+        && error !== null
+        && "code" in error
+        && (error as { code?: unknown }).code === "ENOENT";
 }

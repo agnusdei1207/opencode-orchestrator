@@ -93,9 +93,9 @@ This audit records 100 concrete code smells found during the July 8, 2026 refact
 85. `fixed` `src/plugin-handlers/event-handler.ts` - delayed idle continuation now runs through one logging scheduler helper.
 86. `fixed` `src/plugin-handlers/system-transform-handler.ts` - background task lookup failures are logged without aborting transform.
 87. `fixed` `src/plugin-handlers/session-compacting-handler.ts` - background task lookup failures are logged without aborting compaction.
-88. `queued` `src/core/cleanup/cleanup-scheduler.ts` - scheduler mixes history rotation, session cleanup, package cleanup, and reporting.
-89. `queued` `src/core/cleanup/cleanup-scheduler.ts` - cleanup scheduler has a TODO for history rotation timing.
-90. `queued` `src/core/cleanup/cleanup-scheduler.ts` - scheduler performs synchronous filesystem work in timer-driven maintenance.
+88. `fixed` `src/core/cleanup/cleanup-scheduler.ts` - scheduled cleanup work is now registered through task descriptors instead of inline timer setup.
+89. `fixed` `src/core/cleanup/cleanup-scheduler.ts` - cleanup intervals and retention windows are named constants without stale timing notes.
+90. `fixed` `src/core/cleanup/cleanup-scheduler.ts` - timer-driven maintenance now uses async path checks instead of `existsSync`.
 91. `fixed` `src/core/todo/todo-manager.ts` - temporary file suffixes now use `randomUUID`.
 92. `fixed` `src/core/todo/todo-manager.ts` - change-log failures are logged without failing the committed TODO update.
 93. `fixed` `src/core/sync/todo-sync-service.ts` - file-handle close failures are logged during reload cleanup.
