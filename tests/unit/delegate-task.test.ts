@@ -274,6 +274,24 @@ describe("createDelegateTaskTool", () => {
         expect(presets.taskStarted).not.toHaveBeenCalled();
     });
 
+    it("reports background launch failure when manager returns no task", async () => {
+        const manager = createManager({ launchResult: null });
+        const delegateTask = createTool(manager);
+
+        const result = await delegateTask.execute(
+            {
+                agent: "Worker",
+                description: "No background task",
+                prompt: "Do work",
+                background: true,
+            },
+            { sessionID: "parent-session" },
+        );
+
+        expect(result).toBe("[ERROR] Failed to launch task: No background task");
+        expect(presets.taskStarted).not.toHaveBeenCalled();
+    });
+
     it("returns a formatted resume error when manager.resume fails", async () => {
         const manager = createManager({ resumeError: new Error("resume failed") });
         const delegateTask = createTool(manager);

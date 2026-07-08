@@ -397,6 +397,10 @@ async function launchBackgroundDelegateTask(runtime: DelegateTaskRuntime): Promi
 
     try {
         const task = await launchDelegateTask(manager, args, ctx.sessionID, parentDepth);
+        if (!task) {
+            return `${OUTPUT_LABEL.ERROR} Failed to launch task: ${args.description}`;
+        }
+
         presets.taskStarted(task.id, args.agent);
         return `${OUTPUT_LABEL.SPAWNED} task: \`${task.id}\` (${args.agent})\n` +
             `Session: \`${task.sessionID}\` (save for resume)`;
@@ -426,7 +430,7 @@ async function launchDelegateTask(
     args: DelegateTaskArgs,
     parentSessionID: string,
     parentDepth: number,
-): Promise<ParallelTask> {
+): Promise<ParallelTask | null> {
     const launchResult = await manager.launch({
         agent: args.agent,
         description: args.description,
@@ -437,7 +441,7 @@ async function launchDelegateTask(
         depth: parentDepth,
     });
 
-    return (Array.isArray(launchResult) ? launchResult[0] : launchResult) as ParallelTask;
+    return (Array.isArray(launchResult) ? launchResult[0] : launchResult) as ParallelTask | null;
 }
 
 async function waitForResumedTask(session: SessionClient, task: ParallelTask): Promise<string> {
