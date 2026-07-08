@@ -94,6 +94,34 @@ describe("ParallelAgentManager Features", () => {
             expect(hasOutput).toBe(false);
             expect(task.hasStartedOutputting).not.toBe(true);
         });
+
+        it("reuses one session status snapshot when polling multiple running tasks", async () => {
+            const taskA = createMockTask({ id: "task-a", sessionID: "session-a" });
+            const taskB = createMockTask({ id: "task-b", sessionID: "session-b" });
+            store.set(taskA.id, taskA);
+            store.set(taskB.id, taskB);
+
+            const status = vi.fn().mockResolvedValue({
+                data: {
+                    "session-a": { type: "busy", messageCount: 1 },
+                    "session-b": { type: "busy", messageCount: 2 },
+                },
+            });
+            const messages = vi.fn().mockResolvedValue({ data: [] });
+            const poller = new TaskPoller(
+                { session: { status, messages } } as never,
+                store,
+                concurrency,
+                vi.fn().mockResolvedValue(undefined),
+                vi.fn(),
+                vi.fn(),
+            );
+
+            await poller.poll();
+
+            expect(status).toHaveBeenCalledTimes(1);
+            expect(messages).toHaveBeenCalledTimes(2);
+        });
     });
 
     // ========================================================================

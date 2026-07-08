@@ -15,6 +15,7 @@ import { progressNotifier } from "../../progress/progress-notifier.js";
 import { finishTaskConcurrency } from "./task-lifecycle.js";
 
 type OpencodeClient = PluginInput["client"];
+type SessionStatusInfo = { type?: string; messageCount?: number };
 
 export class TaskPoller {
     private pollingInterval?: ReturnType<typeof setInterval>;
@@ -87,7 +88,7 @@ export class TaskPoller {
 
         try {
             const statusResult = await this.client.session.status();
-            const allStatuses = (statusResult.data ?? {}) as Record<string, { type: string }>;
+            const allStatuses = (statusResult.data ?? {}) as Record<string, SessionStatusInfo>;
 
             for (const task of running) {
                 try {
@@ -109,7 +110,7 @@ export class TaskPoller {
                     }
 
                     // Update progress tracking
-                    await this.updateTaskProgress(task);
+                    await this.updateTaskProgress(task, sessionStatus);
 
                     // Stability detection: complete when message count stable for 3 polls
                     const elapsed = Date.now() - task.startedAt.getTime();
@@ -174,13 +175,10 @@ export class TaskPoller {
         progressNotifier.update();
     }
 
-    private async updateTaskProgress(task: ParallelTask): Promise<void> {
+    private async updateTaskProgress(task: ParallelTask, sessionInfo?: SessionStatusInfo): Promise<void> {
         try {
             const cached = this.messageCache.get(task.sessionID);
 
-            // OPTION C: Check status first (lightweight) before fetching messages (heavy)
-            const statusResult = await this.client.session.status();
-            const sessionInfo = (statusResult.data as Record<string, { messageCount?: number }>)?.[task.sessionID];
             const currentMsgCount = sessionInfo?.messageCount ?? 0;
 
             if (cached && cached.count === currentMsgCount) {
