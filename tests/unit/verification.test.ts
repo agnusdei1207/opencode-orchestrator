@@ -115,6 +115,22 @@ describe("Mission Verification", () => {
                 expect(result.todoComplete).toBe(false);
                 expect(result.todoIncomplete).toBe(1);
             });
+
+            it("should count hierarchical TODO status lines", () => {
+                const todoContent = `# TODO
+
+## M1: Milestone | status: completed
+### T1: Implementation | status: in_progress
+### T2: Verification | status: verified
+`;
+                writeFileSync(join(opencodeDir, "todo.md"), todoContent);
+
+                const result = verifyMissionCompletion(testDir);
+
+                expect(result.todoComplete).toBe(false);
+                expect(result.todoProgress).toBe("2/3");
+                expect(result.todoIncomplete).toBe(1);
+            });
         });
 
         describe("Sync issues verification", () => {
@@ -229,6 +245,27 @@ describe("Mission Verification", () => {
                 expect(result.passed).toBe(false);
                 expect(result.todoComplete).toBe(true);
                 expect(result.syncIssuesEmpty).toBe(false);
+            });
+
+            it("should fail when TODO is incomplete even if checklist is complete", () => {
+                writeFileSync(join(opencodeDir, "todo.md"), "- [ ] Remaining task");
+                writeFileSync(join(opencodeDir, "verification-checklist.md"), "- [x] Build passed");
+
+                const result = verifyMissionCompletion(testDir);
+
+                expect(result.passed).toBe(false);
+                expect(result.checklistComplete).toBe(true);
+                expect(result.errors.join("\n")).toContain("TODO incomplete");
+            });
+
+            it("should fail closed when checklist path cannot be read", () => {
+                writeFileSync(join(opencodeDir, "todo.md"), "- [x] Done");
+                mkdirSync(join(opencodeDir, "verification-checklist.md"));
+
+                const result = verifyMissionCompletion(testDir);
+
+                expect(result.passed).toBe(false);
+                expect(result.errors.join("\n")).toContain("Failed to read verification checklist");
             });
         });
     });

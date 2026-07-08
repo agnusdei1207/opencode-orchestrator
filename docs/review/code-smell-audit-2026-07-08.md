@@ -18,9 +18,9 @@ This audit records 100 concrete code smells found during the July 8, 2026 refact
 10. `queued` `src/tools/rust-pool.ts` - JSON-RPC request construction is inline instead of centralized behind a small protocol helper.
 11. `fixed` `src/core/loop/verification.ts` - global `g` regexes were reused with `.test()`, risking stateful false negatives.
 12. `fixed` `src/core/loop/verification.ts` - unreadable `sync-issues.md` was treated as clean.
-13. `queued` `src/core/loop/verification.ts` - unreadable checklist files collapse to an empty checklist.
-14. `queued` `src/core/loop/verification.ts` - TODO verification only recognizes checkbox markdown, not the status hierarchy used in prompts.
-15. `queued` `src/core/loop/verification.ts` - checklist presence suppresses TODO errors while still reporting TODO progress.
+13. `fixed` `src/core/loop/verification.ts` - unreadable checklist files now fail closed with an explicit read error.
+14. `fixed` `src/core/loop/verification.ts` - TODO verification now counts checkbox and hierarchy status items.
+15. `fixed` `src/core/loop/verification.ts` - checklist verification now still fails when existing TODO items are incomplete.
 16. `queued` `src/core/loop/verification.ts` - verification logic and LLM failure-prompt rendering share one module.
 17. `queued` `src/core/loop/verification.ts` - checklist category detection is keyword-based and English-only.
 18. `queued` `src/core/loop/verification.ts` - runtime status strings embed presentation symbols directly in core logic.

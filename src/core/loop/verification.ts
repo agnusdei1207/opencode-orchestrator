@@ -25,6 +25,12 @@ import { log } from "../agents/logger.js";
 
 export const CHECKLIST_FILE = CHECKLIST.FILE;
 
+interface ChecklistReadResult {
+    items: ChecklistItem[];
+    error?: string;
+}
+
+const CHECKLIST_READ_ERROR_PREFIX = "Failed to read verification checklist";
 
 
 // ============================================================================
@@ -115,20 +121,27 @@ export function parseChecklist(content: string): ChecklistItem[] {
 }
 
 
-export function readChecklist(directory: string): ChecklistItem[] {
+function readChecklistWithDiagnostics(directory: string): ChecklistReadResult {
     const filePath = join(directory, CHECKLIST_FILE);
 
     if (!existsSync(filePath)) {
-        return [];
+        return { items: [] };
     }
 
     try {
         const content = readFileSync(filePath, 'utf-8');
-        return parseChecklist(content);
+        return { items: parseChecklist(content) };
     } catch (error) {
         log(`[checklist] Failed to read checklist: ${error}`);
-        return [];
+        return {
+            items: [],
+            error: `${CHECKLIST_READ_ERROR_PREFIX}: ${error}`,
+        };
     }
+}
+
+export function readChecklist(directory: string): ChecklistItem[] {
+    return readChecklistWithDiagnostics(directory).items;
 }
 
 // ============================================================================
@@ -157,7 +170,13 @@ export function verifyChecklist(directory: string): ChecklistVerificationResult 
     }
 
     // Parse checklist
-    const items = readChecklist(directory);
+    const checklistRead = readChecklistWithDiagnostics(directory);
+    const items = checklistRead.items;
+
+    if (checklistRead.error) {
+        result.errors.push(checklistRead.error);
+        return result;
+    }
 
     if (items.length === 0) {
         result.errors.push("Verification checklist is empty");
@@ -195,9 +214,32 @@ export function verifyChecklist(directory: string): ChecklistVerificationResult 
 
 
 
-const TODO_INCOMPLETE_PATTERN = /^[-*]\s*\[\s*\]/gm;
+interface TodoCompletionStats {
+    complete: number;
+    incomplete: number;
+    total: number;
+}
 
-const TODO_COMPLETE_PATTERN = /^[-*]\s*\[[xX]\]/gm;
+const TODO_CHECKBOX_PATTERN = /^\s*[-*]\s*\[([xX\s])\]/;
+
+const TODO_STATUS_PATTERN = /\bstatus:\s*([a-zA-Z_-]+)/i;
+
+const TODO_COMPLETE_STATUSES = new Set([
+    "complete",
+    "completed",
+    "done",
+    "verified",
+]);
+
+const TODO_INCOMPLETE_STATUSES = new Set([
+    "pending",
+    "in_progress",
+    "running",
+    "queued",
+    "blocked",
+    "failed",
+    "error",
+]);
 
 const SYNC_ISSUE_PATTERNS = [
     /^[-*]\s+\S/m,
@@ -210,6 +252,49 @@ const SYNC_ISSUE_PATTERNS = [
 function countMatches(text: string, pattern: RegExp): number {
     const matches = text.match(pattern);
     return matches?.length ?? 0;
+}
+
+function normalizeTodoStatus(status: string): string {
+    return status.trim().toLowerCase().replace(/-/g, "_");
+}
+
+function isCompleteTodoStatus(status: string): boolean | undefined {
+    const normalized = normalizeTodoStatus(status);
+
+    if (TODO_COMPLETE_STATUSES.has(normalized)) return true;
+    if (TODO_INCOMPLETE_STATUSES.has(normalized)) return false;
+    return undefined;
+}
+
+export function countTodoCompletion(content: string): TodoCompletionStats {
+    const stats: TodoCompletionStats = {
+        complete: 0,
+        incomplete: 0,
+        total: 0,
+    };
+
+    for (const line of content.split('\n')) {
+        const checkbox = line.match(TODO_CHECKBOX_PATTERN);
+        if (checkbox) {
+            const completed = checkbox[1].toLowerCase() === 'x';
+            stats.complete += completed ? 1 : 0;
+            stats.incomplete += completed ? 0 : 1;
+            stats.total += 1;
+            continue;
+        }
+
+        const status = line.match(TODO_STATUS_PATTERN)?.[1];
+        if (!status) continue;
+
+        const completed = isCompleteTodoStatus(status);
+        if (completed === undefined) continue;
+
+        stats.complete += completed ? 1 : 0;
+        stats.incomplete += completed ? 0 : 1;
+        stats.total += 1;
+    }
+
+    return stats;
 }
 
 function createVerificationResult(): VerificationResult {
@@ -251,6 +336,14 @@ function applyChecklistVerification(directory: string, result: VerificationResul
     result.checklistProgress = checklistResult.progress;
 
     const hasChecklist = checklistResult.totalItems > 0;
+    const checklistReadError = checklistResult.errors.find(error =>
+        error.startsWith(CHECKLIST_READ_ERROR_PREFIX)
+    );
+
+    if (checklistReadError) {
+        result.errors.push(checklistReadError);
+        return true;
+    }
 
     if (hasChecklist && !checklistResult.passed) {
         // Checklist exists but incomplete
@@ -269,20 +362,18 @@ function applyTodoVerification(directory: string, result: VerificationResult, ha
     if (existsSync(todoPath)) {
         try {
             const content = readFileSync(todoPath, 'utf-8');
-            const incompleteCount = countMatches(content, TODO_INCOMPLETE_PATTERN);
-            const completeCount = countMatches(content, TODO_COMPLETE_PATTERN);
-            const total = incompleteCount + completeCount;
+            const stats = countTodoCompletion(content);
 
-            result.todoIncomplete = incompleteCount;
-            result.todoComplete = incompleteCount === 0 && total > 0;
-            result.todoProgress = `${completeCount}/${total}`;
+            result.todoIncomplete = stats.incomplete;
+            result.todoComplete = stats.incomplete === 0 && stats.total > 0;
+            result.todoProgress = `${stats.complete}/${stats.total}`;
 
-            if (!result.todoComplete && !hasChecklist) {
-                if (total === 0) {
+            if (!result.todoComplete) {
+                if (stats.total === 0 && !hasChecklist) {
                     result.errors.push("No TODO items found - create tasks first");
-                } else {
+                } else if (stats.total > 0) {
                     result.errors.push(
-                        `TODO incomplete: ${result.todoProgress} (${incompleteCount} remaining)`
+                        `TODO incomplete: ${result.todoProgress} (${stats.incomplete} remaining)`
                     );
                 }
             }
@@ -319,9 +410,13 @@ function applySyncIssueVerification(directory: string, result: VerificationResul
     }
 }
 
+function hasTodoItems(result: VerificationResult): boolean {
+    return result.todoProgress !== "0/0";
+}
+
 function isVerificationPassed(result: VerificationResult, hasChecklist: boolean): boolean {
     return hasChecklist
-        ? result.checklistComplete && result.syncIssuesEmpty
+        ? result.checklistComplete && result.syncIssuesEmpty && (!hasTodoItems(result) || result.todoComplete)
         : result.todoComplete && result.syncIssuesEmpty;
 }
 
