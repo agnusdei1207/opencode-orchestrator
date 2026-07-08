@@ -2,6 +2,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { parseTodoMd } from "../../../../src/core/sync/todo-parser.js";
 import { TodoSyncService } from "../../../../src/core/sync/todo-sync-service.js";
+import { log } from "../../../../src/core/agents/logger.js";
 import * as fs from "node:fs";
 
 // Mock fs
@@ -10,12 +11,15 @@ vi.mock("node:fs", async () => {
         ...await vi.importActual("node:fs"),
         existsSync: vi.fn(),
         promises: {
+            open: vi.fn(),
             readFile: vi.fn(),
             writeFile: vi.fn(),
         },
         watch: vi.fn(() => ({ close: vi.fn() })),
     };
 });
+
+vi.mock("../../../../src/core/agents/logger.js", () => ({ log: vi.fn() }));
 
 describe("Todo Parser", () => {
     it("should parse pending tasks", () => {
@@ -52,6 +56,8 @@ describe("TodoSyncService", () => {
     let mockClient: any;
 
     beforeEach(() => {
+        vi.clearAllMocks();
+        vi.mocked(fs.existsSync).mockReturnValue(true);
         mockClient = {
             session: {
                 todo: vi.fn().mockResolvedValue({}),
@@ -94,5 +100,18 @@ describe("TodoSyncService", () => {
 
         // session.todo() is no longer called (sync via file watch instead)
         expect(mockClient.session.todo).not.toHaveBeenCalled();
+    });
+
+    it("should log file handle close failures after reloading todos", async () => {
+        const fileHandle = {
+            readFile: vi.fn().mockResolvedValue("- [ ] Task from file"),
+            close: vi.fn().mockRejectedValue(new Error("close failed")),
+        };
+        vi.mocked(fs.promises.open).mockResolvedValue(fileHandle as unknown as fs.promises.FileHandle);
+
+        await (service as unknown as { reloadFileTodos: () => Promise<void> }).reloadFileTodos();
+
+        expect(fileHandle.close).toHaveBeenCalled();
+        expect(log).toHaveBeenCalledWith(expect.stringContaining("Failed to close todo.md"));
     });
 });

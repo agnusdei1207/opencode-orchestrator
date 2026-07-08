@@ -115,7 +115,11 @@ export class TodoSyncService {
     } finally {
       // GUARANTEED cleanup: Close file handle
       if (fileHandle) {
-        await fileHandle.close().catch(() => {});
+        try {
+          await fileHandle.close();
+        } catch (closeError) {
+          log(`[TodoSync] Failed to close todo.md: ${closeError}`);
+        }
       }
     }
   }

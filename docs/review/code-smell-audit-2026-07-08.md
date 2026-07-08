@@ -96,9 +96,9 @@ This audit records 100 concrete code smells found during the July 8, 2026 refact
 88. `queued` `src/core/cleanup/cleanup-scheduler.ts` - scheduler mixes history rotation, session cleanup, package cleanup, and reporting.
 89. `queued` `src/core/cleanup/cleanup-scheduler.ts` - cleanup scheduler has a TODO for history rotation timing.
 90. `queued` `src/core/cleanup/cleanup-scheduler.ts` - scheduler performs synchronous filesystem work in timer-driven maintenance.
-91. `queued` `src/core/todo/todo-manager.ts` - temporary file suffix uses `Math.random`.
-92. `queued` `src/core/todo/todo-manager.ts` - change-log failures are swallowed.
-93. `queued` `src/core/sync/todo-sync-service.ts` - file-handle close failures are ignored.
+91. `fixed` `src/core/todo/todo-manager.ts` - temporary file suffixes now use `randomUUID`.
+92. `fixed` `src/core/todo/todo-manager.ts` - change-log failures are logged without failing the committed TODO update.
+93. `fixed` `src/core/sync/todo-sync-service.ts` - file-handle close failures are logged during reload cleanup.
 94. `fixed` `src/core/orchestrator/session-manager.ts` - session state normalization now verifies the narrowed shape before returning it.
 95. `fixed` `src/core/loop/mission-ledger.ts` - ledger JSON lines are cast to events with minimal validation.
 96. `fixed` `src/core/loop/mission-loop.ts` - persisted loop state is parsed from JSON without schema validation.

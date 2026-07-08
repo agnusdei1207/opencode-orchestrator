@@ -4,6 +4,7 @@
 
 import * as fs from "node:fs";
 import * as path from "node:path";
+import { randomUUID } from "node:crypto";
 import { PATHS, TODO_CONSTANTS } from "../../shared/index.js";
 import { log } from "../agents/logger.js";
 
@@ -136,7 +137,7 @@ export class TodoManager {
                 }
 
                 const newVersion = current.version.version + 1;
-                const tmpSuffix = `${Date.now()}.${Math.random().toString(36).slice(2)}`;
+                const tmpSuffix = `${Date.now()}.${randomUUID()}`;
                 tmpPath = `${this.todoPath}.tmp.${tmpSuffix}`;
                 versionTmpPath = `${this.versionPath}.tmp.${tmpSuffix}`;
 
@@ -156,7 +157,7 @@ export class TodoManager {
                 await fs.promises.rename(versionTmpPath, this.versionPath);
                 versionTmpPath = undefined;
 
-                this.logChange(newVersion, newContent, author).catch(() => { });
+                await this.recordChange(newVersion, newContent, author);
 
                 log(`[TodoManager] Updated TODO to v${newVersion} by ${author}`);
                 return { success: true, currentVersion: newVersion };
@@ -236,7 +237,15 @@ export class TodoManager {
         return false;
     }
 
-    // History logging disabled to reduce I/O
+    private async recordChange(version: number, content: string, author: string): Promise<void> {
+        try {
+            await this.logChange(version, content, author);
+        } catch (error) {
+            log(`[TodoManager] Failed to log TODO change v${version}: ${error}`);
+        }
+    }
+
+    // History logging disabled to reduce I/O.
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     private async logChange(_version: number, _content: string, _author: string) {
         // No-op: History logging disabled for performance

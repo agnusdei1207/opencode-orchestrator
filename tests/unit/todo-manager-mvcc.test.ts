@@ -2,16 +2,20 @@
  * TodoManager MVCC Tests
  */
 
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import * as os from "node:os";
+import { log } from "../../src/core/agents/logger";
 import { TodoManager } from "../../src/core/todo/todo-manager";
+
+vi.mock("../../src/core/agents/logger", () => ({ log: vi.fn() }));
 
 describe("TodoManager (MVCC)", () => {
     let testDir: string;
 
     beforeEach(() => {
+        vi.clearAllMocks();
         testDir = fs.mkdtempSync(path.join(os.tmpdir(), "todo-test-"));
         // Create initial todo file
         fs.mkdirSync(path.join(testDir, ".opencode"), { recursive: true });
@@ -146,5 +150,27 @@ describe("TodoManager (MVCC)", () => {
         expect(data.version.version).toBe(0);
         const opencodeEntries = fs.readdirSync(path.join(testDir, ".opencode"));
         expect(opencodeEntries.filter(entry => entry.includes(".tmp."))).toEqual([]);
+    });
+
+    it("should keep updates successful and log when change history logging fails", async () => {
+        const manager = TodoManager.getInstance(testDir);
+        const internal = manager as unknown as {
+            logChange: (version: number, content: string, author: string) => Promise<void>;
+        };
+        const originalLogChange = internal.logChange;
+        internal.logChange = async () => {
+            throw new Error("archive unavailable");
+        };
+
+        try {
+            const result = await manager.update(0, content => `${content}\n- [ ] Still saved`, "agent-1");
+
+            expect(result).toEqual({ success: true, currentVersion: 1 });
+            expect(log).toHaveBeenCalledWith(expect.stringContaining("Failed to log TODO change v1"));
+            const data = await manager.readWithVersion();
+            expect(data.content).toContain("Still saved");
+        } finally {
+            internal.logChange = originalLogChange;
+        }
     });
 });
