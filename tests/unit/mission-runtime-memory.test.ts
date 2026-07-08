@@ -125,4 +125,38 @@ describe("mission runtime memory", () => {
             "continuation_scheduled",
         ]);
     });
+
+    it("skips JSON ledger lines with invalid event shapes", () => {
+        const first = appendMissionLedgerEvent(testDir, {
+            type: "mission_started",
+            sessionID,
+            iteration: 1,
+            objective: "Invalid ledger shape tolerance",
+        });
+
+        fs.appendFileSync(
+            getMissionLedgerPath(testDir),
+            [
+                JSON.stringify({ id: "bad-type", type: "unknown", timestamp: "now", sessionID }),
+                JSON.stringify({ id: "bad-iteration", type: "prompt_injected", timestamp: "now", sessionID, iteration: "2" }),
+                JSON.stringify(["not", "an", "event"]),
+                "",
+            ].join("\n"),
+            "utf8",
+        );
+
+        const second = appendMissionLedgerEvent(testDir, {
+            type: "mission_completed",
+            sessionID,
+            iteration: 2,
+            objective: "Invalid ledger shape tolerance",
+        });
+
+        expect(first).not.toBeNull();
+        expect(second).not.toBeNull();
+        expect(readMissionLedger(testDir).map(event => event.type)).toEqual([
+            "mission_started",
+            "mission_completed",
+        ]);
+    });
 });

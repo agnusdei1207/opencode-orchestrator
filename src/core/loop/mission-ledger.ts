@@ -29,6 +29,31 @@ export type MissionLedgerInput = Omit<MissionLedgerEvent, "id" | "timestamp"> & 
 };
 
 const LEDGER_FILE = "mission-ledger.jsonl";
+const LEDGER_EVENT_TYPES = new Set<MissionLedgerEventType>([
+    "mission_started",
+    "verification_failed",
+    "continuation_scheduled",
+    "prompt_injected",
+    "mission_completed",
+    "mission_cancelled",
+    "circuit_open",
+]);
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+    return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function isLedgerEventType(value: unknown): value is MissionLedgerEventType {
+    return typeof value === "string" && LEDGER_EVENT_TYPES.has(value as MissionLedgerEventType);
+}
+
+function isOptionalString(value: unknown): value is string | undefined {
+    return value === undefined || typeof value === "string";
+}
+
+function isOptionalInteger(value: unknown): value is number | undefined {
+    return value === undefined || (typeof value === "number" && Number.isInteger(value));
+}
 
 export function getMissionLedgerPath(directory: string): string {
     return join(directory, PATHS.OPENCODE, LEDGER_FILE);
@@ -79,9 +104,28 @@ export function readMissionLedger(directory: string, limit = 20): MissionLedgerE
 
 function parseLedgerLine(line: string): MissionLedgerEvent | null {
     try {
-        const value = JSON.parse(line) as Partial<MissionLedgerEvent>;
-        if (!value.id || !value.type || !value.timestamp || !value.sessionID) return null;
-        return value as MissionLedgerEvent;
+        const value = JSON.parse(line);
+        if (!isRecord(value)) return null;
+        if (typeof value.id !== "string") return null;
+        if (!isLedgerEventType(value.type)) return null;
+        if (typeof value.timestamp !== "string") return null;
+        if (typeof value.sessionID !== "string") return null;
+        if (!isOptionalInteger(value.iteration)) return null;
+        if (!isOptionalString(value.objective)) return null;
+        if (!isOptionalString(value.summary)) return null;
+        if (!isOptionalString(value.reason)) return null;
+
+        const event: MissionLedgerEvent = {
+            id: value.id,
+            type: value.type,
+            timestamp: value.timestamp,
+            sessionID: value.sessionID,
+        };
+        if (value.iteration !== undefined) event.iteration = value.iteration;
+        if (value.objective !== undefined) event.objective = value.objective;
+        if (value.summary !== undefined) event.summary = value.summary;
+        if (value.reason !== undefined) event.reason = value.reason;
+        return event;
     } catch {
         return null;
     }
