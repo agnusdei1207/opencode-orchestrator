@@ -17,6 +17,7 @@ import { buildAgentTaskCompletionMessage, buildAgentTaskProgressMessage, formatD
 import { getTaskToastManager } from "../../notification/task-toast-manager.js";
 import type { TaskCompletionInfo } from "../../../shared/index.js";
 import * as sessionStore from "../../session/store.js";
+import { finishTaskConcurrency } from "./task-lifecycle.js";
 
 type OpencodeClient = PluginInput["client"];
 
@@ -39,7 +40,7 @@ export class TaskCleaner {
                 task.status = TASK_STATUS.TIMEOUT;
                 task.error = "Task exceeded 30 minute time limit";
                 task.completedAt = new Date();
-                if (task.concurrencyKey) this.concurrency.release(task.concurrencyKey);
+                finishTaskConcurrency(task, this.concurrency, false);
                 this.store.untrackPending(task.parentSessionID, taskId);
 
                 // Show timeout toast

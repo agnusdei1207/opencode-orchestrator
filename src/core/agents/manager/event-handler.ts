@@ -11,6 +11,7 @@ import { log } from "../logger.js";
 import { formatDuration } from "../format.js";
 import { progressNotifier } from "../../progress/progress-notifier.js";
 import type { ParallelTask } from "../../../shared/index.js";
+import { finishTaskConcurrency } from "./task-lifecycle.js";
 
 type OpencodeClient = PluginInput["client"];
 
@@ -80,12 +81,7 @@ export class EventHandler {
         task.status = TASK_STATUS.COMPLETED;
         task.completedAt = new Date();
 
-        // Release concurrency
-        if (task.concurrencyKey) {
-            this.concurrency.release(task.concurrencyKey);
-            this.concurrency.reportResult(task.concurrencyKey, true); // Success
-            task.concurrencyKey = undefined;
-        }
+        finishTaskConcurrency(task, this.concurrency, true);
 
         // Cleanup and notify
         this.store.untrackPending(task.parentSessionID, task.id);
@@ -114,12 +110,7 @@ export class EventHandler {
             task.completedAt = new Date();
         }
 
-        // Release concurrency
-        if (task.concurrencyKey) {
-            this.concurrency.release(task.concurrencyKey);
-            this.concurrency.reportResult(task.concurrencyKey, false); // Failure
-            task.concurrencyKey = undefined;
-        }
+        finishTaskConcurrency(task, this.concurrency, false);
 
         // Cleanup tracking
         this.store.untrackPending(task.parentSessionID, task.id);

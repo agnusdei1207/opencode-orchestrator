@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { TaskCleaner } from "../../src/core/agents/manager/task-cleaner";
 import { TaskStore } from "../../src/core/agents/task-store";
 import { ConcurrencyController } from "../../src/core/agents/concurrency";
+import { CONFIG } from "../../src/core/agents/config";
 import { TASK_STATUS, type ParallelTask } from "../../src/shared";
 
 const toastMocks = vi.hoisted(() => ({
@@ -16,15 +17,17 @@ vi.mock("../../src/core/notification/task-toast-manager.js", () => ({
 describe("TaskCleaner", () => {
     let store: TaskStore;
     let prompt: ReturnType<typeof vi.fn>;
+    let concurrency: ConcurrencyController;
     let cleaner: TaskCleaner;
 
     beforeEach(() => {
         store = new TaskStore();
         prompt = vi.fn().mockResolvedValue({ data: {} });
+        concurrency = new ConcurrencyController();
         cleaner = new TaskCleaner(
             { session: { prompt } } as unknown as ConstructorParameters<typeof TaskCleaner>[0],
             store,
-            new ConcurrencyController(),
+            concurrency,
             { release: vi.fn().mockResolvedValue(undefined) } as unknown as ConstructorParameters<typeof TaskCleaner>[3],
         );
         vi.clearAllMocks();
@@ -77,6 +80,26 @@ describe("TaskCleaner", () => {
                 }],
             },
         });
+    });
+
+    it("reports timed-out running tasks as failed and clears their concurrency slot", async () => {
+        await concurrency.acquire("builder");
+        const reportResult = vi.spyOn(concurrency, "reportResult");
+        const task = createTask({
+            status: TASK_STATUS.RUNNING,
+            startedAt: new Date(Date.now() - CONFIG.TASK_TTL_MS - 1),
+            concurrencyKey: "builder",
+        });
+        store.set(task.id, task);
+        store.trackPending(task.parentSessionID, task.id);
+
+        cleaner.pruneExpiredTasks();
+
+        expect(concurrency.getActiveCount("builder")).toBe(0);
+        expect(task.concurrencyKey).toBeUndefined();
+        expect(reportResult).toHaveBeenCalledWith("builder", false);
+        expect(store.get(task.id)).toBeUndefined();
+        expect(store.hasPending(task.parentSessionID)).toBe(false);
     });
 });
 

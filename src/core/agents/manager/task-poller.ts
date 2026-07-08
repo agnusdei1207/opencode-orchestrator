@@ -12,6 +12,7 @@ import { presets } from "../../notification/toast.js";
 import { TASK_STATUS, PART_TYPES, MESSAGE_ROLES, SESSION_STATUS } from "../../../shared/index.js";
 import type { ParallelTask } from "../../../shared/index.js";
 import { progressNotifier } from "../../progress/progress-notifier.js";
+import { finishTaskConcurrency } from "./task-lifecycle.js";
 
 type OpencodeClient = PluginInput["client"];
 
@@ -150,11 +151,7 @@ export class TaskPoller {
         task.status = TASK_STATUS.COMPLETED;
         task.completedAt = new Date();
 
-        if (task.concurrencyKey) {
-            this.concurrency.release(task.concurrencyKey);
-            this.concurrency.reportResult(task.concurrencyKey, true); // Report success
-            task.concurrencyKey = undefined;
-        }
+        finishTaskConcurrency(task, this.concurrency, true);
 
         this.store.untrackPending(task.parentSessionID, task.id);
         this.store.queueNotification(task);

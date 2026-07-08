@@ -38,6 +38,7 @@ import { CORE_PHILOSOPHY } from "../../agents/prompts/shared/philosophy.js";
 import { AgentRegistry } from "./agent-registry.js";
 import { TodoManager } from "../todo/todo-manager.js";
 import type { ConcurrencyConfig } from "./concurrency.js";
+import { finishTaskConcurrency } from "./manager/task-lifecycle.js";
 
 // Re-export
 export type { ParallelTask };
@@ -194,7 +195,7 @@ export class ParallelAgentManager {
         task.error = "Cancelled by user";
         task.completedAt = new Date();
 
-        if (task.concurrencyKey) this.concurrency.release(task.concurrencyKey);
+        finishTaskConcurrency(task, this.concurrency, false);
         this.store.untrackPending(task.parentSessionID, taskId);
 
         await this.sessionPool.invalidate(task.sessionID);
@@ -290,10 +291,7 @@ export class ParallelAgentManager {
         task.error = error instanceof Error ? error.message : String(error);
         task.completedAt = new Date();
 
-        if (task.concurrencyKey) {
-            this.concurrency.release(task.concurrencyKey);
-            this.concurrency.reportResult(task.concurrencyKey, false);
-        }
+        finishTaskConcurrency(task, this.concurrency, false);
         this.store.untrackPending(task.parentSessionID, taskId);
         this.cleaner.notifyParentIfAllComplete(task.parentSessionID);
         this.cleaner.scheduleCleanup(taskId);
