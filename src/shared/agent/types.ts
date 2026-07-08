@@ -24,6 +24,7 @@ export interface ConcurrencyConfig {
     circuitRecoveryTimeoutMs?: number;
     halfOpenSuccessThreshold?: number;
     resourcePressureMaxHeapPercent?: number;
+    workStealingWorkers?: Record<string, number>;
     agentConcurrency?: Record<string, number>;
     providerConcurrency?: Record<string, number>;
     modelConcurrency?: Record<string, number>;

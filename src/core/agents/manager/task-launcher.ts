@@ -33,7 +33,7 @@ export class TaskLauncher {
     private store: TaskStore,
     private concurrency: ConcurrencyController,
     private sessionPool: SessionPool,
-    private onTaskError: (taskId: string, error: unknown) => void,
+    private onTaskError: (taskId: string, error: unknown) => void | Promise<void>,
     private startPolling: () => void,
   ) { }
 
@@ -64,8 +64,12 @@ export class TaskLauncher {
 
     // Start background execution for each task
     successfulTasks.forEach((task) => {
-      this.executeBackground(task).catch((error) => {
-        this.onTaskError(task.id, error);
+      this.executeBackground(task).catch(async (error) => {
+        try {
+          await this.onTaskError(task.id, error);
+        } catch (handlerError) {
+          log(`[TaskLauncher] Task error handler failed for ${task.id}: ${handlerError}`);
+        }
       });
     });
 

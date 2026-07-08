@@ -19,6 +19,19 @@ function readLimitMap(value: unknown): Record<string, number> | undefined {
     return Object.keys(result).length > 0 ? result : undefined;
 }
 
+function readPositiveIntegerMap(value: unknown): Record<string, number> | undefined {
+    if (!isRecord(value)) return undefined;
+
+    const result: Record<string, number> = {};
+    for (const [key, count] of Object.entries(value)) {
+        if (isPositiveInteger(count)) {
+            result[key] = count;
+        }
+    }
+
+    return Object.keys(result).length > 0 ? result : undefined;
+}
+
 function isValidLimit(value: unknown): value is number {
     return typeof value === "number" &&
         Number.isInteger(value) &&
@@ -69,6 +82,9 @@ export function extractConcurrencyConfig(source: unknown): ConcurrencyConfig {
 
     const modelConcurrency = readLimitMap(source.modelConcurrency);
     if (modelConcurrency) config.modelConcurrency = modelConcurrency;
+
+    const workStealingWorkers = readPositiveIntegerMap(source.workStealingWorkers);
+    if (workStealingWorkers) config.workStealingWorkers = workStealingWorkers;
 
     return config;
 }

@@ -92,6 +92,16 @@ function normalizeLimitMap(name: string, limits?: Record<string, number>): Recor
     return normalized;
 }
 
+function normalizePositiveIntegerMap(name: string, counts?: Record<string, number>): Record<string, number> | undefined {
+    if (!counts) return undefined;
+
+    const normalized: Record<string, number> = {};
+    for (const [key, count] of Object.entries(counts)) {
+        normalized[key] = assertPositiveInteger(`${name}.${key}`, count);
+    }
+    return normalized;
+}
+
 function normalizeConfig(config: ConcurrencyConfig = {}): ConcurrencyConfig {
     return {
         defaultConcurrency: config.defaultConcurrency === undefined
@@ -112,6 +122,7 @@ function normalizeConfig(config: ConcurrencyConfig = {}): ConcurrencyConfig {
         resourcePressureMaxHeapPercent: config.resourcePressureMaxHeapPercent === undefined
             ? undefined
             : assertPercentage("resourcePressureMaxHeapPercent", config.resourcePressureMaxHeapPercent),
+        workStealingWorkers: normalizePositiveIntegerMap("workStealingWorkers", config.workStealingWorkers),
         agentConcurrency: normalizeLimitMap("agentConcurrency", config.agentConcurrency),
         providerConcurrency: normalizeLimitMap("providerConcurrency", config.providerConcurrency),
         modelConcurrency: normalizeLimitMap("modelConcurrency", config.modelConcurrency),

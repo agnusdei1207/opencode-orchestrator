@@ -29,7 +29,7 @@ import { TaskStore } from "../../src/core/agents/task-store";
 import { ConcurrencyController } from "../../src/core/agents/concurrency";
 import { EventHandler } from "../../src/core/agents/manager/event-handler";
 import { TaskPoller } from "../../src/core/agents/manager/task-poller";
-import { buildUnitReviewPrompt } from "../../src/core/agents/manager";
+import { buildUnitReviewPrompt, resolveWorkStealingWorkers } from "../../src/core/agents/manager";
 import { TASK_STATUS, type ParallelTask } from "../../src/shared";
 
 // Create mock task for testing
@@ -74,6 +74,23 @@ describe("ParallelAgentManager Features", () => {
             );
             expect(prompt).not.toContain("Review completed task");
             expect(prompt).not.toContain("Return findings only.");
+        });
+    });
+
+    describe("work stealing config", () => {
+        it("resolves default worker counts with config overrides", () => {
+            expect(resolveWorkStealingWorkers({
+                workStealingWorkers: {
+                    Worker: 12,
+                    custom: 3,
+                },
+            })).toMatchObject({
+                Commander: 1,
+                Planner: 2,
+                Worker: 12,
+                Reviewer: 4,
+                custom: 3,
+            });
         });
     });
 

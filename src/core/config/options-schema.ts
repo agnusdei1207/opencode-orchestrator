@@ -28,6 +28,7 @@ export const MissionLoopOptionsSchema = z
     .catch({ ...D });
 
 const ConcurrencyMap = z.record(z.string(), z.number().int().positive());
+const WorkerCountMap = z.record(z.string(), z.number().int().positive());
 
 /** Full plugin-tuple options object — used to generate the public JSON Schema. */
 export const OrchestratorOptionsSchema = z
@@ -41,6 +42,7 @@ export const OrchestratorOptionsSchema = z
         circuitRecoveryTimeoutMs: z.number().int().positive().optional(),
         halfOpenSuccessThreshold: z.number().int().positive().optional(),
         resourcePressureMaxHeapPercent: z.number().positive().max(100).optional(),
+        workStealingWorkers: WorkerCountMap.optional(),
         missionLoop: MissionLoopOptionsSchema.optional(),
     })
     .passthrough();

@@ -181,4 +181,25 @@ describe("TaskLauncher", () => {
         expect(running.length).toBeLessThanOrEqual(2);
         expect(tasks).toHaveLength(2);
     });
+
+    it("should await async task error handlers from background execution", async () => {
+        const events: string[] = [];
+        mockClient.session.prompt.mockRejectedValueOnce(new Error("session expired"));
+        onTaskError = vi.fn(async () => {
+            await new Promise(resolve => setTimeout(resolve, 5));
+            events.push("handled");
+        });
+        launcher = new TaskLauncher(mockClient, store, concurrency, sessionPool, onTaskError, startPolling);
+
+        await launcher.launch({
+            description: "Failing task",
+            prompt: "Prompt",
+            agent: "builder",
+            parentSessionID: "parent-123",
+        });
+
+        await vi.waitFor(() => {
+            expect(events).toEqual(["handled"]);
+        });
+    });
 });

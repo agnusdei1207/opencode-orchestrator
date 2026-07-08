@@ -73,9 +73,9 @@ This audit records 100 concrete code smells found during the July 8, 2026 refact
 65. `queued` `src/core/agents/manager.ts` - `getResult` mixes remote fetch, message parsing, and result-cache mutation.
 66. `queued` `src/core/agents/manager.ts` - constructor initializes memory, registry, todo manager, session pool, launcher, resumer, poller, cleaner, and event handler.
 67. `queued` `src/core/agents/manager.ts` - static singleton hides lifecycle ownership.
-68. `queued` `src/core/agents/manager.ts` - built-in work-stealing limits are hardcoded in the constructor.
-69. `queued` `src/core/agents/manager.ts` - task-error handling calls parent completion notification without awaiting it.
-70. `queued` `src/core/agents/manager.ts` - `formatDuration` is exposed as an instance field instead of a simple export-only utility.
+68. `fixed` `src/core/agents/manager.ts` - work-stealing worker counts are resolved from defaults plus `ConcurrencyConfig` overrides.
+69. `fixed` `src/core/agents/manager.ts` - task-error handling now awaits parent completion notification.
+70. `fixed` `src/core/agents/manager.ts` - `formatDuration` remains an export-only utility instead of an instance field.
 71. `queued` `src/core/agents/manager/task-launcher.ts` - task preparation maps failures to `null`, hiding why a launch failed.
 72. `queued` `src/core/agents/manager/task-launcher.ts` - retry sleeps cannot be aborted during shutdown.
 73. `queued` `src/core/agents/manager/task-launcher.ts` - prompt timeout does not cancel the underlying prompt request.

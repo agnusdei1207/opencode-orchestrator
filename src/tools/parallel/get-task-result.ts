@@ -4,6 +4,7 @@
 
 import { tool, type ToolDefinition } from "@opencode-ai/plugin";
 import { ParallelAgentManager } from "../../core/agents/index.js";
+import { formatDuration } from "../../core/agents/format.js";
 import { STATUS_LABEL, OUTPUT_LABEL, PARALLEL_PARAMS } from "../../shared/index.js";
 
 export const createGetTaskResultTool = (manager: ParallelAgentManager): ToolDefinition => tool({
@@ -18,7 +19,7 @@ export const createGetTaskResultTool = (manager: ParallelAgentManager): ToolDefi
         if (task.status === STATUS_LABEL.RUNNING) return `${OUTPUT_LABEL.RUNNING} Still working...`;
 
         const result = await manager.getResult(taskId);
-        const duration = manager.formatDuration(task.startedAt, task.completedAt);
+        const duration = formatDuration(task.startedAt, task.completedAt);
 
         if (task.status === STATUS_LABEL.ERROR || task.status === STATUS_LABEL.TIMEOUT) {
             return `[${task.status.toUpperCase()}] ${task.error}`;

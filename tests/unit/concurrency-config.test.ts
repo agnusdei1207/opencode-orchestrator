@@ -13,6 +13,10 @@ describe("concurrency config helpers", () => {
             circuitRecoveryTimeoutMs: 20_000,
             halfOpenSuccessThreshold: 3,
             resourcePressureMaxHeapPercent: 75,
+            workStealingWorkers: {
+                worker: 6,
+                invalid: 0,
+            },
             agentConcurrency: {
                 commander: 1,
                 worker: 10,
@@ -34,6 +38,9 @@ describe("concurrency config helpers", () => {
             circuitRecoveryTimeoutMs: 20_000,
             halfOpenSuccessThreshold: 3,
             resourcePressureMaxHeapPercent: 75,
+            workStealingWorkers: {
+                worker: 6,
+            },
             agentConcurrency: {
                 commander: 1,
                 worker: 10,

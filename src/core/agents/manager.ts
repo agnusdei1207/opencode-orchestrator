@@ -46,6 +46,19 @@ export { formatDuration };
 
 type OpencodeClient = PluginInput["client"];
 const UNIT_REVIEW_DESCRIPTION_LIMIT = 240;
+const DEFAULT_WORK_STEALING_WORKERS: Record<string, number> = {
+    [AGENT_NAMES.PLANNER]: 2,
+    [AGENT_NAMES.WORKER]: 8,
+    [AGENT_NAMES.REVIEWER]: 4,
+    [AGENT_NAMES.COMMANDER]: 1,
+};
+
+export function resolveWorkStealingWorkers(config?: ConcurrencyConfig): Record<string, number> {
+    return {
+        ...DEFAULT_WORK_STEALING_WORKERS,
+        ...config?.workStealingWorkers,
+    };
+}
 
 export class ParallelAgentManager {
     private static _instance: ParallelAgentManager;
@@ -82,11 +95,7 @@ export class ParallelAgentManager {
         // Initialize SessionPool
         this.sessionPool = SessionPool.getInstance(client, directory);
 
-        // Enable work-stealing for all agent types (Phase 3-B)
-        this.concurrency.enableWorkStealing(AGENT_NAMES.PLANNER, 2);  // 2 workers for planning
-        this.concurrency.enableWorkStealing(AGENT_NAMES.WORKER, 8);   // 8 workers for parallel execution
-        this.concurrency.enableWorkStealing(AGENT_NAMES.REVIEWER, 4); // 4 workers for reviews
-        this.concurrency.enableWorkStealing(AGENT_NAMES.COMMANDER, 1); // 1 worker for command
+        this.configureWorkStealing(concurrencyConfig);
 
         // Initialize cleaner first (needed by others)
         this.cleaner = new TaskCleaner(client, this.store, this.concurrency, this.sessionPool);
@@ -238,6 +247,7 @@ export class ParallelAgentManager {
 
     configureConcurrency(config: ConcurrencyConfig): void {
         this.concurrency.configure(config);
+        this.configureWorkStealing(config);
     }
 
     getPendingCount(parentSessionID: string): number {
@@ -268,8 +278,6 @@ export class ParallelAgentManager {
         await this.sessionPool.shutdown();
     }
 
-    formatDuration = formatDuration;
-
     // ========================================================================
     // Event Handling
     // ========================================================================
@@ -286,7 +294,13 @@ export class ParallelAgentManager {
         return this.store.getAll().find(t => t.sessionID === sessionID);
     }
 
-    private handleTaskError(taskId: string, error: unknown): void {
+    private configureWorkStealing(config?: ConcurrencyConfig): void {
+        for (const [agentName, workerCount] of Object.entries(resolveWorkStealingWorkers(config))) {
+            this.concurrency.enableWorkStealing(agentName, workerCount);
+        }
+    }
+
+    private async handleTaskError(taskId: string, error: unknown): Promise<void> {
         const task = this.store.get(taskId);
         if (!task) return;
 
@@ -296,7 +310,7 @@ export class ParallelAgentManager {
 
         finishTaskConcurrency(task, this.concurrency, false);
         this.store.untrackPending(task.parentSessionID, taskId);
-        this.cleaner.notifyParentIfAllComplete(task.parentSessionID);
+        await this.cleaner.notifyParentIfAllComplete(task.parentSessionID);
         this.cleaner.scheduleCleanup(taskId);
 
         progressNotifier.update();
