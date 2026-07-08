@@ -21,7 +21,6 @@ import type { ErrorContext } from "../../recovery/auto-recovery.js";
 import { log } from "../logger.js";
 import { taskPool } from "../../pool/task-pool.js";
 import { buildRoutedAgentPrompt } from "./prompt-routing.js";
-import { withTimeout } from "../../queue/async-utils.js";
 
 type OpencodeClient = PluginInput["client"];
 export type LaunchResult = ParallelTask | ParallelTask[] | null;
@@ -176,6 +175,8 @@ export class TaskLauncher {
           // 2. Fire prompt with timeout
           const routedPrompt = await buildRoutedAgentPrompt(task.agent, task.prompt);
 
+          const promptAbort = new AbortController();
+          const unlinkShutdown = linkAbortSignal(this.shutdownController.signal, promptAbort);
           const promptPromise = this.client.session.prompt({
             path: { id: task.sessionID },
             body: {
@@ -183,13 +184,19 @@ export class TaskLauncher {
               tools: routedPrompt.tools,
               parts: [{ type: PART_TYPES.TEXT, text: routedPrompt.text }],
             },
+            signal: promptAbort.signal,
           });
 
-          await withTimeout(
-            promptPromise,
-            600_000,
-            "Session prompt execution timed out after 600s",
-          );
+          try {
+            await withAbortableTimeout(
+              promptPromise,
+              600_000,
+              "Session prompt execution timed out after 600s",
+              promptAbort,
+            );
+          } finally {
+            unlinkShutdown();
+          }
 
           // Success! Exit loop
           return;
@@ -251,4 +258,39 @@ function sleep(ms: number, abort: AbortSignal): Promise<void> {
 
     abort.addEventListener("abort", onAbort, { once: true });
   });
+}
+
+async function withAbortableTimeout<T>(
+  promise: Promise<T>,
+  timeoutMs: number,
+  errorMessage: string,
+  abort: AbortController,
+): Promise<T> {
+  let timeoutId: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<never>((_, reject) => {
+    timeoutId = setTimeout(() => {
+      abort.abort();
+      reject(new Error(errorMessage));
+    }, timeoutMs);
+    timeoutId.unref?.();
+  });
+
+  try {
+    return await Promise.race([promise, timeout]);
+  } finally {
+    if (timeoutId) {
+      clearTimeout(timeoutId);
+    }
+  }
+}
+
+function linkAbortSignal(source: AbortSignal, target: AbortController): () => void {
+  if (source.aborted) {
+    target.abort();
+    return () => { };
+  }
+
+  const onAbort = () => target.abort();
+  source.addEventListener("abort", onAbort, { once: true });
+  return () => source.removeEventListener("abort", onAbort);
 }

@@ -238,4 +238,34 @@ describe("TaskLauncher", () => {
         });
         expect(mockClient.session.prompt).toHaveBeenCalledTimes(1);
     });
+
+    it("aborts the session prompt when the prompt timeout expires", async () => {
+        vi.useFakeTimers();
+        let promptSignal: AbortSignal | undefined;
+        mockClient.session.prompt.mockImplementation(({ signal }) => {
+            promptSignal = signal;
+            return new Promise(() => { });
+        });
+        launcher = new TaskLauncher(mockClient, store, concurrency, sessionPool, onTaskError, startPolling);
+
+        await launcher.launch({
+            description: "Timeout task",
+            prompt: "Prompt",
+            agent: "builder",
+            parentSessionID: "parent-123",
+        });
+
+        await vi.advanceTimersByTimeAsync(10);
+        expect(promptSignal?.aborted).toBe(false);
+
+        await vi.advanceTimersByTimeAsync(600_000);
+        expect(promptSignal?.aborted).toBe(true);
+
+        launcher.shutdown();
+        await vi.advanceTimersByTimeAsync(0);
+
+        await vi.waitFor(() => {
+            expect(onTaskError).toHaveBeenCalledTimes(1);
+        });
+    });
 });
