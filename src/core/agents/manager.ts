@@ -25,7 +25,7 @@ import { log } from "./logger.js";
 import { formatDuration } from "./format.js";
 
 // Import components
-import { TaskLauncher } from "./manager/task-launcher.js";
+import { TaskLauncher, type LaunchResult } from "./manager/task-launcher.js";
 import { TaskResumer } from "./manager/task-resumer.js";
 import { TaskPoller } from "./manager/task-poller.js";
 import { TaskCleaner } from "./manager/task-cleaner.js";
@@ -160,7 +160,7 @@ export class ParallelAgentManager {
     // Public API
     // ========================================================================
 
-    async launch(inputs: LaunchInput | LaunchInput[]): Promise<ParallelTask | ParallelTask[]> {
+    async launch(inputs: LaunchInput | LaunchInput[]): Promise<LaunchResult> {
         this.cleaner.pruneExpiredTasks();
         const result = await this.launcher.launch(inputs);
         progressNotifier.update();

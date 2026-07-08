@@ -24,6 +24,7 @@ import { buildRoutedAgentPrompt } from "./prompt-routing.js";
 import { withTimeout } from "../../queue/async-utils.js";
 
 type OpencodeClient = PluginInput["client"];
+export type LaunchResult = ParallelTask | ParallelTask[] | null;
 
 export class TaskLauncher {
 
@@ -43,7 +44,7 @@ export class TaskLauncher {
    */
   async launch(
     inputs: LaunchInput | LaunchInput[],
-  ): Promise<ParallelTask | ParallelTask[]> {
+  ): Promise<LaunchResult> {
     const isArray = Array.isArray(inputs);
     const taskInputs = isArray ? inputs : [inputs];
 

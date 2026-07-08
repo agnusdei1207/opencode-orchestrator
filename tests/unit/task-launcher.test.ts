@@ -86,6 +86,21 @@ describe("TaskLauncher", () => {
         expect(startPolling).toHaveBeenCalled();
     });
 
+    it("should return null for a single launch when task preparation fails", async () => {
+        sessionPool.acquire.mockRejectedValueOnce(new Error("session unavailable"));
+
+        const result = await launcher.launch({
+            description: "Test task",
+            prompt: "Test prompt",
+            agent: "builder",
+            parentSessionID: "parent-123",
+        });
+
+        expect(result).toBeNull();
+        expect(startPolling).not.toHaveBeenCalled();
+        expect(store.getAll()).toEqual([]);
+    });
+
     it("should execute tasks background and transition to RUNNING", async () => {
         const input = {
             description: "Background task",
