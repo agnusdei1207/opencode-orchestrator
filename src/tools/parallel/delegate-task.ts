@@ -441,19 +441,15 @@ If your task is too complex, please:
 3. Complete your assigned file directly without delegation`;
 }
 
-async function resumeDelegateTask(runtime: DelegateTaskRuntime): Promise<string> {
+async function resumeDelegateTask(runtime: DelegateTaskRuntime, resumeSessionId: string): Promise<string> {
     const { manager, session, ctx, args, abort } = runtime;
 
     try {
         const task = await manager.resume({
-            sessionId: args.resume as string,
+            sessionId: resumeSessionId,
             prompt: args.prompt,
             parentSessionID: ctx.sessionID,
         });
-
-        if (!task) {
-            return `Failed to resume task: ${args.description}`;
-        }
 
         if (args.background === true) {
             return formatBackgroundResume(task);
@@ -631,7 +627,7 @@ export const createDelegateTaskTool = (manager: ParallelAgentManager, client: un
         };
 
         if (taskArgs.resume) {
-            return resumeDelegateTask(runtime);
+            return resumeDelegateTask(runtime, taskArgs.resume);
         }
 
         if (taskArgs.background === true) {

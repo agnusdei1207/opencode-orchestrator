@@ -36,7 +36,7 @@ interface ManagerOptions {
     tasks?: ParallelTask[];
     launchResult?: ParallelTask | ParallelTask[] | null;
     launchError?: Error;
-    resumeResult?: ParallelTask | null;
+    resumeResult?: ParallelTask;
     resumeError?: Error;
 }
 
@@ -70,7 +70,7 @@ function createManager(options: ManagerOptions = {}) {
 
     if (options.resumeError) {
         resume.mockRejectedValue(options.resumeError);
-    } else if ("resumeResult" in options) {
+    } else if (options.resumeResult) {
         resume.mockResolvedValue(options.resumeResult);
     } else {
         resume.mockResolvedValue(makeTask());
@@ -315,8 +315,8 @@ describe("createDelegateTaskTool", () => {
         expect(manager.launch).not.toHaveBeenCalled();
     });
 
-    it("reports a missing resumed task without launching a replacement", async () => {
-        const manager = createManager({ resumeResult: null });
+    it("reports a missing resumed task error without launching a replacement", async () => {
+        const manager = createManager({ resumeError: new Error("Task not found for session: session-missing") });
         const delegateTask = createTool(manager);
 
         const result = await delegateTask.execute(
@@ -330,7 +330,7 @@ describe("createDelegateTaskTool", () => {
             { sessionID: "parent-session" },
         );
 
-        expect(result).toBe("Failed to resume task: Missing resume task");
+        expect(result).toBe("[ERROR] Resume failed: Task not found for session: session-missing");
         expect(manager.launch).not.toHaveBeenCalled();
     });
 
