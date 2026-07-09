@@ -61,7 +61,7 @@ function removeFromConfig(configDir: string): { success: boolean; backupFile: st
 
     const parsed = parseConfigContent(trimmedContent);
     if (parsed.parseError) {
-      backupFile = createBackup(configFile);
+      backupFile = createBackup(configFile, log);
       log("Failed to parse config, skipping", { error: parsed.parseError, configFile, backupFile });
       console.log(`⚠️  Corrupted config detected. Skipping cleanup for ${configFile}.`);
       if (backupFile) {
