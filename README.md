@@ -44,8 +44,8 @@ Manual fallback: remove `"opencode-orchestrator"` or `["opencode-orchestrator", 
 Tested compatibility:
 
 1. Node.js `24+`
-2. `@opencode-ai/plugin` `1.17.9`
-3. `@opencode-ai/sdk` `1.17.9`
+2. `@opencode-ai/plugin` `1.17.12`
+3. `@opencode-ai/sdk` `1.17.12`
 
 OpenCode plugin options belong inside the `plugin` array as `["plugin-name", {...}]` tuples. Configure `agentConcurrency` and `missionLoop` there:
 

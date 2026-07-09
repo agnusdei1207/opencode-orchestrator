@@ -11,7 +11,7 @@
  *   7. Written JSON is valid after removal
  */
 
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import * as fs from "fs";
 import * as path from "path";
 import * as os from "os";
@@ -42,7 +42,7 @@ function isOurPluginEntry(value: unknown): boolean {
 
 // ---------------------------------------------------------------------------
 // Minimal re-implementation of removeFromConfig for isolated testing.
-// This mirrors the exact logic in scripts/preuninstall.ts.
+// Keep this in sync with scripts/preuninstall.ts backup timing and no-op paths.
 // ---------------------------------------------------------------------------
 
 function removeFromConfig(configDir: string): {
@@ -57,33 +57,35 @@ function removeFromConfig(configDir: string): {
         return { success: false, message: "no config file", backupFile: null };
     }
 
-    // Backup before any modifications
-    const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
-    backupFile = `${configFile}.backup.${timestamp}`;
-    fs.copyFileSync(configFile, backupFile);
-
     const content = fs.readFileSync(configFile, "utf-8").trim();
     if (!content) {
-        return { success: false, message: "empty config", backupFile };
+        return { success: false, message: "empty config", backupFile: null };
     }
 
     let config: Record<string, any>;
     try {
         config = JSON.parse(content);
     } catch {
+        const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+        backupFile = `${configFile}.backup.${timestamp}`;
+        fs.copyFileSync(configFile, backupFile);
         return { success: false, message: "corrupt JSON, skipped", backupFile };
     }
 
     if (!config.plugin || !Array.isArray(config.plugin)) {
-        return { success: false, message: "no plugin array", backupFile };
+        return { success: false, message: "no plugin array", backupFile: null };
     }
 
     const originalLength = config.plugin.length;
     config.plugin = config.plugin.filter((entry: unknown) => !isOurPluginEntry(entry));
 
     if (config.plugin.length === originalLength) {
-        return { success: false, message: "plugin not found", backupFile };
+        return { success: false, message: "plugin not found", backupFile: null };
     }
+
+    const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+    backupFile = `${configFile}.backup.${timestamp}`;
+    fs.copyFileSync(configFile, backupFile);
 
     // Atomic write
     const tempFile = `${configFile}.tmp.${Date.now()}`;
@@ -155,12 +157,12 @@ describe("preuninstall — safe removal policy", () => {
         const configFile = path.join(configDir, "opencode.json");
 
         fs.writeFileSync(configFile, JSON.stringify({ plugin: ["other-plugin"] }));
-        const mtimeBefore = fs.statSync(configFile).mtimeMs;
 
         const result = removeFromConfig(configDir);
 
         expect(result.success).toBe(false);
         expect(result.message).toContain("plugin not found");
+        expect(result.backupFile).toBeNull();
     });
 
     // ── Scenario 4: Corrupted JSON → backup + file UNCHANGED ───────────────
@@ -198,6 +200,7 @@ describe("preuninstall — safe removal policy", () => {
 
         expect(result.success).toBe(false);
         expect(result.message).toContain("plugin not found");
+        expect(result.backupFile).toBeNull();
     });
 
     // ── Scenario 6: Multiple instances of plugin → all removed ────────────
@@ -286,5 +289,6 @@ describe("preuninstall — safe removal policy", () => {
 
         expect(result.success).toBe(false);
         expect(result.message).toContain("no plugin array");
+        expect(result.backupFile).toBeNull();
     });
 });
