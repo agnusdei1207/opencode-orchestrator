@@ -2,105 +2,74 @@
 
 ## Current Task
 
-Completed a repository-wide unnecessary-complexity/plumbing survey without code refactoring. This pass gathered metrics, opened the top runtime candidates, traced tests and wiring, and verified the current repository state.
+Completed a focused plumbing/code cleanup and patch release for the uninstall/config path, then pushed `v1.7.7` to `main`.
 
 ## Last Completed Step
 
-Completed survey, validation, and memory update.
+Validated, versioned, tagged, and pushed the release candidate.
 
-- Read `AGENT_MEMORY.md`, `AGENTS.md`, `package.json`, `tsconfig.json`, and `Cargo.toml`.
-- Confirmed the worktree started clean and `main` matched `origin/main`.
-- Listed tracked files and counted active implementation/test/script/crate files:
-  - `src`: 286 files,
-  - `tests`: 104 files,
-  - `scripts`: 11 files,
-  - `crates`: 22 files.
-- Ran a TypeScript AST metric pass over `src/**/*.ts`, `tests/**/*.ts`, and TS scripts:
-  - 285 TypeScript source files,
-  - 104 TypeScript test files,
-  - 2,986 functions measured,
-  - 35 functions with cyclomatic complexity above 10,
-  - 206 functions longer than 40 lines,
-  - 4 functions with more than 4 parameters,
-  - 7 functions with nesting depth above 3,
-  - 63 explicit `any` keywords,
-  - no cycles in the relative `src` import/export graph.
-- Top runtime complexity candidates from the AST pass:
-  - `src/core/loop/verification.ts:verifyMissionCompletion` complexity 19, 100 lines,
-  - `src/core/loop/mission-loop-handler.ts:handleMissionIdle` complexity 18, 115 lines,
-  - `src/core/recovery/session-recovery.ts:handleSessionError` complexity 17, 119 lines,
-  - `src/tools/web/websearch.ts:searchDuckDuckGo` complexity 17, 73 lines,
-  - `src/core/agents/manager/task-poller.ts:updateTaskProgress` complexity 17, 68 lines,
-  - `src/core/loop/progress-tracker.ts:trackProgress` complexity 16, 98 lines,
-  - `src/tools/rust-pool.ts:sendRequest` complexity 16, 97 lines.
-- Opened and directly read the main high-complexity runtime candidates:
-  - `src/core/loop/verification.ts`,
-  - `src/core/loop/mission-loop-handler.ts`,
-  - `src/core/recovery/session-recovery.ts`,
-  - `src/tools/web/websearch.ts`,
-  - `src/core/agents/manager/task-poller.ts`,
-  - `src/tools/rust-pool.ts`,
-  - `src/core/loop/progress-tracker.ts`.
-- Traced test and consumer references with `rg`:
-  - `verifyMissionCompletion` is directly covered by `tests/unit/verification.test.ts` and used by mission-loop hooks/continuation paths.
-  - `handleMissionIdle` is directly covered by `tests/e2e/mission-loop-persistence.test.ts` and mocked/guarded by event-handler tests.
-  - `handleSessionError` is directly covered by `tests/unit/session-recovery.test.ts` and wired through `src/plugin-handlers/event-handler.ts`.
-  - `trackProgress` has direct coverage in `tests/unit/loop/progress-tracker.test.ts`.
-  - `createSystemTransformHandler` has direct coverage in `tests/unit/system-transform-handler.test.ts`.
-  - web provider internals are not directly covered by name in tests because they are private helpers behind `websearchTool`.
-- Ran targeted scans for TODO/FIXME/HACK/ts-ignore/eslint-disable markers, explicit `any`, Rust `unwrap`/`expect`, and relative imports.
-- Confirmed `node_modules/@vitest/coverage-v8` is not installed, so numeric coverage percentage cannot be claimed from this environment.
-- Verified current repository stability:
-  - `npm run build`: passed.
-  - `npx tsc --noEmit`: passed.
-  - `npm test`: 100 files and 858 tests passed.
-  - `cargo fmt --all --check`: passed.
-  - `cargo test --workspace`: CLI 12 tests and core 35 tests passed.
-  - `cargo clippy --workspace --all-targets -- -D warnings`: passed.
+- Re-read `AGENT_MEMORY.md`, `package.json`, `README.md`, `scripts/release-version.mjs`, `scripts/release-preflight.mjs`, `scripts/preuninstall.ts`, `scripts/opencode-config.ts`, `scripts/run-install-hook.mjs`, `tests/unit/install-hooks.test.ts`, `tests/unit/preuninstall.test.ts`, `tests/unit/plumbing-wiring.test.ts`, `tests/unit/prompt-system.test.ts`, `tests/unit/prompt-consistency.test.ts`, `tests/unit/dependency-compatibility.test.ts`, `tests/unit/package-metadata.test.ts`, and `tests/unit/release-workflow.test.ts`.
+- Confirmed `user-prompt/` is intentionally kept and restored after a temporary deletion.
+- Fixed `tests/unit/preuninstall.test.ts` to match the real uninstall backup timing and no-op behavior.
+- Synced `README.md` tested compatibility versions to `@opencode-ai/plugin` / `@opencode-ai/sdk` `1.17.12`.
+- Found a real release-blocking regression on top of merged PR #33:
+  - `scripts/preuninstall.ts` called `createBackup(configFile)` without the required logger argument in the corrupt-config branch.
+  - Full `npm test` failed because that branch threw before emitting the backup message.
+- Fixed the regression by passing `log` into `createBackup(configFile, log)`.
+- Created and pushed these commits on top of `origin/main` via `release-prep`:
+  - `e2c7e86 chore: sync uninstall docs and tests`
+  - `10ce53c fix: pass logger to uninstall backup creation`
+  - `b58fc6b 1.7.7`
+- Pushed remote updates:
+  - `main` → `b58fc6b`
+  - tag `v1.7.7` → `b58fc6b`
 
 ## Next Exact Step
 
-1. If asked to refactor next, start with `src/core/loop/verification.ts` and open its direct consumers/tests before editing.
+1. If the user resumes the refactor survey, start with `src/core/loop/verification.ts` and its direct tests/consumers.
 
 ## Incomplete Items And Why
 
-- No code refactor was performed in this pass because the user asked only for `전수조사`.
-- Numeric test coverage percentage remains unknown because the Vitest coverage provider is not installed.
-- Heuristic dead-export and direct-test-reference lists were collected but require file-by-file verification before deletion or test claims.
+- No broader runtime refactor was performed in this session because the work stayed limited to uninstall-path correctness, release sync, and release push.
+- `user-prompt/` was not reorganized because the user explicitly reversed that request and asked to keep it.
 
 ## Key Decisions
 
-- Treated this pass as analysis-only and did not modify source code.
-- Prioritized runtime candidates over test-only long `describe` blocks because production complexity has higher maintenance risk.
-- Classified `src/core/loop/verification.ts` as the best next narrow refactor target: high complexity, direct unit coverage, clear producer/consumer shape, and isolated file I/O/data aggregation responsibilities.
-- Classified `src/core/loop/mission-loop-handler.ts` as higher-risk than `verification.ts` because it schedules timers, writes loop state, updates mission ledger, and injects prompts.
-- Did not treat direct-test-reference absence as proof of missing coverage; prompt fragments and barrel exports are covered indirectly by prompt snapshot/consistency tests.
+- Did not push the older local `main` history because it contained a duplicate local PR #33 commit on top of stale `origin/main`.
+- Built a clean `release-prep` branch from `origin/main` and cherry-picked only the intended cleanup commit to avoid duplicate history on `main`.
+- Treated the failing corrupt-config uninstall path as a real release blocker after full preflight exposed it.
+- Kept scope narrow: uninstall docs/test sync, the actual backup regression fix, and patch release plumbing only.
 
 ## Rejected Alternatives
 
-- Rejected making code changes during the survey because the latest request did not explicitly ask for refactor/commit/push.
-- Rejected claiming 100% test coverage because no coverage report was generated.
-- Rejected deleting heuristic unreferenced exports without opening each producer and consumer path.
+- Rejected deleting `user-prompt/` after the user explicitly asked to keep it.
+- Rejected pushing local `main` directly because it was `ahead 1, behind 2` and contained stale duplicate history.
+- Rejected releasing from a dirty worktree; used clean-branch preflight and a clean version bump instead.
 
 ## Known Risks
 
-- The AST metric is a local approximation of cyclomatic complexity, not a configured repository linter.
-- Direct test-reference mapping is heuristic and over-reports prompt fragments/barrel-exported modules as untested.
-- `websearchTool` depends on live external HTML/API behavior; unit tests may not fully exercise provider parsing resilience.
-- Several runtime functions still exceed the AGENTS.md complexity/length preferences and should be handled incrementally.
+- High-complexity runtime functions identified in the earlier survey are still present and remain future refactor candidates.
+- `user-prompt/` remains unreferenced by code; it is preserved intentionally, not because runtime wiring depends on it.
 
 ## Verification Observed
 
-- `git status --short --branch`: `## main...origin/main`.
-- TypeScript AST survey completed with the metrics listed above.
-- Relative import cycle scan: none.
-- `node_modules/@vitest/coverage-v8` check: missing.
-- `npm run build`: passed.
-- `npx tsc --noEmit`: passed.
-- `npm test`: 100 files and 858 tests passed.
-- `cargo fmt --all --check`: passed.
-- `cargo test --workspace`: CLI 12 tests and core 35 tests passed.
-- `cargo clippy --workspace --all-targets -- -D warnings`: passed.
+- Targeted verification before cleanup:
+  - `npm run build`: passed
+  - `npx tsc --noEmit`: passed
+  - `npx vitest tests/unit/install-hooks.test.ts tests/unit/preuninstall.test.ts tests/unit/plumbing-wiring.test.ts tests/unit/prompt-system.test.ts tests/unit/prompt-consistency.test.ts --reporter=verbose`: passed
+- Expanded scoped verification:
+  - `npx vitest tests/unit/install-hooks.test.ts tests/unit/preuninstall.test.ts tests/unit/plumbing-wiring.test.ts tests/unit/prompt-system.test.ts tests/unit/prompt-consistency.test.ts tests/unit/dependency-compatibility.test.ts tests/unit/package-metadata.test.ts tests/unit/release-workflow.test.ts --reporter=verbose`: passed
+- Release-grade verification on `release-prep`:
+  - `node scripts/release-preflight.mjs --skip-branch --skip-version-check --allow-dirty`: passed after the `createBackup(..., log)` fix
+  - `cargo fmt --all --check`: passed
+  - `cargo clippy --workspace --all-targets -- -D warnings`: passed
+  - `node scripts/release-version.mjs patch`: produced commit `b58fc6b` and tag `v1.7.7`
+  - `node scripts/release-preflight.mjs --skip-branch`: passed at version `1.7.7`
+- Remote verification:
+  - `git push origin release-prep:main`: pushed `ebb802e..b58fc6b`
+  - `git push origin v1.7.7`: pushed the tag
+  - `git ls-remote origin main`: `b58fc6b4ce75f3fa788a84756436562f61e74a7a`
+  - `git ls-remote --tags origin v1.7.7`: `b58fc6b4ce75f3fa788a84756436562f61e74a7a`
 
 ## Files To Open First Next Session
 
@@ -110,4 +79,3 @@ Completed survey, validation, and memory update.
 4. `tests/unit/verification.test.ts`
 5. `src/hooks/features/mission-loop.ts`
 6. `src/core/loop/todo-continuation.ts`
-7. `src/core/loop/mission-loop-handler.ts`
