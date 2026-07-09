@@ -61,8 +61,12 @@ function removeFromConfig(configDir: string): { success: boolean; backupFile: st
 
     const parsed = parseConfigContent(trimmedContent);
     if (parsed.parseError) {
-      log("Failed to parse config, skipping", { error: parsed.parseError, configFile });
-      console.log(`⚠️  Corrupted config detected. Backup saved: ${backupFile}`);
+      backupFile = createBackup(configFile);
+      log("Failed to parse config, skipping", { error: parsed.parseError, configFile, backupFile });
+      console.log(`⚠️  Corrupted config detected. Skipping cleanup for ${configFile}.`);
+      if (backupFile) {
+        console.log(`   Backup saved: ${backupFile}`);
+      }
       return { success: false, backupFile };
     }
     const config: OpenCodeConfig = parsed.config ?? {};

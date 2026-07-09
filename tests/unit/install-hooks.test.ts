@@ -286,6 +286,29 @@ describe("install hook scripts", () => {
         expect(result.stdout).not.toContain("Backup created:");
     });
 
+    it("preuninstall backs up corrupt config without reporting a null backup path", async () => {
+        await using tmp = await tmpdir({ prefix: "preuninstall-corrupt-" });
+        const configDir = path.join(tmp.path, "xdg", "opencode");
+        const configFile = path.join(configDir, "opencode.jsonc");
+        const corruptContent = "{ invalid json |||";
+        mkdirSync(configDir, { recursive: true });
+        writeFileSync(configFile, corruptContent);
+
+        const result = runNode(
+            ["--experimental-strip-types", preuninstallPath],
+            repoRoot,
+            { XDG_CONFIG_HOME: path.join(tmp.path, "xdg"), HOME: tmp.path }
+        );
+
+        const backupFiles = readdirSync(configDir).filter((entry) => entry.startsWith("opencode.jsonc.backup."));
+        expect(result.status).toBe(0);
+        expect(result.stdout).toContain("Corrupted config detected");
+        expect(result.stdout).not.toContain("Backup saved: null");
+        expect(readFileSync(configFile, "utf8")).toBe(corruptContent);
+        expect(backupFiles).toHaveLength(1);
+        expect(readFileSync(path.join(configDir, backupFiles[0]), "utf8")).toBe(corruptContent);
+    });
+
     it("preuninstall removes only our plugin from jsonc config and preserves comments", async () => {
         await using tmp = await tmpdir({ prefix: "preuninstall-jsonc-" });
         const configDir = path.join(tmp.path, "xdg", "opencode");
