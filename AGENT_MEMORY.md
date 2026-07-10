@@ -2,55 +2,51 @@
 
 ## Current Task
 
-Completed 30 evidence-based review passes, fixed all findings, and prepared the verified changes for commit and push.
+Completed the cross-platform install-hook test fix and pushed it to `origin/main`.
 
 ## Last Completed Step
 
-- Fixed mission verification presence, failure routing, stagnation tracking, and dead checklist APIs.
-- Fixed Windows dist integrity, install-hook isolation, portable knowledge paths, and stale Windows Rust binary.
-- Fixed release preflight on Windows (`npm.cmd` EINVAL) and added Docker Rust fallback when Cargo is unavailable.
-- Removed all production TypeScript unused locals/parameters and enabled both checks in `tsconfig.json`.
-- Completed 30 review passes covering tests, builds, TypeScript, Rust, packaging, security markers, architecture, prompts, configuration, lifecycle, concurrency, mission E2E, binaries, and release preflight.
+- Diagnosed GitHub Actions `CI #151` as a Linux-only test regression.
+- Replaced direct execution of the platform-specific esbuild CLI file with the esbuild JavaScript API in `tests/unit/install-hooks.test.ts`.
+- Verified the targeted 16 install-hook tests on Windows and clean Linux Node 24 environments.
+- Verified the full clean Linux TypeScript CI sequence with all 106 test files and 941 tests passing.
+- Pushed code commit `4fe3301` and observed its GitHub CI and Pages runs complete successfully.
 
 ## Next Exact Step
 
-1. Commit the verified work.
-2. Push `main` to `origin` and verify the remote commit.
+No remaining task step. Start from the current clean `origin/main` state for the next request.
 
 ## Incomplete Items And Why
 
-- None in implementation or verification.
+- None.
 
 ## Key Decisions
 
-- Preserve public callback signatures with underscore-prefixed unused parameters.
-- Use portable forward-slash paths in prompt serialization.
-- Use Node to invoke npm CLI on Windows and native npm on Unix.
-- Prefer local Cargo, falling back to the repository Docker Rust test service.
+- Use esbuild's supported JavaScript API so tests do not depend on whether `bin/esbuild` is a Windows script or Linux ELF executable.
+- Keep the change isolated to the test helper because production bundling already uses the esbuild API correctly.
+- Verify on both Windows and Linux before pushing because the regression was platform-specific.
 
 ## Rejected Alternatives
 
-- Rejected weakening Windows tests or accepting stale binaries.
-- Rejected suppressing unused-code diagnostics without removing dead references.
-- Rejected shell-based npm invocation because it reintroduces quoting and shim failures.
+- Rejected restoring unconditional direct CLI execution because that was the Windows failure the previous change attempted to avoid.
+- Rejected an OS-specific command branch because the JavaScript API removes the platform distinction entirely.
+- Rejected production code or workflow changes because neither caused the failure.
 
 ## Known Risks
 
-- Large architectural singleton refactors remain optional design improvements, not observed correctness failures.
+- None observed for the scoped test-only change.
 
 ## Verification Observed
 
-- `npm run build`: passed.
-- `npm test`: passed.
-- `npm run test:coverage`: passed.
-- TypeScript with `noUnusedLocals` and `noUnusedParameters`: passed.
-- Rust fmt, Clippy with `-D warnings`, and 47 Rust tests: passed.
-- JSON-RPC Windows binary E2E: passed.
-- `npm run release:dry-run`: passed, including build, full tests, Rust tests, audit, and pack dry-run.
-- `git diff --check`: passed.
+- Windows Node `v24.18.0`: TypeScript check passed; targeted tests 16/16 passed.
+- Clean Linux Node 24: TypeScript check and build passed; targeted tests 16/16 passed.
+- Clean Linux Node 24 full suite: 106/106 test files and 941/941 tests passed.
+- Existing remote Rust job for unchanged Rust sources: fmt, Clippy with `-D warnings`, and tests passed.
+- GitHub Actions for `4fe3301`: CI succeeded; Pages succeeded.
+- `git diff --check`: passed before the code commit.
 
 ## Files To Open First Next Session
 
 1. `AGENT_MEMORY.md`
 2. `git status --branch --short`
-3. `git log -1 --oneline`
+3. `git log -2 --oneline`
