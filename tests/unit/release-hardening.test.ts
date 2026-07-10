@@ -88,15 +88,18 @@ describe("issue #27 release hardening", () => {
         expect(preflight).not.toContain('? "npm.cmd" : "npm"');
     });
 
-    it("makes GitHub Actions npm publishing skip-safe and idempotent", () => {
+    it("makes GitHub Actions package publishing idempotent and complete", () => {
         const workflow = readRepoFile(".github/workflows/release.yml");
 
         expect(workflow).toContain("NPM_TOKEN: ${{ secrets.NPM_TOKEN }}");
+        expect(workflow).toContain("SCOPED_PACKAGE=\"@agnusdei1207/opencode-orchestrator@${PACKAGE_VERSION}\"");
+        expect(workflow).toContain("is already published to GitHub Packages. Skipping.");
         expect(workflow).toContain("if: env.NPM_TOKEN != ''");
         expect(workflow).toContain("npm view \"${PACKAGE_NAME}@${PACKAGE_VERSION}\" version");
         expect(workflow).toContain("is already published to npm. Skipping.");
         expect(workflow).toContain("if: env.NPM_TOKEN == ''");
-        expect(workflow).toContain("NPM_TOKEN secret is not configured; skipping public npm publish.");
+        expect(workflow).toContain("NPM_TOKEN secret is required for a complete public release.");
+        expect(workflow).not.toContain("skipping public npm publish");
     });
 
     it("keeps local release artifact sync restricted to generated Linux binaries", () => {

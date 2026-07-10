@@ -157,6 +157,12 @@ jobs:
 
       - name: Publish to GitHub Registry
         run: |
+          PACKAGE_VERSION="$(node -p "require('./package.json').version")"
+          SCOPED_PACKAGE="@agnusdei1207/opencode-orchestrator@${PACKAGE_VERSION}"
+          if npm view "${SCOPED_PACKAGE}" version --registry=https://npm.pkg.github.com >/dev/null 2>&1; then
+            echo "${SCOPED_PACKAGE} is already published to GitHub Packages. Skipping."
+            exit 0
+          fi
           cp package.json package.json.bak
           trap 'mv package.json.bak package.json' EXIT
           node -e "let pkg=require('./package.json'); pkg.name='@agnusdei1207/opencode-orchestrator'; pkg.publishConfig={registry:'https://npm.pkg.github.com'}; require('fs').writeFileSync('package.json', JSON.stringify(pkg, null, 2));"
@@ -187,6 +193,8 @@ jobs:
         env:
           NODE_AUTH_TOKEN: ${{ env.NPM_TOKEN }}
 
-      - name: Skip NPM Registry publish
+      - name: Require npm registry authentication
         if: env.NPM_TOKEN == ''
-        run: echo "NPM_TOKEN secret is not configured; skipping public npm publish."
+        run: |
+          echo "::error::NPM_TOKEN secret is required for a complete public release."
+          exit 1
