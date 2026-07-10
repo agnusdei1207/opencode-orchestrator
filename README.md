@@ -6,7 +6,7 @@
   [![MIT License](https://img.shields.io/badge/license-MIT-red.svg)](LICENSE)
   [![npm](https://img.shields.io/npm/v/opencode-orchestrator.svg)](https://www.npmjs.com/package/opencode-orchestrator)
   <!-- VERSION:START -->
-  **Version:** `1.7.7`
+  **Version:** `1.7.8`
   <!-- VERSION:END -->
 </div>
 
@@ -44,8 +44,8 @@ Manual fallback: remove `"opencode-orchestrator"` or `["opencode-orchestrator", 
 Tested compatibility:
 
 1. Node.js `24+`
-2. `@opencode-ai/plugin` `1.17.12`
-3. `@opencode-ai/sdk` `1.17.12`
+2. `@opencode-ai/plugin` `1.17.18`
+3. `@opencode-ai/sdk` `1.17.18`
 
 OpenCode plugin options belong inside the `plugin` array as `["plugin-name", {...}]` tuples. Configure `agentConcurrency` and `missionLoop` there:
 
