@@ -5,7 +5,7 @@
  * Full E2E and final verification is handled by the Reviewer.
  */
 
-import { AGENT_NAMES, PATHS, PROMPT_TAGS, STATUS_LABEL, VERIFICATION_SIGNALS } from "../../../shared/index.js";
+import { AGENT_NAMES, PATHS, PROMPT_TAGS, VERIFICATION_SIGNALS } from "../../../shared/index.js";
 
 export const REVIEWER_INTEGRATION_TESTING = `${PROMPT_TAGS.INTEGRATION_TESTING.open}
 ## INTEGRATION TESTING (Full System)
@@ -43,4 +43,3 @@ When instructed by ${AGENT_NAMES.COMMANDER} for a "${VERIFICATION_SIGNALS.FINAL_
 2. Provide a definitive "PASSED" or "FAILED" status to ${AGENT_NAMES.COMMANDER}.
 
 ${PROMPT_TAGS.INTEGRATION_TESTING.close}`;
-

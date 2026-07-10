@@ -72,6 +72,22 @@ describe("issue #27 release hardening", () => {
         expect(packageJson.scripts["release:dry-run"]).toContain("--skip-version-check");
     });
 
+    it("falls back to Docker Rust tests when local cargo is unavailable", () => {
+        const preflight = readRepoFile("scripts/release-preflight.mjs");
+
+        expect(preflight).toContain('commandIsAvailable("cargo", ["--version"])');
+        expect(preflight).toContain('"test", "cargo", ...cargoArgs');
+        expect(preflight).toContain('const cargoArgs = ["test", "--workspace", "--all-targets"]');
+    });
+
+    it("avoids invoking the Windows npm command shim directly", () => {
+        const preflight = readRepoFile("scripts/release-preflight.mjs");
+
+        expect(preflight).toContain('process.platform === "win32" ? process.execPath : "npm"');
+        expect(preflight).toContain("return run(npmCommand, [...npmCommandPrefix, ...commandArgs], options)");
+        expect(preflight).not.toContain('? "npm.cmd" : "npm"');
+    });
+
     it("makes GitHub Actions npm publishing skip-safe and idempotent", () => {
         const workflow = readRepoFile(".github/workflows/release.yml");
 

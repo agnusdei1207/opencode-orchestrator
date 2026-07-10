@@ -90,6 +90,9 @@ export interface VerificationChecklist {
  * Result of verifying a checklist
  */
 export interface ChecklistVerificationResult {
+    /** Whether the checklist file exists */
+    present: boolean;
+
     /** Whether all items are complete */
     passed: boolean;
 
@@ -144,10 +147,12 @@ export interface VerificationResult {
     /** Whether verification checklist is complete */
     checklistComplete: boolean;
 
+    /** Whether a verification checklist file exists */
+    checklistPresent: boolean;
+
     /** Checklist progress string */
     checklistProgress: string;
 
     /** List of verification failures */
     errors: string[];
 }
-

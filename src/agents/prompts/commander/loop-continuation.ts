@@ -4,7 +4,7 @@
  * Logic for reading shared state and continuing work loop.
  */
 
-import { PATHS, AGENT_NAMES, PROMPT_TAGS, WORK_STATUS, STATUS_LABEL, VERIFICATION_SIGNALS } from "../../../shared/index.js";
+import { PATHS, AGENT_NAMES, PROMPT_TAGS, VERIFICATION_SIGNALS } from "../../../shared/index.js";
 
 export const COMMANDER_LOOP_CONTINUATION = `${PROMPT_TAGS.LOOP_CONTINUATION.open}
 ## LOOP CONTINUATION PROTOCOL
@@ -37,5 +37,4 @@ When ALL TODO items are [x] and NO sync issues:
 ${PROMPT_TAGS.LOOP_CONTINUATION.close}
 
 `;
-
 

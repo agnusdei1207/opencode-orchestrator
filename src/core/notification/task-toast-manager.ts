@@ -166,7 +166,6 @@ export class TaskToastManager {
     private getConcurrencyInfo(): string {
         if (!this.concurrency) return "";
         const running = this.getRunningTasks();
-        const queued = this.getQueuedTasks();
         const total = running.length;
 
         // Use "default" as a representative key for now, assuming mostly default agents
@@ -271,7 +270,7 @@ export class TaskToastManager {
     /**
      * Show all-tasks-complete summary toast
      */
-    showAllCompleteToast(parentSessionID: string, completedTasks: TaskCompletionInfo[]): void {
+    showAllCompleteToast(_parentSessionID: string, completedTasks: TaskCompletionInfo[]): void {
         const successCount = completedTasks.filter(t => t.status === STATUS_LABEL.COMPLETED).length;
         const failCount = completedTasks.filter(t => t.status === STATUS_LABEL.ERROR || t.status === STATUS_LABEL.CANCELLED || t.status === STATUS_LABEL.FAILED).length;
 

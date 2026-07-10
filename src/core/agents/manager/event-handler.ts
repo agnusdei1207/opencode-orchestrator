@@ -17,7 +17,7 @@ type OpencodeClient = PluginInput["client"];
 
 export class EventHandler {
     constructor(
-        private client: OpencodeClient,
+        _client: OpencodeClient,
         private store: TaskStore,
         private concurrency: ConcurrencyController,
         private findBySession: (sessionID: string) => ParallelTask | undefined,

@@ -7,8 +7,7 @@
  * - Specific Hook logic (MissionControl, StrictRoleGuard)
  */
 
-import { describe, it, expect, beforeEach, vi, afterEach } from "vitest";
-import { HookRegistry } from "../../src/hooks/registry";
+import { describe, it, expect, beforeEach, vi } from "vitest";
 import { MissionControlHook } from "../../src/hooks/features/mission-loop";
 import { StrictRoleGuardHook } from "../../src/hooks/custom/strict-role-guard";
 import { ResourceControlHook } from "../../src/hooks/custom/resource-control";
@@ -19,8 +18,7 @@ import { SecretScannerHook } from "../../src/hooks/custom/secret-scanner";
 import { HOOK_ACTIONS } from "../../src/hooks/constants";
 import { TOOL_NAMES, type VerificationResult } from "../../src/shared";
 import { state } from "../../src/core/orchestrator/state";
-import { updateSessionTokens, recordAnomaly } from "../../src/core/orchestrator/session-manager";
-import { MISSION_MESSAGES } from "../../src/shared/constants/system-messages.js";
+import { STAGNATION_INTERVENTION } from "../../src/shared/constants/system-messages.js";
 import type { HookContext } from "../../src/hooks/registry";
 import type { SessionState } from "../../src/core/orchestrator/state";
 
@@ -41,6 +39,7 @@ vi.mock("../../src/core/loop/mission-loop", () => ({
     isLoopActive: vi.fn().mockReturnValue(true),
     clearLoopState: vi.fn(),
     readLoopState: vi.fn().mockReturnValue({ active: true, sessionID: "test-session" }),
+    writeLoopState: vi.fn(),
 }));
 vi.mock("../../src/core/loop/verification", () => ({
     verifyMissionCompletion: vi.fn().mockReturnValue({
@@ -51,6 +50,7 @@ vi.mock("../../src/core/loop/verification", () => ({
         syncIssuesEmpty: true,
         syncIssuesCount: 0,
         checklistComplete: false,
+        checklistPresent: false,
         checklistProgress: "0/0",
         errors: []
     }),
@@ -76,6 +76,7 @@ describe("Hook System", () => {
     let mockContext: HookContext;
 
     beforeEach(() => {
+        vi.clearAllMocks();
         mockContext = {
             sessionID: "test-session",
             directory: "/tmp/test",
@@ -134,6 +135,58 @@ describe("Hook System", () => {
 
             const result = await hook.execute(mockContext, "All done");
             expect(result.action).toBe(HOOK_ACTIONS.STOP);
+        });
+
+        it("should report sync-only failures with the full verification prompt", async () => {
+            state.missionActive = true;
+            state.sessions.set("test-session", createSessionState());
+            const verificationModule = await import("../../src/core/loop/verification");
+            vi.mocked(verificationModule.verifyMissionCompletion).mockReturnValue(createVerificationResult({
+                passed: false,
+                syncIssuesEmpty: false,
+                syncIssuesCount: 1,
+                checklistPresent: false,
+                checklistComplete: false,
+                checklistProgress: "0/0",
+                errors: ["Sync issues not resolved"],
+            }));
+
+            const result = await hook.execute(mockContext, "Done");
+
+            expect(result.action).toBe(HOOK_ACTIONS.INJECT);
+            expect(verificationModule.buildVerificationFailurePrompt).toHaveBeenCalled();
+            expect(result.prompts).toContain("Verification failed");
+        });
+
+        it("should track checklist and sync changes as mission progress", async () => {
+            state.missionActive = true;
+            state.sessions.set("test-session", createSessionState());
+            const loopState = {
+                active: true,
+                sessionID: "test-session",
+                lastProgress: "old-progress",
+                stagnationCount: 1,
+            };
+            const missionLoop = await import("../../src/core/loop/mission-loop");
+            vi.mocked(missionLoop.readLoopState).mockReturnValue(loopState as never);
+            const verificationModule = await import("../../src/core/loop/verification");
+            vi.mocked(verificationModule.verifyMissionCompletion).mockReturnValue(createVerificationResult({
+                passed: false,
+                checklistPresent: true,
+                checklistComplete: false,
+                checklistProgress: "1/2",
+                syncIssuesEmpty: false,
+                syncIssuesCount: 1,
+                errors: ["Verification incomplete"],
+            }));
+            vi.mocked(verificationModule.buildVerificationSummary).mockReturnValue("checklist=1/2;sync=1");
+
+            const result = await hook.execute(mockContext, "Progress made");
+
+            expect(result.action).toBe(HOOK_ACTIONS.INJECT);
+            expect(result.prompts).not.toContain(STAGNATION_INTERVENTION);
+            expect(loopState.stagnationCount).toBe(0);
+            expect(loopState.lastProgress).toBe("checklist=1/2;sync=1");
         });
     });
 
@@ -231,6 +284,7 @@ function createVerificationResult(overrides: Partial<VerificationResult> = {}): 
         syncIssuesEmpty: true,
         syncIssuesCount: 0,
         checklistComplete: true,
+        checklistPresent: true,
         checklistProgress: "1/1",
         errors: [],
         ...overrides,

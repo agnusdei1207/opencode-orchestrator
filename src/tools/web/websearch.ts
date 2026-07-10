@@ -6,7 +6,6 @@
  */
 
 import { tool, type ToolDefinition } from "@opencode-ai/plugin";
-import { OUTPUT_LABEL } from "../../shared/index.js";
 import { log } from "../../core/agents/logger.js";
 
 interface SearchResult {
@@ -73,8 +72,6 @@ async function searchSearXNG(query: string): Promise<SearchResult[]> {
  * Brave Search - Good quality, no API key for basic usage
  */
 async function searchBrave(query: string): Promise<SearchResult[]> {
-    const url = `https://search.brave.com/api/suggest?q=${encodeURIComponent(query)}`;
-
     try {
         // Brave web results via HTML parsing
         const webUrl = `https://search.brave.com/search?q=${encodeURIComponent(query)}&source=web`;

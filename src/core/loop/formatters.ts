@@ -5,7 +5,6 @@
 import type { Todo } from "../../shared/loop/types.js";
 import { getStats, getNextPending } from "./stats.js";
 import {
-    MISSION_CONTROL,
     TODO_STATUS,
     AGENT_NAMES,
     STATUS_LABEL,

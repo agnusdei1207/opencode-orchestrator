@@ -22,7 +22,6 @@ import {
 } from "../../shared/index.js";
 import { log } from "../agents/logger.js";
 export {
-    buildTodoIncompletePrompt,
     buildVerificationFailurePrompt,
     buildVerificationSummary,
 } from "./verification-prompts.js";
@@ -30,6 +29,8 @@ export {
 export const CHECKLIST_FILE = CHECKLIST.FILE;
 
 interface ChecklistReadResult {
+    present: boolean;
+    empty: boolean;
     items: ChecklistItem[];
     error?: string;
 }
@@ -124,23 +125,25 @@ function readChecklistWithDiagnostics(directory: string): ChecklistReadResult {
     const filePath = join(directory, CHECKLIST_FILE);
 
     if (!existsSync(filePath)) {
-        return { items: [] };
+        return { present: false, empty: true, items: [] };
     }
 
     try {
         const content = readFileSync(filePath, 'utf-8');
-        return { items: parseChecklist(content) };
+        return {
+            present: true,
+            empty: content.trim().length === 0,
+            items: parseChecklist(content),
+        };
     } catch (error) {
         log(`[checklist] Failed to read checklist: ${error}`);
         return {
+            present: true,
+            empty: false,
             items: [],
             error: `${CHECKLIST_READ_ERROR_PREFIX}: ${error}`,
         };
     }
-}
-
-export function readChecklist(directory: string): ChecklistItem[] {
-    return readChecklistWithDiagnostics(directory).items;
 }
 
 // ============================================================================
@@ -148,7 +151,9 @@ export function readChecklist(directory: string): ChecklistItem[] {
 // ============================================================================
 
 export function verifyChecklist(directory: string): ChecklistVerificationResult {
+    const checklistRead = readChecklistWithDiagnostics(directory);
     const result: ChecklistVerificationResult = {
+        present: checklistRead.present,
         passed: false,
         totalItems: 0,
         completedItems: 0,
@@ -158,17 +163,12 @@ export function verifyChecklist(directory: string): ChecklistVerificationResult 
         errors: []
     };
 
-    const filePath = join(directory, CHECKLIST_FILE);
-
-    // Check if checklist file exists
-    if (!existsSync(filePath)) {
+    if (!checklistRead.present) {
         result.errors.push(`Verification checklist not found at ${CHECKLIST_FILE}`);
         result.errors.push("Create checklist with at least: build, tests, and any environment-specific checks");
         return result;
     }
 
-    // Parse checklist
-    const checklistRead = readChecklistWithDiagnostics(directory);
     const items = checklistRead.items;
 
     if (checklistRead.error) {
@@ -176,8 +176,11 @@ export function verifyChecklist(directory: string): ChecklistVerificationResult 
         return result;
     }
 
-    if (items.length === 0) {
-        result.errors.push("Verification checklist is empty");
+    if (items.length < CHECKLIST.MIN_ITEMS) {
+        const error = checklistRead.empty
+            ? "Verification checklist is empty"
+            : "Verification checklist contains no valid items";
+        result.errors.push(error);
         result.errors.push("Add verification items (build, tests, environment checks)");
         return result;
     }
@@ -197,7 +200,7 @@ export function verifyChecklist(directory: string): ChecklistVerificationResult 
         result.errors.push(`Checklist incomplete: ${result.progress}`);
     }
 
-    result.passed = result.incompleteItems === 0 && result.totalItems > 0;
+    result.passed = result.incompleteItems === 0 && result.totalItems >= CHECKLIST.MIN_ITEMS;
 
     log("[checklist] Verification result", {
         passed: result.passed,
@@ -290,6 +293,7 @@ function createVerificationResult(): VerificationResult {
         syncIssuesEmpty: true,
         syncIssuesCount: 0,
         checklistComplete: false,
+        checklistPresent: false,
         checklistProgress: "0/0",
         errors: []
     };
@@ -308,28 +312,21 @@ export function getSyncIssueLines(content: string): string[] {
 function applyChecklistVerification(directory: string, result: VerificationResult): boolean {
     const checklistResult = verifyChecklist(directory);
     result.checklistComplete = checklistResult.passed;
+    result.checklistPresent = checklistResult.present;
     result.checklistProgress = checklistResult.progress;
 
-    const hasChecklist = checklistResult.totalItems > 0;
-    const checklistReadError = checklistResult.errors.find(error =>
-        error.startsWith(CHECKLIST_READ_ERROR_PREFIX)
-    );
-
-    if (checklistReadError) {
-        result.errors.push(checklistReadError);
-        return true;
-    }
-
-    if (hasChecklist && !checklistResult.passed) {
-        // Checklist exists but incomplete
-        result.errors.push(`Verification checklist incomplete: ${checklistResult.progress}`);
-        result.errors.push(...checklistResult.incompleteList.slice(0, 5).map(i => `  - ${i}`));
-        if (checklistResult.incompleteList.length > 5) {
-            result.errors.push(`  ... and ${checklistResult.incompleteList.length - 5} more`);
+    if (checklistResult.present && !checklistResult.passed) {
+        result.errors.push(...checklistResult.errors);
+        result.errors.push(...checklistResult.incompleteList
+            .slice(0, CHECKLIST.MAX_ERROR_ITEMS)
+            .map(item => `  - ${item}`));
+        if (checklistResult.incompleteList.length > CHECKLIST.MAX_ERROR_ITEMS) {
+            const remaining = checklistResult.incompleteList.length - CHECKLIST.MAX_ERROR_ITEMS;
+            result.errors.push(`  ... and ${remaining} more`);
         }
     }
 
-    return hasChecklist;
+    return checklistResult.present;
 }
 
 function applyTodoVerification(directory: string, result: VerificationResult, hasChecklist: boolean): void {

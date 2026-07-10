@@ -4,7 +4,7 @@
  * Defines the .opencode/ directory structure.
  */
 
-import { ID_PREFIX, PATHS, PROMPT_TAGS, WORK_STATUS, AGENT_NAMES, STATUS_LABEL } from "../../../shared/index.js";
+import { ID_PREFIX, PATHS, PROMPT_TAGS, WORK_STATUS, AGENT_NAMES } from "../../../shared/index.js";
 
 export const SHARED_WORKSPACE = `${PROMPT_TAGS.SHARED_WORKSPACE.open}
 ${PATHS.OPENCODE}/ - Shared Context Directory (Real-time State)

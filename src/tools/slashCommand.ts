@@ -1,6 +1,5 @@
 import { tool, type ToolDefinition } from "@opencode-ai/plugin";
 import { AGENT_NAMES, PROMPTS } from "../shared/index.js";
-import { commander } from "../agents/commander.js";
 
 // ... (existing content logic)
 

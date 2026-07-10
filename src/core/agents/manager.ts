@@ -29,7 +29,6 @@ import { TaskPoller } from "./manager/task-poller.js";
 import { TaskCleaner } from "./manager/task-cleaner.js";
 import { EventHandler } from "./manager/event-handler.js";
 import { SessionPool } from "./session-pool.js";
-import { getTaskToastManager } from "../notification/task-toast-manager.js";
 import { progressNotifier } from "../progress/progress-notifier.js";
 import { MemoryLevel, MemoryManager } from "../memory/memory-manager.js";
 import { CORE_PHILOSOPHY } from "../../agents/prompts/shared/philosophy.js";
@@ -64,7 +63,6 @@ export class ParallelAgentManager {
 
     private store = new TaskStore();
     private client: OpencodeClient;
-    private directory: string;
     private concurrency: ConcurrencyController;
     private sessionPool: SessionPool;
 
@@ -77,7 +75,6 @@ export class ParallelAgentManager {
 
     private constructor(client: OpencodeClient, directory: string, concurrencyConfig?: ConcurrencyConfig) {
         this.client = client;
-        this.directory = directory;
         this.concurrency = new ConcurrencyController(concurrencyConfig);
 
         // Initialize Memory System

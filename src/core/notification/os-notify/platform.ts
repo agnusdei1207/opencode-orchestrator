@@ -13,9 +13,8 @@ export function detectPlatform(): Platform {
     return PLATFORM.UNSUPPORTED;
 }
 
-export function getDefaultSoundPath(p: Platform): string {
+export function getDefaultSoundPath(_p: Platform): string {
     // Return empty by default to use OS-native built-in sounds via commands
     // instead of relying on specific file paths.
     return "";
 }
-

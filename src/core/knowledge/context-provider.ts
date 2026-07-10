@@ -98,7 +98,8 @@ export class KnowledgeContextProvider {
                 tagIndexer.indexFile(filePath, content);
                 graphParser.indexFile(filePath, content);
                 search.indexContent(noteName, normalizedBody, data);
-                noteToPath.set(noteName, path.relative(directory, filePath) || filePath);
+                const relativePath = path.relative(directory, filePath) || filePath;
+                noteToPath.set(noteName, toPromptPath(relativePath));
                 noteToAbsolutePath.set(noteName, filePath);
                 noteToSnippet.set(noteName, this.buildSnippet(normalizedBody));
             } catch {
@@ -163,4 +164,8 @@ export class KnowledgeContextProvider {
 function isWritebackEnvEnabled(): boolean {
     const value = process.env.OPENCODE_MEMORY_WRITEBACK?.trim().toLowerCase();
     return value === "1" || value === "true";
+}
+
+function toPromptPath(filePath: string): string {
+    return filePath.split(path.sep).join("/");
 }

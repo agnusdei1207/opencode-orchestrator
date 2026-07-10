@@ -16,7 +16,7 @@ import { MISSION_MESSAGES } from "../../shared/constants/system-messages.js";
 export class StrictRoleGuardHook implements PreToolUseHook {
     name = HOOK_NAMES.STRICT_ROLE_GUARD;
 
-    async execute(ctx: HookContext, tool: string, args: ToolInput): Promise<PreToolResult> {
+    async execute(_ctx: HookContext, tool: string, args: ToolInput): Promise<PreToolResult> {
         // "Prevent 'rm -rf /' or dangerous commands" globally for now.
 
         // Check for both background and standard command execution

@@ -6,7 +6,6 @@
  */
 
 import { tool, type ToolDefinition } from "@opencode-ai/plugin";
-import { OUTPUT_LABEL } from "../../shared/index.js";
 import { log } from "../../core/agents/logger.js";
 
 interface CodeSearchResult {

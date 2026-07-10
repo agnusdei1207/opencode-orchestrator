@@ -72,6 +72,7 @@ async function collectBareImports(bundlePath: string): Promise<Set<string>> {
                 name: "collect-bare-imports",
                 setup(pluginBuild) {
                     pluginBuild.onResolve({ filter: /^[^./]/ }, (args) => {
+                        if (path.isAbsolute(args.path)) return undefined;
                         bareImports.add(args.path);
                         return { path: args.path, external: true };
                     });

@@ -280,6 +280,29 @@ Needs manual reconciliation
                 expect(result.passed).toBe(false);
                 expect(result.errors.join("\n")).toContain("Failed to read verification checklist");
             });
+
+            it("should fail closed when an existing checklist is empty", () => {
+                writeFileSync(join(opencodeDir, "todo.md"), "- [x] Done");
+                writeFileSync(join(opencodeDir, "verification-checklist.md"), "");
+
+                const result = verifyMissionCompletion(testDir);
+
+                expect(result.checklistPresent).toBe(true);
+                expect(result.checklistComplete).toBe(false);
+                expect(result.passed).toBe(false);
+                expect(result.errors.join("\n")).toContain("Verification checklist is empty");
+            });
+
+            it("should fail closed when an existing checklist has no valid items", () => {
+                writeFileSync(join(opencodeDir, "todo.md"), "- [x] Done");
+                writeFileSync(join(opencodeDir, "verification-checklist.md"), "Build passed");
+
+                const result = verifyMissionCompletion(testDir);
+
+                expect(result.checklistPresent).toBe(true);
+                expect(result.passed).toBe(false);
+                expect(result.errors.join("\n")).toContain("Verification checklist contains no valid items");
+            });
         });
     });
 
@@ -293,6 +316,7 @@ Needs manual reconciliation
                 syncIssuesEmpty: false,
                 syncIssuesCount: 2,
                 checklistComplete: false,
+                checklistPresent: false,
                 checklistProgress: "0/0",
                 errors: ["TODO incomplete: 2/5 (3 remaining)", "Sync issues not resolved: 2 issue(s) remain"]
             };
@@ -314,6 +338,7 @@ Needs manual reconciliation
                 syncIssuesEmpty: false,
                 syncIssuesCount: 1,
                 checklistComplete: false,
+                checklistPresent: false,
                 checklistProgress: "0/0",
                 errors: ["Sync issues not resolved"]
             };
@@ -337,6 +362,7 @@ Needs manual reconciliation
                 syncIssuesEmpty: true,
                 syncIssuesCount: 0,
                 checklistComplete: false,
+                checklistPresent: false,
                 checklistProgress: "0/0",
                 errors: []
             };
@@ -357,6 +383,7 @@ Needs manual reconciliation
                 syncIssuesEmpty: false,
                 syncIssuesCount: 3,
                 checklistComplete: false,
+                checklistPresent: false,
                 checklistProgress: "0/0",
                 errors: ["TODO incomplete", "Sync issues"]
             };

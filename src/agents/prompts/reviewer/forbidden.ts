@@ -4,7 +4,7 @@
  * Reviewer is a TERMINAL node and cannot spawn other agents.
  */
 
-import { AGENT_NAMES, PATHS, PROMPT_TAGS, TOOL_NAMES, TERMINAL_NODE, VERIFICATION_SIGNALS } from "../../../shared/index.js";
+import { AGENT_NAMES, PROMPT_TAGS, TOOL_NAMES, TERMINAL_NODE, VERIFICATION_SIGNALS } from "../../../shared/index.js";
 
 export const REVIEWER_FORBIDDEN = `${PROMPT_TAGS.FORBIDDEN_ACTIONS.open}
 **FORBIDDEN ACTIONS**

@@ -93,23 +93,6 @@ interface DelegateTaskRuntime {
     abort?: AbortSignal;
 }
 
-/**
- * Validate that a session has actual output before marking complete.
- * Prevents premature completion when session.idle fires before agent responds.
- */
-async function validateSessionHasOutput(
-    session: Pick<SessionClient, 'messages'>,
-    sessionID: string
-): Promise<boolean> {
-    try {
-        const messages = await readSessionMessages(session, sessionID);
-        return hasValidAssistantOutput(messages);
-    } catch (error) {
-        log(`${PARALLEL_LOG.DELEGATE_TASK} Error validating session output:`, error);
-        return false;
-    }
-}
-
 // PollResult is now imported from shared
 
 async function readSessionMessages(

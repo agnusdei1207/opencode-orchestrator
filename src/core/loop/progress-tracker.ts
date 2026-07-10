@@ -123,11 +123,6 @@ export function trackProgress(
     const currentSnapshot = todos ? hashTodos(todos) : undefined;
     const currentCompletedCount = todos ? countCompleted(todos) : undefined;
 
-    const hasCompletedMoreTodos = 
-        currentCompletedCount !== undefined &&
-        state.lastIncompleteCount !== undefined &&
-        currentCompletedCount > (state.countCompleted ?? 0);
-
     const hasSnapshotChanged =
         currentSnapshot !== undefined &&
         state.lastSnapshot !== undefined &&

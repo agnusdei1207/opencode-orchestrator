@@ -1,15 +1,7 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import type { PluginInput } from "@opencode-ai/plugin";
-import {
-  type Todo,
-  TODO_STATUS,
-  PATHS,
-  TASK_STATUS,
-  STATUS_LABEL,
-  TODO_CONSTANTS,
-} from "../../shared/index.js";
-import { parseTodoMd } from "./todo-parser.js";
+import { PATHS } from "../../shared/index.js";
 import { log } from "../agents/logger.js";
 
 type OpencodeClient = PluginInput["client"];
@@ -24,10 +16,8 @@ interface TrackedTaskTodo {
 }
 
 export class TodoSyncService {
-  private client: OpencodeClient;
   private directory: string;
   private todoPath: string;
-  private fileTodos: Todo[] = [];
   private taskTodos: Map<string, TrackedTaskTodo> = new Map();
   private updateTimeout: NodeJS.Timeout | null = null;
   private watcher: fs.FSWatcher | null = null;
@@ -35,8 +25,7 @@ export class TodoSyncService {
 
   private activeSessions: Set<string> = new Set();
 
-  constructor(client: OpencodeClient, directory: string) {
-    this.client = client;
+  constructor(_client: OpencodeClient, directory: string) {
     this.directory = directory;
     this.todoPath = path.join(this.directory, PATHS.TODO);
   }
@@ -106,8 +95,7 @@ export class TodoSyncService {
     try {
       if (fs.existsSync(this.todoPath)) {
         fileHandle = await fs.promises.open(this.todoPath, 'r');
-        const content = await fileHandle.readFile('utf-8');
-        this.fileTodos = parseTodoMd(content);
+        await fileHandle.readFile('utf-8');
         this.broadcastUpdate();
       }
     } catch (error) {
@@ -158,12 +146,12 @@ export class TodoSyncService {
 
   private scheduleUpdate(sessionID: string) {
     // Debounce updates per session (simplified for now)
-    this.sendTodosToSession(sessionID).catch((err) => {
+    this.sendTodosToSession(sessionID).catch(() => {
       // Ignore errors (session might be closed)
     });
   }
 
-  private async sendTodosToSession(sessionID: string) {
+  private async sendTodosToSession(_sessionID: string) {
     // OpenCode's TUI displays .opencode/todo.md file directly
     // This method is kept for potential future use
   }

@@ -27,10 +27,11 @@ const mocks = vi.hoisted(() => ({
     verifyMissionCompletion: vi.fn(() => ({
         passed: true,
         todoIncomplete: 0,
+        checklistPresent: false,
         checklistProgress: "0/0",
         checklistComplete: true,
     })),
-    buildTodoIncompletePrompt: vi.fn(() => "<todo_incomplete>file work remains</todo_incomplete>"),
+    buildVerificationFailurePrompt: vi.fn(() => "<verification_failure>file work remains</verification_failure>"),
 }));
 
 vi.mock("../../src/core/agents/manager.js", () => ({
@@ -47,7 +48,7 @@ vi.mock("../../src/core/recovery/session-recovery.js", () => ({
 
 vi.mock("../../src/core/loop/verification.js", () => ({
     verifyMissionCompletion: mocks.verifyMissionCompletion,
-    buildTodoIncompletePrompt: mocks.buildTodoIncompletePrompt,
+    buildVerificationFailurePrompt: mocks.buildVerificationFailurePrompt,
 }));
 
 describe("TodoContinuation", () => {
@@ -175,10 +176,11 @@ describe("TodoContinuation", () => {
             mocks.verifyMissionCompletion.mockReturnValue({
                 passed: true,
                 todoIncomplete: 0,
+                checklistPresent: false,
                 checklistProgress: "0/0",
                 checklistComplete: true,
             });
-            mocks.buildTodoIncompletePrompt.mockReturnValue("<todo_incomplete>file work remains</todo_incomplete>");
+            mocks.buildVerificationFailurePrompt.mockReturnValue("<verification_failure>file work remains</verification_failure>");
         });
 
         afterEach(() => {
@@ -306,6 +308,7 @@ describe("TodoContinuation", () => {
                 todoIncomplete: 1,
                 todoProgress: "0/1",
                 todoComplete: false,
+                checklistPresent: false,
                 checklistProgress: "0/0",
                 checklistComplete: false,
                 syncIssuesEmpty: true,
@@ -337,11 +340,41 @@ describe("TodoContinuation", () => {
                 body: {
                     parts: [{
                         type: "text",
-                        text: "<todo_incomplete>file work remains</todo_incomplete>",
+                        text: "<verification_failure>file work remains</verification_failure>",
                     }],
                 },
             });
-            expect(mocks.buildTodoIncompletePrompt).toHaveBeenCalled();
+            expect(mocks.buildVerificationFailurePrompt).toHaveBeenCalled();
+        });
+
+        it("injects a verification continuation when only sync issues remain", async () => {
+            mocks.verifyMissionCompletion.mockReturnValue({
+                passed: false,
+                todoIncomplete: 0,
+                todoProgress: "1/1",
+                todoComplete: true,
+                checklistPresent: false,
+                checklistProgress: "0/0",
+                checklistComplete: false,
+                syncIssuesEmpty: false,
+                syncIssuesCount: 1,
+                errors: ["Sync issues not resolved"],
+            });
+            const client = {
+                session: {
+                    todo: vi.fn().mockResolvedValue({ data: [] }),
+                    prompt: vi.fn().mockResolvedValue({ data: {} }),
+                },
+                tui: {
+                    showToast: vi.fn().mockResolvedValue({ data: true }),
+                },
+            };
+
+            await handleSessionIdle(client as unknown as Parameters<typeof handleSessionIdle>[0], directory, sessionID, sessionID);
+            await vi.advanceTimersByTimeAsync(2000);
+
+            expect(client.session.prompt).toHaveBeenCalled();
+            expect(mocks.buildVerificationFailurePrompt).toHaveBeenCalled();
         });
     });
 });

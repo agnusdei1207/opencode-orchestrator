@@ -17,7 +17,7 @@ import {
     readLoopState,
     writeLoopState,
 } from "../../core/loop/mission-loop.js";
-import { PROMPTS, COMMAND_NAMES, TOAST_VARIANTS, MISSION_CONTROL, type VerificationResult } from "../../shared/index.js";
+import { PROMPTS, COMMAND_NAMES, TOAST_VARIANTS, type VerificationResult } from "../../shared/index.js";
 import { STAGNATION_INTERVENTION } from "../../shared/constants/system-messages.js";
 import type { MissionLoopState } from "../../shared/loop/types.js";
 import { HOOK_ACTIONS, HOOK_NAMES } from "../constants.js";
@@ -42,7 +42,6 @@ import {
 import {
     verifyMissionCompletion,
     buildVerificationFailurePrompt,
-    buildTodoIncompletePrompt,
     buildVerificationSummary,
 } from "../../core/loop/verification.js";
 import { appendMissionLedgerEvent } from "../../core/loop/mission-ledger.js";
@@ -162,7 +161,7 @@ export class MissionControlHook implements AssistantDoneHook, ChatMessageHook {
         let isStagnant = false;
 
         if (loopState && loopState.active && loopState.sessionID === sessionID) {
-            const currentProgress = verification.todoProgress;
+            const currentProgress = buildVerificationSummary(verification);
             if (loopState.lastProgress === currentProgress) {
                 loopState.stagnationCount = (loopState.stagnationCount || 0) + 1;
                 if (loopState.stagnationCount >= 2) {
@@ -176,9 +175,7 @@ export class MissionControlHook implements AssistantDoneHook, ChatMessageHook {
         }
 
         // 5. Build response
-        const failurePrompt = verification.checklistProgress !== "0/0"
-            ? buildVerificationFailurePrompt(verification)
-            : buildTodoIncompletePrompt(verification);
+        const failurePrompt = buildVerificationFailurePrompt(verification);
 
         const continuation = this.buildContinuationResponse(session, sessionID);
         const prompts = [failurePrompt];
@@ -288,7 +285,7 @@ export class MissionControlHook implements AssistantDoneHook, ChatMessageHook {
             await sendNotification(
                 platform,
                 "🎖️ Mission Complete!",
-                `All verifications passed. ${verification.checklistProgress !== "0/0"
+                `All verifications passed. ${verification.checklistPresent
                     ? `Checklist: ${verification.checklistProgress}`
                     : `TODO: ${verification.todoProgress}`}`
             );

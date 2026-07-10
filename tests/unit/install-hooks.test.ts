@@ -10,20 +10,27 @@ const postinstallPath = path.join(repoRoot, "scripts", "postinstall.ts");
 const preuninstallPath = path.join(repoRoot, "scripts", "preuninstall.ts");
 
 function runNode(args: string[], cwd: string, env: NodeJS.ProcessEnv = {}) {
+    const childEnv = { ...process.env, CI: "", CONTINUOUS_INTEGRATION: "", ...env };
+    if (env.HOME) {
+        childEnv.USERPROFILE = env.USERPROFILE ?? env.HOME;
+        childEnv.APPDATA = env.APPDATA ?? path.join(env.HOME, "AppData", "Roaming");
+    }
+
     return spawnSync(process.execPath, args, {
         cwd,
         // Neutralize any inherited CI flag so config-writing tests are deterministic
         // whether or not they run inside CI. Tests that exercise CI no-op behavior
         // re-enable it explicitly via the `env` argument (which wins here).
-        env: { ...process.env, CI: "", CONTINUOUS_INTEGRATION: "", ...env },
+        env: childEnv,
         encoding: "utf8",
     });
 }
 
 function buildHook(entryPath: string, outfile: string) {
     return spawnSync(
-        path.join(repoRoot, "node_modules", "esbuild", "bin", "esbuild"),
+        process.execPath,
         [
+            path.join(repoRoot, "node_modules", "esbuild", "bin", "esbuild"),
             entryPath,
             "--bundle",
             "--platform=node",

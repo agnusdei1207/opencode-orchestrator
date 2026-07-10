@@ -18,7 +18,7 @@ import { generateContinuationPrompt, formatProgress } from "./formatters.js";
 import type { Todo } from "../../shared/loop/types.js";
 import { ParallelAgentManager } from "../agents/manager.js";
 import { isSessionRecovering } from "../recovery/session-recovery.js";
-import { verifyMissionCompletion, buildTodoIncompletePrompt } from "./verification.js";
+import { verifyMissionCompletion, buildVerificationFailurePrompt } from "./verification.js";
 import { createPruneTimer } from "./prune-timer.js";
 import { showContinuationCountdownToast } from "./continuation-toast.js";
 
@@ -227,7 +227,7 @@ function buildContinuationPrompt(directory: string, todos: Todo[]): string {
 
     try {
         const verification = verifyMissionCompletion(directory);
-        return hasFileBasedWork(verification) ? buildTodoIncompletePrompt(verification) : "";
+        return hasFileBasedWork(verification) ? buildVerificationFailurePrompt(verification) : "";
     } catch (err) {
         log("[todo-continuation] Failed to generate file-based prompt", err);
         return "";
@@ -378,9 +378,7 @@ function checkFileWorkForIdle(directory: string): boolean {
 }
 
 function hasFileBasedWork(verification: ReturnType<typeof verifyMissionCompletion>): boolean {
-    return !verification.passed
-        && (verification.todoIncomplete > 0 ||
-            (verification.checklistProgress !== "0/0" && !verification.checklistComplete));
+    return !verification.passed;
 }
 
 async function startContinuationCountdown(

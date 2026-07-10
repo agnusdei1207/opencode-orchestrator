@@ -13,7 +13,7 @@ import * as TodoContinuation from "../../core/loop/todo-continuation.js";
 export class UserActivityHook implements ChatMessageHook {
     name = HOOK_NAMES.USER_ACTIVITY;
 
-    async execute(ctx: HookContext, message: string): Promise<ChatMessageResult> {
+    async execute(ctx: HookContext, _message: string): Promise<ChatMessageResult> {
         // Whenever the user sends a message (that reaches here), 
         // we consider it user activity.
 

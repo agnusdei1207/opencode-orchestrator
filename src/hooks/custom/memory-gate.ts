@@ -20,7 +20,7 @@ export class MemoryGateHook implements PostToolUseHook, AssistantDoneHook {
     private memoryManager = MemoryManager.getInstance();
 
     async execute(
-        context: HookContext,
+        _context: HookContext,
         tool: string,
         input: ToolInput,
         output: ToolOutput
@@ -49,7 +49,7 @@ export class MemoryGateHook implements PostToolUseHook, AssistantDoneHook {
      * Post-Tool: Capture tool outputs to TASK memory
      */
     private async handlePostTool(
-        context: HookContext,
+        _context: HookContext,
         tool: string,
         input: ToolInput | undefined,
         output: ToolOutput

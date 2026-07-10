@@ -4,7 +4,7 @@
  * Orchestration discipline - delegate, don't do.
  */
 
-import { AGENT_NAMES, PATHS, PROMPT_TAGS } from "../../../shared/index.js";
+import { AGENT_NAMES, PROMPT_TAGS } from "../../../shared/index.js";
 
 export const COMMANDER_FORBIDDEN = `${PROMPT_TAGS.FORBIDDEN_ACTIONS.open}
 **COMMANDER FORBIDDEN ACTIONS**

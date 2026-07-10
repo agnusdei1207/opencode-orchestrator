@@ -14,7 +14,7 @@ import { MISSION_MESSAGES } from "../../shared/constants/system-messages.js";
 export class SecretScannerHook implements PostToolUseHook {
     name = HOOK_NAMES.SECRET_SCANNER;
 
-    async execute(ctx: HookContext, tool: string, input: ToolInput, output: ToolOutput): Promise<PostToolResult> {
+    async execute(_ctx: HookContext, _tool: string, _input: ToolInput, output: ToolOutput): Promise<PostToolResult> {
         let content = output.output;
         let modified = false;
 

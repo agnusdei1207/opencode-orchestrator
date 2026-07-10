@@ -508,7 +508,7 @@ export class ConcurrencyController {
         }
         this.activeTokens.clear();
 
-        for (const [key, pool] of this.workerPools.entries()) {
+        for (const pool of this.workerPools.values()) {
             await pool.stop();
         }
         this.workerPools.clear();

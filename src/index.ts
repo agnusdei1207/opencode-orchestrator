@@ -7,10 +7,6 @@
  * The agents are: Commander, Planner, Worker, Reviewer
  */
 
-import { createRequire } from "node:module";
-const require = createRequire(import.meta.url);
-const { version: PLUGIN_VERSION } = require("../package.json");
-
 import type { Plugin } from "@opencode-ai/plugin";
 import { state } from "./core/orchestrator/index.js";
 import { ParallelAgentManager } from "./core/agents/index.js";

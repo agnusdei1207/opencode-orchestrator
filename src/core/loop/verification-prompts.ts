@@ -13,7 +13,7 @@ function statusMark(passed: boolean): string {
 
 export function buildVerificationFailurePrompt(result: VerificationResult): string {
     const errorList = result.errors.map(e => `${VERIFICATION_MARK.failed} ${e}`).join('\n');
-    const hasChecklist = result.checklistProgress !== "0/0";
+    const hasChecklist = result.checklistPresent;
 
     return `<verification_failure>
 ${VERIFICATION_MARK.warning} **COMPLETION BLOCKED - Verification Failed**
@@ -44,25 +44,11 @@ ${VERIFICATION_MARK.warning} The system will BLOCK premature completion every ti
 </verification_failure>`;
 }
 
-export function buildTodoIncompletePrompt(result: VerificationResult): string {
-    return `${VERIFICATION_MARK.warning} **TODO Incomplete: ${result.todoProgress}**
-
-${result.todoIncomplete} task(s) remaining. Continue working on incomplete items.
-
-**REQUIRED**: Check .opencode/todo.md and complete ALL [ ] items before concluding.
-
-\`\`\`bash
-cat .opencode/todo.md
-\`\`\`
-
-**DO NOT** try to finish until ALL items are [x].`;
-}
-
 export function buildVerificationSummary(result: VerificationResult): string {
     const status = result.passed
         ? `${VERIFICATION_MARK.passed} PASSED`
         : `${VERIFICATION_MARK.failed} FAILED`;
-    const hasChecklist = result.checklistProgress !== "0/0";
+    const hasChecklist = result.checklistPresent;
 
     if (hasChecklist) {
         return `[Verification ${status}] Checklist: ${result.checklistProgress}, TODO: ${result.todoProgress}, Sync: ${result.syncIssuesEmpty ? 'clean' : result.syncIssuesCount + ' issues'}`;
