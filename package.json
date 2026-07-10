@@ -79,8 +79,8 @@
     "node": ">=24"
   },
   "dependencies": {
-    "@opencode-ai/plugin": "1.17.12",
-    "@opencode-ai/sdk": "1.17.12",
+    "@opencode-ai/plugin": "1.17.18",
+    "@opencode-ai/sdk": "1.17.18",
     "jsonc-parser": "^3.3.1",
     "zod": "^4.3.6"
   },
