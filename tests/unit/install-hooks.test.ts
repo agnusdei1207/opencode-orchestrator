@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { mkdirSync, readFileSync, writeFileSync, readdirSync, existsSync } from "node:fs";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
+import { build } from "esbuild";
 import { tmpdir } from "../harness";
 
 const repoRoot = path.resolve(__dirname, "../..");
@@ -26,24 +27,15 @@ function runNode(args: string[], cwd: string, env: NodeJS.ProcessEnv = {}) {
     });
 }
 
-function buildHook(entryPath: string, outfile: string) {
-    return spawnSync(
-        process.execPath,
-        [
-            path.join(repoRoot, "node_modules", "esbuild", "bin", "esbuild"),
-            entryPath,
-            "--bundle",
-            "--platform=node",
-            "--format=esm",
-            "--main-fields=module,main",
-            `--outfile=${outfile}`,
-        ],
-        {
-            cwd: repoRoot,
-            env: process.env,
-            encoding: "utf8",
-        }
-    );
+async function buildHook(entryPath: string, outfile: string): Promise<void> {
+    await build({
+        entryPoints: [entryPath],
+        bundle: true,
+        platform: "node",
+        format: "esm",
+        mainFields: ["module", "main"],
+        outfile,
+    });
 }
 
 describe("install hook bootstrap", () => {
@@ -123,8 +115,7 @@ describe("install hook scripts", () => {
         const builtHook = path.join(tmp.path, "postinstall.js");
         const configRoot = path.join(tmp.path, "xdg");
 
-        const buildResult = buildHook(postinstallPath, builtHook);
-        expect(buildResult.status).toBe(0);
+        await buildHook(postinstallPath, builtHook);
 
         const result = runNode(
             [builtHook],
@@ -391,8 +382,7 @@ describe("install hook scripts", () => {
             ].join("\n")
         );
 
-        const buildResult = buildHook(preuninstallPath, builtHook);
-        expect(buildResult.status).toBe(0);
+        await buildHook(preuninstallPath, builtHook);
 
         const result = runNode(
             [builtHook],
