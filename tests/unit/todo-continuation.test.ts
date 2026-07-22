@@ -302,6 +302,38 @@ describe("TodoContinuation", () => {
             expect(hasPendingContinuation(sessionID)).toBe(false);
         });
 
+        it("does not invent file-based work when no TODO or checklist exists", async () => {
+            mocks.verifyMissionCompletion.mockReturnValue({
+                passed: false,
+                todoIncomplete: 0,
+                todoProgress: "0/0",
+                todoComplete: false,
+                checklistPresent: false,
+                checklistProgress: "0/0",
+                checklistComplete: false,
+                syncIssuesEmpty: true,
+                syncIssuesCount: 0,
+                errors: ["TODO file not found at .opencode/todo.md"],
+            });
+            const client = {
+                session: {
+                    todo: vi.fn().mockResolvedValue({ data: [] }),
+                    prompt: vi.fn().mockResolvedValue({ data: {} }),
+                },
+                tui: {
+                    showToast: vi.fn().mockResolvedValue({ data: true }),
+                },
+            };
+
+            await handleSessionIdle(client as unknown as Parameters<typeof handleSessionIdle>[0], directory, sessionID, sessionID);
+            await vi.advanceTimersByTimeAsync(2000);
+
+            expect(client.session.prompt).not.toHaveBeenCalled();
+            expect(client.tui.showToast).not.toHaveBeenCalled();
+            expect(hasPendingContinuation(sessionID)).toBe(false);
+            expect(mocks.buildVerificationFailurePrompt).not.toHaveBeenCalled();
+        });
+
         it("injects a file-based continuation when SDK todos are complete but file work remains", async () => {
             mocks.verifyMissionCompletion.mockReturnValue({
                 passed: false,

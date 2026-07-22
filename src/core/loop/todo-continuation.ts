@@ -378,7 +378,13 @@ function checkFileWorkForIdle(directory: string): boolean {
 }
 
 function hasFileBasedWork(verification: ReturnType<typeof verifyMissionCompletion>): boolean {
-    return !verification.passed;
+    // A missing TODO/checklist means no file-backed mission exists. Treating the
+    // generic verification failure as work makes every ordinary idle session
+    // invent a mission and inject a false completion gate.
+    const hasTodo = verification.todoProgress !== "0/0";
+    const hasChecklist = verification.checklistPresent;
+    const hasSyncIssues = verification.syncIssuesCount > 0;
+    return !verification.passed && (hasTodo || hasChecklist || hasSyncIssues);
 }
 
 async function startContinuationCountdown(
