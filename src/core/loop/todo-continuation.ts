@@ -377,14 +377,27 @@ function checkFileWorkForIdle(directory: string): boolean {
     }
 }
 
+/**
+ * Decide whether a failed verification represents real file-backed work.
+ *
+ * verifyMissionCompletion() fails whenever no TODO file exists, so an unqualified
+ * `!passed` makes every ordinary idle session invent a mission and inject a false
+ * completion gate. This handler runs on every session.idle - unlike the mission
+ * loop, which already gates on an active loop state - so it must confirm the
+ * workspace is tracking a mission at all before continuing one.
+ *
+ * The signal is file presence, not item counts: a TODO that is empty, malformed,
+ * or unreadable still reports "0/0", yet it means a mission is being tracked and
+ * must not be silently dropped.
+ */
+function tracksMission(verification: ReturnType<typeof verifyMissionCompletion>): boolean {
+    return verification.todoPresent
+        || verification.checklistPresent
+        || !verification.syncIssuesEmpty;
+}
+
 function hasFileBasedWork(verification: ReturnType<typeof verifyMissionCompletion>): boolean {
-    // A missing TODO/checklist means no file-backed mission exists. Treating the
-    // generic verification failure as work makes every ordinary idle session
-    // invent a mission and inject a false completion gate.
-    const hasTodo = verification.todoProgress !== "0/0";
-    const hasChecklist = verification.checklistPresent;
-    const hasSyncIssues = verification.syncIssuesCount > 0;
-    return !verification.passed && (hasTodo || hasChecklist || hasSyncIssues);
+    return !verification.passed && tracksMission(verification);
 }
 
 async function startContinuationCountdown(

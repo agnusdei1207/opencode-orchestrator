@@ -88,6 +88,7 @@ describe("Mission Verification", () => {
                 const result = verifyMissionCompletion(testDir);
 
                 expect(result.todoComplete).toBe(false);
+                expect(result.todoPresent).toBe(false);
                 expect(result.passed).toBe(false);
                 expect(result.errors.length).toBeGreaterThan(0);
                 expect(result.errors[0]).toContain("TODO file not found");
@@ -99,6 +100,15 @@ describe("Mission Verification", () => {
                 const result = verifyMissionCompletion(testDir);
 
                 expect(result.todoComplete).toBe(false);
+                expect(result.todoProgress).toBe("0/0");
+            });
+
+            it("should report an empty TODO file as present so a tracked mission is not dropped", () => {
+                writeFileSync(join(opencodeDir, "todo.md"), "# TODO\n");
+
+                const result = verifyMissionCompletion(testDir);
+
+                expect(result.todoPresent).toBe(true);
                 expect(result.todoProgress).toBe("0/0");
             });
 
@@ -311,6 +321,7 @@ Needs manual reconciliation
             const result: VerificationResult = {
                 passed: false,
                 todoComplete: false,
+                todoPresent: true,
                 todoProgress: "2/5",
                 todoIncomplete: 3,
                 syncIssuesEmpty: false,
@@ -333,6 +344,7 @@ Needs manual reconciliation
             const result: VerificationResult = {
                 passed: false,
                 todoComplete: true,
+                todoPresent: true,
                 todoProgress: "5/5",
                 todoIncomplete: 0,
                 syncIssuesEmpty: false,
@@ -357,6 +369,7 @@ Needs manual reconciliation
             const result: VerificationResult = {
                 passed: true,
                 todoComplete: true,
+                todoPresent: true,
                 todoProgress: "5/5",
                 todoIncomplete: 0,
                 syncIssuesEmpty: true,
@@ -378,6 +391,7 @@ Needs manual reconciliation
             const result: VerificationResult = {
                 passed: false,
                 todoComplete: false,
+                todoPresent: true,
                 todoProgress: "3/5",
                 todoIncomplete: 2,
                 syncIssuesEmpty: false,

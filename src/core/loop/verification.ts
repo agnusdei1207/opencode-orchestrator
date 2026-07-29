@@ -288,6 +288,7 @@ function createVerificationResult(): VerificationResult {
     return {
         passed: false,
         todoComplete: false,
+        todoPresent: false,
         todoProgress: "0/0",
         todoIncomplete: 0,
         syncIssuesEmpty: true,
@@ -331,7 +332,8 @@ function applyChecklistVerification(directory: string, result: VerificationResul
 
 function applyTodoVerification(directory: string, result: VerificationResult, hasChecklist: boolean): void {
     const todoPath = join(directory, PATHS.TODO);
-    if (existsSync(todoPath)) {
+    result.todoPresent = existsSync(todoPath);
+    if (result.todoPresent) {
         try {
             const content = readFileSync(todoPath, 'utf-8');
             const stats = countTodoCompletion(content);

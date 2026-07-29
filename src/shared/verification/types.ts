@@ -132,6 +132,9 @@ export interface VerificationResult {
     /** Whether all TODO items are complete */
     todoComplete: boolean;
 
+    /** Whether a TODO file exists on disk, regardless of whether it could be read */
+    todoPresent: boolean;
+
     /** Progress string e.g., "8/10" */
     todoProgress: string;
 

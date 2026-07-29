@@ -45,6 +45,7 @@ vi.mock("../../src/core/loop/verification", () => ({
     verifyMissionCompletion: vi.fn().mockReturnValue({
         passed: true,
         todoComplete: true,
+        todoPresent: true,
         todoProgress: "3/3",
         todoIncomplete: 0,
         syncIssuesEmpty: true,
@@ -279,6 +280,7 @@ function createVerificationResult(overrides: Partial<VerificationResult> = {}): 
     return {
         passed: true,
         todoComplete: true,
+        todoPresent: true,
         todoProgress: "3/3",
         todoIncomplete: 0,
         syncIssuesEmpty: true,

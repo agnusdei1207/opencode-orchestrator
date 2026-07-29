@@ -306,6 +306,7 @@ describe("TodoContinuation", () => {
             mocks.verifyMissionCompletion.mockReturnValue({
                 passed: false,
                 todoIncomplete: 0,
+                todoPresent: false,
                 todoProgress: "0/0",
                 todoComplete: false,
                 checklistPresent: false,
@@ -334,10 +335,42 @@ describe("TodoContinuation", () => {
             expect(mocks.buildVerificationFailurePrompt).not.toHaveBeenCalled();
         });
 
+        it("keeps continuing when a tracked TODO exists but could not be parsed", async () => {
+            mocks.verifyMissionCompletion.mockReturnValue({
+                passed: false,
+                todoIncomplete: 0,
+                todoPresent: true,
+                todoProgress: "0/0",
+                todoComplete: false,
+                checklistPresent: false,
+                checklistProgress: "0/0",
+                checklistComplete: false,
+                syncIssuesEmpty: true,
+                syncIssuesCount: 0,
+                errors: ["Failed to read TODO: EACCES"],
+            });
+            const client = {
+                session: {
+                    todo: vi.fn().mockResolvedValue({ data: [] }),
+                    prompt: vi.fn().mockResolvedValue({ data: {} }),
+                },
+                tui: {
+                    showToast: vi.fn().mockResolvedValue({ data: true }),
+                },
+            };
+
+            await handleSessionIdle(client as unknown as Parameters<typeof handleSessionIdle>[0], directory, sessionID, sessionID);
+            await vi.advanceTimersByTimeAsync(2000);
+
+            expect(client.session.prompt).toHaveBeenCalled();
+            expect(mocks.buildVerificationFailurePrompt).toHaveBeenCalled();
+        });
+
         it("injects a file-based continuation when SDK todos are complete but file work remains", async () => {
             mocks.verifyMissionCompletion.mockReturnValue({
                 passed: false,
                 todoIncomplete: 1,
+                todoPresent: true,
                 todoProgress: "0/1",
                 todoComplete: false,
                 checklistPresent: false,
@@ -383,8 +416,9 @@ describe("TodoContinuation", () => {
             mocks.verifyMissionCompletion.mockReturnValue({
                 passed: false,
                 todoIncomplete: 0,
-                todoProgress: "1/1",
-                todoComplete: true,
+                todoPresent: false,
+                todoProgress: "0/0",
+                todoComplete: false,
                 checklistPresent: false,
                 checklistProgress: "0/0",
                 checklistComplete: false,
