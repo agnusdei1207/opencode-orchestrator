@@ -22,6 +22,7 @@ Ready for user review, commit, or next instructions.
 
 - Modeled the true OpenCode Orchestrator architecture into 6 distinct layers (Interaction & Ingress, Multi-Agent Council, Hybrid Retrieval, Ebbinghaus Memory, Native Rust Tooling, Mission Loop & Verification) and 26 interactive nodes.
 - Preserved all Three.js r128 + OrbitControls features: Free explore mode, guided tour mode, layer filters, reset button, and multi-language switcher.
+- Web runtime distribution: 3D explorer assets are built from local recipe workspace before deployment.
 - Updated `scripts/sync-landing.mjs` so both the GitHub Pages deploy directory (`public/`) and repo root (`index.html`, `css/`, `js/`) remain in lockstep.
 
 ## Rejected Alternatives
