@@ -5,6 +5,8 @@
 
   [![MIT License](https://img.shields.io/badge/license-MIT-red.svg)](LICENSE)
   [![npm](https://img.shields.io/npm/v/opencode-orchestrator.svg)](https://www.npmjs.com/package/opencode-orchestrator)
+  [![GitHub Sponsors](https://img.shields.io/badge/Sponsor-%E2%9D%A4-ea4aaa?logo=github-sponsors)](https://github.com/sponsors/agnusdei1207)
+  [![3D Architecture Explorer](https://img.shields.io/badge/3D%20Architecture-Explorer-3b82f6.svg)](https://agnusdei1207.github.io/opencode-orchestrator/)
   <!-- VERSION:START -->
   **Version:** `1.7.10`
   <!-- VERSION:END -->
@@ -15,6 +17,8 @@
 ## Overview
 
 OpenCode Orchestrator coordinates multi-agent workflows with autonomous verification and local-first memory.
+
+> 🌐 **Interactive 3D Explorer**: Experience the complete 3D runtime architecture, agent council, hybrid RAG, and Ebbinghaus memory in your browser: [https://agnusdei1207.github.io/opencode-orchestrator/](https://agnusdei1207.github.io/opencode-orchestrator/)
 
 - **Autonomous Mission Loop**: Commander, Planner, Worker, and Reviewer collaborate with verification gates before concluding tasks.
 - **Role-Aware Context**: Pluggable agent profiles with modular system prompts and tailored retrieval weights.

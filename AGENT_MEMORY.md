@@ -2,18 +2,17 @@
 
 ## Current Task
 
-Completed full codebase survey and simplified `README.md` to be clean, concise, and focused on essential information without verbose clutter.
+Built interactive 3D WebGL Architecture Explorer for `opencode-orchestrator` landing page based on `pentesting/public` reference, with full multi-language support (i18n), OrbitControls, guided scroll tour, and layer isolation filters.
 
 ## Last Completed Step
 
-- Surveyed the complete project architecture (TypeScript plugin handlers, core agents, knowledge/memory scoring, Rust tool bridges, and test suites).
-- Streamlined `README.md` from 276 lines of dense text down to 164 lines of crisp documentation covering Overview, Installation, Configuration, Usage, Multi-Agent Architecture, Shell Listener, Development, and License.
-- Preserved mandatory version markers for `scripts/sync-readme-version.mjs`.
-- Verified build and 100% passing tests (106 test files, 944 tests).
+- Added 3D Architecture Explorer badge and interactive browser link to `README.md` header & overview.
+- Verified version synchronization with `scripts/sync-readme-version.mjs`.
+- Staged, committed, and pushed to `origin/main`.
 
 ## Next Exact Step
 
-Ready for next user request or feature work on the clean repository state.
+Ready for user review, commit, or next instructions.
 
 ## Incomplete Items And Why
 
@@ -21,13 +20,13 @@ Ready for next user request or feature work on the clean repository state.
 
 ## Key Decisions
 
-- Kept essential quick-start, configuration example, architecture diagram, agent roles table, shell listener, and development instructions in `README.md`.
-- Removed exhaustive, essay-like explanations of Ebbinghaus memory formulas, retrieval weights, and internal flag lists from README (these remain documented in code and detailed docs).
-- Preserved the exact `<!-- VERSION:START -->` marker block required by release scripts.
+- Modeled the true OpenCode Orchestrator architecture into 6 distinct layers (Interaction & Ingress, Multi-Agent Council, Hybrid Retrieval, Ebbinghaus Memory, Native Rust Tooling, Mission Loop & Verification) and 26 interactive nodes.
+- Preserved all Three.js r128 + OrbitControls features: Free explore mode, guided tour mode, layer filters, reset button, and multi-language switcher.
+- Updated `scripts/sync-landing.mjs` so both the GitHub Pages deploy directory (`public/`) and repo root (`index.html`, `css/`, `js/`) remain in lockstep.
 
 ## Rejected Alternatives
 
-- Did not strip out the multi-agent ASCII flow diagram or agent roles table, as they provide high utility at a glance.
+- Rejected keeping static HTML page: the 3D WebGL explorer provides rich interactive visualization of the multi-agent mission loop and Ebbinghaus memory architecture.
 
 ## Known Risks
 
@@ -35,14 +34,15 @@ Ready for next user request or feature work on the clean repository state.
 
 ## Verification Observed
 
-- TypeScript compilation via Node passed cleanly with 0 errors.
-- `node scripts/sync-readme-version.mjs` exited with code 0.
+- `node scripts/sync-landing.mjs` executed cleanly and synced all files.
 - `node scripts/build.mjs` succeeded.
+- `tsc --noEmit` passed with 0 errors.
 - Vitest suite ran: 106 test files passed, 944/944 tests passed.
 
 ## Files To Open First Next Session
 
 1. `AGENT_MEMORY.md`
-2. `README.md`
-3. `src/index.ts`
+2. `public/index.html`
+3. `public/js/scene.js`
+
 

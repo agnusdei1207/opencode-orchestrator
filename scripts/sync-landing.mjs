@@ -20,8 +20,15 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const SRC_DIR = join(ROOT, "public");
 const SRC_HTML = join(SRC_DIR, "index.html");
 const SRC_ASSETS = join(SRC_DIR, "assets");
+const SRC_CSS = join(SRC_DIR, "css");
+const SRC_JS = join(SRC_DIR, "js");
+const SRC_FAVICON = join(SRC_DIR, "favicon.svg");
+
 const DEST_HTML = join(ROOT, "index.html");
 const DEST_ASSETS = join(ROOT, "assets");
+const DEST_CSS = join(ROOT, "css");
+const DEST_JS = join(ROOT, "js");
+const DEST_FAVICON = join(ROOT, "favicon.svg");
 
 if (!existsSync(SRC_HTML)) {
     console.error(`[sync-landing] canonical source missing: ${SRC_HTML}`);
@@ -43,8 +50,24 @@ if (!same(SRC_HTML, DEST_HTML)) {
 if (existsSync(SRC_ASSETS)) {
     if (!existsSync(DEST_ASSETS)) mkdirSync(DEST_ASSETS, { recursive: true });
     cpSync(SRC_ASSETS, DEST_ASSETS, { recursive: true });
-    // cpSync is a no-op-by-content only at the file level; report coarsely.
     console.log("[sync-landing] mirrored public/assets/ → assets/");
+}
+
+if (existsSync(SRC_CSS)) {
+    if (!existsSync(DEST_CSS)) mkdirSync(DEST_CSS, { recursive: true });
+    cpSync(SRC_CSS, DEST_CSS, { recursive: true });
+    console.log("[sync-landing] mirrored public/css/ → css/");
+}
+
+if (existsSync(SRC_JS)) {
+    if (!existsSync(DEST_JS)) mkdirSync(DEST_JS, { recursive: true });
+    cpSync(SRC_JS, DEST_JS, { recursive: true });
+    console.log("[sync-landing] mirrored public/js/ → js/");
+}
+
+if (existsSync(SRC_FAVICON) && !same(SRC_FAVICON, DEST_FAVICON)) {
+    cpSync(SRC_FAVICON, DEST_FAVICON);
+    console.log("[sync-landing] mirrored public/favicon.svg → favicon.svg");
 }
 
 console.log(
