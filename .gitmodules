@@ -1,0 +1,3 @@
+[submodule "public"]
+	path = public
+	url = https://github.com/agnusdei1207/opencode-orchestrator-public.git
