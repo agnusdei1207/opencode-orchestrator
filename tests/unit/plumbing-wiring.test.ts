@@ -154,6 +154,31 @@ describe("Plumbing / Wiring Guards", () => {
         );
     });
 
+    it("guards every write to a user-facing session with a busy check", () => {
+        // Enumerated from `grep -rn "session.prompt("` so a new injection site
+        // cannot be added without either a guard or a deliberate exemption.
+        // `noReply: true` does NOT make a write safe: upstream still persists
+        // the user message and only skips starting a new run.
+        const guarded = [
+            "core/loop/mission-loop-handler.ts",
+            "core/loop/todo-continuation.ts",
+            "core/recovery/session-recovery.ts",
+            "core/agents/manager/task-cleaner.ts",
+            "core/session/pending-injection.ts",
+        ];
+        for (const rel of guarded) {
+            expect(readFileSync(SRC(rel), "utf8"), `${rel}: writes to a session without a busy check`)
+                .toMatch(/isSessionBusy\(/);
+        }
+
+        // Exempt by design: these open a BRAND NEW subagent session, whose
+        // first message is that session's real instruction, not an injection.
+        for (const rel of ["core/agents/manager/task-launcher.ts", "core/agents/manager/task-resumer.ts"]) {
+            expect(readFileSync(SRC(rel), "utf8"), `${rel}: should target a subagent session, not the user's`)
+                .toMatch(/parentSessionID|sessionID/);
+        }
+    });
+
     it("feeds session.status transitions into the activity tracker", () => {
         const src = readFileSync(SRC("plugin-handlers/event-handler.ts"), "utf8");
 

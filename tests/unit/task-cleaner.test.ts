@@ -4,6 +4,12 @@ import { TaskStore } from "../../src/core/agents/task-store";
 import { ConcurrencyController } from "../../src/core/agents/concurrency";
 import { CONFIG } from "../../src/core/agents/config";
 import { TASK_STATUS, type ParallelTask } from "../../src/shared";
+import {
+    peekPrompts,
+    hasPendingPrompts,
+    resetPendingInjections,
+} from "../../src/core/session/pending-injection";
+import { resetSessionActivity } from "../../src/core/session/activity";
 
 const toastMocks = vi.hoisted(() => ({
     showCompletionToast: vi.fn(),
@@ -102,6 +108,66 @@ describe("TaskCleaner", () => {
         expect(reportResult).toHaveBeenCalledWith("builder", false);
         expect(store.get(task.id)).toBeUndefined();
         expect(store.hasPending(task.parentSessionID)).toBe(false);
+    });
+
+    /**
+     * Issue #38: a parent agent is very often mid-turn when its background
+     * subagents finish. `noReply: true` does not make that write safe — upstream
+     * persists the user message and only skips starting a new run, so the text
+     * still lands inside the turn the model is executing.
+     */
+    describe("busy parent", () => {
+        function cleanerWithStatus(busy: boolean) {
+            const send = vi.fn().mockResolvedValue({ data: {} });
+            const client = {
+                session: {
+                    prompt: send,
+                    status: vi.fn().mockResolvedValue({
+                        data: busy ? { "parent-session": { type: "busy" } } : {},
+                    }),
+                },
+            };
+            return {
+                send,
+                cleaner: new TaskCleaner(
+                    client as unknown as ConstructorParameters<typeof TaskCleaner>[0],
+                    store,
+                    concurrency,
+                    { release: vi.fn().mockResolvedValue(undefined) } as unknown as ConstructorParameters<typeof TaskCleaner>[3],
+                ),
+            };
+        }
+
+        beforeEach(() => {
+            resetPendingInjections();
+            resetSessionActivity();
+        });
+
+        it("queues the notification instead of interrupting a working parent", async () => {
+            const task = createTask();
+            store.queueNotification(task);
+            const { cleaner: busyCleaner, send } = cleanerWithStatus(true);
+
+            await busyCleaner.notifyParentIfAllComplete(task.parentSessionID);
+
+            expect(send).not.toHaveBeenCalled();
+            // Which task finished is information the model cannot reconstruct,
+            // so it must be parked rather than dropped.
+            expect(peekPrompts("parent-session")).toEqual([
+                `[BACKGROUND COMPLETE]\nresults=${task.id}:${task.agent}:done\nnext=get_task_result`,
+            ]);
+        });
+
+        it("notifies immediately when the parent is idle", async () => {
+            const task = createTask();
+            store.queueNotification(task);
+            const { cleaner: idleCleaner, send } = cleanerWithStatus(false);
+
+            await idleCleaner.notifyParentIfAllComplete(task.parentSessionID);
+
+            expect(send).toHaveBeenCalledTimes(1);
+            expect(hasPendingPrompts("parent-session")).toBe(false);
+        });
     });
 });
 

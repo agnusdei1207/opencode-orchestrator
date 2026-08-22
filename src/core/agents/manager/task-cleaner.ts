@@ -19,6 +19,8 @@ import type { TaskCompletionInfo } from "../../../shared/index.js";
 import * as sessionStore from "../../session/store.js";
 import { finishTaskConcurrency } from "./task-lifecycle.js";
 import { syntheticTextPart } from "../../session/injection.js";
+import { isSessionBusy } from "../../session/activity.js";
+import { queueNotice } from "../../session/pending-injection.js";
 
 type OpencodeClient = PluginInput["client"];
 
@@ -128,6 +130,33 @@ export class TaskCleaner {
             message = buildAgentTaskProgressMessage(notifications, pendingCount);
         }
 
+        await this.deliverToParent(parentSessionID, message, allComplete);
+        this.store.clearNotifications(parentSessionID);
+    }
+
+    /**
+     * Send the notification, or park it if the parent is mid-turn.
+     *
+     * `noReply: true` is not a safe way to talk to a working session: upstream
+     * still persists the user message and only skips starting a new run, so the
+     * text lands inside the turn the model is already executing. A parent
+     * agent is very often working while its background subagents finish, which
+     * is exactly the interruption reported in issue #38.
+     *
+     * The notice is queued rather than dropped — which task finished is
+     * information the model cannot reconstruct on its own.
+     */
+    private async deliverToParent(
+        parentSessionID: string,
+        message: string,
+        allComplete: boolean,
+    ): Promise<void> {
+        if (await isSessionBusy(this.client, parentSessionID)) {
+            queueNotice(parentSessionID, message);
+            log(`Parent ${parentSessionID} is busy; queued task notification for the next idle`);
+            return;
+        }
+
         try {
             await this.client.session.prompt({
                 path: { id: parentSessionID },
@@ -141,7 +170,5 @@ export class TaskCleaner {
         } catch (error) {
             log("Notification error:", error);
         }
-
-        this.store.clearNotifications(parentSessionID);
     }
 }

@@ -8,15 +8,19 @@
  * returns `"continue"`). A turn that makes ten tool calls therefore emits ten
  * completed assistant messages.
  *
- * The done-hooks fire on each of those. Sending their prompts immediately meant
- * the mission loop pushed "you have not finished, continue" into the session
- * after every single tool call, which the model experiences as being repeatedly
- * interrupted while it is working (issue #38).
+ * Anything written to a session while that loop is running lands *inside* the
+ * turn the model is still executing — `SessionPrompt.prompt` persists the user
+ * message before `ensureRunning`, and `noReply: true` only skips starting a new
+ * run, it still writes the message. That is what made the orchestrator feel like
+ * it was interrupting the model mid tool call (issue #38).
  *
- * So done-hook prompts are queued here instead, and flushed once the session
- * actually goes idle. The queue holds only the most recent set: these prompts
- * are snapshots of current mission state, so an older copy carries nothing the
- * newer one does not.
+ * So everything the plugin wants to say to a busy session is parked here and
+ * sent at the next real idle. Two kinds of content, with different rules:
+ *
+ * - **snapshots** — mission state ("you have not finished, continue"). Only the
+ *   newest matters; an older copy says nothing the newer one does not.
+ * - **notices** — one-shot facts the model cannot reconstruct, such as "your
+ *   background tasks finished". These accumulate and must never be dropped.
  */
 
 import type { PluginInput } from "@opencode-ai/plugin";
@@ -26,26 +30,66 @@ import { syntheticTextParts } from "./injection.js";
 
 type OpencodeClient = PluginInput["client"];
 
-const pending = new Map<string, string[]>();
-
-/**
- * Hold prompts until the session is idle. Replaces any set already queued for
- * this session rather than appending to it.
- */
-export function queuePrompts(sessionID: string, prompts: readonly string[]): void {
-    const kept = prompts.filter(prompt => prompt.trim().length > 0);
-    if (!sessionID || kept.length === 0) return;
-
-    pending.set(sessionID, dedupe(kept));
+interface PendingEntry {
+    /** Latest mission-state snapshot; replaced wholesale. */
+    snapshot: string[];
+    /** One-shot notifications; appended, never overwritten. */
+    notices: string[];
 }
 
-/** Prompts currently waiting for this session to go idle. */
+/** Bound the notice backlog so a runaway producer cannot grow it forever. */
+const MAX_NOTICES = 20;
+
+const pending = new Map<string, PendingEntry>();
+
+function entryFor(sessionID: string): PendingEntry {
+    let entry = pending.get(sessionID);
+    if (!entry) {
+        entry = { snapshot: [], notices: [] };
+        pending.set(sessionID, entry);
+    }
+    return entry;
+}
+
+function clean(prompts: readonly string[]): string[] {
+    return prompts.filter(prompt => prompt.trim().length > 0);
+}
+
+/**
+ * Hold a mission-state snapshot until the session is idle. Replaces any
+ * snapshot already queued for this session rather than appending to it.
+ */
+export function queuePrompts(sessionID: string, prompts: readonly string[]): void {
+    const kept = clean(prompts);
+    if (!sessionID || kept.length === 0) return;
+
+    entryFor(sessionID).snapshot = [...new Set(kept)];
+}
+
+/**
+ * Hold a one-shot notification until the session is idle. Unlike a snapshot,
+ * this is additive: losing it would lose information the model cannot recover.
+ */
+export function queueNotice(sessionID: string, notice: string): void {
+    if (!sessionID || notice.trim().length === 0) return;
+
+    const entry = entryFor(sessionID);
+    if (entry.notices.length >= MAX_NOTICES) {
+        log("[pending-injection] Notice backlog full, dropping oldest", { sessionID });
+        entry.notices.shift();
+    }
+    entry.notices.push(notice);
+}
+
+/** Everything currently waiting for this session to go idle, in send order. */
 export function peekPrompts(sessionID: string): string[] {
-    return [...(pending.get(sessionID) ?? [])];
+    const entry = pending.get(sessionID);
+    if (!entry) return [];
+    return [...entry.notices, ...entry.snapshot];
 }
 
 export function hasPendingPrompts(sessionID: string): boolean {
-    return (pending.get(sessionID)?.length ?? 0) > 0;
+    return peekPrompts(sessionID).length > 0;
 }
 
 export function clearPrompts(sessionID: string): void {
@@ -58,7 +102,7 @@ export function resetPendingInjections(): void {
 }
 
 /**
- * Send the queued prompts as one synthetic message, if the session is genuinely
+ * Send everything queued as one synthetic message, if the session is genuinely
  * idle. Returns true when something was sent.
  *
  * The queue is cleared before the request so a failure cannot strand prompts
@@ -66,8 +110,8 @@ export function resetPendingInjections(): void {
  * re-queues a fresh snapshot anyway.
  */
 export async function flushPrompts(client: OpencodeClient, sessionID: string): Promise<boolean> {
-    const prompts = pending.get(sessionID);
-    if (!prompts || prompts.length === 0) return false;
+    const prompts = peekPrompts(sessionID);
+    if (prompts.length === 0) return false;
 
     if (await isSessionBusy(client, sessionID)) {
         log("[pending-injection] Held back: session is busy", { sessionID, queued: prompts.length });
@@ -87,8 +131,4 @@ export async function flushPrompts(client: OpencodeClient, sessionID: string): P
         log("[pending-injection] Failed to flush queued prompts", { sessionID, error });
         return false;
     }
-}
-
-function dedupe(prompts: string[]): string[] {
-    return [...new Set(prompts)];
 }

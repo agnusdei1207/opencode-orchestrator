@@ -15,6 +15,8 @@ import { BACKGROUND_TASK, RECOVERY, detectErrorType, ERROR_TYPE } from "../../sh
 import { log } from "../agents/logger.js";
 import { presets } from "../notification/toast.js";
 import { syntheticTextPart } from "../session/injection.js";
+import { isSessionBusy } from "../session/activity.js";
+import { queueNotice } from "../session/pending-injection.js";
 import { handleError, type ErrorContext } from "./handler.js";
 
 type OpencodeClient = PluginInput["client"];
@@ -163,6 +165,22 @@ export async function handleSessionError(
         }
 
         if (recoveryPrompt && toastMessage) {
+            // A `session.error` does not mean the run has stopped. Upstream
+            // publishes it from inside the run loop and its own retry policy
+            // sets the session to `retry` while it keeps working. Injecting a
+            // recovery prompt then would interrupt a run that is already
+            // recovering on its own, so defer it to the next idle instead.
+            if (await isSessionBusy(client, sessionID)) {
+                queueNotice(sessionID, recoveryPrompt);
+                presets.errorRecovery(toastMessage);
+                log("[session-recovery] Session still working; queued recovery prompt for the next idle", {
+                    sessionID,
+                    errorType,
+                });
+                state.isRecovering = false;
+                return true;
+            }
+
             presets.errorRecovery(toastMessage);
 
             // Fire and forget: Do NOT await prompt injection.
