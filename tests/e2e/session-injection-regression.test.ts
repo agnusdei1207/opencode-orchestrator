@@ -161,3 +161,58 @@ describe("session injection regression (issues #35, #37, #38)", () => {
         expect(anomalies.map(part => part.text?.slice(0, 80))).toEqual([]);
     });
 });
+
+/**
+ * Regression guard for the recovery path fixed in 1.7.12.
+ *
+ * A `session.error` does not mean the run stopped. Upstream publishes it from
+ * inside the run loop, and `SessionRetry.policy` sets the session to `retry`
+ * while it keeps working. Injecting a recovery prompt there interrupts a run
+ * that is already recovering on its own — and v1.7.11 did exactly that.
+ */
+describe("recovery never interrupts an in-flight retry (issue #38)", () => {
+    const sent: SentPrompt[] = [];
+
+    beforeAll(async () => {
+        if (!existsSync(DIST_ENTRY)) return;
+
+        const workspace = seedMissionWorkspace();
+        // Stays busy for the whole scenario: the runtime is retrying.
+        const client = {
+            session: {
+                prompt: async ({ body }: any) => {
+                    sent.push({ busyAtSendTime: true, parts: body.parts });
+                    return { data: {} };
+                },
+                status: async () => ({ data: { [SESSION]: { type: "retry", attempt: 1 } } }),
+                message: async () => ({ data: { parts: [{ type: "text", text: "working" }] } }),
+                todo: async () => ({ data: [] }),
+                get: async () => ({ data: { id: SESSION } }),
+            },
+            tui: { showToast: async () => ({ data: true }) },
+            app: { log: async () => ({ data: true }) },
+        };
+
+        const { default: plugin } = await import(pathToFileURL(DIST_ENTRY).href);
+        const hooks = await plugin({ directory: workspace, client, worktree: workspace, $: () => {} }, {});
+        const fire = (event: unknown) => hooks.event?.({ event });
+
+        await fire({ type: "session.created", properties: { info: { id: SESSION } } });
+        await hooks["chat.message"]?.(
+            { sessionID: SESSION },
+            { message: { sessionID: SESSION, role: "user" }, parts: [{ type: "text", text: "do the work" }] },
+        );
+        await fire({ type: "session.status", properties: { sessionID: SESSION, status: { type: "busy" } } });
+        await fire({
+            type: "session.error",
+            properties: { sessionID: SESSION, error: { name: "Error", message: "tool_result_missing" } },
+        });
+        await settle(600);
+    }, 60_000);
+
+    it("holds the recovery prompt while the runtime is still retrying", () => {
+        const texts = sent.map(entry => entry.parts?.[0]?.text?.slice(0, 60));
+
+        expect(sent.length, `injected during retry: ${JSON.stringify(texts)}`).toBe(0);
+    });
+});
