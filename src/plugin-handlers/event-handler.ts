@@ -253,6 +253,16 @@ function markAssistantCompleted(sessions: Map<string, PluginSessionState>, sessi
     session.lastAssistantCompletedAt = Date.now();
 }
 
+/**
+ * True only for a deliberate stop: the user aborted, and no assistant turn has
+ * completed since. Distinct from `shouldContinueAfterIdle`, which also declines
+ * for benign reasons — no turn has run yet, or the user simply spoke last.
+ */
+function wasAbortedSinceLastTurn(session: PluginSessionState | undefined): boolean {
+    if (!session?.lastAbortAt) return false;
+    return !session.lastAssistantCompletedAt || session.lastAssistantCompletedAt < session.lastAbortAt;
+}
+
 function shouldContinueAfterIdle(session: PluginSessionState | undefined): boolean {
     if (!session?.active || !session.lastAssistantCompletedAt) {
         return false;
@@ -280,7 +290,12 @@ function markAbort(sessions: Map<string, PluginSessionState>, sessionID: string)
 
 function scheduleIdleContinuation(ctx: EventHandlerContext, sessionID: string): void {
     const { sessions } = ctx;
-    if (!sessions.has(sessionID)) return;
+
+    // Untracked sessions are normally none of our business — except when we are
+    // already holding something for one. A session can receive a queued notice
+    // (its background task finished) without ever having been initialised here,
+    // and skipping it would strand that notice until the TTL sweep discarded it.
+    if (!sessions.has(sessionID) && !PendingInjection.hasPendingPrompts(sessionID)) return;
 
     scheduleDelayedHandler("idle continuation", sessionID, () => runIdleContinuation(ctx, sessionID));
 }
@@ -288,16 +303,28 @@ function scheduleIdleContinuation(ctx: EventHandlerContext, sessionID: string): 
 async function runIdleContinuation(ctx: EventHandlerContext, sessionID: string): Promise<void> {
     const { client, directory, sessions } = ctx;
     const session = sessions.get(sessionID);
-    if (!shouldContinueAfterIdle(session)) {
+
+    // A deliberate stop means the user does not want any of this delivered.
+    if (wasAbortedSinceLastTurn(session)) {
         markAbort(sessions, sessionID);
         PendingInjection.clearPrompts(sessionID);
         return;
     }
 
-    // Prompts the done-hooks raised while the model was working are sent here,
-    // at the first genuine idle boundary. A flush starts a new turn, so the
-    // mission/todo continuations wait for the next idle rather than piling on.
+    // Deferred prompts go out at the first genuine idle — including an idle the
+    // continuation logic itself declines to act on. `shouldContinueAfterIdle`
+    // requires a completed assistant turn, which a session that only spawned a
+    // background task has never had; gating the flush on it silently discarded
+    // the completion notice for that task.
+    //
+    // A flush starts a new turn, so mission/todo continuation waits for the next
+    // idle rather than piling on top of it.
     if (await PendingInjection.flushPrompts(client, sessionID)) {
+        return;
+    }
+
+    if (!shouldContinueAfterIdle(session)) {
+        markAbort(sessions, sessionID);
         return;
     }
 

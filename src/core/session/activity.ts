@@ -107,12 +107,13 @@ export async function isSessionBusy(client: OpencodeClient, sessionID: string): 
  * upstream removes idle sessions from the map entirely.
  */
 async function readRemoteStatus(client: OpencodeClient, sessionID: string): Promise<string | null> {
-    const statusApi = (client.session as { status?: () => Promise<unknown> }).status;
-    if (typeof statusApi !== "function") return null;
+    // `session.status` is part of the typed plugin client, so this call is
+    // checked against the SDK rather than cast past it. The runtime guard stays
+    // because a plugin can be loaded by an older host than it was built for.
+    if (typeof client.session?.status !== "function") return null;
 
     try {
-        const response = await statusApi.call(client.session);
-        const statuses = readStatusMap(response);
+        const statuses = readStatusMap(await client.session.status());
         if (!statuses) return null;
 
         const entry = statuses[sessionID];
