@@ -7,7 +7,7 @@
  */
 
 import type { PluginInput } from "@opencode-ai/plugin";
-import { TASK_STATUS, PART_TYPES } from "../../../shared/index.js";
+import { TASK_STATUS } from "../../../shared/index.js";
 import { TaskStore } from "../task-store.js";
 import { ConcurrencyController } from "../concurrency.js";
 import { CONFIG } from "../config.js";
@@ -18,6 +18,7 @@ import { getTaskToastManager } from "../../notification/task-toast-manager.js";
 import type { TaskCompletionInfo } from "../../../shared/index.js";
 import * as sessionStore from "../../session/store.js";
 import { finishTaskConcurrency } from "./task-lifecycle.js";
+import { syntheticTextPart } from "../../session/injection.js";
 
 type OpencodeClient = PluginInput["client"];
 
@@ -133,7 +134,7 @@ export class TaskCleaner {
                 body: {
                     // Key optimization: only trigger AI response when ALL complete
                     noReply: !allComplete,
-                    parts: [{ type: PART_TYPES.TEXT, text: message }]
+                    parts: [syntheticTextPart(message)]
                 },
             });
             log(`Notified parent ${parentSessionID} (allComplete=${allComplete}, noReply=${!allComplete})`);

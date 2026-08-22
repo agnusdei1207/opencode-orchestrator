@@ -140,11 +140,9 @@ export class ParallelAgentManager {
         );
 
         // Initialize ProgressNotifier
+        // Task progress reaches the TUI through TaskToastManager; the old
+        // TerminalMonitor that used to be started here is gone.
         progressNotifier.setManager(this);
-
-        // Start TUI Monitor
-        // TerminalMonitor has been deprecated in favor of native TUI integration (TaskToastManager)
-        // TerminalMonitor.getInstance().start();
     }
 
     static getInstance(
@@ -254,7 +252,6 @@ export class ParallelAgentManager {
         this.poller.stop();
         this.store.clear();
         MemoryManager.getInstance().clearTaskMemory();
-        // TerminalMonitor.getInstance().stop();
         void import("../session/store.js")
             .then(store => store.clearAll())
             .catch((error) => {

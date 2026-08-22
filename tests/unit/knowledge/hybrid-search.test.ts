@@ -105,16 +105,22 @@ describe("HybridSearch - BM25 + Tag + Graph Fusion RAG", () => {
         const freshDoc = "Kerberoasting defense uses SPN monitoring and rotation.";
         const expiredDoc = "Kerberoasting defense uses SPN monitoring and rotation.";
 
+        // Timestamps are relative to the run: memoryStrength() decays against
+        // Date.now(), so hard-coded dates make this assertion expire on a
+        // calendar date rather than on a behavior change.
+        const daysAgo = (days: number) =>
+            new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
+
         search.indexContent("expired-memory", expiredDoc, {
-            event_time: "2024-03-15T00:00:00Z",
-            ingestion_time: "2024-03-20T00:00:00Z",
-            valid_to: "2024-04-01T00:00:00Z",
+            event_time: daysAgo(400),
+            ingestion_time: daysAgo(395),
+            valid_to: daysAgo(380),
             decay_lambda: 0.2,
             memory_kind: "episode",
         });
         search.indexContent("fresh-memory", freshDoc, {
-            event_time: "2026-06-18T00:00:00Z",
-            ingestion_time: "2026-06-19T00:00:00Z",
+            event_time: daysAgo(2),
+            ingestion_time: daysAgo(1),
             decay_lambda: 0.006,
             memory_kind: "sop",
             access_count: 5,

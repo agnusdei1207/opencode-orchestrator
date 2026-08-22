@@ -223,7 +223,6 @@ export function startMissionLoop(
             summary: "Mission loop started",
         });
         syncMissionMemory(directory, state);
-        // TerminalMonitor.getInstance().start();
         log(`[${MISSION_CONTROL.LOG_SOURCE}] Loop started`, {
             sessionID,
             maxIterations: state.maxIterations,

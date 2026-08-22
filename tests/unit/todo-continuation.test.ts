@@ -17,8 +17,13 @@ import {
 import {
     cleanupSession,
     handleSessionIdle,
+    handleSessionBusy,
     hasPendingContinuation,
 } from "../../src/core/loop/todo-continuation.js";
+import {
+    recordSessionStatus,
+    resetSessionActivity,
+} from "../../src/core/session/activity.js";
 import type { Todo } from "../../src/shared/loop/types.js";
 
 const mocks = vi.hoisted(() => ({
@@ -226,6 +231,7 @@ describe("TodoContinuation", () => {
                 body: {
                     parts: [{
                         type: "text",
+                        synthetic: true,
                         text: expect.stringContaining("todo_continuation"),
                     }],
                 },
@@ -405,6 +411,7 @@ describe("TodoContinuation", () => {
                 body: {
                     parts: [{
                         type: "text",
+                        synthetic: true,
                         text: "<verification_failure>file work remains</verification_failure>",
                     }],
                 },
@@ -441,6 +448,81 @@ describe("TodoContinuation", () => {
 
             expect(client.session.prompt).toHaveBeenCalled();
             expect(mocks.buildVerificationFailurePrompt).toHaveBeenCalled();
+        });
+
+        /**
+         * Issue #38: a continuation must never land inside a turn the model is
+         * still executing. `POST /session/{id}/prompt` writes the user message
+         * before it checks whether the session is running, so a prompt sent to a
+         * busy session is read as an interruption mid tool call.
+         */
+        describe("busy-session guard", () => {
+            const pendingTodo = {
+                id: "T1",
+                content: "Finish implementation",
+                status: "pending",
+                priority: "high",
+                createdAt: new Date().toISOString(),
+            };
+
+            function busyAwareClient(busy: boolean) {
+                return {
+                    session: {
+                        todo: vi.fn().mockResolvedValue({ data: [pendingTodo] }),
+                        prompt: vi.fn().mockResolvedValue({ data: {} }),
+                        status: vi.fn().mockResolvedValue({
+                            data: busy ? { [sessionID]: { type: "busy" } } : {},
+                        }),
+                    },
+                    tui: { showToast: vi.fn().mockResolvedValue({ data: true }) },
+                };
+            }
+
+            afterEach(() => {
+                resetSessionActivity();
+            });
+
+            it("does not inject while the server reports the session busy", async () => {
+                const client = busyAwareClient(true);
+
+                await handleSessionIdle(client as unknown as Parameters<typeof handleSessionIdle>[0], directory, sessionID, sessionID);
+                await vi.advanceTimersByTimeAsync(2000);
+
+                expect(client.session.status).toHaveBeenCalled();
+                expect(client.session.prompt).not.toHaveBeenCalled();
+            });
+
+            it("injects once the server reports the session idle", async () => {
+                const client = busyAwareClient(false);
+
+                await handleSessionIdle(client as unknown as Parameters<typeof handleSessionIdle>[0], directory, sessionID, sessionID);
+                await vi.advanceTimersByTimeAsync(2000);
+
+                expect(client.session.prompt).toHaveBeenCalled();
+            });
+
+            it("never schedules a countdown for a session already back at work", async () => {
+                recordSessionStatus(sessionID, "busy");
+                const client = busyAwareClient(false);
+
+                await handleSessionIdle(client as unknown as Parameters<typeof handleSessionIdle>[0], directory, sessionID, sessionID);
+
+                expect(hasPendingContinuation(sessionID)).toBe(false);
+                expect(client.session.todo).not.toHaveBeenCalled();
+            });
+
+            it("drops a pending countdown when the session becomes busy again", async () => {
+                const client = busyAwareClient(false);
+
+                await handleSessionIdle(client as unknown as Parameters<typeof handleSessionIdle>[0], directory, sessionID, sessionID);
+                expect(hasPendingContinuation(sessionID)).toBe(true);
+
+                handleSessionBusy(sessionID);
+                await vi.advanceTimersByTimeAsync(2000);
+
+                expect(hasPendingContinuation(sessionID)).toBe(false);
+                expect(client.session.prompt).not.toHaveBeenCalled();
+            });
         });
     });
 });

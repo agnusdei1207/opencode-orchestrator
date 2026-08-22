@@ -1,12 +1,19 @@
 /**
  * Plugin Handlers - Assistant Done Handler
- * 
- * Handles completed assistant turns using supported OpenCode session APIs.
+ *
+ * Runs the internal done-hooks whenever an assistant message completes.
+ *
+ * Note that a completed assistant message marks the end of a *step*, not of the
+ * turn: the upstream run loop finishes the message and then starts another step
+ * whenever the model requested tool calls. Any prompt the hooks want to inject
+ * is therefore queued (see `pending-injection`) and sent once the session
+ * actually goes idle, instead of landing in the middle of ongoing work.
  */
 
-import { log } from "../core/agents/logger.js";
 import { PART_TYPES } from "../shared/index.js";
+import { queuePrompts } from "../core/session/pending-injection.js";
 import { HookRegistry } from "../hooks/registry.js";
+import { log } from "../core/agents/logger.js";
 import type { AssistantDoneHandlerContext, OpencodeClient } from "./context.js";
 
 type AssistantMessagePart = { type: string; text?: string };
@@ -44,17 +51,12 @@ export async function handleCompletedAssistantMessage(
     session.timestamp = now;
     session.lastStepTime = now;
 
-    try {
-        const parts = result.prompts.map(text => ({ type: PART_TYPES.TEXT, text }));
-        client.session.prompt({
-            path: { id: sessionID },
-            body: { parts },
-        }).catch(error => {
-            log("[assistant-done-handler] Failed to inject continuation prompts", { sessionID, error });
-        });
-    } catch (error) {
-        log("[assistant-done-handler] Failed to inject continuation prompts", { sessionID, error });
-    }
+    queuePrompts(sessionID, result.prompts);
+    log("[assistant-done-handler] Queued continuation prompts for the next idle window", {
+        sessionID,
+        count: result.prompts.length,
+        step: session.step,
+    });
 }
 
 async function readAssistantText(

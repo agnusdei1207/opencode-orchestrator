@@ -65,11 +65,16 @@ export const MESSAGE_ROLES = {
 export type MessageRole = (typeof MESSAGE_ROLES)[keyof typeof MESSAGE_ROLES];
 
 /**
- * Session Status Types
+ * Session Status Types.
+ *
+ * Mirrors the upstream `SessionStatus` union (`idle` | `busy` | `retry`).
+ * Anything other than `idle` means the session is still working, so it must not
+ * be interrupted with an injected prompt.
  */
 export const SESSION_STATUS = {
     IDLE: "idle",
     BUSY: "busy",
+    RETRY: "retry",
 } as const;
 
 export type SessionStatus = (typeof SESSION_STATUS)[keyof typeof SESSION_STATUS];

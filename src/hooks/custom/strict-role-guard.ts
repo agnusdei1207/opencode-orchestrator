@@ -1,10 +1,16 @@
 
 /**
  * Strict Role Guard Hook
- * 
- * Enforces role-based access control (RBAC) for agents.
- * - Planner: Cannot write code or run commands.
- * - Reviewer: Cannot write code (only review).
+ *
+ * A last-resort safety net over command execution: it blocks the two shapes that
+ * are destructive no matter which agent issued them (fork bombs, root deletion).
+ *
+ * Role separation itself is NOT enforced here. It is expressed in the prompts —
+ * see the authoritative Role Permission Matrix in
+ * `src/agents/prompts/shared/role-matrix.ts` — because the orchestrator delegates
+ * to real OpenCode agents whose tool access is governed by the user's own
+ * permission configuration. Re-implementing that as a hard block here would
+ * override the user's config rather than complement it.
  */
 
 import type { PreToolUseHook, HookContext, PreToolResult, ToolInput } from "../registry.js";
@@ -17,9 +23,7 @@ export class StrictRoleGuardHook implements PreToolUseHook {
     name = HOOK_NAMES.STRICT_ROLE_GUARD;
 
     async execute(_ctx: HookContext, tool: string, args: ToolInput): Promise<PreToolResult> {
-        // "Prevent 'rm -rf /' or dangerous commands" globally for now.
-
-        // Check for both background and standard command execution
+        // Applies to both foreground and background command execution.
         if (tool === TOOL_NAMES.RUN_COMMAND || tool === TOOL_NAMES.RUN_BACKGROUND) {
             const cmd = typeof args.command === "string" ? args.command : undefined;
             if (cmd) {

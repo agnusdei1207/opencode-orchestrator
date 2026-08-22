@@ -55,6 +55,7 @@ describe("SessionRecovery", () => {
             body: {
                 parts: [{
                     type: "text",
+                    synthetic: true,
                     text: expect.stringContaining('<recovery type="tool_crash">'),
                 }],
             },

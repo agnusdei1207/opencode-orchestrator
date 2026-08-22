@@ -11,7 +11,7 @@
  */
 
 import type { PluginInput } from "@opencode-ai/plugin";
-import { PART_TYPES, LOOP, TIME, STATUS_LABEL } from "../../shared/index.js";
+import { LOOP, TIME, STATUS_LABEL } from "../../shared/index.js";
 import { log } from "../agents/logger.js";
 import { getIncompleteCount, hasRemainingWork, getNextPending } from "./stats.js";
 import { generateContinuationPrompt, formatProgress } from "./formatters.js";
@@ -21,6 +21,8 @@ import { isSessionRecovering } from "../recovery/session-recovery.js";
 import { verifyMissionCompletion, buildVerificationFailurePrompt } from "./verification.js";
 import { createPruneTimer } from "./prune-timer.js";
 import { showContinuationCountdownToast } from "./continuation-toast.js";
+import { isSessionBusy, isKnownBusy } from "../session/activity.js";
+import { syntheticTextPart } from "../session/injection.js";
 
 type OpencodeClient = PluginInput["client"];
 
@@ -240,11 +242,19 @@ async function sendContinuationPrompt(
     prompt: string,
     todos: Todo[]
 ): Promise<void> {
+    // Last-moment check against the authoritative session status. Prompting a
+    // running session appends the message into the turn already in flight, which
+    // the model experiences as being interrupted mid tool call.
+    if (await isSessionBusy(client, sessionID)) {
+        log("[todo-continuation] Skipped: session is busy", { sessionID });
+        return;
+    }
+
     try {
         await client.session.prompt({
             path: { id: sessionID },
             body: {
-                parts: [{ type: PART_TYPES.TEXT, text: prompt }],
+                parts: [syntheticTextPart(prompt)],
             },
         });
 
@@ -303,6 +313,7 @@ function shouldSkipIdleRequest(
     const shouldSkip = shouldSkipNonMainSession(request)
         || shouldSkipRecoveringSession(request.sessionID)
         || shouldSkipRecentAbort(state, request.sessionID)
+        || shouldSkipBusySession(request.sessionID)
         || shouldSkipRunningBackgroundTasks(request.sessionID);
 
     if (shouldSkip) return true;
@@ -345,6 +356,18 @@ function shouldSkipRecentAbort(state: ContinuationState, sessionID: string): boo
     if (timeSinceAbort >= ABORT_WINDOW_MS) return false;
 
     log("[todo-continuation] Skipped: abort detected recently", { sessionID, timeSinceAbort });
+    return true;
+}
+
+/**
+ * A `session.idle` event can be immediately followed by new work (a queued
+ * prompt, a provider retry). Starting a countdown against a session that is
+ * already busy again only sets up an interruption.
+ */
+function shouldSkipBusySession(sessionID: string): boolean {
+    if (!isKnownBusy(sessionID)) return false;
+
+    log("[todo-continuation] Skipped: session is busy", { sessionID });
     return true;
 }
 
@@ -512,7 +535,22 @@ export function handleAbort(sessionID: string): void {
 }
 
 /**
- * Clean up session state
+ * The session started working again while a countdown was pending. Drop it: the
+ * model is already busy, and injecting now would interrupt the running turn.
+ */
+export function handleSessionBusy(sessionID: string): void {
+    if (!sessionStates.get(sessionID)?.countdownTimer) return;
+
+    log("[todo-continuation] Cancelled: session became busy", { sessionID });
+    cancelCountdown(sessionID);
+}
+
+/**
+ * Clean up session state.
+ *
+ * Session activity is deliberately NOT cleared here: it is owned by the session
+ * layer and released once, on `session.deleted`, so that clearing one loop's
+ * state cannot blind the other to a session that is still working.
  */
 export function cleanupSession(sessionID: string): void {
     cancelCountdown(sessionID);

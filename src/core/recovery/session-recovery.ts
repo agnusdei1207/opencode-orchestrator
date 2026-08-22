@@ -11,9 +11,10 @@
  */
 
 import type { PluginInput } from "@opencode-ai/plugin";
-import { PART_TYPES, BACKGROUND_TASK, RECOVERY, detectErrorType, ERROR_TYPE } from "../../shared/index.js";
+import { BACKGROUND_TASK, RECOVERY, detectErrorType, ERROR_TYPE } from "../../shared/index.js";
 import { log } from "../agents/logger.js";
 import { presets } from "../notification/toast.js";
+import { syntheticTextPart } from "../session/injection.js";
 import { handleError, type ErrorContext } from "./handler.js";
 
 type OpencodeClient = PluginInput["client"];
@@ -169,7 +170,7 @@ export async function handleSessionError(
             client.session.prompt({
                 path: { id: sessionID },
                 body: {
-                    parts: [{ type: PART_TYPES.TEXT, text: recoveryPrompt }],
+                    parts: [syntheticTextPart(recoveryPrompt)],
                 },
             }).catch(injectionError => {
                 log("[session-recovery] Failed to inject recovery prompt", { sessionID, error: injectionError });

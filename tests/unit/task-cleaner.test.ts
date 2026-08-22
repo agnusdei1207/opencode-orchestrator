@@ -53,6 +53,7 @@ describe("TaskCleaner", () => {
                 noReply: false,
                 parts: [{
                     type: "text",
+                    synthetic: true,
                     text: `[BACKGROUND COMPLETE]\nresults=${task.id}:${task.agent}:done\nnext=get_task_result`,
                 }],
             },
@@ -76,6 +77,7 @@ describe("TaskCleaner", () => {
                 noReply: true,
                 parts: [{
                     type: "text",
+                    synthetic: true,
                     text: "[BACKGROUND UPDATE] completed=1 pending=1\nids=task_done",
                 }],
             },

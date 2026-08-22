@@ -14,6 +14,8 @@ import * as TodoContinuation from "../core/loop/todo-continuation.js";
 import * as MissionLoopHandler from "../core/loop/mission-loop-handler.js";
 import { isLoopActive } from "../core/loop/mission-loop.js";
 import * as ContextMonitor from "../core/context/index.js";
+import * as SessionActivity from "../core/session/activity.js";
+import * as PendingInjection from "../core/session/pending-injection.js";
 import { SESSION_EVENTS, MESSAGE_EVENTS, MESSAGE_ROLES, SESSION_STATUS } from "../shared/index.js";
 import type { PluginHandlerContext, PluginSessionState } from "./context.js";
 import { handleCompletedAssistantMessage } from "./assistant-done-handler.js";
@@ -113,6 +115,8 @@ function handleSessionDeleted(ctx: EventHandlerContext, event: PluginEvent): voi
     TodoContinuation.cleanupSession(sessionID);
     MissionLoopHandler.cleanupSession(sessionID);
     ContextMonitor.cleanupSession(sessionID);
+    SessionActivity.clearSessionActivity(sessionID);
+    PendingInjection.clearPrompts(sessionID);
 
     Toast.presets.sessionCompleted(sessionID, duration);
 }
@@ -193,15 +197,31 @@ async function handleAssistantMessageUpdated(
 function handleSessionIdle(ctx: EventHandlerContext, event: PluginEvent): void {
     const sessionID = readSessionID(event.properties);
     if (sessionID) {
+        SessionActivity.recordSessionStatus(sessionID, SESSION_STATUS.IDLE);
         scheduleIdleContinuation(ctx, sessionID);
     }
 }
 
+/**
+ * `session.status` is the push-based busy/idle signal. Feeding it to the
+ * activity tracker is what lets every injection site refuse to prompt a session
+ * that is still working, and lets a pending countdown be dropped the moment the
+ * session picks work back up.
+ */
 function handleSessionStatus(ctx: EventHandlerContext, event: PluginEvent): void {
     const sessionID = readSessionID(event.properties);
-    if (sessionID && readSessionStatusType(event.properties) === SESSION_STATUS.IDLE) {
+    if (!sessionID) return;
+
+    const statusType = readSessionStatusType(event.properties);
+    SessionActivity.recordSessionStatus(sessionID, statusType);
+
+    if (statusType === SESSION_STATUS.IDLE) {
         scheduleIdleContinuation(ctx, sessionID);
+        return;
     }
+
+    TodoContinuation.handleSessionBusy(sessionID);
+    MissionLoopHandler.handleSessionBusy(sessionID);
 }
 
 function readSessionStatusType(properties: Record<string, unknown> | undefined): string | undefined {
@@ -270,6 +290,14 @@ async function runIdleContinuation(ctx: EventHandlerContext, sessionID: string):
     const session = sessions.get(sessionID);
     if (!shouldContinueAfterIdle(session)) {
         markAbort(sessions, sessionID);
+        PendingInjection.clearPrompts(sessionID);
+        return;
+    }
+
+    // Prompts the done-hooks raised while the model was working are sent here,
+    // at the first genuine idle boundary. A flush starts a new turn, so the
+    // mission/todo continuations wait for the next idle rather than piling on.
+    if (await PendingInjection.flushPrompts(client, sessionID)) {
         return;
     }
 

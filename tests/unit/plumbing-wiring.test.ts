@@ -88,4 +88,83 @@ describe("Plumbing / Wiring Guards", () => {
             "shutdownCompactionGuard",
         );
     });
+    // ---- 5a: every session injection is flagged synthetic (issue #37) --------
+
+    it("never injects a prompt into a user-facing session as a plain text part", () => {
+        // A bare { type: "text", text } part renders in the TUI as if the user
+        // typed it. Orchestrator-authored prompts must go through
+        // syntheticTextPart/syntheticTextParts so OpenCode can hide them while
+        // still passing them to the model.
+        const injectionSites = [
+            "core/loop/mission-loop-handler.ts",
+            "core/loop/todo-continuation.ts",
+            "core/recovery/session-recovery.ts",
+            "core/agents/manager/task-cleaner.ts",
+            "core/session/pending-injection.ts",
+        ];
+
+        for (const rel of injectionSites) {
+            const src = readFileSync(SRC(rel), "utf8");
+            expect(src, rel + ": injects a session prompt without the synthetic helper").toMatch(
+                /syntheticTextParts?\(/,
+            );
+            expect(src, rel + ": still builds a raw text part for session.prompt").not.toMatch(
+                /parts:\s*\[\s*\{\s*type:\s*PART_TYPES\.TEXT/,
+            );
+        }
+    });
+
+    // ---- 5b: continuations never interrupt a working session (issue #38) -----
+
+    it("guards every continuation injection with a live busy check", () => {
+        // POST /session/{id}/prompt writes the user message before it checks
+        // whether the session is already running, so an unguarded injection
+        // lands inside the turn the model is still executing.
+        for (const rel of ["core/loop/mission-loop-handler.ts", "core/loop/todo-continuation.ts"]) {
+            const src = readFileSync(SRC(rel), "utf8");
+            expect(src, rel + ": no authoritative busy check before injecting").toMatch(
+                /await isSessionBusy\(/,
+            );
+            expect(src, rel + ": no fast busy check before scheduling a countdown").toMatch(
+                /isKnownBusy\(/,
+            );
+            expect(src, rel + ": no handler to drop a countdown when work resumes").toMatch(
+                /handleSessionBusy/,
+            );
+        }
+    });
+
+    it("defers done-hook prompts to the next idle boundary instead of sending them", () => {
+        // A completed assistant message ends a step, not the turn: the upstream
+        // run loop starts another step whenever the model asked for tool calls.
+        // Sending straight from the done-handler put a "continue" prompt into
+        // the session after every tool call.
+        const doneHandler = readFileSync(SRC("plugin-handlers/assistant-done-handler.ts"), "utf8");
+        expect(doneHandler, "done-hook prompts are not queued").toMatch(/queuePrompts\(/);
+        expect(doneHandler, "done-handler still prompts the session directly").not.toMatch(
+            /client\.session\.prompt\(/,
+        );
+
+        const eventHandler = readFileSync(SRC("plugin-handlers/event-handler.ts"), "utf8");
+        expect(eventHandler, "queued prompts are never flushed at idle").toMatch(
+            /PendingInjection\.flushPrompts\(/,
+        );
+        expect(eventHandler, "queued prompts survive an abort").toMatch(
+            /PendingInjection\.clearPrompts\(/,
+        );
+    });
+
+    it("feeds session.status transitions into the activity tracker", () => {
+        const src = readFileSync(SRC("plugin-handlers/event-handler.ts"), "utf8");
+
+        expect(src, "session.status never reaches the activity tracker").toMatch(
+            /SessionActivity\.recordSessionStatus\(/,
+        );
+        expect(src, "a busy transition never cancels pending countdowns").toMatch(
+            /TodoContinuation\.handleSessionBusy\(/,
+        );
+        expect(src, "a busy transition never cancels the mission countdown").toMatch(
+            /MissionLoopHandler\.handleSessionBusy\(/,
+        );
+    });
 });

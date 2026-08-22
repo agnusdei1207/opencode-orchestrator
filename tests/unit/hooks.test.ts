@@ -253,14 +253,57 @@ describe("Hook System", () => {
     });
 
     describe("SanityCheckHook", () => {
-        const hook = new SanityCheckHook();
+        async function mockedSanity(severity: string) {
+            const { checkOutputSanity } = await import("../../src/utils/sanity/index");
+            vi.mocked(checkOutputSanity).mockReturnValue({ isHealthy: false, reason: "Loop", severity });
+        }
+
+        function callAgentOutput(hook: SanityCheckHook, sessionID: string) {
+            return hook.execute(
+                { ...mockContext, sessionID },
+                TOOL_NAMES.CALL_AGENT,
+                { agent: "worker" },
+                { output: "bad", title: "", metadata: {} },
+            );
+        }
 
         it("should detect anomalies", async () => {
-            const { checkOutputSanity } = await import("../../src/utils/sanity/index");
-            vi.mocked(checkOutputSanity).mockReturnValue({ isHealthy: false, reason: "Loop", severity: "warning" });
+            await mockedSanity("critical");
 
-            const result = await hook.execute(mockContext, TOOL_NAMES.CALL_AGENT, { agent: "worker" }, { output: "bad", title: "", metadata: {} });
+            const result = await callAgentOutput(new SanityCheckHook(), "sanity-critical");
             expect(result.output).toContain("ANOMALY DETECTED");
+        });
+
+        // Issue #35: acting on an anomaly rewrites the tool result the agent
+        // reads, so only CRITICAL findings are worth that cost. A WARNING is
+        // logged and dropped.
+        it("ignores non-critical findings", async () => {
+            await mockedSanity("warning");
+
+            const result = await callAgentOutput(new SanityCheckHook(), "sanity-warning");
+            expect(result.output).toBeUndefined();
+        });
+
+        it("suppresses repeat interventions within the cooldown window", async () => {
+            await mockedSanity("critical");
+            const hook = new SanityCheckHook();
+
+            const first = await callAgentOutput(hook, "sanity-cooldown");
+            const second = await callAgentOutput(hook, "sanity-cooldown");
+
+            expect(first.output).toContain("ANOMALY DETECTED");
+            expect(second.output, "a misfiring detector must not fire every turn").toBeUndefined();
+        });
+
+        it("tracks the cooldown per session", async () => {
+            await mockedSanity("critical");
+            const hook = new SanityCheckHook();
+
+            const first = await callAgentOutput(hook, "sanity-session-a");
+            const other = await callAgentOutput(hook, "sanity-session-b");
+
+            expect(first.output).toContain("ANOMALY DETECTED");
+            expect(other.output).toContain("ANOMALY DETECTED");
         });
     });
 });

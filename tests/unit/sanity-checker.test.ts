@@ -96,3 +96,54 @@ describe("checkOutputSanity", () => {
         });
     });
 });
+
+/**
+ * Regression coverage for issue #35: the detectors fired constantly on ordinary
+ * agent output, and each firing injected a recovery prompt into the live
+ * session. Every case below is output a healthy agent routinely produces.
+ */
+describe("checkOutputSanity false positives (issue #35)", () => {
+    it("keeps multi-kilobyte prose healthy", () => {
+        const prose = "The orchestrator coordinates multi-agent workflows with "
+            + "autonomous verification and local-first memory across sessions. ";
+
+        // The retired unique/total ratio drops below its 0.02 threshold for any
+        // text past roughly 4.5 KB, so this is the exact shape that fired.
+        const long = prose.repeat(50);
+        expect(long.replace(/\s/g, "").length).toBeGreaterThan(4500);
+        expect(checkOutputSanity(long)).toEqual({ isHealthy: true, severity: SEVERITY.OK });
+    });
+
+    it("keeps a wide markdown table healthy", () => {
+        const table = [
+            "| " + Array.from({ length: 9 }, (_, i) => `col${i}`).join(" | ") + " |",
+            "|" + "---|".repeat(9),
+            "| " + Array.from({ length: 9 }, (_, i) => `v${i}`).join(" | ") + " |",
+        ].join("\n");
+
+        expect(checkOutputSanity(table).isHealthy).toBe(true);
+    });
+
+    it("keeps section banners and horizontal rules healthy", () => {
+        const banner = [
+            "// " + "=".repeat(76),
+            "// Constants",
+            "// " + "=".repeat(76),
+            "const DEFAULT_MAX_ITERATIONS = 50;",
+            "-".repeat(80),
+        ].join("\n");
+
+        expect(checkOutputSanity(banner).isHealthy).toBe(true);
+    });
+
+    it("keeps dense structured output such as base64 and hex dumps healthy", () => {
+        const hex = Array.from({ length: 400 }, (_, i) => (i % 256).toString(16).padStart(2, "0")).join("");
+
+        expect(checkOutputSanity(hex).isHealthy).toBe(true);
+    });
+
+    it("still flags genuine decoder degeneration", () => {
+        expect(checkOutputSanity("nope ".repeat(60)).isHealthy).toBe(false);
+        expect(checkOutputSanity("x".repeat(400)).isHealthy).toBe(false);
+    });
+});

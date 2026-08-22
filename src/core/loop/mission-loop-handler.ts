@@ -19,7 +19,7 @@ import {
 } from "./mission-loop.js";
 import type { MissionLoopState } from "../../shared/loop/types.js";
 import { STAGNATION_INTERVENTION } from "../../shared/constants/system-messages.js";
-import { PART_TYPES, LOOP, TOAST_DURATION, STATUS_LABEL, TOAST_VARIANTS, MISSION_CONTROL, type ToastVariant, type VerificationResult } from "../../shared/index.js";
+import { LOOP, TOAST_DURATION, STATUS_LABEL, TOAST_VARIANTS, MISSION_CONTROL, type ToastVariant, type VerificationResult } from "../../shared/index.js";
 import { isSessionRecovering } from "../recovery/session-recovery.js";
 import { ParallelAgentManager } from "../agents/manager.js";
 import { sendNotification } from "../notification/os-notify/notifier.js";
@@ -33,6 +33,8 @@ import { getUnverifiedChangeCount, clearEvidence } from "./evidence.js";
 import { trackProgress, resetProgress, isStagnant, markInjectionPerformed, DEFAULT_STAGNATION_THRESHOLD } from "./progress-tracker.js";
 import { armCompactionGuard, isCompactionSafe, clearCompactionState } from "./compaction-guard.js";
 import { isCircuitOpen, shouldTripCircuit, clearCircuitState } from "./circuit-breaker.js";
+import { isSessionBusy, isKnownBusy } from "../session/activity.js";
+import { syntheticTextPart } from "../session/injection.js";
 
 type OpencodeClient = PluginInput["client"];
 
@@ -136,6 +138,14 @@ async function injectContinuation(request: ContinuationInjectionRequest): Promis
         return;
     }
 
+    // The session may have gone back to work during the countdown. Injecting now
+    // would append a user message into the middle of a running turn, which the
+    // model reads as an interruption mid tool call.
+    if (await isSessionBusy(client, sessionID)) {
+        log(`[mission-loop-handler] Skipped: session is busy`, { sessionID });
+        return;
+    }
+
     const verification = verifyMissionCompletion(directory);
     if (verification.passed) {
         await handleMissionComplete(client, directory, loopState);
@@ -158,7 +168,7 @@ async function injectContinuation(request: ContinuationInjectionRequest): Promis
         await client.session.prompt({
             path: { id: sessionID },
             body: {
-                parts: [{ type: PART_TYPES.TEXT, text: prompt }],
+                parts: [syntheticTextPart(prompt)],
             },
         });
         appendMissionLedgerEvent(directory, {
@@ -247,6 +257,10 @@ export async function handleMissionIdle(
 
     if (isSessionRecovering(sessionID)) return;
     if (hasRunningBackgroundTasks(sessionID)) return;
+    // A `session.idle` event can be followed immediately by new work (a queued
+    // prompt, a retry). Never start a countdown against a session that is
+    // already working again.
+    if (isKnownBusy(sessionID)) return;
 
     const loopState = readLoopState(directory);
     if (!loopState || !loopState.active) {
@@ -352,6 +366,22 @@ export function handleAbort(sessionID: string): void {
     sessionStateStore.cancelCountdown(sessionID);
 }
 
+/**
+ * The session started working again while a continuation countdown was pending.
+ * Drop the countdown: the model is already doing the thing we were about to ask
+ * it to do, and injecting now would interrupt it mid-turn.
+ */
+export function handleSessionBusy(sessionID: string): void {
+    sessionStateStore.cancelCountdown(sessionID);
+}
+
+/**
+ * Release this handler's per-session state.
+ *
+ * Session activity is deliberately NOT cleared here: it is owned by the session
+ * layer and released once, on `session.deleted`, so that clearing one loop's
+ * state cannot blind the other to a session that is still working.
+ */
 export function cleanupSession(sessionID: string): void {
     sessionStateStore.cleanup(sessionID);
     clearCompactionState(sessionID);
