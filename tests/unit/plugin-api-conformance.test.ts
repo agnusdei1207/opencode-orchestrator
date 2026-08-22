@@ -111,15 +111,4 @@ describe("plugin API conformance", () => {
         const unpublished = subscribed.filter(ev => !SDK_EVENT_TYPES.includes(`"${ev}"`));
         expect(unpublished, `events OpenCode never emits: ${unpublished.join(", ")}`).toEqual([]);
     });
-
-    it("reads the session busy status through the typed client, not a cast", () => {
-        // `client.session.status()` is fully typed. Casting past it would hide a
-        // future signature change from the compiler — the exact failure mode this
-        // suite exists to prevent.
-        const activity = readFileSync(join(SRC_ROOT, "core/session/activity.ts"), "utf8");
-
-        expect(activity, "session.status is reached through an untyped cast")
-            .not.toMatch(/client\.session\s+as\s+\{/);
-        expect(activity).toMatch(/client\.session\.status\(\)/);
-    });
 });

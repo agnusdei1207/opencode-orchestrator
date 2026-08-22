@@ -8,9 +8,9 @@
  *  - 4a: HookContext.agent was declared but never populated by any of the
  *        four plugin handlers, so MemoryGateHook recorded every mission
  *        memory as literally "Agent [undefined]".
- *  - 4b: shutdownCircuitBreaker() / shutdownCompactionGuard() existed to
- *        clear module-load timers + state, but were never registered with
- *        the ShutdownManager, leaking on plugin dispose/hot-reload.
+ *  - 4b: modules that start a prune timer at import time own an interval
+ *        and per-session state, and leaked both on dispose because their
+ *        shutdown was never registered with the ShutdownManager.
  */
 
 import { describe, it, expect, beforeEach } from "vitest";
@@ -88,72 +88,44 @@ describe("Plumbing / Wiring Guards", () => {
         }
     });
 
-    // ---- 4b: shutdown functions are wired to the ShutdownManager -------------
-
-    it("registers the circuit-breaker and compaction-guard shutdowns on dispose", () => {
-        const index = readFileSync(SRC("index.ts"), "utf8");
-        expect(index, "shutdownCircuitBreaker never registered → timer leak on dispose").toContain(
-            "shutdownCircuitBreaker",
-        );
-        expect(index, "shutdownCompactionGuard never registered → timer leak on dispose").toContain(
-            "shutdownCompactionGuard",
-        );
-    });
-
-    // ---- 4c: the general rule behind 4b ------------------------------------
+    // ---- 4b: prune timers are shut down on dispose ----------------------
 
     it("shuts down every module that starts a prune timer", () => {
-        // Generalises the circuit-breaker/compaction-guard check: any module
-        // that calls pruneTimer.start() at import time owns a process-level
-        // interval and per-session state. If its shutdown is never registered
-        // with the ShutdownManager, both leak on plugin dispose or hot-reload.
+        // Any module calling pruneTimer.start() owns a process-level interval
+        // owns a process-level interval and per-session state, and leaks both on
+        // dispose or hot-reload unless its shutdown is registered. A factory hands
+        // that obligation to whoever holds the instance, so the owner is checked.
         const index = readFileSync(SRC("index.ts"), "utf8");
-        const timerModules = globSourceFiles().filter(rel =>
-            /pruneTimer\.start\(\)/.test(readFileSync(SRC(rel), "utf8")),
-        );
-
-        expect(timerModules.length, "no prune-timer modules found — is the scan working?")
-            .toBeGreaterThan(0);
-
-        for (const rel of timerModules) {
+        const owners = globSourceFiles().filter(rel => {
             const src = readFileSync(SRC(rel), "utf8");
+            return /pruneTimer\.start\(\)/.test(src)
+                || /^const \w+ = createSessionStateStore\(\)/m.test(src);
+        });
 
-            // A generic factory hands its `shutdown` to whoever constructs the
-            // instance, so the obligation belongs to that owner, asserted below.
-            const isFactory = /\bcreate[A-Z]\w*\b/.test(src) && /^\s*shutdown,\s*$/m.test(src);
-            if (isFactory) continue;
-
-            const shutdownName = src.match(/export function (shutdown\w+)\s*\(/)?.[1];
-
-            expect(shutdownName, `${rel}: starts a prune timer but exports no shutdown function`)
-                .toBeTruthy();
-            expect(index, `${rel}: ${shutdownName} never registered → timer leak on dispose`)
-                .toContain(shutdownName!);
-        }
-    });
-
-    it("shuts down prune timers owned through a factory instance", () => {
-        // createSessionStateStore() starts an interval per instance. A module
-        // that holds one at module scope must stop it on dispose; nothing else
-        // can reach it.
-        const owners = globSourceFiles().filter(rel =>
-            /^const \w+ = createSessionStateStore\(\)/m.test(readFileSync(SRC(rel), "utf8")),
-        );
-        const index = readFileSync(SRC("index.ts"), "utf8");
-
-        expect(owners.length, "no session-state-store owner found — is the scan working?")
+        expect(owners.length, "no prune-timer modules found — is the scan working?")
             .toBeGreaterThan(0);
 
         for (const rel of owners) {
             const src = readFileSync(SRC(rel), "utf8");
-            const shutdownName = src.match(/export function (shutdown\w+)\s*\(/)?.[1];
+            // A factory only publishes `shutdown` on its returned interface; its own
+            // file is not the owner, and is covered through the holder instead.
+            if (/\bcreate[A-Z]\w*\b/.test(src) && /^\s*shutdown,\s*$/m.test(src)) continue;
 
-            expect(shutdownName, `${rel}: owns a store instance but exports no shutdown`)
+            const shutdownName = src.match(/export function (shutdown\w+)\s*\(/)?.[1];
+            expect(shutdownName, `${rel}: owns a prune timer but exports no shutdown`)
                 .toBeTruthy();
-            expect(index, `${rel}: ${shutdownName} never registered → interval leak on dispose`)
-                .toContain(shutdownName!);
+
+            // Must be *called* from a shutdownManager.register(...), not merely
+            // imported — an unused import satisfies a substring check while the
+            // timer still leaks.
+            const registered = new RegExp(
+                `shutdownManager\\.register\\([^;]*\\b${shutdownName}\\(\\)`,
+            ).test(index);
+            expect(registered, `${rel}: ${shutdownName} never registered → timer leak on dispose`)
+                .toBe(true);
         }
     });
+
     // ---- 5a: every session injection is flagged synthetic (issue #37) --------
 
     it("never injects a prompt into a user-facing session as a plain text part", () => {

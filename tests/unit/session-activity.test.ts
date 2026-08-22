@@ -1,7 +1,6 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import {
     recordSessionStatus,
-    markSessionBusy,
     isKnownBusy,
     isSessionBusy,
     clearSessionActivity,
@@ -81,7 +80,7 @@ describe("session activity tracker (issue #38)", () => {
         });
 
         it("refreshes the cached flag from the server answer", async () => {
-            markSessionBusy(SESSION);
+            recordSessionStatus(SESSION, "busy");
             const client = clientWithStatus({});
 
             await expect(isSessionBusy(client, SESSION)).resolves.toBe(false);
@@ -89,7 +88,7 @@ describe("session activity tracker (issue #38)", () => {
         });
 
         it("falls back to the event-derived flag when the request fails", async () => {
-            markSessionBusy(SESSION);
+            recordSessionStatus(SESSION, "busy");
             const client = clientWithStatus(undefined, { throws: true });
 
             await expect(isSessionBusy(client, SESSION)).resolves.toBe(true);
@@ -100,7 +99,7 @@ describe("session activity tracker (issue #38)", () => {
 
             await expect(isSessionBusy(client, SESSION)).resolves.toBe(false);
 
-            markSessionBusy(SESSION);
+            recordSessionStatus(SESSION, "busy");
             await expect(isSessionBusy(client, SESSION)).resolves.toBe(true);
         });
 
@@ -115,14 +114,14 @@ describe("session activity tracker (issue #38)", () => {
 
     describe("state lifecycle", () => {
         it("clears a single session", () => {
-            markSessionBusy(SESSION);
+            recordSessionStatus(SESSION, "busy");
             clearSessionActivity(SESSION);
 
             expect(isKnownBusy(SESSION)).toBe(false);
         });
 
         it("prunes states older than the retention window", () => {
-            markSessionBusy(SESSION);
+            recordSessionStatus(SESSION, "busy");
 
             pruneSessionActivity(Date.now() + 60 * 60 * 1000);
 
@@ -130,7 +129,7 @@ describe("session activity tracker (issue #38)", () => {
         });
 
         it("keeps recently updated states while pruning", () => {
-            markSessionBusy(SESSION);
+            recordSessionStatus(SESSION, "busy");
 
             pruneSessionActivity(Date.now());
 

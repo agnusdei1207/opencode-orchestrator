@@ -75,11 +75,6 @@ export function recordSessionStatus(sessionID: string, statusType: string | unde
     state.lastUpdatedAt = Date.now();
 }
 
-/** Mark a session busy because we are about to make it work. */
-export function markSessionBusy(sessionID: string): void {
-    recordSessionStatus(sessionID, SESSION_STATUS.BUSY);
-}
-
 /** True when the last observed `session.status` event said the session is working. */
 export function isKnownBusy(sessionID: string): boolean {
     return activityStates.get(sessionID)?.busy === true;
