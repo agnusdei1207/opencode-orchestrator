@@ -309,6 +309,21 @@ export const SHUTDOWN_HANDLERS = {
 
     /** CompactionGuard - Prune timer + per-session compaction state */
     COMPACTION_GUARD: "CompactionGuard",
+
+    /** SessionActivity - Prune timer + per-session busy/idle state */
+    SESSION_ACTIVITY: "SessionActivity",
+
+    /** PendingInjection - Prune timer + per-session deferred prompt queues */
+    PENDING_INJECTION: "PendingInjection",
+
+    /** ProgressTracker - Prune timer + per-session progress snapshots */
+    PROGRESS_TRACKER: "ProgressTracker",
+
+    /** TodoContinuation - Prune timer + per-session countdown timers */
+    TODO_CONTINUATION: "TodoContinuation",
+
+    /** MissionLoopHandler - Session-state store prune timer */
+    MISSION_LOOP_HANDLER: "MissionLoopHandler",
 } as const;
 
 /** Type for shutdown handler names */

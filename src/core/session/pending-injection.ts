@@ -27,6 +27,7 @@ import type { PluginInput } from "@opencode-ai/plugin";
 import { log } from "../agents/logger.js";
 import { isSessionBusy } from "./activity.js";
 import { syntheticTextParts } from "./injection.js";
+import { createPruneTimer } from "../loop/prune-timer.js";
 
 type OpencodeClient = PluginInput["client"];
 
@@ -35,19 +36,34 @@ interface PendingEntry {
     snapshot: string[];
     /** One-shot notifications; appended, never overwritten. */
     notices: string[];
+    /** For TTL pruning, since a queue is only cleared on flush or delete. */
+    updatedAt: number;
 }
 
 /** Bound the notice backlog so a runaway producer cannot grow it forever. */
 const MAX_NOTICES = 20;
+/**
+ * A queue that never reaches an idle boundary — the session was abandoned, the
+ * client went away — would otherwise be held for the life of the process, and
+ * flushing it hours later would be worse than dropping it.
+ */
+const PENDING_TTL_MS = 30 * 60 * 1000;
+const PRUNE_INTERVAL_MS = 5 * 60 * 1000;
 
 const pending = new Map<string, PendingEntry>();
+
+const pruneTimer = createPruneTimer({
+    intervalMs: PRUNE_INTERVAL_MS,
+    prune: () => prunePendingInjections(),
+});
 
 function entryFor(sessionID: string): PendingEntry {
     let entry = pending.get(sessionID);
     if (!entry) {
-        entry = { snapshot: [], notices: [] };
+        entry = { snapshot: [], notices: [], updatedAt: Date.now() };
         pending.set(sessionID, entry);
     }
+    entry.updatedAt = Date.now();
     return entry;
 }
 
@@ -96,6 +112,22 @@ export function clearPrompts(sessionID: string): void {
     pending.delete(sessionID);
 }
 
+/** Drop queues for sessions that never came back to an idle boundary. */
+export function prunePendingInjections(now: number = Date.now()): void {
+    for (const [sessionID, entry] of pending.entries()) {
+        if (now - entry.updatedAt > PENDING_TTL_MS) {
+            pending.delete(sessionID);
+            log("[pending-injection] Pruned stale queue", { sessionID });
+        }
+    }
+}
+
+/** Stop the prune timer and drop all queues, for plugin shutdown. */
+export function shutdownPendingInjections(): void {
+    pruneTimer.shutdown();
+    pending.clear();
+}
+
 /** Test seam: forget every queued session. */
 export function resetPendingInjections(): void {
     pending.clear();
@@ -132,3 +164,5 @@ export async function flushPrompts(client: OpencodeClient, sessionID: string): P
         return false;
     }
 }
+
+pruneTimer.start();

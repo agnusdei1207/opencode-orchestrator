@@ -28,6 +28,7 @@
 import type { PluginInput } from "@opencode-ai/plugin";
 import { log } from "../agents/logger.js";
 import { SESSION_STATUS } from "../../shared/index.js";
+import { createPruneTimer } from "../loop/prune-timer.js";
 
 type OpencodeClient = PluginInput["client"];
 
@@ -39,8 +40,19 @@ interface ActivityState {
 }
 
 const ACTIVITY_TTL_MS = 10 * 60 * 1000;
+const PRUNE_INTERVAL_MS = 2 * 60 * 1000;
 
 const activityStates = new Map<string, ActivityState>();
+
+/**
+ * A session only gets an explicit release on `session.deleted`, which never
+ * arrives if the client goes away or the server restarts. Without this the map
+ * grows for the lifetime of the process.
+ */
+const pruneTimer = createPruneTimer({
+    intervalMs: PRUNE_INTERVAL_MS,
+    prune: () => pruneSessionActivity(),
+});
 
 function getState(sessionID: string): ActivityState {
     let state = activityStates.get(sessionID);
@@ -135,11 +147,20 @@ export function pruneSessionActivity(now: number = Date.now()): void {
     for (const [sessionID, state] of activityStates.entries()) {
         if (now - state.lastUpdatedAt > ACTIVITY_TTL_MS) {
             activityStates.delete(sessionID);
+            log("[session-activity] Pruned stale state", { sessionID });
         }
     }
+}
+
+/** Stop the prune timer and drop all state, for plugin shutdown. */
+export function shutdownSessionActivity(): void {
+    pruneTimer.shutdown();
+    activityStates.clear();
 }
 
 /** Test seam: forget every tracked session. */
 export function resetSessionActivity(): void {
     activityStates.clear();
 }
+
+pruneTimer.start();

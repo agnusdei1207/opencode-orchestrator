@@ -390,6 +390,14 @@ export function cleanupSession(sessionID: string): void {
     clearEvidence(sessionID);
 }
 
+/**
+ * Stop this handler's session-state store, for plugin shutdown. The store owns
+ * a prune interval created at module load, which nothing else stops.
+ */
+export function shutdownMissionLoopHandler(): void {
+    sessionStateStore.shutdown();
+}
+
 export function handleSessionCompacted(sessionID: string): void {
     armCompactionGuard(sessionID, Date.now());
     sessionStateStore.cancelCountdown(sessionID);

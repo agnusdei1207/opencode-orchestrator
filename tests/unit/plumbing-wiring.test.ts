@@ -14,7 +14,8 @@
  */
 
 import { describe, it, expect, beforeEach } from "vitest";
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
+import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { MemoryGateHook } from "../../src/hooks/custom/memory-gate.js";
@@ -22,6 +23,16 @@ import { MemoryManager, MemoryLevel } from "../../src/core/memory/memory-manager
 import type { HookContext } from "../../src/hooks/registry.js";
 
 const SRC = (rel: string) => fileURLToPath(new URL(`../../src/${rel}`, import.meta.url));
+const SRC_ROOT = fileURLToPath(new URL("../../src/", import.meta.url));
+
+/** Every .ts file under src/, as paths relative to src/. */
+function globSourceFiles(dir = SRC_ROOT, prefix = ""): string[] {
+    return readdirSync(dir, { withFileTypes: true }).flatMap(entry => {
+        const rel = prefix ? `${prefix}/${entry.name}` : entry.name;
+        if (entry.isDirectory()) return globSourceFiles(join(dir, entry.name), rel);
+        return entry.name.endsWith(".ts") ? [rel] : [];
+    });
+}
 
 function ctx(agent?: string): HookContext {
     return { sessionID: "s1", agent, directory: "/tmp", sessions: new Map() };
@@ -87,6 +98,61 @@ describe("Plumbing / Wiring Guards", () => {
         expect(index, "shutdownCompactionGuard never registered → timer leak on dispose").toContain(
             "shutdownCompactionGuard",
         );
+    });
+
+    // ---- 4c: the general rule behind 4b ------------------------------------
+
+    it("shuts down every module that starts a prune timer", () => {
+        // Generalises the circuit-breaker/compaction-guard check: any module
+        // that calls pruneTimer.start() at import time owns a process-level
+        // interval and per-session state. If its shutdown is never registered
+        // with the ShutdownManager, both leak on plugin dispose or hot-reload.
+        const index = readFileSync(SRC("index.ts"), "utf8");
+        const timerModules = globSourceFiles().filter(rel =>
+            /pruneTimer\.start\(\)/.test(readFileSync(SRC(rel), "utf8")),
+        );
+
+        expect(timerModules.length, "no prune-timer modules found — is the scan working?")
+            .toBeGreaterThan(0);
+
+        for (const rel of timerModules) {
+            const src = readFileSync(SRC(rel), "utf8");
+
+            // A generic factory hands its `shutdown` to whoever constructs the
+            // instance, so the obligation belongs to that owner, asserted below.
+            const isFactory = /\bcreate[A-Z]\w*\b/.test(src) && /^\s*shutdown,\s*$/m.test(src);
+            if (isFactory) continue;
+
+            const shutdownName = src.match(/export function (shutdown\w+)\s*\(/)?.[1];
+
+            expect(shutdownName, `${rel}: starts a prune timer but exports no shutdown function`)
+                .toBeTruthy();
+            expect(index, `${rel}: ${shutdownName} never registered → timer leak on dispose`)
+                .toContain(shutdownName!);
+        }
+    });
+
+    it("shuts down prune timers owned through a factory instance", () => {
+        // createSessionStateStore() starts an interval per instance. A module
+        // that holds one at module scope must stop it on dispose; nothing else
+        // can reach it.
+        const owners = globSourceFiles().filter(rel =>
+            /^const \w+ = createSessionStateStore\(\)/m.test(readFileSync(SRC(rel), "utf8")),
+        );
+        const index = readFileSync(SRC("index.ts"), "utf8");
+
+        expect(owners.length, "no session-state-store owner found — is the scan working?")
+            .toBeGreaterThan(0);
+
+        for (const rel of owners) {
+            const src = readFileSync(SRC(rel), "utf8");
+            const shutdownName = src.match(/export function (shutdown\w+)\s*\(/)?.[1];
+
+            expect(shutdownName, `${rel}: owns a store instance but exports no shutdown`)
+                .toBeTruthy();
+            expect(index, `${rel}: ${shutdownName} never registered → interval leak on dispose`)
+                .toContain(shutdownName!);
+        }
     });
     // ---- 5a: every session injection is flagged synthetic (issue #37) --------
 

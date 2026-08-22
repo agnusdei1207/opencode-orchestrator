@@ -561,6 +561,22 @@ export function cleanupSession(sessionID: string): void {
 /**
  * Check if there's a pending continuation countdown
  */
+/**
+ * Stop the prune timer and drop all state, for plugin shutdown.
+ *
+ * shutdownPruneTimerIfIdle() only fires when the last session happens to be
+ * cleaned up, so a dispose with sessions still tracked would leave the interval
+ * and every pending countdown running.
+ */
+export function shutdownTodoContinuation(): void {
+    for (const sessionID of sessionStates.keys()) {
+        cancelCountdown(sessionID);
+    }
+    sessionStates.clear();
+    pruneTimer.shutdown();
+    pruneTimerStarted = false;
+}
+
 export function hasPendingContinuation(sessionID: string): boolean {
     return !!sessionStates.get(sessionID)?.countdownTimer;
 }

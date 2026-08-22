@@ -25,6 +25,11 @@ import { parseOrchestratorPluginOptions } from "./core/config/plugin-options.js"
 import { configureMissionRuntimeOptions } from "./core/loop/mission-runtime-options.js";
 import { shutdownCircuitBreaker } from "./core/loop/circuit-breaker.js";
 import { shutdownCompactionGuard } from "./core/loop/compaction-guard.js";
+import { shutdownSessionActivity } from "./core/session/activity.js";
+import { shutdownPendingInjections } from "./core/session/pending-injection.js";
+import { shutdownProgressTracker } from "./core/loop/progress-tracker.js";
+import { shutdownTodoContinuation } from "./core/loop/todo-continuation.js";
+import { shutdownMissionLoopHandler } from "./core/loop/mission-loop-handler.js";
 
 // Import modularized handlers
 import { createToolExecuteBeforeHandler } from "./plugin-handlers/tool-execute-pre-handler.js";
@@ -122,6 +127,11 @@ const OrchestratorPlugin: Plugin = async (input, options) => {
     // on plugin dispose/hot-reload (both intervals .unref(), so low impact).
     shutdownManager.register(SHUTDOWN_HANDLERS.CIRCUIT_BREAKER, () => shutdownCircuitBreaker(), 45);
     shutdownManager.register(SHUTDOWN_HANDLERS.COMPACTION_GUARD, () => shutdownCompactionGuard(), 45);
+    shutdownManager.register(SHUTDOWN_HANDLERS.SESSION_ACTIVITY, () => shutdownSessionActivity(), 45);
+    shutdownManager.register(SHUTDOWN_HANDLERS.PENDING_INJECTION, () => shutdownPendingInjections(), 45);
+    shutdownManager.register(SHUTDOWN_HANDLERS.PROGRESS_TRACKER, () => shutdownProgressTracker(), 45);
+    shutdownManager.register(SHUTDOWN_HANDLERS.TODO_CONTINUATION, () => shutdownTodoContinuation(), 45);
+    shutdownManager.register(SHUTDOWN_HANDLERS.MISSION_LOOP_HANDLER, () => shutdownMissionLoopHandler(), 45);
 
     // =========================================================================
     // Create Handler Contexts

@@ -106,11 +106,15 @@ export interface TmpDirResult<T = unknown> {
  */
 export async function tmpdir<T = unknown>(options?: TmpDirOptions<T>): Promise<TmpDirResult<T>> {
     const prefix = options?.prefix ?? "opencode-orchestrator-test-";
-    const dirpath = sanitizePath(
-        path.join(os.tmpdir(), prefix + Math.random().toString(36).slice(2))
-    );
 
-    await fs.promises.mkdir(dirpath, { recursive: true });
+    // mkdtemp, not mkdir with a random name. The suite runs across parallel
+    // worker processes that share one os.tmpdir(), and several tests reuse the
+    // same prefix, so the directory name has to be unique by construction.
+    // `Math.random().toString(36).slice(2)` is not: it yields a variable-length
+    // suffix and an empty one whenever Math.random() returns exactly 0, which
+    // would collapse every caller sharing a prefix onto the same directory and
+    // let one test's cleanup delete another's fixtures mid-run.
+    const dirpath = sanitizePath(await fs.promises.mkdtemp(path.join(os.tmpdir(), prefix)));
 
     // Initialize git if requested
     if (options?.git) {

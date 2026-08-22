@@ -222,4 +222,10 @@ export function getStagnationCount(sessionID: string): number {
     return state?.stagnationCount ?? 0;
 }
 
+/** Stop the prune timer and drop all state, for plugin shutdown. */
+export function shutdownProgressTracker(): void {
+    pruneTimer.shutdown();
+    sessionStates.clear();
+}
+
 pruneTimer.start();
