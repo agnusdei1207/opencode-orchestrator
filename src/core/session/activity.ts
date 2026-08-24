@@ -122,8 +122,11 @@ async function readRemoteStatus(client: OpencodeClient, sessionID: string): Prom
 
 function readStatusMap(response: unknown): Record<string, unknown> | null {
     if (!isRecord(response)) return null;
-    const data = response.data ?? response;
-    return isRecord(data) ? data : null;
+    if ("data" in response) {
+        return isRecord(response.data) ? response.data : null;
+    }
+    if ("error" in response) return null;
+    return response;
 }
 
 function readStatusType(entry: unknown): string | undefined {

@@ -12,7 +12,7 @@ ${PATHS.OPENCODE}/ - Shared Context Directory (Real-time State)
 \`\`\`
 ${PATHS.OPENCODE}/
 ├── ${PATHS.TODO.split("/").pop()}              - Master task list (single source of truth)
-├── ${PATHS.CONTEXT.split("/").pop()}           - Project context summary (<150 lines)
+├── ${PATHS.CONTEXT.split("/").pop()}           - Project context summary
 ├── ${PATHS.WORK_LOG.split("/").pop()}          - REAL-TIME work status (ALL agents read/write)
 │                        # - Active sessions & assigned files
 │                        # - Unit test completion records

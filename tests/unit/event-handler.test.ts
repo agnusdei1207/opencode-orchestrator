@@ -7,6 +7,8 @@ import * as TodoContinuation from "../../src/core/loop/todo-continuation";
 import * as MissionLoopHandler from "../../src/core/loop/mission-loop-handler";
 import * as MissionLoop from "../../src/core/loop/mission-loop";
 import * as Toast from "../../src/core/notification/toast";
+import * as SessionActivity from "../../src/core/session/activity";
+import * as PendingInjection from "../../src/core/session/pending-injection";
 import { log } from "../../src/core/agents/logger";
 import type { EventHandlerContext } from "../../src/plugin-handlers/event-handler";
 
@@ -85,6 +87,8 @@ describe("createEventHandler", () => {
 
     afterEach(() => {
         vi.useRealTimers();
+        SessionActivity.resetSessionActivity();
+        PendingInjection.resetPendingInjections();
     });
 
     it("routes completed assistant messages through the done-hook bridge", async () => {
@@ -189,6 +193,22 @@ describe("createEventHandler", () => {
         expect(ctx.sessions.has("session-nested")).toBe(false);
         expect(SessionRecovery.cleanupSessionRecovery).toHaveBeenCalledWith("session-direct");
         expect(SessionRecovery.cleanupSessionRecovery).not.toHaveBeenCalledWith("session-nested");
+    });
+
+    it("clears queued prompts and activity when an untracked session is deleted", async () => {
+        const handler = createEventHandler(ctx);
+        SessionActivity.recordSessionStatus("untracked-session", "busy");
+        PendingInjection.queueNotice("untracked-session", "Background task finished");
+
+        await handler({
+            event: {
+                type: "session.deleted",
+                properties: { sessionID: "untracked-session" },
+            },
+        });
+
+        expect(SessionActivity.isKnownBusy("untracked-session")).toBe(false);
+        expect(PendingInjection.hasPendingPrompts("untracked-session")).toBe(false);
     });
 
     it("treats idle without an assistant completion after the user turn as an abort", async () => {

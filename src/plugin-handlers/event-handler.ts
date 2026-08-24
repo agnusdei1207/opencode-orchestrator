@@ -103,6 +103,9 @@ function handleSessionCreated(event: PluginEvent): void {
 function handleSessionDeleted(ctx: EventHandlerContext, event: PluginEvent): void {
     const { sessions, state } = ctx;
     const sessionID = readSessionID(event.properties);
+    SessionActivity.clearSessionActivity(sessionID);
+    PendingInjection.clearPrompts(sessionID);
+
     const session = sessions.get(sessionID);
     if (!session) return;
 
@@ -115,8 +118,6 @@ function handleSessionDeleted(ctx: EventHandlerContext, event: PluginEvent): voi
     TodoContinuation.cleanupSession(sessionID);
     MissionLoopHandler.cleanupSession(sessionID);
     ContextMonitor.cleanupSession(sessionID);
-    SessionActivity.clearSessionActivity(sessionID);
-    PendingInjection.clearPrompts(sessionID);
 
     Toast.presets.sessionCompleted(sessionID, duration);
 }

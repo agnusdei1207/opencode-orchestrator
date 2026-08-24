@@ -94,6 +94,23 @@ describe("session activity tracker (issue #38)", () => {
             await expect(isSessionBusy(client, SESSION)).resolves.toBe(true);
         });
 
+        it("falls back to the event-derived flag when the SDK returns a structured error", async () => {
+            recordSessionStatus(SESSION, "busy");
+            const client = {
+                session: {
+                    status: async () => ({
+                        data: undefined,
+                        error: { message: "status unavailable" },
+                        request: new Request("http://localhost/session/status"),
+                        response: new Response(null, { status: 503 }),
+                    }),
+                },
+            } as never;
+
+            await expect(isSessionBusy(client, SESSION)).resolves.toBe(true);
+            expect(isKnownBusy(SESSION)).toBe(true);
+        });
+
         it("falls back to the event-derived flag when the endpoint is unavailable", async () => {
             const client = clientWithStatus(undefined, { missing: true });
 

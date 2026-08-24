@@ -5,13 +5,14 @@
 import type { PluginInput } from "@opencode-ai/plugin";
 import {
     TASK_STATUS,
-    PART_TYPES,
     type ParallelTask,
     type ResumeInput,
 } from "../../../shared/index.js";
 import { TaskStore } from "../task-store.js";
 import { log } from "../logger.js";
-import { buildRoutedAgentPrompt } from "./prompt-routing.js";
+import { buildRoutedAgentPrompt, type RoutedAgentPrompt } from "./prompt-routing.js";
+import { isSessionBusy } from "../../session/activity.js";
+import { syntheticTextPart } from "../../session/injection.js";
 
 type OpencodeClient = PluginInput["client"];
 
@@ -31,6 +32,11 @@ export class TaskResumer {
             throw new Error(`Task not found for session: ${input.sessionId}`);
         }
 
+        const routedPrompt = await buildRoutedAgentPrompt(existingTask.agent, input.prompt);
+        if (await isSessionBusy(this.client, existingTask.sessionID)) {
+            throw new Error(`Cannot resume session ${existingTask.sessionID}: session is still running`);
+        }
+
         // Reset task state for new execution
         existingTask.status = TASK_STATUS.RUNNING;
         existingTask.completedAt = undefined;
@@ -48,22 +54,20 @@ export class TaskResumer {
 
         log(`Resuming task ${existingTask.id} in session ${existingTask.sessionID}`);
 
-        this.sendResumePrompt(existingTask, input.prompt).catch((error) => {
+        this.sendResumePrompt(existingTask, routedPrompt).catch((error) => {
             this.handlePromptError(existingTask, input.parentSessionID, error);
         });
 
         return existingTask;
     }
 
-    private async sendResumePrompt(task: ParallelTask, prompt: string): Promise<void> {
-        const routedPrompt = await buildRoutedAgentPrompt(task.agent, prompt);
-
+    private async sendResumePrompt(task: ParallelTask, routedPrompt: RoutedAgentPrompt): Promise<void> {
         await this.client.session.prompt({
             path: { id: task.sessionID },
             body: {
                 agent: routedPrompt.wireAgent,
                 tools: routedPrompt.tools,
-                parts: [{ type: PART_TYPES.TEXT, text: routedPrompt.text }]
+                parts: [syntheticTextPart(routedPrompt.text)]
             },
         });
     }

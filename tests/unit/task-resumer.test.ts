@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { TaskResumer } from "../../src/core/agents/manager/task-resumer";
 import { TaskStore } from "../../src/core/agents/task-store";
 import { AgentRegistry } from "../../src/core/agents/agent-registry";
@@ -14,6 +14,7 @@ describe("TaskResumer", () => {
     let mockClient: {
         session: {
             prompt: ReturnType<typeof vi.fn>;
+            status: ReturnType<typeof vi.fn>;
         };
     };
     let notifyParentIfAllComplete: ReturnType<typeof vi.fn>;
@@ -24,6 +25,7 @@ describe("TaskResumer", () => {
         mockClient = {
             session: {
                 prompt: vi.fn().mockResolvedValue({}),
+                status: vi.fn().mockResolvedValue({ data: {} }),
             },
         };
         notifyParentIfAllComplete = vi.fn().mockResolvedValue(undefined);
@@ -34,6 +36,10 @@ describe("TaskResumer", () => {
             [MemoryLevel.MISSION]: [],
             [MemoryLevel.TASK]: [],
         });
+    });
+
+    afterEach(() => {
+        vi.restoreAllMocks();
     });
 
     it("routes custom-agent resumes through Commander with the custom role prompt and task tools", async () => {
@@ -75,12 +81,77 @@ describe("TaskResumer", () => {
                 parts: [{
                     type: "text",
                     text: expect.stringContaining("### AGENT ROLE: CustomResumeAgent"),
+                    synthetic: true,
                 }],
             }),
         });
         const promptText = mockClient.session.prompt.mock.calls[0][0].body.parts[0].text;
         expect(promptText).toContain("CUSTOM RESUME SYSTEM");
         expect(promptText).toContain("Continue custom work");
+        expect(mockClient.session.prompt.mock.calls[0][0].body.parts[0].synthetic).toBe(true);
+    });
+
+    it("refuses to resume a session that is still running", async () => {
+        const task = createTask({ status: TASK_STATUS.COMPLETED });
+        mockClient.session.status.mockResolvedValue({
+            data: { [task.sessionID]: { type: "busy" } },
+        });
+        const resumer = new TaskResumer(
+            mockClient as unknown as TaskResumerClient,
+            store,
+            (sessionID) => sessionID === task.sessionID ? task : undefined,
+            startPolling,
+            notifyParentIfAllComplete,
+        );
+
+        await expect(resumer.resume({
+            sessionId: task.sessionID,
+            prompt: "Continue custom work",
+            parentSessionID: "parent-2",
+        })).rejects.toThrow("still running");
+
+        expect(mockClient.session.prompt).not.toHaveBeenCalled();
+        expect(task.status).toBe(TASK_STATUS.COMPLETED);
+        expect(startPolling).not.toHaveBeenCalled();
+    });
+
+    it("rechecks activity after prompt routing before writing to the session", async () => {
+        const task = createTask({ status: TASK_STATUS.COMPLETED });
+        let busy = false;
+        mockClient.session.status.mockImplementation(async () => ({
+            data: busy ? { [task.sessionID]: { type: "busy" } } : {},
+        }));
+
+        let releaseRouting!: () => void;
+        let markRoutingStarted!: () => void;
+        const routingGate = new Promise<void>((resolve) => { releaseRouting = resolve; });
+        const routingStarted = new Promise<void>((resolve) => { markRoutingStarted = resolve; });
+        vi.spyOn(AgentRegistry.getInstance(), "ready").mockImplementationOnce(() => {
+            markRoutingStarted();
+            return routingGate;
+        });
+
+        const resumer = new TaskResumer(
+            mockClient as unknown as TaskResumerClient,
+            store,
+            (sessionID) => sessionID === task.sessionID ? task : undefined,
+            startPolling,
+            notifyParentIfAllComplete,
+        );
+        const resume = resumer.resume({
+            sessionId: task.sessionID,
+            prompt: "Continue custom work",
+            parentSessionID: "parent-2",
+        });
+
+        await routingStarted;
+        busy = true;
+        releaseRouting();
+
+        await expect(resume).rejects.toThrow("still running");
+        expect(mockClient.session.prompt).not.toHaveBeenCalled();
+        expect(task.status).toBe(TASK_STATUS.COMPLETED);
+        expect(startPolling).not.toHaveBeenCalled();
     });
 });
 

@@ -36,4 +36,10 @@ describe("agent system prompts (drift guard)", () => {
             expect(typeof agent.canBash).toBe("boolean");
         }
     });
+
+    it("does not impose an arbitrary line cap on shared project context", () => {
+        for (const name of names) {
+            expect(AGENTS[name].systemPrompt).not.toMatch(/context\.md[^\n]*<\s*150\s+lines/i);
+        }
+    });
 });

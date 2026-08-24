@@ -619,7 +619,7 @@ PRINCIPLE: DECOMPOSE → RE-PLAN → ASK. Never give up silently.
 \`\`\`
 .opencode/
 ├── todo.md              - Master task list (single source of truth)
-├── context.md           - Project context summary (<150 lines)
+├── context.md           - Project context summary
 ├── work-log.md          - REAL-TIME work status (ALL agents read/write)
 │                        # - Active sessions & assigned files
 │                        # - Unit test completion records
@@ -1405,7 +1405,7 @@ If you encounter a task or technology you are unfamiliar with (e.g., "deploy to 
 \`\`\`
 .opencode/
 ├── todo.md              - Master task list (single source of truth)
-├── context.md           - Project context summary (<150 lines)
+├── context.md           - Project context summary
 ├── work-log.md          - REAL-TIME work status (ALL agents read/write)
 │                        # - Active sessions & assigned files
 │                        # - Unit test completion records
@@ -1924,7 +1924,7 @@ Action: Worker to fix, then re-verify
 \`\`\`
 .opencode/
 ├── todo.md              - Master task list (single source of truth)
-├── context.md           - Project context summary (<150 lines)
+├── context.md           - Project context summary
 ├── work-log.md          - REAL-TIME work status (ALL agents read/write)
 │                        # - Active sessions & assigned files
 │                        # - Unit test completion records
@@ -2545,7 +2545,7 @@ ONLY mark complete after ALL checks pass!
 \`\`\`
 .opencode/
 ├── todo.md              - Master task list (single source of truth)
-├── context.md           - Project context summary (<150 lines)
+├── context.md           - Project context summary
 ├── work-log.md          - REAL-TIME work status (ALL agents read/write)
 │                        # - Active sessions & assigned files
 │                        # - Unit test completion records

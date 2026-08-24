@@ -138,6 +138,7 @@ describe("Plumbing / Wiring Guards", () => {
             "core/loop/todo-continuation.ts",
             "core/recovery/session-recovery.ts",
             "core/agents/manager/task-cleaner.ts",
+            "core/agents/manager/task-resumer.ts",
             "core/session/pending-injection.ts",
         ];
 
@@ -202,6 +203,7 @@ describe("Plumbing / Wiring Guards", () => {
             "core/loop/todo-continuation.ts",
             "core/recovery/session-recovery.ts",
             "core/agents/manager/task-cleaner.ts",
+            "core/agents/manager/task-resumer.ts",
             "core/session/pending-injection.ts",
         ];
         for (const rel of guarded) {
@@ -209,9 +211,9 @@ describe("Plumbing / Wiring Guards", () => {
                 .toMatch(/isSessionBusy\(/);
         }
 
-        // Exempt by design: these open a BRAND NEW subagent session, whose
+        // Exempt by design: the launcher opens a BRAND NEW subagent session, whose
         // first message is that session's real instruction, not an injection.
-        for (const rel of ["core/agents/manager/task-launcher.ts", "core/agents/manager/task-resumer.ts"]) {
+        for (const rel of ["core/agents/manager/task-launcher.ts"]) {
             expect(readFileSync(SRC(rel), "utf8"), `${rel}: should target a subagent session, not the user's`)
                 .toMatch(/parentSessionID|sessionID/);
         }
