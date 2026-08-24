@@ -2,90 +2,83 @@
 
 ## Current Task
 
-Resolved the three open functional GitHub issues (#35, #37, #38), all of which
-traced back to the same root problem: the plugin pushed prompts into user
-sessions at the wrong time and in the wrong shape.
+Completed the full audit and release requested on 2026-08-24: verified all open
+issues against OpenCode's official SDK/plugin documentation and `../opencode`,
+fixed every remaining gap, submitted the HOL catalog PR, released v1.7.14, and
+closed issues #35-#38 with evidence.
 
 ## Last Completed Step
 
-- Fixed #35 (constant "ANOMALY #1: Low information density"), #37 (system
-  messages rendered as user input), #38 (orchestrator interrupting the model
-  mid tool call).
-- Removed legacy: stray `src/core/context/state_accessor_thought.md`, dead
-  `TerminalMonitor` calls, the non-existent `SESSION_EVENTS.BUSY` constant, a
-  stale `strict-role-guard` docstring claiming RBAC it never implemented.
-- Fixed a time-bomb test in `tests/unit/knowledge/hybrid-search.test.ts` whose
-  hard-coded 2026-06 timestamps had decayed past the assertion.
-- `tsc --noEmit` clean; 109 test files / 988 tests pass; `npm run build` clean.
+- Published GitHub Release and npm package `opencode-orchestrator@1.7.14`.
+- Closed #35, #36, #37, and #38 as completed after posting resolution details.
+- Confirmed main CI, release workflow, and Pages deployment all succeeded.
 
 ## Next Exact Step
 
-Reply to issues #35, #36, #37, #38 on GitHub once release CI finishes.
+Monitor `hashgraph-online/awesome-ai-plugins#142` for maintainer feedback or
+merge; no source-repository work remains for the current request.
+
+## Incomplete Items and Why
+
+- The external catalog PR is open pending review by the
+  `hashgraph-online/awesome-ai-plugins` maintainers. Its contribution gate
+  passed. The centralized scanner reported advisory findings, explicitly marked
+  non-blocking by the catalog bot.
 
 ## Key Decisions
 
-- **`synthetic: true` on every injected text part (#37).** Verified against the
-  upstream source cloned at `../opencode` (v1.18.21): `TextPartInput.synthetic`
-  is an accepted field (`packages/schema/src/v1/session.ts`), the TUI filters
-  synthetic parts out of the transcript
-  (`packages/tui/src/routes/session/index.tsx`), and `MessageV2.toModelMessage`
-  filters only on `ignored` — so the model still receives them. Delegation
-  prompts to subagent sessions stay non-synthetic: they are that session's real
-  opening instruction and OpenCode derives session titles from the first
-  non-synthetic user message.
-- **Never prompt a busy session (#38).** `SessionPrompt.prompt` writes the user
-  message *before* `SessionRunState.ensureRunning`, and `ensureRunning` on an
-  already-`Running` session just awaits the in-flight run. The message therefore
-  lands inside the turn the model is still executing. New
-  `src/core/session/activity.ts` tracks busy/idle from `session.status` events
-  and confirms against `GET /session/status` (upstream deletes idle sessions
-  from that map, so absence means idle).
-- **Defer done-hook prompts (#38).** A completed assistant message ends a
-  *step*, not a turn — `runLoop` starts another step whenever the model asked
-  for tool calls. The mission-loop done-hook was therefore injecting "continue"
-  after every tool call. New `src/core/session/pending-injection.ts` queues those
-  prompts (latest snapshot wins) and flushes them at the first real idle.
-- **Entropy, not a unique/total ratio, for information density (#35).** The old
-  ratio was not scale-invariant: unique characters saturate near the alphabet
-  size while length grows unbounded, so any output past ~4.5 KB scored below the
-  0.02 threshold. Replaced with Shannon entropy over a bounded sample, gated on
-  fewer than 12 distinct characters.
-- **Structure is not degeneration (#35).** Pattern-loop and single-char
-  detectors now require an alphanumeric character in the repeated unit, so
-  markdown table rules (`|---|---|…`) and `====` banners stop being flagged.
-- **Anomaly interventions are CRITICAL-only and rate-limited** to one per minute
-  per session, bounding the cost of any future detector misjudgment.
+- Treat SDK structured error responses from `session.status()` as unavailable,
+  preserving the last event-derived busy flag instead of interpreting the
+  response wrapper as an empty status map.
+- Build resumed-agent routing first, then perform the authoritative busy check
+  immediately before the session write. This closes the idle-to-busy race while
+  custom agent files are loading.
+- Mark resumed-session instructions synthetic because they are orchestrator
+  messages written into an existing visible session, unlike a new subagent's
+  opening instruction.
+- Clear activity and deferred prompts on every `session.deleted` event, even for
+  sessions absent from the plugin's tracked-session map.
+- Remove the prompt-only `<150 lines` limit from `.opencode/context.md`; there
+  was no runtime limit.
+- Update only the vulnerable transitive lockfile resolutions (`postcss` 8.5.26,
+  `nanoid` 3.3.18) after the first release preflight exposed two high advisories.
+- Submit exactly one alphabetical README entry to the HOL catalog.
 
 ## Rejected Alternatives
 
-- Blocking `session.prompt` behind a hard error when busy: would have silently
-  dropped legitimate continuations. Skipping plus re-checking at the next idle
-  is recoverable.
-- Removing the sanity checker entirely: real decoder degeneration does happen;
-  the detectors just needed scale-invariant statistics.
-- Clearing session-activity state from the two loop modules' `cleanupSession`:
-  moved to a single release on `session.deleted` so one loop cannot blind the
-  other to a session that is still working.
+- Trusting the original v1.7.11-v1.7.13 fixes without tracing every
+  `session.prompt` path: the audit found missed resume and deletion paths.
+- Checking busy only before prompt routing: async custom-agent loading creates a
+  race in which the session can start work before the write.
+- Adding scanner CI during the HOL submission: the requester explicitly required
+  a one-entry README-only PR, and the catalog states scanner CI is optional.
+- Publishing locally: npm authentication was unavailable locally, while the
+  repository's tag workflow had the configured secret and published successfully.
 
 ## Known Risks
 
-- The npm token was pasted in plaintext into the chat transcript on 2026-07-29
-  and should be rotated.
-- `GET /session/status` is queried per injection attempt. It is cheap and
-  in-process, but if it ever becomes unavailable the code falls back to the
-  event-derived flag rather than blocking the loop.
+- HOL PR #142 still requires external maintainer review/merge.
+- HOL's centralized scan returned advisory findings without details in the PR
+  check; the catalog gate and bot explicitly say this does not block listing.
+- `GET /session/status` remains a per-injection check. On endpoint failure the
+  implementation intentionally falls back to push-event state.
 
 ## Verification Observed
 
-- `npx tsc --noEmit` — 0 errors.
-- `npx vitest run` — 109 files, 988 tests, all passing.
-- `npm run build` — clean.
-- False positives reproduced before the fix: 5,350-char prose scored 0.0043
-  against the 0.02 threshold; a 9-column markdown rule matched the pattern loop.
+- Release preflight: build passed; 112 TypeScript test files / 1,008 tests passed;
+  47 Rust tests passed; npm audit reported 0 vulnerabilities; npm pack dry-run
+  produced the expected v1.7.14 package.
+- Remote CI: TypeScript and Rust jobs succeeded.
+- Release workflow: five platform builds, GitHub Release, GitHub Packages, and
+  npm publication succeeded.
+- GitHub Release v1.7.14 has five binary assets; npm registry reports 1.7.14.
+- External PR #142 changes one file with one addition and passed the contribution
+  gate.
 
 ## Files To Open First Next Session
 
 1. `AGENT_MEMORY.md`
-2. `src/core/session/activity.ts`
-3. `src/core/session/pending-injection.ts`
-4. `src/utils/sanity/checker.ts`
+2. `src/core/agents/manager/task-resumer.ts`
+3. `src/core/session/activity.ts`
+4. `src/plugin-handlers/event-handler.ts`
+5. `tests/unit/task-resumer.test.ts`
