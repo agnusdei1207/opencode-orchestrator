@@ -2,7 +2,7 @@
   "name": "opencode-orchestrator",
   "displayName": "OpenCode Orchestrator",
   "description": "Multi-agent mission control for OpenCode with Commander, Planner, Worker, and Reviewer workflows.",
-  "version": "1.7.14",
+  "version": "1.7.15",
   "author": "agnusdei1207",
   "license": "MIT",
   "repository": {
