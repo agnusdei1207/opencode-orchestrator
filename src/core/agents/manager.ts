@@ -135,7 +135,7 @@ export class ParallelAgentManager {
             (parentSessionID) => this.cleaner.notifyParentIfAllComplete(parentSessionID),
             (taskId) => this.cleaner.scheduleCleanup(taskId),
             (sessionID) => this.poller.validateSessionHasOutput(sessionID),
-            (sessionID) => this.sessionPool.invalidate(sessionID),
+            (sessionID) => this.sessionPool.forget(sessionID),
             (task) => this.handleTaskComplete(task)
         );
 
@@ -207,8 +207,13 @@ export class ParallelAgentManager {
         }
         this.store.untrackPending(task.parentSessionID, taskId);
 
-        await this.sessionPool.invalidate(task.sessionID);
-
+        // Deleting the session used to double as the abort. The pool no longer
+        // deletes a busy session (issue #41), so stop the run explicitly and
+        // let the scheduled cleanup be the single owner of releasing the
+        // session — releasing here too would release it twice, and the second
+        // release (10 min later) could compact a session another task has
+        // since acquired.
+        await this.abortSession(task.sessionID);
         this.cleaner.scheduleCleanup(taskId);
 
 
@@ -281,6 +286,14 @@ export class ParallelAgentManager {
 
     private findBySession(sessionID: string): ParallelTask | undefined {
         return this.store.getBySession(sessionID);
+    }
+
+    private async abortSession(sessionID: string): Promise<void> {
+        try {
+            await this.client.session.abort({ path: { id: sessionID } });
+        } catch (error) {
+            log(`[ParallelAgentManager] Failed to abort session ${sessionID}:`, error);
+        }
     }
 
     private configureWorkStealing(config?: ConcurrencyConfig): void {

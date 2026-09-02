@@ -12,6 +12,7 @@ import { log } from "../core/agents/logger.js";
 import { PART_TYPES } from "../shared/index.js";
 import { HookRegistry } from "../hooks/registry.js";
 import { HOOK_ACTIONS } from "../hooks/constants.js";
+import { clearCircuitState } from "../core/loop/circuit-breaker.js";
 import type { ChatMessageHandlerContext, PluginSessionState } from "./context.js";
 
 type ChatMessageHook = NonNullable<Hooks["chat.message"]>;
@@ -38,6 +39,11 @@ export function createChatMessageHandler(ctx: ChatMessageHandlerContext) {
 
         log("[chat-message-handler] hook triggered", { sessionID, agent: agentName, textLength: originalText.length });
         markUserMessage(sessions, sessionID);
+        // A real user message is new input; whatever loop the model was stuck
+        // in no longer applies. Orchestrator prompts are synthetic and do not count.
+        if (!isSyntheticPart(textPart)) {
+            clearCircuitState(sessionID);
+        }
 
         // Remember which agent owns this session so later phases (post-tool,
         // assistant-done) can attribute work without re-deriving it.
@@ -73,6 +79,10 @@ type ChatTextPart = ChatMessagePart & { text: string };
 
 function isTextPartWithText(part: ChatMessagePart): part is ChatTextPart {
     return part.type === PART_TYPES.TEXT && "text" in part && typeof part.text === "string" && part.text.length > 0;
+}
+
+function isSyntheticPart(part: ChatMessagePart): boolean {
+    return "synthetic" in part && part.synthetic === true;
 }
 
 function markUserMessage(sessions: Map<string, PluginSessionState>, sessionID: string): void {

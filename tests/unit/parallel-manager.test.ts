@@ -341,17 +341,19 @@ describe("ParallelAgentManager Features", () => {
             const task = createMockTask();
             store.set(task.id, task);
             store.trackPending(task.parentSessionID, task.id);
-            const invalidateSession = vi.fn().mockResolvedValue(undefined);
+            const forgetSession = vi.fn();
+            const notifyParent = vi.fn().mockResolvedValue(undefined);
+            const scheduleCleanup = vi.fn();
 
             const handler = new EventHandler(
                 {} as never,
                 store,
                 concurrency,
                 (sessionID) => store.getAll().find(t => t.sessionID === sessionID),
-                vi.fn().mockResolvedValue(undefined),
-                vi.fn(),
+                notifyParent,
+                scheduleCleanup,
                 vi.fn().mockResolvedValue(true),
-                invalidateSession,
+                forgetSession,
             );
 
             handler.handle({
@@ -360,12 +362,51 @@ describe("ParallelAgentManager Features", () => {
             });
 
             await vi.waitFor(() => {
-                expect(invalidateSession).toHaveBeenCalledWith(task.sessionID);
+                expect(forgetSession).toHaveBeenCalledWith(task.sessionID);
             });
 
-            expect(store.get(task.id)).toBeUndefined();
+            // The errored task stays readable for get_task_result until the
+            // regular cleanup delay, like every other failed task.
+            expect(store.get(task.id)?.status).toBe("error");
+            expect(scheduleCleanup).toHaveBeenCalledWith(task.id);
             expect(store.hasPending(task.parentSessionID)).toBe(false);
-            expect(invalidateSession).not.toHaveBeenCalledWith("stale-session");
+            expect(forgetSession).not.toHaveBeenCalledWith("stale-session");
+
+            // Issue #41: a task that died with its session must still reach its
+            // parent, otherwise the parent waits forever for a result.
+            await vi.waitFor(() => {
+                expect(notifyParent).toHaveBeenCalledWith(task.parentSessionID);
+            });
+            const [notified] = store.getNotifications(task.parentSessionID);
+            expect(notified?.id).toBe(task.id);
+            expect(notified?.status).toBe("error");
+            expect(notified?.error).toBe("Session deleted");
+        });
+
+        it("does not re-announce a task that had already finished before its session was deleted", async () => {
+            const task = createMockTask();
+            task.status = "completed";
+            store.set(task.id, task);
+            const notifyParent = vi.fn().mockResolvedValue(undefined);
+
+            const handler = new EventHandler(
+                {} as never,
+                store,
+                concurrency,
+                (sessionID) => store.getAll().find(t => t.sessionID === sessionID),
+                notifyParent,
+                vi.fn(),
+                vi.fn().mockResolvedValue(true),
+                vi.fn(),
+            );
+
+            handler.handle({ type: "session.deleted", properties: { sessionID: task.sessionID } });
+
+            await vi.waitFor(() => {
+                expect(store.get(task.id)).toBeUndefined();
+            });
+            expect(notifyParent).not.toHaveBeenCalled();
+            expect(store.getNotifications(task.parentSessionID)).toHaveLength(0);
         });
     });
 

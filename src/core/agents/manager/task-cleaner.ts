@@ -15,7 +15,7 @@ import { log } from "../logger.js";
 import { SessionPool } from "../session-pool.js";
 import { buildAgentTaskCompletionMessage, buildAgentTaskProgressMessage, formatDuration } from "../format.js";
 import { getTaskToastManager } from "../../notification/task-toast-manager.js";
-import type { TaskCompletionInfo } from "../../../shared/index.js";
+import type { TaskCompletionInfo, ParallelTask } from "../../../shared/index.js";
 import * as sessionStore from "../../session/store.js";
 import { finishTaskConcurrency } from "./task-lifecycle.js";
 import { syntheticTextPart } from "../../session/injection.js";
@@ -40,32 +40,53 @@ export class TaskCleaner {
 
             log(`Timeout: ${taskId}`);
             if (task.status === TASK_STATUS.RUNNING) {
-                task.status = TASK_STATUS.TIMEOUT;
-                task.error = "Task exceeded 30 minute time limit";
-                task.completedAt = new Date();
-                finishTaskConcurrency(task, this.concurrency, false);
-                this.store.untrackPending(task.parentSessionID, taskId);
-
-                // Show timeout toast
-                const toastManager = getTaskToastManager();
-                if (toastManager) {
-                    toastManager.showCompletionToast({
-                        id: taskId,
-                        description: task.description,
-                        duration: formatDuration(task.startedAt, task.completedAt),
-                        status: TASK_STATUS.ERROR,
-                        error: task.error,
-                    });
-                }
+                this.timeOutRunningTask(taskId, task);
+                continue;
             }
 
+            // Already-terminal task past its TTL: just garbage-collect it.
             this.sessionPool.release(task.sessionID).catch(() => { });
             sessionStore.clear(task.sessionID);
             this.store.delete(taskId);
-
-
         }
         this.store.cleanEmptyNotifications();
+    }
+
+    /**
+     * A running task exceeded its TTL. Mirror the poller's completion path
+     * (mark terminal, free the slot, notify the parent, then hand cleanup to
+     * scheduleCleanup) instead of deleting the task immediately — deleting it
+     * here would make `get_task_result` return null for a task the parent was
+     * just told about, and releasing the session inline duplicates the release
+     * scheduleCleanup already does.
+     */
+    private timeOutRunningTask(taskId: string, task: ParallelTask): void {
+        task.status = TASK_STATUS.TIMEOUT;
+        task.error = "Task exceeded time limit";
+        task.completedAt = new Date();
+        finishTaskConcurrency(task, this.concurrency, false);
+        this.store.untrackPending(task.parentSessionID, taskId);
+
+        const toastManager = getTaskToastManager();
+        if (toastManager) {
+            toastManager.showCompletionToast({
+                id: taskId,
+                description: task.description,
+                duration: formatDuration(task.startedAt, task.completedAt),
+                status: TASK_STATUS.TIMEOUT,
+                error: task.error,
+            });
+        }
+
+        // Tell the parent so it can re-delegate instead of idling forever.
+        this.store.queueNotification(task);
+        this.notifyParentIfAllComplete(task.parentSessionID).catch((error) => {
+            log(`Timeout notification failed for ${taskId}:`, error);
+        });
+
+        // scheduleCleanup releases the session and deletes the task after the
+        // cleanup delay, keeping it readable until then.
+        this.scheduleCleanup(taskId);
     }
 
     scheduleCleanup(taskId: string): void {

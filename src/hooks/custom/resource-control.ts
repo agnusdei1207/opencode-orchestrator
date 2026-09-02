@@ -19,9 +19,10 @@ import { log } from "../../core/agents/logger.js";
 import { HOOK_ACTIONS, HOOK_NAMES } from "../constants.js";
 import {
     CONTEXT_THRESHOLDS,
-    CONTEXT_MONITOR_CONFIG,
-    calculateUsage
+    calculateUsage,
+    getContextUsage,
 } from "../../core/context/context-window-monitor.js";
+import { ContextLimitResolver } from "../../core/context/context-limit-resolver.js";
 
 // Refactored Imports
 import { updateSessionTokens } from "../../core/orchestrator/session-manager.js";
@@ -82,11 +83,10 @@ export class ResourceControlHook implements PostToolUseHook, AssistantDoneHook {
     }
 
     private async checkMemoryHealth(ctx: HookContext, session: unknown): Promise<HookResult> {
-        if (!hasTokenUsage(session)) return { action: HOOK_ACTIONS.CONTINUE };
+        const measured = measureContext(ctx.sessionID, session);
+        if (!measured) return { action: HOOK_ACTIONS.CONTINUE };
 
-        const totalUsed = session.tokens.totalInput + session.tokens.totalOutput;
-        const maxTokens = CONTEXT_MONITOR_CONFIG.DEFAULT_MAX_TOKENS;
-        const usage = calculateUsage(totalUsed, maxTokens);
+        const usage = calculateUsage(measured.usedTokens, measured.maxTokens);
 
         // Compaction Trigger
         if (usage < COMPACTION_THRESHOLD) {
@@ -113,6 +113,23 @@ export class ResourceControlHook implements PostToolUseHook, AssistantDoneHook {
             prompts: [prompt]
         };
     }
+}
+
+/**
+ * Prefer the host's own token report for the session (issue #40). The
+ * character-count estimate only stands in until the first assistant message
+ * has reported real usage; it accumulates every tool payload ever seen and
+ * overstates live context on long sessions.
+ */
+function measureContext(sessionID: string, session: unknown): { usedTokens: number; maxTokens: number } | undefined {
+    const reported = getContextUsage(sessionID);
+    if (reported) return reported;
+
+    if (!hasTokenUsage(session)) return undefined;
+    return {
+        usedTokens: session.tokens.totalInput + session.tokens.totalOutput,
+        maxTokens: ContextLimitResolver.getInstance().resolveForSession(sessionID),
+    };
 }
 
 function getSerializedLength(value: unknown): number {

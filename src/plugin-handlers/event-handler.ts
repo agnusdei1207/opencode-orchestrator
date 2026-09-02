@@ -14,6 +14,7 @@ import * as TodoContinuation from "../core/loop/todo-continuation.js";
 import * as MissionLoopHandler from "../core/loop/mission-loop-handler.js";
 import { isLoopActive } from "../core/loop/mission-loop.js";
 import * as ContextMonitor from "../core/context/index.js";
+import { ContextLimitResolver } from "../core/context/context-limit-resolver.js";
 import * as SessionActivity from "../core/session/activity.js";
 import * as PendingInjection from "../core/session/pending-injection.js";
 import { SESSION_EVENTS, MESSAGE_EVENTS, MESSAGE_ROLES, SESSION_STATUS } from "../shared/index.js";
@@ -37,10 +38,14 @@ type MessageUpdatedInfo = {
     sessionID?: string;
     role?: string;
     time?: { completed?: number };
+    providerID?: string;
+    modelID?: string;
     tokens?: {
+        total?: number;
         input?: number;
         output?: number;
         reasoning?: number;
+        cache?: { read?: number; write?: number };
     };
 };
 
@@ -76,6 +81,9 @@ async function handlePluginEvent(ctx: EventHandlerContext, event: PluginEvent): 
             return;
         case MESSAGE_EVENTS.UPDATED:
             await handleMessageUpdated(ctx, event);
+            return;
+        case MESSAGE_EVENTS.PART_UPDATED:
+            handleMessagePartUpdated(event);
             return;
         case SESSION_EVENTS.IDLE:
             handleSessionIdle(ctx, event);
@@ -118,6 +126,7 @@ function handleSessionDeleted(ctx: EventHandlerContext, event: PluginEvent): voi
     TodoContinuation.cleanupSession(sessionID);
     MissionLoopHandler.cleanupSession(sessionID);
     ContextMonitor.cleanupSession(sessionID);
+    ContextLimitResolver.getInstance().forgetSession(sessionID);
 
     Toast.presets.sessionCompleted(sessionID, duration);
 }
@@ -152,7 +161,13 @@ async function handleMessageUpdated(ctx: EventHandlerContext, event: PluginEvent
     const sessionID = messageInfo?.sessionID;
     if (!sessionID) return;
 
-    checkContextUsage(sessionID, messageInfo);
+    SessionActivity.touchSessionActivity(sessionID);
+    // Context monitoring is advisory (it drives a toast). Resolving the model's
+    // window can hit the server, so run it off the completion path rather than
+    // making every token-bearing message wait on it.
+    void checkContextUsage(sessionID, messageInfo).catch((error) => {
+        log(`[event-handler] context usage check failed for ${sessionID}: ${error}`);
+    });
 
     if (messageInfo.role === MESSAGE_ROLES.ASSISTANT) {
         await handleAssistantMessageUpdated(ctx, sessionID, messageInfo);
@@ -165,22 +180,50 @@ async function handleMessageUpdated(ctx: EventHandlerContext, event: PluginEvent
     }
 }
 
+/**
+ * Part updates stream throughout a turn and keep arriving briefly after the
+ * host reports idle. They carry no orchestration payload; they only tell the
+ * session lifecycle that the host is still writing to this session.
+ */
+function handleMessagePartUpdated(event: PluginEvent): void {
+    const part = event.properties?.part;
+    const sessionID = isRecord(part) ? readString(part.sessionID) : undefined;
+    if (sessionID) {
+        SessionActivity.touchSessionActivity(sessionID);
+    }
+}
+
 function readMessageUpdatedInfo(properties: Record<string, unknown> | undefined): MessageUpdatedInfo | undefined {
     const info = properties?.info;
     return isRecord(info) ? info as MessageUpdatedInfo : undefined;
 }
 
-function checkContextUsage(sessionID: string, messageInfo: MessageUpdatedInfo): void {
+async function checkContextUsage(sessionID: string, messageInfo: MessageUpdatedInfo): Promise<void> {
     const totalTokens = readTotalTokens(messageInfo);
-    if (totalTokens > 0) {
-        ContextMonitor.checkContextWindow(sessionID, totalTokens);
-    }
+    if (totalTokens <= 0) return;
+
+    const maxTokens = await ContextLimitResolver.getInstance().resolve(
+        messageInfo.providerID,
+        messageInfo.modelID,
+    );
+    ContextMonitor.checkContextWindow(sessionID, totalTokens, maxTokens);
 }
 
+/**
+ * Same arithmetic as upstream's overflow check in `session/overflow.ts`:
+ * cached prompt tokens still occupy the window, so they count; reasoning is
+ * already inside `output` for the providers that report it and would double
+ * count.
+ */
 function readTotalTokens(messageInfo: MessageUpdatedInfo): number {
-    return (messageInfo.tokens?.input ?? 0) +
-        (messageInfo.tokens?.output ?? 0) +
-        (messageInfo.tokens?.reasoning ?? 0);
+    const tokens = messageInfo.tokens;
+    if (!tokens) return 0;
+    if (typeof tokens.total === "number" && tokens.total > 0) return tokens.total;
+
+    return (tokens.input ?? 0) +
+        (tokens.output ?? 0) +
+        (tokens.cache?.read ?? 0) +
+        (tokens.cache?.write ?? 0);
 }
 
 async function handleAssistantMessageUpdated(

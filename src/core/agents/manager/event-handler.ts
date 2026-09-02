@@ -24,7 +24,7 @@ export class EventHandler {
         private notifyParentIfAllComplete: (parentSessionID: string) => Promise<void>,
         private scheduleCleanup: (taskId: string) => void,
         private validateSessionHasOutput: (sessionID: string) => Promise<boolean>,
-        private invalidateSession?: (sessionID: string) => Promise<void>,
+        private forgetSession?: (sessionID: string) => void,
         private onTaskComplete?: (task: ParallelTask) => void | Promise<void>
     ) { }
 
@@ -100,11 +100,18 @@ export class EventHandler {
         log(`Task ${task.id} completed via session.idle event (${formatDuration(task.startedAt, task.completedAt)})`);
     }
 
+    /**
+     * The host deleted a task's session (a user removing it in the TUI, or a
+     * pool deletion that raced the task). A task that was still running dies
+     * here, and its parent must hear about it: nothing else fires when the
+     * last pending task disappears this way, so without a notice the parent
+     * waits forever on a result that will never arrive (issue #41).
+     */
     private async handleSessionDeleted(task: ParallelTask): Promise<void> {
         log(`Session deleted event for task ${task.id}`);
 
-        // Mark as cancelled if was running
-        if (task.status === TASK_STATUS.RUNNING) {
+        const diedRunning = task.status === TASK_STATUS.RUNNING || task.status === TASK_STATUS.PENDING;
+        if (diedRunning) {
             task.status = TASK_STATUS.ERROR;
             task.error = "Session deleted";
             task.completedAt = new Date();
@@ -114,12 +121,22 @@ export class EventHandler {
 
         // Cleanup tracking
         this.store.untrackPending(task.parentSessionID, task.id);
-        this.store.clearNotificationsForTask(task.id);
-        this.store.delete(task.id);
+        if (diedRunning) {
+            // Keep the errored task readable for `get_task_result` until the
+            // regular cleanup delay, like any other failed task.
+            this.store.queueNotification(task);
+            this.scheduleCleanup(task.id);
+        } else {
+            this.store.clearNotificationsForTask(task.id);
+            this.store.delete(task.id);
+        }
 
-        await this.invalidateSession?.(task.sessionID).catch(() => { });
+        // The server already removed the session; the pool only has to forget it.
+        this.forgetSession?.(task.sessionID);
 
-
+        if (diedRunning) {
+            await this.notifyParentIfAllComplete(task.parentSessionID);
+        }
 
         progressNotifier.update();
         log(`Cleaned up deleted session task: ${task.id}`);

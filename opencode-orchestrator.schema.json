@@ -76,6 +76,11 @@
         "maximum": 9007199254740991
       }
     },
+    "contextMaxTokens": {
+      "type": "integer",
+      "exclusiveMinimum": 0,
+      "maximum": 9007199254740991
+    },
     "missionLoop": {
       "default": {
         "ledger": true,

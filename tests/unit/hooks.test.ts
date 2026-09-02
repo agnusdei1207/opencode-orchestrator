@@ -11,6 +11,8 @@ import { describe, it, expect, beforeEach, vi } from "vitest";
 import { MissionControlHook } from "../../src/hooks/features/mission-loop";
 import { StrictRoleGuardHook } from "../../src/hooks/custom/strict-role-guard";
 import { ResourceControlHook } from "../../src/hooks/custom/resource-control";
+import { ContextLimitResolver } from "../../src/core/context/context-limit-resolver";
+import { checkContextWindow, cleanupSession } from "../../src/core/context/context-window-monitor";
 import { AgentUIHook } from "../../src/hooks/custom/agent-ui";
 import { SanityCheckHook } from "../../src/hooks/features/sanity-check";
 import { SecretScannerHook } from "../../src/hooks/custom/secret-scanner";
@@ -224,6 +226,34 @@ describe("Hook System", () => {
 
             expect(postResult).toEqual({});
             expect(doneResult.action).toBe(HOOK_ACTIONS.INJECT);
+        });
+
+        it("measures the character estimate against the model's own window (issue #40)", async () => {
+            const resolver = ContextLimitResolver.getInstance();
+            resolver.reset();
+            resolver.rememberModel("test-session", "zai", "glm-5.3", 1_000_000);
+            mockContext.sessions.set("test-session", {
+                tokens: { totalInput: 180000, totalOutput: 0, estimatedCost: 0 },
+            });
+
+            const doneResult = await hook.execute(mockContext, "final response");
+
+            expect(doneResult.action).toBe(HOOK_ACTIONS.CONTINUE);
+            resolver.reset();
+        });
+
+        it("prefers the host-reported token usage over the character estimate", async () => {
+            const freshHook = new ResourceControlHook();
+            mockContext.sessions.set("test-session", {
+                tokens: { totalInput: 180000, totalOutput: 0, estimatedCost: 0 },
+            });
+            // The host says the model is at 10% of a 1M window; the estimate says 90% of 200k.
+            checkContextWindow("test-session", 100_000, 1_000_000);
+
+            const doneResult = await freshHook.execute(mockContext, "final response");
+
+            expect(doneResult.action).toBe(HOOK_ACTIONS.CONTINUE);
+            cleanupSession("test-session");
         });
     });
 

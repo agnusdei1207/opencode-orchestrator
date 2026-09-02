@@ -12,11 +12,13 @@
 
 import { PART_TYPES } from "../shared/index.js";
 import { queuePrompts } from "../core/session/pending-injection.js";
+import { recordAssistantTurn } from "../core/loop/circuit-breaker.js";
 import { HookRegistry } from "../hooks/registry.js";
 import { log } from "../core/agents/logger.js";
 import type { AssistantDoneHandlerContext, OpencodeClient } from "./context.js";
 
 type AssistantMessagePart = { type: string; text?: string };
+type AssistantTurn = { text: string; toolCallCount: number };
 
 /**
  * Process a completed assistant turn and run internal done-hooks.
@@ -34,12 +36,14 @@ export async function handleCompletedAssistantMessage(
         return;
     }
 
-    const textContent = await readAssistantText(client, sessionID, messageID);
+    const turn = await readAssistantTurn(client, sessionID, messageID);
     session.lastCompletedMessageID = messageID;
+    // Feed the loop detector before any hook can decide to continue the session.
+    recordAssistantTurn(sessionID, turn.text, turn.toolCallCount);
 
     const result = await hooks.executeDone(
         { sessionID, agent: session.agent, directory, sessions },
-        textContent,
+        turn.text,
     );
 
     if (result.action !== "inject" || result.prompts.length === 0) {
@@ -59,24 +63,26 @@ export async function handleCompletedAssistantMessage(
     });
 }
 
-async function readAssistantText(
+async function readAssistantTurn(
     client: OpencodeClient,
     sessionID: string,
     messageID: string,
-): Promise<string> {
+): Promise<AssistantTurn> {
     try {
         const response = await client.session.message({
             path: { id: sessionID, messageID },
         });
         const parts = extractMessageParts(response);
 
-        return parts
+        const text = parts
             .filter(part => part.type === PART_TYPES.TEXT || part.type === PART_TYPES.REASONING)
             .map(part => part.text ?? "")
             .join("\n");
+        const toolCallCount = parts.filter(part => part.type === PART_TYPES.TOOL).length;
+        return { text, toolCallCount };
     } catch (error) {
         log("[assistant-done-handler] Failed to read assistant message", { sessionID, messageID, error });
-        return "";
+        return { text: "", toolCallCount: 0 };
     }
 }
 

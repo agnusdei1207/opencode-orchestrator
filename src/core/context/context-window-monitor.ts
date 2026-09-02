@@ -43,6 +43,14 @@ export interface MonitorState {
     lastAlertLevel: "info" | "warning" | "critical" | null;
     isMonitoring: boolean;
     intervalId?: ReturnType<typeof setInterval>;
+    /** Latest host-reported usage for this session, for other consumers. */
+    lastUsage?: ContextUsage;
+}
+
+/** A context measurement as reported by the host for one assistant message. */
+export interface ContextUsage {
+    usedTokens: number;
+    maxTokens: number;
 }
 
 const sessionStates = new Map<string, MonitorState>();
@@ -132,12 +140,14 @@ export function checkContextWindow(
     usedTokens: number,
     maxTokens: number = CONTEXT_MONITOR_CONFIG.DEFAULT_MAX_TOKENS
 ): void {
+    const state = getState(sessionID);
+    state.lastUsage = { usedTokens, maxTokens };
+
     const usage = calculateUsage(usedTokens, maxTokens);
     const level = getAlertLevel(usage);
 
     if (!level) return;
 
-    const state = getState(sessionID);
     const now = Date.now();
 
     // Check cooldown
@@ -187,6 +197,15 @@ export function getContextInjection(
     }
 
     return null;
+}
+
+/**
+ * The most recent host-reported measurement for a session, if one has been
+ * seen. Preferred over any character-count estimate: it is what the model
+ * actually consumed.
+ */
+export function getContextUsage(sessionID: string): ContextUsage | undefined {
+    return sessionStates.get(sessionID)?.lastUsage;
 }
 
 /**

@@ -36,7 +36,14 @@ interface ActivityState {
     busy: boolean;
     /** Last status transition we observed, for diagnostics. */
     lastStatusType: string;
+    /** Last time this state was written at all; drives TTL pruning. */
     lastUpdatedAt: number;
+    /**
+     * Last time the host itself did something on this session (a pushed
+     * status event, a message or part update). Our own status polls do not
+     * count: a poll is us looking, not the host writing.
+     */
+    lastActivityAt?: number;
 }
 
 const ACTIVITY_TTL_MS = 10 * 60 * 1000;
@@ -69,10 +76,35 @@ function getState(sessionID: string): ActivityState {
  */
 export function recordSessionStatus(sessionID: string, statusType: string | undefined): void {
     if (!sessionID || !statusType) return;
+    const state = applyStatus(sessionID, statusType);
+    state.lastActivityAt = state.lastUpdatedAt;
+}
+
+function applyStatus(sessionID: string, statusType: string): ActivityState {
     const state = getState(sessionID);
     state.busy = statusType !== SESSION_STATUS.IDLE;
     state.lastStatusType = statusType;
     state.lastUpdatedAt = Date.now();
+    return state;
+}
+
+/**
+ * Note that the host just did something on behalf of this session — a message
+ * or part update, a status transition. `session.status` alone is not enough for
+ * lifecycle decisions: the run loop reports idle before the last projector
+ * writes for the turn have landed, so anything that tears a session down needs
+ * to know how recently the host was still writing to it (issue #41).
+ */
+export function touchSessionActivity(sessionID: string): void {
+    if (!sessionID) return;
+    const state = getState(sessionID);
+    state.lastUpdatedAt = Date.now();
+    state.lastActivityAt = state.lastUpdatedAt;
+}
+
+/** Epoch ms of the most recent host activity observed for this session, if any. */
+export function getLastActivityAt(sessionID: string): number | undefined {
+    return activityStates.get(sessionID)?.lastActivityAt;
 }
 
 /** True when the last observed `session.status` event said the session is working. */
@@ -92,7 +124,7 @@ export async function isSessionBusy(client: OpencodeClient, sessionID: string): 
     const remote = await readRemoteStatus(client, sessionID);
     if (remote === null) return isKnownBusy(sessionID);
 
-    recordSessionStatus(sessionID, remote);
+    applyStatus(sessionID, remote);
     return remote !== SESSION_STATUS.IDLE;
 }
 

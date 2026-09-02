@@ -72,6 +72,7 @@ Add or customize in `opencode.jsonc`:
 ```
 
 - **Model Inheritance**: Subagents inherit the primary agent model unless explicitly configured under `agent.<name>.model`.
+- **Context Window Limits**: Context usage alerts are measured against the window OpenCode reports for the model in use (a 1M-token model is no longer measured against a 200k default). Set `contextMaxTokens` (an integer token count) in the plugin options to force one limit for every model.
 - **Options Schema**: Full configuration schema is available in `opencode-orchestrator.schema.json`.
 
 ---

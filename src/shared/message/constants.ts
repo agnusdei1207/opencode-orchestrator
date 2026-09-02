@@ -38,6 +38,8 @@ export type CommandName = (typeof COMMAND_NAMES)[keyof typeof COMMAND_NAMES];
 export const PLUGIN_HOOKS = {
     /** Intercepts user messages before sending to LLM */
     CHAT_MESSAGE: "chat.message",
+    /** Runs before every LLM call with the resolved model */
+    CHAT_PARAMS: "chat.params",
     /** Runs before any tool call */
     TOOL_EXECUTE_BEFORE: "tool.execute.before",
     /** Runs after any tool call completes */

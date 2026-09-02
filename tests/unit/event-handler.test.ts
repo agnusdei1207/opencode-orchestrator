@@ -3,6 +3,8 @@ import { createEventHandler } from "../../src/plugin-handlers/event-handler";
 import { handleCompletedAssistantMessage } from "../../src/plugin-handlers/assistant-done-handler";
 import * as SessionRecovery from "../../src/core/recovery/session-recovery";
 import * as ContextMonitor from "../../src/core/context";
+import { ContextLimitResolver } from "../../src/core/context/context-limit-resolver";
+import { CONTEXT_MONITOR_CONFIG } from "../../src/core/context/context-window-monitor";
 import * as TodoContinuation from "../../src/core/loop/todo-continuation";
 import * as MissionLoopHandler from "../../src/core/loop/mission-loop-handler";
 import * as MissionLoop from "../../src/core/loop/mission-loop";
@@ -114,9 +116,55 @@ describe("createEventHandler", () => {
         });
 
         expect(SessionRecovery.markRecoveryComplete).toHaveBeenCalledWith("session-1");
-        expect(ContextMonitor.checkContextWindow).toHaveBeenCalledWith("session-1", 15);
+        expect(ContextMonitor.checkContextWindow).toHaveBeenCalledWith("session-1", 15, CONTEXT_MONITOR_CONFIG.DEFAULT_MAX_TOKENS);
         expect(handleCompletedAssistantMessage).toHaveBeenCalledWith(ctx, "session-1", "message-1");
         expect(ctx.sessions.get("session-1").lastAssistantCompletedAt).toBeGreaterThan(0);
+    });
+
+    it("measures context against the model's own window and counts cached tokens (issue #40)", async () => {
+        const resolver = ContextLimitResolver.getInstance();
+        resolver.reset();
+        resolver.rememberModel("session-1", "zai", "glm-5.3", 1_000_000);
+        const handler = createEventHandler(ctx);
+
+        await handler({
+            event: {
+                type: "message.updated",
+                properties: {
+                    info: {
+                        id: "message-1",
+                        sessionID: "session-1",
+                        role: "assistant",
+                        providerID: "zai",
+                        modelID: "glm-5.3",
+                        tokens: { input: 100, output: 20, reasoning: 7, cache: { read: 300, write: 50 } },
+                    },
+                },
+            },
+        });
+
+        expect(ContextMonitor.checkContextWindow).toHaveBeenCalledWith("session-1", 470, 1_000_000);
+        resolver.reset();
+    });
+
+    it("records host writes as session activity for lifecycle decisions (issue #41)", async () => {
+        const handler = createEventHandler(ctx);
+
+        await handler({
+            event: {
+                type: "message.part.updated",
+                properties: { part: { id: "part-1", sessionID: "session-9", type: "text" }, delta: "x" },
+            },
+        });
+        expect(SessionActivity.getLastActivityAt("session-9")).toBeGreaterThan(0);
+
+        await handler({
+            event: {
+                type: "message.updated",
+                properties: { info: { id: "message-2", sessionID: "session-10", role: "user" } },
+            },
+        });
+        expect(SessionActivity.getLastActivityAt("session-10")).toBeGreaterThan(0);
     });
 
     it("reads SDK session ids from info.id for created and deleted events", async () => {

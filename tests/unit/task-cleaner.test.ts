@@ -106,8 +106,21 @@ describe("TaskCleaner", () => {
         expect(concurrency.getActiveCount("builder")).toBe(0);
         expect(task.concurrencyKey).toBeUndefined();
         expect(reportResult).toHaveBeenCalledWith("builder", false);
-        expect(store.get(task.id)).toBeUndefined();
+        expect(task.status).toBe(TASK_STATUS.TIMEOUT);
         expect(store.hasPending(task.parentSessionID)).toBe(false);
+
+        // Issue #41: the parent must learn the task timed out, or it waits on
+        // a result that never arrives.
+        await vi.waitFor(() => {
+            expect(prompt).toHaveBeenCalledTimes(1);
+        });
+        const text = prompt.mock.calls[0][0].body.parts[0].text as string;
+        expect(text).toContain(task.id);
+        expect(text.toLowerCase()).toContain("timeout");
+
+        // The task stays readable for get_task_result until scheduleCleanup's
+        // delayed deletion, rather than vanishing the moment the parent is told.
+        expect(store.get(task.id)?.status).toBe(TASK_STATUS.TIMEOUT);
     });
 
     /**

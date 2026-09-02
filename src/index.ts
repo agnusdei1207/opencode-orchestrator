@@ -33,6 +33,8 @@ import { shutdownMissionLoopHandler } from "./core/loop/mission-loop-handler.js"
 
 // Import modularized handlers
 import { createToolExecuteBeforeHandler } from "./plugin-handlers/tool-execute-pre-handler.js";
+import { createChatParamsHandler } from "./plugin-handlers/chat-params-handler.js";
+import { ContextLimitResolver } from "./core/context/context-limit-resolver.js";
 import {
     createEventHandler,
     createConfigHandler,
@@ -72,6 +74,10 @@ const OrchestratorPlugin: Plugin = async (input, options) => {
     const orchestratorOptions = parseOrchestratorPluginOptions(options);
     const concurrencyConfig = orchestratorOptions.concurrency;
     configureMissionRuntimeOptions(orchestratorOptions.missionLoop);
+    ContextLimitResolver.getInstance().configure({
+        client,
+        overrideMaxTokens: orchestratorOptions.contextMaxTokens,
+    });
 
     // Initialize Hooks System
     initializeHooks();
@@ -182,6 +188,11 @@ const OrchestratorPlugin: Plugin = async (input, options) => {
         // chat.message hook - intercepts commands and sets up sessions
         // -----------------------------------------------------------------
         [PLUGIN_HOOKS.CHAT_MESSAGE]: createChatMessageHandler(handlerContext),
+
+        // -----------------------------------------------------------------
+        // chat.params hook - learns each session's model context window
+        // -----------------------------------------------------------------
+        [PLUGIN_HOOKS.CHAT_PARAMS]: createChatParamsHandler(),
 
         // -----------------------------------------------------------------
         // tool.execute.before hook - runs before any tool call

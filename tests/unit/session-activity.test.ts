@@ -6,6 +6,8 @@ import {
     clearSessionActivity,
     pruneSessionActivity,
     resetSessionActivity,
+    touchSessionActivity,
+    getLastActivityAt,
 } from "../../src/core/session/activity";
 
 type StatusMap = Record<string, { type: string }>;
@@ -152,5 +154,43 @@ describe("session activity tracker (issue #38)", () => {
 
             expect(isKnownBusy(SESSION)).toBe(true);
         });
+    });
+});
+
+describe("session activity timestamps (issue #41)", () => {
+    beforeEach(() => {
+        resetSessionActivity();
+    });
+
+    it("reports no activity for an unseen session", () => {
+        expect(getLastActivityAt("never-seen")).toBeUndefined();
+    });
+
+    it("records host writes and status transitions as activity", () => {
+        const before = Date.now();
+        touchSessionActivity(SESSION);
+        expect(getLastActivityAt(SESSION)).toBeGreaterThanOrEqual(before);
+
+        const afterTouch = getLastActivityAt(SESSION)!;
+        recordSessionStatus(SESSION, "idle");
+        expect(getLastActivityAt(SESSION)).toBeGreaterThanOrEqual(afterTouch);
+    });
+
+    it("does not count our own status polls as host activity", async () => {
+        const client = clientWithStatus({ [SESSION]: { type: "busy" } });
+        await isSessionBusy(client, SESSION);
+        expect(isKnownBusy(SESSION)).toBe(true);
+        expect(getLastActivityAt(SESSION)).toBeUndefined();
+    });
+
+    it("ignores empty session ids", () => {
+        touchSessionActivity("");
+        expect(getLastActivityAt("")).toBeUndefined();
+    });
+
+    it("forgets activity on clear", () => {
+        touchSessionActivity(SESSION);
+        clearSessionActivity(SESSION);
+        expect(getLastActivityAt(SESSION)).toBeUndefined();
     });
 });

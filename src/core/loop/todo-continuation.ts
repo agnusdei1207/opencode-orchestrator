@@ -23,6 +23,8 @@ import { createPruneTimer } from "./prune-timer.js";
 import { showContinuationCountdownToast } from "./continuation-toast.js";
 import { isSessionBusy, isKnownBusy } from "../session/activity.js";
 import { syntheticTextPart } from "../session/injection.js";
+import { tripOutputCircuit, isOutputCircuitOpen } from "./circuit-breaker.js";
+import * as Toast from "../notification/toast.js";
 
 type OpencodeClient = PluginInput["client"];
 
@@ -314,7 +316,8 @@ function shouldSkipIdleRequest(
         || shouldSkipRecoveringSession(request.sessionID)
         || shouldSkipRecentAbort(state, request.sessionID)
         || shouldSkipBusySession(request.sessionID)
-        || shouldSkipRunningBackgroundTasks(request.sessionID);
+        || shouldSkipRunningBackgroundTasks(request.sessionID)
+        || shouldSkipOpenCircuit(request.sessionID);
 
     if (shouldSkip) return true;
     if (isIdleRateLimited(state, request.sessionID, now)) return true;
@@ -368,6 +371,28 @@ function shouldSkipBusySession(sessionID: string): boolean {
     if (!isKnownBusy(sessionID)) return false;
 
     log("[todo-continuation] Skipped: session is busy", { sessionID });
+    return true;
+}
+
+/**
+ * A model that keeps producing the same text without calling a tool is stuck
+ * (issue #39: echoing a context-pruning reminder instead of acting on it).
+ * Re-prompting it on every idle only repeats the loop, so the continuation
+ * pauses until the circuit resets or the user speaks.
+ */
+function shouldSkipOpenCircuit(sessionID: string): boolean {
+    if (tripOutputCircuit(sessionID)) {
+        Toast.show({
+            title: "⏸️ Continuation paused",
+            message: "The model repeated the same output without acting. Send a message to resume.",
+            variant: "warning",
+        });
+    }
+    // Only an output-repetition trip pauses continuation. A tool-repetition
+    // circuit (e.g. three reads in a row) is normal work, not a stuck loop.
+    if (!isOutputCircuitOpen(sessionID)) return false;
+
+    log("[todo-continuation] Skipped: output-repetition circuit open", { sessionID });
     return true;
 }
 

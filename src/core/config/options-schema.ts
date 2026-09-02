@@ -43,9 +43,20 @@ export const OrchestratorOptionsSchema = z
         halfOpenSuccessThreshold: z.number().int().positive().optional(),
         resourcePressureMaxHeapPercent: z.number().positive().max(100).optional(),
         workStealingWorkers: WorkerCountMap.optional(),
+        /**
+         * Context window size to assume for every model, in tokens. Unset means
+         * "use the limit the host reports for the model in use".
+         */
+        contextMaxTokens: z.number().int().positive().optional(),
         missionLoop: MissionLoopOptionsSchema.optional(),
     })
     .passthrough();
+
+/** Tolerant parse of the `contextMaxTokens` option: invalid values mean "unset". */
+export function parseContextMaxTokens(value: unknown): number | undefined {
+    const parsed = z.number().int().positive().safeParse(value);
+    return parsed.success ? parsed.data : undefined;
+}
 
 /** Tolerant parse of the `missionLoop` option block. */
 export function parseMissionLoopOptions(value: unknown) {
