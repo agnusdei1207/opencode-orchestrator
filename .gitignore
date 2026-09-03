@@ -20,3 +20,4 @@ dist/
 docs/OPENCODE.md
 docs/architecture/prompt-architecture.html
 .opencode/
+coverage/
