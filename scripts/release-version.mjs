@@ -45,6 +45,32 @@ function assertCleanWorktree() {
   }
 }
 
+function commandIsAvailable(command, commandArgs) {
+  const probe = spawnSync(command, commandArgs, {
+    cwd: repoRoot,
+    encoding: "utf8",
+    stdio: "pipe",
+    shell: false,
+  });
+  return !probe.error && probe.status === 0;
+}
+
+// Sync workspace member versions without touching the dependency graph.
+// Equivalent to `cargo update -w` for a pure version bump (path members
+// carry no source/checksum lines), used when cargo is unavailable.
+function patchCargoLock(nextVersion) {
+  const lockPath = path.join(repoRoot, "Cargo.lock");
+  const lock = readFileSync(lockPath, "utf8");
+  const updated = lock.replace(
+    /^(name = "orchestrator-(?:cli|core)"\nversion = ")\d+\.\d+\.\d+(")/gm,
+    `$1${nextVersion}$2`,
+  );
+  if (updated === lock) {
+    throw new Error(`Could not update Cargo.lock workspace versions to ${nextVersion}.`);
+  }
+  writeFileSync(lockPath, updated);
+}
+
 function readVersion() {
   const packageJson = JSON.parse(readFileSync(path.join(repoRoot, "package.json"), "utf8"));
   return String(packageJson.version);
@@ -72,7 +98,12 @@ function bumpCargoVersion(nextVersion) {
 }
 
 bumpCargoVersion(version);
-run("cargo", ["update", "-w"]);
+if (commandIsAvailable("cargo", ["--version"])) {
+  run("cargo", ["update", "-w"]);
+} else {
+  console.log("[release-version] cargo unavailable; patching workspace versions in Cargo.lock directly");
+  patchCargoLock(version);
+}
 
 run("git", ["add", "package.json", "package-lock.json", "README.md", "Cargo.toml", "Cargo.lock"]);
 
