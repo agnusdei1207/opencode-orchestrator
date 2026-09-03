@@ -1,5 +1,7 @@
 # AGENTS.md
 
+Last updated: 2026-09-03 22:52 KST
+
 ## Purpose
 This file defines the mandatory operating rules for all agent work in this repository.
 Apply these rules to code, documentation, analysis, design, review, and debugging.

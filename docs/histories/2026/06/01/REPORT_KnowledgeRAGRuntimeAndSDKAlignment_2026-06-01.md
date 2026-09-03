@@ -1,7 +1,7 @@
 ---
 title: "REPORT: Knowledge RAG Runtime Wiring and OpenCode SDK Alignment"
 tags: [report, knowledge-rag, system-transform, opencode-sdk, verification]
-created: 2026-06-01
+created: 2026-06-01 23:33 KST
 version: 1.3.2
 status: completed
 ---

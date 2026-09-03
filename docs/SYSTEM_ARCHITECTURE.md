@@ -1,5 +1,7 @@
 # System Architecture
 
+Date: 2026-01-16 23:23 KST
+
 This document describes the current architecture that is directly verifiable from the repository source. It intentionally avoids speculative performance claims.
 
 ## 1. Entry Points

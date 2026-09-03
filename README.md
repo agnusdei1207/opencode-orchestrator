@@ -10,6 +10,7 @@
   <!-- VERSION:START -->
   **Version:** `1.7.16`
   <!-- VERSION:END -->
+  <!-- LAST-UPDATED: 2026-09-03 22:52 KST -->
 </div>
 
 ---

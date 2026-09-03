@@ -1,6 +1,6 @@
 # Report: Windows Install Hook Registered in a Config OpenCode Never Reads
 
-Date: 2026-09-03
+Date: 2026-09-03 22:31 KST
 Scope: `scripts/opencode-config.ts`, `scripts/postinstall.ts`, `scripts/preuninstall.ts`, `tests/unit/install-hooks.test.ts`, `README.md`
 
 ## Symptom

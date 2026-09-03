@@ -1,6 +1,6 @@
 # Report: Session Lifecycle Safety and Model-Aware Context Limits
 
-Date: 2026-09-02
+Date: 2026-09-02 18:00 KST
 Issues: #41, #40, #39
 Status: ✅ IMPLEMENTED — build clean, `tsc` clean, 1046 tests pass, verified live on OpenCode 1.18.26
 

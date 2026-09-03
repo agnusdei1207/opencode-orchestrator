@@ -8,7 +8,7 @@
 
 | Field | Value |
 |:------|:------|
-| **Date** | 2026-06-19 |
+| **Date** | 2026-06-19 23:50 KST |
 | **Project** | opencode-orchestrator (TypeScript / Node.js) |
 | **Companion proposal** | `docs/proposals/2026-06-19/LOCAL_SEARCH_ENHANCEMENT_PROPOSAL.md` |
 | **Scope shipped** | Part 3 / Proposal 13 — *Local Ebbinghaus Memory OS* (read-path), plus the safe integration of bi-temporal scoring, lifecycle, and tombstone supersession |

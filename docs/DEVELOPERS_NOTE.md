@@ -1,5 +1,7 @@
 # 🎹 Developer's Words
 
+Date: 2026-01-18 20:45 KST
+
 <div align="center">
   <img src="../assets/image.png" alt="Chopin Ballade No.4" width="600" />
 </div>

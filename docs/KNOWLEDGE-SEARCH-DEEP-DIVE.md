@@ -1,7 +1,7 @@
 # Knowledge Store & Search System — Technical Deep Dive
 
 > **Target audience**: Developers and researchers who want to understand opencode-orchestrator's search pipeline
-> **Last updated**: 2026-06-19
+> **Last updated**: 2026-06-19 18:10 KST
 > **Source path**: `src/core/knowledge/`
 
 ---

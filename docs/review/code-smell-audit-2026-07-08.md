@@ -1,5 +1,7 @@
 # Code Smell Audit - 2026-07-08
 
+Date: 2026-07-08 16:56 KST
+
 Scope: `src`, `scripts`, and focused unit tests.
 
 This audit records 100 concrete code smells found during the July 8, 2026 refactoring pass. Items marked `fixed` were addressed in this pass. Items marked `queued` remain as follow-up refactoring candidates.

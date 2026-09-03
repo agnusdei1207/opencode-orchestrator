@@ -1,5 +1,7 @@
 # Contributing to OpenCode Orchestrator 🦀
 
+Last updated: 2026-09-03 22:52 KST
+
 Welcome to the OpenCode Orchestrator development guide. This project uses a high-performance hybrid architecture combining **TypeScript** for agent orchestration and **Rust** for core tool execution.
 
 ---
