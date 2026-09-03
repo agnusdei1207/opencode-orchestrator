@@ -111,7 +111,7 @@ Runtime flow:
 3. Non-loopback binds are rejected unless the operator passes `--allow-remote`.
 4. Each accepted TCP stream receives a stable session id, peer metadata, a writer handle, an in-memory preview buffer, and a raw log path.
 5. Reader threads append raw bytes to `.opencode-orchestrator/shell-listener/` and send sanitized preview events to the line-mode TUI.
-6. Operator commands select sessions, send prompt responses, run sentinel-marked one-shot commands, request a manual PTY helper, or close sessions.
+6. Operator commands select sessions, send prompt responses, run sentinel-marked one-shot commands, or close sessions.
 
 The design separates three concerns:
 

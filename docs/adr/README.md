@@ -56,3 +56,4 @@ What followed, including verification evidence and known limits.
 | [0015](0015-bundle-resolution-audit.md) | 2026-07-02 22:13 | Bundle resolution audit (Issue #31 follow-up) | Implemented |
 | [0016](0016-session-lifecycle-context-limits.md) | 2026-09-02 18:00 | Session lifecycle safety and model-aware context limits | Implemented |
 | [0017](0017-windows-config-path-migration.md) | 2026-09-03 22:31 | Windows config-path migration and stale cache invalidation | Implemented |
+| [0018](0018-shell-listener-pty-helper-removal.md) | 2026-09-03 23:22 | Shell-listener one-touch PTY helper removal | Implemented |
