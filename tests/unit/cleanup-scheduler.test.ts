@@ -5,7 +5,6 @@ import { beforeEach, afterEach, describe, expect, it, vi } from "vitest";
 import { CleanupScheduler } from "../../src/core/cleanup/cleanup-scheduler";
 import * as DocumentCache from "../../src/core/cache/document-cache";
 import { log } from "../../src/core/agents/logger";
-import { runMemoryMaintenancePass } from "../../src/core/knowledge/memory-maintenance-runner";
 
 vi.mock("../../src/core/cache/document-cache", () => ({
     cleanExpired: vi.fn(),
@@ -15,10 +14,6 @@ vi.mock("../../src/core/cache/document-cache", () => ({
 }));
 
 vi.mock("../../src/core/agents/logger", () => ({ log: vi.fn() }));
-
-vi.mock("../../src/core/knowledge/memory-maintenance-runner", () => ({
-    runMemoryMaintenancePass: vi.fn(() => ({ changedFiles: ["note1.md"] })),
-}));
 
 describe("CleanupScheduler", () => {
     let directory: string;
@@ -108,11 +103,6 @@ describe("CleanupScheduler", () => {
 
         expect(existsSync(oldFile)).toBe(false);
         expect(existsSync(newFile)).toBe(true);
-    });
-
-    it("runs memory maintenance when called", async () => {
-        await scheduler.maintainMemory();
-        expect(runMemoryMaintenancePass).toHaveBeenCalledWith(directory, { apply: true });
     });
 
     it("compactWAL runs without errors", async () => {

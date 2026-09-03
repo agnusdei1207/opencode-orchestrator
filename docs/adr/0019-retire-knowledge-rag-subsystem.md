@@ -1,7 +1,7 @@
 # ADR-0019: Retire In-Memory Knowledge RAG Subsystem
 
 Date: 2026-09-04 00:10 KST
-Status: Accepted (Phase 1 Implemented)
+Status: Implemented
 Source: Strategic architectural review comparing `opencode-orchestrator`, `minimal-agent`, and `oh-my-openagent`.
 
 ## Context
@@ -38,7 +38,7 @@ Adopt a phased plan to deprecate, decouple, and retire the in-memory Knowledge R
   - `memory-lifecycle.ts`, `memory-consolidation.ts`, `memory-evaluation.ts`, `memory-promotion.ts`, `memory-maintenance-runner.ts`
   - `safety-guards.ts`, `retrieval-weights.ts`, `scratchpad.ts` (volatile cache)
 - Clean up periodic maintenance passes in `src/core/cleanup/cleanup-scheduler.ts`.
-- Remove retired test suites under `tests/unit/knowledge/`.
+- Remove retired test suites under `tests/unit/knowledge/`, `tests/unit/retrieval-weights.test.ts`, and `tests/unit/mission-memory-knowledge.test.ts`.
 - Formally supersede ADR-0001, ADR-0002, ADR-0009, ADR-0010, ADR-0011, ADR-0012, and ADR-0013.
 
 ## Consequences
@@ -51,6 +51,15 @@ Adopt a phased plan to deprecate, decouple, and retire the in-memory Knowledge R
   - `opencode-orchestrator.schema.json` regenerated and verified.
   - `system-transform-handler.ts` gates `<knowledge_rag_context>` injection behind `enableKnowledgeRag` (default OFF).
   - Verified by `tests/unit/system-transform-handler.test.ts` (11/11 pass).
-- **Rollback Strategy**:
-  - Phase 1 is fully reversible via setting `missionLoop.enableKnowledgeRag: true` in plugin options.
-  - Phase 3 will execute only after Phase 1 and Phase 2 achieve validated stability across end-to-end mission benchmarks.
+- **Phase 2 & Phase 3 Implementation Evidence (2026-09-04)**:
+  - Decoupled `mission-memory.ts` and `mission-episode.ts` with local frontmatter parsing and level-to-horizon derivation.
+  - Removed all 14 obsolete modules in `src/core/knowledge/` (~2,000 LOC deleted).
+  - Removed RAG prompt injection from `src/plugin-handlers/system-transform-handler.ts`.
+  - Removed `maintainMemory` and `memory-maintenance` task from `src/core/cleanup/cleanup-scheduler.ts`.
+  - Removed obsolete `enableKnowledgeRag` option and regenerated `opencode-orchestrator.schema.json`.
+  - Deleted 12 retired test files (`tests/unit/knowledge/*`, `tests/unit/retrieval-weights.test.ts`, `tests/unit/mission-memory-knowledge.test.ts`).
+  - Added unit test coverage for working memory note syncing and frontmatter parsing in `tests/unit/mission-runtime-memory.test.ts`.
+  - Verified full test suite: **119 test files / 1109 tests passed**, 0 failures.
+  - Coverage ratchet thresholds satisfied (Statements: 86.24% >= 85%, Branches: 74.8% >= 72%, Functions: 90.3% >= 88%, Lines: 87.8% >= 85%).
+- **Superseded ADRs**:
+  - ADR-0001, ADR-0002, ADR-0009, ADR-0010, ADR-0011, ADR-0012, and ADR-0013 are officially superseded by this ADR.

@@ -13,12 +13,8 @@ import { readLoopState } from "../core/loop/mission-loop.js";
 import { PATHS, STATUS_LABEL } from "../shared/index.js";
 import { ParallelAgentManager } from "../core/agents/manager.js";
 import { isMissionActive, ensureSessionInitialized } from "../core/orchestrator/session-manager.js";
-import { KnowledgeContextProvider } from "../core/knowledge/context-provider.js";
 import { readMissionScratchpadSnapshot } from "../core/knowledge/mission-memory.js";
-import { getMissionRuntimeOptions } from "../core/loop/mission-runtime-options.js";
 import { log } from "../core/agents/logger.js";
-
-const knowledgeContextProvider = new KnowledgeContextProvider();
 
 type SystemTransformHook = NonNullable<Hooks["experimental.chat.system.transform"]>;
 export type SystemTransformInput = Parameters<SystemTransformHook>[0] & { agent?: string };
@@ -28,7 +24,7 @@ export type SystemTransformOutput = Parameters<SystemTransformHook>[1];
  * Create system transform handler for dynamic prompt injection
  */
 export function createSystemTransformHandler(ctx: EventHandlerContext) {
-    const { directory, sessions, state } = ctx;
+    const { directory, sessions } = ctx;
 
     return async (input: SystemTransformInput, output: SystemTransformOutput): Promise<void> => {
         const { sessionID } = input;
@@ -67,21 +63,6 @@ export function createSystemTransformHandler(ctx: EventHandlerContext) {
             systemAdditions.push(buildActiveSessionPrompt(session.step));
         }
 
-        // 3. Knowledge graph RAG context for orchestrated sessions.
-        // ADR-0019 Phase 1: Soft-disable by default to eliminate context pollution.
-        if (getMissionRuntimeOptions().enableKnowledgeRag) {
-            const retrievalRole = readRetrievalRole(input);
-            const knowledgePrompt = buildKnowledgeContextPrompt(
-                directory,
-                loopState,
-                state.sessions.get(sessionID)?.currentTask,
-                retrievalRole,
-            );
-            if (knowledgePrompt) {
-                systemAdditions.push(knowledgePrompt);
-            }
-        }
-
         // 3. Background task awareness
         try {
             const manager = ParallelAgentManager.getInstance();
@@ -101,33 +82,6 @@ export function createSystemTransformHandler(ctx: EventHandlerContext) {
             output.system.unshift(...systemAdditions); // unshift to put core instructions first
         }
     };
-}
-
-function readRetrievalRole(input: SystemTransformInput): string {
-    return input.agent?.trim() || "commander";
-}
-
-function buildKnowledgeContextPrompt(
-    directory: string,
-    loopState?: {
-        objective?: string;
-        prompt: string;
-        lastProgress?: string;
-        lastVerificationSummary?: string;
-        lastContinuationReason?: string;
-    } | null,
-    currentTask?: string,
-    role?: string,
-): string | null {
-    const queryParts = [
-        loopState?.objective ?? "",
-        loopState?.prompt ?? "",
-        currentTask ?? "",
-        loopState?.lastProgress ?? "",
-        loopState?.lastVerificationSummary ?? "",
-        loopState?.lastContinuationReason ?? "",
-    ].filter(Boolean);
-    return knowledgeContextProvider.buildPrompt(directory, queryParts.join(" ").trim(), role);
 }
 
 function buildMissionScratchpadPrompt(directory: string): string | null {

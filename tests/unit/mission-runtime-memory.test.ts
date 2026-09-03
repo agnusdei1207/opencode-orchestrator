@@ -23,7 +23,12 @@ import {
 import {
     getMissionCanvasPath,
     getMissionScratchpadPath,
+    getMissionMemoryNotesDirPath,
+    readMissionScratchpadSnapshot,
+    syncMissionMemory,
+    parseFrontmatter,
 } from "../../src/core/knowledge/mission-memory.js";
+import { MemoryLevel, MemoryManager } from "../../src/core/memory/memory-manager.js";
 
 describe("mission runtime memory", () => {
     let testDir: string;
@@ -158,5 +163,118 @@ describe("mission runtime memory", () => {
             "mission_started",
             "mission_completed",
         ]);
+    });
+
+    it("syncs memory notes from MemoryManager and cleans obsolete notes", () => {
+        const memoryManager = MemoryManager.getInstance();
+        const originalEntries = structuredClone(memoryManager.export());
+        try {
+            memoryManager.import({
+                [MemoryLevel.SYSTEM]: [],
+                [MemoryLevel.PROJECT]: [],
+                [MemoryLevel.MISSION]: [],
+                [MemoryLevel.TASK]: [],
+            });
+
+            // Add project, mission, and task memories
+            memoryManager.add(
+                MemoryLevel.PROJECT,
+                "Project memory architecture guidelines for multi-agent missions",
+                0.95,
+            );
+            memoryManager.add(
+                MemoryLevel.MISSION,
+                "Mission memory active focus note for graphical memory verification",
+                0.85,
+            );
+            memoryManager.add(
+                MemoryLevel.TASK,
+                "Task memory transient result note",
+                0.6,
+            );
+
+            const loopState = {
+                active: true,
+                iteration: 1,
+                maxIterations: 10,
+                prompt: "multi-agent graphical memory verification",
+                objective: "Verify mission memory synchronization",
+                sessionID,
+                startedAt: new Date().toISOString(),
+            };
+
+            const synced = syncMissionMemory(testDir, loopState);
+            expect(synced).toBe(true);
+
+            const notesDir = getMissionMemoryNotesDirPath(testDir);
+            expect(fs.existsSync(notesDir)).toBe(true);
+
+            const noteFiles = fs.readdirSync(notesDir).filter(f => f.endsWith(".md"));
+            expect(noteFiles.length).toBeGreaterThanOrEqual(2);
+
+            // Read one note and verify frontmatter
+            const projectNote = noteFiles.find(f => f.startsWith("project-"));
+            expect(projectNote).toBeDefined();
+            const projectContent = fs.readFileSync(path.join(notesDir, projectNote!), "utf8");
+            const parsed = parseFrontmatter(projectContent);
+            expect(parsed.tags).toContain("mission-memory");
+            expect(parsed.tags).toContain("orchestrator");
+            expect(parsed.keep).toBe(true);
+            expect(parsed.level).toBe("project");
+            expect(parsed.horizon).toBe("strategic");
+
+            // Resync after clearing task memories to test unlinking obsolete projection note
+            memoryManager.import({
+                [MemoryLevel.SYSTEM]: [],
+                [MemoryLevel.PROJECT]: [],
+                [MemoryLevel.MISSION]: [],
+                [MemoryLevel.TASK]: [],
+            });
+            syncMissionMemory(testDir, loopState);
+            const remainingNotes = fs.readdirSync(notesDir).filter(f => f.startsWith("project-") || f.startsWith("mission-") || f.startsWith("task-"));
+            expect(remainingNotes.length).toBe(0);
+        } finally {
+            memoryManager.import(originalEntries);
+        }
+    });
+
+    it("reads scratchpad snapshot safely", () => {
+        expect(readMissionScratchpadSnapshot(testDir)).toBeNull();
+
+        const scratchpadPath = getMissionScratchpadPath(testDir);
+        fs.mkdirSync(path.dirname(scratchpadPath), { recursive: true });
+        fs.writeFileSync(scratchpadPath, "# Mission Scratchpad\n\nActive context.", "utf8");
+
+        const snapshot = readMissionScratchpadSnapshot(testDir);
+        expect(snapshot).toContain("Active context.");
+    });
+
+    it("parses diverse yaml frontmatter safely", () => {
+        const withoutFrontmatter = parseFrontmatter("Just plain markdown body");
+        expect(withoutFrontmatter).toEqual({});
+
+        const yamlContent = `---
+title: "Test Note"
+count: 42
+rate: 3.14
+active: true
+disabled: false
+empty: null
+alt_empty: ~
+tags: [alpha, beta, "gamma"]
+# Comment line
+invalid_line_without_colon
+---
+Body text`;
+
+        const parsed = parseFrontmatter(yamlContent);
+        expect(parsed.title).toBe("Test Note");
+        expect(parsed.count).toBe(42);
+        expect(parsed.rate).toBe(3.14);
+        expect(parsed.active).toBe(true);
+        expect(parsed.disabled).toBe(false);
+        expect(parsed.empty).toBeNull();
+        expect(parsed.alt_empty).toBeNull();
+        expect(parsed.tags).toEqual(["alpha", "beta", "gamma"]);
     });
 });

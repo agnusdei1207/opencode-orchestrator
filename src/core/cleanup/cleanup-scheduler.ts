@@ -6,7 +6,6 @@ import { promisify } from 'node:util';
 import { pipeline } from 'node:stream';
 import * as DocumentCache from "../cache/document-cache.js";
 import { log } from "../agents/logger.js";
-import { runMemoryMaintenancePass } from "../knowledge/memory-maintenance-runner.js";
 
 const pipelineAsync = promisify(pipeline);
 const SECOND_MS = 1000;
@@ -23,12 +22,6 @@ type CleanupTask = {
     intervalMs: number;
     run: () => Promise<void>;
 };
-
-/** Opt-in flag for disk-mutating memory lifecycle maintenance. Default OFF. */
-function isMemoryMaintenanceEnabled(): boolean {
-    const value = process.env.OPENCODE_MEMORY_MAINTENANCE?.trim().toLowerCase();
-    return value === "1" || value === "true";
-}
 
 export class CleanupScheduler {
     private intervals: Map<string, NodeJS.Timeout> = new Map();
@@ -59,11 +52,6 @@ export class CleanupScheduler {
             { name: 'history-rotate', run: () => this.rotateHistory(), intervalMs: 6 * HOUR_MS },
         ];
 
-        if (isMemoryMaintenanceEnabled()) {
-            tasks.push({ name: 'memory-maintenance', run: () => this.maintainMemory(), intervalMs: 6 * HOUR_MS });
-            log(`[Cleanup] Memory maintenance enabled (OPENCODE_MEMORY_MAINTENANCE)`);
-        }
-
         return tasks;
     }
 
@@ -89,22 +77,6 @@ export class CleanupScheduler {
 
     async compactWAL(): Promise<void> {
         // WAL removed - no compaction needed
-    }
-
-    /**
-     * Apply the Ebbinghaus memory lifecycle (tier moves + tombstones) to
-     * generated memory notes. Tier-only — never relocates files. No-op unless
-     * opted in via OPENCODE_MEMORY_MAINTENANCE.
-     */
-    async maintainMemory(): Promise<void> {
-        try {
-            const result = runMemoryMaintenancePass(this.directory, { apply: true });
-            if (result.changedFiles.length > 0) {
-                log(`[Cleanup] Memory maintenance updated ${result.changedFiles.length} note(s)`);
-            }
-        } catch (err) {
-            log(`[Cleanup] Memory maintenance failed: ${err}`);
-        }
     }
 
     async cleanDocs(): Promise<void> {

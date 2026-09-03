@@ -167,98 +167,6 @@ describe("System Transform Handler", () => {
         expect(output.system.some(s => s.includes("Iteration 5/10"))).toBe(true);
     });
 
-    it("should inject knowledge RAG context from markdown sources", async () => {
-        const testDir = mkdtempSync(path.join(tmpdir(), "oco-system-transform-"));
-        mkdirSync(path.join(testDir, "docs"), { recursive: true });
-        writeFileSync(
-            path.join(testDir, "docs", "knowledge-memory.md"),
-            "---\ntags: [planner, memory]\n---\nPlanner context injection uses a knowledge graph memory layer.",
-            "utf8",
-        );
-
-        try {
-            configureMissionRuntimeOptions({
-                ...DEFAULT_MISSION_RUNTIME_OPTIONS,
-                enableKnowledgeRag: true,
-            });
-            mockContext.directory = testDir;
-            handler = createSystemTransformHandler(mockContext);
-
-            vi.mocked(readLoopState).mockReturnValue({
-                active: true,
-                iteration: 1,
-                maxIterations: 10,
-                prompt: "planner memory context",
-                sessionID: "test-session",
-                startedAt: new Date().toISOString(),
-            });
-
-            const input = createSystemInput();
-            const output: SystemTransformOutput = { system: [] };
-
-            await handler(input, output);
-
-            expect(output.system.some(s => s.includes("<knowledge_rag_context>"))).toBe(true);
-            expect(output.system.some(s => s.includes("knowledge-memory"))).toBe(true);
-        } finally {
-            configureMissionRuntimeOptions(DEFAULT_MISSION_RUNTIME_OPTIONS);
-            rmSync(testDir, { recursive: true, force: true });
-        }
-    });
-
-    it("should route knowledge RAG ordering through the active agent role", async () => {
-        const testDir = mkdtempSync(path.join(tmpdir(), "oco-system-transform-role-"));
-        mkdirSync(path.join(testDir, "docs"), { recursive: true });
-        writeFileSync(
-            path.join(testDir, "docs", "Seed.md"),
-            "---\ntags: [routingrole]\n---\n[[GraphTarget]]",
-            "utf8",
-        );
-        writeFileSync(
-            path.join(testDir, "docs", "GraphTarget.md"),
-            "Graph target context selected through planning dependency links.",
-            "utf8",
-        );
-        writeFileSync(
-            path.join(testDir, "docs", "LexicalTarget.md"),
-            "routingrole routingrole exact implementation context.",
-            "utf8",
-        );
-
-        try {
-            configureMissionRuntimeOptions({
-                ...DEFAULT_MISSION_RUNTIME_OPTIONS,
-                enableKnowledgeRag: true,
-            });
-            mockContext.directory = testDir;
-            handler = createSystemTransformHandler(mockContext);
-            vi.mocked(readLoopState).mockReturnValue({
-                active: true,
-                iteration: 1,
-                maxIterations: 10,
-                prompt: "routingrole",
-                sessionID: "test-session",
-                startedAt: new Date().toISOString(),
-            });
-
-            const workerOutput: SystemTransformOutput = { system: [] };
-            await handler(createSystemInput({ agent: "Worker" }), workerOutput);
-            const workerKnowledge = findKnowledgePrompt(workerOutput);
-
-            const plannerOutput: SystemTransformOutput = { system: [] };
-            await handler(createSystemInput({ agent: "Planner" }), plannerOutput);
-            const plannerKnowledge = findKnowledgePrompt(plannerOutput);
-
-            expect(resultRank(workerKnowledge, "LexicalTarget"))
-                .toBeLessThan(resultRank(workerKnowledge, "GraphTarget"));
-            expect(resultRank(plannerKnowledge, "GraphTarget"))
-                .toBeLessThan(resultRank(plannerKnowledge, "LexicalTarget"));
-        } finally {
-            configureMissionRuntimeOptions(DEFAULT_MISSION_RUNTIME_OPTIONS);
-            rmSync(testDir, { recursive: true, force: true });
-        }
-    });
-
     it("should inject mission scratchpad snapshot when present", async () => {
         const testDir = mkdtempSync(path.join(tmpdir(), "oco-system-transform-scratchpad-"));
         mkdirSync(path.join(testDir, ".opencode", "docs", "brain"), { recursive: true });
@@ -320,53 +228,7 @@ describe("System Transform Handler", () => {
         expect(output.system.length).toBeGreaterThan(0);
         expect(log).toHaveBeenCalledWith(expect.stringContaining("Failed to inspect background tasks for test-session"));
     });
-
-    it("does not inject knowledge RAG context by default (ADR-0019)", async () => {
-        vi.mocked(readLoopState).mockReturnValue({
-            active: true,
-            iteration: 1,
-            maxIterations: 10,
-            prompt: "Task",
-            sessionID: "test-session",
-            startedAt: new Date().toISOString(),
-        });
-        const output: SystemTransformOutput = { system: [] };
-        await handler(createSystemInput(), output);
-
-        const hasRag = output.system.some(s => s.includes("<knowledge_rag_context>"));
-        expect(hasRag).toBe(false);
-    });
-
-    it("injects knowledge RAG context only when enableKnowledgeRag is explicitly true", async () => {
-        const { configureMissionRuntimeOptions, DEFAULT_MISSION_RUNTIME_OPTIONS } = await import(
-            "../../src/core/loop/mission-runtime-options"
-        );
-        configureMissionRuntimeOptions({
-            ...DEFAULT_MISSION_RUNTIME_OPTIONS,
-            enableKnowledgeRag: true,
-        });
-
-        vi.mocked(readLoopState).mockReturnValue({
-            active: true,
-            iteration: 1,
-            maxIterations: 10,
-            prompt: "Task",
-            sessionID: "test-session",
-            startedAt: new Date().toISOString(),
-        });
-        const output: SystemTransformOutput = { system: [] };
-        await handler(createSystemInput(), output);
-
-        // Reset to default
-        configureMissionRuntimeOptions(DEFAULT_MISSION_RUNTIME_OPTIONS);
-    });
 });
-
-function findKnowledgePrompt(output: SystemTransformOutput): string {
-    const prompt = output.system.find(s => s.includes("<knowledge_rag_context>"));
-    expect(prompt).toBeDefined();
-    return prompt ?? "";
-}
 
 function createSystemInput(overrides: Partial<SystemTransformInput> = {}): SystemTransformInput {
     return {
@@ -377,10 +239,4 @@ function createSystemInput(overrides: Partial<SystemTransformInput> = {}): Syste
         } as SystemTransformInput["model"],
         ...overrides,
     };
-}
-
-function resultRank(prompt: string, noteName: string): number {
-    const match = prompt.match(new RegExp(`\\n(\\d+)\\. ${noteName} \\[`));
-    expect(match).not.toBeNull();
-    return Number(match?.[1] ?? Number.POSITIVE_INFINITY);
 }

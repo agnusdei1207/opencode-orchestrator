@@ -3,8 +3,7 @@ import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "
 import { dirname, join } from "node:path";
 import type { MissionLoopState } from "../../shared/loop/types.js";
 import type { MissionLedgerEvent } from "../loop/mission-ledger.js";
-import { horizonForLevel } from "./retrieval-weights.js";
-import { TagIndexer, type FrontmatterData } from "./tag-indexer.js";
+import { parseFrontmatter, type FrontmatterData } from "./mission-memory.js";
 
 const EPISODE_DECAY_LAMBDA = 0.07;
 const EPISODE_IMPORTANCE = 0.75;
@@ -89,7 +88,7 @@ function buildFrontmatter(input: {
         "tags: [mission-memory, orchestrator, episodic]",
         `title: "${escapeYaml(`episodic memory ${objective}`)}"`,
         'level: "mission"',
-        `horizon: "${horizonForLevel("mission")}"`,
+        'horizon: "execution"',
         `importance: ${EPISODE_IMPORTANCE}`,
         `session: "${escapeYaml(state.sessionID)}"`,
         `objective: "${escapeYaml(objective)}"`,
@@ -133,7 +132,7 @@ function completionTime(events: MissionLedgerEvent[]): string | null {
 function loadMetadata(filePath: string): FrontmatterData | null {
     if (!existsSync(filePath)) return null;
     try {
-        return new TagIndexer().parseFrontmatter(readFileSync(filePath, "utf8")).data;
+        return parseFrontmatter(readFileSync(filePath, "utf8"));
     } catch {
         return null;
     }

@@ -6,8 +6,41 @@ import { readMissionLedger, type MissionLedgerEvent } from "../loop/mission-ledg
 import { getMissionRuntimeOptions } from "../loop/mission-runtime-options.js";
 import { MemoryLevel, MemoryManager, type MemoryEntry } from "../memory/memory-manager.js";
 import { syncMissionEpisodeMemory } from "./mission-episode.js";
-import { horizonForLevel } from "./retrieval-weights.js";
-import { TagIndexer, type FrontmatterData } from "./tag-indexer.js";
+
+export interface FrontmatterData {
+    tags?: string[];
+    title?: string;
+    keep?: boolean;
+    event_time?: string;
+    ingestion_time?: string;
+    record_updated_at?: string;
+    last_accessed?: string;
+    access_count?: number;
+    access_ema?: number;
+    importance?: number;
+    confidence?: number;
+    decay_lambda?: number;
+    memory_kind?: string;
+    memory_layer?: string;
+    tombstone?: boolean;
+    valid_from?: string;
+    valid_to?: string | null;
+    supersedes?: string[];
+    [key: string]: unknown;
+}
+
+function horizonForLevel(level: string): string {
+    switch (level) {
+        case "system":
+        case "project":
+            return "strategic";
+        case "task":
+            return "closure";
+        case "mission":
+        default:
+            return "execution";
+    }
+}
 
 interface CanvasNode {
     id: string;
@@ -319,10 +352,41 @@ function buildMemoryNoteContent(
 function loadExistingNoteMetadata(filePath: string): FrontmatterData | null {
     if (!existsSync(filePath)) return null;
     try {
-        return new TagIndexer().parseFrontmatter(readFileSync(filePath, "utf8")).data;
+        return parseFrontmatter(readFileSync(filePath, "utf8"));
     } catch {
         return null;
     }
+}
+
+/** Lightweight regex-based YAML frontmatter parser for mission markdown notes. */
+export function parseFrontmatter(content: string): FrontmatterData {
+    const data: FrontmatterData = {};
+    const match = content.match(/^---\r?\n([\s\S]*?)\r?\n---/);
+    if (!match) return data;
+    for (const line of match[1].split(/\r?\n/)) {
+        const trimmed = line.trim();
+        if (!trimmed || trimmed.startsWith("#")) continue;
+        const colonIdx = trimmed.indexOf(":");
+        if (colonIdx === -1) continue;
+        const key = trimmed.slice(0, colonIdx).trim();
+        const val = trimmed.slice(colonIdx + 1).trim();
+        if (val.startsWith("[") && val.endsWith("]")) {
+            data[key] = val.slice(1, -1).split(",").map(s => s.trim().replace(/^["']|["']$/g, "")).filter(Boolean);
+        } else if (val === "true") {
+            data[key] = true;
+        } else if (val === "false") {
+            data[key] = false;
+        } else if (val === "null" || val === "~") {
+            data[key] = null;
+        } else if (!isNaN(Number(val)) && val !== "") {
+            data[key] = Number(val);
+        } else {
+            data[key] = (val.startsWith('"') && val.endsWith('"')) || (val.startsWith("'") && val.endsWith("'"))
+                ? val.slice(1, -1)
+                : val;
+        }
+    }
+    return data;
 }
 
 function stringMeta(value: unknown): string | undefined {
