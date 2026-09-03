@@ -12,9 +12,12 @@ import {
   createBackup,
   formatError,
   getConfigPaths,
+  getLegacyConfigPaths,
+  invalidateStalePluginCache,
   isOurPluginEntry,
   parseConfigContent,
   readExistingConfig,
+  removeOurPluginEntries,
   resolveConfigFile,
   validateConfig,
 } from "./opencode-config.ts";
@@ -158,6 +161,16 @@ try {
   console.log("🎯 OpenCode Orchestrator - Installing...");
   log("Installation started", { platform: process.platform, node: process.version });
 
+  // Drop previously cached builds so OpenCode loads this install, not a stale copy.
+  try {
+    const stale = invalidateStalePluginCache(undefined, log);
+    if (stale.length > 0) {
+      console.log(`🧹 Cleared ${stale.length} stale cached cop${stale.length === 1 ? "y" : "ies"}.`);
+    }
+  } catch (error) {
+    log("Stale cache invalidation failed, continuing", { error: String(error) });
+  }
+
   if (isCI) {
     console.log("ℹ️  CI environment detected. Skipping automatic plugin registration.");
     log("Skipping automatic plugin registration in CI");
@@ -167,6 +180,26 @@ try {
 
   const configPaths = getConfigPaths(log);
   log("Config paths to check", configPaths);
+
+  // Older installs registered in dirs OpenCode never reads (win32 %APPDATA%).
+  // Move those stale entries to the real config instead of leaving a dead copy.
+  for (const legacyDir of getLegacyConfigPaths()) {
+    if (configPaths.includes(legacyDir)) continue;
+    try {
+      const migrated = removeOurPluginEntries(legacyDir, log);
+      if (migrated.removed) {
+        console.log(`🧹 Migrated stale registration from: ${resolveConfigFile(legacyDir)}`);
+        if (migrated.backupFile) {
+          console.log(`   Backup created: ${migrated.backupFile}`);
+        }
+      }
+    } catch (error) {
+      log("Legacy migration failed, continuing with normal registration", {
+        legacyDir,
+        error: String(error),
+      });
+    }
+  }
 
   let registered = false;
   let alreadyRegistered = false;

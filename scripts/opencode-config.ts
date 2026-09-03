@@ -1,4 +1,4 @@
-import { existsSync, readFileSync, writeFileSync, copyFileSync, renameSync, unlinkSync, readdirSync } from "fs";
+import { existsSync, readFileSync, writeFileSync, copyFileSync, renameSync, unlinkSync, readdirSync, rmSync } from "fs";
 import { homedir } from "os";
 import { dirname, join, basename } from "path";
 import { applyEdits, modify, parse as parseJsonc, printParseErrorCode, type ParseError } from "jsonc-parser";
@@ -154,25 +154,25 @@ function detectWSLWindowsConfigDir(): string | null {
   }
 }
 
-export function getConfigPaths(log?: ConfigLogger): string[] {
+export function getConfigPaths(log?: ConfigLogger, platform: NodeJS.Platform = process.platform): string[] {
   const paths: string[] = [];
+
+  // Same precedence as OpenCode itself (Global.Path.config honors this env).
+  const customConfigDir = process.env.OPENCODE_CONFIG_DIR?.trim();
+  if (customConfigDir) {
+    paths.push(customConfigDir);
+  }
 
   if (process.env.XDG_CONFIG_HOME) {
     paths.push(join(process.env.XDG_CONFIG_HOME, "opencode"));
   }
 
-  if (process.platform === "win32") {
-    const appDataPath =
-      process.env.APPDATA || join(homedir(), "AppData", "Roaming");
-    paths.push(join(appDataPath, "opencode"));
+  // OpenCode resolves its global config from xdg-basedir on every platform
+  // (Global.Path.config), including win32. Registering anywhere else (for
+  // example %APPDATA%) writes a file OpenCode never reads.
+  paths.push(join(homedir(), ".config", "opencode"));
 
-    const dotConfigPath = join(homedir(), ".config", "opencode");
-    if (!paths.includes(dotConfigPath)) {
-      paths.push(dotConfigPath);
-    }
-  } else {
-    paths.push(join(homedir(), ".config", "opencode"));
-
+  if (platform !== "win32") {
     const wslWindowsConfig = detectWSLWindowsConfigDir();
     if (wslWindowsConfig && !paths.includes(wslWindowsConfig)) {
       log?.("Detected WSL2 - also checking Windows config path", { wslWindowsConfig });
@@ -181,6 +181,132 @@ export function getConfigPaths(log?: ConfigLogger): string[] {
   }
 
   return [...new Set(paths)];
+}
+
+/**
+ * Config dirs OpenCode itself never reads but older installs may have
+ * written to. Used only for migration/cleanup, never for registration.
+ */
+export function getLegacyConfigPaths(platform: NodeJS.Platform = process.platform): string[] {
+  if (platform !== "win32") return [];
+  const appDataPath =
+    process.env.APPDATA || join(homedir(), "AppData", "Roaming");
+  return [join(appDataPath, "opencode")];
+}
+
+/**
+ * OpenCode's own plugin cache dir (Npm.add installs `<pkg>@<version>` below
+ * `<cache>/opencode[/packages]`). A reinstall must drop our stale copies so
+ * OpenCode does not keep loading the previous build.
+ */
+export function getCacheDir(): string {
+  const base = process.env.XDG_CACHE_HOME || join(homedir(), ".cache");
+  return join(base, "opencode");
+}
+
+/**
+ * Delete stale cached copies of this plugin. Best-effort: never throws, so a
+ * locked or unreadable cache can never fail an install. Returns removed dirs.
+ */
+export function invalidateStalePluginCache(
+  options?: { cacheDir?: string },
+  log?: ConfigLogger,
+): string[] {
+  const removed: string[] = [];
+  const cacheDir = options?.cacheDir ?? getCacheDir();
+  const parentDirs = [cacheDir, join(cacheDir, "packages")];
+  const prefix = `${PLUGIN_NAME}@`;
+
+  for (const parentDir of parentDirs) {
+    let entries;
+    try {
+      entries = readdirSync(parentDir, { withFileTypes: true });
+    } catch {
+      continue;
+    }
+    for (const entry of entries) {
+      if (!entry.isDirectory() || !entry.name.startsWith(prefix)) continue;
+      const target = join(parentDir, entry.name);
+      try {
+        rmSync(target, { recursive: true, force: true });
+        removed.push(target);
+        log?.("Removed stale cached plugin copy", { target });
+      } catch (error) {
+        log?.("Could not remove stale cached plugin copy", { target, error: String(error) });
+      }
+    }
+  }
+
+  return removed;
+}
+
+/**
+ * Remove our plugin entries from a single legacy config dir.
+ *
+ * Never throws and never destroys data: corrupt configs are backed up and
+ * left untouched, successful removals are verified before returning.
+ */
+export function removeOurPluginEntries(
+  configDir: string,
+  log: ConfigLogger,
+): { removed: boolean; backupFile: string | null } {
+  const configFile = resolveConfigFile(configDir);
+  if (!existsSync(configFile)) {
+    return { removed: false, backupFile: null };
+  }
+
+  let originalContent: string;
+  try {
+    originalContent = readFileSync(configFile, "utf-8");
+  } catch (error) {
+    log("Legacy config unreadable, skipping", { configFile, error: String(error) });
+    return { removed: false, backupFile: null };
+  }
+
+  if (!originalContent.trim()) {
+    return { removed: false, backupFile: null };
+  }
+
+  const parsed = parseConfigContent(originalContent);
+  if (parsed.parseError || !parsed.config) {
+    const backupFile = createBackup(configFile, log);
+    log("Legacy config corrupt, backed up and left untouched", {
+      configFile,
+      parseError: parsed.parseError,
+      backupFile,
+    });
+    return { removed: false, backupFile };
+  }
+
+  const config = parsed.config;
+  if (!validateConfig(config) || !config.plugin?.some((entry: unknown) => isOurPluginEntry(entry))) {
+    return { removed: false, backupFile: null };
+  }
+
+  const backupFile = createBackup(configFile, log);
+  config.plugin = config.plugin.filter((entry: unknown) => !isOurPluginEntry(entry));
+  try {
+    atomicWriteJSON(configFile, config, originalContent, log);
+    const verifyContent = readFileSync(configFile, "utf-8");
+    const verifyParsed = parseConfigContent(verifyContent);
+    if (verifyParsed.parseError || !verifyParsed.config) {
+      throw new Error(`Verification parse failed: ${verifyParsed.parseError ?? "unknown parse error"}`);
+    }
+    if (verifyParsed.config.plugin?.some((entry: unknown) => isOurPluginEntry(entry))) {
+      throw new Error("Verification failed: plugin still present after removal");
+    }
+  } catch (error) {
+    log("Legacy migration write failed, rolling back", { error: String(error), configFile });
+    if (backupFile && existsSync(backupFile)) {
+      try {
+        copyFileSync(backupFile, configFile);
+      } catch { /* ignore */ }
+    }
+    return { removed: false, backupFile };
+  }
+
+  cleanupOldBackups(configFile, log);
+  return { removed: true, backupFile };
 }
 
 export function readExistingConfig(configDir: string): { file: string; config: OpenCodeConfig } | null {

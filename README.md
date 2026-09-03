@@ -35,6 +35,29 @@ npm install -g opencode-orchestrator
 
 > **Note**: The install hook automatically registers the plugin in `opencode.json` / `opencode.jsonc`.
 
+### Troubleshooting: plugin installed but `/task` is missing
+
+OpenCode reads its global config from one location only (run `opencode debug paths`
+to see it under `config`): `$XDG_CONFIG_HOME/opencode`, otherwise
+`~/.config/opencode` — on **every** OS, including Windows. Versions ≤ 1.7.15 of
+this package mistakenly registered in `%APPDATA%\opencode` on Windows, which
+OpenCode never reads. Reinstalling with the current version migrates that stale
+entry automatically (with a `.backup.*` copy next to the original).
+
+To diagnose:
+
+```bash
+opencode debug config | grep -A5 '"plugin"'
+opencode debug paths
+```
+
+- If `plugin` is empty, the registration landed in the wrong file: reinstall
+  this package and restart OpenCode.
+- If `plugin` lists this package but commands are still missing, OpenCode may be
+  loading a stale cached copy: reinstalling clears
+  `<cache>/opencode/packages/opencode-orchestrator@*` automatically.
+- `OPENCODE_CONFIG_DIR`, when set, takes precedence over every default location.
+
 To remove the plugin:
 
 ```bash

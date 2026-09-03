@@ -11,6 +11,7 @@ import {
   createBackup,
   formatError,
   getConfigPaths,
+  getLegacyConfigPaths,
   isOurPluginEntry,
   parseConfigContent,
   resolveConfigFile,
@@ -157,7 +158,7 @@ try {
     process.exit(0);
   }
 
-  const configPaths = getConfigPaths(log);
+  const configPaths = [...getConfigPaths(log), ...getLegacyConfigPaths()];
   log("Config paths to check", configPaths);
 
   let removed = false;
