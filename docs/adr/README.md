@@ -58,3 +58,4 @@ What followed, including verification evidence and known limits.
 | [0017](0017-windows-config-path-migration.md) | 2026-09-03 22:31 | Windows config-path migration and stale cache invalidation | Implemented |
 | [0018](0018-shell-listener-pty-helper-removal.md) | 2026-09-03 23:22 | Shell-listener one-touch PTY helper removal | Implemented |
 | [0019](0019-retire-knowledge-rag-subsystem.md) | 2026-09-04 00:10 | Retire in-memory knowledge RAG subsystem | Proposed |
+| [0020](0020-risk-graded-test-coverage-policy.md) | 2026-09-04 07:39 | Risk-graded test coverage policy | Accepted |
