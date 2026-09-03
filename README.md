@@ -8,7 +8,7 @@
   [![GitHub Sponsors](https://img.shields.io/badge/Sponsor-%E2%9D%A4-ea4aaa?logo=github-sponsors)](https://github.com/sponsors/agnusdei1207)
   [![3D Architecture Explorer](https://img.shields.io/badge/3D%20Architecture-Explorer-3b82f6.svg)](https://agnusdei1207.github.io/opencode-orchestrator/)
   <!-- VERSION:START -->
-  **Version:** `1.7.16`
+  **Version:** `1.7.17`
   <!-- VERSION:END -->
   <!-- LAST-UPDATED: 2026-09-03 22:52 KST -->
 </div>
