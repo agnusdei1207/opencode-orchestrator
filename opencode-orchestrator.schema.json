@@ -85,7 +85,8 @@
       "default": {
         "ledger": true,
         "markdownMemory": true,
-        "maxEvidenceEvents": 20
+        "maxEvidenceEvents": 20,
+        "enableKnowledgeRag": false
       },
       "type": "object",
       "properties": {
@@ -102,12 +103,17 @@
           "type": "integer",
           "exclusiveMinimum": 0,
           "maximum": 9007199254740991
+        },
+        "enableKnowledgeRag": {
+          "default": false,
+          "type": "boolean"
         }
       },
       "required": [
         "ledger",
         "markdownMemory",
-        "maxEvidenceEvents"
+        "maxEvidenceEvents",
+        "enableKnowledgeRag"
       ],
       "additionalProperties": false
     }

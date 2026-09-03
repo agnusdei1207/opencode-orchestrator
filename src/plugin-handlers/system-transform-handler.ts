@@ -15,6 +15,7 @@ import { ParallelAgentManager } from "../core/agents/manager.js";
 import { isMissionActive, ensureSessionInitialized } from "../core/orchestrator/session-manager.js";
 import { KnowledgeContextProvider } from "../core/knowledge/context-provider.js";
 import { readMissionScratchpadSnapshot } from "../core/knowledge/mission-memory.js";
+import { getMissionRuntimeOptions } from "../core/loop/mission-runtime-options.js";
 import { log } from "../core/agents/logger.js";
 
 const knowledgeContextProvider = new KnowledgeContextProvider();
@@ -67,17 +68,18 @@ export function createSystemTransformHandler(ctx: EventHandlerContext) {
         }
 
         // 3. Knowledge graph RAG context for orchestrated sessions.
-        // Keep retrieval role-aware so the prompt context follows the active
-        // agent's job: planners favor graph structure, workers favor exact hits.
-        const retrievalRole = readRetrievalRole(input);
-        const knowledgePrompt = buildKnowledgeContextPrompt(
-            directory,
-            loopState,
-            state.sessions.get(sessionID)?.currentTask,
-            retrievalRole,
-        );
-        if (knowledgePrompt) {
-            systemAdditions.push(knowledgePrompt);
+        // ADR-0019 Phase 1: Soft-disable by default to eliminate context pollution.
+        if (getMissionRuntimeOptions().enableKnowledgeRag) {
+            const retrievalRole = readRetrievalRole(input);
+            const knowledgePrompt = buildKnowledgeContextPrompt(
+                directory,
+                loopState,
+                state.sessions.get(sessionID)?.currentTask,
+                retrievalRole,
+            );
+            if (knowledgePrompt) {
+                systemAdditions.push(knowledgePrompt);
+            }
         }
 
         // 3. Background task awareness

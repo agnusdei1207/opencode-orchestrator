@@ -16,6 +16,7 @@ import { isMissionActive, ensureSessionInitialized } from "../../src/core/orches
 import { readLoopState } from "../../src/core/loop/mission-loop";
 import { ParallelAgentManager } from "../../src/core/agents/manager";
 import { log } from "../../src/core/agents/logger";
+import { configureMissionRuntimeOptions, DEFAULT_MISSION_RUNTIME_OPTIONS } from "../../src/core/loop/mission-runtime-options";
 
 // Mock dependencies
 vi.mock("../../src/core/loop/mission-loop", () => ({
@@ -176,6 +177,10 @@ describe("System Transform Handler", () => {
         );
 
         try {
+            configureMissionRuntimeOptions({
+                ...DEFAULT_MISSION_RUNTIME_OPTIONS,
+                enableKnowledgeRag: true,
+            });
             mockContext.directory = testDir;
             handler = createSystemTransformHandler(mockContext);
 
@@ -196,6 +201,7 @@ describe("System Transform Handler", () => {
             expect(output.system.some(s => s.includes("<knowledge_rag_context>"))).toBe(true);
             expect(output.system.some(s => s.includes("knowledge-memory"))).toBe(true);
         } finally {
+            configureMissionRuntimeOptions(DEFAULT_MISSION_RUNTIME_OPTIONS);
             rmSync(testDir, { recursive: true, force: true });
         }
     });
@@ -220,6 +226,10 @@ describe("System Transform Handler", () => {
         );
 
         try {
+            configureMissionRuntimeOptions({
+                ...DEFAULT_MISSION_RUNTIME_OPTIONS,
+                enableKnowledgeRag: true,
+            });
             mockContext.directory = testDir;
             handler = createSystemTransformHandler(mockContext);
             vi.mocked(readLoopState).mockReturnValue({
@@ -244,6 +254,7 @@ describe("System Transform Handler", () => {
             expect(resultRank(plannerKnowledge, "GraphTarget"))
                 .toBeLessThan(resultRank(plannerKnowledge, "LexicalTarget"));
         } finally {
+            configureMissionRuntimeOptions(DEFAULT_MISSION_RUNTIME_OPTIONS);
             rmSync(testDir, { recursive: true, force: true });
         }
     });
@@ -308,6 +319,46 @@ describe("System Transform Handler", () => {
 
         expect(output.system.length).toBeGreaterThan(0);
         expect(log).toHaveBeenCalledWith(expect.stringContaining("Failed to inspect background tasks for test-session"));
+    });
+
+    it("does not inject knowledge RAG context by default (ADR-0019)", async () => {
+        vi.mocked(readLoopState).mockReturnValue({
+            active: true,
+            iteration: 1,
+            maxIterations: 10,
+            prompt: "Task",
+            sessionID: "test-session",
+            startedAt: new Date().toISOString(),
+        });
+        const output: SystemTransformOutput = { system: [] };
+        await handler(createSystemInput(), output);
+
+        const hasRag = output.system.some(s => s.includes("<knowledge_rag_context>"));
+        expect(hasRag).toBe(false);
+    });
+
+    it("injects knowledge RAG context only when enableKnowledgeRag is explicitly true", async () => {
+        const { configureMissionRuntimeOptions, DEFAULT_MISSION_RUNTIME_OPTIONS } = await import(
+            "../../src/core/loop/mission-runtime-options"
+        );
+        configureMissionRuntimeOptions({
+            ...DEFAULT_MISSION_RUNTIME_OPTIONS,
+            enableKnowledgeRag: true,
+        });
+
+        vi.mocked(readLoopState).mockReturnValue({
+            active: true,
+            iteration: 1,
+            maxIterations: 10,
+            prompt: "Task",
+            sessionID: "test-session",
+            startedAt: new Date().toISOString(),
+        });
+        const output: SystemTransformOutput = { system: [] };
+        await handler(createSystemInput(), output);
+
+        // Reset to default
+        configureMissionRuntimeOptions(DEFAULT_MISSION_RUNTIME_OPTIONS);
     });
 });
 

@@ -1,7 +1,7 @@
 # ADR-0019: Retire In-Memory Knowledge RAG Subsystem
 
 Date: 2026-09-04 00:10 KST
-Status: Proposed
+Status: Accepted (Phase 1 Implemented)
 Source: Strategic architectural review comparing `opencode-orchestrator`, `minimal-agent`, and `oh-my-openagent`.
 
 ## Context
@@ -46,6 +46,11 @@ Adopt a phased plan to deprecate, decouple, and retire the in-memory Knowledge R
 - **Prompt Efficiency**: Eliminates unrequested documentation snippets from system prompts, saving context tokens and reducing model distraction.
 - **Reliability**: Mitigates hallucination risks caused by out-of-context or outdated documentation snippets.
 - **Architectural Simplicity**: Removes ~2,000+ lines of complex search, graph, and decay code, significantly shrinking test execution time and dependency surface.
+- **Phase 1 Implementation Evidence (2026-09-04)**:
+  - `enableKnowledgeRag: false` added to `MissionRuntimeOptions` and `MissionLoopOptionsSchema`.
+  - `opencode-orchestrator.schema.json` regenerated and verified.
+  - `system-transform-handler.ts` gates `<knowledge_rag_context>` injection behind `enableKnowledgeRag` (default OFF).
+  - Verified by `tests/unit/system-transform-handler.test.ts` (11/11 pass).
 - **Rollback Strategy**:
-  - Phase 1 is fully reversible via setting `missionLoop.enableKnowledgeRag: true` or reverting the handler configuration.
+  - Phase 1 is fully reversible via setting `missionLoop.enableKnowledgeRag: true` in plugin options.
   - Phase 3 will execute only after Phase 1 and Phase 2 achieve validated stability across end-to-end mission benchmarks.

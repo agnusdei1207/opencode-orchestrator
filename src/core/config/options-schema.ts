@@ -24,6 +24,7 @@ export const MissionLoopOptionsSchema = z
             .positive()
             .catch(D.maxEvidenceEvents)
             .default(D.maxEvidenceEvents),
+        enableKnowledgeRag: z.boolean().catch(false).default(false),
     })
     .catch({ ...D });
 

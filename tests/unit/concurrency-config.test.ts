@@ -66,10 +66,12 @@ describe("concurrency config helpers", () => {
             concurrency: {
                 agentConcurrency: { worker: 4 },
             },
+            contextMaxTokens: undefined,
             missionLoop: {
                 ledger: false,
                 markdownMemory: true,
                 maxEvidenceEvents: 8,
+                enableKnowledgeRag: false,
             },
         });
     });
@@ -85,6 +87,7 @@ describe("concurrency config helpers", () => {
             ledger: true,
             markdownMemory: true,
             maxEvidenceEvents: 20,
+            enableKnowledgeRag: false,
         });
     });
 });
