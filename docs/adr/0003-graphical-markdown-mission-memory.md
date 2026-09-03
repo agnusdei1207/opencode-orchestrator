@@ -1,7 +1,7 @@
 # ADR-0003: Mission Memory as Markdown/JSONL/Canvas
 
 Date: 2026-06-11 00:01 KST
-Status: Accepted
+Status: Implemented
 Source: `docs/histories/2026/06/10/PLAN_GraphicalMarkdownMissionMemoryFusion_2026-06-10.md` (removed 2026-09-03; history in git)
 
 ## Context
@@ -24,3 +24,6 @@ Adopt only the memory surface, connected through existing systems:
 
 - Small, verifiable runtime memory surface instead of a second runtime.
 - Later memory work (ADR-0010, ADR-0012) builds on this surface.
+- Promoted to Implemented 2026-09-03: `mission-ledger.ts`, `mission-memory.ts`
+  (`scratchpad.md`, `knowledge-map.canvas`), `context-provider.ts` wiring, and
+  `tests/unit/mission-runtime-memory.test.ts` verified in the tree.

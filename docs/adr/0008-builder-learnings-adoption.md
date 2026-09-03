@@ -1,7 +1,7 @@
 # ADR-0008: Builder Learnings Adoption Assessment
 
 Date: 2026-06-19 12:13 KST
-Status: Accepted
+Status: Implemented
 Source: `docs/histories/2026/06/19/PLAN_BuilderLearningsAndAdoptionAssessment_2026-06-19.md` (removed 2026-09-03; history in git)
 Report: `docs/histories/2026/06/19/REPORT_BuilderLearningsAdoption_2026-06-19.md`
 
@@ -21,3 +21,6 @@ generalizable parts belong in this plugin — never the domain-specific runtime.
 
 - Shortlist steered subsequent prompt-system and verification work.
 - Anything already present in the orchestrator was explicitly excluded from adoption.
+- Promoted to Implemented 2026-09-03: prompt template system (`src/shared/prompt/`)
+  with snapshot tests, evidence store (`evidence.ts`, header cites this ADR), and
+  JSON repair (`safe-json.ts`) verified in the tree.

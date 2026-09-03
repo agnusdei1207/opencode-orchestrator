@@ -1,7 +1,7 @@
 # ADR-0005: SDK/Plugin Alignment and Autonomous Mission Loop
 
 Date: 2026-06-11 00:01 KST
-Status: Accepted
+Status: Implemented
 Source: `docs/histories/2026/06/10/PLAN_OpenCodeSDKPluginAlignmentAndAutonomousMissionLoop_2026-06-10.md` (removed 2026-09-03; history in git)
 
 ## Context
@@ -25,3 +25,6 @@ Four outcomes pursued:
   concurrency tests).
 - Continuation-prompt strengthening continued through the mission-loop work
   (stagnation guard, circuit breaker).
+- Promoted to Implemented 2026-09-03: SDK/plugin pins in `package.json`,
+  `circuit-breaker.ts`/`mission-loop.ts`, and the config-schema,
+  concurrency-config, and stagnation-guard tests verified in the tree.

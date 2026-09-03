@@ -1,7 +1,7 @@
 # ADR-0006: Official Alignment and Release Hardening
 
 Date: 2026-06-11 10:25 KST
-Status: Accepted
+Status: Partially implemented
 Source: `docs/histories/2026/06/11/PLAN_OfficialOpenCodeAlignmentAndReleaseHardening_2026-06-11.md` (removed 2026-09-03; history in git)
 
 ## Context
@@ -25,3 +25,7 @@ Five workstreams:
 
 - Direct predecessor of the 06-19 full audit (ADR-0007), which found and
   executed the concrete structural subset.
+- Status set to Partially implemented 2026-09-03: workstreams A-D verified
+  (`release-preflight.mjs`, `release.yml`, `release-hardening.test.ts`,
+  consolidated docs); workstream E (support routing) has no
+  SUPPORT.md/SECURITY.md/issue templates in the tree and remains open.

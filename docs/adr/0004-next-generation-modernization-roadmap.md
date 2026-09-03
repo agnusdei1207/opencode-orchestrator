@@ -1,7 +1,7 @@
 # ADR-0004: Next-Generation Modernization Roadmap
 
 Date: 2026-06-11 00:01 KST
-Status: Accepted
+Status: Partially implemented
 Source: `docs/histories/2026/06/10/PLAN_NextGenerationOpenCodeOrchestratorModernization_2026-06-10.md` (removed 2026-09-03; history in git)
 
 ## Context
@@ -28,3 +28,6 @@ Six-target roadmap, planning output only (no code in the session itself):
 - Served as the control document for subsequent patch releases.
 - Targets 3 and 5 were executed via ADR-0007; target 6 is continuous
   (see ADR-0017 for the Windows install-path correction).
+- Status set to Partially implemented 2026-09-03: targets 1 and 3 verified
+  (`plugin-api-conformance.test.ts`, `evidence.ts`), target 6 continuous by
+  design; targets 2 and 4 remain roadmap-level.
