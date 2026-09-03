@@ -1,6 +1,6 @@
 # Architecture Decision Records
 
-Date: 2026-09-03 22:52 KST
+Date: 2026-09-04 00:10 KST
 Status: Active — this directory is the single source of truth for design decisions.
 
 ## Process
@@ -57,3 +57,4 @@ What followed, including verification evidence and known limits.
 | [0016](0016-session-lifecycle-context-limits.md) | 2026-09-02 18:00 | Session lifecycle safety and model-aware context limits | Implemented |
 | [0017](0017-windows-config-path-migration.md) | 2026-09-03 22:31 | Windows config-path migration and stale cache invalidation | Implemented |
 | [0018](0018-shell-listener-pty-helper-removal.md) | 2026-09-03 23:22 | Shell-listener one-touch PTY helper removal | Implemented |
+| [0019](0019-retire-knowledge-rag-subsystem.md) | 2026-09-04 00:10 | Retire in-memory knowledge RAG subsystem | Proposed |
