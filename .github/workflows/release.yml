@@ -131,6 +131,7 @@ jobs:
       - name: Prepare binaries for NPM
         run: |
           mkdir -p bin
+          rm -f bin/*
           cp binaries/orchestrator-linux-x64/orchestrator-linux-x64 bin/
           cp binaries/orchestrator-linux-arm64/orchestrator-linux-arm64 bin/
           cp binaries/orchestrator-macos-x64/orchestrator-macos-x64 bin/
