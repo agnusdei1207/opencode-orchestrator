@@ -1,10 +1,11 @@
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync, utimesSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { beforeEach, afterEach, describe, expect, it, vi } from "vitest";
 import { CleanupScheduler } from "../../src/core/cleanup/cleanup-scheduler";
 import * as DocumentCache from "../../src/core/cache/document-cache";
 import { log } from "../../src/core/agents/logger";
+import { runMemoryMaintenancePass } from "../../src/core/knowledge/memory-maintenance-runner";
 
 vi.mock("../../src/core/cache/document-cache", () => ({
     cleanExpired: vi.fn(),
@@ -16,7 +17,7 @@ vi.mock("../../src/core/cache/document-cache", () => ({
 vi.mock("../../src/core/agents/logger", () => ({ log: vi.fn() }));
 
 vi.mock("../../src/core/knowledge/memory-maintenance-runner", () => ({
-    runMemoryMaintenancePass: vi.fn(() => ({ changedFiles: [] })),
+    runMemoryMaintenancePass: vi.fn(() => ({ changedFiles: ["note1.md"] })),
 }));
 
 describe("CleanupScheduler", () => {
@@ -40,6 +41,7 @@ describe("CleanupScheduler", () => {
     });
 
     afterEach(() => {
+        scheduler.stop();
         rmSync(directory, { recursive: true, force: true });
     });
 
@@ -87,5 +89,40 @@ describe("CleanupScheduler", () => {
         expect(readFileSync(historyPath, "utf8")).toBe("");
         expect(existsSync(path.join(archiveDir, `todo_history.${date}.jsonl`))).toBe(false);
         expect(existsSync(path.join(archiveDir, `todo_history.${date}.jsonl.gz`))).toBe(true);
+    });
+
+    it("cleans old sessions older than 7 days", async () => {
+        const sessionArchivePath = path.join(directory, ".opencode/archive/tasks");
+        mkdirSync(sessionArchivePath, { recursive: true });
+
+        const oldFile = path.join(sessionArchivePath, "old_session.jsonl");
+        const newFile = path.join(sessionArchivePath, "new_session.jsonl");
+        writeFileSync(oldFile, "{}\n");
+        writeFileSync(newFile, "{}\n");
+
+        // Set oldFile mtime to 10 days ago
+        const tenDaysAgo = (Date.now() - 10 * 24 * 3600 * 1000) / 1000;
+        utimesSync(oldFile, tenDaysAgo, tenDaysAgo);
+
+        await scheduler.cleanOldSessions();
+
+        expect(existsSync(oldFile)).toBe(false);
+        expect(existsSync(newFile)).toBe(true);
+    });
+
+    it("runs memory maintenance when called", async () => {
+        await scheduler.maintainMemory();
+        expect(runMemoryMaintenancePass).toHaveBeenCalledWith(directory, { apply: true });
+    });
+
+    it("compactWAL runs without errors", async () => {
+        await expect(scheduler.compactWAL()).resolves.toBeUndefined();
+    });
+
+    it("starts and stops scheduled tasks", () => {
+        scheduler.start();
+        expect((scheduler as any).intervals.size).toBeGreaterThan(0);
+        scheduler.stop();
+        expect((scheduler as any).intervals.size).toBe(0);
     });
 });

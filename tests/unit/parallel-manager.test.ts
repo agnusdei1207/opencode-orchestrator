@@ -33,6 +33,7 @@ import {
     buildUnitReviewPrompt,
     isCancellableTaskStatus,
     resolveWorkStealingWorkers,
+    ParallelAgentManager,
 } from "../../src/core/agents/manager";
 import { TASK_STATUS, type ParallelTask } from "../../src/shared";
 
@@ -593,6 +594,67 @@ describe("ParallelAgentManager Features", () => {
             task.status = TASK_STATUS.COMPLETED;
             store.untrackPending(task.parentSessionID, task.id);
             expect(store.hasPending(task.parentSessionID)).toBe(false);
+        });
+    });
+
+    describe("ParallelAgentManager class facade", () => {
+        let manager: ParallelAgentManager;
+        let mockClient: any;
+
+        beforeEach(() => {
+            ParallelAgentManager._resetForTesting();
+            mockClient = {
+                session: {
+                    create: vi.fn().mockResolvedValue({ data: { id: "sess-1" } }),
+                    prompt: vi.fn().mockResolvedValue({ data: {} }),
+                    abort: vi.fn().mockResolvedValue({}),
+                    delete: vi.fn().mockResolvedValue({}),
+                    messages: vi.fn().mockResolvedValue({ data: [] }),
+                },
+            };
+            manager = ParallelAgentManager.getInstance(mockClient, "/tmp/pam-test");
+        });
+
+        afterEach(async () => {
+            await manager.shutdown();
+            ParallelAgentManager._resetForTesting();
+        });
+
+        it("manages tasks, concurrency, results, and events", async () => {
+            expect(manager.getAllTasks()).toEqual([]);
+            expect(manager.getRunningTasks()).toEqual([]);
+
+            // Concurrency operations
+            manager.setConcurrencyLimit("worker", 4);
+            manager.configureConcurrency({ maxTotal: 10, defaultLimit: 2 });
+            expect(manager.getConcurrency()).toBeDefined();
+
+            // Task store accessors
+            const dummy = createMockTask({ id: "t_facade", parentSessionID: "p_facade", sessionID: "s_facade" });
+            (manager as any).store.set(dummy.id, dummy);
+            (manager as any).store.trackPending("p_facade", dummy.id);
+
+            expect(manager.getTask("t_facade")).toBe(dummy);
+            expect(manager.getAllTasks()).toHaveLength(1);
+            expect(manager.getTasksByParent("p_facade")).toHaveLength(1);
+            expect(manager.getTaskBySession("s_facade")).toBe(dummy);
+            expect(manager.getPendingCount("p_facade")).toBe(1);
+
+            // Cancel task
+            const cancelled = await manager.cancelTask("t_facade");
+            expect(cancelled).toBe(true);
+            expect(dummy.status).toBe(TASK_STATUS.ERROR);
+
+            // Results
+            const result = await manager.getResult("t_facade");
+            expect(result).toContain("Error: Cancelled by user");
+
+            // Event handler forwarding
+            expect(() => manager.handleEvent({ type: "session.idle", properties: { sessionID: "s_facade" } })).not.toThrow();
+
+            // Cleanup
+            manager.cleanup();
+            expect(manager.getAllTasks()).toHaveLength(0);
         });
     });
 });

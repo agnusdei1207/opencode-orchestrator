@@ -2,19 +2,30 @@
  * Context Window Monitor Unit Tests
  */
 
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, vi } from "vitest";
 import {
     calculateUsage,
     getAlertLevel,
     formatUsage,
     cleanupSession,
+    checkContextWindow,
+    getContextInjection,
+    getContextUsage,
+    getMonitorStatus,
     CONTEXT_THRESHOLDS,
     CONTEXT_MONITOR_CONFIG,
 } from "../../src/core/context/context-window-monitor";
+import * as Toast from "../../src/core/notification/toast";
+
+vi.mock("../../src/core/notification/toast", () => ({
+    show: vi.fn(),
+}));
 
 describe("Context Window Monitor", () => {
     beforeEach(() => {
+        vi.clearAllMocks();
         cleanupSession("test-session");
+        cleanupSession("session-2");
     });
 
     describe("calculateUsage", () => {
@@ -64,6 +75,52 @@ describe("Context Window Monitor", () => {
         it("should round values", () => {
             const result = formatUsage(0.756, 151234, 200000);
             expect(result).toBe("76% (151k/200k tokens)");
+        });
+    });
+
+    describe("getContextInjection", () => {
+        it("returns null for low usage", () => {
+            expect(getContextInjection(50000, 200000)).toBeNull();
+        });
+
+        it("returns info, warning, and critical prompt injections", () => {
+            const info = getContextInjection(150000, 200000); // 75%
+            expect(info).toContain("plenty of headroom");
+
+            const warn = getContextInjection(180000, 200000); // 90%
+            expect(warn).toContain("Context is getting full");
+
+            const crit = getContextInjection(195000, 200000); // 97.5%
+            expect(crit).toContain("CRITICAL: Context near limit");
+        });
+    });
+
+    describe("checkContextWindow and status tracking", () => {
+        it("shows alert and tracks usage and status", () => {
+            checkContextWindow("test-session", 150000, 200000);
+            expect(Toast.show).toHaveBeenCalledTimes(1);
+
+            const usage = getContextUsage("test-session");
+            expect(usage).toEqual({ usedTokens: 150000, maxTokens: 200000 });
+
+            const status = getMonitorStatus("test-session");
+            expect(status?.lastAlertLevel).toBe("info");
+
+            // Cooldown prevents duplicate alerts of same level
+            checkContextWindow("test-session", 155000, 200000);
+            expect(Toast.show).toHaveBeenCalledTimes(1);
+
+            // Escalating to critical alerts despite cooldown
+            checkContextWindow("test-session", 195000, 200000);
+            expect(Toast.show).toHaveBeenCalledTimes(2);
+
+            cleanupSession("test-session");
+            expect(getMonitorStatus("test-session")).toBeNull();
+        });
+
+        it("ignores low usage without triggering toast", () => {
+            checkContextWindow("test-session", 50000, 200000);
+            expect(Toast.show).not.toHaveBeenCalled();
         });
     });
 

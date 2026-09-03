@@ -32,6 +32,10 @@ export class StateBroadcaster {
         return StateBroadcaster._instance;
     }
 
+    static _resetForTesting(): void {
+        StateBroadcaster._instance = new StateBroadcaster();
+    }
+
     subscribe(listener: (state: MissionState) => void) {
         this.listeners.add(listener);
         if (this.currentState) {

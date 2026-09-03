@@ -114,7 +114,7 @@ export function createSlashcommandTool(): ToolDefinition {
     },
     async execute(args) {
       const cmdName = (args.command || "").replace(/^\//, "").split(/\s+/)[0].toLowerCase();
-      const cmdArgs = (args.command || "").replace(/^\/?\\S+\s*/, "");
+      const cmdArgs = (args.command || "").replace(/^\/?\S+\s*/, "");
 
       if (!cmdName) return `Commands:\n${commandList}`;
 

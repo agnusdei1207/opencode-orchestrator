@@ -159,6 +159,11 @@ export class ParallelAgentManager {
         return ParallelAgentManager._instance;
     }
 
+    static _resetForTesting(): void {
+        // @ts-expect-error test reset
+        ParallelAgentManager._instance = undefined;
+    }
+
     // ========================================================================
     // Public API
     // ========================================================================

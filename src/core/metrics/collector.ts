@@ -29,6 +29,10 @@ export class MetricsCollector {
         return MetricsCollector.instance;
     }
 
+    public static _resetForTesting(): void {
+        MetricsCollector.instance = new MetricsCollector();
+    }
+
     public recordAgentExecution(agent: string, duration: number): void {
         const latencies = this.agentLatencies.get(agent) || [];
         latencies.push(duration);

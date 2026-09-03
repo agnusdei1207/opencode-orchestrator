@@ -11,7 +11,7 @@ describe("createChatMessageHandler", () => {
         vi.restoreAllMocks();
     });
 
-    it("records user turn time for tracked sessions", async () => {
+    it("records user turn time and tracks agent name for session", async () => {
         const session: PluginSessionState = {
             active: true,
             step: 0,
@@ -31,11 +31,12 @@ describe("createChatMessageHandler", () => {
         });
 
         await createChatMessageHandler(ctx)(
-            { sessionID: "session-1" },
+            { sessionID: "session-1", agent: "Worker" },
             { parts: [{ type: "text", text: "hello" }] },
         );
 
         expect(session.lastUserMessageAt).toBeGreaterThan(0);
+        expect(session.agent).toBe("worker");
     });
 
     it("clears output parts when a chat hook intercepts a control message", async () => {
@@ -53,5 +54,39 @@ describe("createChatMessageHandler", () => {
         await createChatMessageHandler(ctx)({ sessionID: "session-1" }, output);
 
         expect(output.parts).toEqual([]);
+    });
+
+    it("updates textPart.text when hookResult.modifiedMessage is present", async () => {
+        const ctx: ChatMessageHandlerContext = {
+            client: {} as ChatMessageHandlerContext["client"],
+            directory: "/tmp/test",
+            sessions: new Map(),
+        };
+        const output = { parts: [{ type: "text", text: "original text" }] };
+
+        vi.spyOn(HookRegistry.getInstance(), "executeChat").mockResolvedValue({
+            action: HOOK_ACTIONS.PROCESS,
+            modifiedMessage: "modified text",
+        });
+
+        await createChatMessageHandler(ctx)({ sessionID: "session-1" }, output);
+
+        expect((output.parts[0] as any).text).toBe("modified text");
+    });
+
+    it("ignores messages without valid text parts", async () => {
+        const ctx: ChatMessageHandlerContext = {
+            client: {} as ChatMessageHandlerContext["client"],
+            directory: "/tmp/test",
+            sessions: new Map(),
+        };
+
+        const outputNoParts = { parts: [] };
+        await createChatMessageHandler(ctx)({ sessionID: "session-1" }, outputNoParts);
+        expect(outputNoParts.parts).toEqual([]);
+
+        const outputNonText = { parts: [{ type: "image", data: "..." } as any] };
+        await createChatMessageHandler(ctx)({ sessionID: "session-1" }, outputNonText);
+        expect(outputNonText.parts).toHaveLength(1);
     });
 });

@@ -44,6 +44,10 @@ export class AgentRegistry {
         return AgentRegistry.instance;
     }
 
+    public static _resetForTesting(): void {
+        AgentRegistry.instance = new AgentRegistry();
+    }
+
     public setDirectory(dir: string): void {
         this.directory = dir;
         this.loadPromise = this.loadCustomAgents();

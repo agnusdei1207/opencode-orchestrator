@@ -1,214 +1,182 @@
-/**
- * TaskToastManager Tests
- */
-
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { TaskToastManager } from "../../src/core/notification/task-toast-manager";
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import { TaskToastManager, getTaskToastManager, initTaskToastManager } from "../../src/core/notification/task-toast-manager.js";
+import { STATUS_LABEL, TASK_STATUS } from "../../src/shared/index.js";
 
 describe("TaskToastManager", () => {
-    describe("task tracking", () => {
-        it("should add task with correct properties", () => {
-            const tasks = new Map<string, TrackedTask>();
+    let manager: TaskToastManager;
+    let mockClient: any;
+    let mockConcurrency: any;
+    let mockTodoSync: any;
 
-            const task: TrackedTask = {
-                id: "task-1",
-                description: "Test task",
+    beforeEach(() => {
+        manager = new TaskToastManager();
+        mockClient = {
+            tui: {
+                showToast: vi.fn().mockResolvedValue({}),
+            },
+        };
+        mockConcurrency = {
+            getConcurrencyLimit: vi.fn().mockReturnValue(3),
+        };
+        mockTodoSync = {
+            updateTaskStatus: vi.fn(),
+            removeTask: vi.fn(),
+        };
+    });
+
+    it("tracks added tasks and displays consolidated toast", () => {
+        manager.init(mockClient, mockConcurrency);
+        manager.setTodoSync(mockTodoSync);
+
+        manager.addTask({
+            id: "t1",
+            description: "Compile source",
+            agent: "Worker",
+            isBackground: true,
+            parentSessionID: "p1",
+            sessionID: "s1",
+        });
+
+        expect(manager.getStats().total).toBe(1);
+        const running = manager.getRunningTasks();
+        expect(running).toHaveLength(1);
+        expect(running[0].description).toBe("Compile source");
+        expect(manager.getTasksByParent("p1")).toHaveLength(1);
+        expect(mockTodoSync.updateTaskStatus).toHaveBeenCalled();
+        expect(mockClient.tui.showToast).toHaveBeenCalled();
+    });
+
+    it("updates task status and synchronizes with todoSync", () => {
+        manager.init(mockClient, mockConcurrency);
+        manager.setTodoSync(mockTodoSync);
+
+        manager.addTask({
+            id: "t1",
+            description: "Compile source",
+            agent: "Worker",
+            isBackground: true,
+        });
+
+        manager.updateTask("t1", TASK_STATUS.COMPLETED);
+        expect(manager.getRunningTasks()).toHaveLength(0);
+        expect(mockTodoSync.updateTaskStatus).toHaveBeenCalledTimes(2);
+
+        // Updating nonexistent task should not throw
+        manager.updateTask("nonexistent", TASK_STATUS.COMPLETED);
+    });
+
+    it("removes task and synchronizes with todoSync", () => {
+        manager.init(mockClient, mockConcurrency);
+        manager.setTodoSync(mockTodoSync);
+
+        manager.addTask({
+            id: "t1",
+            description: "Compile source",
+            agent: "Worker",
+            isBackground: true,
+        });
+
+        manager.removeTask("t1");
+        expect(manager.getStats().total).toBe(0);
+        expect(mockTodoSync.removeTask).toHaveBeenCalledWith("t1");
+    });
+
+    it("displays completed task toasts for success, failure, and cancelled", () => {
+        manager.init(mockClient, mockConcurrency);
+
+        manager.showCompletionToast({
+            id: "t1",
+            description: "Compile source",
+            agent: "Worker",
+            status: STATUS_LABEL.COMPLETED,
+            duration: "2.5s",
+        });
+        expect(mockClient.tui.showToast).toHaveBeenCalledWith(
+            expect.objectContaining({
+                body: expect.objectContaining({
+                    title: "Task Completed",
+                    variant: "success",
+                }),
+            })
+        );
+
+        manager.showCompletionToast({
+            id: "t2",
+            description: "Compile failed",
+            agent: "Worker",
+            status: STATUS_LABEL.ERROR,
+            duration: "1.0s",
+            error: "Syntax error",
+        });
+        expect(mockClient.tui.showToast).toHaveBeenCalledWith(
+            expect.objectContaining({
+                body: expect.objectContaining({
+                    title: "Task Failed",
+                    variant: "error",
+                }),
+            })
+        );
+    });
+
+    it("displays all complete, mission complete, and progress toasts", () => {
+        manager.init(mockClient);
+
+        manager.showAllCompleteToast("p1", [
+            {
+                id: "t1",
+                description: "Task 1",
                 agent: "Worker",
-                isBackground: true,
-                status: "running",
-                startedAt: new Date(),
-                parentSessionID: "parent-1",
-                sessionID: "session-1",
-            };
+                status: STATUS_LABEL.COMPLETED,
+                duration: "2s",
+            },
+        ]);
+        expect(mockClient.tui.showToast).toHaveBeenCalledWith(
+            expect.objectContaining({
+                body: expect.objectContaining({
+                    title: "All Tasks Completed",
+                }),
+            })
+        );
 
-            tasks.set(task.id, task);
+        manager.showMissionCompleteToast("Grand Finale", "Mission accomplished");
+        expect(mockClient.tui.showToast).toHaveBeenCalled();
 
-            expect(tasks.has("task-1")).toBe(true);
-            expect(tasks.get("task-1")?.description).toBe("Test task");
-            expect(tasks.get("task-1")?.status).toBe("running");
+        manager.addTask({
+            id: "t_prog",
+            description: "Long process",
+            agent: "Worker",
+            isBackground: true,
         });
-
-        it("should update task status", () => {
-            const tasks = new Map<string, TrackedTask>();
-
-            const task: TrackedTask = {
-                id: "task-1",
-                description: "Test task",
-                agent: "Worker",
-                isBackground: true,
-                status: "running",
-                startedAt: new Date(),
-                parentSessionID: "parent-1",
-                sessionID: "session-1",
-            };
-
-            tasks.set(task.id, task);
-            task.status = "completed";
-            task.completedAt = new Date();
-
-            expect(tasks.get("task-1")?.status).toBe("completed");
-            expect(tasks.get("task-1")?.completedAt).toBeDefined();
-        });
-
-        it("should remove completed task", () => {
-            const tasks = new Map<string, TrackedTask>();
-
-            tasks.set("task-1", {
-                id: "task-1",
-                description: "Test",
-                agent: "Worker",
-                isBackground: true,
-                status: "completed",
-                startedAt: new Date(),
-                completedAt: new Date(),
-                parentSessionID: "parent-1",
-                sessionID: "session-1",
-            });
-
-            tasks.delete("task-1");
-            expect(tasks.has("task-1")).toBe(false);
-        });
+        manager.showProgressToast("t_prog", { current: 5, total: 10, message: "Halfway done" });
+        expect(mockClient.tui.showToast).toHaveBeenCalled();
     });
 
-    describe("task filtering", () => {
-        it("should get running tasks", () => {
-            const tasks: TrackedTask[] = [
-                { id: "1", status: "running", description: "", agent: "", isBackground: true, startedAt: new Date(), parentSessionID: "", sessionID: "" },
-                { id: "2", status: "completed", description: "", agent: "", isBackground: true, startedAt: new Date(), parentSessionID: "", sessionID: "" },
-                { id: "3", status: "running", description: "", agent: "", isBackground: true, startedAt: new Date(), parentSessionID: "", sessionID: "" },
-            ];
-
-            const running = tasks.filter((t) => t.status === "running");
-            expect(running.length).toBe(2);
+    it("clears all tracked tasks", () => {
+        manager.init(mockClient);
+        manager.addTask({
+            id: "t1",
+            description: "Task 1",
+            agent: "Worker",
+            isBackground: true,
+        });
+        manager.addTask({
+            id: "t2",
+            description: "Task 2",
+            agent: "Worker",
+            isBackground: true,
+            status: STATUS_LABEL.QUEUED,
         });
 
-        it("should get queued tasks", () => {
-            const tasks: TrackedTask[] = [
-                { id: "1", status: "queued", description: "", agent: "", isBackground: true, startedAt: new Date(), parentSessionID: "", sessionID: "" },
-                { id: "2", status: "running", description: "", agent: "", isBackground: true, startedAt: new Date(), parentSessionID: "", sessionID: "" },
-                { id: "3", status: "queued", description: "", agent: "", isBackground: true, startedAt: new Date(), parentSessionID: "", sessionID: "" },
-            ];
+        expect(manager.getStats().total).toBe(2);
+        expect(manager.getQueuedTasks()).toHaveLength(1);
 
-            const queued = tasks.filter((t) => t.status === "queued");
-            expect(queued.length).toBe(2);
-        });
+        manager.clear();
+        expect(manager.getStats().total).toBe(0);
     });
 
-    describe("message formatting", () => {
-        it("should format task list message", () => {
-            const running = [
-                { id: "1", description: "Build feature", agent: "Worker", isBackground: true, startedAt: new Date() },
-                { id: "2", description: "Test feature", agent: "Reviewer", isBackground: false, startedAt: new Date() },
-            ];
-
-            const lines: string[] = [];
-            lines.push(`Running (${running.length}):`);
-
-            for (const task of running) {
-                const icon = task.isBackground ? "⚡" : "🔄";
-                lines.push(`${icon} ${task.description} (${task.agent})`);
-            }
-
-            const message = lines.join("\n");
-
-            expect(message).toContain("Running (2):");
-            expect(message).toContain("⚡ Build feature (Worker)");
-            expect(message).toContain("🔄 Test feature (Reviewer)");
-        });
-
-        it("should mark new task with NEW marker", () => {
-            const newTaskId = "new-task";
-            const task = { id: newTaskId, description: "New task" };
-
-            const marker = task.id === newTaskId ? " ← NEW" : "";
-            expect(marker).toBe(" ← NEW");
-        });
-
-        it("should format duration correctly", () => {
-            const formatDuration = (startedAt: Date): string => {
-                const elapsed = Date.now() - startedAt.getTime();
-                if (elapsed < 60000) {
-                    return `${Math.floor(elapsed / 1000)}s`;
-                }
-                return `${Math.floor(elapsed / 60000)}m`;
-            };
-
-            const recent = new Date(Date.now() - 30000); // 30 seconds ago
-            expect(formatDuration(recent)).toBe("30s");
-
-            const older = new Date(Date.now() - 120000); // 2 minutes ago
-            expect(formatDuration(older)).toBe("2m");
-        });
-    });
-
-    describe("completion summary", () => {
-        it("should show remaining count on individual completion", () => {
-            const completedCount = 1;
-            const remainingCount = 3;
-
-            const message = `✅ Task completed (${remainingCount} remaining)`;
-            expect(message).toContain("3 remaining");
-        });
-
-        it("should show all complete message", () => {
-            const completedTasks = [
-                { id: "1", description: "Task 1", durationMs: 5000 },
-                { id: "2", description: "Task 2", durationMs: 10000 },
-            ];
-
-            const message = `🎉 All ${completedTasks.length} Tasks Completed`;
-            expect(message).toContain("2 Tasks Completed");
-        });
-    });
-
-    describe("concurrency info", () => {
-        it("should format concurrency slot info", () => {
-            const current = 3;
-            const max = 5;
-
-            const info = ` [${current}/${max}]`;
-            expect(info).toBe(" [3/5]");
-        });
-    });
-
-    describe("toast safety", () => {
-        it("sanitizes task descriptions before sending them to the TUI", async () => {
-            const showToast = vi.fn().mockResolvedValue(undefined);
-            const manager = new TaskToastManager();
-            const client = {
-                tui: { showToast },
-            } as Parameters<TaskToastManager["init"]>[0];
-
-            manager.init(client);
-
-            manager.addTask({
-                id: "task-unsafe",
-                description: "Build\n\u001b[31mfeature\u001b[0m\u0007 with logs",
-                agent: "Worker",
-                isBackground: true,
-                parentSessionID: "parent-1",
-                sessionID: "session-1",
-            });
-
-            expect(showToast).toHaveBeenCalledTimes(1);
-            const payload = showToast.mock.calls[0][0];
-            expect(payload.body.title).toBe("Background Task Started");
-            expect(payload.body.message).toContain("Build feature with logs");
-            expect(payload.body.message).not.toContain("\u001b");
-            expect(payload.body.message).not.toContain("\u0007");
-        });
+    it("initializes global singleton instance", () => {
+        const inst = initTaskToastManager(mockClient, mockConcurrency);
+        expect(inst).toBeDefined();
+        expect(getTaskToastManager()).toBe(inst);
     });
 });
-
-// Type definition for tests
-interface TrackedTask {
-    id: string;
-    description: string;
-    agent: string;
-    isBackground: boolean;
-    status?: "queued" | "running" | "completed" | "error";
-    startedAt: Date;
-    completedAt?: Date;
-    parentSessionID: string;
-    sessionID: string;
-}

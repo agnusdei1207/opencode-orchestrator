@@ -169,4 +169,64 @@ describe("TaskStore", () => {
             expect(store.getNotifications("parent_1")).toHaveLength(0);
         });
     });
+
+    // ========================================================================
+    // Garbage Collection & Memory Management
+    // ========================================================================
+
+    describe("garbage collection and memory management", () => {
+        it("returns accurate memory statistics", () => {
+            store.set("t1", createMockTask({ id: "t1", status: TASK_STATUS.RUNNING }));
+            store.trackPending("p1", "t1");
+            store.queueNotification(createMockTask({ id: "t2", parentSessionID: "p1" }));
+
+            const stats = store.getStats();
+            expect(stats.tasksInMemory).toBe(1);
+            expect(stats.runningTasks).toBe(1);
+            expect(stats.notificationQueues).toBe(1);
+            expect(stats.pendingParents).toBe(1);
+        });
+
+        it("forceCleanup removes all non-running tasks", () => {
+            store.set("t1", createMockTask({ id: "t1", status: TASK_STATUS.RUNNING }));
+            store.set("t2", createMockTask({ id: "t2", status: TASK_STATUS.COMPLETED }));
+            store.set("t3", createMockTask({ id: "t3", status: TASK_STATUS.ERROR }));
+
+            const removed = store.forceCleanup();
+            expect(removed).toBe(2);
+            expect(store.get("t1")).toBeDefined();
+            expect(store.get("t2")).toBeUndefined();
+            expect(store.get("t3")).toBeUndefined();
+        });
+
+        it("gc archives old completed tasks and removes old errored tasks", async () => {
+            const oldDate = new Date(Date.now() - 3600 * 1000); // 1 hour ago
+            store.set("t_old_comp", createMockTask({
+                id: "t_old_comp",
+                status: TASK_STATUS.COMPLETED,
+                completedAt: oldDate,
+            }));
+            store.set("t_old_err", createMockTask({
+                id: "t_old_err",
+                status: TASK_STATUS.ERROR,
+                completedAt: oldDate,
+            }));
+            store.set("t_running", createMockTask({
+                id: "t_running",
+                status: TASK_STATUS.RUNNING,
+            }));
+
+            const removed = await store.gc();
+            expect(removed).toBe(2);
+            expect(store.get("t_running")).toBeDefined();
+            expect(store.get("t_old_comp")).toBeUndefined();
+            expect(store.get("t_old_err")).toBeUndefined();
+        });
+
+        it("returns pool stats", () => {
+            const poolStats = store.getPoolStats();
+            expect(poolStats.taskPool).toBeDefined();
+            expect(poolStats.stringPool).toBeDefined();
+        });
+    });
 });

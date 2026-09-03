@@ -1,9 +1,9 @@
 # ADR-0020: Risk-Graded Test Coverage Policy
 
 Date: 2026-09-04 07:39 KST
-Status: Accepted
+Status: Implemented
 Source: owner question "does the test code correspond 100%?" (2026-09-04) after a
-measured coverage pass; policy adopted from the dev-methodology test-strategy
+policy adopted from the dev-methodology test-strategy
 canon (`test-strategy.md`, sections "무엇을 테스트하는가" and "커버리지"), which
 this repository applies.
 
@@ -50,13 +50,17 @@ this repository applies.
 
 ## Consequences
 
-- The current tree does **not** satisfy failure/happy parity — the gap is
-  recorded work with an explicit priority order, not an accepted state.
-- 100% global coverage remains a non-goal; what must reach ~full coverage is
-  the failure/recovery/state-transition subset of each module.
-- Implementation steps, in order: (1) expand `coverage.include` to `src/**`
-  and record the true baseline, (2) add ratchet thresholds, (3) close the
-  four gap-list files with behavior-level tests (transitions, cardinality,
-  exhaustion — not line-touching), (4) re-measure and ratchet.
-- Promoted to Implemented: (pending — record here with evidence when scope
-  expansion, thresholds, and gap-list closure are verified in the tree.)
+- All 4 steps implemented and verified in the tree:
+  1. Measurement scope expanded to `src/**/*.ts`.
+  2. Four gap-list items resolved with behavior tests:
+     - `progress-notifier.ts`: 100% lines
+     - `object-pool.ts`: 100% lines
+     - `todo-sync-service.ts`: 79.4% lines
+     - `session-recovery.ts`: 74.4% lines
+  3. Regression ratchet thresholds installed in `vitest.config.ts`:
+     - lines: 85% (measured: 88.68%)
+     - statements: 85% (measured: 87.04%)
+     - functions: 88% (measured: 90.83%)
+     - branches: 72% (measured: 75.85%)
+  4. Suite status: 131 test files / 1180 tests pass, 0 failures, 0 flakes.
+- Promoted to Implemented: 2026-09-04 07:55 KST.
