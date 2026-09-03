@@ -30,11 +30,25 @@ surface of an authorized-lab tool.
 - `docs/SYSTEM_ARCHITECTURE.md` section 7 re-aligned with the code in the same
   change (the "manual PTY helper" step was removed).
 - Release binaries in `bin/` built before this change (macOS x64/arm64,
-  Windows x64, and the extensionless `orchestrator` fallback) still contained
-  the removed command. Owner decision 2026-09-03: those four stale binaries
+  Windows x64, and the extensionless `orchestrator` fallback) were believed to
+  still contain the removed command. Owner decision 2026-09-03: those four stale binaries
   were removed from the repository; `bin/` now tracks only the Linux pair the
   release pipeline refreshes. npm releases are unaffected because CI rebuilds
   all five targets from the tag source before publishing. Non-npm consumers of
   a repo checkout on macOS/Windows rebuild locally via
   `docker:rust-dist`/`docker:build-win` (the `binary.ts` extensionless
   fallback path no longer resolves from the repo tree).
+- Published-artifact QA 2026-09-04 (`npm pack opencode-orchestrator@1.7.17`):
+  all five platform binaries were rebuilt from tag source as expected —
+  version string `1.7.17` embedded, ELF/Mach-O/PE signatures verified, and
+  `\bpty\b` / `pty.spawn` string counts are 0 in every binary with
+  `shell-listener` as the positive control. Correction to the belief above:
+  the extensionless `bin/orchestrator` that rode into the 1.7.17 package (tag
+  `de09ac0` predates the deletion commit) is a much older macOS build — it has
+  no orchestrator version, mission-loop, or shell-listener strings at all, so
+  it never contained the `pty` command. It is functionally unreachable (all
+  five platform binaries ship in the same package `bin/`, and `binary.ts`
+  resolves the platform name first) and self-heals from the next tag cut,
+  since `main` tracks only the Linux pair. Residual pipeline gap: `release.yml`
+  copies the five platform names into `bin/` without pruning other entries, so
+  any future tag tree with extra `bin/` files would ship them again.
