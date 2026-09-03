@@ -13,8 +13,6 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 const DEFAULT_BIND: &str = "127.0.0.1";
 const DEFAULT_PORT: u16 = 4444;
 const MAX_BUFFER_LINES: usize = 200;
-const PTY_HELPER: &str =
-    "python3 -c 'import os,pty; pty.spawn(os.environ.get(\"SHELL\",\"/bin/sh\"))'\n";
 
 type SharedState = Arc<Mutex<ListenerState>>;
 
@@ -60,7 +58,6 @@ enum OperatorCommand {
     Redraw,
     Use(u64),
     Detach,
-    Pty,
     Close(Option<u64>),
     Quit,
     Send(String),
@@ -224,7 +221,7 @@ fn print_shell_help() {
     println!("  --log-dir <path>   Raw stream log directory");
     println!("  --no-tui           Print connection events without operator input");
     println!();
-    println!("TUI commands: sessions, use <id>, send <text>, run <cmd>, pty, close [id], quit");
+    println!("TUI commands: sessions, use <id>, send <text>, run <cmd>, close [id], quit");
 }
 
 fn spawn_accept_loop(
@@ -401,7 +398,6 @@ fn handle_operator_command(
         }
         OperatorCommand::Use(id) => set_active_session(id, state).map(|_| false),
         OperatorCommand::Detach => detach_session(state).map(|_| false),
-        OperatorCommand::Pty => send_to_active(state, PTY_HELPER.as_bytes()).map(|_| false),
         OperatorCommand::Close(id) => close_session(id, state).map(|_| false),
         OperatorCommand::Send(text) => {
             send_to_active(state, as_line(&text).as_bytes()).map(|_| false)
@@ -426,7 +422,6 @@ fn parse_operator_command(line: &str) -> Result<OperatorCommand> {
         "redraw" => Ok(OperatorCommand::Redraw),
         "use" => Ok(OperatorCommand::Use(parse_required_id(tail, "use")?)),
         "detach" => Ok(OperatorCommand::Detach),
-        "pty" => Ok(OperatorCommand::Pty),
         "close" => Ok(OperatorCommand::Close(parse_optional_id(tail)?)),
         "quit" | "exit" => Ok(OperatorCommand::Quit),
         "send" => Ok(OperatorCommand::Send(tail.to_string())),
