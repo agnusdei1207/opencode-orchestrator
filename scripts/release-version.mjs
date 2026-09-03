@@ -13,7 +13,10 @@ if (!allowedBumps.has(bump)) {
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const repoRoot = path.resolve(__dirname, "..");
-const npmCommand = process.platform === "win32" ? "npm.cmd" : "npm";
+const npmCliPath = process.env.npm_execpath
+  ?? path.join(path.dirname(process.execPath), "node_modules", "npm", "bin", "npm-cli.js");
+const npmCommand = process.platform === "win32" ? process.execPath : "npm";
+const npmArgsPrefix = process.platform === "win32" ? [npmCliPath] : [];
 
 function run(command, commandArgs, options = {}) {
   const result = spawnSync(command, commandArgs, {
@@ -48,8 +51,8 @@ function readVersion() {
 }
 
 assertCleanWorktree();
-run(npmCommand, ["version", bump, "--no-git-tag-version", "--ignore-scripts"]);
-run(npmCommand, ["run", "sync:readme-version"]);
+run(npmCommand, [...npmArgsPrefix, "version", bump, "--no-git-tag-version", "--ignore-scripts"]);
+run(npmCommand, [...npmArgsPrefix, "run", "sync:readme-version"]);
 
 const version = readVersion();
 
