@@ -86,10 +86,10 @@
   },
   "devDependencies": {
     "@types/node": "^24.13.1",
-    "@vitest/coverage-v8": "^4.1.8",
+    "@vitest/coverage-v8": "^4.1.11",
     "esbuild": "^0.28.1",
     "shx": "^0.4.0",
     "typescript": "^5.7.0",
-    "vitest": "^4.0.17"
+    "vitest": "^4.1.11"
   }
 }
