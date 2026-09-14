@@ -1,22 +1,22 @@
 # Agent Memory - OCO Session
 
-Last updated: 2026-09-14 23:02 KST
+Last updated: 2026-09-14 23:04 KST
 
 ## Current task
 
-Patch release `1.7.18` is published; finish remote verification after pushing `main` and `v1.7.18`.
+Patch release `1.7.18` is published and pushed.
 
 ## Last completed step
 
-Committed the QA dependency remediation as `fd6cdba`. Published `opencode-orchestrator@1.7.18` after a complete passing preflight. Rebuilt Linux x64 and arm64 binaries directly through the two Docker Compose services because the npm wrapper's Unix ownership suffix is incompatible with Windows `cmd.exe`; synchronized both binaries into release commit `b870580` and retargeted `v1.7.18`.
+Committed the QA dependency remediation as `fd6cdba`. Published `opencode-orchestrator@1.7.18` after a complete passing preflight. Rebuilt Linux x64 and arm64 binaries directly through the two Docker Compose services because the npm wrapper's Unix ownership suffix is incompatible with Windows `cmd.exe`; synchronized both binaries into release commit `668064d`. Pushed `main` and `v1.7.18` to origin.
 
 ## Next exact step
 
-Amend this final snapshot into the release commit, retarget `v1.7.18`, push `main` and the tag, then verify npm reports `1.7.18`, the worktree is clean, and local/remote refs match.
+No release work remains. For the next task, begin from the current clean `main` branch and resurvey the directly related files.
 
 ## Incomplete items and why
 
-- Git push and final remote equality checks remain.
+- None for this release.
 
 ## Key decisions
 
