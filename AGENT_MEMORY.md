@@ -1,37 +1,38 @@
 # Agent Memory - OCO Session
 
-Last updated: 2026-09-14 22:58 KST
+Last updated: 2026-09-14 23:02 KST
 
 ## Current task
 
-Publish an npm patch release, commit it, and push `main` and the release tag. The requested target is `1.7.18` from registry version `1.7.17`.
+Patch release `1.7.18` is published; finish remote verification after pushing `main` and `v1.7.18`.
 
 ## Last completed step
 
-Updated Vitest and its coverage package to 4.1.11 and refreshed the transitive lock resolution to `toml` 4.3.0. The full release dry-run passed: build, 115 Node test files / 1,088 tests, 57 Rust tests through Docker, zero audit findings, and a 218-file npm package dry-run.
+Committed the QA dependency remediation as `fd6cdba`. Published `opencode-orchestrator@1.7.18` after a complete passing preflight. Rebuilt Linux x64 and arm64 binaries directly through the two Docker Compose services because the npm wrapper's Unix ownership suffix is incompatible with Windows `cmd.exe`; synchronized both binaries into release commit `b870580` and retargeted `v1.7.18`.
 
 ## Next exact step
 
-Commit the verified dependency remediation separately, run `npm run release:patch`, update this memory snapshot, amend the release commit/tag if needed, push `main` and tags, and verify the npm registry and remote refs.
+Amend this final snapshot into the release commit, retarget `v1.7.18`, push `main` and the tag, then verify npm reports `1.7.18`, the worktree is clean, and local/remote refs match.
 
 ## Incomplete items and why
 
-- No version bump, release commit, tag, npm publish, or Git push has been performed yet.
+- Git push and final remote equality checks remain.
 
 ## Key decisions
 
 - Use the repository-owned `release:patch` pipeline because it synchronizes npm, Cargo, README, generated artifacts, tests, audit, package validation, commit, tag, and publish behavior.
 - Stop before irreversible release actions when the mandatory audit gate fails.
+- On Windows, invoke `docker compose run --rm dev` and `docker compose run --rm rust-arm64` directly when the Unix-only npm wrapper suffix cannot be parsed.
 
 ## Rejected alternatives
 
 - Do not bypass `npm audit`; the repository release script explicitly requires it to pass.
-- Do not publish manually around the failed preflight.
+- Do not publish around a failed preflight; publication proceeded only after the complete preflight passed.
 
 ## Known risks
 
 - The dependency refresh advances Vitest's Vite/Rolldown transitive graph; the complete build and test suite passed on the resolved versions.
-- After npm publication, version `1.7.18` cannot be reused; recovery would require another patch release.
+- Version `1.7.18` is published and immutable; recovery requires another patch release.
 
 ## Files to open first in the next session, in order
 
