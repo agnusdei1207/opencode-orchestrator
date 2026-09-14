@@ -17,15 +17,20 @@ export const createGetTaskResultTool = (manager: ParallelAgentManager): ToolDefi
         const task = manager.getTask(taskId);
         if (!task) return `${OUTPUT_LABEL.ERROR} Task not found: \`${taskId}\``;
         if (task.status === STATUS_LABEL.RUNNING) return `${OUTPUT_LABEL.RUNNING} Still working...`;
-
-        const result = await manager.getResult(taskId);
-        const duration = formatDuration(task.startedAt, task.completedAt);
-
-        if (task.status === STATUS_LABEL.ERROR || task.status === STATUS_LABEL.TIMEOUT) {
-            return `[${task.status.toUpperCase()}] ${task.error}`;
+        if (task.status !== STATUS_LABEL.COMPLETED) {
+            return `[${task.status.toUpperCase()}] ${task.error || "No completed result available."}`;
         }
 
-        return `${OUTPUT_LABEL.DONE} Completed in ${duration}\n\n${result || "(No output)"}`;
-
+        const startedAt = task.startedAt;
+        try {
+            const result = await manager.getResult(taskId);
+            if (manager.getTask(taskId) !== task || task.startedAt !== startedAt || task.status !== STATUS_LABEL.COMPLETED) {
+                return `${OUTPUT_LABEL.ERROR} Task changed during result retrieval; check its current status.`;
+            }
+            const duration = formatDuration(task.startedAt, task.completedAt);
+            return `${OUTPUT_LABEL.DONE} Completed in ${duration}\n\n${result || "(No output)"}`;
+        } catch (error) {
+            return `${OUTPUT_LABEL.ERROR} Result unavailable: ${error instanceof Error ? error.message : String(error)}`;
+        }
     },
 });

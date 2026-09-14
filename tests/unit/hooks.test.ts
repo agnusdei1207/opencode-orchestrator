@@ -13,16 +13,14 @@ import { StrictRoleGuardHook } from "../../src/hooks/custom/strict-role-guard";
 import { ResourceControlHook } from "../../src/hooks/custom/resource-control";
 import { ContextLimitResolver } from "../../src/core/context/context-limit-resolver";
 import { checkContextWindow, cleanupSession } from "../../src/core/context/context-window-monitor";
-import { AgentUIHook } from "../../src/hooks/custom/agent-ui";
 import { SanityCheckHook } from "../../src/hooks/features/sanity-check";
 import { SecretScannerHook } from "../../src/hooks/custom/secret-scanner";
 
 import { HOOK_ACTIONS } from "../../src/hooks/constants";
-import { TOOL_NAMES, type VerificationResult } from "../../src/shared";
 import { state } from "../../src/core/orchestrator/state";
-import { STAGNATION_INTERVENTION } from "../../src/shared/constants/system-messages.js";
 import type { HookContext } from "../../src/hooks/registry";
 import type { SessionState } from "../../src/core/orchestrator/state";
+import { queuePrompts, hasPendingPrompts } from "../../src/core/session/pending-injection";
 
 // Mock dependencies
 vi.mock("../../src/core/agents/logger", () => ({ log: vi.fn() }));
@@ -36,7 +34,7 @@ vi.mock("../../src/tools/slashCommand", () => ({
     COMMANDS: { task: { description: "Mock", template: "Mock: $ARGUMENTS" } }
 }));
 vi.mock("../../src/core/loop/mission-loop", () => ({
-    startMissionLoop: vi.fn(),
+    startMissionLoop: vi.fn().mockReturnValue(true),
     cancelMissionLoop: vi.fn(),
     isLoopActive: vi.fn().mockReturnValue(true),
     clearLoopState: vi.fn(),
@@ -57,7 +55,6 @@ vi.mock("../../src/core/loop/verification", () => ({
         checklistProgress: "0/0",
         errors: []
     }),
-    buildVerificationFailurePrompt: vi.fn().mockReturnValue("Verification failed"),
     buildVerificationSummary: vi.fn().mockReturnValue("[Verification ✅ PASSED]")
 }));
 vi.mock("../../src/core/orchestrator/session-manager", async () => {
@@ -106,10 +103,33 @@ describe("Hook System", () => {
     describe("MissionControlHook", () => {
         const hook = new MissionControlHook();
 
+        it("does not interpret ordinary user messages as mission completion", async () => {
+            state.missionActive = true;
+            state.sessions.set("test-session", createSessionState());
+            const missionLoop = await import("../../src/core/loop/mission-loop");
+            const result = await hook.execute(mockContext, "Also check the deployment wiring before finishing");
+            expect(result).toEqual({ action: HOOK_ACTIONS.PROCESS });
+            expect(missionLoop.clearLoopState).not.toHaveBeenCalled();
+            expect(missionLoop.writeLoopState).not.toHaveBeenCalled();
+        });
+
         it("should detect /task command", async () => {
             const result = await hook.execute(mockContext, `/task "build"`);
             expect(result.action).toBe(HOOK_ACTIONS.PROCESS);
             expect(state.missionActive).toBe(true);
+        });
+
+        it("reactivates a locally cancelled session on the next /task", async () => {
+            mockContext.sessions.set("test-session", { active: false });
+            await hook.execute(mockContext, "/task new goal");
+            expect((mockContext.sessions.get("test-session") as { active: boolean }).active).toBe(true);
+        });
+
+        it("does not announce activation when mission persistence fails", async () => {
+            const { startMissionLoop } = await import("../../src/core/loop/mission-loop");
+            vi.mocked(startMissionLoop).mockReturnValueOnce(false);
+            await expect(hook.execute(mockContext, "/task new goal")).rejects.toThrow("persist");
+            expect(state.missionActive).toBe(false);
         });
 
         it("should intercept /cancel and deactivate mission state", async () => {
@@ -129,68 +149,15 @@ describe("Hook System", () => {
             expect(session.active).toBe(false);
         });
 
-        it("should stop if verification passes", async () => {
-            state.missionActive = true;
-            state.sessions.set("test-session", createSessionState());
-
-            const { verifyMissionCompletion } = await import("../../src/core/loop/verification");
-            vi.mocked(verifyMissionCompletion).mockReturnValue(createVerificationResult());
-
-            const result = await hook.execute(mockContext, "All done");
-            expect(result.action).toBe(HOOK_ACTIONS.STOP);
+        it("discards already queued continuation when the user types /stop", async () => {
+            const session = { active: true, lastAbortAt: undefined as number | undefined };
+            mockContext.sessions.set("test-session", session);
+            queuePrompts("test-session", ["Continue the old turn"]);
+            await hook.execute(mockContext, "/stop");
+            expect(hasPendingPrompts("test-session")).toBe(false);
+            expect(session.lastAbortAt).toBeDefined();
         });
 
-        it("should report sync-only failures with the full verification prompt", async () => {
-            state.missionActive = true;
-            state.sessions.set("test-session", createSessionState());
-            const verificationModule = await import("../../src/core/loop/verification");
-            vi.mocked(verificationModule.verifyMissionCompletion).mockReturnValue(createVerificationResult({
-                passed: false,
-                syncIssuesEmpty: false,
-                syncIssuesCount: 1,
-                checklistPresent: false,
-                checklistComplete: false,
-                checklistProgress: "0/0",
-                errors: ["Sync issues not resolved"],
-            }));
-
-            const result = await hook.execute(mockContext, "Done");
-
-            expect(result.action).toBe(HOOK_ACTIONS.INJECT);
-            expect(verificationModule.buildVerificationFailurePrompt).toHaveBeenCalled();
-            expect(result.prompts).toContain("Verification failed");
-        });
-
-        it("should track checklist and sync changes as mission progress", async () => {
-            state.missionActive = true;
-            state.sessions.set("test-session", createSessionState());
-            const loopState = {
-                active: true,
-                sessionID: "test-session",
-                lastProgress: "old-progress",
-                stagnationCount: 1,
-            };
-            const missionLoop = await import("../../src/core/loop/mission-loop");
-            vi.mocked(missionLoop.readLoopState).mockReturnValue(loopState as never);
-            const verificationModule = await import("../../src/core/loop/verification");
-            vi.mocked(verificationModule.verifyMissionCompletion).mockReturnValue(createVerificationResult({
-                passed: false,
-                checklistPresent: true,
-                checklistComplete: false,
-                checklistProgress: "1/2",
-                syncIssuesEmpty: false,
-                syncIssuesCount: 1,
-                errors: ["Verification incomplete"],
-            }));
-            vi.mocked(verificationModule.buildVerificationSummary).mockReturnValue("checklist=1/2;sync=1");
-
-            const result = await hook.execute(mockContext, "Progress made");
-
-            expect(result.action).toBe(HOOK_ACTIONS.INJECT);
-            expect(result.prompts).not.toContain(STAGNATION_INTERVENTION);
-            expect(loopState.stagnationCount).toBe(0);
-            expect(loopState.lastProgress).toBe("checklist=1/2;sync=1");
-        });
     });
 
     describe("ResourceControlHook", () => {
@@ -257,18 +224,6 @@ describe("Hook System", () => {
         });
     });
 
-    describe("AgentUIHook", () => {
-        const hook = new AgentUIHook();
-
-        it("should decorate agent output", async () => {
-            const input = { agent: "planner" };
-            const output = { title: "Res", output: "Thinking...", metadata: {} };
-            const result = await hook.execute(mockContext, TOOL_NAMES.CALL_AGENT, input, output);
-
-            expect(result.output).toContain("[P] [PLANNER] Working...");
-        });
-    });
-
     describe("SecretScannerHook", () => {
         const hook = new SecretScannerHook();
 
@@ -288,52 +243,53 @@ describe("Hook System", () => {
             vi.mocked(checkOutputSanity).mockReturnValue({ isHealthy: false, reason: "Loop", severity });
         }
 
-        function callAgentOutput(hook: SanityCheckHook, sessionID: string) {
+        function assistantOutput(hook: SanityCheckHook, sessionID: string) {
             return hook.execute(
                 { ...mockContext, sessionID },
-                TOOL_NAMES.CALL_AGENT,
-                { agent: "worker" },
-                { output: "bad", title: "", metadata: {} },
+                "bad",
             );
         }
 
         it("should detect anomalies", async () => {
             await mockedSanity("critical");
 
-            const result = await callAgentOutput(new SanityCheckHook(), "sanity-critical");
-            expect(result.output).toContain("ANOMALY DETECTED");
+            const result = await assistantOutput(new SanityCheckHook(), "sanity-critical");
+            expect(result).toEqual({
+                action: HOOK_ACTIONS.INJECT,
+                prompts: [expect.stringContaining("ANOMALY #1")],
+            });
         });
 
-        // Issue #35: acting on an anomaly rewrites the tool result the agent
-        // reads, so only CRITICAL findings are worth that cost. A WARNING is
+        // Issue #35: acting on an anomaly injects another turn, so only
+        // CRITICAL findings are worth that cost. A WARNING is
         // logged and dropped.
         it("ignores non-critical findings", async () => {
             await mockedSanity("warning");
 
-            const result = await callAgentOutput(new SanityCheckHook(), "sanity-warning");
-            expect(result.output).toBeUndefined();
+            const result = await assistantOutput(new SanityCheckHook(), "sanity-warning");
+            expect(result).toEqual({ action: HOOK_ACTIONS.CONTINUE });
         });
 
         it("suppresses repeat interventions within the cooldown window", async () => {
             await mockedSanity("critical");
             const hook = new SanityCheckHook();
 
-            const first = await callAgentOutput(hook, "sanity-cooldown");
-            const second = await callAgentOutput(hook, "sanity-cooldown");
+            const first = await assistantOutput(hook, "sanity-cooldown");
+            const second = await assistantOutput(hook, "sanity-cooldown");
 
-            expect(first.output).toContain("ANOMALY DETECTED");
-            expect(second.output, "a misfiring detector must not fire every turn").toBeUndefined();
+            expect(first.action).toBe(HOOK_ACTIONS.INJECT);
+            expect(second, "a misfiring detector must not fire every turn").toEqual({ action: HOOK_ACTIONS.CONTINUE });
         });
 
         it("tracks the cooldown per session", async () => {
             await mockedSanity("critical");
             const hook = new SanityCheckHook();
 
-            const first = await callAgentOutput(hook, "sanity-session-a");
-            const other = await callAgentOutput(hook, "sanity-session-b");
+            const first = await assistantOutput(hook, "sanity-session-a");
+            const other = await assistantOutput(hook, "sanity-session-b");
 
-            expect(first.output).toContain("ANOMALY DETECTED");
-            expect(other.output).toContain("ANOMALY DETECTED");
+            expect(first.action).toBe(HOOK_ACTIONS.INJECT);
+            expect(other.action).toBe(HOOK_ACTIONS.INJECT);
         });
     });
 });
@@ -345,23 +301,6 @@ function createSessionState(overrides: Partial<SessionState> = {}): SessionState
         taskRetries: new Map(),
         currentTask: "",
         anomalyCount: 0,
-        ...overrides,
-    };
-}
-
-function createVerificationResult(overrides: Partial<VerificationResult> = {}): VerificationResult {
-    return {
-        passed: true,
-        todoComplete: true,
-        todoPresent: true,
-        todoProgress: "3/3",
-        todoIncomplete: 0,
-        syncIssuesEmpty: true,
-        syncIssuesCount: 0,
-        checklistComplete: true,
-        checklistPresent: true,
-        checklistProgress: "1/1",
-        errors: [],
         ...overrides,
     };
 }

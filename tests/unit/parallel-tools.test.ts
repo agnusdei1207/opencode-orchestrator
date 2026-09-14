@@ -57,6 +57,21 @@ describe("Parallel Tools Suite", () => {
     });
 
     describe("get_task_result", () => {
+        it("reports retrieval errors and a resumed run without a false DONE", async () => {
+            const task = { id: "task-1", status: "completed", startedAt: new Date() };
+            mockManager.getTask.mockReturnValue(task);
+            mockManager.getResult.mockRejectedValueOnce(new Error("unavailable"));
+            const tool = createGetTaskResultTool(mockManager);
+            expect(await tool.execute({ taskId: "task-1" }, {} as never)).toContain("[ERROR]");
+            mockManager.getResult.mockImplementationOnce(async () => { task.status = "running"; return "old result"; });
+            expect(await tool.execute({ taskId: "task-1" }, {} as never)).not.toContain("[DONE]");
+        });
+        it.each(["pending", "queued", "cancelled", "failed"])("never reports %s as completed", async (status) => {
+            mockManager.getTask.mockReturnValue({ id: "task-1", status, startedAt: new Date() });
+            const result = await createGetTaskResultTool(mockManager).execute({ taskId: "task-1" }, {} as never);
+            expect(result).not.toContain(OUTPUT_LABEL.DONE);
+            expect(mockManager.getResult).not.toHaveBeenCalled();
+        });
         it("returns error if task not found", async () => {
             const tool = createGetTaskResultTool(mockManager);
             mockManager.getTask.mockReturnValue(undefined);

@@ -24,7 +24,6 @@ export class TodoManager {
     private directory: string = "";
     private todoPath: string = "";
     private versionPath: string = "";
-    private historyPath: string = "";
     private updateMutex: Promise<void> = Promise.resolve();
 
     private constructor() { }
@@ -43,11 +42,9 @@ export class TodoManager {
         this.directory = dir;
         this.todoPath = path.join(this.directory, PATHS.TODO);
         this.versionPath = path.join(this.directory, ".opencode/todo.version.json");
-        this.historyPath = path.join(this.directory, ".opencode/archive/todo_history.jsonl");
-
-        const archiveDir = path.dirname(this.historyPath);
-        if (!fs.existsSync(archiveDir)) {
-            fs.mkdirSync(archiveDir, { recursive: true });
+        const todoDir = path.dirname(this.todoPath);
+        if (!fs.existsSync(todoDir)) {
+            fs.mkdirSync(todoDir, { recursive: true });
         }
     }
 
@@ -157,8 +154,6 @@ export class TodoManager {
                 await fs.promises.rename(versionTmpPath, this.versionPath);
                 versionTmpPath = undefined;
 
-                await this.recordChange(newVersion, newContent, author);
-
                 log(`[TodoManager] Updated TODO to v${newVersion} by ${author}`);
                 return { success: true, currentVersion: newVersion };
 
@@ -237,19 +232,6 @@ export class TodoManager {
         return false;
     }
 
-    private async recordChange(version: number, content: string, author: string): Promise<void> {
-        try {
-            await this.logChange(version, content, author);
-        } catch (error) {
-            log(`[TodoManager] Failed to log TODO change v${version}: ${error}`);
-        }
-    }
-
-    // History logging disabled to reduce I/O.
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    private async logChange(_version: number, _content: string, _author: string) {
-        // No-op: History logging disabled for performance
-    }
 }
 
 async function cleanupTempFile(filePath: string | undefined): Promise<void> {

@@ -1,9 +1,8 @@
 import { createHash } from "node:crypto";
-import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
-import { dirname, join } from "node:path";
+import { join } from "node:path";
 import type { MissionLoopState } from "../../shared/loop/types.js";
 import type { MissionLedgerEvent } from "../loop/mission-ledger.js";
-import { parseFrontmatter, type FrontmatterData } from "./mission-memory.js";
+import { atomicWrite, escapeYaml, loadNoteMetadata, numberMeta, stringMeta, type FrontmatterData } from "./mission-note.js";
 
 const EPISODE_DECAY_LAMBDA = 0.07;
 const EPISODE_IMPORTANCE = 0.75;
@@ -19,7 +18,7 @@ export function syncMissionEpisodeMemory(
     const objective = state.objective ?? state.prompt;
     const episodeKey = buildEpisodeKey(objective);
     const notePath = join(notesDir, `episodic-${episodeKey}.md`);
-    const existing = loadMetadata(notePath);
+    const existing = loadNoteMetadata(notePath);
     const now = new Date().toISOString();
     const sessionChanged = existing?.session !== state.sessionID;
     const count = readCount(existing?.episode_count) + (sessionChanged ? 1 : 0);
@@ -129,15 +128,6 @@ function completionTime(events: MissionLedgerEvent[]): string | null {
     return null;
 }
 
-function loadMetadata(filePath: string): FrontmatterData | null {
-    if (!existsSync(filePath)) return null;
-    try {
-        return parseFrontmatter(readFileSync(filePath, "utf8"));
-    } catch {
-        return null;
-    }
-}
-
 function buildEpisodeKey(objective: string): string {
     const safe = objective.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 56);
     const hash = createHash("sha256").update(objective).digest("hex").slice(0, 8);
@@ -145,24 +135,5 @@ function buildEpisodeKey(objective: string): string {
 }
 
 function readCount(value: unknown): number {
-    return typeof value === "number" && Number.isFinite(value) ? value : 0;
-}
-
-function stringMeta(value: unknown): string | undefined {
-    return typeof value === "string" && value.trim() ? value : undefined;
-}
-
-function numberMeta(value: unknown): number | undefined {
-    return typeof value === "number" && Number.isFinite(value) ? value : undefined;
-}
-
-function atomicWrite(path: string, content: string): void {
-    mkdirSync(dirname(path), { recursive: true });
-    const tempPath = `${path}.tmp`;
-    writeFileSync(tempPath, content, "utf8");
-    renameSync(tempPath, path);
-}
-
-function escapeYaml(value: string): string {
-    return value.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+    return numberMeta(value) ?? 0;
 }

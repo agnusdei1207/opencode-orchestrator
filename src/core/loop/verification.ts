@@ -22,7 +22,6 @@ import {
 } from "../../shared/index.js";
 import { log } from "../agents/logger.js";
 export {
-    buildVerificationFailurePrompt,
     buildVerificationSummary,
 } from "./verification-prompts.js";
 
@@ -387,6 +386,7 @@ function hasTodoItems(result: VerificationResult): boolean {
 }
 
 function isVerificationPassed(result: VerificationResult, hasChecklist: boolean): boolean {
+    if (result.errors.length > 0) return false;
     return hasChecklist
         ? result.checklistComplete && result.syncIssuesEmpty && (!hasTodoItems(result) || result.todoComplete)
         : result.todoComplete && result.syncIssuesEmpty;

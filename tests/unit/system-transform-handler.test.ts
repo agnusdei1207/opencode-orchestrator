@@ -5,14 +5,14 @@
 import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { describe, it, expect, beforeEach, vi } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import {
     createSystemTransformHandler,
     type SystemTransformInput,
     type SystemTransformOutput,
 } from "../../src/plugin-handlers/system-transform-handler";
 import type { EventHandlerContext } from "../../src/plugin-handlers/event-handler";
-import { isMissionActive, ensureSessionInitialized } from "../../src/core/orchestrator/session-manager";
+import { ensureSessionInitialized } from "../../src/core/orchestrator/session-manager";
 import { readLoopState } from "../../src/core/loop/mission-loop";
 import { ParallelAgentManager } from "../../src/core/agents/manager";
 import { log } from "../../src/core/agents/logger";
@@ -24,7 +24,6 @@ vi.mock("../../src/core/loop/mission-loop", () => ({
 }));
 
 vi.mock("../../src/core/orchestrator/session-manager", () => ({
-    isMissionActive: vi.fn(),
     ensureSessionInitialized: vi.fn(),
 }));
 
@@ -47,11 +46,13 @@ vi.mock("../../src/core/agents/logger", () => ({ log: vi.fn() }));
 describe("System Transform Handler", () => {
     let mockContext: EventHandlerContext;
     let handler: ReturnType<typeof createSystemTransformHandler>;
+    let testDirectory: string;
 
     beforeEach(() => {
+        testDirectory = mkdtempSync(path.join(tmpdir(), "oco-system-transform-"));
         mockContext = {
             client: {} as any,
-            directory: "/tmp/test",
+            directory: testDirectory,
             sessions: new Map([
                 ["test-session", { step: 5, active: true, startTime: Date.now() - 300000 }],
             ]) as any,
@@ -66,9 +67,10 @@ describe("System Transform Handler", () => {
         handler = createSystemTransformHandler(mockContext);
 
         // Default mocks
-        vi.mocked(isMissionActive).mockReturnValue(true);
         vi.mocked(ensureSessionInitialized).mockReturnValue({ step: 5, active: true });
     });
+
+    afterEach(() => rmSync(testDirectory, { recursive: true, force: true }));
 
     it("should inject system prompts for orchestrated sessions", async () => {
         vi.mocked(readLoopState).mockReturnValue({
@@ -81,12 +83,16 @@ describe("System Transform Handler", () => {
         });
 
         const input = createSystemInput();
-        const output: SystemTransformOutput = { system: [] };
+        const output: SystemTransformOutput = { system: ["User-selected agent instructions"] };
 
         await handler(input, output);
 
         expect(output.system.length).toBeGreaterThan(0);
         expect(output.system.some(s => s.includes("MISSION LOOP ACTIVE"))).toBe(true);
+        expect(output.system).toContain("User-selected agent instructions");
+        expect(output.system).not.toContain("[COMMANDER_SYSTEM_PROMPT_MOCK]");
+        expect(output.system.join("\n")).toContain("parent status: completed");
+        expect(output.system.join("\n")).toContain("If .opencode/verification-checklist.md exists");
     });
 
     it("should inject active session prompt", async () => {
@@ -137,7 +143,7 @@ describe("System Transform Handler", () => {
     });
 
     it("should not inject for non-orchestrated sessions", async () => {
-        vi.mocked(isMissionActive).mockReturnValue(false);
+        vi.mocked(ensureSessionInitialized).mockClear();
         vi.mocked(readLoopState).mockReturnValue(null);
 
         const input = createSystemInput();
@@ -146,6 +152,18 @@ describe("System Transform Handler", () => {
         await handler(input, output);
 
         expect(output.system.length).toBe(0);
+        expect(ensureSessionInitialized).not.toHaveBeenCalled();
+    });
+
+    it("does not inject another session's mission when the in-memory flag is stale", async () => {
+        mockContext.state.missionActive = true;
+        vi.mocked(readLoopState).mockReturnValue({
+            active: true, iteration: 1, maxIterations: 10, prompt: "Other goal",
+            sessionID: "other-session", startedAt: new Date().toISOString(),
+        });
+        const output: SystemTransformOutput = { system: ["native agent"] };
+        await handler(createSystemInput(), output);
+        expect(output.system).toEqual(["native agent"]);
     });
 
     it("should include mission loop prompt", async () => {
@@ -207,6 +225,18 @@ describe("System Transform Handler", () => {
         } finally {
             rmSync(testDir, { recursive: true, force: true });
         }
+    });
+
+    it("preserves the host prompt and mission context when the optional scratchpad cannot be read", async () => {
+        mkdirSync(path.join(testDirectory, ".opencode/docs/brain/scratchpad.md"), { recursive: true });
+        vi.mocked(readLoopState).mockReturnValue({
+            active: true, iteration: 1, maxIterations: 10, prompt: "Current goal",
+            sessionID: "test-session", startedAt: new Date().toISOString(),
+        });
+        const output: SystemTransformOutput = { system: ["native agent"] };
+        await expect(handler(createSystemInput(), output)).resolves.toBeUndefined();
+        expect(output.system).toContain("native agent");
+        expect(output.system.join("\n")).toContain("MISSION LOOP ACTIVE");
     });
 
     it("should log background task lookup failures without aborting transform", async () => {

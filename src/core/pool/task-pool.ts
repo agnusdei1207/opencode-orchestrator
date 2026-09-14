@@ -16,7 +16,7 @@ interface ParallelTaskPoolInput {
     description: string;
     prompt: string;
     agent: string;
-    concurrencyKey: string;
+    concurrencyKey?: string;
     depth: number;
     mode?: ParallelTask["mode"];
     groupID?: string;

@@ -4,7 +4,7 @@
  * Runs shell commands in the background and tracks their output.
  */
 
-import { spawn } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import { randomBytes } from "node:crypto";
 import {
     ID_PREFIX,
@@ -20,7 +20,11 @@ import { log as internalLog } from "../agents/logger.js";
 
 interface ManagedBackgroundTask extends BackgroundTask {
     timeoutHandle?: NodeJS.Timeout;
+    stopping?: Promise<boolean>;
+    termination?: { status: BackgroundTaskStatus; message: string };
 }
+
+const TERMINATION_TIMEOUT_MS = 2_000;
 
 class BackgroundTaskManager {
     private static _instance: BackgroundTaskManager;
@@ -53,12 +57,11 @@ class BackgroundTaskManager {
 
         const isWindows = process.platform === PLATFORM.WIN32;
         const shell = isWindows ? "cmd.exe" : CLI_NAME.SH;
-        const shellFlag = isWindows ? "/c" : "-c";
 
         const task: ManagedBackgroundTask = {
             id,
             command,
-            args: [shellFlag, command],
+            args: isWindows ? ["/d", "/s", "/c", `"${command}"`] : ["-c", command],
             cwd,
             label,
             status: STATUS_LABEL.RUNNING,
@@ -76,7 +79,9 @@ class BackgroundTaskManager {
             const proc = spawn(shell, task.args, {
                 cwd,
                 stdio: ["ignore", "pipe", "pipe"],
-                detached: false,
+                detached: !isWindows,
+                windowsHide: true,
+                windowsVerbatimArguments: isWindows,
             });
 
             task.process = proc;
@@ -95,7 +100,10 @@ class BackgroundTaskManager {
             proc.on("close", (code: number | null) => {
                 task.exitCode = code;
                 task.endTime = Date.now();
-                if (task.status === STATUS_LABEL.RUNNING) {
+                if (task.termination) {
+                    task.status = task.termination.status;
+                    task.errorOutput += `\n${task.termination.message}`;
+                } else if (task.status === STATUS_LABEL.RUNNING) {
                     task.status = code === 0 ? STATUS_LABEL.DONE : STATUS_LABEL.ERROR;
                 }
                 cleanup(); // GUARANTEED cleanup
@@ -103,19 +111,15 @@ class BackgroundTaskManager {
             });
 
             proc.on("error", (err: Error) => {
-                task.status = STATUS_LABEL.ERROR;
                 task.errorOutput += `\nProcess error: ${err.message}`;
-                task.endTime = Date.now();
-                cleanup(); // GUARANTEED cleanup
+                // A failed signal also emits error; only close confirms exit.
             });
 
-            task.timeoutHandle = setTimeout(() => {
+            task.timeoutHandle = setTimeout(async () => {
                 if (task.status === STATUS_LABEL.RUNNING && task.process) {
-                    task.process.kill("SIGKILL");
-                    task.status = STATUS_LABEL.TIMEOUT;
-                    task.endTime = Date.now();
-                    cleanup(); // GUARANTEED cleanup
-                    this.debug(id, "Timeout");
+                    if (!await this.terminateTask(task, STATUS_LABEL.TIMEOUT, "Timed out")) {
+                        task.errorOutput += "\nTimeout termination failed; task may still be running";
+                    }
                 }
             }, timeout);
 
@@ -151,17 +155,10 @@ class BackgroundTaskManager {
         return count;
     }
 
-    kill(taskId: string): boolean {
+    async kill(taskId: string): Promise<boolean> {
         const task = this.tasks.get(taskId);
-        if (task?.process) {
-            task.process.kill("SIGKILL");
-            task.status = STATUS_LABEL.ERROR;
-            task.errorOutput += "\nKilled by user";
-            task.endTime = Date.now();
-            this.cleanupTaskResources(task);
-            return true;
-        }
-        return false;
+        if (!task?.process) return false;
+        return this.terminateTask(task, STATUS_LABEL.ERROR, "Killed by user");
     }
 
     formatDuration(task: BackgroundTask): string {
@@ -179,20 +176,52 @@ class BackgroundTaskManager {
      * Shutdown - kills all running processes and clears tasks
      */
     async shutdown(): Promise<void> {
-        const running = Array.from(this.tasks.values()).filter(
-            task => task.status === STATUS_LABEL.RUNNING
-        );
-        for (const task of running) {
-            if (task.process) {
-                try {
-                    task.process.kill("SIGTERM");
-                } catch (err) {
-                    // Process might already be dead
-                }
+        const failed: string[] = [];
+        await Promise.all([...this.tasks.values()].map(async task => {
+            if (task.process && !await this.terminateTask(task, STATUS_LABEL.ERROR, "Stopped on shutdown")) {
+                failed.push(task.id);
+                return;
             }
             this.cleanupTaskResources(task);
+            this.tasks.delete(task.id);
+        }));
+        if (failed.length) throw new Error(`Could not terminate background tasks: ${failed.join(", ")}`);
+    }
+
+    private signalTask(task: ManagedBackgroundTask): boolean {
+        try {
+            const proc = task.process;
+            if (!proc?.pid) return proc?.kill("SIGKILL") ?? false;
+            if (process.platform !== PLATFORM.WIN32) return process.kill(-proc.pid, "SIGKILL");
+            const result = spawnSync("taskkill", ["/PID", String(proc.pid), "/T", "/F"], {
+                windowsHide: true,
+                timeout: TERMINATION_TIMEOUT_MS,
+            });
+            return result.status === 0;
+        } catch (error) {
+            internalLog(`[BackgroundTask] Failed to signal ${task.id}`, error);
+            return false;
         }
-        this.tasks.clear();
+    }
+
+    private terminateTask(task: ManagedBackgroundTask, status: BackgroundTaskStatus, message: string): Promise<boolean> {
+        if (task.stopping) return task.stopping;
+        const proc = task.process;
+        if (!proc) return Promise.resolve(true);
+        task.termination = { status, message };
+        task.stopping = new Promise<boolean>(resolve => {
+            const finish = (closed: boolean) => {
+                clearTimeout(timer);
+                proc.removeListener("close", onClose);
+                if (!closed) task.termination = undefined;
+                resolve(closed);
+            };
+            const onClose = () => finish(true);
+            const timer = setTimeout(() => finish(false), TERMINATION_TIMEOUT_MS);
+            proc.once("close", onClose);
+            if (!this.signalTask(task)) finish(false);
+        }).finally(() => { task.stopping = undefined; });
+        return task.stopping;
     }
 
     private cleanupTaskResources(task: ManagedBackgroundTask): void {

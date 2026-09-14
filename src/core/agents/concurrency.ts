@@ -10,9 +10,6 @@
 
 import { PARALLEL_TASK } from "../../shared/index.js";
 import type { ConcurrencyConfig } from "../../shared/agent/index.js";
-import { ConcurrencyToken } from "./concurrency-token.js";
-import { WorkStealingWorkerPool } from "../queue/worker-pool.js";
-import type { WorkItem } from "../queue/work-stealing-deque.js";
 
 export type { ConcurrencyConfig } from "../../shared/agent/index.js";
 
@@ -92,16 +89,6 @@ function normalizeLimitMap(name: string, limits?: Record<string, number>): Recor
     return normalized;
 }
 
-function normalizePositiveIntegerMap(name: string, counts?: Record<string, number>): Record<string, number> | undefined {
-    if (!counts) return undefined;
-
-    const normalized: Record<string, number> = {};
-    for (const [key, count] of Object.entries(counts)) {
-        normalized[key] = assertPositiveInteger(`${name}.${key}`, count);
-    }
-    return normalized;
-}
-
 function normalizeConfig(config: ConcurrencyConfig = {}): ConcurrencyConfig {
     return {
         defaultConcurrency: config.defaultConcurrency === undefined
@@ -122,7 +109,6 @@ function normalizeConfig(config: ConcurrencyConfig = {}): ConcurrencyConfig {
         resourcePressureMaxHeapPercent: config.resourcePressureMaxHeapPercent === undefined
             ? undefined
             : assertPercentage("resourcePressureMaxHeapPercent", config.resourcePressureMaxHeapPercent),
-        workStealingWorkers: normalizePositiveIntegerMap("workStealingWorkers", config.workStealingWorkers),
         agentConcurrency: normalizeLimitMap("agentConcurrency", config.agentConcurrency),
         providerConcurrency: normalizeLimitMap("providerConcurrency", config.providerConcurrency),
         modelConcurrency: normalizeLimitMap("modelConcurrency", config.modelConcurrency),
@@ -130,6 +116,7 @@ function normalizeConfig(config: ConcurrencyConfig = {}): ConcurrencyConfig {
 }
 
 export class ConcurrencyController {
+    private closed = false;
     private counts: Map<string, number> = new Map();
     private queues: Map<string, QueuedTask[]> = new Map();
     private limits: Map<string, number> = new Map();
@@ -141,10 +128,7 @@ export class ConcurrencyController {
 
     // Circuit breaker
     private circuits: Map<string, CircuitBreaker> = new Map();
-    private activeTokens: Set<ConcurrencyToken> = new Set();
 
-    // Work-stealing
-    private workerPools: Map<string, WorkStealingWorkerPool<QueuedTask>> = new Map();
 
     constructor(config?: ConcurrencyConfig) {
         this.config = normalizeConfig(config);
@@ -173,7 +157,7 @@ export class ConcurrencyController {
             return normalizeLimit(configuredLimit);
         }
 
-        return this.config.defaultConcurrency ?? PARALLEL_TASK.DEFAULT_CONCURRENCY;
+        return normalizeLimit(this.config.defaultConcurrency ?? PARALLEL_TASK.DEFAULT_CONCURRENCY);
     }
 
     private getAcquisitionTimeoutMs(): number {
@@ -211,6 +195,7 @@ export class ConcurrencyController {
      * Acquire slot with priority support
      */
     async acquire(key: string, priority: TaskPriority = TaskPriority.NORMAL): Promise<void> {
+        if (this.closed) throw new Error("Concurrency controller shut down");
         // Check circuit breaker
         if (this.isCircuitOpen(key)) {
             throw new Error(`Circuit breaker OPEN for ${key}. Try again later.`);
@@ -451,66 +436,15 @@ export class ConcurrencyController {
         circuit.successCount = 0;
     }
 
-    /**
-     * Acquire slot and return RAII token for automatic cleanup
-     * @param key - Concurrency key
-     * @param priority - Task priority
-     * @param autoReleaseMs - Auto-release timeout (default: 10 minutes)
-     * @returns ConcurrencyToken - Call .release() when done
-     */
-    async acquireToken(
-        key: string,
-        priority: TaskPriority = TaskPriority.NORMAL,
-        autoReleaseMs: number = 600_000
-    ): Promise<ConcurrencyToken> {
-        await this.acquire(key, priority);
-        let token: ConcurrencyToken;
-        token = new ConcurrencyToken(this, key, autoReleaseMs, released => {
-            this.activeTokens.delete(released);
-        });
-        this.activeTokens.add(token);
-        return token;
-    }
-
-    /**
-     * Enable work-stealing for a concurrency key
-     * @param key - Concurrency key
-     * @param workerCount - Number of workers (default: 4)
-     */
-    enableWorkStealing(key: string, workerCount: number = 4): void {
-        if (this.workerPools.has(key)) {
-            return; // Already enabled
-        }
-
-        const pool = new WorkStealingWorkerPool<QueuedTask>(workerCount, async (workItem: WorkItem<QueuedTask>) => {
-            // Execute the queued task
-            workItem.task.resolve();
-        });
-
-        pool.start();
-        this.workerPools.set(key, pool);
-    }
-
-    /**
-     * Get work-stealing pool statistics
-     */
-    getWorkStealingStats(key: string) {
-        const pool = this.workerPools.get(key);
-        return pool ? pool.getStats() : null;
-    }
-
-    /**
-     * Shutdown - stops all worker pools
-     */
     async shutdown(): Promise<void> {
-        for (const token of Array.from(this.activeTokens)) {
-            token.release();
+        this.closed = true;
+        for (const queue of this.queues.values()) {
+            for (const task of queue) {
+                clearTimeout(task.timeoutId);
+                task.reject(new Error("Concurrency controller shut down"));
+            }
         }
-        this.activeTokens.clear();
-
-        for (const pool of this.workerPools.values()) {
-            await pool.stop();
-        }
-        this.workerPools.clear();
+        this.queues.clear();
+        this.counts.clear();
     }
 }

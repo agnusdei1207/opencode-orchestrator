@@ -7,11 +7,11 @@ import { backgroundTaskManager } from "../../src/core/commands/index.js";
 import { BACKGROUND_STATUS, STATUS_LABEL, FILTER_STATUS } from "../../src/shared/index.js";
 
 describe("Background Command Tools", () => {
-    beforeEach(() => {
+    beforeEach(async () => {
         // Clear tasks in backgroundTaskManager
         const all = backgroundTaskManager.getAll();
         for (const t of all) {
-            backgroundTaskManager.kill(t.id);
+            await backgroundTaskManager.kill(t.id);
         }
         // Reset internal map
         (backgroundTaskManager as any).tasks = new Map();
@@ -36,7 +36,7 @@ describe("Background Command Tools", () => {
                 cwd: "/tmp",
                 timeout: 5000,
                 label: "test-build",
-            });
+            }, { directory: "/tmp" });
 
             expect(result).toContain("Background Task Started");
             expect(result).toContain("bg_123");

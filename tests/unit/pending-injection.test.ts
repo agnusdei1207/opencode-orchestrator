@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import {
     queuePrompts,
+    queueNotice,
     peekPrompts,
     hasPendingPrompts,
     clearPrompts,
@@ -70,6 +71,48 @@ describe("deferred prompt injection (issue #38)", () => {
     });
 
     describe("flushPrompts", () => {
+        it("does not send a queue cleared while session status is pending", async () => {
+            queuePrompts(SESSION, ["continue"]);
+            let resolveStatus!: (value: { data: object }) => void;
+            const api = { session: {
+                status: vi.fn(() => new Promise(resolve => { resolveStatus = resolve; })),
+                prompt: vi.fn().mockResolvedValue({ data: {} }),
+            } };
+            const flush = flushPrompts(api as never, SESSION);
+            clearPrompts(SESSION);
+            resolveStatus({ data: {} });
+            await expect(flush).resolves.toBe(false);
+            expect(api.session.prompt).not.toHaveBeenCalled();
+        });
+
+        it("does not send a snapshot replaced while checking session status", async () => {
+            queuePrompts(SESSION, ["old state"]);
+            const api = { session: {
+                status: vi.fn(async () => { queuePrompts(SESSION, ["new state"]); return { data: {} }; }),
+                prompt: vi.fn().mockResolvedValue({ data: {} }),
+            } };
+            await expect(flushPrompts(api as never, SESSION)).resolves.toBe(false);
+            expect(api.session.prompt).not.toHaveBeenCalled();
+            expect(peekPrompts(SESSION)).toEqual(["new state"]);
+        });
+        it.each(["reject", "error"])("retains one-shot notices after %s while discarding stale snapshots", async (failure) => {
+            queueNotice(SESSION, "task done");
+            queuePrompts(SESSION, ["old snapshot"]);
+            const { client: api, prompt } = client({ failPrompt: failure === "reject" });
+            if (failure === "error") prompt.mockResolvedValueOnce({ error: "offline" });
+            await expect(flushPrompts(api, SESSION)).resolves.toBe(false);
+            expect(peekPrompts(SESSION)).toEqual(["task done"]);
+        });
+
+        it("preserves notices arriving during the busy check", async () => {
+            queueNotice(SESSION, "first");
+            const api = { session: {
+                status: vi.fn(async () => { queueNotice(SESSION, "second"); return { data: {} }; }),
+                prompt: vi.fn().mockResolvedValue({ data: {} }),
+            } };
+            await flushPrompts(api as never, SESSION);
+            expect(peekPrompts(SESSION)).toEqual(["second"]);
+        });
         it("sends the queue as one synthetic message when idle", async () => {
             queuePrompts(SESSION, ["first", "second"]);
             const { client: api, prompt } = client();

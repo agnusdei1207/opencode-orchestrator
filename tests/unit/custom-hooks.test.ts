@@ -1,43 +1,9 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import { UserActivityHook } from "../../src/hooks/custom/user-activity.js";
+import { describe, it, expect, beforeEach } from "vitest";
 import { MetricsHook } from "../../src/hooks/custom/metrics.js";
 import { MetricsCollector } from "../../src/core/metrics/collector.js";
-import * as TodoContinuation from "../../src/core/loop/todo-continuation.js";
 import { HOOK_ACTIONS } from "../../src/hooks/constants.js";
 
 describe("Custom Hooks Suite", () => {
-    describe("UserActivityHook", () => {
-        it("triggers TodoContinuation.handleUserMessage when sessionID is present", async () => {
-            const spy = vi.spyOn(TodoContinuation, "handleUserMessage").mockImplementation(() => {});
-            const hook = new UserActivityHook();
-
-            const result = await hook.execute(
-                { sessionID: "s123", directory: "/tmp", sessions: new Map() },
-                "user said hello"
-            );
-
-            expect(spy).toHaveBeenCalledWith("s123");
-            expect(result.action).toBe(HOOK_ACTIONS.PROCESS);
-
-            spy.mockRestore();
-        });
-
-        it("handles missing sessionID gracefully", async () => {
-            const spy = vi.spyOn(TodoContinuation, "handleUserMessage").mockImplementation(() => {});
-            const hook = new UserActivityHook();
-
-            const result = await hook.execute(
-                { sessionID: undefined as any, directory: "/tmp", sessions: new Map() },
-                "user said hello"
-            );
-
-            expect(spy).not.toHaveBeenCalled();
-            expect(result.action).toBe(HOOK_ACTIONS.PROCESS);
-
-            spy.mockRestore();
-        });
-    });
-
     describe("MetricsHook", () => {
         beforeEach(() => {
             MetricsCollector._resetForTesting();

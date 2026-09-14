@@ -11,19 +11,19 @@ export const DELEGATE_TASK_DESCRIPTION = `Delegate a task to an agent.
 
 ${PROMPT_TAGS.MODE.open}
 - ${PARALLEL_PARAMS.BACKGROUND}=true: Non-blocking. Returns task ID immediately.
-- ${PARALLEL_PARAMS.BACKGROUND}=false: Blocking. Waits for result.
+- ${PARALLEL_PARAMS.BACKGROUND}=false: Waits up to five minutes for manager-confirmed completion. A wait timeout or interruption does not cancel the task; inspect get_task_result later.
 ${PROMPT_TAGS.MODE.close}
 
 ${PROMPT_TAGS.RESUME.open}
 - ${PARALLEL_PARAMS.RESUME}: Optional session ID to continue existing session.
 - When set, continues previous work instead of starting fresh.
-- Preserves all context from previous conversation.
-- Use for: retry after failure, follow-up questions, token efficiency.
+- Continues the same native session, subject to OpenCode context and compaction behavior.
+- Use for explicitly requested follow-up work after observing the previous result.
 ${PROMPT_TAGS.RESUME.close}
 
 ${PROMPT_TAGS.SAFETY.open}
 - Max 10 tasks per agent type (configurable)
-- Auto-timeout: 60 minutes
+- Cancellation is reported only after the host confirms it. Inspect failures before retrying work that may have side effects.
 - Use \`${TOOL_NAMES.LIST_AGENTS}\` to see all available agents (including custom ones).
 ${PROMPT_TAGS.SAFETY.close}`;
 

@@ -33,6 +33,17 @@ describe("ConcurrencyController", () => {
     // ========================================================================
 
     describe("basic acquire/release", () => {
+        it("rejects queued admissions on shutdown without starting them", async () => {
+            controller.setLimit("agent-a", 1);
+            await controller.acquire("agent-a");
+            const queued = controller.acquire("agent-a");
+            const rejected = expect(queued).rejects.toThrow("shut down");
+            await controller.shutdown();
+            controller.release("agent-a");
+            await rejected;
+            expect(controller.getQueueLength("agent-a")).toBe(0);
+            await expect(controller.acquire("agent-a")).rejects.toThrow("shut down");
+        });
         it("should acquire when under limit", async () => {
             await controller.acquire("agent-a");
             expect(controller.getActiveCount("agent-a")).toBe(1);
@@ -243,21 +254,6 @@ describe("ConcurrencyController", () => {
                 .resolves.toBeUndefined();
 
             memorySpy.mockRestore();
-        });
-    });
-
-    describe("token shutdown ownership", () => {
-        it("should release active tokens during controller shutdown", async () => {
-            controller = new ConcurrencyController({ defaultConcurrency: 1 });
-
-            const token = await controller.acquireToken("agent-a", TaskPriority.NORMAL, 60_000);
-
-            expect(controller.getActiveCount("agent-a")).toBe(1);
-
-            await controller.shutdown();
-
-            expect(token.isReleased()).toBe(true);
-            expect(controller.getActiveCount("agent-a")).toBe(0);
         });
     });
 

@@ -18,6 +18,7 @@ import { mkdirSync, writeFileSync, rmSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { pathToFileURL } from "node:url";
+import { MISSION_CONTROL } from "../../src/shared/loop/constants";
 
 const DIST_ENTRY = join(process.cwd(), "dist", "index.js");
 const SESSION = "ses_e2e_injection";
@@ -47,7 +48,7 @@ function seedMissionWorkspace(): string {
         join(opencodeDir, "verification-checklist.md"),
         "# Verification\n\n## Build\n- [ ] Build passes\n\n## Unit Tests\n- [ ] Tests pass\n",
     );
-    writeFileSync(join(opencodeDir, "mission-loop.json"), JSON.stringify({
+    writeFileSync(join(opencodeDir, MISSION_CONTROL.STATE_FILE), JSON.stringify({
         active: true,
         iteration: 1,
         maxIterations: 50,
@@ -82,7 +83,10 @@ describe("session injection regression (issues #35, #37, #38)", () => {
                 },
                 // Upstream lists ONLY non-idle sessions in this map.
                 status: async () => ({ data: serverBusy ? { [SESSION]: { type: "busy" } } : {} }),
-                message: async () => ({ data: { parts: [{ type: "text", text: LONG_HEALTHY_OUTPUT }] } }),
+                message: async () => ({ data: { parts: [
+                    { type: "text", text: LONG_HEALTHY_OUTPUT },
+                    { type: "tool", tool: "read" },
+                ] } }),
                 todo: async () => ({
                     data: [{ id: "T1", content: "Implement the feature", status: "pending", priority: "high" }],
                 }),
@@ -130,7 +134,9 @@ describe("session injection regression (issues #35, #37, #38)", () => {
         serverBusy = false;
         await fire({ type: "session.status", properties: { sessionID: SESSION, status: { type: "idle" } } });
         await fire({ type: "session.idle", properties: { sessionID: SESSION } });
-        await settle(1500);
+        // The sole mission continuation owner applies its three-second countdown.
+        const deadline = Date.now() + 6000;
+        while (sent.length === 0 && Date.now() < deadline) await settle(50);
     }, 60_000);
 
     it("never injects while the session is still working", () => {

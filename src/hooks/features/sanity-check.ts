@@ -3,25 +3,20 @@
  * Sanity Check Hook
  * Implements output anomaly detection.
  *
- * Acting on a suspected anomaly is not free: it rewrites a tool result or
- * injects a recovery turn into the live session. So the hook only reacts to
+ * Acting on a suspected anomaly injects a recovery turn into the live
+ * session. So the hook only reacts to
  * CRITICAL findings, and only after a cooldown, which bounds the blast radius of
  * any detector that misjudges an unusual but healthy output (issue #35).
  */
 import type {
-    PostToolUseHook,
     AssistantDoneHook,
     HookContext,
     HookResult,
-    PostToolResult,
-    ToolInput,
-    ToolOutput,
 } from "../registry.js";
 import { checkOutputSanity, RECOVERY_PROMPT, ESCALATION_PROMPT, type SanityResult } from "../../utils/sanity/index.js";
 // Imported from the leaf module, not the barrel: severity is a plain constant
 // and must stay readable even when a test substitutes the detector barrel.
 import { SEVERITY } from "../../utils/sanity/constants/severity.js";
-import { TOOL_NAMES } from "../../shared/index.js";
 import { HOOK_ACTIONS, HOOK_NAMES } from "../constants.js";
 import { recordAnomaly, resetAnomaly } from "../../core/orchestrator/session-manager.js";
 import { MISSION_MESSAGES } from "../../shared/constants/system-messages.js";
@@ -37,60 +32,13 @@ const ANOMALY_COOLDOWN_MS = 60_000;
 /** Anomaly count at which recovery advice escalates to a full replan. */
 const ESCALATION_THRESHOLD = 2;
 
-export class SanityCheckHook implements PostToolUseHook, AssistantDoneHook {
+export class SanityCheckHook implements AssistantDoneHook {
     name = HOOK_NAMES.SANITY_CHECK;
 
     /** Last intervention timestamp per session, for cooldown. */
     private readonly lastInterventionAt = new Map<string, number>();
 
-    async execute(
-        ctx: HookContext,
-        tool: string,
-        input: ToolInput,
-        output: ToolOutput
-    ): Promise<PostToolResult>;
-    async execute(
-        ctx: HookContext,
-        finalText: string
-    ): Promise<HookResult>;
-    async execute(
-        ctx: HookContext,
-        toolOrText: string,
-        input?: ToolInput,
-        output?: ToolOutput
-    ): Promise<PostToolResult | HookResult> {
-        // Handle PostToolUse (checks CallAgent output)
-        if (output) {
-            if (toolOrText === TOOL_NAMES.CALL_AGENT) {
-                return this.checkToolOutput(ctx, input, output);
-            }
-
-            return {};
-        }
-        // Handle AssistantDone (checks final text)
-        else {
-            return this.checkFinalText(ctx, toolOrText);
-        }
-    }
-
-    private async checkToolOutput(ctx: HookContext, toolInput: ToolInput | undefined, toolOutput: ToolOutput): Promise<PostToolResult> {
-        const sanityResult = checkOutputSanity(toolOutput.output);
-
-        if (!this.shouldIntervene(ctx.sessionID, sanityResult)) {
-            if (sanityResult.isHealthy) resetAnomaly(ctx.sessionID);
-            return {};
-        }
-
-        const count = recordAnomaly(ctx.sessionID);
-        const agentName = typeof toolInput?.agent === "string" ? toolInput.agent : "unknown";
-
-        return {
-            output: MISSION_MESSAGES.ANOMALY_DETECTED_TITLE(agentName.toUpperCase()) + "\n\n" +
-                MISSION_MESSAGES.ANOMALY_DETECTED_BODY(this.reasonOf(sanityResult), count, recoveryTextFor(count)),
-        };
-    }
-
-    private async checkFinalText(ctx: HookContext, finalText: string): Promise<HookResult> {
+    async execute(ctx: HookContext, finalText: string): Promise<HookResult> {
         const sanityResult = checkOutputSanity(finalText);
 
         if (!this.shouldIntervene(ctx.sessionID, sanityResult)) {
@@ -107,7 +55,7 @@ export class SanityCheckHook implements PostToolUseHook, AssistantDoneHook {
 
     /**
      * Gate every intervention on severity and cooldown, and stamp the cooldown
-     * as a side effect so both call sites share one budget per session.
+     * as a side effect to keep one budget per session.
      */
     private shouldIntervene(sessionID: string, result: SanityResult): boolean {
         if (result.isHealthy) return false;

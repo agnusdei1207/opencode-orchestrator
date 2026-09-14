@@ -1,12 +1,12 @@
 //! LSP Diagnostics tool - runs tsc and eslint to get errors/warnings
 
-use crate::{Error, Result};
+use crate::Result;
+use crate::tools::process::run_with_timeout;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use std::path::Path;
-use std::process::{Command, Output, Stdio};
-use std::thread::sleep;
-use std::time::{Duration, Instant};
+use std::process::Command;
+use std::time::Duration;
 
 /// Diagnostic severity level
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
@@ -123,7 +123,7 @@ impl DiagnosticsTool {
             .args(["--noEmit", "--pretty", "false"])
             .current_dir(directory);
 
-        let result = match self.run_command(&mut command) {
+        let result = match self.run_command(command) {
             Ok(result) => result,
             Err(err) => {
                 return Ok(vec![
@@ -213,7 +213,7 @@ impl DiagnosticsTool {
             ])
             .current_dir(directory);
 
-        let result = match self.run_command(&mut command) {
+        let result = match self.run_command(command) {
             Ok(result) => result,
             Err(err) => {
                 return Ok(vec![
@@ -226,38 +226,22 @@ impl DiagnosticsTool {
     }
 
     fn build_eslint_diagnostics(&self, result: &CommandResult) -> Vec<Diagnostic> {
-        let diagnostics = self.parse_eslint_output(&result.stdout);
-        if diagnostics.is_empty() && (!result.success || !result.stdout.trim().is_empty()) {
-            let details = format!("{}{}", result.stdout, result.stderr);
-            return vec![self.command_failure_diagnostic("eslint", &details)];
+        if let Some(diagnostics) = self.parse_eslint_output(&result.stdout)
+            && (result.success || !diagnostics.is_empty())
+        {
+            return diagnostics;
         }
-
-        diagnostics
+        let details = format!("{}{}", result.stdout, result.stderr);
+        vec![self.command_failure_diagnostic("eslint", &details)]
     }
 
-    fn run_command(&self, command: &mut Command) -> Result<CommandResult> {
-        let mut child = command
-            .stdout(Stdio::piped())
-            .stderr(Stdio::piped())
-            .spawn()?;
-
-        let start = Instant::now();
-        loop {
-            if child.try_wait()?.is_some() {
-                return command_result_from_output(child.wait_with_output());
-            }
-
-            if start.elapsed() >= self.config.timeout {
-                let _ = child.kill();
-                let _ = child.wait();
-                return Err(Error::Tool(format!(
-                    "diagnostics command timed out after {}ms",
-                    self.config.timeout.as_millis()
-                )));
-            }
-
-            sleep(Duration::from_millis(10));
-        }
+    fn run_command(&self, command: Command) -> Result<CommandResult> {
+        let output = run_with_timeout(command, self.config.timeout, None)?;
+        Ok(CommandResult {
+            stdout: String::from_utf8_lossy(&output.stdout).to_string(),
+            stderr: String::from_utf8_lossy(&output.stderr).to_string(),
+            success: output.status.success(),
+        })
     }
 
     fn command_failure_diagnostic(&self, source: &str, details: &str) -> Diagnostic {
@@ -286,33 +270,30 @@ impl DiagnosticsTool {
     }
 
     /// Parse ESLint JSON output
-    fn parse_eslint_output(&self, output: &str) -> Vec<Diagnostic> {
+    fn parse_eslint_output(&self, output: &str) -> Option<Vec<Diagnostic>> {
         let mut diagnostics = Vec::new();
 
-        // Try to parse as JSON array
-        if let Ok(files) = serde_json::from_str::<Vec<EslintFile>>(output) {
-            for file in files {
-                for msg in file.messages {
-                    let severity = match msg.severity {
-                        2 => DiagnosticSeverity::Error,
-                        1 => DiagnosticSeverity::Warning,
-                        _ => DiagnosticSeverity::Info,
-                    };
+        let files = serde_json::from_str::<Vec<EslintFile>>(output).ok()?;
+        for file in files {
+            for msg in file.messages {
+                let severity = match msg.severity {
+                    2 => DiagnosticSeverity::Error,
+                    1 => DiagnosticSeverity::Warning,
+                    _ => DiagnosticSeverity::Info,
+                };
 
-                    diagnostics.push(Diagnostic {
-                        file: file.file_path.clone(),
-                        line: msg.line.unwrap_or(0),
-                        column: msg.column.unwrap_or(0),
-                        severity,
-                        message: msg.message,
-                        source: Some("eslint".to_string()),
-                        code: msg.rule_id,
-                    });
-                }
+                diagnostics.push(Diagnostic {
+                    file: file.file_path.clone(),
+                    line: msg.line.unwrap_or(0),
+                    column: msg.column.unwrap_or(0),
+                    severity,
+                    message: msg.message,
+                    source: Some("eslint".to_string()),
+                    code: msg.rule_id,
+                });
             }
         }
-
-        diagnostics
+        Some(diagnostics)
     }
 }
 
@@ -337,15 +318,6 @@ struct EslintMessage {
     message: String,
     #[serde(rename = "ruleId")]
     rule_id: Option<String>,
-}
-
-fn command_result_from_output(output: std::io::Result<Output>) -> Result<CommandResult> {
-    let output = output?;
-    Ok(CommandResult {
-        stdout: String::from_utf8_lossy(&output.stdout).to_string(),
-        stderr: String::from_utf8_lossy(&output.stderr).to_string(),
-        success: output.status.success(),
-    })
 }
 
 fn local_node_bin(directory: &Path, name: &str) -> Option<std::path::PathBuf> {
@@ -402,7 +374,40 @@ mod tests {
     use std::fs;
     #[cfg(unix)]
     use std::os::unix::fs::PermissionsExt;
+    use std::time::Instant;
     use tempfile::tempdir;
+
+    #[test]
+    fn successful_empty_eslint_results_are_not_command_failures() {
+        let tool = DiagnosticsTool::default();
+        for stdout in ["[]", r#"[{"filePath":"index.ts","messages":[]}]"#] {
+            let result = CommandResult {
+                stdout: stdout.to_string(),
+                stderr: String::new(),
+                success: true,
+            };
+            assert!(tool.build_eslint_diagnostics(&result).is_empty());
+        }
+    }
+
+    #[test]
+    fn drains_large_stdout_and_stderr_before_waiting_for_command_exit() {
+        let tool = DiagnosticsTool::new(DiagnosticsConfig {
+            timeout: Duration::from_millis(500),
+            ..DiagnosticsConfig::default()
+        });
+        let mut command = Command::new("sh");
+        command.args([
+            "-c",
+            "head -c 262144 /dev/zero; head -c 262144 /dev/zero >&2",
+        ]);
+        let result = tool
+            .run_command(command)
+            .expect("large output must not deadlock");
+        assert!(result.success);
+        assert_eq!(result.stdout.len(), 262144);
+        assert_eq!(result.stderr.len(), 262144);
+    }
 
     #[test]
     fn eslint_failure_with_non_json_output_returns_error_diagnostic() {
@@ -482,7 +487,7 @@ mod tests {
         command
             .args(["-c", "sleep 1"])
             .current_dir(directory.path());
-        let result = tool.run_command(&mut command);
+        let result = tool.run_command(command);
 
         assert!(result.is_err());
         assert!(started.elapsed() < Duration::from_secs(1));

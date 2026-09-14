@@ -3,6 +3,7 @@
  */
 
 import { tool, type ToolDefinition } from "@opencode-ai/plugin";
+import { resolve } from "node:path";
 import { backgroundTaskManager } from "../../core/commands/index.js";
 import { BACKGROUND_TASK } from "../../shared/index.js";
 
@@ -19,12 +20,12 @@ Use check_background to get results.
         timeout: tool.schema.number().optional().describe(`Timeout in ms (default: ${BACKGROUND_TASK.DEFAULT_TIMEOUT_MS})`),
         label: tool.schema.string().optional().describe("Task label"),
     },
-    async execute(args) {
+    async execute(args, context) {
         const { command, cwd, timeout, label } = args;
 
         const task = backgroundTaskManager.run({
             command,
-            cwd: cwd || process.cwd(),
+            cwd: resolve(context.directory, cwd || "."),
             timeout: timeout || BACKGROUND_TASK.DEFAULT_TIMEOUT_MS,
             label,
         });

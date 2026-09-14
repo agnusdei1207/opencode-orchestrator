@@ -102,7 +102,7 @@ describe("Plumbing / Wiring Guards", () => {
                 || /^const \w+ = createSessionStateStore\(\)/m.test(src);
         });
 
-        expect(owners.length, "no prune-timer modules found — is the scan working?")
+        expect(owners.length, "no prune-timer modules found; is the scan working?")
             .toBeGreaterThan(0);
 
         for (const rel of owners) {
@@ -116,12 +116,12 @@ describe("Plumbing / Wiring Guards", () => {
                 .toBeTruthy();
 
             // Must be *called* from a shutdownManager.register(...), not merely
-            // imported — an unused import satisfies a substring check while the
+            // imported: an unused import satisfies a substring check while the
             // timer still leaks.
             const registered = new RegExp(
                 `shutdownManager\\.register\\([^;]*\\b${shutdownName}\\(\\)`,
             ).test(index);
-            expect(registered, `${rel}: ${shutdownName} never registered → timer leak on dispose`)
+            expect(registered, `${rel}: ${shutdownName} never registered; timer leak on dispose`)
                 .toBe(true);
         }
     });
@@ -135,10 +135,9 @@ describe("Plumbing / Wiring Guards", () => {
         // still passing them to the model.
         const injectionSites = [
             "core/loop/mission-loop-handler.ts",
-            "core/loop/todo-continuation.ts",
             "core/recovery/session-recovery.ts",
             "core/agents/manager/task-cleaner.ts",
-            "core/agents/manager/task-resumer.ts",
+            "core/agents/manager/task-launcher.ts",
             "core/session/pending-injection.ts",
         ];
 
@@ -159,7 +158,7 @@ describe("Plumbing / Wiring Guards", () => {
         // POST /session/{id}/prompt writes the user message before it checks
         // whether the session is already running, so an unguarded injection
         // lands inside the turn the model is still executing.
-        for (const rel of ["core/loop/mission-loop-handler.ts", "core/loop/todo-continuation.ts"]) {
+        for (const rel of ["core/loop/mission-loop-handler.ts"]) {
             const src = readFileSync(SRC(rel), "utf8");
             expect(src, rel + ": no authoritative busy check before injecting").toMatch(
                 /await isSessionBusy\(/,
@@ -200,7 +199,6 @@ describe("Plumbing / Wiring Guards", () => {
         // the user message and only skips starting a new run.
         const guarded = [
             "core/loop/mission-loop-handler.ts",
-            "core/loop/todo-continuation.ts",
             "core/recovery/session-recovery.ts",
             "core/agents/manager/task-cleaner.ts",
             "core/agents/manager/task-resumer.ts",
@@ -224,9 +222,6 @@ describe("Plumbing / Wiring Guards", () => {
 
         expect(src, "session.status never reaches the activity tracker").toMatch(
             /SessionActivity\.recordSessionStatus\(/,
-        );
-        expect(src, "a busy transition never cancels pending countdowns").toMatch(
-            /TodoContinuation\.handleSessionBusy\(/,
         );
         expect(src, "a busy transition never cancels the mission countdown").toMatch(
             /MissionLoopHandler\.handleSessionBusy\(/,

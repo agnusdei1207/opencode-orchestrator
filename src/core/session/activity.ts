@@ -21,8 +21,8 @@
  *    from that map the moment it goes idle, so a session is busy exactly when it
  *    appears there with a non-idle status.
  *
- * The remote check is the source of truth; the event-derived flag is the
- * fallback used when the endpoint is unavailable.
+ * The remote check is the source of truth. An unavailable status prevents
+ * automatic injection until the host can confirm an idle session.
  */
 
 import type { PluginInput } from "@opencode-ai/plugin";
@@ -113,16 +113,13 @@ export function isKnownBusy(sessionID: string): boolean {
 }
 
 /**
- * Authoritative busy check. Queries `GET /session/status` and falls back to the
- * event-derived flag when the endpoint is unavailable, so a transport failure
- * degrades to the previous (event-only) behavior rather than deadlocking the
- * mission loop.
+ * Authoritative busy check. A failed status read is not evidence of idle.
  */
 export async function isSessionBusy(client: OpencodeClient, sessionID: string): Promise<boolean> {
     if (!sessionID) return false;
 
     const remote = await readRemoteStatus(client, sessionID);
-    if (remote === null) return isKnownBusy(sessionID);
+    if (remote === null) return true;
 
     applyStatus(sessionID, remote);
     return remote !== SESSION_STATUS.IDLE;

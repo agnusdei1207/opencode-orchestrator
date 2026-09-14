@@ -18,6 +18,7 @@ describe("SessionPool (Reset & Isolation)", () => {
             session: {
                 create: vi.fn().mockResolvedValue({ data: { id: "new-session-id" } }),
                 delete: vi.fn().mockResolvedValue({}),
+                status: vi.fn().mockResolvedValue({ data: {} }),
             },
             v2: {
                 session: {

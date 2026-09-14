@@ -5,8 +5,16 @@ import {
     resetRustToolPool,
     shutdownRustToolPool,
 } from "../../src/tools/rust-pool.js";
+import { vi } from "vitest";
 
 describe("global RustToolPool reset", () => {
+    it("retains ownership when shutdown fails", async () => {
+        const pool = getRustToolPool();
+        const shutdown = vi.spyOn(pool, "shutdown").mockRejectedValueOnce(new Error("termination failed"));
+        await expect(shutdownRustToolPool()).rejects.toThrow("termination failed");
+        expect(getRustToolPool()).toBe(pool);
+        shutdown.mockRestore();
+    });
     afterEach(async () => {
         await shutdownRustToolPool();
     });

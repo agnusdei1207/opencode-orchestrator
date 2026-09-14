@@ -12,7 +12,6 @@
 import type { PluginInput } from "@opencode-ai/plugin";
 import {
     TASK_STATUS,
-    AGENT_NAMES,
     type LaunchInput,
     type ResumeInput,
     type ParallelTask,
@@ -35,7 +34,7 @@ import { CORE_PHILOSOPHY } from "../../agents/prompts/shared/philosophy.js";
 import { AgentRegistry } from "./agent-registry.js";
 import { TodoManager } from "../todo/todo-manager.js";
 import type { ConcurrencyConfig } from "./concurrency.js";
-import { finishTaskConcurrency } from "./manager/task-lifecycle.js";
+import { finishTaskConcurrency, confirmSessionAbort } from "./manager/task-lifecycle.js";
 import { fetchTaskResultText } from "./manager/task-result.js";
 
 // Re-export
@@ -43,25 +42,10 @@ export type { ParallelTask };
 export { formatDuration };
 
 type OpencodeClient = PluginInput["client"];
-const UNIT_REVIEW_DESCRIPTION_LIMIT = 240;
-const DEFAULT_WORK_STEALING_WORKERS: Record<string, number> = {
-    [AGENT_NAMES.PLANNER]: 2,
-    [AGENT_NAMES.WORKER]: 8,
-    [AGENT_NAMES.REVIEWER]: 4,
-    [AGENT_NAMES.COMMANDER]: 1,
-};
-
-export function resolveWorkStealingWorkers(config?: ConcurrencyConfig): Record<string, number> {
-    return {
-        ...DEFAULT_WORK_STEALING_WORKERS,
-        ...config?.workStealingWorkers,
-    };
-}
-
 export class ParallelAgentManager {
     private static _instance: ParallelAgentManager;
 
-    private store = new TaskStore();
+    private store: TaskStore;
     private client: OpencodeClient;
     private concurrency: ConcurrencyController;
     private sessionPool: SessionPool;
@@ -75,6 +59,7 @@ export class ParallelAgentManager {
 
     private constructor(client: OpencodeClient, directory: string, concurrencyConfig?: ConcurrencyConfig) {
         this.client = client;
+        this.store = new TaskStore(directory);
         this.concurrency = new ConcurrencyController(concurrencyConfig);
 
         // Initialize Memory System
@@ -91,7 +76,6 @@ export class ParallelAgentManager {
         // Initialize SessionPool
         this.sessionPool = SessionPool.getInstance(client, directory);
 
-        this.configureWorkStealing(concurrencyConfig);
 
         // Initialize cleaner first (needed by others)
         this.cleaner = new TaskCleaner(client, this.store, this.concurrency, this.sessionPool);
@@ -103,8 +87,7 @@ export class ParallelAgentManager {
             this.concurrency,
             (parentSessionID) => this.cleaner.notifyParentIfAllComplete(parentSessionID),
             (taskId) => this.cleaner.scheduleCleanup(taskId),
-            () => this.cleaner.pruneExpiredTasks(),
-            (task) => this.handleTaskComplete(task)
+            () => this.cleaner.pruneExpiredTasks()
         );
 
         // Initialize launcher
@@ -122,8 +105,10 @@ export class ParallelAgentManager {
             client,
             this.store,
             (sessionID) => this.findBySession(sessionID),
-            () => this.poller.start(),
-            (parentSessionID) => this.cleaner.notifyParentIfAllComplete(parentSessionID)
+            (task, prompt) => {
+                this.cleaner.cancelCleanup(task.id);
+                this.launcher.startTask(task, prompt);
+            },
         );
 
         // Initialize event handler
@@ -135,8 +120,7 @@ export class ParallelAgentManager {
             (parentSessionID) => this.cleaner.notifyParentIfAllComplete(parentSessionID),
             (taskId) => this.cleaner.scheduleCleanup(taskId),
             (sessionID) => this.poller.validateSessionHasOutput(sessionID),
-            (sessionID) => this.sessionPool.forget(sessionID),
-            (task) => this.handleTaskComplete(task)
+            (sessionID) => this.sessionPool.forget(sessionID)
         );
 
         // Initialize ProgressNotifier
@@ -176,7 +160,15 @@ export class ParallelAgentManager {
     }
 
     async resume(input: ResumeInput): Promise<ParallelTask> {
-        return this.resumer.resume(input);
+        const task = this.store.getBySession(input.sessionId);
+        if (task && this.cleaner.isCleaning(task.id)) throw new Error("Task session cleanup is already in progress");
+        if (task) this.cleaner.cancelCleanup(task.id);
+        try {
+            return await this.resumer.resume(input);
+        } catch (error) {
+            if (task && !isCancellableTaskStatus(task.status)) this.cleaner.scheduleCleanup(task.id);
+            throw error;
+        }
     }
 
     getTask(id: string): ParallelTask | undefined {
@@ -202,6 +194,9 @@ export class ParallelAgentManager {
     async cancelTask(taskId: string): Promise<boolean> {
         const task = this.store.get(taskId);
         if (!task || !isCancellableTaskStatus(task.status)) return false;
+        const startedAt = task.startedAt;
+        if (task.status === TASK_STATUS.RUNNING && !(await confirmSessionAbort(this.client, task.sessionID))) return false;
+        if (task.startedAt !== startedAt || !isCancellableTaskStatus(task.status)) return false;
 
         task.status = TASK_STATUS.ERROR;
         task.error = "Cancelled by user";
@@ -215,11 +210,12 @@ export class ParallelAgentManager {
         // Deleting the session used to double as the abort. The pool no longer
         // deletes a busy session (issue #41), so stop the run explicitly and
         // let the scheduled cleanup be the single owner of releasing the
-        // session — releasing here too would release it twice, and the second
+        // session ??releasing here too would release it twice, and the second
         // release (10 min later) could compact a session another task has
         // since acquired.
-        await this.abortSession(task.sessionID);
         this.cleaner.scheduleCleanup(taskId);
+        this.store.queueNotification(task);
+        await this.cleaner.notifyParentIfAllComplete(task.parentSessionID);
 
 
 
@@ -231,11 +227,13 @@ export class ParallelAgentManager {
     async getResult(taskId: string): Promise<string | null> {
         const task = this.store.get(taskId);
         if (!task) return null;
-        if (task.result) return task.result;
+        if (task.status === TASK_STATUS.RUNNING || task.status === TASK_STATUS.PENDING) return null;
         if (task.status === TASK_STATUS.ERROR) return `Error: ${task.error}`;
-        if (task.status === TASK_STATUS.RUNNING) return null;
+        if (task.result) return task.result;
 
-        const text = await fetchTaskResultText(this.client, task.sessionID);
+        const startedAt = task.startedAt;
+        const text = await fetchTaskResultText(this.client, task.sessionID, startedAt);
+        if (task.startedAt !== startedAt || this.store.get(taskId) !== task) return null;
         task.result = text;
         return text;
     }
@@ -246,7 +244,6 @@ export class ParallelAgentManager {
 
     configureConcurrency(config: ConcurrencyConfig): void {
         this.concurrency.configure(config);
-        this.configureWorkStealing(config);
     }
 
     getPendingCount(parentSessionID: string): number {
@@ -260,6 +257,7 @@ export class ParallelAgentManager {
     cleanup(): void {
         this.launcher.shutdown();
         this.poller.stop();
+        this.cleaner.shutdown();
         this.store.clear();
         MemoryManager.getInstance().clearTaskMemory();
         void import("../session/store.js")
@@ -274,6 +272,7 @@ export class ParallelAgentManager {
      */
     async shutdown(): Promise<void> {
         this.cleanup();
+        await this.concurrency.shutdown();
         await this.sessionPool.shutdown();
     }
 
@@ -283,6 +282,9 @@ export class ParallelAgentManager {
 
     handleEvent(event: { type: string; properties?: { sessionID?: string; info?: { id?: string } } }): void {
         this.eventHandler.handle(event);
+        if (event.type === "session.idle" && event.properties?.sessionID) {
+            void this.cleaner.notifyParentIfAllComplete(event.properties.sessionID).catch(error => log("Parent notice retry failed", error));
+        }
     }
 
     // ========================================================================
@@ -293,23 +295,15 @@ export class ParallelAgentManager {
         return this.store.getBySession(sessionID);
     }
 
-    private async abortSession(sessionID: string): Promise<void> {
-        try {
-            await this.client.session.abort({ path: { id: sessionID } });
-        } catch (error) {
-            log(`[ParallelAgentManager] Failed to abort session ${sessionID}:`, error);
-        }
-    }
-
-    private configureWorkStealing(config?: ConcurrencyConfig): void {
-        for (const [agentName, workerCount] of Object.entries(resolveWorkStealingWorkers(config))) {
-            this.concurrency.enableWorkStealing(agentName, workerCount);
-        }
-    }
-
     private async handleTaskError(taskId: string, error: unknown): Promise<void> {
         const task = this.store.get(taskId);
-        if (!task) return;
+        if (!task || !isCancellableTaskStatus(task.status)) return;
+        const startedAt = task.startedAt;
+        if (task.status === TASK_STATUS.RUNNING && !(await confirmSessionAbort(this.client, task.sessionID))) {
+            log(`Task ${taskId} failed locally but its session has not confirmed abort`, error);
+            return;
+        }
+        if (task.startedAt !== startedAt || !isCancellableTaskStatus(task.status)) return;
 
         task.status = TASK_STATUS.ERROR;
         task.error = error instanceof Error ? error.message : String(error);
@@ -317,6 +311,7 @@ export class ParallelAgentManager {
 
         finishTaskConcurrency(task, this.concurrency, false);
         this.store.untrackPending(task.parentSessionID, taskId);
+        this.store.queueNotification(task);
         await this.cleaner.notifyParentIfAllComplete(task.parentSessionID);
         this.cleaner.scheduleCleanup(taskId);
 
@@ -324,29 +319,6 @@ export class ParallelAgentManager {
 
 
     }
-
-    private async handleTaskComplete(task: ParallelTask): Promise<void> {
-        // MSVP: Multi-Stage Verification Pipeline (Unit Review)
-        // If a WORKER completes, immediately trigger a parallel REVIEWER
-        if (task.agent === AGENT_NAMES.WORKER && task.mode !== "race") {
-            log(`[MSVP] Triggering Unit Review for task ${task.id}`);
-
-            try {
-                await this.launch({
-                    agent: AGENT_NAMES.REVIEWER,
-                    description: `Unit Review: ${task.description}`,
-                    prompt: buildUnitReviewPrompt(task),
-                    parentSessionID: task.parentSessionID,
-                    depth: task.depth,
-                    groupID: task.groupID || task.id, // Group reviews with their origins
-                });
-            } catch (error) {
-                log(`[MSVP] Failed to trigger review for ${task.id}:`, error);
-            }
-        }
-        progressNotifier.update();
-    }
-
 
 }
 
@@ -364,18 +336,3 @@ export const parallelAgentManager = {
         }
     },
 };
-
-export function buildUnitReviewPrompt(task: Pick<ParallelTask, "id" | "description">): string {
-    return [
-        "[UNIT REVIEW]",
-        `task=${task.id}`,
-        `desc=${compactWireValue(task.description, UNIT_REVIEW_DESCRIPTION_LIMIT)}`,
-        "check=tests,quality,integration",
-        "return=findings_only",
-    ].join("\n");
-}
-
-function compactWireValue(value: string, limit: number): string {
-    const compact = value.replace(/\s+/g, " ").trim();
-    return compact.length > limit ? `${compact.slice(0, limit - 3)}...` : compact;
-}

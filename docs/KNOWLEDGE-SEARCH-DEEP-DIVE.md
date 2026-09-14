@@ -1,5 +1,7 @@
 # Knowledge Store & Search System — Technical Deep Dive
 
+> **Historical document — superseded by [ADR-0019](adr/0019-retire-knowledge-rag-subsystem.md).** The search, indexing, retrieval, and maintenance pipeline described below has been retired. Its API links and enhancement roadmap describe the former implementation. For the current runtime and retained Markdown projections, read [System Architecture](SYSTEM_ARCHITECTURE.md).
+
 > **Target audience**: Developers and researchers who want to understand opencode-orchestrator's search pipeline
 > **Last updated**: 2026-06-19 18:10 KST
 > **Source path**: `src/core/knowledge/`

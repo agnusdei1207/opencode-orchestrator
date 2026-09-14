@@ -17,7 +17,3 @@ export const SECURITY_PATTERNS = {
         /xox[baprs]-([0-9a-zA-Z]{10,48})/g // Slack Token
     ]
 } as const;
-
-export const UI_PATTERNS = {
-    TASK_ID: /\[(TASK-\d+)\]/i
-} as const;

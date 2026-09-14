@@ -1,30 +1,32 @@
 <div align="center">
   <img src="assets/logo.png" alt="OpenCode Orchestrator logo" width="160" />
   <h1>OpenCode Orchestrator</h1>
-  <p>Multi-agent mission control for OpenCode (Commander, Planner, Worker, Reviewer).</p>
+  <p>Lightweight mission continuity for OpenCode.</p>
 
   [![MIT License](https://img.shields.io/badge/license-MIT-red.svg)](LICENSE)
   [![npm](https://img.shields.io/npm/v/opencode-orchestrator.svg)](https://www.npmjs.com/package/opencode-orchestrator)
   [![GitHub Sponsors](https://img.shields.io/badge/Sponsor-%E2%9D%A4-ea4aaa?logo=github-sponsors)](https://github.com/sponsors/agnusdei1207)
-  [![3D Architecture Explorer](https://img.shields.io/badge/3D%20Architecture-Explorer-3b82f6.svg)](https://agnusdei1207.github.io/opencode-orchestrator/)
+
   <!-- VERSION:START -->
   **Version:** `1.7.17`
   <!-- VERSION:END -->
-  <!-- LAST-UPDATED: 2026-09-03 22:52 KST -->
+  <!-- LAST-UPDATED: 2026-09-14 18:19 KST -->
 </div>
 
 ---
 
 ## Overview
 
-OpenCode Orchestrator coordinates multi-agent workflows with autonomous verification and local-first memory.
+OpenCode Orchestrator keeps an objective and unfinished work connected across turns. Commander coordinates mission progress, delegation, and completion evidence inside OpenCode.
 
-> 🌐 **Interactive 3D Explorer**: Experience the complete 3D runtime architecture, agent council, hybrid RAG, and Ebbinghaus memory in your browser: [https://agnusdei1207.github.io/opencode-orchestrator/](https://agnusdei1207.github.io/opencode-orchestrator/)
+The project is moving toward a smaller mission core. The accepted scope and remaining migrations are recorded in [ADR-0021](docs/adr/0021-minimal-mission-plugin.md).
 
-- **Autonomous Mission Loop**: Commander, Planner, Worker, and Reviewer collaborate with verification gates before concluding tasks.
-- **Role-Aware Context**: Pluggable agent profiles with modular system prompts and tailored retrieval weights.
-- **Local-First Memory**: On-disk Ebbinghaus decay model combining BM25, tags, and graph connections without external vector databases.
-- **Fast Rust Tooling**: High-performance AST, LSP, search, and parallel execution primitives.
+This README describes the current development tree. Tool removals below are pending a compatibility release; the version badge does not mean those removals are already published.
+
+- **Intent first**: Answer, review, plan, or implement according to the request; use only the roles that help.
+- **Small agent presets**: Commander owns the goal; planning, implementation, and independent review can be delegated when useful.
+- **Local-First Memory**: Generated Markdown mission notes and a canvas for local inspection. Automatic RAG retrieval has been retired.
+- **Rust Tooling**: AST, LSP, search, and terminal utilities remain during the staged reduction.
 
 ---
 
@@ -99,15 +101,19 @@ Add or customize in `opencode.jsonc`:
 - **Context Window Limits**: Context usage alerts are measured against the window OpenCode reports for the model in use (a 1M-token model is no longer measured against a 200k default). Set `contextMaxTokens` (an integer token count) in the plugin options to force one limit for every model.
 - **Options Schema**: Full configuration schema is available in `opencode-orchestrator.schema.json`.
 
+Concurrency values are upper limits, not a requested team size. Simple work does not launch agents to fill those limits. A value of `0` means unlimited. The unused `workStealingWorkers` option has been retired; remove it from older configurations.
+
 ---
 
 ## 3. Usage
 
-Start a mission inside OpenCode:
+Select Commander in OpenCode, then start a mission:
 
 ```bash
 /task "Implement feature and verify test suite"
 ```
+
+The plugin preserves your default agent, native build/plan modes, agent overrides, and same-name user commands. It no longer creates an empty TODO file on startup or automatically launches Reviewer after every Worker completion. Existing mission files remain intact.
 
 | Command | Action |
 | --- | --- |
@@ -115,53 +121,55 @@ Start a mission inside OpenCode:
 | `/stop` or `/cancel` | Halts the active mission loop |
 | `Esc` (Interrupt) | Pauses loop continuation until next turn |
 
+One project directory supports one active mission. Another root session cannot replace it until its owner stops it. Ordinary sessions do not automatically resume a leftover TODO. Interrupt protection is process-local; delegated task state is not restored after restarting the plugin.
+
 ---
 
-## 4. Multi-Agent Architecture
+## 4. How work is chosen
 
-```text
-                    /task input
-                         |
-                         v
-                   +-------------+
-            +----->|  Commander  | (Coordinates & delegates)
-            |      +------+------+
-            |             |
-            |       +-----+------+
-            |       v            v
-            |  +---------+  +-------------+
-            |  | Planner |  | Worker Pool | (TDD & isolated edits)
-            |  +----+----+  +------+------+
-            |       |              |
-            |       v              v
-            |  +---------------------+
-            |  |  Mission Workspace  |
-            |  |     (.opencode/)    |
-            |  +----------+----------+
-            |             |
-            |             v
-            |       +------------+
-            |       |  Reviewer  | (Verifies evidence & tests)
-            |       +-----+------+
-            |             |
-            |             v
-            |      +-------------+
-            +------|  Verified?  |
-             (no)  +------+------+
-                          | (yes)
-                          v
-                        Done
+Commander first distinguishes the request's intent. Roles are optional tools for a bounded task, not a fixed pipeline or a fanout that runs for every request.
+
+```mermaid
+flowchart TD
+    U[User request] --> C[Commander: understand intent]
+    C --> Q[Question or review: inspect and answer]
+    C --> D[Small implementation: edit and verify directly]
+    C --> P[Complex work: resolve plan and dependencies]
+    P -. Optional planning help .-> PL[Planner]
+    PL --> P
+    P --> E[Commander executes the agreed scope]
+    E -. Independent bounded work only .-> W[Worker]
+    W --> V[Commander checks results and evidence]
+    E --> V
+    D --> V
+    V -. Optional independent check .-> R[Reviewer]
+    R --> F[Commander reports outcome and remaining work]
+    V --> F
+    Q --> F
 ```
 
-| Agent | Role | Responsibility |
-| --- | --- | --- |
-| **Commander** | Orchestrator | Interprets missions, manages agent pool, and handles loop state. |
-| **Planner** | Strategy | Breaks objectives into ordered file-level tasks and tracks TODOs. |
-| **Worker** | Implementation | Executes file changes with isolated context and TDD practices. |
-| **Reviewer** | Gatekeeper | Verifies test evidence, builds, and marks completion. |
+Solid arrows show the work flow; dotted arrows show optional delegation. Planner and dependent Workers are not parallel stages. OpenCode provides the sessions, tools, permissions, and compaction beneath these presets.
+
+| Request | Expected approach |
+| --- | --- |
+| Question or explanation | Inspect relevant evidence and answer; do not start an implementation mission. |
+| Code review | Inspect code and report findings; changes require an implementation request. |
+| Small implementation | Commander edits and verifies directly. |
+| Design or research | Resolve material constraints; use Planner only when useful. |
+| Larger implementation | Plan the dependencies first; delegate independent, nonconflicting scopes to Workers if useful. |
+| Independent verification | Request Reviewer when the risk or task warrants another check. |
+
+When implementation depends on a plan, the plan is resolved first. Planner and dependent Workers do not launch together. Commander reviews delegated results and owns the final explanation. The four preset names remain available for compatibility; there is no automatic Worker-to-Reviewer launch.
+
+OpenCode owns models, permissions, native tools, sessions, extension discovery, and compaction. The plugin adds mission continuity and currently retains a bounded task runtime and Rust utilities while those parts undergo staged reduction. Current runtime details: [System Architecture](docs/SYSTEM_ARCHITECTURE.md).
+
+### Migrating older extensions and web tools
+
+The nested Orchestrator extension loader is removed. Convert old object-shaped extensions (`init`, `tools`, `hooks.preTool`) to the [public OpenCode plugin contract](https://opencode.ai/docs/plugins/) and let OpenCode load them. Existing extension files are preserved.
+
+The plugin no longer registers `webfetch`, `websearch`, `cache_docs`, or `codesearch`. Native `webfetch` stays under OpenCode ownership; native web search depends on the host/provider configuration. Use normal file tools for research notes or install a separate extension if needed. Existing cached documents are preserved. See [OpenCode tools](https://opencode.ai/docs/tools/).
 
 ---
-
 ## 5. Shell Listener (Optional)
 
 For authorized testing environments, a multi-session TCP shell listener TUI is available via the bundled Rust CLI:
@@ -180,9 +188,16 @@ npm run build
 npx tsc --noEmit
 npm test
 
-# Rust
-cargo test --workspace
-cargo clippy --workspace --all-targets -- -D warnings
+# Rust tests in the repository container workflow
+npm run docker:test
+```
+
+For agent work on Windows, use `scripts/dbuild.ps1` for Rust tests, formatting, and linting. It runs the repository in a bounded Docker container. TypeScript verification uses Node 24 LTS.
+
+```powershell
+./scripts/dbuild.ps1 test --workspace
+./scripts/dbuild.ps1 fmt --all '--' --check
+./scripts/dbuild.ps1 clippy --workspace --all-targets '--' -D warnings
 ```
 
 ---

@@ -42,6 +42,12 @@ const TERMINAL_AGENTS = [
 const ALL_AGENTS = [AGENT_NAMES.COMMANDER, ...TERMINAL_AGENTS] as const;
 
 describe("Prompt Consistency Guards", () => {
+    it("does not teach the retired call_agent tool", () => {
+        for (const name of ALL_AGENTS) {
+            expect(AGENTS[name].systemPrompt, name).not.toContain("call_agent");
+        }
+    });
+
     it("has no dead prompt fragments (every exported const is referenced outside its own file)", () => {
         // A fragment that is exported but composed nowhere is a maintenance
         // trap: edits to it silently do nothing. Every exported constant in
@@ -65,7 +71,7 @@ describe("Prompt Consistency Guards", () => {
                     const text = contents.get(other)!;
                     return new RegExp(`\\b${name}\\b`).test(text);
                 });
-                if (!used) deadExports.push(`${basename(file)} → ${name}`);
+                if (!used) deadExports.push(`${basename(file)} ??${name}`);
             }
         }
 
@@ -95,7 +101,7 @@ describe("Prompt Consistency Guards", () => {
 
     it("never positively instructs a terminal agent to spawn or delegate", () => {
         // Terminal agents (Planner/Worker/Reviewer) must not receive any
-        // instruction to USE delegate_task/call_agent — only prohibitions.
+        // instruction to USE delegate_task ??only prohibitions.
         // The audit found the Worker workflow instructing delegate_task use
         // while the Worker forbidden-list banned it (and the tool isn't even
         // granted to workers by prompt-routing).
@@ -103,7 +109,7 @@ describe("Prompt Consistency Guards", () => {
             const prompt = AGENTS[name].systemPrompt;
             const offending = prompt
                 .split("\n")
-                .filter((line) => /delegate_task|call_agent/i.test(line))
+                .filter((line) => /delegate_task/i.test(line))
                 // A line counts as a prohibition when it negates the ability
                 // (NEVER/not/forbidden/cannot/only) or is the role-matrix row
                 // marking the capability "no" for terminal agents.
@@ -127,7 +133,7 @@ describe("Prompt Consistency Guards", () => {
             const duplicated = [...counts.entries()].filter(([, n]) => n > 1);
             expect(
                 duplicated,
-                `${name}: duplicated section tags: ${duplicated.map(([t, n]) => `${t}×${n}`).join(", ")}`,
+                `${name}: duplicated section tags: ${duplicated.map(([t, n]) => `${t}횞${n}`).join(", ")}`,
             ).toEqual([]);
         }
     });
@@ -139,25 +145,36 @@ describe("Prompt Consistency Guards", () => {
         }
     });
 
-    it("keeps hyper-parallel spawning rules away from terminal agents", () => {
-        // HPFA tells the reader to spawn parallel branches. Terminal agents
-        // cannot spawn; giving them HPFA sets up "parallelize or fail" vs
-        // "never spawn" — an unresolvable contradiction.
-        for (const name of TERMINAL_AGENTS) {
-            const prompt = AGENTS[name].systemPrompt;
-            expect(prompt, `${name}: HPFA leaked into terminal agent`).not.toContain(
-                "HYPER-PARALLEL COGNITIVE ARCHITECTURE",
-            );
-        }
-        expect(AGENTS[AGENT_NAMES.COMMANDER].systemPrompt).toContain(
-            "HYPER-PARALLEL COGNITIVE ARCHITECTURE",
-        );
+    it("lets Commander implement and verify simple tasks directly", () => {
+        const prompt = AGENTS[AGENT_NAMES.COMMANDER].systemPrompt;
+        expect(prompt).toContain("Handle simple tasks directly");
+        expect(prompt).toContain("Delegation and independent review are optional");
+        expect(prompt).not.toMatch(/NEVER do implementation|only (?:the )?Reviewer (?:can|may|has)|must rely on.*Reviewer/i);
     });
 
-    it("gives every agent the shared role permission matrix", () => {
+    it("keeps prompts compact without compulsory team ceremonies", () => {
         for (const name of ALL_AGENTS) {
             const prompt = AGENTS[name].systemPrompt;
-            expect(prompt, `${name}: missing role matrix`).toContain("<role_matrix>");
+            expect(prompt.length, name).toBeLessThan(6500);
+            expect(prompt, name).not.toMatch(/HYPER.PARALLEL|MAXIMIZE parallel|work.stealing|race mode|ONE FILE per session|DELETE the isolated test/i);
+            expect(prompt, name).not.toMatch(/cache_docs|codesearch|websearch\(\{|webfetch\(\{/);
         }
+    });
+
+    it("routes intent before deciding whether to change files", () => {
+        const prompt = AGENTS[AGENT_NAMES.COMMANDER].systemPrompt;
+        expect(prompt).toContain("Classify the request first: question, review, planning, or implementation");
+        expect(prompt).toContain("For questions and reviews, explain findings without unsolicited changes");
+        expect(prompt).toContain("When implementation is requested, proceed");
+        expect(prompt).toContain("Resolve planning dependencies before assigning implementation");
+    });
+
+    it("preserves mission continuity and the existing completion artifacts", () => {
+        const prompt = AGENTS[AGENT_NAMES.COMMANDER].systemPrompt;
+        for (const text of [".opencode/todo.md", ".opencode/sync-issues.md", ".opencode/verification-checklist.md"]) {
+            expect(prompt).toContain(text);
+        }
+        expect(prompt).toMatch(/pause|abort/i);
+        expect(prompt).toMatch(/failed checks/i);
     });
 });

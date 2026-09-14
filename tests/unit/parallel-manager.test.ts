@@ -9,7 +9,7 @@
  * - Task lifecycle
  */
 
-import { describe, it, expect, beforeEach, vi } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 
 // Mock the dependencies
 vi.mock("../../src/core/agents/config", () => ({
@@ -30,12 +30,10 @@ import { ConcurrencyController } from "../../src/core/agents/concurrency";
 import { EventHandler } from "../../src/core/agents/manager/event-handler";
 import { TaskPoller } from "../../src/core/agents/manager/task-poller";
 import {
-    buildUnitReviewPrompt,
     isCancellableTaskStatus,
-    resolveWorkStealingWorkers,
     ParallelAgentManager,
 } from "../../src/core/agents/manager";
-import { TASK_STATUS, type ParallelTask } from "../../src/shared";
+import { AGENT_NAMES, TASK_STATUS, type ParallelTask } from "../../src/shared";
 
 // Create mock task for testing
 function createMockTask(overrides: Partial<ParallelTask> = {}): ParallelTask {
@@ -61,42 +59,6 @@ describe("ParallelAgentManager Features", () => {
     beforeEach(() => {
         store = new TaskStore();
         concurrency = new ConcurrencyController();
-    });
-
-    describe("unit review prompt", () => {
-        it("builds a compact reviewer prompt without prose wrappers", () => {
-            const prompt = buildUnitReviewPrompt(createMockTask({
-                id: "task_review",
-                description: "Implement routing\n\nwith evidence and tests",
-            }));
-
-            expect(prompt).toBe(
-                "[UNIT REVIEW]\n" +
-                "task=task_review\n" +
-                "desc=Implement routing with evidence and tests\n" +
-                "check=tests,quality,integration\n" +
-                "return=findings_only",
-            );
-            expect(prompt).not.toContain("Review completed task");
-            expect(prompt).not.toContain("Return findings only.");
-        });
-    });
-
-    describe("work stealing config", () => {
-        it("resolves default worker counts with config overrides", () => {
-            expect(resolveWorkStealingWorkers({
-                workStealingWorkers: {
-                    Worker: 12,
-                    custom: 3,
-                },
-            })).toMatchObject({
-                Commander: 1,
-                Planner: 2,
-                Worker: 12,
-                Reviewer: 4,
-                custom: 3,
-            });
-        });
     });
 
     describe("task cancellation status", () => {
@@ -133,7 +95,7 @@ describe("ParallelAgentManager Features", () => {
                     session: {
                         messages: vi.fn().mockResolvedValue({
                             data: [{
-                                info: { role: "assistant" },
+                                info: { role: "assistant", finish: "stop", time: { created: Date.now(), completed: Date.now() } },
                                 parts: [{ type: "tool_use", name: "grep" }],
                             }],
                         }),
@@ -217,7 +179,7 @@ describe("ParallelAgentManager Features", () => {
             const scheduleCleanup = vi.fn();
             const status = vi.fn().mockRejectedValue(new Error("status unavailable"));
             const poller = new TaskPoller(
-                { session: { status } } as never,
+                { session: { status, abort: vi.fn().mockResolvedValue({ data: true }) } } as never,
                 store,
                 concurrency,
                 notifyParent,
@@ -252,7 +214,7 @@ describe("ParallelAgentManager Features", () => {
             });
             const messages = vi.fn().mockResolvedValue({ error: "messages unavailable" });
             const poller = new TaskPoller(
-                { session: { status, messages } } as never,
+                { session: { status, messages, abort: vi.fn().mockResolvedValue({ data: true }) } } as never,
                 store,
                 concurrency,
                 notifyParent,
@@ -275,42 +237,31 @@ describe("ParallelAgentManager Features", () => {
             expect(notifyParent).toHaveBeenCalledWith(task.parentSessionID);
         });
 
-        it("waits for the task completion callback before resolving completion", async () => {
-            const task = createMockTask({ id: "task-complete-callback", sessionID: "session-complete-callback" });
+        it("completes tasks while notifying the parent and releasing concurrency", async () => {
+            const task = createMockTask({ id: "task-completion", sessionID: "session-completion" });
+            await concurrency.acquire("builder");
             store.set(task.id, task);
-
-            let releaseCallback!: () => void;
-            let callbackDone = false;
-            const onTaskComplete = vi.fn(() => new Promise<void>((resolve) => {
-                releaseCallback = () => {
-                    callbackDone = true;
-                    resolve();
-                };
-            }));
-            const completion = new TaskPoller(
+            store.trackPending(task.parentSessionID, task.id);
+            const notifyParent = vi.fn().mockResolvedValue(undefined);
+            const scheduleCleanup = vi.fn();
+            const poller = new TaskPoller(
                 { session: {} } as never,
                 store,
                 concurrency,
-                vi.fn().mockResolvedValue(undefined),
+                notifyParent,
+                scheduleCleanup,
                 vi.fn(),
-                vi.fn(),
-                onTaskComplete,
-            ).completeTask(task);
+            );
 
-            await Promise.resolve();
-            let resolved = false;
-            completion.then(() => {
-                resolved = true;
-            });
+            await poller.completeTask(task);
 
-            expect(onTaskComplete).toHaveBeenCalledWith(task);
-            expect(resolved).toBe(false);
-
-            releaseCallback();
-            await completion;
-
-            expect(callbackDone).toBe(true);
-            expect(resolved).toBe(true);
+            expect(task.status).toBe(TASK_STATUS.COMPLETED);
+            expect(task.completedAt).toBeInstanceOf(Date);
+            expect(concurrency.getActiveCount("builder")).toBe(0);
+            expect(store.hasPending(task.parentSessionID)).toBe(false);
+            expect(store.getNotifications(task.parentSessionID)).toEqual([task]);
+            expect(notifyParent).toHaveBeenCalledWith(task.parentSessionID);
+            expect(scheduleCleanup).toHaveBeenCalledWith(task.id);
         });
     });
 
@@ -462,59 +413,6 @@ describe("ParallelAgentManager Features", () => {
     // Stability Detection
     // ========================================================================
 
-    describe("stability detection", () => {
-        it("should track stable polls", () => {
-            const task = createMockTask();
-
-            // Simulate 3 polls with same message count
-            task.lastMsgCount = 5;
-            task.stablePolls = 0;
-
-            // Poll 1 - same count
-            if (task.lastMsgCount === 5) {
-                task.stablePolls = (task.stablePolls ?? 0) + 1;
-            }
-            expect(task.stablePolls).toBe(1);
-
-            // Poll 2 - same count
-            if (task.lastMsgCount === 5) {
-                task.stablePolls = (task.stablePolls ?? 0) + 1;
-            }
-            expect(task.stablePolls).toBe(2);
-
-            // Poll 3 - same count
-            if (task.lastMsgCount === 5) {
-                task.stablePolls = (task.stablePolls ?? 0) + 1;
-            }
-            expect(task.stablePolls).toBe(3);
-        });
-
-        it("should reset stable polls when message count changes", () => {
-            const task = createMockTask();
-            task.lastMsgCount = 5;
-            task.stablePolls = 2;
-
-            // New message arrives (count changes)
-            const newMsgCount = 6;
-            if (task.lastMsgCount !== newMsgCount) {
-                task.stablePolls = 0;
-            }
-            task.lastMsgCount = newMsgCount;
-
-            expect(task.stablePolls).toBe(0);
-        });
-
-        it("should trigger completion after 3 stable polls", () => {
-            const task = createMockTask({
-                startedAt: new Date(Date.now() - 15000),  // Started 15s ago
-                stablePolls: 3,
-            });
-
-            const shouldComplete = (task.stablePolls ?? 0) >= 3;
-            expect(shouldComplete).toBe(true);
-        });
-    });
-
     // ========================================================================
     // Progress Tracking
     // ========================================================================
@@ -563,19 +461,19 @@ describe("ParallelAgentManager Features", () => {
         it("should transition through states correctly", () => {
             const task = createMockTask({ status: TASK_STATUS.RUNNING });
 
-            // Running → Completed
+            // Running ??Completed
             task.status = TASK_STATUS.COMPLETED;
             task.completedAt = new Date();
             expect(task.status).toBe("completed");
 
-            // Running → Error
+            // Running ??Error
             const errorTask = createMockTask({ status: TASK_STATUS.RUNNING });
             errorTask.status = TASK_STATUS.ERROR;
             errorTask.error = "Something went wrong";
             expect(errorTask.status).toBe(TASK_STATUS.ERROR);
             expect(errorTask.error).toBe("Something went wrong");
 
-            // Running → Timeout
+            // Running ??Timeout
             const timeoutTask = createMockTask({ status: TASK_STATUS.RUNNING });
             timeoutTask.status = TASK_STATUS.TIMEOUT;
             timeoutTask.error = "Task exceeded time limit";
@@ -607,7 +505,8 @@ describe("ParallelAgentManager Features", () => {
                 session: {
                     create: vi.fn().mockResolvedValue({ data: { id: "sess-1" } }),
                     prompt: vi.fn().mockResolvedValue({ data: {} }),
-                    abort: vi.fn().mockResolvedValue({}),
+                    abort: vi.fn().mockResolvedValue({ data: true }),
+                    status: vi.fn().mockResolvedValue({ data: {} }),
                     delete: vi.fn().mockResolvedValue({}),
                     messages: vi.fn().mockResolvedValue({ data: [] }),
                 },
@@ -618,6 +517,23 @@ describe("ParallelAgentManager Features", () => {
         afterEach(async () => {
             await manager.shutdown();
             ParallelAgentManager._resetForTesting();
+        });
+
+        it("completes a Worker task without launching an automatic Reviewer", async () => {
+            const task = createMockTask({ agent: AGENT_NAMES.WORKER });
+            const internals = manager as unknown as { store: TaskStore; poller: TaskPoller };
+            internals.store.set(task.id, task);
+            internals.store.trackPending(task.parentSessionID, task.id);
+
+            await internals.poller.completeTask(task);
+
+            expect(task.status).toBe(TASK_STATUS.COMPLETED);
+            expect(manager.getPendingCount(task.parentSessionID)).toBe(0);
+            expect(manager.getAllTasks()).toEqual([task]);
+            expect(mockClient.session.create).not.toHaveBeenCalled();
+            expect(mockClient.session.prompt).toHaveBeenCalledWith(expect.objectContaining({
+                path: { id: task.parentSessionID },
+            }));
         });
 
         it("manages tasks, concurrency, results, and events", async () => {

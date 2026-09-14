@@ -3,6 +3,58 @@ import { createConfigHandler } from "../../src/plugin-handlers/config-handler.js
 import { AGENT_NAMES } from "../../src/shared/index.js";
 
 describe("createConfigHandler", () => {
+    it("preserves user command collisions and emits only supported command fields", async () => {
+        const plan = { template: "User plan $ARGUMENTS", agent: "plan", subtask: false };
+        const config = { command: { plan } };
+        await createConfigHandler()(config);
+        expect(config.command.plan).toEqual(plan);
+        expect(config.command.task).toBeDefined();
+        expect(config.command.task).not.toHaveProperty("argumentHint");
+    });
+
+    it("preserves native agent modes and the user's default agent", async () => {
+        const config = {
+            default_agent: "plan",
+            agent: {
+                build: { mode: "primary", hidden: false, model: "user/build" },
+                plan: { mode: "primary", hidden: false, prompt: "User planning prompt" },
+            },
+        };
+        const originalAgents = structuredClone(config.agent);
+
+        await createConfigHandler()(config);
+
+        expect(config.default_agent).toBe("plan");
+        expect(config.agent.build).toEqual(originalAgents.build);
+        expect(config.agent.plan).toEqual(originalAgents.plan);
+    });
+
+    it("leaves default agent selection to OpenCode when unset", async () => {
+        const config = {};
+
+        await createConfigHandler()(config);
+
+        expect(config).not.toHaveProperty("default_agent");
+        expect(config.agent[AGENT_NAMES.COMMANDER]).toMatchObject({ mode: "primary" });
+        expect(config.agent[AGENT_NAMES.COMMANDER].prompt).toBeTruthy();
+    });
+
+    it("uses registration defaults only for absent agent configuration", async () => {
+        const commander = {
+            mode: "all",
+            hidden: true,
+            model: "user/commander",
+            prompt: "User mission instructions",
+            description: "My commander",
+            color: "#123456",
+        };
+        const config = { agent: { [AGENT_NAMES.COMMANDER]: { ...commander } } };
+
+        await createConfigHandler()(config);
+
+        expect(config.agent[AGENT_NAMES.COMMANDER]).toEqual(commander);
+    });
+
     it("inherits global permission config for every orchestrator agent", async () => {
         const config = {
             permission: {

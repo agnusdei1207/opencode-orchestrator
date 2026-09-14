@@ -73,72 +73,16 @@ export const PATHS = {
     DOCS: ".opencode/docs",
     ARCHIVE: ".opencode/archive",
     TASK_ARCHIVE: ".opencode/archive/tasks",
-    DOC_ARCHIVE: ".opencode/archive/docs",
     TODO: ".opencode/todo.md",
     CONTEXT: ".opencode/context.md",
     SUMMARY: ".opencode/summary.md",
-    DOC_METADATA: ".opencode/docs/_metadata.json",
-    // TDD & Parallel Work State
-    WORK_LOG: ".opencode/work-log.md",
-    UNIT_TESTS: ".opencode/unit-tests",
     SYNC_ISSUES: ".opencode/sync-issues.md",
-    INTEGRATION_STATUS: ".opencode/integration-status.md",
     // Progress tracking
     STATUS: ".opencode/status.md",
     // Configuration
     AGENTS_CONFIG: ".opencode/agents.json",
-    PLUGINS: ".opencode/plugins",
 } as const;
 
-
-/**
- * Mission Phase Constants
- */
-
-export const PHASES = {
-    PHASE_0: {
-        ID: "PHASE_0",
-        NAME: "DISCOVERY",
-        DESCRIPTION: "Parallel intelligence gathering and project mapping",
-        MANDATORY: true,
-    },
-    PHASE_1: {
-        ID: "PHASE_1",
-        NAME: "THINK",
-        DESCRIPTION: "Analyze scope, decomposition, and delegation",
-        MANDATORY: true,
-    },
-    PHASE_2: {
-        ID: "PHASE_2",
-        NAME: "TRIAGE",
-        DESCRIPTION: "Complexity assessment and execution path selection",
-        MANDATORY: true,
-    },
-    PHASE_3: {
-        ID: "PHASE_3",
-        NAME: "PLAN",
-        DESCRIPTION: "Architectural roadmap and task grid creation",
-        MANDATORY: true,
-    },
-    PHASE_4: {
-        ID: "PHASE_4",
-        NAME: "EXECUTE",
-        DESCRIPTION: "HPFA grid execution and worker coordination",
-        MANDATORY: true,
-    },
-    PHASE_5: {
-        ID: "PHASE_5",
-        NAME: "VERIFY",
-        DESCRIPTION: "MSVP final gate and E2E system validation",
-        MANDATORY: true,
-    },
-    PHASE_6: {
-        ID: "PHASE_6",
-        NAME: "CONCLUDE",
-        DESCRIPTION: "Mission completion and deterministic output",
-        MANDATORY: true,
-    },
-} as const;
 
 /**
  * System Limits
@@ -244,9 +188,6 @@ export const LOG_PREFIX = {
     /** Memory management */
     MEMORY_MANAGER: "MemoryManager",
 
-    /** Plugin system */
-    PLUGIN_MANAGER: "PluginManager",
-
     /** OS notifications */
     SESSION_NOTIFY: "session-notify",
 
@@ -258,9 +199,6 @@ export const LOG_PREFIX = {
 
     /** Agent registry */
     AGENT_REGISTRY: "AgentRegistry",
-
-    /** Task synchronization */
-    TODO_SYNC: "TodoSync",
 
     /** Cleanup scheduler */
     CLEANUP_SCHEDULER: "CleanupScheduler",
@@ -286,9 +224,6 @@ export type LogPrefix = typeof LOG_PREFIX[keyof typeof LOG_PREFIX];
  */
 
 export const SHUTDOWN_HANDLERS = {
-    /** TodoSyncService - Syncs TODO state via file watching */
-    TODO_SYNC_SERVICE: "TodoSyncService",
-
     /** CleanupScheduler - Manages periodic cleanup tasks */
     CLEANUP_SCHEDULER: "CleanupScheduler",
 
@@ -300,9 +235,6 @@ export const SHUTDOWN_HANDLERS = {
 
     /** ParallelAgentManager - Manages parallel agent task execution */
     PARALLEL_AGENT_MANAGER: "ParallelAgentManager",
-
-    /** PluginManager - Manages dynamic plugin lifecycle */
-    PLUGIN_MANAGER: "PluginManager",
 
     /** CircuitBreaker - Prune timer + per-session breaker state */
     CIRCUIT_BREAKER: "CircuitBreaker",
@@ -318,9 +250,6 @@ export const SHUTDOWN_HANDLERS = {
 
     /** ProgressTracker - Prune timer + per-session progress snapshots */
     PROGRESS_TRACKER: "ProgressTracker",
-
-    /** TodoContinuation - Prune timer + per-session countdown timers */
-    TODO_CONTINUATION: "TodoContinuation",
 
     /** MissionLoopHandler - Session-state store prune timer */
     MISSION_LOOP_HANDLER: "MissionLoopHandler",
@@ -371,9 +300,7 @@ export const HOOK_NAMES = {
     MISSION_CONTROL: "MissionControl",
     STRICT_ROLE_GUARD: "StrictRoleGuard",
     SECRET_SCANNER: "SecretScanner",
-    AGENT_UI: "AgentUI",
     RESOURCE_CONTROL: "ResourceControl",
-    USER_ACTIVITY: "UserActivity",
     SLASH_COMMAND: "SlashCommandDispatcher",
 } as const;
 
@@ -395,5 +322,3 @@ export const TODO_CONSTANTS = {
         FILE: "file-task-",
     }
 } as const;
-
-

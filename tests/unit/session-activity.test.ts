@@ -61,6 +61,10 @@ describe("session activity tracker (issue #38)", () => {
     });
 
     describe("isSessionBusy", () => {
+        it.each([false, true])("does not infer idle after status failure (cached idle=%s)", async (cachedIdle) => {
+            if (cachedIdle) recordSessionStatus(SESSION, "idle");
+            await expect(isSessionBusy(clientWithStatus(undefined, { throws: true }), SESSION)).resolves.toBe(true);
+        });
         it("reports busy when the server lists the session as busy", async () => {
             const client = clientWithStatus({ [SESSION]: { type: "busy" } });
 
@@ -113,10 +117,10 @@ describe("session activity tracker (issue #38)", () => {
             expect(isKnownBusy(SESSION)).toBe(true);
         });
 
-        it("falls back to the event-derived flag when the endpoint is unavailable", async () => {
+        it("holds injection when the endpoint is unavailable", async () => {
             const client = clientWithStatus(undefined, { missing: true });
 
-            await expect(isSessionBusy(client, SESSION)).resolves.toBe(false);
+            await expect(isSessionBusy(client, SESSION)).resolves.toBe(true);
 
             recordSessionStatus(SESSION, "busy");
             await expect(isSessionBusy(client, SESSION)).resolves.toBe(true);

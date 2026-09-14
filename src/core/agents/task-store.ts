@@ -20,6 +20,11 @@ export class TaskStore {
     private pendingByParent: Map<string, Set<string>> = new Map();
     private notifications: Map<string, ParallelTask[]> = new Map();
     private archivedCount = 0;
+    private readonly archiveDirectory: string;
+
+    constructor(directory: string = process.cwd()) {
+        this.archiveDirectory = path.join(directory, PATHS.TASK_ARCHIVE);
+    }
 
     set(id: string, task: ParallelTask): void {
         // String interning for memory efficiency
@@ -105,7 +110,7 @@ export class TaskStore {
     // Notifications with limit
     queueNotification(task: ParallelTask): void {
         const queue = this.notifications.get(task.parentSessionID) ?? [];
-        queue.push(task);
+        queue.push({ ...task });
 
         // Limit notifications per parent
         if (queue.length > MEMORY_LIMITS.MAX_NOTIFICATIONS_PER_PARENT) {
@@ -116,7 +121,13 @@ export class TaskStore {
     }
 
     getNotifications(parentSessionID: string): ParallelTask[] {
-        return this.notifications.get(parentSessionID) ?? [];
+        return [...(this.notifications.get(parentSessionID) ?? [])];
+    }
+
+    acknowledgeNotifications(parentSessionID: string, delivered: ParallelTask[]): void {
+        const remaining = (this.notifications.get(parentSessionID) ?? []).filter(task => !delivered.includes(task));
+        if (remaining.length) this.notifications.set(parentSessionID, remaining);
+        else this.notifications.delete(parentSessionID);
     }
 
     clearNotifications(parentSessionID: string): void {
@@ -171,7 +182,7 @@ export class TaskStore {
      */
     async gc(): Promise<number> {
         const now = Date.now();
-        const toRemove: string[] = [];
+        const toRemove: Array<{ id: string; task: ParallelTask; startedAt: Date; status: string }> = [];
         const toArchive: ParallelTask[] = [];
 
         for (const [id, task] of this.tasks) {
@@ -183,12 +194,12 @@ export class TaskStore {
 
             // Archive tasks older than ARCHIVE_AGE_MS
             if (age > MEMORY_LIMITS.ARCHIVE_AGE_MS && task.status === TASK_STATUS.COMPLETED) {
-                toArchive.push(task);
-                toRemove.push(id);
+                toArchive.push({ ...task });
+                toRemove.push({ id, task, startedAt: task.startedAt, status: task.status });
             }
             // Remove failed/cancelled tasks older than ERROR_CLEANUP_AGE_MS
             else if (age > MEMORY_LIMITS.ERROR_CLEANUP_AGE_MS && (task.status === TASK_STATUS.ERROR || task.status === TASK_STATUS.CANCELLED)) {
-                toRemove.push(id);
+                toRemove.push({ id, task, startedAt: task.startedAt, status: task.status });
             }
         }
 
@@ -198,17 +209,15 @@ export class TaskStore {
         }
 
         // Remove from memory and release to pool
-        for (const id of toRemove) {
-            const task = this.tasks.get(id);
+        let removed = 0;
+        for (const { id, task, startedAt, status } of toRemove) {
+            if (this.tasks.get(id) !== task || task.startedAt !== startedAt || task.status !== status) continue;
             this.delete(id);
-
-            // Release task back to pool for reuse
-            if (task) {
-                taskPool.release(task);
-            }
+            taskPool.release(task);
+            removed++;
         }
 
-        return toRemove.length;
+        return removed;
     }
 
     /**
@@ -216,11 +225,11 @@ export class TaskStore {
      */
     private async archiveTasks(tasks: ParallelTask[]): Promise<void> {
         try {
-            await fs.mkdir(PATHS.TASK_ARCHIVE, { recursive: true });
+            await fs.mkdir(this.archiveDirectory, { recursive: true });
 
             const date = new Date().toISOString().slice(0, 10);
             const filename = `tasks_${date}.jsonl`;
-            const filepath = path.join(PATHS.TASK_ARCHIVE, filename);
+            const filepath = path.join(this.archiveDirectory, filename);
 
             const lines = tasks.map(task => JSON.stringify({
                 id: task.id,
@@ -237,31 +246,6 @@ export class TaskStore {
         } catch (error) {
             // Silently fail - archiving is best-effort (no console output to prevent TUI corruption)
         }
-    }
-
-    /**
-     * Force cleanup of all completed tasks
-     */
-    forceCleanup(): number {
-        const toRemove: string[] = [];
-
-        for (const [id, task] of this.tasks) {
-            if (task.status !== TASK_STATUS.RUNNING) {
-                toRemove.push(id);
-            }
-        }
-
-        for (const id of toRemove) {
-            const task = this.tasks.get(id);
-            this.delete(id);
-
-            // Release to pool
-            if (task) {
-                taskPool.release(task);
-            }
-        }
-
-        return toRemove.length;
     }
 
     /**

@@ -1,66 +1,26 @@
-import { describe, expect, it, vi } from "vitest";
-import { registerAllTools } from "../../src/tools/registry";
-import { TOOL_NAMES } from "../../src/shared";
+﻿import { describe, expect, it } from "vitest";
+import { registerAllTools } from "../../src/tools/registry.js";
+import { TOOL_NAMES } from "../../src/shared/index.js";
 import type { ToolDefinition } from "@opencode-ai/plugin";
 
-vi.mock("@opencode-ai/plugin", () => {
-    const schemaValue = {
-        optional: () => schemaValue,
-        describe: () => schemaValue,
-    };
-    const mockSchema = {
-        string: () => schemaValue,
-        boolean: () => schemaValue,
-        number: () => schemaValue,
-        array: () => schemaValue,
-        enum: () => schemaValue,
-        object: () => schemaValue,
-    };
-    const mockTool = vi.fn((config: unknown) => config) as unknown as {
-        schema: typeof mockSchema;
-    };
-    mockTool.schema = mockSchema;
-    return { tool: mockTool };
-});
+const taskTool: ToolDefinition = { description: "test task", args: {}, execute: async () => "done" };
 
 describe("registerAllTools", () => {
-    it("rejects async agent tools that would override registered tools", () => {
-        expect(() => registerAllTools(
-            "/tmp/project",
-            { [TOOL_NAMES.GREP_SEARCH]: { description: "collision" } as unknown as ToolDefinition },
-            {},
-        )).toThrow(`Async agent tool conflicts with registered tool: ${TOOL_NAMES.GREP_SEARCH}`);
+    it("leaves web capabilities to the host without shadowing its tools", () => {
+        const tools = registerAllTools("/tmp/project", {});
+        for (const name of ["webfetch", "websearch", "cache_docs", "codesearch", "call_agent"])
+            expect(tools).not.toHaveProperty(name);
     });
 
-    it("rejects dynamic tools that would override registered tools", () => {
-        expect(() => registerAllTools(
-            "/tmp/project",
-            {},
-            { [TOOL_NAMES.GREP_SEARCH]: { description: "collision" } as unknown as ToolDefinition },
-        )).toThrow(`Dynamic tool conflicts with registered tool: ${TOOL_NAMES.GREP_SEARCH}`);
+    it("rejects task tools that collide with an owned tool", () => {
+        expect(() => registerAllTools("/tmp/project", { [TOOL_NAMES.GREP_SEARCH]: taskTool }))
+            .toThrow(`Async agent tool conflicts with registered tool: ${TOOL_NAMES.GREP_SEARCH}`);
     });
 
-    it("allows async agent tools with unique names", () => {
-        const asyncTool = { description: "list agents" } as unknown as ToolDefinition;
-        const tools = registerAllTools(
-            "/tmp/project",
-            { [TOOL_NAMES.LIST_AGENTS]: asyncTool },
-            {},
-        );
-
-        expect(tools[TOOL_NAMES.LIST_AGENTS]).toBe(asyncTool);
+    it("retains the actual task tools and remaining owned utilities", async () => {
+        const tools = registerAllTools("/tmp/project", { [TOOL_NAMES.DELEGATE_TASK]: taskTool });
+        expect(tools[TOOL_NAMES.DELEGATE_TASK]).toBe(taskTool);
         expect(tools[TOOL_NAMES.GREP_SEARCH]).toBeDefined();
-    });
-
-    it("allows dynamic tools with unique names", () => {
-        const dynamicTool = { description: "custom" } as unknown as ToolDefinition;
-        const tools = registerAllTools(
-            "/tmp/project",
-            {},
-            { custom_tool: dynamicTool },
-        );
-
-        expect(tools.custom_tool).toBe(dynamicTool);
-        expect(tools[TOOL_NAMES.GREP_SEARCH]).toBeDefined();
+        expect(await tools[TOOL_NAMES.DELEGATE_TASK].execute({}, {} as never)).toBe("done");
     });
 });

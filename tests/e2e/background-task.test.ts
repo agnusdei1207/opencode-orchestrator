@@ -15,10 +15,10 @@ import { backgroundTaskManager } from "../../src/core/commands/index";
 describe("BackgroundTaskManager E2E", () => {
     const createdTaskIds: string[] = [];
 
-    afterEach(() => {
+    afterEach(async () => {
         // Cleanup: kill any running tasks
         for (const id of createdTaskIds) {
-            backgroundTaskManager.kill(id);
+            await backgroundTaskManager.kill(id);
         }
         createdTaskIds.length = 0;
         backgroundTaskManager.clearCompleted();
@@ -190,7 +190,7 @@ describe("BackgroundTaskManager E2E", () => {
             // Give it time to start
             await new Promise(resolve => setTimeout(resolve, 100));
 
-            const killed = backgroundTaskManager.kill(task.id);
+            const killed = await backgroundTaskManager.kill(task.id);
             expect(killed).toBe(true);
 
             const updated = backgroundTaskManager.get(task.id);
@@ -206,7 +206,7 @@ describe("BackgroundTaskManager E2E", () => {
 
             await new Promise(resolve => setTimeout(resolve, 100));
 
-            expect(backgroundTaskManager.kill(task.id)).toBe(true);
+            expect(await backgroundTaskManager.kill(task.id)).toBe(true);
 
             await new Promise(resolve => setTimeout(resolve, 300));
 
@@ -217,8 +217,8 @@ describe("BackgroundTaskManager E2E", () => {
             expect(updated?.process).toBeUndefined();
         });
 
-        it("should return false for unknown task", () => {
-            const killed = backgroundTaskManager.kill("job_unknown");
+        it("should return false for unknown task", async () => {
+            const killed = await backgroundTaskManager.kill("job_unknown");
             expect(killed).toBe(false);
         });
     });

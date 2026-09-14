@@ -44,7 +44,7 @@ export function createToolExecuteBeforeHandler(ctx: ToolExecuteHandlerContext) {
             throw new Error(`🚫 Action Blocked: ${result.reason || "Policy violation"}`);
         }
 
-        if (result.action === HOOK_ACTIONS.MODIFY && result.modifiedArgs) {
+        if (result.modifiedArgs) {
             replaceToolArguments(toolOutput, result.modifiedArgs);
         }
     };

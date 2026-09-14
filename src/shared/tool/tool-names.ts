@@ -34,11 +34,6 @@ export const TOOL_NAMES = {
     // Git tools
     GIT_DIFF: "git_diff",
     GIT_STATUS: "git_status",
-    // Web tools
-    WEBFETCH: "webfetch",
-    WEBSEARCH: "websearch",
-    CODESEARCH: "codesearch",
-    CACHE_DOCS: "cache_docs",
     // LSP tools
     LSP_DIAGNOSTICS: "lsp_diagnostics",
     // AST tools
@@ -46,7 +41,6 @@ export const TOOL_NAMES = {
     AST_SEARCH: "ast_search",
     AST_REPLACE: "ast_replace",
     // Other tools
-    CALL_AGENT: "call_agent",
     SLASHCOMMAND: "slashcommand",
     SKILL: "skill",
 } as const;

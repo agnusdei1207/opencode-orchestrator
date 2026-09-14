@@ -1,13 +1,4 @@
-/**
- * Agent Definitions Registry
- * 
- * Consolidated agent architecture (v2):
- * - Commander: Master orchestrator
- * - Planner: Planning + Research
- * - Worker: Implementation + Documentation
- * - Reviewer: Verification + Context Management (Final Quality Gate)
- */
-
+// Retain the four registered names while delegation runtime compatibility is migrated.
 import { AGENT_NAMES } from "../shared/agent/index.js";
 import type { AgentDefinition } from "../shared/agent/index.js";
 import { commander } from "./commander.js";

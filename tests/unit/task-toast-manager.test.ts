@@ -6,7 +6,6 @@ describe("TaskToastManager", () => {
     let manager: TaskToastManager;
     let mockClient: any;
     let mockConcurrency: any;
-    let mockTodoSync: any;
 
     beforeEach(() => {
         manager = new TaskToastManager();
@@ -18,15 +17,10 @@ describe("TaskToastManager", () => {
         mockConcurrency = {
             getConcurrencyLimit: vi.fn().mockReturnValue(3),
         };
-        mockTodoSync = {
-            updateTaskStatus: vi.fn(),
-            removeTask: vi.fn(),
-        };
     });
 
     it("tracks added tasks and displays consolidated toast", () => {
         manager.init(mockClient, mockConcurrency);
-        manager.setTodoSync(mockTodoSync);
 
         manager.addTask({
             id: "t1",
@@ -42,13 +36,16 @@ describe("TaskToastManager", () => {
         expect(running).toHaveLength(1);
         expect(running[0].description).toBe("Compile source");
         expect(manager.getTasksByParent("p1")).toHaveLength(1);
-        expect(mockTodoSync.updateTaskStatus).toHaveBeenCalled();
-        expect(mockClient.tui.showToast).toHaveBeenCalled();
+        expect(mockClient.tui.showToast).toHaveBeenCalledWith({
+            body: expect.objectContaining({
+                title: "Background Task Started",
+                message: expect.stringContaining("Compile source (Worker)"),
+            }),
+        });
     });
 
-    it("updates task status and synchronizes with todoSync", () => {
+    it("updates task status in the tracked task list", () => {
         manager.init(mockClient, mockConcurrency);
-        manager.setTodoSync(mockTodoSync);
 
         manager.addTask({
             id: "t1",
@@ -59,15 +56,14 @@ describe("TaskToastManager", () => {
 
         manager.updateTask("t1", TASK_STATUS.COMPLETED);
         expect(manager.getRunningTasks()).toHaveLength(0);
-        expect(mockTodoSync.updateTaskStatus).toHaveBeenCalledTimes(2);
+        expect(manager.getStats()).toEqual({ running: 0, queued: 0, total: 1 });
 
         // Updating nonexistent task should not throw
         manager.updateTask("nonexistent", TASK_STATUS.COMPLETED);
     });
 
-    it("removes task and synchronizes with todoSync", () => {
+    it("removes task from the tracked task list", () => {
         manager.init(mockClient, mockConcurrency);
-        manager.setTodoSync(mockTodoSync);
 
         manager.addTask({
             id: "t1",
@@ -78,7 +74,7 @@ describe("TaskToastManager", () => {
 
         manager.removeTask("t1");
         expect(manager.getStats().total).toBe(0);
-        expect(mockTodoSync.removeTask).toHaveBeenCalledWith("t1");
+        expect(manager.getRunningTasks()).toEqual([]);
     });
 
     it("displays completed task toasts for success, failure, and cancelled", () => {

@@ -1,3 +1,4 @@
+vi.mock("../../src/core/agents/manager", () => ({ ParallelAgentManager: { getInstance: () => ({ getTasksByParent: () => [] }) } }));
 
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import * as fs from "fs";
@@ -59,6 +60,7 @@ describe("Mission Loop Persistence E2E", () => {
         // Mock OpenCode client
         const mockClient = {
             session: {
+                status: vi.fn().mockResolvedValue({ data: {} }),
                 messages: vi.fn().mockResolvedValue({ data: [] }),
                 prompt: vi.fn().mockResolvedValue({}),
                 todo: vi.fn().mockResolvedValue({ data: [] }),
@@ -95,6 +97,7 @@ describe("Mission Loop Persistence E2E", () => {
 
         const mockClient = {
             session: {
+                status: vi.fn().mockResolvedValue({ data: {} }),
                 messages: vi.fn().mockResolvedValue({ data: [] }),
                 prompt: vi.fn().mockResolvedValue({}),
                 todo: vi.fn().mockResolvedValue({ data: [] }),
@@ -130,6 +133,7 @@ describe("Mission Loop Persistence E2E", () => {
 
         const mockClient = {
             session: {
+                status: vi.fn().mockResolvedValue({ data: {} }),
                 messages: vi.fn().mockResolvedValue({ data: [] }),
                 prompt: vi.fn().mockResolvedValue({}),
                 todo: vi.fn().mockResolvedValue({ data: [] }),
@@ -155,6 +159,7 @@ describe("Mission Loop Persistence E2E", () => {
         // 2. Mock client
         const mockClient = {
             session: {
+                status: vi.fn().mockResolvedValue({ data: {} }),
                 messages: vi.fn().mockResolvedValue({
                     data: [{
                         info: { role: "assistant" },

@@ -6,8 +6,8 @@ import { AGENT_NAMES } from "../../src/shared/agent/index.js";
  * Prompt drift guard.
  *
  * These snapshots lock the fully-composed system prompt of every generated agent.
- * They exist so that refactors of the prompt-composition layer (template registry,
- * profile selection, etc.) cannot silently change what each agent is told. If a
+ * They ensure edits to shared discipline and role presets cannot silently
+ * change what each agent is told. If a
  * change to prompt wording is intentional, update the snapshot in the same commit.
  */
 describe("agent system prompts (drift guard)", () => {

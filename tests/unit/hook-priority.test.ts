@@ -1,185 +1,172 @@
-/**
- * Hook System Priority & Dependency Tests
- */
-
-import { describe, it, expect, beforeEach, vi } from "vitest";
-import {
-    HookRegistry,
-    type ChatMessageHook,
-    type HookContext,
-    type PostToolUseHook,
-} from "../../src/hooks/registry";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { HookRegistry, type HookContext, type HookResult } from "../../src/hooks/registry";
 import { HOOK_ACTIONS } from "../../src/hooks/constants";
-import { initializeHooks } from "../../src/hooks/index";
 
-describe("Hook Registry (Priority & Dependencies)", () => {
-    let registry: HookRegistry;
-    let mockContext: HookContext;
+const context: HookContext = { sessionID: "pipeline", directory: "/tmp", sessions: new Map() };
+let registry: HookRegistry;
 
-    beforeEach(() => {
-        // Reset singleton-ish behavior for testing
-        // @ts-ignore
-        HookRegistry.instance = new HookRegistry();
-        registry = HookRegistry.getInstance();
-        mockContext = {
-            sessionID: "test",
-            directory: "/tmp",
-            sessions: new Map()
-        };
+beforeEach(() => {
+    (HookRegistry as unknown as { instance?: HookRegistry }).instance = undefined;
+    registry = HookRegistry.getInstance();
+});
+afterEach(() => vi.restoreAllMocks());
+
+describe("Ordered hook execution", () => {
+    it("passes modified arguments to later pre-tool hooks and preserves them in the result", async () => {
+        registry.registerPreTool({ name: "rewrite", execute: async () => ({ action: HOOK_ACTIONS.MODIFY, modifiedArgs: { path: "safe" } }) });
+        registry.registerPreTool({ name: "check", execute: async (_ctx, _tool, args) => {
+            expect(args).toEqual({ path: "safe" });
+            return { action: HOOK_ACTIONS.ALLOW };
+        } });
+        expect(await registry.executePreTool(context, "read", { path: "original" }))
+            .toEqual({ action: HOOK_ACTIONS.ALLOW, modifiedArgs: { path: "safe" } });
     });
 
-    it("should execute hooks in priority order", async () => {
-        const executionOrder: string[] = [];
-
-        const hook1: ChatMessageHook = {
-            name: "hook1",
-            execute: async () => { executionOrder.push("hook1"); return { action: HOOK_ACTIONS.PROCESS }; }
-        };
-        const hook2: ChatMessageHook = {
-            name: "hook2",
-            execute: async () => { executionOrder.push("hook2"); return { action: HOOK_ACTIONS.PROCESS }; }
-        };
-
-        registry.registerChat(hook2, { priority: 20 });
-        registry.registerChat(hook1, { priority: 10 });
-
-        await registry.executeChat(mockContext, "test");
-        expect(executionOrder).toEqual(["hook1", "hook2"]);
+    it("returns a block reason without executing subsequent hooks", async () => {
+        let laterRan = false;
+        registry.registerPreTool({ name: "guard", execute: async () => ({ action: HOOK_ACTIONS.BLOCK, reason: "unsafe" }) });
+        registry.registerPreTool({ name: "later", execute: async () => {
+            laterRan = true;
+            return { action: HOOK_ACTIONS.ALLOW };
+        } });
+        expect(await registry.executePreTool(context, "shell", {})).toEqual({ action: HOOK_ACTIONS.BLOCK, reason: "unsafe" });
+        expect(laterRan).toBe(false);
     });
 
-    it("should respect phases (early > normal > late)", async () => {
-        const executionOrder: string[] = [];
-
-        const register = (name: string, phase: any, priority: number) => {
-            registry.registerChat({
-                name,
-                execute: async () => { executionOrder.push(name); return { action: HOOK_ACTIONS.PROCESS }; }
-            }, { phase, priority });
-        };
-
-        register("late-1", "late", 1);
-        register("early-2", "early", 100); // Priority is high but phase is early
-        register("normal-1", "normal", 50);
-
-        await registry.executeChat(mockContext, "test");
-        expect(executionOrder).toEqual(["early-2", "normal-1", "late-1"]);
+    it("passes redacted output to later hooks and preserves empty output and in-place mutations", async () => {
+        const output = { title: "read", output: "secret", metadata: {} };
+        registry.registerPostTool({ name: "redact", execute: async () => ({ output: "" }) });
+        registry.registerPostTool({ name: "observe", execute: async (_ctx, _tool, _input, current) => {
+            expect(current.output).toBe("");
+            current.title = "redacted";
+            current.metadata.safe = true;
+            return {};
+        } });
+        await registry.executePostTool(context, "read", {}, output);
+        expect(output).toEqual({ title: "redacted", output: "", metadata: { safe: true } });
     });
 
-    it("should handle dependencies via topological sort", async () => {
-        const executionOrder: string[] = [];
-
-        const register = (name: string, deps: string[]) => {
-            registry.registerChat({
-                name,
-                execute: async () => { executionOrder.push(name); return { action: HOOK_ACTIONS.PROCESS }; }
-            }, { dependencies: deps, name });
-        };
-
-        register("B", ["A"]);
-        register("A", []);
-        register("C", ["B"]);
-
-        await registry.executeChat(mockContext, "test");
-        expect(executionOrder).toEqual(["A", "B", "C"]);
+    it("applies chat rewrites in registration order while ignoring empty rewrites", async () => {
+        registry.registerChat({ name: "first", execute: async (_ctx, message) => ({ action: HOOK_ACTIONS.PROCESS, modifiedMessage: message + " first" }) });
+        registry.registerChat({ name: "empty", execute: async () => ({ action: HOOK_ACTIONS.PROCESS, modifiedMessage: "" }) });
+        registry.registerChat({ name: "last", execute: async (_ctx, message) => ({ action: HOOK_ACTIONS.PROCESS, modifiedMessage: message + " last" }) });
+        expect(await registry.executeChat(context, "request")).toEqual({ action: HOOK_ACTIONS.PROCESS, modifiedMessage: "request first last" });
     });
 
-    it("should throw error on circular dependencies", () => {
-        const hookA: ChatMessageHook = { name: "A", execute: vi.fn() };
-        const hookB: ChatMessageHook = { name: "B", execute: vi.fn() };
-
-        registry.registerChat(hookA, { name: "A", dependencies: ["B"] });
-
-        // This should trigger topological sort and detect cycle
-        expect(() => {
-            registry.registerChat(hookB, { name: "B", dependencies: ["A"] });
-        }).toThrow();
+    it("intercepts chat without forwarding the message or executing later hooks", async () => {
+        let laterRan = false;
+        registry.registerChat({ name: "command", execute: async () => ({ action: HOOK_ACTIONS.INTERCEPT, modifiedMessage: "hidden" }) });
+        registry.registerChat({ name: "later", execute: async () => {
+            laterRan = true;
+            return { action: HOOK_ACTIONS.PROCESS };
+        } });
+        expect(await registry.executeChat(context, "/cancel")).toEqual({ action: HOOK_ACTIONS.INTERCEPT });
+        expect(laterRan).toBe(false);
     });
 
-    it("should throw error on missing dependencies", async () => {
-        const hook: ChatMessageHook = { name: "needs-missing", execute: vi.fn() };
-
-        registry.registerChat(hook, {
-            name: "needs-missing",
-            dependencies: ["missing-hook"],
-        });
-
-        await expect(registry.executeChat(mockContext, "test"))
-            .rejects.toThrow("Missing hook dependency: missing-hook");
+    it.each<HookResult>([
+        { action: HOOK_ACTIONS.STOP, reason: "complete" },
+        { action: HOOK_ACTIONS.INJECT, prompts: ["first", "second"] },
+    ])("returns the first done intervention unchanged: $action", async (intervention) => {
+        let laterRan = false;
+        registry.registerDone({ name: "observe", execute: async () => ({ action: HOOK_ACTIONS.CONTINUE }) });
+        registry.registerDone({ name: "intervene", execute: async () => intervention });
+        registry.registerDone({ name: "later", execute: async () => {
+            laterRan = true;
+            return { action: HOOK_ACTIONS.INJECT, prompts: ["must not merge"] };
+        } });
+        expect(await registry.executeDone(context, "done")).toEqual(intervention);
+        expect(laterRan).toBe(false);
     });
 
-    it("should respect errorHandling: stop", async () => {
-        const hook1: ChatMessageHook = {
-            name: "fail",
-            execute: async () => { throw new Error("Abort"); }
-        };
-        const hook2: ChatMessageHook = {
-            name: "second",
-            execute: async () => { return { action: HOOK_ACTIONS.PROCESS }; }
-        };
-
-        registry.registerChat(hook1, { name: "fail", errorHandling: "stop" });
-        registry.registerChat(hook2, { name: "second", priority: 100 });
-
-        await expect(registry.executeChat(mockContext, "test")).rejects.toThrow("Abort");
-    });
-
-    it("should not throw a cross-phase dependency error after initializeHooks", async () => {
-        // Regression for #32: metrics-post declared a dependency on metrics-pre,
-        // which lives in the pre-tool phase array. validateDependencies only sees
-        // same-phase names, so every post-tool execution threw
-        // "Missing hook dependency: metrics-pre".
-        initializeHooks();
-
-        const output = { title: "read", output: "file contents", metadata: {} };
-
-        await expect(
-            registry.executePostTool(mockContext, "read", { path: "/tmp/x" }, output)
-        ).resolves.not.toThrow();
-    });
-
-    it("every default hook dependency resolves within its own phase (guards #32-class cross-phase wiring)", () => {
-        // The real defect behind #32 was invisible to the suite because no test
-        // exercised the actual initializeHooks() wiring — only the registry
-        // primitives in isolation. validateDependencies resolves dependency
-        // names ONLY within the same phase array, so any default hook that
-        // depends on a name registered in a different phase silently breaks
-        // every execution of that phase at runtime. Assert that invariant
-        // directly across all four phase arrays.
-        initializeHooks();
-
-        const phases: [string, Array<{ metadata: { name: string; dependencies?: string[] } }>][] = [
-            ["preTool", (registry as any).preToolHooks],
-            ["postTool", (registry as any).postToolHooks],
-            ["chat", (registry as any).chatHooks],
-            ["done", (registry as any).doneHooks],
+    it.each(["continue", "stop"] as const)("uses %s error handling across every hook entry point", async (errorHandling) => {
+        const failure = async (): Promise<never> => { throw new Error("hook failed"); };
+        const hook = { name: "failure", execute: failure };
+        registry.registerPreTool(hook, errorHandling);
+        registry.registerPostTool(hook, errorHandling);
+        registry.registerChat(hook, errorHandling);
+        registry.registerDone(hook, errorHandling);
+        const reached: string[] = [];
+        registry.registerPreTool({ name: "after", execute: async () => { reached.push("pre"); return { action: HOOK_ACTIONS.ALLOW }; } });
+        registry.registerPostTool({ name: "after", execute: async () => { reached.push("post"); return {}; } });
+        registry.registerChat({ name: "after", execute: async () => { reached.push("chat"); return { action: HOOK_ACTIONS.PROCESS }; } });
+        registry.registerDone({ name: "after", execute: async () => { reached.push("done"); return { action: HOOK_ACTIONS.CONTINUE }; } });
+        const calls = [
+            () => registry.executePreTool(context, "read", {}),
+            () => registry.executePostTool(context, "read", {}, { title: "read", output: "safe", metadata: {} }),
+            () => registry.executeChat(context, "hello"),
+            () => registry.executeDone(context, "done"),
         ];
-
-        for (const [phase, regs] of phases) {
-            const namesInPhase = new Set(regs.map((r) => r.metadata.name));
-            for (const reg of regs) {
-                for (const dep of reg.metadata.dependencies || []) {
-                    expect(
-                        namesInPhase.has(dep),
-                        `Hook "${reg.metadata.name}" in phase "${phase}" depends on "${dep}", ` +
-                            `which is not registered in the same phase. validateDependencies ` +
-                            `will throw "Missing hook dependency: ${dep}" on every ${phase} execution.`
-                    ).toBe(true);
-                }
-            }
+        for (const call of calls) {
+            if (errorHandling === "stop") await expect(call()).rejects.toThrow("hook failed");
+            else await expect(call()).resolves.not.toThrow();
         }
-    });
-
-    it("should preserve empty string output from post-tool hooks", async () => {
-        const hook: PostToolUseHook = {
-            name: "redact-all",
-            execute: async () => ({ output: "" }),
-        };
-        const output = { title: "tool", output: "secret output", metadata: {} };
-
-        registry.registerPostTool(hook);
-
-        await registry.executePostTool(mockContext, "tool", {}, output);
-
-        expect(output.output).toBe("");
+        expect(reached).toEqual(errorHandling === "stop" ? [] : ["pre", "post", "chat", "done"]);
     });
 });
+
+describe("Owned hook wiring", () => {
+    it.each(["guard", "secret", "mission"])("propagates failures from the owned %s safety boundary", async (failure) => {
+        vi.resetModules();
+        const { calls, hooks, initialize } = await traceOwnedHooks(failure);
+        initialize();
+        const execution = failure === "guard" ? hooks.executePreTool(context, "read", {})
+            : failure === "secret" ? hooks.executePostTool(context, "read", {}, { title: "read", output: "secret", metadata: {} })
+            : hooks.executeChat(context, "hello");
+        await expect(execution).rejects.toThrow(`${failure} failed`);
+        expect(calls).toEqual(failure === "mission" ? ["mission"] : [failure]);
+    });
+
+    it("continues completion checks after a failed sanity observer", async () => {
+        vi.resetModules();
+        const { calls, hooks, initialize } = await traceOwnedHooks("sanity");
+        initialize();
+        expect(await hooks.executeDone(context, "done")).toEqual({ action: HOOK_ACTIONS.CONTINUE });
+        expect(calls).toEqual(["sanity", "resource", "memory", "metrics"]);
+    });
+
+    it("runs each owned lifecycle in its established order exactly once", async () => {
+        vi.resetModules();
+        const { calls, hooks, initialize } = await traceOwnedHooks();
+        initialize();
+        initialize();
+        await hooks.executePreTool(context, "read", {});
+        expect(calls.splice(0)).toEqual(["guard", "metrics"]);
+        await hooks.executePostTool(context, "read", {}, { title: "read", output: "safe", metadata: {} });
+        expect(calls.splice(0)).toEqual(["secret", "resource", "memory", "metrics"]);
+        await hooks.executeChat(context, "hello");
+        expect(calls.splice(0)).toEqual(["mission"]);
+        expect(await hooks.executeDone(context, "done")).toEqual({ action: HOOK_ACTIONS.CONTINUE });
+        expect(calls).toEqual(["sanity", "resource", "memory", "metrics"]);
+    });
+});
+
+async function traceOwnedHooks(failure?: string) {
+    const { StrictRoleGuardHook } = await import("../../src/hooks/custom/strict-role-guard");
+    const { SecretScannerHook } = await import("../../src/hooks/custom/secret-scanner");
+    const { ResourceControlHook } = await import("../../src/hooks/custom/resource-control");
+    const { MemoryGateHook } = await import("../../src/hooks/custom/memory-gate");
+    const { MetricsHook } = await import("../../src/hooks/custom/metrics");
+    const { MissionControlHook } = await import("../../src/hooks/features/mission-loop");
+    const { SanityCheckHook } = await import("../../src/hooks/features/sanity-check");
+    const calls: string[] = [];
+    const record = (name: string) => {
+        calls.push(name);
+        if (name === failure) throw new Error(`${name} failed`);
+    };
+    vi.spyOn(StrictRoleGuardHook.prototype, "execute").mockImplementation(async () => { record("guard"); return { action: HOOK_ACTIONS.ALLOW }; });
+    vi.spyOn(SecretScannerHook.prototype, "execute").mockImplementation(async () => { record("secret"); return {}; });
+    for (const [name, prototype] of [
+        ["resource", ResourceControlHook.prototype], ["memory", MemoryGateHook.prototype],
+        ["metrics", MetricsHook.prototype], ["mission", MissionControlHook.prototype],
+        ["sanity", SanityCheckHook.prototype],
+    ] as const) {
+        vi.spyOn(prototype, "execute").mockImplementation(async () => {
+            record(name);
+            return { action: HOOK_ACTIONS.CONTINUE };
+        });
+    }
+    const { initializeHooks } = await import("../../src/hooks/index");
+    const { HookRegistry: OwnedHooks } = await import("../../src/hooks/registry");
+    return { calls, hooks: OwnedHooks.getInstance(), initialize: initializeHooks };
+}

@@ -15,6 +15,7 @@ describe("SessionRecovery", () => {
     let mockClient: {
         session: {
             prompt: ReturnType<typeof vi.fn>;
+            status: ReturnType<typeof vi.fn>;
         };
     };
 
@@ -22,6 +23,7 @@ describe("SessionRecovery", () => {
         mockClient = {
             session: {
                 prompt: vi.fn().mockResolvedValue({ data: {} }),
+                status: vi.fn().mockResolvedValue({ data: {} }),
             },
         };
     });

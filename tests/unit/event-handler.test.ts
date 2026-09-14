@@ -5,7 +5,6 @@ import * as SessionRecovery from "../../src/core/recovery/session-recovery";
 import * as ContextMonitor from "../../src/core/context";
 import { ContextLimitResolver } from "../../src/core/context/context-limit-resolver";
 import { CONTEXT_MONITOR_CONFIG } from "../../src/core/context/context-window-monitor";
-import * as TodoContinuation from "../../src/core/loop/todo-continuation";
 import * as MissionLoopHandler from "../../src/core/loop/mission-loop-handler";
 import * as MissionLoop from "../../src/core/loop/mission-loop";
 import * as Toast from "../../src/core/notification/toast";
@@ -36,14 +35,8 @@ vi.mock("../../src/core/recovery/session-recovery", () => ({
     handleSessionError: vi.fn(),
     markRecoveryComplete: vi.fn(),
 }));
-vi.mock("../../src/core/loop/todo-continuation", () => ({
-    cleanupSession: vi.fn(),
-    handleAbort: vi.fn(),
-    handleSessionError: vi.fn(),
-    handleUserMessage: vi.fn(),
-    handleSessionIdle: vi.fn().mockResolvedValue(undefined),
-}));
 vi.mock("../../src/core/loop/mission-loop-handler", () => ({
+    handleSessionCompacted: vi.fn(),
     cleanupSession: vi.fn(),
     handleAbort: vi.fn(),
     handleUserMessage: vi.fn(),
@@ -91,6 +84,35 @@ describe("createEventHandler", () => {
         vi.useRealTimers();
         SessionActivity.resetSessionActivity();
         PendingInjection.resetPendingInjections();
+    });
+
+    it("records compaction only on the completed host event with a session id", async () => {
+        const handler = createEventHandler(ctx);
+        await handler({ event: { type: "session.compacted", properties: { sessionID: "session-1" } } });
+        await handler({ event: { type: "session.compacted", properties: {} } });
+        expect(MissionLoopHandler.handleSessionCompacted).toHaveBeenCalledExactlyOnceWith("session-1");
+    });
+
+    it("keeps an explicit abort effective across a late completed-message event and repeated idles", async () => {
+        vi.useFakeTimers();
+        const prompt = vi.fn().mockResolvedValue({ data: {} });
+        ctx.client = { session: { prompt, status: async () => ({ data: {} }) } } as never;
+        const session = ctx.sessions.get("session-1")!;
+        session.lastAssistantCompletedAt = Date.now() - 100;
+        PendingInjection.queuePrompts("session-1", ["Continue unfinished mission"]);
+        const handler = createEventHandler(ctx);
+        await handler({ event: { type: "session.error", properties: { sessionID: "session-1", error: { name: "MessageAbortedError" } } } });
+        expect(session.lastAbortAt).toBeDefined();
+        expect(PendingInjection.hasPendingPrompts("session-1")).toBe(false);
+        await vi.advanceTimersByTimeAsync(1);
+        await handler({ event: { type: "message.updated", properties: { info: {
+            id: "late-message", sessionID: "session-1", role: "assistant", time: { completed: Date.now() },
+        } } } });
+        await handler({ event: { type: "session.idle", properties: { sessionID: "session-1" } } });
+        await handler({ event: { type: "session.idle", properties: { sessionID: "session-1" } } });
+        await vi.advanceTimersByTimeAsync(1000);
+        expect(prompt).not.toHaveBeenCalled();
+        expect(MissionLoopHandler.handleMissionIdle).not.toHaveBeenCalled();
     });
 
     it("routes completed assistant messages through the done-hook bridge", async () => {
@@ -195,7 +217,6 @@ describe("createEventHandler", () => {
         expect(Toast.presets.missionStarted).toHaveBeenCalledWith("Session session-crea...");
         expect(ctx.sessions.has("session-1")).toBe(false);
         expect(SessionRecovery.cleanupSessionRecovery).toHaveBeenCalledWith("session-1");
-        expect(TodoContinuation.cleanupSession).toHaveBeenCalledWith("session-1");
         expect(MissionLoopHandler.cleanupSession).toHaveBeenCalledWith("session-1");
         expect(ContextMonitor.cleanupSession).toHaveBeenCalledWith("session-1");
     });
@@ -273,13 +294,11 @@ describe("createEventHandler", () => {
 
         await vi.advanceTimersByTimeAsync(500);
 
-        expect(TodoContinuation.handleAbort).toHaveBeenCalledWith("session-1");
         expect(MissionLoopHandler.handleAbort).toHaveBeenCalledWith("session-1");
-        expect(TodoContinuation.handleSessionIdle).not.toHaveBeenCalled();
         expect(MissionLoopHandler.handleMissionIdle).not.toHaveBeenCalled();
     });
 
-    it("continues from idle only after an assistant completion for the current user turn", async () => {
+    it("does not continue a session that does not own the project mission", async () => {
         vi.useFakeTimers();
         const handler = createEventHandler(ctx);
         const session = ctx.sessions.get("session-1");
@@ -295,13 +314,7 @@ describe("createEventHandler", () => {
 
         await vi.advanceTimersByTimeAsync(500);
 
-        expect(TodoContinuation.handleSessionIdle).toHaveBeenCalledWith(
-            ctx.client,
-            ctx.directory,
-            "session-1",
-            "session-1",
-        );
-        expect(TodoContinuation.handleAbort).not.toHaveBeenCalled();
+        expect(MissionLoopHandler.handleMissionIdle).not.toHaveBeenCalled();
     });
 
     it("handles session.status idle through the same guarded continuation path", async () => {
@@ -330,12 +343,12 @@ describe("createEventHandler", () => {
             "session-1",
             "session-1",
         );
-        expect(TodoContinuation.handleSessionIdle).not.toHaveBeenCalled();
     });
 
     it("logs idle continuation failures without breaking the timer callback", async () => {
         vi.useFakeTimers();
-        vi.mocked(TodoContinuation.handleSessionIdle).mockRejectedValueOnce(new Error("idle failed"));
+        vi.mocked(MissionLoop.isLoopActive).mockReturnValue(true);
+        vi.mocked(MissionLoopHandler.handleMissionIdle).mockRejectedValueOnce(new Error("idle failed"));
         const handler = createEventHandler(ctx);
         const session = ctx.sessions.get("session-1");
         session.lastUserMessageAt = Date.now();

@@ -2,13 +2,13 @@
 
 Date: 2026-09-04 00:10 KST
 Status: Implemented
-Source: Strategic architectural review comparing `opencode-orchestrator`, `minimal-agent`, and `oh-my-openagent`.
+Source: Strategic architectural review of `opencode-orchestrator` and peer agent frameworks.
 
 ## Context
 
 The in-memory Second-Brain Knowledge RAG subsystem (ADR-0001, ADR-0002, ADR-0009 through ADR-0013) was implemented to provide local-first repository knowledge retrieval over Markdown documentation via BM25 lexical scoring, YAML frontmatter tag inverted indexing, wikilink bidirectional graph BFS, and an Ebbinghaus mathematical decay model.
 
-Live evaluation and comparative architectural analysis with peer agent frameworks (`minimal-agent`, `oh-my-openagent`) have revealed that automatic prompt-injected RAG is counter-productive for coding agents:
+Live evaluation and comparative architectural analysis with peer agent frameworks have revealed that automatic prompt-injected RAG is counter-productive for coding agents:
 1. **Context Pollution and Attention Dilution**: Involuntary injection of 220-character document snippets into system prompts on every turn pollutes the context window, triggers partial-context hallucinations, and competes with high-priority mission objectives.
 2. **Redundancy with Deterministic Tooling**: Unlike passive chat interfaces, coding agents operate as autonomous tool-users. When agents require code definitions, structural relationships, or documentation, deterministic tools (`ripgrep`, LSP `find_references`/`goto_definition`, `ast-grep`, and explicit file inspection) provide exact, verifiable facts rather than heuristic lexical guesses.
 3. **Staleness and Maintenance Overhead**: Codebases evolve continuously during active development. Maintaining over 2,000 lines of complex in-memory graph traversal, BM25 indexing, decay scoring, and 14 dedicated test suites creates substantial maintenance friction with zero demonstrated improvement in task completion rates.

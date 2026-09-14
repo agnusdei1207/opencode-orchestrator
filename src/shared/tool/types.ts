@@ -2,16 +2,6 @@
  * Tool types and interfaces (consolidated)
  */
 
-import type {
-    SessionCreateData,
-    SessionCreateResponse,
-    SessionMessagesData,
-    SessionMessagesResponse,
-    SessionPromptData,
-    SessionStatusData,
-    SessionStatusResponse,
-} from "@opencode-ai/sdk";
-
 /**
  * AST Search Result Interface
  */
@@ -80,28 +70,4 @@ export interface LspCommandResult {
     stdout: string;
     stderr: string;
     exitCode: number;
-}
-
-/**
- * Poll Result Interface
- */
-
-export interface PollResult {
-    success: boolean;
-    timedOut: boolean;
-    aborted?: boolean;
-    error?: string;
-    pollCount: number;
-    elapsedMs: number;
-}
-
-/**
- * Session Client Interface
- */
-
-export interface SessionClient {
-    create: (opts: Omit<SessionCreateData, "url">) => Promise<{ data?: SessionCreateResponse; error?: unknown }>;
-    prompt: (opts: Omit<SessionPromptData, "url">) => Promise<{ error?: unknown }>;
-    messages: (opts: Omit<SessionMessagesData, "url">) => Promise<{ data?: SessionMessagesResponse; error?: unknown }>;
-    status: (opts?: Omit<SessionStatusData, "url">) => Promise<{ data?: SessionStatusResponse; error?: unknown }>;
 }

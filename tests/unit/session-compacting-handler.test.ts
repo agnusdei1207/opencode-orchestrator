@@ -17,6 +17,7 @@ import {
 import type { EventHandlerContext } from "../../src/plugin-handlers/event-handler";
 import { ParallelAgentManager } from "../../src/core/agents/manager";
 import { log } from "../../src/core/agents/logger";
+import { clearCompactionState, getCompactionState } from "../../src/core/loop/compaction-guard";
 
 // Mock dependencies
 vi.mock("../../src/core/loop/mission-loop", () => ({
@@ -60,6 +61,15 @@ describe("Session Compacting Handler", () => {
         expect(typeof handler).toBe("function");
     });
 
+    it("does not record completed compaction while preparing its context", async () => {
+        clearCompactionState("test-session");
+        const output: SessionCompactingOutput = { context: ["host context"], prompt: "host prompt" };
+        await handler({ sessionID: "test-session" }, output);
+        expect(getCompactionState("test-session")).toBeUndefined();
+        expect(output.context[0]).toBe("host context");
+        expect(output.prompt).toBe("host prompt");
+    });
+
     it("should inject session context when session exists", async () => {
         const input: SessionCompactingInput = { sessionID: "test-session" };
         const output: SessionCompactingOutput = { context: [] };
@@ -98,6 +108,7 @@ describe("Session Compacting Handler", () => {
 
         expect(output.context.some(c => c.includes("ACTIVE MISSION LOOP"))).toBe(true);
         expect(output.context.some(c => c.includes("Iteration 2/10"))).toBe(true);
+        expect(output.context.join("\n")).toContain("parent status: completed");
     });
 
     it("should not inject mission context for different session", async () => {
@@ -133,11 +144,20 @@ describe("Session Compacting Handler", () => {
 
         await handler(input, output);
 
-        expect(output.context.some(c => c.includes("Running background tasks"))).toBe(true);
+        expect(output.context.some(c => c.includes("Active background tasks"))).toBe(true);
         const context = output.context.find(c => c.includes("background_tasks_context"));
         expect(context).toContain("t1 session=s1 agent=worker status=running desc=Build UI");
         expect(context).toContain("t2 session=s2 agent=worker status=running desc=Write tests");
         expect(context).toContain("Wait for completion before finalizing.");
+    });
+
+    it("preserves pending delegated work across compaction", async () => {
+        vi.mocked(ParallelAgentManager.getInstance).mockReturnValue({
+            getTasksByParent: () => [{ id: "queued-1", sessionID: "child-1", description: "Queued check", agent: "reviewer", status: "pending" }],
+        } as never);
+        const output: SessionCompactingOutput = { context: [] };
+        await handler({ sessionID: "test-session" }, output);
+        expect(output.context.join("\n")).toContain("queued-1 session=child-1 agent=reviewer status=pending");
     });
 
     it("should not modify output when no relevant context exists", async () => {

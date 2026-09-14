@@ -1,25 +1,5 @@
-
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { describe, it, expect } from "vitest";
 import { parseTodoMd } from "../../../../src/core/sync/todo-parser.js";
-import { TodoSyncService } from "../../../../src/core/sync/todo-sync-service.js";
-import { log } from "../../../../src/core/agents/logger.js";
-import * as fs from "node:fs";
-
-// Mock fs
-vi.mock("node:fs", async () => {
-    return {
-        ...await vi.importActual("node:fs"),
-        existsSync: vi.fn(),
-        promises: {
-            open: vi.fn(),
-            readFile: vi.fn(),
-            writeFile: vi.fn(),
-        },
-        watch: vi.fn(() => ({ close: vi.fn() })),
-    };
-});
-
-vi.mock("../../../../src/core/agents/logger.js", () => ({ log: vi.fn() }));
 
 describe("Todo Parser", () => {
     it("should parse pending tasks", () => {
@@ -48,70 +28,5 @@ describe("Todo Parser", () => {
         const input = "# Title\n- [ ] Task\nJust text";
         const result = parseTodoMd(input);
         expect(result).toHaveLength(1);
-    });
-});
-
-describe("TodoSyncService", () => {
-    let service: TodoSyncService;
-    let mockClient: any;
-
-    beforeEach(() => {
-        vi.clearAllMocks();
-        vi.mocked(fs.existsSync).mockReturnValue(true);
-        mockClient = {
-            session: {
-                todo: vi.fn().mockResolvedValue({}),
-            }
-        };
-        service = new TodoSyncService(mockClient, "/tmp");
-    });
-
-    it("should register session", () => {
-        service.registerSession("sess-1");
-        // Access private field for testing or verify behavior via call
-        // @ts-ignore
-        expect(service.activeSessions.has("sess-1")).toBe(true);
-    });
-
-    it("should track task updates without calling session.todo", async () => {
-        // TodoSyncService now syncs via .opencode/todo.md file watching
-        // instead of calling session.todo() directly (read-only sync)
-        service.registerSession("sess-1");
-
-        const task = {
-            id: "task-1",
-            content: "New Task",
-            agent: "worker",
-            description: "Test Task",
-            status: "running",
-            isBackground: true
-        };
-
-        service.updateTaskStatus(task);
-
-        // Verify task is tracked internally
-        const tasks = Array.from((service as any).taskTodos.values());
-        expect(tasks).toHaveLength(1);
-        expect(tasks[0]).toMatchObject({
-            id: "task-1",
-            description: "Test Task",
-            status: "running"
-        });
-
-        // session.todo() is no longer called (sync via file watch instead)
-        expect(mockClient.session.todo).not.toHaveBeenCalled();
-    });
-
-    it("should log file handle close failures after reloading todos", async () => {
-        const fileHandle = {
-            readFile: vi.fn().mockResolvedValue("- [ ] Task from file"),
-            close: vi.fn().mockRejectedValue(new Error("close failed")),
-        };
-        vi.mocked(fs.promises.open).mockResolvedValue(fileHandle as unknown as fs.promises.FileHandle);
-
-        await (service as unknown as { reloadFileTodos: () => Promise<void> }).reloadFileTodos();
-
-        expect(fileHandle.close).toHaveBeenCalled();
-        expect(log).toHaveBeenCalledWith(expect.stringContaining("Failed to close todo.md"));
     });
 });

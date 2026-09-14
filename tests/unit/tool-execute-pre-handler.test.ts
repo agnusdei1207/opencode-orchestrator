@@ -13,57 +13,37 @@ vi.mock("../../src/core/agents/logger", () => ({ log: vi.fn() }));
 describe("createToolExecuteBeforeHandler", () => {
     beforeEach(() => {
         vi.restoreAllMocks();
+        (HookRegistry as unknown as { instance?: HookRegistry }).instance = undefined;
     });
 
-    it("routes modifiedArgs as the final argument shape and removes stale keys", async () => {
-        let argsSeenByHook: Record<string, unknown> | undefined;
-        const executePreTool = vi.fn().mockImplementation(async (
-            _context: unknown,
-            _tool: string,
-            args: Record<string, unknown>,
-        ) => {
-            argsSeenByHook = { ...args };
-            return {
-                action: HOOK_ACTIONS.MODIFY,
-                modifiedArgs: {
-                    command: "npm test",
-                },
-            };
+    it.each([{ command: "npm test" }, {}])("routes real registry replacements to the host and removes stale keys: %j", async (modifiedArgs) => {
+        let observed: unknown;
+        HookRegistry.getInstance().registerPreTool({
+            name: "replace-arguments",
+            execute: async (context, tool, args) => {
+                observed = { sessionID: context.sessionID, directory: context.directory, tool, args: { ...args } };
+                return { action: HOOK_ACTIONS.MODIFY, modifiedArgs };
+            },
         });
-        vi.spyOn(HookRegistry, "getInstance").mockReturnValue({
-            executePreTool,
-        } as unknown as HookRegistry);
-
-        const ctx = createContext();
         const input: ToolExecuteBeforeInput = {
             tool: "run_command",
             sessionID: "session-1",
             callID: "call-1",
         };
         const output: ToolExecuteBeforeOutput = {
-            args: {
-                command: "npm test",
-                unsafeFlag: true,
-            },
+            args: { command: "original", unsafeFlag: true },
         };
 
-        await createToolExecuteBeforeHandler(ctx)(input, output);
+        await createToolExecuteBeforeHandler(createContext())(input, output);
 
-        expect(output.args).toEqual({ command: "npm test" });
-        expect(argsSeenByHook).toEqual({
-            command: "npm test",
-            unsafeFlag: true,
+        expect(output.args).toEqual(modifiedArgs);
+        expect(observed).toEqual({
+            sessionID: "session-1",
+            directory: "/tmp/project",
+            tool: "run_command",
+            args: { command: "original", unsafeFlag: true },
         });
-        expect(executePreTool).toHaveBeenCalledWith(
-            expect.objectContaining({
-                sessionID: "session-1",
-                directory: "/tmp/project",
-            }),
-            "run_command",
-            expect.any(Object),
-        );
     });
-
     it("throws when a pre-tool hook blocks the call", async () => {
         vi.spyOn(HookRegistry, "getInstance").mockReturnValue({
             executePreTool: vi.fn().mockResolvedValue({

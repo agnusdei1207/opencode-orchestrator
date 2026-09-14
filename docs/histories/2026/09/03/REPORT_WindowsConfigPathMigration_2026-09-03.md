@@ -16,16 +16,13 @@ Two independent facts combined:
    (`packages/core/src/global.ts`: `config = path.join(xdgConfig!, app)`), i.e.
    `$XDG_CONFIG_HOME/opencode` else `~/.config/opencode` — including win32.
    `loadGlobal` reads only that dir. `%APPDATA%` is used solely for the Tauri
-   desktop app id (`ai.opencode.desktop`), never for CLI plugin config
-   (reference: `oh-my-openagent/packages/claude-code-compat-core/src/shared/opencode-config-dir.ts`
-   `getCliDefaultConfigDir`, which likewise never touches `APPDATA`).
+   desktop app id (`ai.opencode.desktop`), never for CLI plugin config.
 2. Our `getConfigPaths()` put `%APPDATA%/opencode` first on win32, so
    postinstall registered the plugin in a file OpenCode never loads.
 
 A second, latent failure of the same family: OpenCode caches npm plugins under
 `<cache>/opencode/packages/<pkg>@<version>` and can keep loading a stale build
-after reinstall (pattern and fix borrowed from oh-my-openagent's
-`postinstall.mjs` `invalidateOpenCodePluginCache`).
+after reinstall.
 
 ## Fix
 

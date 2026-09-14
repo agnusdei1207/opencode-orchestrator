@@ -4,6 +4,22 @@ import { createSlashcommandTool, COMMANDS } from "../../src/tools/slashCommand.j
 describe("slashCommand Tool", () => {
     const tool = createSlashcommandTool();
 
+    it("keeps mission execution proportional and uses the retained completion schema", () => {
+        const template = COMMANDS.task.template;
+        expect(template).toContain("Handle small work directly");
+        expect(template).toContain("status: completed");
+        expect(template).toContain("pause");
+        expect(template).not.toMatch(/without user intervention|Use your full capabilities/);
+    });
+
+    it("describes optional roles and a planning-only response without mandatory fanout", () => {
+        expect(COMMANDS.plan.template).toContain("proportional");
+        expect(COMMANDS.plan.template).toContain("Do not implement");
+        expect(COMMANDS.agents.template).toContain("optional");
+        expect(COMMANDS.agents.template).not.toMatch(/50 Worker|caches official|automatically coordinates all/);
+        expect(COMMANDS.plan.template).not.toContain("Maximize parallelism");
+    });
+
     it("returns command list when called without command name", async () => {
         const result = await (tool as any).execute({ command: "" });
         expect(result).toContain("Commands:");

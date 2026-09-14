@@ -17,7 +17,6 @@ describe("TaskResumer", () => {
             status: ReturnType<typeof vi.fn>;
         };
     };
-    let notifyParentIfAllComplete: ReturnType<typeof vi.fn>;
     let startPolling: ReturnType<typeof vi.fn>;
 
     beforeEach(() => {
@@ -28,7 +27,6 @@ describe("TaskResumer", () => {
                 status: vi.fn().mockResolvedValue({ data: {} }),
             },
         };
-        notifyParentIfAllComplete = vi.fn().mockResolvedValue(undefined);
         startPolling = vi.fn();
         MemoryManager.getInstance().import({
             [MemoryLevel.SYSTEM]: [],
@@ -58,7 +56,6 @@ describe("TaskResumer", () => {
             store,
             (sessionID) => sessionID === task.sessionID ? task : undefined,
             startPolling,
-            notifyParentIfAllComplete,
         );
 
         const result = await resumer.resume({
@@ -68,29 +65,14 @@ describe("TaskResumer", () => {
         });
 
         expect(result).toBe(task);
-        await vi.waitFor(() => expect(mockClient.session.prompt).toHaveBeenCalled());
-        expect(mockClient.session.prompt).toHaveBeenCalledWith({
-            path: { id: task.sessionID },
-            body: expect.objectContaining({
-                agent: AGENT_NAMES.COMMANDER,
-                tools: expect.objectContaining({
-                    [TOOL_NAMES.DELEGATE_TASK]: true,
-                    [TOOL_NAMES.GET_TASK_RESULT]: true,
-                    [TOOL_NAMES.RUN_COMMAND]: true,
-                }),
-                parts: [{
-                    type: "text",
-                    text: expect.stringContaining("### AGENT ROLE: CustomResumeAgent"),
-                    synthetic: true,
-                }],
-            }),
-        });
-        const promptText = mockClient.session.prompt.mock.calls[0][0].body.parts[0].text;
-        expect(promptText).toContain("CUSTOM RESUME SYSTEM");
-        expect(promptText).toContain("Continue custom work");
-        expect(mockClient.session.prompt.mock.calls[0][0].body.parts[0].synthetic).toBe(true);
+        expect(startPolling).toHaveBeenCalledWith(task, expect.objectContaining({
+            wireAgent: AGENT_NAMES.COMMANDER,
+            tools: expect.objectContaining({ [TOOL_NAMES.DELEGATE_TASK]: true }),
+            text: expect.stringContaining("CUSTOM RESUME SYSTEM"),
+        }));
+        expect(startPolling.mock.calls[0][1].text).toContain("Continue custom work");
+        expect(mockClient.session.prompt).not.toHaveBeenCalled();
     });
-
     it("refuses to resume a session that is still running", async () => {
         const task = createTask({ status: TASK_STATUS.COMPLETED });
         mockClient.session.status.mockResolvedValue({
@@ -101,7 +83,6 @@ describe("TaskResumer", () => {
             store,
             (sessionID) => sessionID === task.sessionID ? task : undefined,
             startPolling,
-            notifyParentIfAllComplete,
         );
 
         await expect(resumer.resume({
@@ -113,6 +94,23 @@ describe("TaskResumer", () => {
         expect(mockClient.session.prompt).not.toHaveBeenCalled();
         expect(task.status).toBe(TASK_STATUS.COMPLETED);
         expect(startPolling).not.toHaveBeenCalled();
+    });
+
+    it("queues a fresh run through the shared launcher and resets old output", async () => {
+        const task = createTask({ hasStartedOutputting: true, lastMsgCount: 9, pollFailureCount: 2 });
+        store.set(task.id, task);
+        const begin = vi.fn();
+        const resumer = new TaskResumer(mockClient as unknown as TaskResumerClient, store,
+            id => store.getBySession(id), begin);
+        const previousStart = task.startedAt;
+        await resumer.resume({ sessionId: task.sessionID, prompt: "new work", parentSessionID: "parent-2" });
+        expect(task.status).toBe(TASK_STATUS.PENDING);
+        expect(task.prompt).toBe("new work");
+        expect(task.startedAt).not.toBe(previousStart);
+        expect(task.hasStartedOutputting).toBeUndefined();
+        expect(task.lastMsgCount).toBeUndefined();
+        expect(begin).toHaveBeenCalledWith(task, expect.objectContaining({ text: expect.stringContaining("new work") }));
+        expect(mockClient.session.prompt).not.toHaveBeenCalled();
     });
 
     it("rechecks activity after prompt routing before writing to the session", async () => {
@@ -136,7 +134,6 @@ describe("TaskResumer", () => {
             store,
             (sessionID) => sessionID === task.sessionID ? task : undefined,
             startPolling,
-            notifyParentIfAllComplete,
         );
         const resume = resumer.resume({
             sessionId: task.sessionID,

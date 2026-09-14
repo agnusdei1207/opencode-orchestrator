@@ -1,311 +1,54 @@
-
-/**
- * Mission Loop Hook
- * 
- * Handles:
- * - Persistent execution until all TODOs are verified
- * - Auto-continuation injection (Loop)
- * - User cancellation detection
- */
-import type { AssistantDoneHook, ChatMessageHook, ChatMessageResult, HookContext, HookResult } from "../registry.js";
-import { log } from "../../core/agents/logger.js";
-import {
-    startMissionLoop,
-    cancelMissionLoop,
-    isLoopActive,
-    clearLoopState,
-    readLoopState,
-    writeLoopState,
-} from "../../core/loop/mission-loop.js";
-import { PROMPTS, COMMAND_NAMES, TOAST_VARIANTS, type VerificationResult } from "../../shared/index.js";
-import { STAGNATION_INTERVENTION } from "../../shared/constants/system-messages.js";
-import type { MissionLoopState } from "../../shared/loop/types.js";
+import type { ChatMessageHook, ChatMessageResult, HookContext } from "../registry.js";
+import { startMissionLoop, cancelMissionLoop } from "../../core/loop/mission-loop.js";
+import { PROMPTS, COMMAND_NAMES } from "../../shared/index.js";
 import { HOOK_ACTIONS, HOOK_NAMES } from "../constants.js";
-import * as Toast from "../../core/notification/toast.js";
 import * as ProgressTracker from "../../core/progress/tracker.js";
-import { formatCompact as formatProgressCompact } from "../../core/progress/formatters.js";
-import { formatTimestamp, formatElapsedTime } from "../../utils/formatting/index.js";
 import { detectSlashCommand } from "../../utils/parsing/index.js";
 import { COMMANDS } from "../../tools/slashCommand.js";
-
-// Refactored Imports
 import {
     ensureSessionInitialized,
     activateMissionState,
-    isMissionActive,
-    deactivateMissionState
+    deactivateMissionState,
 } from "../../core/orchestrator/session-manager.js";
-import {
-    MISSION_MESSAGES,
-    CONTINUE_INSTRUCTION
-} from "../../shared/constants/system-messages.js";
-import {
-    verifyMissionCompletion,
-    buildVerificationFailurePrompt,
-    buildVerificationSummary,
-} from "../../core/loop/verification.js";
-import { appendMissionLedgerEvent } from "../../core/loop/mission-ledger.js";
-import { syncMissionMemory } from "../../core/knowledge/mission-memory.js";
-import { parallelAgentManager } from "../../core/agents/manager.js";
+import { handleAbort, handleUserMessage } from "../../core/loop/mission-loop-handler.js";
+import { clearPrompts } from "../../core/session/pending-injection.js";
 
-// OS Notification
-import { sendNotification } from "../../core/notification/os-notify/notifier.js";
-import { playSound } from "../../core/notification/os-notify/sound-player.js";
-import { detectPlatform, getDefaultSoundPath } from "../../core/notification/os-notify/platform.js";
-
-interface MissionSessionState {
-    step: number;
-    startTime: number;
-    lastStepTime: number;
-}
-
-export class MissionControlHook implements AssistantDoneHook, ChatMessageHook {
+// Chat commands own mission activation; the idle handler owns continuation and completion.
+export class MissionControlHook implements ChatMessageHook {
     name = HOOK_NAMES.MISSION_LOOP;
 
-    async execute(ctx: HookContext, text: string): Promise<ChatMessageResult>;
-    async execute(ctx: HookContext, text: string): Promise<HookResult>;
-    async execute(ctx: HookContext, text: string): Promise<ChatMessageResult | HookResult> {
-        // 1. Try to handle as a Chat Command (/task)
-        const chatResult = await this.handleChatCommand(ctx, text);
-        if (chatResult) return chatResult;
-
-        // 2. If not a command, treat as Agent Output
-        return this.handleMissionProgress(ctx, text);
-    }
-
-    // -------------------------------------------------------------------------------
-    // 1. Chat Logic: Detect /task & Initialize
-    // -------------------------------------------------------------------------------
-    private async handleChatCommand(ctx: HookContext, message: string): Promise<ChatMessageResult | null> {
+    async execute(ctx: HookContext, message: string): Promise<ChatMessageResult> {
         const parsed = detectSlashCommand(message);
-        if (!parsed) return null;
+        if (!parsed) return { action: HOOK_ACTIONS.PROCESS };
 
         if (parsed.command === COMMAND_NAMES.CANCEL || parsed.command === COMMAND_NAMES.STOP) {
-            await this.cancelMission(ctx);
+            cancelMissionLoop(ctx.directory, ctx.sessionID);
+            handleAbort(ctx.sessionID);
+            clearPrompts(ctx.sessionID);
+            deactivateMissionState(ctx.sessionID);
+            ProgressTracker.clearSession(ctx.sessionID);
+            const session = ctx.sessions.get(ctx.sessionID);
+            if (typeof session === "object" && session !== null) {
+                const managed = session as Record<string, unknown>;
+                managed.active = false;
+                managed.lastAbortAt = Date.now();
+            }
             return { action: HOOK_ACTIONS.INTERCEPT };
         }
+        if (parsed.command !== COMMAND_NAMES.TASK) return { action: HOOK_ACTIONS.PROCESS };
 
-        if (parsed.command !== COMMAND_NAMES.TASK) return null;
-
-        const command = COMMANDS[parsed.command];
         const { sessionID, sessions, directory } = ctx;
-
-        log(MISSION_MESSAGES.START_LOG);
-
-        // 1. Initialize Session State (Local)
-        ensureSessionInitialized(sessions, sessionID, directory);
-
-        // 2. Activate Mission State (Global)
+        if (!startMissionLoop(directory, sessionID, parsed.args || "continue from where we left off")) {
+            throw new Error("Could not persist the mission; activation stopped");
+        }
+        ensureSessionInitialized(sessions, sessionID, directory).active = true;
         activateMissionState(sessionID);
-
-        // 3. Start Loop
-        const prompt = parsed.args || "continue from where we left off";
-        startMissionLoop(directory, sessionID, prompt);
+        handleUserMessage(sessionID);
         ProgressTracker.startSession(sessionID);
-
-        // 4. Modify Message (Template Replacement)
-        if (command) {
-            const modifiedMessage = command.template.replace(
-                /\$ARGUMENTS/g,
-                parsed.args || PROMPTS.CONTINUE
-            );
-            return { action: HOOK_ACTIONS.PROCESS, modifiedMessage };
-        }
-
-        return { action: HOOK_ACTIONS.PROCESS };
-    }
-
-    private async cancelMission(ctx: HookContext): Promise<void> {
-        const { sessionID, sessions, directory } = ctx;
-        log(MISSION_MESSAGES.CANCEL_LOG);
-        await cancelMissionLoop(directory, sessionID);
-        deactivateMissionState(sessionID);
-        ProgressTracker.clearSession(sessionID);
-
-        const session = sessions.get(sessionID);
-        if (isRecord(session)) {
-            session.active = false;
-        }
-    }
-
-    // -------------------------------------------------------------------------------
-    // 2. Done Logic: Check Completion & Auto-Continue
-    // -------------------------------------------------------------------------------
-    private async handleMissionProgress(ctx: HookContext, agentText: string): Promise<HookResult> {
-        const { sessionID, directory, sessions } = ctx;
-        const session = sessions.get(sessionID);
-        const finalText = agentText || "";
-
-        // 1. Skip if mission is not active
-        if (!isMissionActive(sessionID, directory) || !isLoopActive(directory, sessionID)) {
-            return { action: HOOK_ACTIONS.CONTINUE };
-        }
-
-        // 2. User Cancellation
-        if (finalText.includes(MISSION_MESSAGES.STOP_TRIGGER) || finalText.includes(MISSION_MESSAGES.CANCEL_TRIGGER)) {
-            log(MISSION_MESSAGES.CANCEL_LOG);
-            await cancelMissionLoop(directory, sessionID);
-            return { action: HOOK_ACTIONS.STOP, reason: "User cancelled via text" };
-        }
-
-        // 3. Verification Gate
-        const verification = verifyMissionCompletion(directory);
-
-        if (verification.passed) {
-            // ✅ Verification PASSED - all tasks done
-            return this.handleMissionComplete(ctx, verification);
-        }
-
-        // 4. Detect stagnation
-        const loopState = readLoopState(directory);
-        let isStagnant = false;
-
-        if (loopState && loopState.active && loopState.sessionID === sessionID) {
-            const currentProgress = buildVerificationSummary(verification);
-            if (loopState.lastProgress === currentProgress) {
-                loopState.stagnationCount = (loopState.stagnationCount || 0) + 1;
-                if (loopState.stagnationCount >= 2) {
-                    isStagnant = true;
-                }
-            } else {
-                loopState.stagnationCount = 0;
-            }
-            loopState.lastProgress = currentProgress;
-            writeLoopState(directory, loopState);
-        }
-
-        // 5. Build response
-        const failurePrompt = buildVerificationFailurePrompt(verification);
-
-        const continuation = this.buildContinuationResponse(session, sessionID);
-        const prompts = [failurePrompt];
-
-        // Inject stagnation intervention if needed
-        if (isStagnant) {
-            prompts.push(STAGNATION_INTERVENTION);
-        }
-
-        if (continuation.action === HOOK_ACTIONS.INJECT) {
-            prompts.push(...continuation.prompts);
-        }
-
+        const command = COMMANDS[parsed.command];
         return {
-            action: HOOK_ACTIONS.INJECT,
-            prompts
+            action: HOOK_ACTIONS.PROCESS,
+            modifiedMessage: command?.template.replace(/\$ARGUMENTS/g, parsed.args || PROMPTS.CONTINUE),
         };
     }
-
-    // -------------------------------------------------------------------------------
-    // 4. Helper: Build Continuation Response
-    // -------------------------------------------------------------------------------
-    private buildContinuationResponse(session: unknown, sessionID: string): HookResult {
-        if (!isMissionSessionState(session)) {
-            return { action: HOOK_ACTIONS.CONTINUE };
-        }
-
-        const now = Date.now();
-        const stepDuration = formatElapsedTime(session.lastStepTime, now);
-        const totalElapsed = formatElapsedTime(session.startTime, now);
-        const currentTime = formatTimestamp();
-        const latestProgress = ProgressTracker.getLatest(sessionID);
-        const progressInfo = latestProgress ? formatProgressCompact(latestProgress) : "...";
-
-        const continuePrompt = CONTINUE_INSTRUCTION +
-            `\n\n[${currentTime}] Step ${session.step} | ${progressInfo} | This step: ${stepDuration} | Total: ${totalElapsed}`;
-
-        return {
-            action: HOOK_ACTIONS.INJECT,
-            prompts: [continuePrompt]
-        };
-    }
-
-    // -------------------------------------------------------------------------------
-    // 5. Helper: Handle Mission Complete
-    // -------------------------------------------------------------------------------
-    private async handleMissionComplete(ctx: HookContext, verification: VerificationResult): Promise<HookResult> {
-        const { directory, sessionID } = ctx;
-        log(MISSION_MESSAGES.COMPLETE_LOG + " " + buildVerificationSummary(verification));
-        const loopState = readLoopState(directory);
-        if (loopState?.sessionID === sessionID) {
-            this.syncCompletedMissionMemory(directory, loopState);
-        }
-        const cleared = clearLoopState(directory);
-        parallelAgentManager.cleanup();
-
-        // Only show UI and send notification if we are the ones who cleared the state
-        // This prevents duplicates if multiple handlers run simultaneously (e.g. Idle and Hook)
-        if (cleared) {
-            // Use TaskToastManager for consistent and enhanced TUI feedback
-            const toastManager = Toast.getTaskToastManager();
-            if (toastManager) {
-                toastManager.showMissionCompleteToast(
-                    MISSION_MESSAGES.TOAST_COMPLETE_TITLE,
-                    MISSION_MESSAGES.TOAST_COMPLETE_MESSAGE
-                );
-            } else {
-                await Toast.show({
-                    title: MISSION_MESSAGES.TOAST_COMPLETE_TITLE,
-                    message: MISSION_MESSAGES.TOAST_COMPLETE_MESSAGE,
-                    variant: TOAST_VARIANTS.SUCCESS
-                });
-            }
-
-            // 🎉 OS Notification
-            await this.sendCompletionNotification(verification);
-        }
-
-        return { action: HOOK_ACTIONS.STOP, reason: "Mission Verified and Complete" };
-    }
-
-    private syncCompletedMissionMemory(directory: string, state: MissionLoopState): void {
-        const completedState = {
-            ...state,
-            active: false,
-            lastVerificationSummary: "Mission verification passed",
-            lastContinuationReason: "mission_completed",
-        };
-        appendMissionLedgerEvent(directory, {
-            type: "mission_completed",
-            sessionID: state.sessionID,
-            iteration: state.iteration,
-            objective: state.objective,
-            summary: "Mission verification passed",
-        });
-        syncMissionMemory(directory, completedState);
-    }
-
-    // -------------------------------------------------------------------------------
-    // 6. Helper: Send OS Notification
-    // -------------------------------------------------------------------------------
-    private async sendCompletionNotification(verification: VerificationResult): Promise<void> {
-        try {
-            const platform = detectPlatform();
-            const soundPath = getDefaultSoundPath(platform);
-
-            await sendNotification(
-                platform,
-                "🎖️ Mission Complete!",
-                `All verifications passed. ${verification.checklistPresent
-                    ? `Checklist: ${verification.checklistProgress}`
-                    : `TODO: ${verification.todoProgress}`}`
-            );
-
-            if (soundPath) {
-                await playSound(platform, soundPath);
-            }
-        } catch {
-            // OS notification failed, TUI toast was already shown
-        }
-    }
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-    return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-function isMissionSessionState(value: unknown): value is MissionSessionState {
-    return isRecord(value)
-        && typeof value.step === "number"
-        && typeof value.startTime === "number"
-        && typeof value.lastStepTime === "number";
 }

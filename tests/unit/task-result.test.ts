@@ -25,7 +25,7 @@ describe("task-result", () => {
         expect(text).toBe("reason\nanswer");
     });
 
-    it("returns formatted session message errors", async () => {
+    it("rejects session message errors instead of returning successful result text", async () => {
         const client = {
             session: {
                 messages: vi.fn().mockResolvedValue({ error: "messages unavailable" }),
@@ -33,6 +33,6 @@ describe("task-result", () => {
         };
 
         await expect(fetchTaskResultText(client as never, "session-1"))
-            .resolves.toBe("Error: messages unavailable");
+            .rejects.toThrow("messages unavailable");
     });
 });

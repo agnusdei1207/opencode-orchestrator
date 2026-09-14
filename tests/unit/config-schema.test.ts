@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import {
     orchestratorOptionsJsonSchema,
+    OrchestratorOptionsSchema,
     parseMissionLoopOptions,
 } from "../../src/core/config/options-schema.js";
 import { DEFAULT_MISSION_RUNTIME_OPTIONS } from "../../src/core/loop/mission-runtime-options.js";
@@ -10,6 +11,13 @@ import { DEFAULT_MISSION_RUNTIME_OPTIONS } from "../../src/core/loop/mission-run
 const repoRoot = path.resolve(__dirname, "../..");
 
 describe("plugin options schema (Phase G)", () => {
+    it("accepts zero concurrency limits consistently with runtime unlimited limits", () => {
+        expect(OrchestratorOptionsSchema.safeParse({
+            defaultConcurrency: 0, agentConcurrency: { Worker: 0 },
+            providerConcurrency: { local: 0 }, modelConcurrency: { model: 0 },
+        }).success).toBe(true);
+        expect(orchestratorOptionsJsonSchema()).not.toHaveProperty("properties.workStealingWorkers");
+    });
     describe("tolerant missionLoop parsing", () => {
         it("returns defaults for non-objects", () => {
             expect(parseMissionLoopOptions(undefined)).toEqual(DEFAULT_MISSION_RUNTIME_OPTIONS);

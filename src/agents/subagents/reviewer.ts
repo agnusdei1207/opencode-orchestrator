@@ -1,68 +1,15 @@
-/**
- * Reviewer Agent (Subagent)
- * 
- * Verification specialist and gatekeeper.
- * ONLY agent authorized to mark [x] in TODO after verification.
- * Async monitoring of parallel workers, integration testing, sync verification.
- */
-
-import { AGENT_NAMES } from "../../shared/agent/index.js";
-import type { AgentDefinition } from "../../shared/agent/index.js";
-import { composePrompt } from "../prompts/registry.js";
-import {
-    // Common (no philosophy - Commander handles that)
-    ROLE_MATRIX,
-    SHARED_WORKSPACE,
-    VERIFICATION_REQUIREMENTS,
-    // Reviewer-specific
-    REVIEWER_ROLE,
-    REVIEWER_FORBIDDEN,
-    REVIEWER_REQUIRED,
-    REVIEWER_VERIFICATION,
-    REVIEWER_TODO_UPDATE,
-    EVIDENCE_FORMAT,
-    // Async & Integration
-    REVIEWER_ASYNC_MONITORING,
-    REVIEWER_INTEGRATION_TESTING,
-    REVIEWER_SYNC_VERIFICATION,
-    // LSP Tools (Reviewer-specific gatekeeper workflow; SHARED_LSP_TOOLS
-    // would duplicate the same diagnostics rule)
-    REVIEWER_LSP_TOOLS,
-    // Advanced Tools
-    SHARED_AST_TOOLS,
-    MODULARITY_ENFORCEMENT,
-} from "../prompts/index.js";
-
-/**
- * Compose Reviewer system prompt from modular fragments.
- * NOTE: No CORE_PHILOSOPHY - Commander holds the philosophy and delegates clear tasks.
- * NOTE: No HPFA - Reviewer is a terminal agent and must not be told to spawn in parallel.
- * Sections tagged verbose are dropped under the `compact` profile.
- */
-const systemPrompt = composePrompt([
-    REVIEWER_ROLE,
-    ROLE_MATRIX,
-    { body: MODULARITY_ENFORCEMENT, verbose: true },
-    REVIEWER_FORBIDDEN,
-    REVIEWER_REQUIRED,
-    REVIEWER_VERIFICATION,
-    REVIEWER_TODO_UPDATE,
-    VERIFICATION_REQUIREMENTS,
-    // Async parallel work handling
-    REVIEWER_ASYNC_MONITORING,
-    REVIEWER_INTEGRATION_TESTING,
-    REVIEWER_SYNC_VERIFICATION,
-    REVIEWER_LSP_TOOLS,
-    { body: SHARED_AST_TOOLS, verbose: true },
-    EVIDENCE_FORMAT,
-    SHARED_WORKSPACE,
-]);
+import { AGENT_NAMES, type AgentDefinition } from "../../shared/agent/index.js";
+import { DELEGATED_SCOPE, MISSION_CONTRACT, WORKING_DISCIPLINE } from "../prompts/common.js";
 
 export const reviewer: AgentDefinition = {
     id: AGENT_NAMES.REVIEWER,
-    description: "Reviewer - async verification, integration testing, sync validation",
-    systemPrompt,
+    description: "Reviewer - optional independent verification with evidence",
+    systemPrompt: [
+        `You are Reviewer. Independently inspect the assigned result against its acceptance criteria and affected interfaces. Run appropriate project checks and distinguish observed passes, failures, and untested areas. Verify only work that is ready; report unfinished work to Commander. Update assigned TODO/checklist items only after verification and record unresolved integration issues in the existing sync-issues file. Report findings with file references and command evidence. Do not implement fixes unless the user explicitly changes your assignment.`,
+        DELEGATED_SCOPE,
+        WORKING_DISCIPLINE,
+        MISSION_CONTRACT,
+    ].join("\n\n"),
     canWrite: true,
     canBash: true,
 };
-

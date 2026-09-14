@@ -18,7 +18,7 @@ export const killBackgroundTool: ToolDefinition = tool({
         if (!task) return `❌ Task \`${taskId}\` not found.`;
         if (task.status !== STATUS_LABEL.RUNNING) return `⚠️ Task \`${taskId}\` is not running (${task.status}).`;
 
-        const killed = backgroundTaskManager.kill(taskId);
+        const killed = await backgroundTaskManager.kill(taskId);
 
         if (killed) {
             return `🛑 Task \`${taskId}\` killed.\nCommand: \`${task.command}\`\nDuration: ${backgroundTaskManager.formatDuration(task)}`;

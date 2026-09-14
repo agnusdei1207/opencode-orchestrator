@@ -70,7 +70,7 @@ describe("background task notification never interrupts a working parent (issue 
                 // The subagent produced real output, so its idle counts as done.
                 messages: async () => ({
                     data: [{
-                        info: { role: "assistant", time: { completed: Date.now() } },
+                        info: { role: "assistant", finish: "stop", time: { created: Date.now(), completed: Date.now() } },
                         parts: [{ type: "text", text: "Implemented the change and ran the tests." }],
                     }],
                 }),

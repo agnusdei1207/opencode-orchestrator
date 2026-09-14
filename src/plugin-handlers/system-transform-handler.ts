@@ -3,8 +3,7 @@
  * 
  * Hook: experimental.chat.system.transform
  * 
- * Dynamically injects agent-specific system prompts based on the current
- * session context and orchestrator state.
+ * Adds current mission context to the host-owned agent instructions.
  */
 
 import type { Hooks } from "@opencode-ai/plugin";
@@ -12,7 +11,7 @@ import type { EventHandlerContext } from "./event-handler.js";
 import { readLoopState } from "../core/loop/mission-loop.js";
 import { PATHS, STATUS_LABEL } from "../shared/index.js";
 import { ParallelAgentManager } from "../core/agents/manager.js";
-import { isMissionActive, ensureSessionInitialized } from "../core/orchestrator/session-manager.js";
+import { ensureSessionInitialized } from "../core/orchestrator/session-manager.js";
 import { readMissionScratchpadSnapshot } from "../core/knowledge/mission-memory.js";
 import { log } from "../core/agents/logger.js";
 
@@ -34,23 +33,19 @@ export function createSystemTransformHandler(ctx: EventHandlerContext) {
 
         // Check if this is an orchestrated session
         const loopState = readLoopState(directory);
-        const isActiveLoop = isMissionActive(sessionID, directory) || (loopState?.active && loopState?.sessionID === sessionID);
-        const session = ensureSessionInitialized(sessions, sessionID, directory);
+        const isActiveLoop = loopState?.active === true && loopState.sessionID === sessionID;
 
         // Only inject for orchestrated sessions
         if (!isActiveLoop) {
             return;
         }
+        const session = ensureSessionInitialized(sessions, sessionID, directory);
 
         // Build system prompt additions
         const systemAdditions: string[] = [];
 
         // 1. Mission loop context (if active)
         if (isActiveLoop && loopState) {
-            // FUNDAMENTAL: Inject full Commander instructions via system transform
-            // This prevents massive prompt injection in user messages.
-            const { commander } = await import("../agents/commander.js");
-            systemAdditions.push(commander.systemPrompt);
             systemAdditions.push(buildMissionLoopSystemPrompt(loopState));
             const scratchpadPrompt = buildMissionScratchpadPrompt(directory);
             if (scratchpadPrompt) {
@@ -85,12 +80,17 @@ export function createSystemTransformHandler(ctx: EventHandlerContext) {
 }
 
 function buildMissionScratchpadPrompt(directory: string): string | null {
-    const snapshot = readMissionScratchpadSnapshot(directory);
-    if (!snapshot) return null;
+    try {
+        const snapshot = readMissionScratchpadSnapshot(directory);
+        if (!snapshot) return null;
 
-    return `<mission_scratchpad path="${PATHS.DOCS}/brain/scratchpad.md">
+        return `<mission_scratchpad path="${PATHS.DOCS}/brain/scratchpad.md">
 ${snapshot}
 </mission_scratchpad>`;
+    } catch (error) {
+        log(`[system-transform] Failed to read optional mission scratchpad: ${error}`);
+        return null;
+    }
 }
 
 /**
@@ -116,8 +116,8 @@ RUNTIME MEMORY:
 - Last verification: ${loopState.lastVerificationSummary ?? "unknown"}
 
 COMPLETION CRITERIA:
-- All hierarchical items in .opencode/todo.md are marked [x]
-- .opencode/verification-checklist.md is fully checked off [x]
+- Verified TODO leaves use [x]; each verified parent status: completed
+- If .opencode/verification-checklist.md exists, every item must pass
 - All tests pass and builds succeed
 
 Do not stop for routine permission or preference checks. Execute autonomously, and ask a concise clarification only when truly blocked and the OpenCode question permission allows it.

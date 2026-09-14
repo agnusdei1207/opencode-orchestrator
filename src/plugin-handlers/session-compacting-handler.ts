@@ -13,7 +13,6 @@ import type { Hooks } from "@opencode-ai/plugin";
 import type { EventHandlerContext } from "./event-handler.js";
 import { ParallelAgentManager } from "../core/agents/manager.js";
 import { STATUS_LABEL } from "../shared/index.js";
-import { handleSessionCompacted } from "../core/loop/mission-loop-handler.js";
 import { log } from "../core/agents/logger.js";
 
 type SessionCompactingHook = NonNullable<Hooks["experimental.session.compacting"]>;
@@ -56,10 +55,10 @@ export function createSessionCompactingHandler(ctx: EventHandlerContext) {
         try {
             const manager = ParallelAgentManager.getInstance();
             const tasks = manager.getTasksByParent(sessionID);
-            const runningTasks = tasks.filter(t => t.status === STATUS_LABEL.RUNNING);
+            const activeTasks = tasks.filter(t => t.status === STATUS_LABEL.RUNNING || t.status === STATUS_LABEL.PENDING);
 
-            if (runningTasks.length > 0) {
-                contextItems.push(buildBackgroundTasksContext(runningTasks));
+            if (activeTasks.length > 0) {
+                contextItems.push(buildBackgroundTasksContext(activeTasks));
             }
         } catch (error) {
             log(`[session-compacting] Failed to inspect background tasks for ${sessionID}: ${error}`);
@@ -70,8 +69,6 @@ export function createSessionCompactingHandler(ctx: EventHandlerContext) {
             output.context.push(...contextItems);
         }
 
-        // Re-arm compaction guard and cleanup after compaction
-        handleSessionCompacted(sessionID);
     };
 }
 
@@ -89,7 +86,7 @@ ACTIVE MISSION LOOP:
 - Original Task: ${loopState.prompt.slice(0, 500)}${loopState.prompt.length > 500 ? "..." : ""}
 
 IMPORTANT: Continue this mission after compaction. Check .opencode/todo.md for progress.
-The mission is NOT complete until all hierarchical tasks are verified [x].
+Verified TODO leaves use [x]; each verified parent status: completed. Keep unfinished work visible.
 </mission_context>`;
 }
 
@@ -136,7 +133,7 @@ function buildBackgroundTasksContext(
     }).join("\n");
 
     return `<background_tasks_context>
-Running background tasks (${tasks.length}):
+Active background tasks (${tasks.length}):
 ${taskList}
 
 Wait for completion before finalizing.

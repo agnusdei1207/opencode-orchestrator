@@ -1,4 +1,4 @@
-import { Todo } from "../loop/todo-enforcer.js";
+import type { Todo } from "../../shared/loop/types.js";
 
 export interface MissionState {
     missionId: string;

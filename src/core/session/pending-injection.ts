@@ -51,6 +51,7 @@ const PENDING_TTL_MS = 30 * 60 * 1000;
 const PRUNE_INTERVAL_MS = 5 * 60 * 1000;
 
 const pending = new Map<string, PendingEntry>();
+const flushing = new Set<string>();
 
 const pruneTimer = createPruneTimer({
     intervalMs: PRUNE_INTERVAL_MS,
@@ -137,32 +138,45 @@ export function resetPendingInjections(): void {
  * Send everything queued as one synthetic message, if the session is genuinely
  * idle. Returns true when something was sent.
  *
- * The queue is cleared before the request so a failure cannot strand prompts
- * that would then be replayed against a much later turn; the next completed step
- * re-queues a fresh snapshot anyway.
+ * Acknowledge only the captured batch after acceptance. Failed sends retain
+ * one-shot notices; stale mission snapshots are refreshed by their producer.
  */
 export async function flushPrompts(client: OpencodeClient, sessionID: string): Promise<boolean> {
-    const prompts = peekPrompts(sessionID);
-    if (prompts.length === 0) return false;
-
-    if (await isSessionBusy(client, sessionID)) {
-        log("[pending-injection] Held back: session is busy", { sessionID, queued: prompts.length });
-        return false;
-    }
-
-    pending.delete(sessionID);
-
+    const entry = pending.get(sessionID);
+    if (!entry || flushing.has(sessionID)) return false;
+    const notices = [...entry.notices];
+    const snapshot = entry.snapshot;
+    const prompts = [...notices, ...snapshot];
+    if (!prompts.length) return false;
+    flushing.add(sessionID);
     try {
-        await client.session.prompt({
+        if (await isSessionBusy(client, sessionID)) return false;
+        if (pending.get(sessionID) !== entry || entry.snapshot !== snapshot) return false;
+        const response = await client.session.prompt({
             path: { id: sessionID },
             body: { parts: syntheticTextParts(prompts) },
         });
+        if (response.error) throw new Error(String(response.error));
+        acknowledgeEntry(sessionID, entry, notices, snapshot);
         log("[pending-injection] Flushed queued prompts", { sessionID, count: prompts.length });
         return true;
     } catch (error) {
+        acknowledgeEntry(sessionID, entry, [], snapshot);
         log("[pending-injection] Failed to flush queued prompts", { sessionID, error });
         return false;
+    } finally {
+        flushing.delete(sessionID);
     }
+}
+
+function acknowledgeEntry(sessionID: string, entry: PendingEntry, notices: string[], snapshot: string[]): void {
+    if (pending.get(sessionID) !== entry) return;
+    for (const notice of notices) {
+        const index = entry.notices.indexOf(notice);
+        if (index !== -1) entry.notices.splice(index, 1);
+    }
+    if (entry.snapshot === snapshot) entry.snapshot = [];
+    if (!entry.notices.length && !entry.snapshot.length) pending.delete(sessionID);
 }
 
 pruneTimer.start();

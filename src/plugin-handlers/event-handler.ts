@@ -10,7 +10,6 @@ import { ParallelAgentManager } from "../core/agents/manager.js";
 import * as Toast from "../core/notification/toast.js";
 import * as ProgressTracker from "../core/progress/tracker.js";
 import * as SessionRecovery from "../core/recovery/session-recovery.js";
-import * as TodoContinuation from "../core/loop/todo-continuation.js";
 import * as MissionLoopHandler from "../core/loop/mission-loop-handler.js";
 import { isLoopActive } from "../core/loop/mission-loop.js";
 import * as ContextMonitor from "../core/context/index.js";
@@ -73,6 +72,11 @@ async function handlePluginEvent(ctx: EventHandlerContext, event: PluginEvent): 
         case SESSION_EVENTS.CREATED:
             handleSessionCreated(event);
             return;
+        case SESSION_EVENTS.COMPACTED: {
+            const sessionID = readSessionID(event.properties);
+            if (sessionID) MissionLoopHandler.handleSessionCompacted(sessionID);
+            return;
+        }
         case SESSION_EVENTS.DELETED:
             handleSessionDeleted(ctx, event);
             return;
@@ -123,7 +127,6 @@ function handleSessionDeleted(ctx: EventHandlerContext, event: PluginEvent): voi
     state.sessions.delete(sessionID);
     ProgressTracker.clearSession(sessionID);
     SessionRecovery.cleanupSessionRecovery(sessionID);
-    TodoContinuation.cleanupSession(sessionID);
     MissionLoopHandler.cleanupSession(sessionID);
     ContextMonitor.cleanupSession(sessionID);
     ContextLimitResolver.getInstance().forgetSession(sessionID);
@@ -142,8 +145,12 @@ async function handleSessionError(ctx: EventHandlerContext, event: PluginEvent):
     const error = event.properties?.error;
 
     if (sessionID) {
-        TodoContinuation.handleSessionError(sessionID, error);
         MissionLoopHandler.handleAbort(sessionID);
+        if (isRecord(error) && (error.name === "MessageAbortedError" || error.name === "AbortError")) {
+            markAbort(ctx.sessions, sessionID);
+            PendingInjection.clearPrompts(sessionID);
+            return;
+        }
     }
 
     if (sessionID && error) {
@@ -175,7 +182,6 @@ async function handleMessageUpdated(ctx: EventHandlerContext, event: PluginEvent
     }
 
     if (messageInfo.role === MESSAGE_ROLES.USER) {
-        TodoContinuation.handleUserMessage(sessionID);
         MissionLoopHandler.handleUserMessage(sessionID);
     }
 }
@@ -264,7 +270,6 @@ function handleSessionStatus(ctx: EventHandlerContext, event: PluginEvent): void
         return;
     }
 
-    TodoContinuation.handleSessionBusy(sessionID);
     MissionLoopHandler.handleSessionBusy(sessionID);
 }
 
@@ -298,13 +303,11 @@ function markAssistantCompleted(sessions: Map<string, PluginSessionState>, sessi
 }
 
 /**
- * True only for a deliberate stop: the user aborted, and no assistant turn has
- * completed since. Distinct from `shouldContinueAfterIdle`, which also declines
- * for benign reasons — no turn has run yet, or the user simply spoke last.
+ * A deliberate abort survives late completion events. Only subsequent real
+ * user input clears it in the chat handler.
  */
 function wasAbortedSinceLastTurn(session: PluginSessionState | undefined): boolean {
-    if (!session?.lastAbortAt) return false;
-    return !session.lastAssistantCompletedAt || session.lastAssistantCompletedAt < session.lastAbortAt;
+    return session?.lastAbortAt !== undefined;
 }
 
 function shouldContinueAfterIdle(session: PluginSessionState | undefined): boolean {
@@ -328,14 +331,13 @@ function markAbort(sessions: Map<string, PluginSessionState>, sessionID: string)
     if (session) {
         session.lastAbortAt = Date.now();
     }
-    TodoContinuation.handleAbort(sessionID);
     MissionLoopHandler.handleAbort(sessionID);
 }
 
 function scheduleIdleContinuation(ctx: EventHandlerContext, sessionID: string): void {
     const { sessions } = ctx;
 
-    // Untracked sessions are normally none of our business — except when we are
+    // Untracked sessions are normally none of our business, except when we are
     // already holding something for one. A session can receive a queued notice
     // (its background task finished) without ever having been initialised here,
     // and skipping it would strand that notice until the TTL sweep discarded it.
@@ -355,13 +357,13 @@ async function runIdleContinuation(ctx: EventHandlerContext, sessionID: string):
         return;
     }
 
-    // Deferred prompts go out at the first genuine idle — including an idle the
+    // Deferred prompts go out at the first genuine idle, including an idle the
     // continuation logic itself declines to act on. `shouldContinueAfterIdle`
     // requires a completed assistant turn, which a session that only spawned a
     // background task has never had; gating the flush on it silently discarded
     // the completion notice for that task.
     //
-    // A flush starts a new turn, so mission/todo continuation waits for the next
+    // A flush starts a new turn, so mission continuation waits for the next
     // idle rather than piling on top of it.
     if (await PendingInjection.flushPrompts(client, sessionID)) {
         return;
@@ -377,7 +379,6 @@ async function runIdleContinuation(ctx: EventHandlerContext, sessionID: string):
         return;
     }
 
-    await TodoContinuation.handleSessionIdle(client, directory, sessionID, sessionID);
 }
 
 function scheduleDelayedHandler(label: string, sessionID: string, handler: () => Promise<void>): void {

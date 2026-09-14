@@ -12,7 +12,6 @@ import { tmpdir } from "node:os";
 // Import the module under test
 import {
     verifyMissionCompletion,
-    buildVerificationFailurePrompt,
     buildVerificationSummary,
 } from "../../src/core/loop/verification.js";
 import type { VerificationResult } from "../../src/shared/index.js";
@@ -229,6 +228,13 @@ Needs manual reconciliation
         });
 
         describe("Overall verification", () => {
+            it("fails when TODO is unreadable even with a passing checklist", () => {
+                mkdirSync(join(opencodeDir, "todo.md"));
+                writeFileSync(join(opencodeDir, "verification-checklist.md"), "- [x] Build passed");
+                const result = verifyMissionCompletion(testDir);
+                expect(result.errors.join("\n")).toContain("Failed to read TODO");
+                expect(result.passed).toBe(false);
+            });
             it("should pass when all conditions met", () => {
                 writeFileSync(join(opencodeDir, "todo.md"), `# TODO
 
@@ -313,54 +319,6 @@ Needs manual reconciliation
                 expect(result.passed).toBe(false);
                 expect(result.errors.join("\n")).toContain("Verification checklist contains no valid items");
             });
-        });
-    });
-
-    describe("buildVerificationFailurePrompt", () => {
-        it("should include all errors in prompt", () => {
-            const result: VerificationResult = {
-                passed: false,
-                todoComplete: false,
-                todoPresent: true,
-                todoProgress: "2/5",
-                todoIncomplete: 3,
-                syncIssuesEmpty: false,
-                syncIssuesCount: 2,
-                checklistComplete: false,
-                checklistPresent: false,
-                checklistProgress: "0/0",
-                errors: ["TODO incomplete: 2/5 (3 remaining)", "Sync issues not resolved: 2 issue(s) remain"]
-            };
-
-            const prompt = buildVerificationFailurePrompt(result);
-
-            expect(prompt).toContain("COMPLETION BLOCKED");
-            expect(prompt).toContain("TODO incomplete");
-            expect(prompt).toContain("2/5");
-            expect(prompt).toContain("Sync issues not resolved");
-        });
-
-        it("should include status table", () => {
-            const result: VerificationResult = {
-                passed: false,
-                todoComplete: true,
-                todoPresent: true,
-                todoProgress: "5/5",
-                todoIncomplete: 0,
-                syncIssuesEmpty: false,
-                syncIssuesCount: 1,
-                checklistComplete: false,
-                checklistPresent: false,
-                checklistProgress: "0/0",
-                errors: ["Sync issues not resolved"]
-            };
-
-            const prompt = buildVerificationFailurePrompt(result);
-
-            expect(prompt).toContain("TODO Progress");
-            expect(prompt).toContain("Sync Issues");
-            expect(prompt).toContain("✅"); // TODO passed
-            expect(prompt).toContain("❌"); // Sync failed
         });
     });
 

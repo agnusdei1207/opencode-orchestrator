@@ -9,7 +9,7 @@
       },
       "additionalProperties": {
         "type": "integer",
-        "exclusiveMinimum": 0,
+        "minimum": 0,
         "maximum": 9007199254740991
       }
     },
@@ -20,7 +20,7 @@
       },
       "additionalProperties": {
         "type": "integer",
-        "exclusiveMinimum": 0,
+        "minimum": 0,
         "maximum": 9007199254740991
       }
     },
@@ -31,13 +31,13 @@
       },
       "additionalProperties": {
         "type": "integer",
-        "exclusiveMinimum": 0,
+        "minimum": 0,
         "maximum": 9007199254740991
       }
     },
     "defaultConcurrency": {
       "type": "integer",
-      "exclusiveMinimum": 0,
+      "minimum": 0,
       "maximum": 9007199254740991
     },
     "acquisitionTimeoutMs": {
@@ -64,17 +64,6 @@
       "type": "number",
       "exclusiveMinimum": 0,
       "maximum": 100
-    },
-    "workStealingWorkers": {
-      "type": "object",
-      "propertyNames": {
-        "type": "string"
-      },
-      "additionalProperties": {
-        "type": "integer",
-        "exclusiveMinimum": 0,
-        "maximum": 9007199254740991
-      }
     },
     "contextMaxTokens": {
       "type": "integer",

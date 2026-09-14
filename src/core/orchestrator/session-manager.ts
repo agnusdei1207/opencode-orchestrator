@@ -72,19 +72,12 @@ export function ensureSessionInitialized(
 /**
  * Ensures a global mission state exists for a specific session.
  */
-function ensureGlobalState(sessionID: string, directory?: string): SessionState {
-    let stateSession = state.sessions.get(sessionID);
+function ensureGlobalState(sessionID: string): SessionState {
+    const stateSession = state.sessions.get(sessionID);
 
     if (!stateSession) {
-        // Fallback: Check if mission is active on disk
-        let isEnabled = true;
-        if (directory) {
-            const diskState = readLoopState(directory);
-            isEnabled = diskState?.active === true && diskState?.sessionID === sessionID;
-        }
-
         const newState: SessionState = {
-            enabled: isEnabled,
+            enabled: true,
             iterations: 0,
             taskRetries: new Map(),
             currentTask: "",
@@ -105,30 +98,6 @@ export function activateMissionState(sessionID: string): void {
     stateSession.anomalyCount = 0;
     state.missionActive = true;
     log(`[SessionManager] Mission Activated: ${sessionID}`);
-}
-
-/**
- * Checks if the mission is globally active and the session is enabled.
- * CROSS-CHECK: Will return true if disk state confirms mission, even if in-memory 'missionActive' flag reset.
- */
-export function isMissionActive(sessionID: string, directory?: string): boolean {
-    const stateSession = state.sessions.get(sessionID);
-
-    // In-memory hit
-    if (state.missionActive && stateSession?.enabled) return true;
-
-    // Disk-based fallback (Fundamental robustness against plugin reload)
-    if (directory) {
-        const diskState = readLoopState(directory);
-        if (diskState?.active && diskState?.sessionID === sessionID) {
-            // Self-heal: Re-activate global flags
-            state.missionActive = true;
-            ensureGlobalState(sessionID, directory).enabled = true;
-            return true;
-        }
-    }
-
-    return false;
 }
 
 /**
@@ -243,12 +212,4 @@ export function recordAnomaly(sessionID: string): number {
 export function resetAnomaly(sessionID: string): void {
     const session = ensureGlobalState(sessionID);
     session.anomalyCount = 0;
-}
-
-/**
- * Task Tracking
- */
-export function updateCurrentTask(sessionID: string, taskID: string): void {
-    const session = ensureGlobalState(sessionID);
-    session.currentTask = taskID;
 }

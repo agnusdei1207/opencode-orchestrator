@@ -2,9 +2,9 @@
  * Stagnation guard (issue #39)
  *
  * A model that answers three idle re-prompts with the same text and no tool
- * call is stuck — the reported case was a Commander echoing DCP's
+ * call is stuck; the reported case was a Commander echoing DCP's
  * `<dcp-system-reminder>` instead of calling `compress`. The guard opens the
- * circuit breaker from completed assistant turns, the todo continuation
+ * circuit breaker from completed assistant turns, mission continuation
  * honors it, and a real user message clears it.
  */
 
@@ -21,10 +21,8 @@ import {
 } from "../../src/core/loop/circuit-breaker";
 import { handleCompletedAssistantMessage } from "../../src/plugin-handlers/assistant-done-handler";
 import { createChatMessageHandler } from "../../src/plugin-handlers/chat-message-handler";
-import { handleSessionIdle } from "../../src/core/loop/todo-continuation";
 import { HookRegistry } from "../../src/hooks/registry";
 import { HOOK_ACTIONS } from "../../src/hooks/constants";
-import * as Toast from "../../src/core/notification/toast";
 
 vi.mock("../../src/core/agents/logger", () => ({ log: vi.fn() }));
 vi.mock("../../src/core/agents/manager", () => ({
@@ -152,40 +150,6 @@ describe("assistant-done handler feeds the guard", () => {
         const acted = contextWith([{ type: "text", text: REMINDER }, { type: "tool" }]);
         await handleCompletedAssistantMessage(acted, SESSION, "m3");
         expect(getCircuitState(SESSION)?.idleTurnHistory).toEqual([]);
-    });
-});
-
-describe("todo continuation honors the guard", () => {
-    beforeEach(() => {
-        clearCircuitState(SESSION);
-        vi.mocked(Toast.show).mockClear();
-    });
-
-    afterEach(() => {
-        clearCircuitState(SESSION);
-    });
-
-    it("pauses instead of re-prompting a model that keeps repeating itself, and tells the user", async () => {
-        for (let i = 0; i < 3; i++) recordAssistantTurn(SESSION, REMINDER, 0);
-        const todo = vi.fn().mockResolvedValue({ data: [] });
-
-        await handleSessionIdle({ session: { todo } } as never, "/tmp/test", SESSION, SESSION);
-
-        expect(todo).not.toHaveBeenCalled();
-        expect(isCircuitOpen(SESSION)).toBe(true);
-        expect(Toast.show).toHaveBeenCalledWith(expect.objectContaining({ variant: "warning" }));
-    });
-
-    it("does NOT pause continuation for ordinary tool repetition (three reads in a row)", async () => {
-        // A normal turn ending in the same tool three times is real work, not a
-        // stuck output loop — the continuation must still run.
-        for (let i = 0; i < 3; i++) recordToolCall(SESSION, "read");
-        const todo = vi.fn().mockResolvedValue({ data: [] });
-
-        await handleSessionIdle({ session: { todo } } as never, "/tmp/test", SESSION, SESSION);
-
-        expect(todo).toHaveBeenCalled();
-        expect(Toast.show).not.toHaveBeenCalled();
     });
 });
 

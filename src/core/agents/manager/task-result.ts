@@ -3,20 +3,23 @@ import { MESSAGE_ROLES, PART_TYPES } from "../../../shared/index.js";
 
 type OpencodeClient = PluginInput["client"];
 type ResultPart = { type?: string; text?: string };
-type ResultMessage = { info?: { role?: string }; parts?: ResultPart[] };
+type ResultMessage = { info?: { role?: string; error?: unknown; time?: { created?: number; completed?: number } }; parts?: ResultPart[] };
 
 export async function fetchTaskResultText(
     client: OpencodeClient,
-    sessionID: string
+    sessionID: string,
+    startedAt?: Date,
 ): Promise<string> {
-    try {
-        const result = await client.session.messages({ path: { id: sessionID } });
-        if (result.error) return `Error: ${formatError(result.error)}`;
-
-        return extractTaskResultText((result.data ?? []) as ResultMessage[]);
-    } catch (error) {
-        return `Error: ${formatError(error)}`;
-    }
+    const result = await client.session.messages({ path: { id: sessionID } });
+    if (result.error) throw new Error(formatError(result.error));
+    const messages = (result.data ?? []) as ResultMessage[];
+    const current = startedAt ? messages.filter(message =>
+        message.info?.time?.created !== undefined && message.info.time.created >= startedAt.getTime()
+    ) : messages;
+    const latest = current.filter(message => message.info?.role === MESSAGE_ROLES.ASSISTANT).at(-1);
+    if (latest?.info?.error) throw new Error(formatError(latest.info.error));
+    if (startedAt && !latest?.info?.time?.completed) throw new Error("Current task result is not available");
+    return extractTaskResultText(current);
 }
 
 export function extractTaskResultText(messages: ResultMessage[]): string {

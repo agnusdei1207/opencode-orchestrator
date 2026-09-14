@@ -1,5 +1,5 @@
-import { existsSync, mkdirSync, readFileSync, readdirSync, renameSync, unlinkSync, writeFileSync } from "node:fs";
-import { dirname, join } from "node:path";
+import { existsSync, readFileSync, readdirSync, unlinkSync } from "node:fs";
+import { join } from "node:path";
 import { PATHS } from "../../shared/index.js";
 import type { MissionLoopState } from "../../shared/loop/types.js";
 import { readMissionLedger, type MissionLedgerEvent } from "../loop/mission-ledger.js";
@@ -7,27 +7,10 @@ import { getMissionRuntimeOptions } from "../loop/mission-runtime-options.js";
 import { MemoryLevel, MemoryManager, type MemoryEntry } from "../memory/memory-manager.js";
 import { syncMissionEpisodeMemory } from "./mission-episode.js";
 
-export interface FrontmatterData {
-    tags?: string[];
-    title?: string;
-    keep?: boolean;
-    event_time?: string;
-    ingestion_time?: string;
-    record_updated_at?: string;
-    last_accessed?: string;
-    access_count?: number;
-    access_ema?: number;
-    importance?: number;
-    confidence?: number;
-    decay_lambda?: number;
-    memory_kind?: string;
-    memory_layer?: string;
-    tombstone?: boolean;
-    valid_from?: string;
-    valid_to?: string | null;
-    supersedes?: string[];
-    [key: string]: unknown;
-}
+import { atomicWrite, escapeYaml, loadNoteMetadata, numberMeta, stringMeta, type FrontmatterData } from "./mission-note.js";
+
+// Existing consumers import the parser and type through this module or its barrel.
+export { parseFrontmatter, type FrontmatterData } from "./mission-note.js";
 
 function horizonForLevel(level: string): string {
     switch (level) {
@@ -169,7 +152,7 @@ function syncMissionMemoryNotes(directory: string, state: MissionLoopState): voi
         // Preserve any accumulated lifecycle state already on disk so a resync
         // refreshes content/importance without wiping decay age, reinforcement,
         // or maintenance tier decisions.
-        const existing = loadExistingNoteMetadata(notePath);
+        const existing = loadNoteMetadata(notePath);
         atomicWrite(notePath, buildMemoryNoteContent(state, entry, existing));
     }
 
@@ -348,55 +331,6 @@ function buildMemoryNoteContent(
     ].join("\n");
 }
 
-/** Read an existing note's frontmatter so its lifecycle state can be preserved. */
-function loadExistingNoteMetadata(filePath: string): FrontmatterData | null {
-    if (!existsSync(filePath)) return null;
-    try {
-        return parseFrontmatter(readFileSync(filePath, "utf8"));
-    } catch {
-        return null;
-    }
-}
-
-/** Lightweight regex-based YAML frontmatter parser for mission markdown notes. */
-export function parseFrontmatter(content: string): FrontmatterData {
-    const data: FrontmatterData = {};
-    const match = content.match(/^---\r?\n([\s\S]*?)\r?\n---/);
-    if (!match) return data;
-    for (const line of match[1].split(/\r?\n/)) {
-        const trimmed = line.trim();
-        if (!trimmed || trimmed.startsWith("#")) continue;
-        const colonIdx = trimmed.indexOf(":");
-        if (colonIdx === -1) continue;
-        const key = trimmed.slice(0, colonIdx).trim();
-        const val = trimmed.slice(colonIdx + 1).trim();
-        if (val.startsWith("[") && val.endsWith("]")) {
-            data[key] = val.slice(1, -1).split(",").map(s => s.trim().replace(/^["']|["']$/g, "")).filter(Boolean);
-        } else if (val === "true") {
-            data[key] = true;
-        } else if (val === "false") {
-            data[key] = false;
-        } else if (val === "null" || val === "~") {
-            data[key] = null;
-        } else if (!isNaN(Number(val)) && val !== "") {
-            data[key] = Number(val);
-        } else {
-            data[key] = (val.startsWith('"') && val.endsWith('"')) || (val.startsWith("'") && val.endsWith("'"))
-                ? val.slice(1, -1)
-                : val;
-        }
-    }
-    return data;
-}
-
-function stringMeta(value: unknown): string | undefined {
-    return typeof value === "string" && value.trim() ? value : undefined;
-}
-
-function numberMeta(value: unknown): number | undefined {
-    return typeof value === "number" && Number.isFinite(value) ? value : undefined;
-}
-
 /**
  * Map a memory level to the cognitive memory-kind axis and an explicit per-day
  * decay rate. The explicit lambda preserves the shipped level-specific decay
@@ -418,17 +352,6 @@ function decayProfileForLevel(level: MemoryLevel): { kind: string; lambda: numbe
 function formatEventLines(events: MissionLedgerEvent[]): string[] {
     if (events.length === 0) return ["- No runtime evidence recorded yet."];
     return events.map(event => `- ${event.timestamp} ${event.type}: ${event.summary ?? event.reason ?? "recorded"}`);
-}
-
-function atomicWrite(path: string, content: string): void {
-    mkdirSync(dirname(path), { recursive: true });
-    const tempPath = `${path}.tmp`;
-    writeFileSync(tempPath, content, "utf8");
-    renameSync(tempPath, path);
-}
-
-function escapeYaml(value: string): string {
-    return value.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
 }
 
 function stripFrontmatter(content: string): string {

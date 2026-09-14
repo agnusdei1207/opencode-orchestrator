@@ -1,9 +1,7 @@
 /**
  * Rust Tool Connection Pool
  *
- * Maintains persistent Rust processes for faster tool calls.
- * First call: ~50-100ms (spawn overhead)
- * Subsequent calls: ~5-10ms (10x faster!)
+ * Reuses persistent Rust processes for tool calls.
  */
 
 import { spawn, ChildProcess } from "child_process";
@@ -21,6 +19,7 @@ interface PooledProcess {
     pendingReject?: (error: Error) => void;
     pendingCleanup?: () => void;
     stdout: string;
+    stopping?: Promise<boolean>;
 }
 
 interface RustToolPoolOptions {
@@ -103,6 +102,7 @@ function extractResponseText(response: Record<string, unknown>): string {
 
 export class RustToolPool {
     private processes: PooledProcess[] = [];
+    private retiring = new Set<PooledProcess>();
     private maxSize = 4;
     private idleTimeout = 30_000; // 30 seconds
     private processReadyDelay = 100;
@@ -222,6 +222,8 @@ export class RustToolPool {
                 stdio: ["pipe", "pipe", "pipe"],
                 detached: false
             });
+            // Server diagnostics must never block JSON-RPC output on a full pipe.
+            proc.stderr?.resume();
 
             let startupSettled = false;
             let readyTimer: NodeJS.Timeout | null = null;
@@ -249,6 +251,7 @@ export class RustToolPool {
 
             // Handle process death
             proc.on("close", () => {
+                this.retiring.delete(pooled);
                 const error = new Error("Rust tool process closed before completing request");
                 settleStartup(() => reject(error));
                 pooled.pendingReject?.(error);
@@ -259,7 +262,14 @@ export class RustToolPool {
                 const error = err instanceof Error ? err : new Error(String(err));
                 settleStartup(() => reject(error));
                 pooled.pendingReject?.(error);
-                this.removeProcess(pooled, false);
+                // Errors include failed signals; a spawned child still needs close.
+                if (!this.retiring.has(pooled)) this.removeProcess(pooled, proc.pid !== undefined);
+            });
+
+            proc.stdin?.on("error", (error: Error) => {
+                settleStartup(() => reject(error));
+                pooled.pendingReject?.(error);
+                this.removeProcess(pooled, true);
             });
 
             this.processes.push(pooled);
@@ -348,9 +358,11 @@ export class RustToolPool {
             const request = serializeToolCallRequest(buildToolCallRequest(requestId, name, args));
 
             try {
-                const written = pooled.proc.stdin?.write(request + "\n");
-                if (written === false || written === undefined) {
+                if (!pooled.proc.stdin) {
                     fail(new Error("Failed to write request to Rust tool process"), true);
+                } else {
+                    // false means accepted with backpressure, not a failed send.
+                    pooled.proc.stdin.write(request + "\n");
                 }
             } catch (err) {
                 const error = err instanceof Error ? err : new Error(String(err));
@@ -379,17 +391,35 @@ export class RustToolPool {
         pooled.pendingCleanup?.();
 
         if (kill) {
-            try {
-                pooled.proc.kill();
-            } catch (error) {
-                log(`[${LOG_PREFIX.RUST_POOL}] Failed to kill process`, error);
-            }
+            this.retiring.add(pooled);
+            this.stopProcess(pooled);
         }
 
         const index = this.processes.indexOf(pooled);
         if (index !== -1) {
             this.processes.splice(index, 1);
         }
+    }
+
+    private stopProcess(pooled: PooledProcess): Promise<boolean> {
+        if (pooled.stopping) return pooled.stopping;
+        pooled.stopping = new Promise<boolean>(resolve => {
+            const finish = (closed: boolean): void => {
+                clearTimeout(timer);
+                pooled.proc.removeListener("close", onClose);
+                resolve(closed);
+            };
+            const onClose = (): void => finish(true);
+            const timer = setTimeout(() => finish(false), 2_000);
+            pooled.proc.once("close", onClose);
+            try {
+                if (!pooled.proc.kill("SIGKILL")) finish(false);
+            } catch (error) {
+                log(`[${LOG_PREFIX.RUST_POOL}] Failed to kill process`, error);
+                finish(false);
+            }
+        }).finally(() => { pooled.stopping = undefined; });
+        return pooled.stopping;
     }
 
     /**
@@ -429,11 +459,17 @@ export class RustToolPool {
             this.cleanupInterval = null;
         }
 
-        for (const pooled of [...this.processes]) {
+        const owned = new Set([...this.processes, ...this.retiring]);
+        const stopped: Promise<boolean>[] = [];
+        for (const pooled of owned) {
+            pooled.pendingReject?.(new Error("Pool is shutting down"));
             this.removeProcess(pooled, true);
+            stopped.push(pooled.stopping!);
         }
 
-        this.processes = [];
+        if ((await Promise.all(stopped)).some(closed => !closed)) {
+            throw new Error("Could not terminate Rust tool processes");
+        }
         log(`[${LOG_PREFIX.RUST_POOL}] Shutdown complete`);
     }
 
@@ -489,9 +525,9 @@ export async function resetRustToolPool(
     }
 
     resetInFlight = (async () => {
-        globalPool = null;
         log(`[${LOG_PREFIX.RUST_POOL}] Resetting global pool: ${reason}`);
         await poolToReset.shutdown();
+        globalPool = null;
     })();
 
     try {

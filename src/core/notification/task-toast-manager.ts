@@ -14,7 +14,6 @@
 import type { PluginInput } from "@opencode-ai/plugin";
 import type { ConcurrencyController } from "../agents/concurrency.js";
 import { STATUS_LABEL, TUI_ICONS, TUI_BLOCKS, TUI_TAGS, TUI_MESSAGES, type TaskStatus, type TrackedTask, type TaskCompletionInfo } from "../../shared/index.js";
-import type { TodoSyncService } from "../sync/todo-sync-service.js";
 import { sanitizeToastInline, sanitizeToastMessage, sanitizeToastTitle } from "./toast-sanitizer.js";
 
 type OpencodeClient = PluginInput["client"];
@@ -27,7 +26,6 @@ export class TaskToastManager {
     private tasks: Map<string, TrackedTask> = new Map();
     private client: OpencodeClient | null = null;
     private concurrency: ConcurrencyController | null = null;
-    private todoSync: TodoSyncService | null = null;
 
     private getSafeTaskDescription(task: Pick<TrackedTask, "description">): string {
         return sanitizeToastInline(task.description, 100) || "Untitled task";
@@ -66,13 +64,6 @@ export class TaskToastManager {
     }
 
     /**
-     * Set TodoSyncService for TUI status synchronization
-     */
-    setTodoSync(service: TodoSyncService): void {
-        this.todoSync = service;
-    }
-
-    /**
      * Add a new task and show consolidated toast
      */
     addTask(task: {
@@ -96,7 +87,6 @@ export class TaskToastManager {
         };
 
         this.tasks.set(task.id, trackedTask);
-        this.todoSync?.updateTaskStatus(trackedTask);
         this.showTaskListToast(trackedTask);
     }
 
@@ -107,7 +97,6 @@ export class TaskToastManager {
         const task = this.tasks.get(id);
         if (task) {
             task.status = status;
-            this.todoSync?.updateTaskStatus(task);
         }
     }
 
@@ -116,7 +105,6 @@ export class TaskToastManager {
      */
     removeTask(id: string): void {
         this.tasks.delete(id);
-        this.todoSync?.removeTask(id);
     }
 
     /**

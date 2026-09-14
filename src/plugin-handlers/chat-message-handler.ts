@@ -13,6 +13,7 @@ import { PART_TYPES } from "../shared/index.js";
 import { HookRegistry } from "../hooks/registry.js";
 import { HOOK_ACTIONS } from "../hooks/constants.js";
 import { clearCircuitState } from "../core/loop/circuit-breaker.js";
+import { handleUserMessage } from "../core/loop/mission-loop-handler.js";
 import type { ChatMessageHandlerContext, PluginSessionState } from "./context.js";
 
 type ChatMessageHook = NonNullable<Hooks["chat.message"]>;
@@ -43,6 +44,9 @@ export function createChatMessageHandler(ctx: ChatMessageHandlerContext) {
         // in no longer applies. Orchestrator prompts are synthetic and do not count.
         if (!isSyntheticPart(textPart)) {
             clearCircuitState(sessionID);
+            const session = sessions.get(sessionID);
+            if (session) session.lastAbortAt = undefined;
+            handleUserMessage(sessionID);
         }
 
         // Remember which agent owns this session so later phases (post-tool,

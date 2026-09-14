@@ -1,9 +1,9 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { mkdtempSync, rmSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import OrchestratorPlugin from "../../src/index.js";
-import { PLUGIN_HOOKS, SESSION_EVENTS } from "../../src/shared/index.js";
+import { PATHS, PLUGIN_HOOKS, SESSION_EVENTS } from "../../src/shared/index.js";
 
 describe("OrchestratorPlugin Entry Point", () => {
     let testDir: string;
@@ -53,6 +53,7 @@ describe("OrchestratorPlugin Entry Point", () => {
         expect(typeof pluginInstance.event).toBe("function");
         expect(typeof pluginInstance[PLUGIN_HOOKS.CHAT_MESSAGE]).toBe("function");
         expect(typeof pluginInstance[PLUGIN_HOOKS.CHAT_PARAMS]).toBe("function");
+        expect(typeof pluginInstance["command.execute.before"]).toBe("function");
         expect(typeof pluginInstance[PLUGIN_HOOKS.TOOL_EXECUTE_BEFORE]).toBe("function");
         expect(typeof pluginInstance[PLUGIN_HOOKS.TOOL_EXECUTE_AFTER]).toBe("function");
         expect(typeof pluginInstance[PLUGIN_HOOKS.EXPERIMENTAL_SESSION_COMPACTING]).toBe("function");
@@ -65,7 +66,58 @@ describe("OrchestratorPlugin Entry Point", () => {
         }
     });
 
-    it("handles session.created event and registers session in todoSync", async () => {
+    it("does not create a placeholder TODO file during initialization", async () => {
+        const pluginInstance = await OrchestratorPlugin(
+            { directory: testDir, client: mockClient } as Parameters<typeof OrchestratorPlugin>[0],
+            {},
+        );
+
+        try {
+            expect(existsSync(path.join(testDir, PATHS.TODO))).toBe(false);
+        } finally {
+            await pluginInstance.dispose?.();
+        }
+    });
+
+    it("leaves extension discovery and plugin files to OpenCode", async () => {
+        const pluginDir = path.join(testDir, ".opencode", "plugins");
+        mkdirSync(pluginDir, { recursive: true });
+        const marker = path.join(testDir, "unexpected-import.txt");
+        const pluginPath = path.join(pluginDir, "host-plugin.js");
+        const source = `import { writeFileSync } from 'node:fs';
+writeFileSync(${JSON.stringify(marker)}, 'imported');
+export default { name: 'host-owned', version: '1' };`;
+        writeFileSync(pluginPath, source);
+        const instance = await OrchestratorPlugin(
+            { directory: testDir, client: mockClient } as Parameters<typeof OrchestratorPlugin>[0], {},
+        );
+        try {
+            expect(existsSync(marker)).toBe(false);
+            expect(readFileSync(pluginPath, "utf8")).toBe(source);
+        } finally {
+            await instance.dispose?.();
+        }
+    });
+
+    it("preserves an existing TODO file during initialization", async () => {
+        const todoPath = path.join(testDir, PATHS.TODO);
+        const original = "# User mission\r\n\r\n- [ ] Preserve this task\r\n";
+        mkdirSync(path.dirname(todoPath), { recursive: true });
+        writeFileSync(todoPath, original);
+
+        const pluginInstance = await OrchestratorPlugin(
+            { directory: testDir, client: mockClient } as Parameters<typeof OrchestratorPlugin>[0],
+            {},
+        );
+
+        try {
+            expect(readFileSync(todoPath, "utf8")).toBe(original);
+        } finally {
+            await pluginInstance.dispose?.();
+        }
+    });
+
+    it("handles session.created event with direct and nested session IDs", async () => {
         const pluginInstance = await OrchestratorPlugin(
             { directory: testDir, client: mockClient } as any,
             { contextMaxTokens: 150000 }

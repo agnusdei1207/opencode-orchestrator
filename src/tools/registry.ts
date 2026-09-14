@@ -5,7 +5,6 @@
  */
 
 import type { ToolDefinition } from "@opencode-ai/plugin";
-import { callAgentTool } from "./callAgent.js";
 import { createSlashcommandTool } from "./slashCommand.js";
 import {
     grepSearchTool,
@@ -26,7 +25,6 @@ import {
     killBackgroundTool,
 } from "./background-cmd/index.js";
 import { astSearchTool, astReplaceTool } from "./ast/index.js";
-import { webfetchTool, websearchTool, cacheDocsTool, codesearchTool } from "./web/index.js";
 import { lspDiagnosticsTool } from "./lsp/index.js";
 import { TOOL_NAMES } from "../shared/index.js";
 
@@ -69,18 +67,6 @@ function registerBackgroundTools(): Record<string, ToolDefinition> {
 }
 
 /**
- * Register web tools
- */
-function registerWebTools(): Record<string, ToolDefinition> {
-    return {
-        [TOOL_NAMES.WEBFETCH]: webfetchTool,
-        [TOOL_NAMES.WEBSEARCH]: websearchTool,
-        [TOOL_NAMES.CACHE_DOCS]: cacheDocsTool,
-        [TOOL_NAMES.CODESEARCH]: codesearchTool,
-    };
-}
-
-/**
  * Register AST tools
  */
 function registerAstTools(directory: string): Record<string, ToolDefinition> {
@@ -104,7 +90,6 @@ function registerLspTools(directory: string): Record<string, ToolDefinition> {
  */
 function registerCoreTools(): Record<string, ToolDefinition> {
     return {
-        [TOOL_NAMES.CALL_AGENT]: callAgentTool,
         [TOOL_NAMES.SLASHCOMMAND]: createSlashcommandTool(),
     };
 }
@@ -125,35 +110,26 @@ function assertNoToolConflicts(
  * Register all tools in one place
  * @param directory - Working directory
  * @param asyncAgentTools - Parallel agent tools from ParallelAgentManager
- * @param dynamicTools - Dynamic tools from PluginManager
  * @returns Complete tool registry
  */
 export function registerAllTools(
     directory: string,
-    asyncAgentTools: Record<string, ToolDefinition>,
-    dynamicTools: Record<string, ToolDefinition>
+    asyncAgentTools: Record<string, ToolDefinition>
 ): Record<string, ToolDefinition> {
     const baseTools = {
         ...registerCoreTools(),
         ...registerSearchTools(directory),
         ...registerGitTools(directory),
         ...registerBackgroundTools(),
-        ...registerWebTools(),
         ...registerAstTools(directory),
         ...registerLspTools(directory),
     };
 
     assertNoToolConflicts(baseTools, asyncAgentTools, "Async agent");
 
-    const registeredTools = {
+    return {
         ...baseTools,
         ...asyncAgentTools,
     };
 
-    assertNoToolConflicts(registeredTools, dynamicTools, "Dynamic");
-
-    return {
-        ...registeredTools,
-        ...dynamicTools,
-    };
 }

@@ -11,6 +11,20 @@ describe("createChatMessageHandler", () => {
         vi.restoreAllMocks();
     });
 
+    it.each([false, true])("only real user input releases an abort (synthetic=%s)", async (synthetic) => {
+        const session: PluginSessionState = {
+            active: true, step: 0, timestamp: 0, startTime: 0, lastStepTime: 0, lastAbortAt: 42,
+            tokens: { totalInput: 0, totalOutput: 0, estimatedCost: 0 },
+        };
+        const ctx = { client: {} as never, directory: "/tmp/test", sessions: new Map([["session-1", session]]) };
+        vi.spyOn(HookRegistry.getInstance(), "executeChat").mockResolvedValue({ action: HOOK_ACTIONS.PROCESS });
+        await createChatMessageHandler(ctx)(
+            { sessionID: "session-1" },
+            { parts: [{ type: "text", text: "resume", synthetic }] } as never,
+        );
+        expect(session.lastAbortAt).toBe(synthetic ? 42 : undefined);
+    });
+
     it("records user turn time and tracks agent name for session", async () => {
         const session: PluginSessionState = {
             active: true,

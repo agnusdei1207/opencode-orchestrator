@@ -1,19 +1,6 @@
 import { describe, it, expect } from "vitest";
 
 describe("Barrel Modules Integrity", () => {
-    it("verifies src/core/loop/todo-enforcer.ts re-exports", async () => {
-        const mod = await import("../../src/core/loop/todo-enforcer.js");
-        expect(typeof mod.parseTodos).toBe("function");
-        expect(typeof mod.getIncompleteCount).toBe("function");
-        expect(typeof mod.hasRemainingWork).toBe("function");
-        expect(typeof mod.getNextPending).toBe("function");
-        expect(typeof mod.getStats).toBe("function");
-        expect(typeof mod.isMissionComplete).toBe("function");
-        expect(typeof mod.formatProgress).toBe("function");
-        expect(typeof mod.generateContinuationPrompt).toBe("function");
-        expect(typeof mod.generateCompletionMessage).toBe("function");
-    });
-
     it("verifies src/core/notification/toast.ts re-exports", async () => {
         const mod = await import("../../src/core/notification/toast.js");
         expect(typeof mod.show).toBe("function");
@@ -83,9 +70,6 @@ describe("Barrel Modules Integrity", () => {
     });
 
     it("verifies other index re-export modules", async () => {
-        const cache = await import("../../src/core/cache/index.js");
-        expect(typeof cache.DocumentCache).toBe("object");
-
         const commands = await import("../../src/core/commands/index.js");
         expect(typeof commands.backgroundTaskManager).toBe("object");
 
@@ -115,9 +99,6 @@ describe("Barrel Modules Integrity", () => {
 
         const sanity = await import("../../src/utils/sanity/index.js");
         expect(typeof sanity.checkOutputSanity).toBe("function");
-
-        const web = await import("../../src/tools/web/index.js");
-        expect(typeof web.webfetchTool).toBe("object");
 
         const bgCmd = await import("../../src/tools/background-cmd/index.js");
         expect(typeof bgCmd.runBackgroundTool).toBe("object");
@@ -176,7 +157,7 @@ describe("Barrel Modules Integrity", () => {
         expect(sharedOsTypes).toBeDefined();
 
         const sharedPrompt = await import("../../src/shared/prompt/index.js");
-        expect(sharedPrompt.TERMINAL_NODE).toBeDefined();
+        expect(sharedPrompt.PHILOSOPHY_TAGLINE).toBeDefined();
 
         const sharedRecovery = await import("../../src/shared/recovery/index.js");
         expect(sharedRecovery.RECOVERY).toBeDefined();

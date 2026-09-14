@@ -24,8 +24,7 @@ export class EventHandler {
         private notifyParentIfAllComplete: (parentSessionID: string) => Promise<void>,
         private scheduleCleanup: (taskId: string) => void,
         private validateSessionHasOutput: (sessionID: string) => Promise<boolean>,
-        private forgetSession?: (sessionID: string) => void,
-        private onTaskComplete?: (task: ParallelTask) => void | Promise<void>
+        private forgetSession?: (sessionID: string) => void
     ) { }
 
     /**
@@ -63,6 +62,7 @@ export class EventHandler {
     }
 
     private async handleSessionIdle(task: ParallelTask): Promise<void> {
+        const startedAt = task.startedAt;
         // Check minimum stability time
         const elapsed = Date.now() - task.startedAt.getTime();
         if (elapsed < CONFIG.MIN_STABILITY_MS) {
@@ -72,6 +72,7 @@ export class EventHandler {
 
         // Validate has actual output
         const hasOutput = await this.validateSessionHasOutput(task.sessionID);
+        if (this.store.get(task.id) !== task || task.status !== TASK_STATUS.RUNNING || task.startedAt !== startedAt) return;
         if (!hasOutput) {
             log(`Session idle but no output for ${task.id}, waiting...`);
             return;
@@ -88,14 +89,6 @@ export class EventHandler {
         this.store.queueNotification(task);
         await this.notifyParentIfAllComplete(task.parentSessionID);
         this.scheduleCleanup(task.id);
-
-
-
-        // HPFA Trigger: Pipelined Review
-        if (this.onTaskComplete) {
-            Promise.resolve(this.onTaskComplete(task)).catch(err => log("Error in onTaskComplete callback:", err));
-        }
-
         progressNotifier.update();
         log(`Task ${task.id} completed via session.idle event (${formatDuration(task.startedAt, task.completedAt)})`);
     }

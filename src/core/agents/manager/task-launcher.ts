@@ -16,11 +16,11 @@ import { getTaskToastManager } from "../../notification/task-toast-manager.js";
 import type { LaunchInput, ParallelTask } from "../../../shared/index.js";
 
 import { SessionPool } from "../session-pool.js";
-import { handleError } from "../../recovery/auto-recovery.js";
-import type { ErrorContext } from "../../recovery/auto-recovery.js";
 import { log } from "../logger.js";
 import { acquireParallelTask } from "../../pool/task-pool.js";
-import { buildRoutedAgentPrompt } from "./prompt-routing.js";
+import { buildRoutedAgentPrompt, type RoutedAgentPrompt } from "./prompt-routing.js";
+import { syntheticTextPart } from "../../session/injection.js";
+import { isSessionBusy } from "../../session/activity.js";
 
 type OpencodeClient = PluginInput["client"];
 export type LaunchResult = ParallelTask | ParallelTask[] | null;
@@ -64,26 +64,26 @@ export class TaskLauncher {
     const successfulTasks = tasks.flatMap((result) => "task" in result ? [result.task] : []);
 
     // Start background execution for each task
-    successfulTasks.forEach((task) => {
-      this.executeBackground(task).catch(async (error) => {
-        try {
-          await this.onTaskError(task.id, error);
-        } catch (handlerError) {
-          log(`[TaskLauncher] Task error handler failed for ${task.id}: ${handlerError}`);
-        }
-      });
-    });
-
-    // Start polling if we have running/pending tasks
-    if (successfulTasks.length > 0) {
-      this.startPolling();
-    }
+    successfulTasks.forEach((task) => this.startTask(task));
 
     return isArray ? successfulTasks : successfulTasks[0] || null;
   }
 
   shutdown(): void {
     this.shutdownController.abort();
+  }
+
+  startTask(task: ParallelTask, routedPrompt?: RoutedAgentPrompt): void {
+    const startedAt = task.startedAt;
+    this.executeBackground(task, routedPrompt).catch(async (error) => {
+      if (task.startedAt !== startedAt || !isActive(task)) return;
+      try {
+        await this.onTaskError(task.id, error);
+      } catch (handlerError) {
+        log(`[TaskLauncher] Task error handler failed for ${task.id}: ${handlerError}`);
+      }
+    });
+    this.startPolling();
   }
 
   /**
@@ -118,7 +118,6 @@ export class TaskLauncher {
       description: input.description,
       prompt: input.prompt,
       agent: input.agent,
-      concurrencyKey: input.agent,
       depth: childDepth,
       mode: input.mode,
       groupID: input.groupID,
@@ -146,87 +145,47 @@ export class TaskLauncher {
     return task;
   }
 
-  /**
-   * Background execution: Acquire slot and fire prompt with auto-retry
-   */
-  private async executeBackground(task: ParallelTask): Promise<void> {
-    let attempt = 1;
-    const token = await this.concurrency.acquireToken(task.agent);
+  private async executeBackground(task: ParallelTask, preparedPrompt?: RoutedAgentPrompt): Promise<void> {
+    const startedAt = task.startedAt;
+    await this.concurrency.acquire(task.agent);
+    if (!isActive(task) || task.startedAt !== startedAt || this.shutdownController.signal.aborted) {
+      this.concurrency.release(task.agent);
+      return;
+    }
+    task.concurrencyKey = task.agent;
+    const routedPrompt = preparedPrompt ?? await buildRoutedAgentPrompt(task.agent, task.prompt);
+    if (!isActive(task) || task.startedAt !== startedAt) return;
+    if (preparedPrompt && await isSessionBusy(this.client, task.sessionID)) {
+      throw new Error("Resume session became busy before dispatch");
+    }
+    if (!isActive(task) || task.startedAt !== startedAt) return;
+    task.status = TASK_STATUS.RUNNING;
+    this.store.set(task.id, task);
+    await this.sendPrompt(task, routedPrompt, Boolean(preparedPrompt));
+  }
 
+  private async sendPrompt(task: ParallelTask, prompt: RoutedAgentPrompt, synthetic: boolean): Promise<void> {
+    const promptAbort = new AbortController();
+    const unlinkShutdown = linkAbortSignal(this.shutdownController.signal, promptAbort);
     try {
-      while (true) {
-        try {
-          // 1. Update status to RUNNING
-          task.status = TASK_STATUS.RUNNING;
-          task.startedAt = new Date();
-          this.store.set(task.id, task);
-          // WAL already logged in prepareTask - skip duplicate
-
-          // 2. Fire prompt with timeout
-          const routedPrompt = await buildRoutedAgentPrompt(task.agent, task.prompt);
-
-          const promptAbort = new AbortController();
-          const unlinkShutdown = linkAbortSignal(this.shutdownController.signal, promptAbort);
-          const promptPromise = this.client.session.prompt({
-            path: { id: task.sessionID },
-            body: {
-              agent: routedPrompt.wireAgent,
-              tools: routedPrompt.tools,
-              parts: [{ type: PART_TYPES.TEXT, text: routedPrompt.text }],
-            },
-            signal: promptAbort.signal,
-          });
-
-          try {
-            await withAbortableTimeout(
-              promptPromise,
-              600_000,
-              "Session prompt execution timed out after 600s",
-              promptAbort,
-            );
-          } finally {
-            unlinkShutdown();
-          }
-
-          // Success! Exit loop
-          return;
-        } catch (error) {
-          // Auto-recovery logic
-          const context: ErrorContext = {
-            sessionId: task.sessionID,
-            taskId: task.id,
-            agent: task.agent,
-            error: error instanceof Error ? error : new Error(String(error)),
-            attempt,
-            timestamp: new Date(),
-          };
-
-          const action = handleError(context);
-
-          if (action.type === "retry") {
-            log(
-              `[AutoRetry] Task ${task.id} failed (attempt ${attempt}). Retrying in ${action.delay}ms...`,
-            );
-
-            // Adjust prompt if strategy suggests it
-            if (action.modifyPrompt) {
-              task.prompt += `\n\n${action.modifyPrompt}`;
-            }
-
-            await sleep(action.delay, this.shutdownController.signal);
-            attempt++;
-            continue;
-          }
-
-          // Cannot retry or max attempts reached
-          throw error;
-        }
-      }
+      const response = await withAbortableTimeout(this.client.session.prompt({
+        path: { id: task.sessionID },
+        body: {
+          agent: prompt.wireAgent,
+          tools: prompt.tools,
+          parts: [synthetic ? syntheticTextPart(prompt.text) : { type: PART_TYPES.TEXT, text: prompt.text }],
+        },
+        signal: promptAbort.signal,
+      }), 600_000, "Session prompt execution timed out after 600s", promptAbort);
+      if (response.error) throw new Error(String(response.error));
+      if (response.data?.info?.error) throw new Error(JSON.stringify(response.data.info.error));
     } finally {
-      // GUARANTEED cleanup: RAII pattern via ConcurrencyToken
-      token.release();
+      unlinkShutdown();
     }
   }
+}
+function isActive(task: ParallelTask): boolean {
+  return task.status === TASK_STATUS.PENDING || task.status === TASK_STATUS.RUNNING;
 }
 
 function resolveChildDepth(parentDepth = 0): number {
@@ -237,27 +196,6 @@ function resolveChildDepth(parentDepth = 0): number {
   }
 
   return parentDepth + 1;
-}
-
-function sleep(ms: number, abort: AbortSignal): Promise<void> {
-  if (abort.aborted) {
-    return Promise.reject(new Error("Task launch retry aborted during shutdown"));
-  }
-
-  return new Promise((resolve, reject) => {
-    const timer = setTimeout(() => {
-      cleanup();
-      resolve();
-    }, ms);
-    const onAbort = () => {
-      clearTimeout(timer);
-      cleanup();
-      reject(new Error("Task launch retry aborted during shutdown"));
-    };
-    const cleanup = () => abort.removeEventListener("abort", onAbort);
-
-    abort.addEventListener("abort", onAbort, { once: true });
-  });
 }
 
 async function withAbortableTimeout<T>(

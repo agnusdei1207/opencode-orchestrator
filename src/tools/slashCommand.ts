@@ -1,37 +1,18 @@
 import { tool, type ToolDefinition } from "@opencode-ai/plugin";
 import { AGENT_NAMES, PROMPTS } from "../shared/index.js";
 
-// ... (existing content logic)
-
-/**
- * Slash commands for OpenCode Orchestrator
- * - /task: Mission mode trigger with full Commander prompt
- * - /plan: Planning only
- * - /agents: Show architecture
- */
-
-// ============================================================================
-// COMMANDER SYSTEM PROMPT - Imported from commander.ts (single source of truth)
-// ============================================================================
-// ============================================================================
-// MISSION MODE TEMPLATE - Lightweight trigger for autonomous missions
-// System-level roles are now fundamentally handled via the SystemTransform hook.
-// ============================================================================
 export const MISSION_MODE_TEMPLATE = `<mission>
 <task>
 $ARGUMENTS
 </task>
 
 <execution_rules>
-1. Complete this mission without user intervention.
-2. Use your full capabilities: hierarchical planning, parallel execution, and strict verification.
-3. Conclude ONLY when all items in .opencode/todo.md are verified and marked [x].
+1. Resolve the objective and constraints, then continue authorized work. Respect user pause, abort, and changed instructions.
+2. Handle small work directly. Delegate only useful independent scopes; resolve planning dependencies before implementation.
+3. Verify results before completion. In an active TODO hierarchy, verified leaves use [x] and verified parents use status: completed. If a verification checklist exists, every item must pass. Report blockers and unperformed checks honestly.
 </execution_rules>
 </mission>`;
 
-// ============================================================================
-// SLASH COMMANDS
-// ============================================================================
 export const COMMANDS: Record<string, { description: string; template: string; argumentHint?: string }> = {
   "task": {
     description: "MISSION MODE - Execute task autonomously until complete",
@@ -41,23 +22,8 @@ export const COMMANDS: Record<string, { description: string; template: string; a
   "plan": {
     description: "Create a task plan without executing",
     template: `<delegate>
-<agent>${AGENT_NAMES.PLANNER}</agent>
-<objective>Create parallel task plan for: $ARGUMENTS</objective>
-<success>Valid .opencode/todo.md with tasks, each having id, description, agent, size, dependencies</success>
-<must_do>
-- Maximize parallelism by grouping independent tasks
-- Assign correct agent to each task (${AGENT_NAMES.WORKER} or ${AGENT_NAMES.REVIEWER})
-- Include clear success criteria for each task
-- Research before planning if unfamiliar technology
-</must_do>
-<must_not>
-- Do not implement any tasks, only plan
-- Do not create tasks that depend on each other unnecessarily
-</must_not>
-<context>
-- This is planning only, no execution
-- Output to .opencode/todo.md
-</context>
+<objective>Prepare a proportional plan for: $ARGUMENTS</objective>
+Inspect relevant evidence, identify dependencies and material uncertainty, and state acceptance checks. Do not implement the plan. Use ${AGENT_NAMES.PLANNER} only if separate research is useful. Return the plan in the response; update mission files only when requested or already part of the assigned mission. If using the existing TODO hierarchy, preserve its M/T/S schema and leave unverified items pending.
 </delegate>`,
     argumentHint: '"complex task to plan"',
   },
@@ -67,35 +33,17 @@ export const COMMANDS: Record<string, { description: string; template: string; a
 
 | Agent | Role | Capabilities |
 |-------|------|--------------|
-| **${AGENT_NAMES.COMMANDER}** | [MASTER] | Master Orchestrator: mission control, parallel coordination |
+| **${AGENT_NAMES.COMMANDER}** | [COORDINATOR] | Owns the goal, implements directly, verifies, and delegates when useful |
 | **${AGENT_NAMES.PLANNER}** | [STRATEGIST] | Planning, research, documentation analysis |
 | **${AGENT_NAMES.WORKER}** | [EXECUTOR] | Implementation, coding, terminal tasks |
 | **${AGENT_NAMES.REVIEWER}** | [VERIFIER] | Verification, testing, context sanity checks |
 
-## Parallel Execution System
-\`\`\`
-Up to 50 Worker Sessions running simultaneously
-Max 10 per agent type (auto-queues excess)
-Auto-timeout: 60 min | Auto-cleanup: 30 min
-\`\`\`
-
-## Execution Flow
-\`\`\`
-THINK → PLAN → DELEGATE → EXECUTE → VERIFY → COMPLETE
-   L1: Fast Track (simple fixes)
-   L2: Normal Track (features)
-   L3: Deep Track (complex refactoring)
-\`\`\`
-
-## Anti-Hallucination
-- ${AGENT_NAMES.PLANNER} researches BEFORE implementation
-- ${AGENT_NAMES.WORKER} caches official documentation
-- Never assumes - always verifies from sources
+These are optional presets. Distinguish questions, reviews, planning, and implementation first. Handle small work directly. Planning precedes dependent implementation; only independent scopes may run in parallel. An independent review is optional. Concurrency settings are limits, not a target team size. OpenCode owns native tools, permissions, sessions, and compaction.
 
 ## Usage
 - Select **${AGENT_NAMES.COMMANDER}** and type your request
 - Or use \`/task "your mission"\` explicitly
-- ${AGENT_NAMES.COMMANDER} automatically coordinates all agents`,
+- ${AGENT_NAMES.COMMANDER} chooses only the roles needed for the request`,
   },
 };
 

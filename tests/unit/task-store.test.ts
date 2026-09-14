@@ -8,9 +8,17 @@
  * - clearNotificationsForTask
  */
 
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, vi } from "vitest";
+import * as fs from "node:fs/promises";
+import * as path from "node:path";
 import { TaskStore } from "../../src/core/agents/task-store";
-import { TASK_STATUS, type ParallelTask } from "../../src/shared";
+import { PATHS, TASK_STATUS, type ParallelTask } from "../../src/shared";
+
+vi.mock("node:fs/promises", async importOriginal => ({
+    ...await importOriginal<typeof import("node:fs/promises")>(),
+    mkdir: vi.fn().mockResolvedValue(undefined),
+    appendFile: vi.fn().mockResolvedValue(undefined),
+}));
 
 function createMockTask(overrides: Partial<ParallelTask> = {}): ParallelTask {
     return {
@@ -31,6 +39,7 @@ describe("TaskStore", () => {
     let store: TaskStore;
 
     beforeEach(() => {
+        vi.clearAllMocks();
         store = new TaskStore();
     });
 
@@ -175,6 +184,39 @@ describe("TaskStore", () => {
     // ========================================================================
 
     describe("garbage collection and memory management", () => {
+        it.each(["resumed", "replaced", "completed again"])("preserves a task %s during archive I/O", async change => {
+            const task = createMockTask({ id: "race", status: TASK_STATUS.COMPLETED,
+                completedAt: new Date(Date.now() - 3_600_000) });
+            store.set(task.id, task);
+            let finishArchive!: () => void;
+            vi.mocked(fs.mkdir).mockImplementationOnce(() => new Promise(resolve => {
+                finishArchive = () => resolve(undefined);
+            }));
+            const collecting = store.gc();
+            const current = change === "replaced" ? { ...task } : task;
+            if (change !== "replaced") current.startedAt = new Date();
+            if (change === "resumed") current.status = TASK_STATUS.PENDING;
+            store.set("race", current);
+            finishArchive();
+            expect(await collecting).toBe(0);
+            expect(store.get("race")).toBe(current);
+            expect(store.getBySession(current.sessionID)).toBe(current);
+            const archived = JSON.parse(String(vi.mocked(fs.appendFile).mock.calls[0][1]));
+            expect(archived.status).toBe(TASK_STATUS.COMPLETED);
+        });
+
+        it("archives only under the plugin project directory", async () => {
+            const directory = path.resolve("separate-plugin-project");
+            store = new TaskStore(directory);
+            store.set("archived", createMockTask({ id: "archived", status: TASK_STATUS.COMPLETED,
+                completedAt: new Date(Date.now() - 3_600_000) }));
+            await store.gc();
+            expect(fs.mkdir).toHaveBeenCalledExactlyOnceWith(path.join(directory, PATHS.TASK_ARCHIVE), { recursive: true });
+            expect(fs.appendFile).toHaveBeenCalledExactlyOnceWith(
+                path.join(directory, PATHS.TASK_ARCHIVE, `tasks_${new Date().toISOString().slice(0, 10)}.jsonl`),
+                expect.stringContaining('"id":"archived"'),
+            );
+        });
         it("returns accurate memory statistics", () => {
             store.set("t1", createMockTask({ id: "t1", status: TASK_STATUS.RUNNING }));
             store.trackPending("p1", "t1");
@@ -185,18 +227,6 @@ describe("TaskStore", () => {
             expect(stats.runningTasks).toBe(1);
             expect(stats.notificationQueues).toBe(1);
             expect(stats.pendingParents).toBe(1);
-        });
-
-        it("forceCleanup removes all non-running tasks", () => {
-            store.set("t1", createMockTask({ id: "t1", status: TASK_STATUS.RUNNING }));
-            store.set("t2", createMockTask({ id: "t2", status: TASK_STATUS.COMPLETED }));
-            store.set("t3", createMockTask({ id: "t3", status: TASK_STATUS.ERROR }));
-
-            const removed = store.forceCleanup();
-            expect(removed).toBe(2);
-            expect(store.get("t1")).toBeDefined();
-            expect(store.get("t2")).toBeUndefined();
-            expect(store.get("t3")).toBeUndefined();
         });
 
         it("gc archives old completed tasks and removes old errored tasks", async () => {

@@ -241,15 +241,13 @@ describe("TaskLauncher", () => {
         ];
 
         await launcher.launch(inputs);
-        // Give more time for ConcurrencyToken acquisition and slot blocking
+        // Allow the first queued admission to dispatch.
         await new Promise(resolve => setTimeout(resolve, 200));
 
         const tasks = store.getAll();
         const running = tasks.filter(t => t.status === TASK_STATUS.RUNNING);
-        // With work-stealing enabled, both tasks might be running if they're in different worker queues
-        // The test should verify that at least one task respects the limit
-        expect(running.length).toBeGreaterThanOrEqual(1);
-        expect(running.length).toBeLessThanOrEqual(2);
+        expect(running).toHaveLength(1);
+        expect(tasks.filter(task => task.status === TASK_STATUS.PENDING)).toHaveLength(1);
         expect(tasks).toHaveLength(2);
     });
 
@@ -274,7 +272,7 @@ describe("TaskLauncher", () => {
         });
     });
 
-    it("aborts retry sleeps during shutdown", async () => {
+    it("does not replay a prompt after an ambiguous transport failure", async () => {
         vi.useFakeTimers();
         mockClient.session.prompt.mockRejectedValue(new Error("ECONNREFUSED"));
         launcher = new TaskLauncher(mockClient, store, concurrency, sessionPool, onTaskError, startPolling);
@@ -295,9 +293,7 @@ describe("TaskLauncher", () => {
         await vi.waitFor(() => {
             expect(onTaskError).toHaveBeenCalledTimes(1);
         });
-        expect(onTaskError.mock.calls[0][1]).toMatchObject({
-            message: "Task launch retry aborted during shutdown",
-        });
+        expect(onTaskError.mock.calls[0][1]).toMatchObject({ message: "ECONNREFUSED" });
         expect(mockClient.session.prompt).toHaveBeenCalledTimes(1);
     });
 

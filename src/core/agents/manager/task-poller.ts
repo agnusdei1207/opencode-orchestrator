@@ -12,12 +12,12 @@ import { presets } from "../../notification/toast.js";
 import { TASK_STATUS, PART_TYPES, MESSAGE_ROLES, SESSION_STATUS, AGENT_NAMES } from "../../../shared/index.js";
 import type { ParallelTask } from "../../../shared/index.js";
 import { progressNotifier } from "../../progress/progress-notifier.js";
-import { finishTaskConcurrency } from "./task-lifecycle.js";
+import { finishTaskConcurrency, confirmSessionAbort } from "./task-lifecycle.js";
 
 type OpencodeClient = PluginInput["client"];
 type SessionStatusInfo = { type?: string; messageCount?: number };
 type SessionMessagePart = { type?: string; tool?: string; name?: string; text?: string };
-type SessionMessage = { info?: { role?: string }; parts?: SessionMessagePart[] };
+type SessionMessage = { info?: { role?: string; error?: unknown; finish?: string; time?: { created?: number; completed?: number } }; parts?: SessionMessagePart[] };
 
 const POLL_UTILIZATION_KEYS = [
     AGENT_NAMES.PLANNER,
@@ -59,8 +59,7 @@ export class TaskPoller {
         private concurrency: ConcurrencyController,
         private notifyParentIfAllComplete: (parentSessionID: string) => Promise<void>,
         private scheduleCleanup: (taskId: string) => void,
-        private pruneExpiredTasks: () => void,
-        private onTaskComplete?: (task: ParallelTask) => void | Promise<void>
+        private pruneExpiredTasks: () => void
     ) { }
 
     start(): void {
@@ -124,37 +123,29 @@ export class TaskPoller {
         for (const task of running) {
             try {
                 // Skip tasks that haven't actually started running yet
-                if (task.status === TASK_STATUS.PENDING) continue;
+                if (task.status !== TASK_STATUS.RUNNING) continue;
+                const startedAt = task.startedAt;
 
                 const sessionStatus = allStatuses[task.sessionID];
 
                 // If session is idle, try to complete
-                if (sessionStatus?.type === SESSION_STATUS.IDLE) {
+                if (!sessionStatus || sessionStatus.type === SESSION_STATUS.IDLE) {
                     const elapsed = Date.now() - task.startedAt.getTime();
                     if (elapsed < CONFIG.MIN_STABILITY_MS) continue;
 
                     // Smart Polling optimization: Skip heavy message check if we already know it has output
-                    if (!task.hasStartedOutputting && !(await this.validateSessionHasOutput(task.sessionID, task))) {
+                    if (!(await this.validateSessionHasOutput(task.sessionID, task))) {
                         this.clearTaskPollFailure(task);
                         continue;
                     }
 
-                    await this.completeTask(task);
+                    if (task.startedAt === startedAt) await this.completeTask(task);
                     this.clearTaskPollFailure(task);
                     continue;
                 }
 
                 // Update progress tracking
                 await this.updateTaskProgress(task, sessionStatus);
-
-                // Stability detection: complete when message count stable for 3 polls
-                const elapsed = Date.now() - task.startedAt.getTime();
-                if (elapsed >= CONFIG.MIN_STABILITY_MS && task.stablePolls && task.stablePolls >= 3) {
-                    if (task.hasStartedOutputting || await this.validateSessionHasOutput(task.sessionID, task)) {
-                        log(`Task ${task.id} stable for 3 polls, completing...`);
-                        await this.completeTask(task);
-                    }
-                }
 
                 this.clearTaskPollFailure(task);
             } catch (error) {
@@ -167,6 +158,7 @@ export class TaskPoller {
     private async fetchSessionStatuses(running: ParallelTask[]): Promise<Record<string, SessionStatusInfo> | undefined> {
         try {
             const statusResult = await this.client.session.status();
+            if (statusResult.error || !statusResult.data) throw new Error(`Session status unavailable: ${formatError(statusResult.error)}`);
             this.sessionStatusFailureCount = 0;
             return (statusResult.data ?? {}) as Record<string, SessionStatusInfo>;
         } catch (error) {
@@ -217,6 +209,9 @@ export class TaskPoller {
 
     private async failTaskFromPoll(task: ParallelTask, message: string): Promise<void> {
         if (task.status !== TASK_STATUS.RUNNING) return;
+        const startedAt = task.startedAt;
+        if (!(await confirmSessionAbort(this.client, task.sessionID))) return;
+        if (task.startedAt !== startedAt || task.status !== TASK_STATUS.RUNNING) return;
 
         task.status = TASK_STATUS.ERROR;
         task.error = message;
@@ -224,6 +219,7 @@ export class TaskPoller {
 
         finishTaskConcurrency(task, this.concurrency, false);
         this.store.untrackPending(task.parentSessionID, task.id);
+        this.store.queueNotification(task);
         this.scheduleCleanup(task.id);
         this.messageCache.delete(task.sessionID);
 
@@ -243,11 +239,15 @@ export class TaskPoller {
     async validateSessionHasOutput(sessionID: string, task?: ParallelTask): Promise<boolean> {
         try {
             const response = await this.client.session.messages({ path: { id: sessionID } });
+            if (response.error) return false;
             const messages = (response.data ?? []) as SessionMessage[];
-            const hasOutput = messages.some(m =>
-                m.info?.role === MESSAGE_ROLES.ASSISTANT &&
-                m.parts?.some(hasOutputPart)
-            );
+            const currentTask = task ?? this.store.getBySession(sessionID);
+            const latest = messages.filter(m => m.info?.role === MESSAGE_ROLES.ASSISTANT).at(-1);
+            const info = latest?.info;
+            const hasOutput = Boolean(currentTask && info?.time?.created !== undefined &&
+                info.time.created >= currentTask.startedAt.getTime() && info.time.completed &&
+                !info.error && info.finish && info.finish !== "tool-calls" && info.finish !== "unknown" &&
+                latest?.parts?.some(hasOutputPart));
 
             if (hasOutput && task) {
                 task.hasStartedOutputting = true;
@@ -261,6 +261,7 @@ export class TaskPoller {
     }
 
     async completeTask(task: ParallelTask): Promise<void> {
+        if (this.store.get(task.id) !== task || task.status !== TASK_STATUS.RUNNING) return;
         log("[task-poller.ts] completeTask() called for", task.id, task.agent);
         task.status = TASK_STATUS.COMPLETED;
         task.completedAt = new Date();
@@ -272,11 +273,6 @@ export class TaskPoller {
         await this.notifyParentIfAllComplete(task.parentSessionID);
         this.scheduleCleanup(task.id);
         this.messageCache.delete(task.sessionID);
-
-
-
-        await this.runTaskCompleteCallback(task);
-
         const duration = formatDuration(task.startedAt, task.completedAt);
 
         // Show UI notification
@@ -284,16 +280,6 @@ export class TaskPoller {
 
         log(`Completed ${task.id} (${duration})`);
         progressNotifier.update();
-    }
-
-    private async runTaskCompleteCallback(task: ParallelTask): Promise<void> {
-        if (!this.onTaskComplete) return;
-
-        try {
-            await this.onTaskComplete(task);
-        } catch (err) {
-            log("Error in onTaskComplete callback:", err);
-        }
     }
 
     private async updateTaskProgress(task: ParallelTask, sessionInfo?: SessionStatusInfo): Promise<void> {

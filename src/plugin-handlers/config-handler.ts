@@ -54,8 +54,8 @@ function defineAgent(
 ): AgentConfig {
     const permission = mergePermission(globalPermission, existing?.permission);
     const agent = {
-        ...existing,
         ...defaults,
+        ...existing,
     };
 
     if (permission !== undefined) {
@@ -87,7 +87,6 @@ export function createConfigHandler() {
             orchestratorCommands[name] = {
                 description: cmd.description,
                 template: cmd.template,
-                argumentHint: cmd.argumentHint,
             };
         }
 
@@ -124,28 +123,8 @@ export function createConfigHandler() {
             }, globalPermission),
         };
 
-        // Demote existing build/plan agents to subagents to avoid conflicts
-        const processedExistingAgents = { ...existingAgents };
-        if (processedExistingAgents.build) {
-            processedExistingAgents.build = {
-                ...processedExistingAgents.build,
-                mode: "subagent",
-                hidden: true,
-            };
-        }
-        if (processedExistingAgents.plan) {
-            processedExistingAgents.plan = {
-                ...processedExistingAgents.plan,
-                mode: "subagent",
-            };
-        }
-
-        // Merge: our agents OVERRIDE existing ones (put ours LAST in spread)
-        mutableConfig.command = { ...existingCommands, ...orchestratorCommands };
-        mutableConfig.agent = { ...processedExistingAgents, ...orchestratorAgents };
-
-        // Set Commander as the default agent
-        mutableConfig.default_agent = AGENT_NAMES.COMMANDER;
+        mutableConfig.command = { ...orchestratorCommands, ...existingCommands };
+        mutableConfig.agent = { ...existingAgents, ...orchestratorAgents };
 
         // Note: console.log removed to prevent TUI corruption
     };

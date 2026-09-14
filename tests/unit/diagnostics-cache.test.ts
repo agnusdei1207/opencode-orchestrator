@@ -1,51 +1,39 @@
-/**
- * Diagnostics Cache Unit Tests
- */
-
-import { mkdtempSync, rmSync, utimesSync, writeFileSync } from "node:fs";
+﻿import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { afterEach, describe, expect, it } from "vitest";
-import { DiagnosticsCache } from "../../src/tools/lsp/diagnostics-cache";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { lspDiagnosticsTool } from "../../src/tools/lsp/index";
+import { callRustTool } from "../../src/tools/rust";
 
-describe("DiagnosticsCache", () => {
-    const tempDirs: string[] = [];
+vi.mock("../../src/tools/rust", () => ({ callRustTool: vi.fn() }));
+let directory: string;
+beforeEach(() => {
+    vi.resetAllMocks();
+    directory = mkdtempSync(path.join(tmpdir(), "oco-diagnostics-"));
+    writeFileSync(path.join(directory, "index.ts"), "const value = 1;");
+});
+afterEach(() => rmSync(directory, { recursive: true, force: true }));
 
-    afterEach(() => {
-        for (const dir of tempDirs.splice(0)) {
-            rmSync(dir, { recursive: true, force: true });
-        }
+describe("Live diagnostics boundary", () => {
+    it("rechecks project diagnostics after editing a file without changing directory entries", async () => {
+        vi.mocked(callRustTool).mockResolvedValueOnce("clean").mockResolvedValueOnce("type error");
+        const diagnostics = lspDiagnosticsTool(directory);
+        expect(await diagnostics.execute({}, {} as never)).toBe("clean");
+        writeFileSync(path.join(directory, "index.ts"), 'const value: number = "broken";');
+        expect(await diagnostics.execute({}, {} as never)).toBe("type error");
     });
 
-    it("stores and returns diagnostics as a string payload", async () => {
-        const directory = createTempDir(tempDirs);
-        const file = "index.ts";
-        writeFileSync(path.join(directory, file), "const value = 1;\n");
-        const cache = new DiagnosticsCache();
-
-        await cache.set(directory, file, "No diagnostics");
-        const result = await cache.get(directory, file);
-
-        expect(result).toBe("No diagnostics");
+    it("honors changed warning options on successive checks of the same file", async () => {
+        vi.mocked(callRustTool).mockImplementation(async (_name, args) => args.include_warnings ? "warning" : "clean");
+        const diagnostics = lspDiagnosticsTool(directory);
+        expect(await diagnostics.execute({ file: "index.ts", include_warnings: false }, {} as never)).toBe("clean");
+        expect(await diagnostics.execute({ file: "index.ts", include_warnings: true }, {} as never)).toBe("warning");
     });
 
-    it("invalidates cached diagnostics when the file mtime advances", async () => {
-        const directory = createTempDir(tempDirs);
-        const file = "index.ts";
-        const fullPath = path.join(directory, file);
-        writeFileSync(fullPath, "const value = 1;\n");
-        const cache = new DiagnosticsCache();
-
-        await cache.set(directory, file, "old diagnostics");
-        const future = new Date(Date.now() + 60_000);
-        utimesSync(fullPath, future, future);
-
-        await expect(cache.get(directory, file)).resolves.toBeNull();
+    it("retries an explicit diagnostics request after tool availability changes", async () => {
+        vi.mocked(callRustTool).mockResolvedValueOnce('Error: compiler unavailable').mockResolvedValueOnce("clean");
+        const diagnostics = lspDiagnosticsTool(directory);
+        expect(await diagnostics.execute({}, {} as never)).toBe('Error: compiler unavailable');
+        expect(await diagnostics.execute({}, {} as never)).toBe("clean");
     });
 });
-
-function createTempDir(registry: string[]): string {
-    const directory = mkdtempSync(path.join(tmpdir(), "oco-diagnostics-cache-"));
-    registry.push(directory);
-    return directory;
-}

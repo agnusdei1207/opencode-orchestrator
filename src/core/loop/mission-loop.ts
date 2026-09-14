@@ -202,6 +202,10 @@ export function startMissionLoop(
     prompt: string,
     options: MissionLoopOptions = {}
 ): boolean {
+    const existing = readLoopState(directory);
+    if (existing?.active && existing.sessionID !== sessionID) {
+        throw new Error(`The active mission belongs to session ${existing.sessionID}. Stop that mission in its owning session before starting another project mission.`);
+    }
     const state: MissionLoopState = {
         active: true,
         iteration: 1,

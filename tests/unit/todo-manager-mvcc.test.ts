@@ -6,7 +6,6 @@ import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import * as os from "node:os";
-import { log } from "../../src/core/agents/logger";
 import { TodoManager } from "../../src/core/todo/todo-manager";
 
 vi.mock("../../src/core/agents/logger", () => ({ log: vi.fn() }));
@@ -43,6 +42,15 @@ describe("TodoManager (MVCC)", () => {
         const data = await manager.readWithVersion();
         expect(data.version.version).toBe(1);
         expect(data.content).toContain("Task 2");
+    });
+
+    it("creates only the TODO parent when initializing a fresh directory", async () => {
+        const freshDir = path.join(testDir, "fresh");
+        const manager = TodoManager.getInstance(freshDir);
+        expect(fs.existsSync(path.join(freshDir, ".opencode"))).toBe(true);
+        expect(fs.existsSync(path.join(freshDir, ".opencode", "archive"))).toBe(false);
+        expect(await manager.update(0, () => "- [ ] New task", "commander")).toEqual({ success: true, currentVersion: 1 });
+        expect((await manager.readWithVersion()).content).toBe("- [ ] New task");
     });
 
     it("should fail and report conflict if version mismatch", async () => {
@@ -152,25 +160,15 @@ describe("TodoManager (MVCC)", () => {
         expect(opencodeEntries.filter(entry => entry.includes(".tmp."))).toEqual([]);
     });
 
-    it("should keep updates successful and log when change history logging fails", async () => {
+    it("preserves existing history while updating TODO content", async () => {
+        const archiveDir = path.join(testDir, ".opencode", "archive");
+        fs.mkdirSync(archiveDir);
+        const historyPath = path.join(archiveDir, "todo_history.jsonl");
+        fs.writeFileSync(historyPath, "historical user data\n");
         const manager = TodoManager.getInstance(testDir);
-        const internal = manager as unknown as {
-            logChange: (version: number, content: string, author: string) => Promise<void>;
-        };
-        const originalLogChange = internal.logChange;
-        internal.logChange = async () => {
-            throw new Error("archive unavailable");
-        };
-
-        try {
-            const result = await manager.update(0, content => `${content}\n- [ ] Still saved`, "agent-1");
-
-            expect(result).toEqual({ success: true, currentVersion: 1 });
-            expect(log).toHaveBeenCalledWith(expect.stringContaining("Failed to log TODO change v1"));
-            const data = await manager.readWithVersion();
-            expect(data.content).toContain("Still saved");
-        } finally {
-            internal.logChange = originalLogChange;
-        }
+        const result = await manager.update(0, content => `${content}\n- [ ] Still saved`, "agent-1");
+        expect(result).toEqual({ success: true, currentVersion: 1 });
+        expect((await manager.readWithVersion()).content).toContain("Still saved");
+        expect(fs.readFileSync(historyPath, "utf8")).toBe("historical user data\n");
     });
 });

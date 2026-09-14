@@ -6,7 +6,7 @@
 
 use crate::{Error, Result};
 use std::io::{Read, Write};
-use std::process::{Command, Output, Stdio};
+use std::process::{Child, Command, Output, Stdio};
 use std::sync::mpsc;
 use std::thread;
 use std::time::{Duration, Instant};
@@ -31,17 +31,28 @@ pub fn run_with_timeout(
     });
     command.stdout(Stdio::piped());
     command.stderr(Stdio::piped());
+    #[cfg(unix)]
+    {
+        use std::os::unix::process::CommandExt;
+        command.process_group(0);
+    }
 
+    let start = Instant::now();
     let mut child = command.spawn()?;
 
     // A child that exits early closes its stdin; a broken-pipe write is
     // expected in that case and must not fail the whole call. Taking `stdin`
     // and letting it drop at the end of this block signals EOF to the child.
-    if let Some(data) = stdin_data
-        && let Some(mut stdin) = child.stdin.take()
-    {
-        let _ = stdin.write_all(data);
-    }
+    let input_handle = stdin_data.and_then(|data| {
+        let mut stdin = child.stdin.take()?;
+        let data = data.to_vec();
+        let (sender, receiver) = mpsc::channel();
+        let handle = thread::spawn(move || {
+            let _ = stdin.write_all(&data);
+            let _ = sender.send(());
+        });
+        Some((handle, receiver))
+    });
 
     let mut stdout_pipe = child.stdout.take();
     let mut stderr_pipe = child.stderr.take();
@@ -63,35 +74,70 @@ pub fn run_with_timeout(
         let _ = tx_err.send(buf);
     });
 
-    let start = Instant::now();
     let poll = Duration::from_millis(20);
     let status = loop {
         match child.try_wait()? {
             Some(status) => break status,
             None => {
                 if start.elapsed() >= timeout {
-                    let _ = child.kill();
-                    let _ = child.wait();
-                    return Err(Error::Tool(format!(
-                        "command timed out after {}s",
-                        timeout.as_secs()
-                    )));
+                    stop_child(&mut child);
+                    return Err(timeout_error(timeout));
                 }
                 thread::sleep(poll);
             }
         }
     };
 
-    let stdout = rx_out.recv().unwrap_or_default();
-    let stderr = rx_err.recv().unwrap_or_default();
+    let output = rx_out
+        .recv_timeout(timeout.saturating_sub(start.elapsed()))
+        .and_then(|stdout| {
+            rx_err
+                .recv_timeout(timeout.saturating_sub(start.elapsed()))
+                .map(|stderr| (stdout, stderr))
+        });
+    let (stdout, stderr) = match output {
+        Ok(output) => output,
+        Err(_) => {
+            stop_child(&mut child);
+            return Err(timeout_error(timeout));
+        }
+    };
     let _ = out_handle.join();
     let _ = err_handle.join();
+    if let Some((handle, receiver)) = input_handle {
+        if receiver
+            .recv_timeout(timeout.saturating_sub(start.elapsed()))
+            .is_err()
+        {
+            stop_child(&mut child);
+            return Err(timeout_error(timeout));
+        }
+        let _ = handle.join();
+    }
 
     Ok(Output {
         status,
         stdout,
         stderr,
     })
+}
+
+fn stop_child(child: &mut Child) {
+    #[cfg(unix)]
+    {
+        // The child owns its process group, including descendants retaining pipes.
+        let _ = Command::new("/bin/kill")
+            .args(["-KILL", "--", &format!("-{}", child.id())])
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .status();
+    }
+    let _ = child.kill();
+    let _ = child.wait();
+}
+
+fn timeout_error(timeout: Duration) -> Error {
+    Error::Tool(format!("command timed out after {}ms", timeout.as_millis()))
 }
 
 #[cfg(test)]
@@ -120,6 +166,38 @@ mod tests {
         let mut cmd = Command::new("sleep");
         cmd.arg("10");
         let result = run_with_timeout(cmd, Duration::from_millis(100), None);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn deadline_also_bounds_inherited_output_pipes_after_parent_exit() {
+        let mut cmd = Command::new("sh");
+        cmd.args(["-c", "sleep 2 & printf ready"]);
+        let start = Instant::now();
+        let result = run_with_timeout(cmd, Duration::from_millis(100), None);
+        assert!(start.elapsed() < Duration::from_secs(1));
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn deadline_also_bounds_a_child_that_does_not_read_stdin() {
+        let mut cmd = Command::new("sleep");
+        cmd.arg("2");
+        let input = vec![b'x'; 1024 * 1024];
+        let start = Instant::now();
+        let result = run_with_timeout(cmd, Duration::from_millis(100), Some(&input));
+        assert!(start.elapsed() < Duration::from_secs(1));
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn deadline_bounds_inherited_stdin_even_when_output_pipes_are_closed() {
+        let mut cmd = Command::new("sh");
+        cmd.args(["-c", "exec 3<&0; sleep 2 <&3 >/dev/null 2>&1 &"]);
+        let input = vec![b'x'; 1024 * 1024];
+        let start = Instant::now();
+        let result = run_with_timeout(cmd, Duration::from_millis(100), Some(&input));
+        assert!(start.elapsed() < Duration::from_secs(1));
         assert!(result.is_err());
     }
 }

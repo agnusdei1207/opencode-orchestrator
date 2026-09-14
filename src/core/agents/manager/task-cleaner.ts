@@ -17,7 +17,7 @@ import { buildAgentTaskCompletionMessage, buildAgentTaskProgressMessage, formatD
 import { getTaskToastManager } from "../../notification/task-toast-manager.js";
 import type { TaskCompletionInfo, ParallelTask } from "../../../shared/index.js";
 import * as sessionStore from "../../session/store.js";
-import { finishTaskConcurrency } from "./task-lifecycle.js";
+import { finishTaskConcurrency, confirmSessionAbort } from "./task-lifecycle.js";
 import { syntheticTextPart } from "../../session/injection.js";
 import { isSessionBusy } from "../../session/activity.js";
 import { queueNotice } from "../../session/pending-injection.js";
@@ -25,6 +25,9 @@ import { queueNotice } from "../../session/pending-injection.js";
 type OpencodeClient = PluginInput["client"];
 
 export class TaskCleaner {
+    private cleanupTimers = new Map<string, ReturnType<typeof setTimeout>>();
+    private cleaning = new Set<string>();
+    private notifying = new Set<string>();
     constructor(
         private client: OpencodeClient,
         private store: TaskStore,
@@ -40,14 +43,9 @@ export class TaskCleaner {
 
             log(`Timeout: ${taskId}`);
             if (task.status === TASK_STATUS.RUNNING) {
-                this.timeOutRunningTask(taskId, task);
+                void this.timeOutRunningTask(taskId, task);
                 continue;
             }
-
-            // Already-terminal task past its TTL: just garbage-collect it.
-            this.sessionPool.release(task.sessionID).catch(() => { });
-            sessionStore.clear(task.sessionID);
-            this.store.delete(taskId);
         }
         this.store.cleanEmptyNotifications();
     }
@@ -60,7 +58,10 @@ export class TaskCleaner {
      * just told about, and releasing the session inline duplicates the release
      * scheduleCleanup already does.
      */
-    private timeOutRunningTask(taskId: string, task: ParallelTask): void {
+    private async timeOutRunningTask(taskId: string, task: ParallelTask): Promise<void> {
+        const startedAt = task.startedAt;
+        if (!(await confirmSessionAbort(this.client, task.sessionID))) return;
+        if (task.startedAt !== startedAt || task.status !== TASK_STATUS.RUNNING) return;
         task.status = TASK_STATUS.TIMEOUT;
         task.error = "Task exceeded time limit";
         task.completedAt = new Date();
@@ -91,9 +92,15 @@ export class TaskCleaner {
 
     scheduleCleanup(taskId: string): void {
         const task = this.store.get(taskId);
+        if (!task) return;
+        this.cancelCleanup(taskId);
         const sessionID = task?.sessionID;
+        const startedAt = task.startedAt;
 
-        setTimeout(async () => {
+        const timer = setTimeout(async () => {
+            this.cleanupTimers.delete(taskId);
+            if (this.store.get(taskId) !== task || task.startedAt !== startedAt || task.status === TASK_STATUS.RUNNING || task.status === TASK_STATUS.PENDING) return;
+            this.cleaning.add(taskId);
             if (sessionID) {
                 try {
                     await this.sessionPool.release(sessionID);
@@ -102,12 +109,29 @@ export class TaskCleaner {
                     log(`Session cleanup error for ${sessionID}:`, error);
                 }
             }
-            this.store.delete(taskId);
+            if (task.startedAt === startedAt) this.store.delete(taskId);
+            this.cleaning.delete(taskId);
 
 
 
             log(`Cleaned up ${taskId}`);
         }, CONFIG.CLEANUP_DELAY_MS);
+        timer.unref?.();
+        this.cleanupTimers.set(taskId, timer);
+    }
+
+    cancelCleanup(taskId: string): void {
+        const timer = this.cleanupTimers.get(taskId);
+        if (timer) clearTimeout(timer);
+        this.cleanupTimers.delete(taskId);
+    }
+
+    isCleaning(taskId: string): boolean {
+        return this.cleaning.has(taskId);
+    }
+
+    shutdown(): void {
+        for (const taskId of this.cleanupTimers.keys()) this.cancelCleanup(taskId);
     }
 
     /**
@@ -117,10 +141,22 @@ export class TaskCleaner {
      * - All complete: noReply=false (AI should process and report results)
      */
     async notifyParentIfAllComplete(parentSessionID: string): Promise<void> {
+        if (this.notifying.has(parentSessionID)) return;
+        this.notifying.add(parentSessionID);
+        try {
+            while (this.store.getNotifications(parentSessionID).length) {
+                if (!(await this.notifyBatch(parentSessionID))) break;
+            }
+        } finally {
+            this.notifying.delete(parentSessionID);
+        }
+    }
+
+    private async notifyBatch(parentSessionID: string): Promise<boolean> {
         const pendingCount = this.store.getPendingCount(parentSessionID);
         const notifications = this.store.getNotifications(parentSessionID);
 
-        if (notifications.length === 0) return;
+        if (notifications.length === 0) return true;
 
         const allComplete = pendingCount === 0;
 
@@ -151,8 +187,11 @@ export class TaskCleaner {
             message = buildAgentTaskProgressMessage(notifications, pendingCount);
         }
 
-        await this.deliverToParent(parentSessionID, message, allComplete);
-        this.store.clearNotifications(parentSessionID);
+        if (await this.deliverToParent(parentSessionID, message, allComplete)) {
+            this.store.acknowledgeNotifications(parentSessionID, notifications);
+            return true;
+        }
+        return false;
     }
 
     /**
@@ -171,15 +210,15 @@ export class TaskCleaner {
         parentSessionID: string,
         message: string,
         allComplete: boolean,
-    ): Promise<void> {
+    ): Promise<boolean> {
         if (await isSessionBusy(this.client, parentSessionID)) {
             queueNotice(parentSessionID, message);
             log(`Parent ${parentSessionID} is busy; queued task notification for the next idle`);
-            return;
+            return true;
         }
 
         try {
-            await this.client.session.prompt({
+            const response = await this.client.session.prompt({
                 path: { id: parentSessionID },
                 body: {
                     // Key optimization: only trigger AI response when ALL complete
@@ -187,9 +226,12 @@ export class TaskCleaner {
                     parts: [syntheticTextPart(message)]
                 },
             });
+            if (response.error) throw new Error(String(response.error));
             log(`Notified parent ${parentSessionID} (allComplete=${allComplete}, noReply=${!allComplete})`);
+            return true;
         } catch (error) {
             log("Notification error:", error);
+            return false;
         }
     }
 }

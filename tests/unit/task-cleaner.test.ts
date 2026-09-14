@@ -31,7 +31,7 @@ describe("TaskCleaner", () => {
         prompt = vi.fn().mockResolvedValue({ data: {} });
         concurrency = new ConcurrencyController();
         cleaner = new TaskCleaner(
-            { session: { prompt } } as unknown as ConstructorParameters<typeof TaskCleaner>[0],
+            { session: { prompt, status: vi.fn().mockResolvedValue({ data: {} }), abort: vi.fn().mockResolvedValue({ data: true }) } } as unknown as ConstructorParameters<typeof TaskCleaner>[0],
             store,
             concurrency,
             { release: vi.fn().mockResolvedValue(undefined) } as unknown as ConstructorParameters<typeof TaskCleaner>[3],
@@ -90,6 +90,29 @@ describe("TaskCleaner", () => {
         });
     });
 
+    it.each(["reject", "error"])("retains notifications when delivery returns %s", async (failure) => {
+        const task = createTask();
+        store.queueNotification(task);
+        if (failure === "reject") prompt.mockRejectedValueOnce(new Error("offline"));
+        else prompt.mockResolvedValueOnce({ error: "offline" });
+        await cleaner.notifyParentIfAllComplete(task.parentSessionID);
+        expect(store.getNotifications(task.parentSessionID)).toEqual([task]);
+    });
+
+    it("acknowledges only the notification batch actually sent", async () => {
+        const first = createTask({ id: "first" });
+        const second = createTask({ id: "second" });
+        store.queueNotification(first);
+        prompt.mockImplementationOnce(async () => {
+            store.queueNotification(second);
+            return { data: {} };
+        });
+        await cleaner.notifyParentIfAllComplete(first.parentSessionID);
+        expect(prompt).toHaveBeenCalledTimes(2);
+        expect(prompt.mock.calls[1][0].body.parts[0].text).toContain("second");
+        expect(store.getNotifications(first.parentSessionID)).toEqual([]);
+    });
+
     it("reports timed-out running tasks as failed and clears their concurrency slot", async () => {
         await concurrency.acquire("builder");
         const reportResult = vi.spyOn(concurrency, "reportResult");
@@ -102,6 +125,7 @@ describe("TaskCleaner", () => {
         store.trackPending(task.parentSessionID, task.id);
 
         cleaner.pruneExpiredTasks();
+        await vi.waitFor(() => expect(task.status).toBe(TASK_STATUS.TIMEOUT));
 
         expect(concurrency.getActiveCount("builder")).toBe(0);
         expect(task.concurrencyKey).toBeUndefined();

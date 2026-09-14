@@ -19,9 +19,6 @@ export const OUTPUT_LABEL = {
     CANCELLED: "[CANCELLED]",
     RESUMED_DONE: "[RESUMED & DONE]",
     SYNC_START: "[SYNC START]",
-    CACHED: "[CACHED]",
-    JSON_FETCHED: "[JSON FETCHED]",
-    TEXT_FETCHED: "[TEXT FETCHED]",
 } as const;
 
 /**
@@ -38,13 +35,8 @@ export const PARALLEL_LOG = {
 
 export const PARALLEL_PARAMS = {
     AGENT: "agent",
-    TASK: "task",
     PROMPT: "prompt",
-    CONTEXT: "context",
     BACKGROUND: "background",
-    PARALLEL_GROUP: "parallel_group",
-    RETRY: "retry",
-    TIMEOUT: "timeout",
     DESCRIPTION: "description",
     RESUME: "resume",
     MODE: "mode",
@@ -52,4 +44,3 @@ export const PARALLEL_PARAMS = {
     TASK_ID: "taskId",
     STATUS: "status",
 } as const;
-

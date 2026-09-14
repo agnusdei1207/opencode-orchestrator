@@ -78,17 +78,17 @@ describe("Agent Definitions", () => {
         });
 
         it("should include core philosophy in system prompt", () => {
-            expect(commander.systemPrompt).toContain("Core Philosophy");
+            expect(commander.systemPrompt).toContain("Explore → Learn → Adapt → Act");
         });
 
-        it("should include execution strategy", () => {
-            expect(commander.systemPrompt).toContain("execution_strategy");
+        it("should make delegation and review optional", () => {
+            expect(commander.systemPrompt).toContain("Delegation and independent review are optional");
         });
 
         it("should NOT use parallel scouts (direct discovery instead)", () => {
             // After refactoring, Commander should use direct discovery
             expect(commander.systemPrompt).not.toContain("LAUNCH Parallel Scouts");
-            expect(commander.systemPrompt).toContain("Direct Discovery");
+            expect(commander.systemPrompt).toContain("Handle simple tasks directly");
         });
     });
 
@@ -104,9 +104,9 @@ describe("Agent Definitions", () => {
             expect(planner.description).toContain("plan");
         });
 
-        it("should include environment discovery for research", () => {
-            // Planner needs ENVIRONMENT_DISCOVERY for research tasks
-            expect(planner.systemPrompt).toContain("environment_discovery");
+        it("should inspect project evidence for research", () => {
+            // Research starts with inspected project evidence.
+            expect(planner.systemPrompt).toContain("Inspect the relevant code and documentation");
         });
 
         it("should include TODO format instructions", () => {
@@ -130,12 +130,12 @@ describe("Agent Definitions", () => {
             expect(worker.canBash).toBe(true);
         });
 
-        it("should include TDD workflow", () => {
-            expect(worker.systemPrompt).toContain("TDD");
+        it("should require a failing regression before implementation", () => {
+            expect(worker.systemPrompt).toContain("demonstrate a failing regression test");
         });
 
-        it("should include quality guidelines", () => {
-            expect(worker.systemPrompt).toContain("quality");
+        it("should synchronize affected artifacts", () => {
+            expect(worker.systemPrompt).toContain("synchronize affected tests, types, imports, configuration, and documentation");
         });
     });
 
@@ -204,9 +204,9 @@ describe("Agent Definitions", () => {
     // ========================================================================
 
     describe("agent hierarchy", () => {
-        it("should define Commander as top-level orchestrator", () => {
+        it("should give Commander ownership of the goal", () => {
             const commander = AGENTS[AGENT_NAMES.COMMANDER];
-            expect(commander.systemPrompt).toContain("orchestrat");
+            expect(commander.systemPrompt).toContain("Own the user's goal");
         });
 
         it("should define Planner, Worker, Reviewer as specialized subagents", () => {

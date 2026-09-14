@@ -6,8 +6,7 @@
  * are destructive no matter which agent issued them (fork bombs, root deletion).
  *
  * Role separation itself is NOT enforced here. It is expressed in the prompts —
- * see the authoritative Role Permission Matrix in
- * `src/agents/prompts/shared/role-matrix.ts` — because the orchestrator delegates
+ * see `src/agents/prompts/common.ts` — because the orchestrator delegates
  * to real OpenCode agents whose tool access is governed by the user's own
  * permission configuration. Re-implementing that as a hard block here would
  * override the user's config rather than complement it.

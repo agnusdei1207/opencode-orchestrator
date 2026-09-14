@@ -80,14 +80,10 @@ export const PARALLEL_TASK = {
     DEFAULT_CONCURRENCY: 10,
     MAX_CONCURRENCY: 50,
 
-    // Sync polling (for delegate_task sync mode)
-    // Optimized: Reduced polling frequency while relying more on events
+    // Bounded wait for manager-owned completion in delegate_task sync mode.
     SYNC_TIMEOUT_MS: 5 * TIME.MINUTE,
-    POLL_INTERVAL_MS: 2000,           // 500 → 2000ms (75% less API calls)
-    MIN_IDLE_TIME_MS: 3 * TIME.SECOND, // 5s → 3s (faster detection)
-    MIN_STABILITY_MS: 2 * TIME.SECOND, // 3s → 2s (faster stability)
-    STABLE_POLLS_REQUIRED: 2,          // 3 → 2 (faster completion)
-    MAX_POLL_COUNT: 150,               // 600 → 150 (adjusted for 2s interval)
+    POLL_INTERVAL_MS: 2 * TIME.SECOND,
+    MIN_STABILITY_MS: 2 * TIME.SECOND,
 
     // Session naming
     SESSION_TITLE_PREFIX: "Parallel",
@@ -96,4 +92,3 @@ export const PARALLEL_TASK = {
     LABEL: PARALLEL_LABEL,
     GROUP_PREFIX: `${PARALLEL_LABEL}:`,
 } as const;
-
