@@ -1,7 +1,7 @@
 # Legacy removal and runtime hardening plan
 
 Date: 2026-09-15
-Status: Implemented; patch release pending
+Status: Implemented; corrected `1.7.21` patch release pending
 
 ## Target and reason
 
@@ -73,6 +73,9 @@ repository and several dependencies absent from all Rust source.
    version-matched artifact checks needed for a reliable install.
 10. Reopen all changed files, update ADR/review/memory records, and complete the
    authorized commit, push, and patch-release flow if every gate passes.
+11. After the first hosted package smoke exposed a missing release-job build,
+    build `dist/` inside the isolated release job and lock the required ordering
+    with a regression test before publishing the next patch.
 
 ## Expected impact and rollback
 

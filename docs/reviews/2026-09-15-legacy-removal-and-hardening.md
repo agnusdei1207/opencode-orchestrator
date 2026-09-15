@@ -3,7 +3,7 @@
 Date: 2026-09-15
 Baseline: `opencode-orchestrator@1.7.19` at
 `a3112c017d7c5b02c38370783769dadf9e23fe8c`
-Release target: `1.7.20`
+Release target: `1.7.21`
 
 ## Scope and method
 
@@ -151,4 +151,18 @@ justify removal of unreachable code.
 
 ## Release record
 
-Pending the authorized `1.7.20` patch publish and remote verification.
+The `v1.7.20` tag at `cd69c5cb4fd8bad840113c9956c384546f61b3fb`
+completed the hosted quality gate and all five native builds. Artifact
+header/architecture/version verification also passed. The release job then
+stopped before npm publication because its isolated checkout had not built the
+ignored `dist/` output before running the packed-package smoke test. The smoke
+test correctly rejected the package when its postinstall entrypoint was absent.
+
+The release workflow now builds the publishable package in the release job
+after `npm ci` and before artifact assembly, package smoke, and publication. A
+workflow-order regression test covers that boundary. Reproduction in a clean
+Node `24.20.0` Linux container, starting without `node_modules` or `dist`, then
+passed the build, isolated packed install, config registration, package entry
+imports, and Linux CLI execution with all five hosted `1.7.20` artifacts.
+
+The corrected `1.7.21` patch publish and registry verification are pending.

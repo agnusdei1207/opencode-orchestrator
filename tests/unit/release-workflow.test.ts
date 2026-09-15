@@ -43,4 +43,17 @@ describe("release workflow", () => {
         expect(workflow).toContain("os: macos-26\n            target: aarch64-apple-darwin");
         expect(workflow).not.toContain("os: macos-latest");
     });
+
+    it("builds the publishable package inside the release job before smoke testing it", () => {
+        const workflow = readReleaseWorkflow();
+        const releaseJob = workflow.slice(workflow.indexOf("\n  release:"));
+        const installIndex = releaseJob.indexOf("- name: Install dependencies");
+        const buildIndex = releaseJob.indexOf("- name: Build publishable package");
+        const smokeIndex = releaseJob.indexOf("- name: Smoke-test packed package");
+
+        expect(installIndex).toBeGreaterThan(-1);
+        expect(buildIndex).toBeGreaterThan(installIndex);
+        expect(releaseJob).toContain("run: npm run build");
+        expect(smokeIndex).toBeGreaterThan(buildIndex);
+    });
 });

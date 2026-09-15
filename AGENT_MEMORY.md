@@ -1,37 +1,37 @@
 # Agent Memory - OCO Session
 
-Last updated: 2026-09-15 19:35 KST
+Last updated: 2026-09-15 19:54 KST
 
 ## Current task
 
 Legacy removal, runtime hardening, full QA, commit/push, and patch release to
-`1.7.20`. Implementation and pre-release verification are complete; commit,
-push, patch release, registry verification, and Docker cleanup remain.
+`1.7.21`. The implementation and `v1.7.20` were committed and pushed. Hosted
+QA and all five native builds passed, but package smoke blocked npm publication
+because the isolated release job had not generated ignored `dist/` output.
 
 ## Last completed step
 
-Removed unreachable runtime families, eliminated the manager cycles, hardened
-notification process execution, updated release gates and development tools,
-and fixed the Rust CLI configuration boundary. The production TypeScript graph
-is 185/185 reachable with zero cycles. TypeScript build/typecheck and all 1,021
-tests pass on TypeScript 7/Vitest 5 with coverage above thresholds. The isolated
-OpenCode 1.18.31 host passed 14/14 scenarios. Rust format/Clippy passed and all
-64 Rust tests passed on Rust 1.98.1. Linux x64/arm64 and Windows x64 binaries
-were rebuilt from the refreshed lockfile and executed successfully before the
-generated artifacts were removed from source control.
+Diagnosed the failed `v1.7.20` release from the authenticated Actions log. The
+five hosted binaries passed exact-set, header, architecture, and embedded
+version validation. Added an explicit `npm run build` to the isolated release
+job before package smoke and publication, plus a regression test for that
+ordering. A clean Node 24.20.0 Linux container then passed build, packed install,
+config registration, package imports, and the Linux CLI using those hosted
+artifacts. The corrected tree also passed the full local release preflight:
+1,022 TypeScript tests with coverage, 64 Rust tests plus format/Clippy, zero npm
+audit findings, a valid dependency tree, and packed-install smoke.
 
 ## Next exact step
 
-Finish the diff/document audit, rerun the final combined preflight, commit and
-push the implementation, then run the authorized patch release from a Bash
-login shell so the user's `.bashrc` authentication is loaded.
+Commit and push the workflow correction, then run the authorized patch release
+from a Bash login shell so the user's `.bashrc` authentication is loaded. Verify
+`1.7.21` from npm and reclaim Docker resources afterward.
 
 ## Incomplete items and why
 
-- `1.7.20` is not yet committed, tagged, pushed, or published. Release follows
-  the final clean-worktree verification.
-- Docker resources are retained until all Rust and Linux artifact checks finish;
-  reclaim them after registry verification.
+- `v1.7.20` exists remotely but was not published to npm; the failed hosted run
+  is `34959635053`. The corrected workflow must ship under `v1.7.21`.
+- Docker resources remain until registry verification; reclaim them afterward.
 
 ## Key decisions
 
@@ -50,6 +50,8 @@ login shell so the user's `.bashrc` authentication is loaded.
 - Build all five release binaries from the exact tag in the hosted matrix.
   Keep `bin/` as an ignored build output so a version tag cannot retain binaries
   with an older embedded version.
+- Build ignored `dist/` output inside the release job itself; artifacts from a
+  separate QA job do not share a filesystem with the publisher.
 - Use a Node log follower for `npm run log` so the development command works on
   Windows, Linux, and macOS without shell command substitution.
 
