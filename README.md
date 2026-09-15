@@ -8,7 +8,7 @@
   [![GitHub Sponsors](https://img.shields.io/badge/Sponsor-%E2%9D%A4-ea4aaa?logo=github-sponsors)](https://github.com/sponsors/agnusdei1207)
 
   <!-- VERSION:START -->
-  **Version:** `1.7.18`
+  **Version:** `1.7.19`
   <!-- VERSION:END -->
   <!-- LAST-UPDATED: 2026-09-14 18:19 KST -->
 </div>
