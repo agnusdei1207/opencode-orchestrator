@@ -42,13 +42,13 @@ Compatibility evidence came from:
 
 Using the same static method before and after, functions outside the repository
 limits (more than 40 lines, more than four parameters, or approximate cyclomatic
-complexity above 10) fell from 62 to 55. Six changed-path
-offenders—plugin bootstrap, mission idle handling, continuation injection,
-progress tracking, session-state creation, and error recovery—no longer appear
-in that report. The remaining 55 are pre-existing work across the Rust bridge,
-task manager, mission parser/memory, configuration, and utility code. They are
-recorded rather than mixed into this compatibility patch without behavioral
-need; ADR-0021 defines the deletion-first path for those subsystems.
+complexity above 10) fell from 62 to 55. Six changed-path offenders (plugin
+bootstrap, mission idle handling, continuation injection, progress tracking,
+session-state creation, and error recovery) no longer appear in that report.
+The remaining 55 are pre-existing work across the Rust bridge, task manager,
+mission parser/memory, configuration, and utility code. They are recorded
+rather than mixed into this compatibility patch without behavioral need;
+ADR-0021 defines the deletion-first path for those subsystems.
 
 ## Connection contract
 
@@ -83,10 +83,31 @@ paths, and the live host runner loads the built plugin in an isolated profile.
 - Dependency tree: `npm ls` reported no invalid required dependency. OpenTUI
   peers are optional host integrations.
 - Security audit: npm reported zero vulnerabilities at every severity.
-- Package dry run: 220 files, 4,161,987 packed bytes, and 12,386,885 unpacked
-  bytes before the version-only release update.
+- Final package dry run: 220 files, 4,161,661 packed bytes, and 12,386,485
+  unpacked bytes. Its SHA-1 was
+  `759090b0042fae447e9586dda91a7ed6dbccf5c0`.
 - Static comparison: 62 baseline findings to 55 after refactoring.
 
-The patch release preflight and versioned Linux x64/arm64 distribution builds
-remain release-time gates. No performance gain is claimed because this change
-did not include a runtime benchmark.
+## Release record
+
+- The clean `release:preflight` gate passed at version `1.7.19`, including the
+  Node, Rust, audit, and package checks above.
+- Versioned Linux x64 and arm64 distribution builds passed. Both artifacts are
+  ELF64 for their declared architecture; the x64 artifact reported `1.7.19` in
+  a clean Linux container. Their SHA-256 values are
+  `49f0bb0fc8fbd8551620091f73c073e8541f9464ac841cfdec5eb12128af5f12`
+  and `f1c7e611363502323f8c0128bfa1a20ad0c1aef390bbfccb873ade61e25c2194`.
+- npm published `opencode-orchestrator@1.7.19` under `latest`. Registry metadata
+  returned the same package SHA-1 and integrity
+  `sha512-6UhS+q8ZTAS9prpBStAf3+nD893jl1hmJB52AZrwQ1G7sZ0IgQ7PosmQQxszJKmr3Z5l2khg31cvXV3hXsMQug==`.
+- A fresh registry install under isolated home and config directories ran the
+  postinstall registration, imported both public paths, and confirmed they
+  expose the same plugin function.
+- Remote `main` and `v1.7.19` both resolved to release commit
+  `fefd948bdd48f1cb750ab9e007fbab65c713a055` before this documentation commit.
+- Docker cleanup removed the project cache volumes and every unused Docker
+  image and volume. `docker system df` fell from 2.312 GB of images and 4.941 GB
+  of volumes to zero for images, containers, volumes, and build cache.
+
+No performance gain is claimed because this change did not include a runtime
+benchmark.

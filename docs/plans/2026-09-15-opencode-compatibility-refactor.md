@@ -1,7 +1,7 @@
 # OpenCode compatibility and mission-loop refactor plan
 
 Date: 2026-09-15
-Status: Implemented; release verification in progress
+Status: Completed and released as `1.7.19`
 
 ## Target and reason
 
