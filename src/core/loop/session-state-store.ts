@@ -8,13 +8,10 @@ import { log } from "../agents/logger.js";
 import { createPruneTimer } from "./prune-timer.js";
 
 export interface SessionState {
-    stagnationCount: number;
     countdownTimer?: ReturnType<typeof setTimeout>;
     countdownStartedAt?: number;
     lastCheckTime?: number;
-    isRecovering: boolean;
     isAborting: boolean;
-    inFlight: boolean;
 }
 
 interface TrackedSession {
@@ -34,52 +31,51 @@ export interface SessionStateStore {
     shutdown: () => void;
 }
 
-function createSessionStateStore(): SessionStateStore {
-    const sessions = new Map<string, TrackedSession>();
-
-    const pruneTimer = createPruneTimer({
+class InMemorySessionStateStore implements SessionStateStore {
+    private readonly sessions = new Map<string, TrackedSession>();
+    private readonly pruneTimer = createPruneTimer({
         intervalMs: PRUNE_INTERVAL_MS,
-        prune: () => {
-            const now = Date.now();
-            for (const [sessionID, tracked] of sessions.entries()) {
-                if (now - tracked.lastAccessedAt > SESSION_STATE_TTL_MS) {
-                    cancelCountdownInternal(tracked.state);
-                    sessions.delete(sessionID);
-                    log(`[session-state-store] Pruned stale session`, { sessionID });
-                }
-            }
-        }
+        prune: () => this.prune(),
     });
 
-    pruneTimer.start();
+    constructor() {
+        this.pruneTimer.start();
+    }
 
-    function getTrackedSession(sessionID: string): TrackedSession {
-        const existing = sessions.get(sessionID);
+    private prune(): void {
+        const now = Date.now();
+        for (const [sessionID, tracked] of this.sessions.entries()) {
+            if (now - tracked.lastAccessedAt <= SESSION_STATE_TTL_MS) continue;
+            this.cancelCountdownInternal(tracked.state);
+            this.sessions.delete(sessionID);
+            log(`[session-state-store] Pruned stale session`, { sessionID });
+        }
+    }
+
+    private getTrackedSession(sessionID: string): TrackedSession {
+        const existing = this.sessions.get(sessionID);
         if (existing) {
             existing.lastAccessedAt = Date.now();
             return existing;
         }
 
         const rawState: SessionState = {
-            stagnationCount: 0,
-            isRecovering: false,
             isAborting: false,
-            inFlight: false,
         };
         const trackedSession: TrackedSession = {
             state: rawState,
             lastAccessedAt: Date.now(),
         };
-        sessions.set(sessionID, trackedSession);
+        this.sessions.set(sessionID, trackedSession);
         return trackedSession;
     }
 
-    function getState(sessionID: string): SessionState {
-        return getTrackedSession(sessionID).state;
+    getState(sessionID: string): SessionState {
+        return this.getTrackedSession(sessionID).state;
     }
 
-    function getExistingState(sessionID: string): SessionState | undefined {
-        const existing = sessions.get(sessionID);
+    getExistingState(sessionID: string): SessionState | undefined {
+        const existing = this.sessions.get(sessionID);
         if (existing) {
             existing.lastAccessedAt = Date.now();
             return existing.state;
@@ -87,48 +83,42 @@ function createSessionStateStore(): SessionStateStore {
         return undefined;
     }
 
-    function cancelCountdownInternal(state: SessionState): void {
+    private cancelCountdownInternal(state: SessionState): void {
         if (state.countdownTimer) {
             clearTimeout(state.countdownTimer);
             state.countdownTimer = undefined;
         }
         state.countdownStartedAt = undefined;
-        state.inFlight = false;
     }
 
-    function cancelCountdown(sessionID: string): void {
-        const tracked = sessions.get(sessionID);
+    cancelCountdown(sessionID: string): void {
+        const tracked = this.sessions.get(sessionID);
         if (!tracked) return;
-        cancelCountdownInternal(tracked.state);
+        this.cancelCountdownInternal(tracked.state);
     }
 
-    function cleanup(sessionID: string): void {
-        const tracked = sessions.get(sessionID);
+    cleanup(sessionID: string): void {
+        const tracked = this.sessions.get(sessionID);
         if (!tracked) return;
-        cancelCountdownInternal(tracked.state);
-        sessions.delete(sessionID);
+        this.cancelCountdownInternal(tracked.state);
+        this.sessions.delete(sessionID);
     }
 
-    function cancelAllCountdowns(): void {
-        for (const tracked of sessions.values()) {
-            cancelCountdownInternal(tracked.state);
+    cancelAllCountdowns(): void {
+        for (const tracked of this.sessions.values()) {
+            this.cancelCountdownInternal(tracked.state);
         }
     }
 
-    function shutdown(): void {
-        pruneTimer.shutdown();
-        cancelAllCountdowns();
-        sessions.clear();
+    shutdown(): void {
+        this.pruneTimer.shutdown();
+        this.cancelAllCountdowns();
+        this.sessions.clear();
     }
+}
 
-    return {
-        getState,
-        getExistingState,
-        cancelCountdown,
-        cleanup,
-        cancelAllCountdowns,
-        shutdown,
-    };
+function createSessionStateStore(): SessionStateStore {
+    return new InMemorySessionStateStore();
 }
 
 export { createSessionStateStore };

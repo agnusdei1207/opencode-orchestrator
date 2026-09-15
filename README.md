@@ -32,11 +32,23 @@ This README describes the current development tree. Tool removals below are pend
 
 ## 1. Installation
 
+Requirements:
+
+- Node.js `>=24.15.0`
+- OpenCode `1.18.31` is the host version exercised by this release's isolated
+  integration suite.
+
 ```bash
 npm install -g opencode-orchestrator
 ```
 
 > **Note**: The install hook automatically registers the plugin in `opencode.json` / `opencode.jsonc`.
+
+OpenCode accepts either the package name or a package/options tuple. The simple
+form is `"plugin": ["opencode-orchestrator"]`; use the tuple shown below when
+you need plugin options. The package exposes both its root entry and the
+OpenCode `./server` entry, so current and earlier supported loaders reach the
+same plugin implementation.
 
 ### Troubleshooting: plugin installed but `/task` is missing
 
@@ -192,7 +204,7 @@ npm test
 npm run docker:test
 ```
 
-For agent work on Windows, use `scripts/dbuild.ps1` for Rust tests, formatting, and linting. It runs the repository in a bounded Docker container. TypeScript verification uses Node 24 LTS.
+For agent work on Windows, use `scripts/dbuild.ps1` for Rust tests, formatting, and linting. It runs the repository in a bounded Docker container. TypeScript verification requires Node `>=24.15.0`.
 
 ```powershell
 ./scripts/dbuild.ps1 test --workspace

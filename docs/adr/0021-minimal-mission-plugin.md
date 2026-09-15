@@ -30,8 +30,9 @@ OpenCode compatibility is based on its public documentation and executed release
 
 | Project | Snapshot | Relevant difference |
 | --- | --- | --- |
-| OpenCode | Installed executable `1.18.29`; published SDK/plugin dependencies `1.17.18` | Public session and foreground task APIs are exercised by the isolated host QA runner. Native background delegation is not adopted without a documented public contract. |
-| Orchestrator baseline | `572c7bef8ca00788bb4b986292558e6344681b39`; package `1.7.17`; SDK/plugin dependencies `1.17.18` | Baseline registered 30 static custom tools and four agent definitions. The current checkpoint has 25 tools and four optional compact presets; it includes the preceding uncommitted memory-helper refactor. |
+| OpenCode | Installed executable and published SDK/plugin packages `1.18.31`; source `e03db9bc6908f75c9334d8aa997deeaac81c0298` | Public session and foreground task APIs are exercised by the isolated host QA runner. Native background delegation is not adopted without a documented public contract. |
+| Orchestrator baseline | `a8f318192275e255636f10fbb18cd75d7c9c232b`; package `1.7.18`; release candidate SDK/plugin dependencies `1.18.31` | The current checkpoint has 25 tools and four optional compact presets. Plugin startup is separated from hook composition, while the existing function export remains compatible. |
+| Oh My OpenAgent reference | `db37b83aff8f577cb1da65c3d85a7f90bed67be7`; development branch | Its thin OpenCode adapter demonstrates the new `{ id, server }` module form. It was inspected for boundary structure only; no implementation or prompt was copied. |
 | Pentesting | `199f75cb333f8cb4a0cf0be5631a6d6818a82c61`; `0.200.2`; clean | Standalone Rust runtime owns infrastructure that an OpenCode plugin should delegate to its host. |
 
 The baseline 30-tool count is registry composition, not a runtime measurement: core 2 + search 8 + Git 2 + background commands 4 + web 4 + AST 2 + LSP 1 + parallel tools 7. Removing the prompt-only tool and four web tools reduces the total to 25. Tool availability in OpenCode can depend on provider, model, permissions, and flags; matching names alone does not prove replacement parity.
@@ -112,7 +113,7 @@ Files: new `tests/e2e/native-host-contract.test.ts` and `scripts/qa-native-host.
 
 - [x] Exercise the built plugin with a real OpenCode binary and an isolated local fixture provider. Isolate config/data/state/cache and keep user settings untouched.
 - [ ] Test foreground task, background task, same-session resume, busy-parent completion notification, rejected/ambiguous delivery, cancellation failure, compaction, and restart. Capture task/session IDs, hook events, and returned results.
-- [x] Record exact host version, SDK version, required flags and observed API behavior. The isolated runner exercises released host `1.18.29` with SDK `1.17.18`, without background-task flags. Public documentation does not establish native background delivery parity; retain the corresponding existing runtime.
+- [x] Record exact host version, SDK version, required flags and observed API behavior. The isolated runner exercises released host `1.18.31` with SDK/plugin packages `1.18.31`, without background-task flags. Public documentation does not establish native background delivery parity; retain the corresponding existing runtime.
 - [ ] If parity passes, propose one tested minimum host version. If it fails, record the specific gap and retain only its existing implementation for now. Do not call internal `BackgroundJob` or Effect services from the plugin.
 
 Exit: a supported-host contract based on executed behavior, or a concrete blocked deletion list. No production replacement before this gate.

@@ -7,6 +7,7 @@ interface PackageManifest {
         node?: string;
     };
     dependencies?: Record<string, string>;
+    exports?: Record<string, unknown>;
 }
 
 function readManifest(): PackageManifest {
@@ -19,12 +20,17 @@ describe("dependency compatibility", () => {
         const pluginVersion = manifest.dependencies?.["@opencode-ai/plugin"];
         const sdkVersion = manifest.dependencies?.["@opencode-ai/sdk"];
 
-        expect(pluginVersion).toBe("1.17.18");
-        expect(sdkVersion).toBe("1.17.18");
+        expect(pluginVersion).toBe("1.18.31");
+        expect(sdkVersion).toBe("1.18.31");
     });
 
-    it("requires Node.js 24 or newer", () => {
+    it("exposes the server entrypoint OpenCode resolves for npm plugins", () => {
         const manifest = readManifest();
-        expect(manifest.engines?.node).toBe(">=24");
+        expect(manifest.exports?.["./server"]).toBe("./dist/index.js");
+    });
+
+    it("requires the Node.js release supported by the OpenCode dependency graph", () => {
+        const manifest = readManifest();
+        expect(manifest.engines?.node).toBe(">=24.15.0");
     });
 });

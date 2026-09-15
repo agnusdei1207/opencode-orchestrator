@@ -120,4 +120,12 @@ describe.skipIf(!existsSync(path.join(distDir, "index.js")))("dist bundle integr
 
         expect(typeof mod.default).toBe("function");
     }, DIST_ENTRYPOINT_LOAD_TIMEOUT_MS);
+
+    it("resolves the explicit OpenCode server package export", async () => {
+        const serverEntry = import.meta.resolve("opencode-orchestrator/server");
+        const mod = await import(serverEntry);
+
+        expect(serverEntry.replaceAll("\\", "/")).toContain("/dist/index.js");
+        expect(typeof mod.default).toBe("function");
+    }, DIST_ENTRYPOINT_LOAD_TIMEOUT_MS);
 });

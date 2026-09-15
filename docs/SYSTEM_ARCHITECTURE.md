@@ -1,6 +1,6 @@
 # System Architecture
 
-Date: 2026-09-14 (minimal prompts, host ownership, and ordered hook plumbing reviewed)
+Date: 2026-09-15 (OpenCode 1.18.31 plugin boundary and continuation runtime reviewed)
 
 This document describes the current architecture that is directly verifiable from the repository source. It intentionally avoids speculative performance claims.
 
@@ -8,7 +8,8 @@ This document describes the current architecture that is directly verifiable fro
 
 | Surface | File | Responsibility |
 | --- | --- | --- |
-| Plugin bootstrap | `src/index.ts` | Parses plugin options, initializes subsystems, registers hooks, tools, and cleanup. |
+| OpenCode plugin boundary | `src/index.ts` | Exposes the function-form server plugin and composes the public hook object. |
+| Plugin runtime bootstrap | `src/plugin-runtime.ts` | Parses options, configures shared runtime services, creates tools and handler state, and registers cleanup. |
 | Rust CLI | `crates/orchestrator-cli/src/main.rs` | Dispatches local commands including `serve`, metadata commands, install/uninstall, and explicit terminal utilities. |
 | Shell listener CLI | `crates/orchestrator-cli/src/shell_listener.rs` | Runs the authorized-lab TCP session listener and line-mode TUI outside OpenCode RPC. |
 | Config hook | `src/plugin-handlers/config-handler.ts` | Registers commands and the four generated agents, merges user agent overrides, and copies global permissions. |
@@ -137,7 +138,7 @@ Mission loop state is file-backed under `.opencode/`:
 | `.opencode/docs/brain/knowledge-map.canvas` | `src/core/knowledge/mission-memory.ts` | Obsidian-compatible mission graph. |
 | `.opencode/docs/brain/memories/*.md` | `src/core/knowledge/mission-memory.ts`, `mission-episode.ts` | Generated memory projections and completed-mission episode notes for local inspection. |
 
-`startMissionLoop()` persists the mission state. `handleMissionIdle()` re-verifies completion before scheduling a continuation. `generateMissionContinuationPrompt()` injects a compact prompt containing objective, progress, verification summary, stagnation signal, and completion rule.
+`startMissionLoop()` persists the mission state. `handleMissionIdle()` re-verifies completion before scheduling a continuation. Pure verification-count and continuation-metadata policy lives in `src/core/loop/mission-continuation.ts`; effectful host checks, persistence, notification, and prompt injection remain in the handler. `generateMissionContinuationPrompt()` injects a compact prompt containing objective, progress, verification summary, stagnation signal, and completion rule.
 
 The current record is project-wide: one active root owns it, and a foreign root start is rejected without replacing the record. This is not per-root multi-mission storage. Abort/pause protection is process-local, and delegated task state is in memory. Durable pause and task restoration remain separate migration work.
 
@@ -152,7 +153,9 @@ The plugin avoids immediate self-resume after interruption or unstable state. Cu
 1. `src/plugin-handlers/event-handler.ts` requires an assistant completion for the current user turn before idle continuation is allowed.
 2. `src/core/loop/mission-loop-handler.ts` cancels its countdown on user interaction or abort. The separate non-mission TODO continuation path is removed.
 3. `src/core/loop/mission-loop-handler.ts` skips prompt injection while the session is aborting, recovering, compacting, or holding running background tasks.
-4. Mission continuation is blocked when the local circuit breaker is open.
+4. Mission idle continuation opens its circuit only after repeated identical
+   text-only assistant turns. Repeated same-named tool calls remain available
+   to other loop detection consumers but do not by themselves stop a mission.
 
 The pre-compaction hook contributes context only. The `session.compacted` event records the new compaction epoch and cancels stale countdowns after the host finishes compacting.
 
@@ -199,12 +202,12 @@ The current implementation writes these artifacts through `src/core/knowledge/mi
 
 Current verified release baseline:
 
-1. Node.js `24+`
-2. `@opencode-ai/plugin` `1.17.18`
-3. `@opencode-ai/sdk` `1.17.18`
+1. Node.js `>=24.15.0`
+2. `@opencode-ai/plugin` `1.18.31`
+3. `@opencode-ai/sdk` `1.18.31`
 4. GitHub Actions build matrix for Linux x64/arm64, macOS x64/arm64, and Windows x64 in `.github/workflows/release.yml`
 
-Compatibility research uses the [public plugin](https://opencode.ai/docs/plugins/) and [SDK documentation](https://opencode.ai/docs/sdk/), deployed package types, and `scripts/qa-native-host.mjs`. Sibling source and preview documentation are not release contracts. The current QA candidate is released OpenCode `1.18.29` with SDK `1.17.18`; background task parity remains unverified and the existing bounded execution path remains. See [ADR-0021](adr/0021-minimal-mission-plugin.md) for the accepted target and pending deletion gates.
+Compatibility research uses the [public plugin](https://opencode.ai/docs/plugins/) and [SDK documentation](https://opencode.ai/docs/sdk/), deployed package types, and `scripts/qa-native-host.mjs`. The 2026-09-15 isolated run passed all 14 scenarios with released OpenCode `1.18.31`, matching SDK/plugin packages `1.18.31`, and the local built plugin. The current host source prefers a package `./server` export and supports both the new `{ id?, server }` module and the legacy function export; this package exposes `./server` while retaining its function export for existing installations. Native background task parity remains unverified, so the bounded execution path remains. See [ADR-0021](adr/0021-minimal-mission-plugin.md) for pending deletion gates and [ADR-0022](adr/0022-opencode-1-18-plugin-boundary.md) for this compatibility decision.
 
 Package metadata separates the project homepage from issue reporting:
 
@@ -216,12 +219,14 @@ Package metadata separates the project homepage from issue reporting:
 When verifying architecture-sensitive changes, open these files first:
 
 1. `src/index.ts`
-2. `src/plugin-handlers/config-handler.ts`
-3. `src/plugin-handlers/event-handler.ts`
-4. `src/plugin-handlers/chat-message-handler.ts`
-5. `src/core/config/plugin-options.ts`
-6. `src/core/agents/concurrency-config.ts`
-7. `src/core/loop/mission-loop.ts`
-8. `src/core/loop/mission-loop-handler.ts`
-9. `src/plugin-handlers/command-execute-handler.ts`
-10. `crates/orchestrator-cli/src/shell_listener.rs`
+2. `src/plugin-runtime.ts`
+3. `src/plugin-handlers/config-handler.ts`
+4. `src/plugin-handlers/event-handler.ts`
+5. `src/plugin-handlers/chat-message-handler.ts`
+6. `src/core/config/plugin-options.ts`
+7. `src/core/agents/concurrency-config.ts`
+8. `src/core/loop/mission-loop.ts`
+9. `src/core/loop/mission-loop-handler.ts`
+10. `src/core/loop/mission-continuation.ts`
+11. `src/plugin-handlers/command-execute-handler.ts`
+12. `crates/orchestrator-cli/src/shell_listener.rs`

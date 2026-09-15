@@ -92,10 +92,12 @@ describe("Plumbing / Wiring Guards", () => {
 
     it("shuts down every module that starts a prune timer", () => {
         // Any module calling pruneTimer.start() owns a process-level interval
-        // owns a process-level interval and per-session state, and leaks both on
+        // and per-session state, and leaks both on
         // dispose or hot-reload unless its shutdown is registered. A factory hands
         // that obligation to whoever holds the instance, so the owner is checked.
-        const index = readFileSync(SRC("index.ts"), "utf8");
+        const lifecycleSource = ["index.ts", "plugin-runtime.ts"]
+            .map(rel => readFileSync(SRC(rel), "utf8"))
+            .join("\n");
         const owners = globSourceFiles().filter(rel => {
             const src = readFileSync(SRC(rel), "utf8");
             return /pruneTimer\.start\(\)/.test(src)
@@ -107,9 +109,13 @@ describe("Plumbing / Wiring Guards", () => {
 
         for (const rel of owners) {
             const src = readFileSync(SRC(rel), "utf8");
-            // A factory only publishes `shutdown` on its returned interface; its own
-            // file is not the owner, and is covered through the holder instead.
-            if (/\bcreate[A-Z]\w*\b/.test(src) && /^\s*shutdown,\s*$/m.test(src)) continue;
+            // A factory publishes `shutdown` on its returned interface or class;
+            // its consumer is the lifecycle owner checked by this same scan.
+            const factoryOwnsCleanup = /\bcreate[A-Z]\w*\b/.test(src)
+                && (/^\s*shutdown,\s*$/m.test(src)
+                    || (/implements SessionStateStore/.test(src)
+                        && /shutdown\(\): void/.test(src)));
+            if (factoryOwnsCleanup) continue;
 
             const shutdownName = src.match(/export function (shutdown\w+)\s*\(/)?.[1];
             expect(shutdownName, `${rel}: owns a prune timer but exports no shutdown`)
@@ -119,8 +125,8 @@ describe("Plumbing / Wiring Guards", () => {
             // imported: an unused import satisfies a substring check while the
             // timer still leaks.
             const registered = new RegExp(
-                `shutdownManager\\.register\\([^;]*\\b${shutdownName}\\(\\)`,
-            ).test(index);
+                `shutdownManager\\.register\\([^;]*\\b${shutdownName}(?:\\(\\))?`,
+            ).test(lifecycleSource);
             expect(registered, `${rel}: ${shutdownName} never registered; timer leak on dispose`)
                 .toBe(true);
         }

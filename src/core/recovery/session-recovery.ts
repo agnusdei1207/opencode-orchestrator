@@ -20,13 +20,31 @@ import { queueNotice } from "../session/pending-injection.js";
 import { handleError, type ErrorContext } from "./handler.js";
 
 type OpencodeClient = PluginInput["client"];
+type RecoveryErrorType = NonNullable<ReturnType<typeof detectErrorType>>;
 
-// Recovery state per session
-const recoveryState = new Map<string, {
+interface RecoveryState {
     isRecovering: boolean;
     lastErrorTime: number;
     errorCount: number;
-}>();
+}
+
+interface PromptRecovery {
+    prompt: string;
+    toastMessage: string;
+}
+
+interface RecoveryExecution {
+    client: OpencodeClient;
+    sessionID: string;
+    error: unknown;
+    errorType: RecoveryErrorType;
+    state: RecoveryState;
+}
+
+type PreparedRecovery = Pick<RecoveryExecution, "errorType" | "state">;
+
+// Recovery state per session
+const recoveryState = new Map<string, RecoveryState>();
 
 /**
  * Get recovery state for a session
@@ -69,6 +87,115 @@ There was a temporary processing issue. Please continue from where you left off.
 </action>
 </recovery>`;
 
+function promptRecoveryFor(errorType: RecoveryErrorType): PromptRecovery | null {
+    switch (errorType) {
+        case ERROR_TYPE.TOOL_RESULT_MISSING:
+            return { prompt: TOOL_CRASH_RECOVERY_PROMPT, toastMessage: "Tool Crash Recovery" };
+        case ERROR_TYPE.THINKING_BLOCK_ORDER:
+        case ERROR_TYPE.THINKING_DISABLED:
+            return { prompt: THINKING_RECOVERY_PROMPT, toastMessage: "Thinking Block Recovery" };
+        default:
+            return null;
+    }
+}
+
+async function recoverRateLimit(
+    sessionID: string,
+    error: unknown,
+    state: RecoveryState,
+): Promise<boolean> {
+    const context: ErrorContext = {
+        sessionId: sessionID,
+        error: error instanceof Error ? error : new Error(String(error)),
+        attempt: state.errorCount,
+        timestamp: new Date(),
+    };
+    const action = handleError(context);
+    if (action.type === "retry" && action.delay) {
+        log("[session-recovery] Rate limit, waiting", { delay: action.delay });
+        await new Promise(resolve => setTimeout(resolve, action.delay));
+    }
+    return true;
+}
+
+function injectRecoveryPrompt(
+    client: OpencodeClient,
+    sessionID: string,
+    prompt: string,
+): void {
+    void client.session.prompt({
+        path: { id: sessionID },
+        body: { parts: [syntheticTextPart(prompt)] },
+    }).catch(injectionError => {
+        log("[session-recovery] Failed to inject recovery prompt", {
+            sessionID,
+            error: injectionError,
+        });
+    });
+}
+
+async function recoverWithPrompt(
+    client: OpencodeClient,
+    sessionID: string,
+    errorType: RecoveryErrorType,
+    recovery: PromptRecovery,
+): Promise<boolean> {
+    if (await isSessionBusy(client, sessionID)) {
+        queueNotice(sessionID, recovery.prompt);
+        presets.errorRecovery(recovery.toastMessage);
+        log("[session-recovery] Session still working; queued recovery prompt for the next idle", {
+            sessionID,
+            errorType,
+        });
+        return true;
+    }
+
+    presets.errorRecovery(recovery.toastMessage);
+    injectRecoveryPrompt(client, sessionID, recovery.prompt);
+    log("[session-recovery] Recovery prompt injected (async)", { sessionID, errorType });
+    return true;
+}
+
+async function executeRecovery(execution: RecoveryExecution): Promise<boolean> {
+    const { client, sessionID, error, errorType, state } = execution;
+    const promptRecovery = promptRecoveryFor(errorType);
+    if (promptRecovery) return recoverWithPrompt(client, sessionID, errorType, promptRecovery);
+    if (errorType === ERROR_TYPE.RATE_LIMIT) return recoverRateLimit(sessionID, error, state);
+    if (errorType === ERROR_TYPE.MESSAGE_ABORTED) {
+        log("[session-recovery] Message aborted by user, not recovering", { sessionID });
+    }
+    return false;
+}
+
+function prepareSessionRecovery(sessionID: string, error: unknown): PreparedRecovery | undefined {
+    const state = getState(sessionID);
+    if (state.isRecovering) {
+        log("[session-recovery] Already recovering, skipping", { sessionID });
+        return undefined;
+    }
+
+    const now = Date.now();
+    if (now - state.lastErrorTime < BACKGROUND_TASK.RETRY_COOLDOWN_MS) {
+        log("[session-recovery] Too soon since last error, skipping", { sessionID });
+        return undefined;
+    }
+    state.lastErrorTime = now;
+    state.errorCount++;
+
+    const errorType = detectErrorType(error);
+    if (!errorType) {
+        log("[session-recovery] Unknown error type, using default handler", { sessionID, error });
+        return undefined;
+    }
+    log("[session-recovery] Detected error type", { sessionID, errorType, errorCount: state.errorCount });
+    if (state.errorCount > RECOVERY.MAX_ATTEMPTS) {
+        log("[session-recovery] Max recovery attempts exceeded", { sessionID });
+        presets.warningMaxRetries();
+        return undefined;
+    }
+    return { state, errorType };
+}
+
 /**
  * Handle session error event and attempt recovery
  */
@@ -78,133 +205,16 @@ export async function handleSessionError(
     error: unknown,
     _properties?: Record<string, unknown>
 ): Promise<boolean> {
-    const state = getState(sessionID);
-
-    // Prevent recovery loops
-    if (state.isRecovering) {
-        log("[session-recovery] Already recovering, skipping", { sessionID });
-        return false;
-    }
-
-    // Rate limit recovery attempts (use constant for consistency)
-    const now = Date.now();
-    if (now - state.lastErrorTime < BACKGROUND_TASK.RETRY_COOLDOWN_MS) {
-        log("[session-recovery] Too soon since last error, skipping", { sessionID });
-        return false;
-    }
-
-    state.lastErrorTime = now;
-    state.errorCount++;
-
-    // Detect error type
-    const errorType = detectErrorType(error);
-    if (!errorType) {
-        log("[session-recovery] Unknown error type, using default handler", { sessionID, error });
-        return false;
-    }
-
-    log("[session-recovery] Detected error type", { sessionID, errorType, errorCount: state.errorCount });
-
-    // Max recovery attempts per session
-    if (state.errorCount > RECOVERY.MAX_ATTEMPTS) {
-        log("[session-recovery] Max recovery attempts exceeded", { sessionID });
-        presets.warningMaxRetries();
-        return false;
-    }
-
-    state.isRecovering = true;
-
+    const prepared = prepareSessionRecovery(sessionID, error);
+    if (!prepared) return false;
+    prepared.state.isRecovering = true;
     try {
-        let recoveryPrompt: string | null = null;
-        let toastMessage: string | null = null;
-
-        switch (errorType) {
-            case ERROR_TYPE.TOOL_RESULT_MISSING:
-                recoveryPrompt = TOOL_CRASH_RECOVERY_PROMPT;
-                toastMessage = "Tool Crash Recovery";
-                break;
-
-            case ERROR_TYPE.THINKING_BLOCK_ORDER:
-            case ERROR_TYPE.THINKING_DISABLED:
-                recoveryPrompt = THINKING_RECOVERY_PROMPT;
-                toastMessage = "Thinking Block Recovery";
-                break;
-
-            case ERROR_TYPE.RATE_LIMIT:
-                // Use existing recovery handler for rate limits (has backoff)
-                const ctx: ErrorContext = {
-                    sessionId: sessionID,
-                    error: error instanceof Error ? error : new Error(String(error)),
-                    attempt: state.errorCount,
-                    timestamp: new Date(),
-                };
-                const action = handleError(ctx);
-                if (action.type === "retry" && action.delay) {
-                    log("[session-recovery] Rate limit, waiting", { delay: action.delay });
-                    await new Promise(r => setTimeout(r, action.delay));
-                    // Don't inject prompt, just wait and let natural retry happen
-                }
-                state.isRecovering = false;
-                return true;
-
-            case ERROR_TYPE.CONTEXT_OVERFLOW:
-                // Suggest compaction (handled elsewhere)
-                toastMessage = "Context Overflow - Consider compaction";
-                state.isRecovering = false;
-                return false;
-
-            case ERROR_TYPE.MESSAGE_ABORTED:
-                // User cancelled, don't auto-recover
-                log("[session-recovery] Message aborted by user, not recovering", { sessionID });
-                state.isRecovering = false;
-                return false;
-
-            default:
-                state.isRecovering = false;
-                return false;
-        }
-
-        if (recoveryPrompt && toastMessage) {
-            // A `session.error` does not mean the run has stopped. Upstream
-            // publishes it from inside the run loop and its own retry policy
-            // sets the session to `retry` while it keeps working. Injecting a
-            // recovery prompt then would interrupt a run that is already
-            // recovering on its own, so defer it to the next idle instead.
-            if (await isSessionBusy(client, sessionID)) {
-                queueNotice(sessionID, recoveryPrompt);
-                presets.errorRecovery(toastMessage);
-                log("[session-recovery] Session still working; queued recovery prompt for the next idle", {
-                    sessionID,
-                    errorType,
-                });
-                state.isRecovering = false;
-                return true;
-            }
-
-            presets.errorRecovery(toastMessage);
-
-            // Fire and forget: Do NOT await prompt injection.
-            // Prevents blocking the plugin process during error recovery turns.
-            client.session.prompt({
-                path: { id: sessionID },
-                body: {
-                    parts: [syntheticTextPart(recoveryPrompt)],
-                },
-            }).catch(injectionError => {
-                log("[session-recovery] Failed to inject recovery prompt", { sessionID, error: injectionError });
-            });
-
-            log("[session-recovery] Recovery prompt injected (async)", { sessionID, errorType });
-            state.isRecovering = false;
-            return true;
-        }
-
-        state.isRecovering = false;
-        return false;
+        return await executeRecovery({ client, sessionID, error, ...prepared });
     } catch (injectionError) {
         log("[session-recovery] Failed to inject recovery prompt", { sessionID, error: injectionError });
-        state.isRecovering = false;
         return false;
+    } finally {
+        prepared.state.isRecovering = false;
     }
 }
 

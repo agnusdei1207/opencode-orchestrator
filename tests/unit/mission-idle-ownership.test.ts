@@ -7,6 +7,7 @@ import { handleMissionIdle, handleAbort, cleanupSession } from "../../src/core/l
 import { resetSessionActivity } from "../../src/core/session/activity";
 import { configureMissionRuntimeOptions } from "../../src/core/loop/mission-runtime-options";
 import { readMissionLedger } from "../../src/core/loop/mission-ledger";
+import { getCircuitState, recordAssistantTurn, recordToolCall } from "../../src/core/loop/circuit-breaker";
 import type { PluginInput } from "@opencode-ai/plugin";
 
 const tasks = vi.hoisted(() => ({ read: vi.fn((): Array<{ status: string }> => []) }));
@@ -125,5 +126,29 @@ describe("mission idle ownership", () => {
         await handleMissionIdle(client, directory, sessionID);
         expect(readLoopState(directory)?.active).toBe(true);
         expect(readMissionLedger(directory).some(event => event.type === "mission_completed")).toBe(false);
+    });
+
+    it("continues after repeated tool calls because tool use is progress", async () => {
+        writeFileSync(join(directory, ".opencode/todo.md"), "- [ ] Remaining");
+        for (let index = 0; index < 3; index += 1) recordToolCall(sessionID, "read");
+
+        await handleMissionIdle(client, directory, sessionID);
+        await vi.advanceTimersByTimeAsync(3000);
+
+        expect(prompt).toHaveBeenCalledTimes(1);
+        expect(getCircuitState(sessionID)?.isOpen).toBe(false);
+    });
+
+    it("opens the circuit for repeated text-only assistant turns", async () => {
+        writeFileSync(join(directory, ".opencode/todo.md"), "- [ ] Remaining");
+        for (let index = 0; index < 3; index += 1) {
+            recordAssistantTurn(sessionID, "I cannot make progress", 0);
+        }
+
+        await handleMissionIdle(client, directory, sessionID);
+        await vi.advanceTimersByTimeAsync(3000);
+
+        expect(prompt).not.toHaveBeenCalled();
+        expect(getCircuitState(sessionID)?.openedBy).toBe("output");
     });
 });

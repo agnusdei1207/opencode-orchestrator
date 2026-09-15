@@ -32,6 +32,16 @@ interface TrackerState {
     lastAccessedAt: number;
 }
 
+type ProgressSource = ProgressUpdateResult["progressSource"];
+
+interface ProgressObservation {
+    previousIncompleteCount?: number;
+    currentSnapshot?: string;
+    currentCompletedCount?: number;
+    hasProgressed: boolean;
+    progressSource: ProgressSource;
+}
+
 export const DEFAULT_STAGNATION_THRESHOLD = 3;
 
 const TRACKER_TTL_MS = 10 * 60 * 1000;
@@ -112,98 +122,120 @@ export function clearSession(sessionID: string): void {
     sessionStates.delete(sessionID);
 }
 
+function observeProgress(
+    state: TrackerState,
+    incompleteCount: number,
+    todos?: NormalizedTodo[],
+): ProgressObservation {
+    const previousIncompleteCount = state.lastIncompleteCount;
+    const currentSnapshot = todos ? hashTodos(todos) : undefined;
+    const currentCompletedCount = todos ? countCompleted(todos) : undefined;
+    const snapshotChanged = currentSnapshot !== undefined
+        && state.lastSnapshot !== undefined
+        && currentSnapshot !== state.lastSnapshot;
+
+    if (incompleteCount < (previousIncompleteCount ?? Infinity)) {
+        return {
+            previousIncompleteCount,
+            currentSnapshot,
+            currentCompletedCount,
+            hasProgressed: true,
+            progressSource: "count",
+        };
+    }
+    return {
+        previousIncompleteCount,
+        currentSnapshot,
+        currentCompletedCount,
+        hasProgressed: snapshotChanged,
+        progressSource: snapshotChanged ? "snapshot" : "none",
+    };
+}
+
+function storeObservation(
+    state: TrackerState,
+    incompleteCount: number,
+    observation: ProgressObservation,
+): void {
+    state.lastIncompleteCount = incompleteCount;
+    if (observation.currentSnapshot) state.lastSnapshot = observation.currentSnapshot;
+    if (observation.currentCompletedCount !== undefined) {
+        state.countCompleted = observation.currentCompletedCount;
+    }
+}
+
+function baseResult(
+    state: TrackerState,
+    observation: ProgressObservation,
+): ProgressUpdateResult {
+    return {
+        hasProgressed: false,
+        stagnationCount: state.stagnationCount,
+        previousIncompleteCount: observation.previousIncompleteCount,
+        progressSource: "none",
+    };
+}
+
+function recordProgress(
+    sessionID: string,
+    state: TrackerState,
+    incompleteCount: number,
+    observation: ProgressObservation,
+): ProgressUpdateResult {
+    const recoveredFromStagnation = state.stagnationCount >= DEFAULT_STAGNATION_THRESHOLD;
+    state.stagnationCount = 0;
+    state.awaitingPostInjectionProgressCheck = false;
+    log(`[progress-tracker] Progress detected: ${observation.progressSource}`, {
+        sessionID,
+        previousIncompleteCount: observation.previousIncompleteCount,
+        incompleteCount,
+        stagnationCount: state.stagnationCount,
+        recoveredFromStagnation,
+    });
+    return {
+        hasProgressed: true,
+        stagnationCount: state.stagnationCount,
+        previousIncompleteCount: observation.previousIncompleteCount,
+        progressSource: observation.progressSource,
+        recoveredFromStagnation,
+    };
+}
+
+function recordStagnation(
+    sessionID: string,
+    state: TrackerState,
+    incompleteCount: number,
+    observation: ProgressObservation,
+): ProgressUpdateResult {
+    state.stagnationCount += 1;
+    log(`[progress-tracker] Stagnation detected`, {
+        sessionID,
+        incompleteCount,
+        previousIncompleteCount: observation.previousIncompleteCount,
+        stagnationCount: state.stagnationCount,
+        threshold: DEFAULT_STAGNATION_THRESHOLD,
+    });
+    return baseResult(state, observation);
+}
+
 export function trackProgress(
     sessionID: string,
     incompleteCount: number,
     todos?: NormalizedTodo[]
 ): ProgressUpdateResult {
     const state = getState(sessionID);
-    const previousIncompleteCount = state.lastIncompleteCount;
+    const observation = observeProgress(state, incompleteCount, todos);
+    storeObservation(state, incompleteCount, observation);
 
-    const currentSnapshot = todos ? hashTodos(todos) : undefined;
-    const currentCompletedCount = todos ? countCompleted(todos) : undefined;
-
-    const hasSnapshotChanged =
-        currentSnapshot !== undefined &&
-        state.lastSnapshot !== undefined &&
-        currentSnapshot !== state.lastSnapshot;
-
-    let hasProgressed = false;
-    let progressSource: "none" | "count" | "snapshot" = "none";
-
-    if (incompleteCount < (previousIncompleteCount ?? Infinity)) {
-        hasProgressed = true;
-        progressSource = "count";
-    } else if (hasSnapshotChanged) {
-        hasProgressed = true;
-        progressSource = "snapshot";
-    }
-
-    state.lastIncompleteCount = incompleteCount;
-    if (currentSnapshot) {
-        state.lastSnapshot = currentSnapshot;
-    }
-    if (currentCompletedCount !== undefined) {
-        state.countCompleted = currentCompletedCount;
-    }
-
-    if (previousIncompleteCount === undefined) {
+    if (observation.previousIncompleteCount === undefined) {
         state.stagnationCount = 0;
-        return {
-            hasProgressed: false,
-            stagnationCount: 0,
-            previousIncompleteCount,
-            progressSource: "none",
-        };
+        return baseResult(state, observation);
     }
-
-    if (hasProgressed) {
-        const wasStagnant = state.stagnationCount >= DEFAULT_STAGNATION_THRESHOLD;
-        state.stagnationCount = 0;
-        state.awaitingPostInjectionProgressCheck = false;
-
-        log(`[progress-tracker] Progress detected: ${progressSource}`, {
-            sessionID,
-            previousIncompleteCount,
-            incompleteCount,
-            stagnationCount: state.stagnationCount,
-            recoveredFromStagnation: wasStagnant,
-        });
-
-        return {
-            hasProgressed: true,
-            stagnationCount: state.stagnationCount,
-            previousIncompleteCount,
-            progressSource,
-            recoveredFromStagnation: wasStagnant,
-        };
+    if (observation.hasProgressed) {
+        return recordProgress(sessionID, state, incompleteCount, observation);
     }
-
-    if (!state.awaitingPostInjectionProgressCheck) {
-        return {
-            hasProgressed: false,
-            stagnationCount: state.stagnationCount,
-            previousIncompleteCount,
-            progressSource: "none",
-        };
-    }
-
-    state.stagnationCount += 1;
-
-    log(`[progress-tracker] Stagnation detected`, {
-        sessionID,
-        incompleteCount,
-        previousIncompleteCount,
-        stagnationCount: state.stagnationCount,
-        threshold: DEFAULT_STAGNATION_THRESHOLD,
-    });
-
-    return {
-        hasProgressed: false,
-        stagnationCount: state.stagnationCount,
-        previousIncompleteCount,
-        progressSource: "none",
-    };
+    if (!state.awaitingPostInjectionProgressCheck) return baseResult(state, observation);
+    return recordStagnation(sessionID, state, incompleteCount, observation);
 }
 
 export function markInjectionPerformed(sessionID: string): void {
