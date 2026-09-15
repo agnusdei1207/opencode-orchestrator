@@ -3,7 +3,7 @@ resolver = "2"
 members = ["crates/orchestrator-core", "crates/orchestrator-cli"]
 
 [workspace.package]
-version = "1.7.20"
+version = "1.7.21"
 edition = "2024"
 license = "MIT"
 repository = "https://github.com/agnusdei1207/opencode-orchestrator"
