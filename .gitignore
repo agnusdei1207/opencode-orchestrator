@@ -4,9 +4,10 @@ node_modules/
 # Rust build cache
 target/
 
-# Build outputs (TypeScript bundle; Rust binaries in bin/ are tracked on
-# purpose because they ship inside the npm package tarball).
+# Build outputs. Release binaries are rebuilt from the exact tag by the hosted
+# five-platform matrix before npm publishing.
 dist/
+bin/
 
 # IDE
 .idea/

@@ -4,7 +4,7 @@
  * Low-level logic for playing sounds on different platforms.
  */
 
-import { exec } from "node:child_process";
+import { execFile } from "node:child_process";
 import { log } from "../../agents/logger.js";
 import {
     NOTIFICATION_COMMANDS,
@@ -12,6 +12,17 @@ import {
 } from "../../../shared/notification/os-notify/index.js";
 import { type Platform, PLATFORM } from "../../../shared/os/index.js";
 import { resolveCommandPath } from "./platform-resolver.js";
+
+const PROCESS_OPTIONS = { windowsHide: true } as const;
+
+function runSoundPlayer(executable: string, args: string[], environment?: NodeJS.ProcessEnv): void {
+    execFile(executable, args, {
+        ...PROCESS_OPTIONS,
+        ...(environment ? { env: environment } : {}),
+    }, error => {
+        if (error) log(`[session-notify] Sound player failed: ${error}`);
+    });
+}
 
 async function playDarwin(soundPath: string): Promise<void> {
     // macOS sound is primarily handled by 'sound name' in notifier.ts
@@ -23,7 +34,7 @@ async function playDarwin(soundPath: string): Promise<void> {
             NOTIFICATION_COMMAND_KEYS.AFPLAY,
             NOTIFICATION_COMMANDS.AFPLAY
         );
-        if (path) exec(`"${path}" "${soundPath}" >/dev/null 2>/dev/null`);
+        if (path) runSoundPlayer(path, [soundPath]);
     } catch (err) {
         log(`[session-notify] Error playing sound (Darwin): ${err}`);
     }
@@ -39,7 +50,7 @@ async function playLinux(soundPath: string): Promise<void> {
             NOTIFICATION_COMMANDS.PAPLAY
         );
         if (paplay) {
-            exec(`"${paplay}" "${soundPath}" >/dev/null 2>/dev/null`);
+            runSoundPlayer(paplay, [soundPath]);
             return;
         }
 
@@ -47,7 +58,7 @@ async function playLinux(soundPath: string): Promise<void> {
             NOTIFICATION_COMMAND_KEYS.APLAY,
             NOTIFICATION_COMMANDS.APLAY
         );
-        if (aplay) exec(`"${aplay}" "${soundPath}" >/dev/null 2>/dev/null`);
+        if (aplay) runSoundPlayer(aplay, [soundPath]);
     } catch (err) {
         log(`[session-notify] Error playing sound (Linux): ${err}`);
     }
@@ -63,10 +74,22 @@ async function playWindows(soundPath: string): Promise<void> {
 
         // Use system built-in sound if no path is provided
         if (!soundPath) {
-            exec(`"${ps}" -Command "[System.Media.SystemSounds]::Asterisk.Play()" >NUL 2>NUL`);
+            runSoundPlayer(ps, [
+                "-NoProfile",
+                "-NonInteractive",
+                "-Command",
+                "[System.Media.SystemSounds]::Asterisk.Play()",
+            ]);
         } else {
-            const escaped = soundPath.replace(/'/g, "''");
-            exec(`"${ps}" -Command "(New-Object Media.SoundPlayer '${escaped}').PlaySync()" >NUL 2>NUL`);
+            runSoundPlayer(ps, [
+                "-NoProfile",
+                "-NonInteractive",
+                "-Command",
+                "(New-Object Media.SoundPlayer $env:OPENCODE_NOTIFICATION_SOUND).PlaySync()",
+            ], {
+                ...process.env,
+                OPENCODE_NOTIFICATION_SOUND: soundPath,
+            });
         }
     } catch (err) {
         log(`[session-notify] Error playing sound (Windows): ${err}`);

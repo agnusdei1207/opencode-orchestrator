@@ -36,8 +36,6 @@ export {
     tmpdirSync,
     createMockFs,
     waitFor,
-    type TmpDirOptions,
-    type TmpDirResult,
 } from "./fixture";
 
 // Re-export builders
@@ -50,9 +48,6 @@ export {
     createMockClient,
     createMockState,
     resetBuilderCounters,
-    type CreateParallelTaskOptions,
-    type CreateBackgroundTaskOptions,
-    type CreateTodoOptions,
 } from "./builders";
 
 // Re-export mocks
@@ -60,7 +55,6 @@ export {
     mockConsole,
     mockProcessExit,
     useFakeTimers,
-    createMockFs as createInMemoryFs,
     createMockEmitter,
     createMockAbortController,
     resetAllMocks,

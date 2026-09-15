@@ -20,9 +20,9 @@ interface TrackedSession {
 }
 
 export const SESSION_STATE_TTL_MS = 10 * 60 * 1000;
-export const PRUNE_INTERVAL_MS = 2 * 60 * 1000;
+const PRUNE_INTERVAL_MS = 2 * 60 * 1000;
 
-export interface SessionStateStore {
+interface SessionStateStore {
     getState: (sessionID: string) => SessionState;
     getExistingState: (sessionID: string) => SessionState | undefined;
     cancelCountdown: (sessionID: string) => void;

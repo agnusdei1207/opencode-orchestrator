@@ -14,8 +14,6 @@ export const BACKGROUND_STATUS = {
     TIMEOUT: "timeout",
 } as const;
 
-export type BackgroundStatus = (typeof BACKGROUND_STATUS)[keyof typeof BACKGROUND_STATUS];
-
 /**
  * Background Task Configuration
  */
@@ -28,23 +26,6 @@ export const BACKGROUND_TASK = {
     POLL_INTERVAL_MS: 500,
     RETRY_COOLDOWN_MS: 30 * TIME.SECOND,
 } as const;
-
-/**
- * Task Metadata Keys
- */
-
-export const TASK_METADATA = {
-    PARALLEL: "parallel",
-    PARALLEL_GROUP: "parallel_group",
-    DEPENDS: "depends",
-    AGENT: "agent",
-    SIZE: "size",
-} as const;
-
-/**
- * Parallel Task Configuration
- */
-
 
 /**
  * Parallel task constants

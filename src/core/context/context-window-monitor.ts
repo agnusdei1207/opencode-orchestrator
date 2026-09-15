@@ -38,7 +38,7 @@ export const CONTEXT_MONITOR_CONFIG = {
 // State
 // ============================================================
 
-export interface MonitorState {
+interface MonitorState {
     lastAlertTime: number;
     lastAlertLevel: "info" | "warning" | "critical" | null;
     isMonitoring: boolean;

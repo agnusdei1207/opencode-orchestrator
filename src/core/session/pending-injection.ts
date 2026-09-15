@@ -114,7 +114,7 @@ export function clearPrompts(sessionID: string): void {
 }
 
 /** Drop queues for sessions that never came back to an idle boundary. */
-export function prunePendingInjections(now: number = Date.now()): void {
+function prunePendingInjections(now: number = Date.now()): void {
     for (const [sessionID, entry] of pending.entries()) {
         if (now - entry.updatedAt > PENDING_TTL_MS) {
             pending.delete(sessionID);

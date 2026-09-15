@@ -1,7 +1,7 @@
 import { tool, type ToolDefinition } from "@opencode-ai/plugin";
 import { AGENT_NAMES, PROMPTS } from "../shared/index.js";
 
-export const MISSION_MODE_TEMPLATE = `<mission>
+const MISSION_MODE_TEMPLATE = `<mission>
 <task>
 $ARGUMENTS
 </task>

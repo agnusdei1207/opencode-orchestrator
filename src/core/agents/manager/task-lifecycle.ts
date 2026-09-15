@@ -24,7 +24,7 @@ export function finishTaskConcurrency(
     concurrency.reportResult(key, success);
 }
 
-export function releaseTaskConcurrency(
+function releaseTaskConcurrency(
     task: Pick<ParallelTask, "concurrencyKey">,
     concurrency: ConcurrencyController,
 ): string | undefined {

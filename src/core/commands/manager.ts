@@ -52,14 +52,26 @@ class BackgroundTaskManager {
     }
 
     run(options: RunBackgroundOptions): BackgroundTask {
-        const id = this.generateId();
+        const task = this.createTask(options);
+        this.tasks.set(task.id, task);
+        this.debug(task.id, `Starting: ${task.command}`);
+
+        try {
+            this.startTaskProcess(task);
+        } catch (error) {
+            task.status = STATUS_LABEL.ERROR;
+            task.errorOutput = `Spawn failed: ${error instanceof Error ? error.message : String(error)}`;
+            task.endTime = Date.now();
+        }
+
+        return task;
+    }
+
+    private createTask(options: RunBackgroundOptions): ManagedBackgroundTask {
         const { command, cwd = process.cwd(), timeout = 300000, label } = options;
-
         const isWindows = process.platform === PLATFORM.WIN32;
-        const shell = isWindows ? "cmd.exe" : CLI_NAME.SH;
-
-        const task: ManagedBackgroundTask = {
-            id,
+        return {
+            id: this.generateId(),
             command,
             args: isWindows ? ["/d", "/s", "/c", `"${command}"`] : ["-c", command],
             cwd,
@@ -71,65 +83,49 @@ class BackgroundTaskManager {
             startTime: Date.now(),
             timeout,
         };
+    }
 
-        this.tasks.set(id, task);
-        this.debug(id, `Starting: ${command}`);
+    private startTaskProcess(task: ManagedBackgroundTask): void {
+        const isWindows = process.platform === PLATFORM.WIN32;
+        const proc = spawn(isWindows ? "cmd.exe" : CLI_NAME.SH, task.args, {
+            cwd: task.cwd,
+            stdio: ["ignore", "pipe", "pipe"],
+            detached: !isWindows,
+            windowsHide: true,
+            windowsVerbatimArguments: isWindows,
+        });
+        task.process = proc;
+        proc.stdout?.on("data", (data: Buffer) => {
+            task.output += data.toString();
+        });
+        proc.stderr?.on("data", (data: Buffer) => {
+            task.errorOutput += data.toString();
+        });
+        proc.on("close", code => this.finishTaskProcess(task, code));
+        proc.on("error", error => {
+            task.errorOutput += `\nProcess error: ${error.message}`;
+        });
+        task.timeoutHandle = setTimeout(() => void this.handleTaskTimeout(task), task.timeout);
+    }
 
-        try {
-            const proc = spawn(shell, task.args, {
-                cwd,
-                stdio: ["ignore", "pipe", "pipe"],
-                detached: !isWindows,
-                windowsHide: true,
-                windowsVerbatimArguments: isWindows,
-            });
-
-            task.process = proc;
-
-            // Cleanup function to remove all listeners
-            const cleanup = () => this.cleanupTaskResources(task);
-
-            proc.stdout?.on("data", (data: Buffer) => {
-                task.output += data.toString();
-            });
-
-            proc.stderr?.on("data", (data: Buffer) => {
-                task.errorOutput += data.toString();
-            });
-
-            proc.on("close", (code: number | null) => {
-                task.exitCode = code;
-                task.endTime = Date.now();
-                if (task.termination) {
-                    task.status = task.termination.status;
-                    task.errorOutput += `\n${task.termination.message}`;
-                } else if (task.status === STATUS_LABEL.RUNNING) {
-                    task.status = code === 0 ? STATUS_LABEL.DONE : STATUS_LABEL.ERROR;
-                }
-                cleanup(); // GUARANTEED cleanup
-                this.debug(id, `Done (code=${code})`);
-            });
-
-            proc.on("error", (err: Error) => {
-                task.errorOutput += `\nProcess error: ${err.message}`;
-                // A failed signal also emits error; only close confirms exit.
-            });
-
-            task.timeoutHandle = setTimeout(async () => {
-                if (task.status === STATUS_LABEL.RUNNING && task.process) {
-                    if (!await this.terminateTask(task, STATUS_LABEL.TIMEOUT, "Timed out")) {
-                        task.errorOutput += "\nTimeout termination failed; task may still be running";
-                    }
-                }
-            }, timeout);
-
-        } catch (err) {
-            task.status = STATUS_LABEL.ERROR;
-            task.errorOutput = `Spawn failed: ${err instanceof Error ? err.message : String(err)}`;
-            task.endTime = Date.now();
+    private finishTaskProcess(task: ManagedBackgroundTask, code: number | null): void {
+        task.exitCode = code;
+        task.endTime = Date.now();
+        if (task.termination) {
+            task.status = task.termination.status;
+            task.errorOutput += `\n${task.termination.message}`;
+        } else if (task.status === STATUS_LABEL.RUNNING) {
+            task.status = code === 0 ? STATUS_LABEL.DONE : STATUS_LABEL.ERROR;
         }
+        this.cleanupTaskResources(task);
+        this.debug(task.id, `Done (code=${code})`);
+    }
 
-        return task;
+    private async handleTaskTimeout(task: ManagedBackgroundTask): Promise<void> {
+        if (task.status !== STATUS_LABEL.RUNNING || !task.process) return;
+        if (!(await this.terminateTask(task, STATUS_LABEL.TIMEOUT, "Timed out"))) {
+            task.errorOutput += "\nTimeout termination failed; task may still be running";
+        }
     }
 
     get(taskId: string): BackgroundTask | undefined {

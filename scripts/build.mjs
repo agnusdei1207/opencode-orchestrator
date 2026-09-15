@@ -63,6 +63,7 @@ async function bundle(entryPoint, outfile, options = {}) {
 await rm(distDir, { recursive: true, force: true });
 
 await bundle("src/index.ts", "dist/index.js");
+await bundle("src/cli.ts", "dist/cli.js");
 
 await run(process.execPath, [resolveTscBin(), "--emitDeclarationOnly"]);
 

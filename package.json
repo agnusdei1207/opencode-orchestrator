@@ -26,6 +26,9 @@
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "type": "module",
+  "bin": {
+    "orchestrator": "dist/cli.js"
+  },
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
@@ -37,6 +40,7 @@
   "files": [
     "dist",
     "scripts/run-install-hook.mjs",
+    "scripts/tail-log.mjs",
     "bin",
     "README.md",
     "LICENSE",
@@ -45,7 +49,7 @@
   "scripts": {
     "docker:build-all": "docker compose run --rm dev && docker compose run --rm rust-arm64 && docker compose run --rm win-builder",
     "docker:build-win": "docker compose run --rm win-builder",
-    "docker:rust-dist": "docker compose run --rm dev && docker compose run --rm rust-arm64 && (sudo chown -R $(id -u):$(id -g) bin/ 2>/dev/null || true)",
+    "docker:rust-dist": "docker compose run --rm dev && docker compose run --rm rust-arm64",
     "docker:test": "docker compose run --rm test",
     "docker:clean": "docker compose down -v",
     "sync:landing": "node scripts/sync-landing.mjs",
@@ -61,20 +65,17 @@
     "postinstall": "node scripts/run-install-hook.mjs postinstall",
     "cleanup:plugin": "node scripts/run-install-hook.mjs preuninstall",
     "prepublishOnly": "npm run build",
-    "publish:token": "npm publish --access public",
     "sync:readme-version": "node scripts/sync-readme-version.mjs",
     "version": "node scripts/sync-readme-version.mjs --stage",
     "release:preflight": "node scripts/release-preflight.mjs",
-    "release:patch": "node scripts/release-auth-check.mjs && node scripts/release-version.mjs patch && npm run release:preflight && npm run docker:rust-dist && node scripts/release-sync-artifacts.mjs && npm run publish:token",
-    "release:minor": "node scripts/release-auth-check.mjs && node scripts/release-version.mjs minor && npm run release:preflight && npm run docker:rust-dist && node scripts/release-sync-artifacts.mjs && npm run publish:token",
-    "release:major": "node scripts/release-auth-check.mjs && node scripts/release-version.mjs major && npm run release:preflight && npm run docker:rust-dist && node scripts/release-sync-artifacts.mjs && npm run publish:token",
+    "release:patch": "node scripts/release-version.mjs patch && npm run release:preflight && npm run release:push",
+    "release:minor": "node scripts/release-version.mjs minor && npm run release:preflight && npm run release:push",
+    "release:major": "node scripts/release-version.mjs major && npm run release:preflight && npm run release:push",
     "release:dry-run": "node scripts/release-preflight.mjs --allow-dirty --skip-branch --skip-version-check",
-    "release:push-tags": "git push origin main && git push origin --tags",
+    "release:push": "node scripts/release-push.mjs",
     "release:clean": "shx rm -rf dist bin && docker compose down -v",
-    "reset:local": "brew uninstall opencode 2>/dev/null; rm -rf ~/.config/opencode ~/.opencode ~/.local/share/opencode ~/.cache/opencode/node_modules/opencode-orchestrator && echo '=== Clean done ===' && brew install opencode && echo '{\"plugin\": [\"opencode-orchestrator\"], \"$schema\": \"https://opencode.ai/config.json\"}' > ~/.config/opencode/opencode.json && echo '=== Reset (Dev) complete. Run: opencode ==='",
-    "reset:prod": "brew uninstall opencode 2>/dev/null; rm -rf ~/.config/opencode ~/.opencode ~/.local/share/opencode ~/.cache/opencode/node_modules/opencode-orchestrator && echo '=== Clean done ===' && brew install opencode && echo '{\"plugin\": [\"opencode-orchestrator\"], \"$schema\": \"https://opencode.ai/config.json\"}' > ~/.config/opencode/opencode.json && npm run cleanup:plugin && npm uninstall -g opencode-orchestrator && echo '=== Reset (Prod) complete. Run: opencode ==='",
     "ginstall": "npm install -g opencode-orchestrator",
-    "log": "tail -f \"$(node -e 'console.log(require(\"os\").tmpdir())')/opencode-orchestrator.log\""
+    "log": "node scripts/tail-log.mjs"
   },
   "engines": {
     "node": ">=24.15.0"
@@ -86,11 +87,12 @@
     "zod": "^4.3.6"
   },
   "devDependencies": {
-    "@types/node": "^24.13.1",
-    "@vitest/coverage-v8": "^4.1.11",
-    "esbuild": "^0.28.1",
+    "@types/node": "^24.13.4",
+    "@vitest/coverage-v8": "^5.0.1",
+    "es-module-lexer": "^3.0.2",
+    "esbuild": "^0.28.2",
     "shx": "^0.4.0",
-    "typescript": "^5.7.0",
-    "vitest": "^4.1.11"
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.1"
   }
 }

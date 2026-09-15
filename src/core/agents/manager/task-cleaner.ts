@@ -16,7 +16,6 @@ import { SessionPool } from "../session-pool.js";
 import { buildAgentTaskCompletionMessage, buildAgentTaskProgressMessage, formatDuration } from "../format.js";
 import { getTaskToastManager } from "../../notification/task-toast-manager.js";
 import type { TaskCompletionInfo, ParallelTask } from "../../../shared/index.js";
-import * as sessionStore from "../../session/store.js";
 import { finishTaskConcurrency, confirmSessionAbort } from "./task-lifecycle.js";
 import { syntheticTextPart } from "../../session/injection.js";
 import { isSessionBusy } from "../../session/activity.js";
@@ -104,7 +103,6 @@ export class TaskCleaner {
             if (sessionID) {
                 try {
                     await this.sessionPool.release(sessionID);
-                    sessionStore.clear(sessionID);
                 } catch (error) {
                     log(`Session cleanup error for ${sessionID}:`, error);
                 }

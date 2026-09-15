@@ -57,30 +57,6 @@ export interface ChecklistItem {
 }
 
 /**
- * Verification Checklist Interface
- * 
- * Represents the complete verification checklist with metadata.
- */
-
-
-/**
- * Complete verification checklist with metadata
- */
-export interface VerificationChecklist {
-    /** Unique mission ID or timestamp */
-    missionId: string;
-
-    /** When the checklist was created */
-    createdAt: string;
-
-    /** Last update time */
-    updatedAt: string;
-
-    /** All checklist items */
-    items: ChecklistItem[];
-}
-
-/**
  * Checklist Verification Result Interface
  * 
  * Result of verifying a checklist's completion status.

@@ -1,64 +1,87 @@
 # Agent Memory - OCO Session
 
-Last updated: 2026-09-15 16:43 KST
+Last updated: 2026-09-15 19:35 KST
 
 ## Current task
 
-Completed patch release `1.7.19` after an OpenCode compatibility audit and
-runtime refactor.
+Legacy removal, runtime hardening, full QA, commit/push, and patch release to
+`1.7.20`. Implementation and pre-release verification are complete; commit,
+push, patch release, registry verification, and Docker cleanup remain.
 
 ## Last completed step
 
-Published `opencode-orchestrator@1.7.19` to npm under `latest`, pushed release
-commit `fefd948bdd48f1cb750ab9e007fbab65c713a055` to `main`, and pushed tag
-`v1.7.19` at the same commit. Registry metadata and a fresh isolated install
-verified the published package, plugin registration, and both public imports.
-Unused Docker images, volumes, containers, and build cache were reclaimed.
+Removed unreachable runtime families, eliminated the manager cycles, hardened
+notification process execution, updated release gates and development tools,
+and fixed the Rust CLI configuration boundary. The production TypeScript graph
+is 185/185 reachable with zero cycles. TypeScript build/typecheck and all 1,021
+tests pass on TypeScript 7/Vitest 5 with coverage above thresholds. The isolated
+OpenCode 1.18.31 host passed 14/14 scenarios. Rust format/Clippy passed and all
+64 Rust tests passed on Rust 1.98.1. Linux x64/arm64 and Windows x64 binaries
+were rebuilt from the refreshed lockfile and executed successfully before the
+generated artifacts were removed from source control.
 
 ## Next exact step
 
-No release work remains. Begin the next task from a clean `main` after reading
-this file and the final review record.
+Finish the diff/document audit, rerun the final combined preflight, commit and
+push the implementation, then run the authorized patch release from a Bash
+login shell so the user's `.bashrc` authentication is loaded.
 
 ## Incomplete items and why
 
-- None for release `1.7.19`.
+- `1.7.20` is not yet committed, tagged, pushed, or published. Release follows
+  the final clean-worktree verification.
+- Docker resources are retained until all Rust and Linux artifact checks finish;
+  reclaim them after registry verification.
 
 ## Key decisions
 
-- Retain the function-form default plugin export for installed-host
-  compatibility while exposing `./server` for the current OpenCode loader.
-- Pin `@opencode-ai/plugin` and `@opencode-ai/sdk` together at `1.18.31` and
-  require Node `>=24.15.0`, matching the resolved dependency graph.
-- Keep native background replacement out of this patch because the public host
-  contract still does not establish the needed delivery behavior.
-- Use OpenCode source as contract evidence and Oh My OpenAgent only as an
-  adapter-structure reference; copy no source or prompts.
+- Delete only code proven unreachable or connected solely to no-op projections;
+  preserve every registered OpenCode tool and public package entry.
+- Keep the used timeout as `core/async/with-timeout.ts` and the rate-limit path
+  directly in `session-recovery.ts`.
+- Pass desktop notification data as process arguments or child-only environment
+  values, never as shell source.
+- Keep the Rust CLI config commands for compatibility while making them match
+  OpenCode path precedence, preserve invalid input, back up writes, and leave
+  unrelated MCP configuration untouched. The npm hook remains the JSONC-aware
+  path.
+- Use TypeScript 7.0.2 and Vitest 5.0.1. Keep Node type definitions on the
+  supported Node 24 line rather than exposing Node 26-only APIs.
+- Build all five release binaries from the exact tag in the hosted matrix.
+  Keep `bin/` as an ignored build output so a version tag cannot retain binaries
+  with an older embedded version.
+- Use a Node log follower for `npm run log` so the development command works on
+  Windows, Linux, and macOS without shell command substitution.
 
 ## Rejected alternatives
 
-- Do not switch the default export to the new object module in a patch release;
-  older supported loaders and existing consumers still use the function form.
-- Do not let repeated same-named tool calls stop mission continuation; only
-  repeated identical text-only turns indicate the output loop this guard owns.
-- Do not mix all 55 pre-existing static complexity findings into this
-  compatibility patch; ADR-0021 records the deletion-first subsystem path.
+- Do not remove the public toolbelt, Rust bridge, or bounded task runtime in a
+  patch release. ADR-0021 keeps those changes behind explicit compatibility
+  gates.
+- Do not retain unreachable implementations because tests import them; those
+  tests preserve dead code rather than shipped behavior.
+- Do not rewrite malformed or commented JSONC from the Rust CLI. Return an
+  actionable error and preserve the file; the npm hook supports JSONC edits.
+- Do not refactor the stateful Rust process pool solely to satisfy a static
+  size threshold while its public replacement remains unresolved.
 
 ## Known risks
 
-- Native background-task parity remains unverified, so the bounded task runtime
-  is still present.
-- The static survey still reports 55 pre-existing function-size, parameter, or
-  complexity findings outside the refactored critical paths.
-- npm 11.17 reports advisory approval warnings for install scripts; the isolated
-  local-tarball and published-package tests confirmed this package's postinstall
-  still ran and registered the plugin.
+- Native background-task parity is still unverified, so the bounded task runtime
+  remains.
+- The static survey reports 40 function-size, parameter, or complexity findings,
+  concentrated in retained process/task state machines and handler adapters.
+- The Rust CLI accepts strict JSON content in either `opencode.json` or
+  `opencode.jsonc`; commented JSONC requires the npm hook.
+- npm 11.17 reports advisory approval warnings for install scripts. Isolated
+  installs confirmed this package's postinstall runs and registers the plugin.
 
 ## Files to open first in the next session, in order
 
 1. `AGENT_MEMORY.md`
-2. `docs/reviews/2026-09-15-opencode-compatibility-refactor.md`
-3. `package.json`
-4. `docs/adr/0022-opencode-1-18-plugin-boundary.md`
-5. `src/index.ts`
-6. `src/plugin-runtime.ts`
+2. `docs/reviews/2026-09-15-legacy-removal-and-hardening.md`
+3. `docs/adr/0023-remove-unreachable-runtime-plumbing.md`
+4. `docs/plans/2026-09-15-legacy-removal-and-hardening.md`
+5. `package.json`
+6. `src/index.ts`
+7. `crates/orchestrator-cli/src/config.rs`

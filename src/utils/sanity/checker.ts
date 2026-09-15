@@ -21,7 +21,7 @@
 
 import { SEVERITY } from "./constants/severity.js";
 
-export type Severity = (typeof SEVERITY)[keyof typeof SEVERITY];
+type Severity = (typeof SEVERITY)[keyof typeof SEVERITY];
 
 export interface SanityResult {
     isHealthy: boolean;
@@ -180,7 +180,7 @@ function characterFrequencies(text: string): Map<string, number> {
 }
 
 /** Shannon entropy of a character distribution, in bits per character. */
-export function shannonEntropyBits(frequencies: Map<string, number>, total: number): number {
+function shannonEntropyBits(frequencies: Map<string, number>, total: number): number {
     if (total <= 0) return 0;
 
     let entropy = 0;

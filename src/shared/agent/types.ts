@@ -1,8 +1,6 @@
 /**
  * Agent types and interfaces
  */
-import { AGENT_NAMES } from "./constants.js";
-
 /**
  * Agent definition for orchestrator
  */
@@ -28,8 +26,3 @@ export interface ConcurrencyConfig {
     providerConcurrency?: Record<string, number>;
     modelConcurrency?: Record<string, number>;
 }
-
-/**
- * Agent name type (derived from AGENT_NAMES)
- */
-export type AgentName = (typeof AGENT_NAMES)[keyof typeof AGENT_NAMES];

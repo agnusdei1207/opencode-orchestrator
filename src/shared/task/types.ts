@@ -18,7 +18,7 @@ export type ParallelTaskStatus =
 /**
  * Task progress tracking
  */
-export interface TaskProgress {
+interface TaskProgress {
     toolCalls: number;
     lastTool?: string;
     lastMessage?: string;

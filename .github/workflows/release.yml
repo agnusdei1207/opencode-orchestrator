@@ -8,9 +8,41 @@ on:
 
 permissions:
   contents: write
-  packages: write
 
 jobs:
+  qa:
+    name: Quality gate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build and test TypeScript
+        run: |
+          npm run build
+          npm run test:coverage
+          npm audit
+
+      - name: Install Rust quality tools
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: 1.98.1
+          components: rustfmt, clippy
+
+      - name: Check and test Rust
+        run: |
+          cargo fmt --all -- --check
+          cargo clippy --workspace --all-targets -- -D warnings
+          cargo test --workspace --all-targets
+
   build:
     name: Build ${{ matrix.target }}
     runs-on: ${{ matrix.os }}
@@ -23,10 +55,10 @@ jobs:
           - os: ubuntu-latest
             target: aarch64-unknown-linux-gnu
             binary: orchestrator-linux-arm64
-          - os: macos-latest
+          - os: macos-26-intel
             target: x86_64-apple-darwin
             binary: orchestrator-macos-x64
-          - os: macos-latest
+          - os: macos-26
             target: aarch64-apple-darwin
             binary: orchestrator-macos-arm64
           - os: windows-2025-vs2026
@@ -34,11 +66,12 @@ jobs:
             binary: orchestrator-windows-x64.exe
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
         with:
+          toolchain: 1.98.1
           targets: ${{ matrix.target }}
 
       - name: Install cross-compilation tools (Linux ARM64)
@@ -82,12 +115,32 @@ jobs:
           path: ${{ matrix.binary }}
 
   release:
-    needs: build
+    needs: [qa, build]
+    if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     env:
       NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+
+      - name: Verify tag matches package version
+        run: |
+          PACKAGE_VERSION="$(node -p "require('./package.json').version")"
+          test "${GITHUB_REF_NAME}" = "v${PACKAGE_VERSION}"
+
+      - name: Require npm registry authentication
+        if: env.NPM_TOKEN == ''
+        run: |
+          echo "::error::NPM_TOKEN secret is required for a complete public release."
+          exit 1
+
+      - name: Install dependencies
+        run: npm ci
 
       - name: Download all artifacts
         uses: actions/download-artifact@v8
@@ -96,37 +149,6 @@ jobs:
 
       - name: Display structure of downloaded files
         run: ls -R binaries/
-
-      - name: Create GitHub Release
-        if: startsWith(github.ref, 'refs/tags/')
-        uses: softprops/action-gh-release@v3
-        with:
-          files: binaries/**/*
-          body: |
-            # OpenCode Orchestrator ${{ github.ref_name }}
-
-            Patch release for OpenCode Orchestrator.
-
-            ### Included
-            * Four-agent OpenCode orchestration
-            * Mission-loop continuation guards
-            * Config and permission compatibility fixes
-            * Cross-platform release binaries
-
-            ## Install
-            ```bash
-            npm install -g opencode-orchestrator
-            ```
-          generate_release_notes: true
-          fail_on_unmatched_files: false
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v6
-        with:
-          node-version: "24"
-
-      - name: Install dependencies
-        run: npm install --force
 
       - name: Prepare binaries for NPM
         run: |
@@ -139,37 +161,11 @@ jobs:
           cp binaries/orchestrator-windows-x64.exe/orchestrator-windows-x64.exe bin/
           chmod +x bin/*
 
-      - name: Validate NPM Linux binary architectures
-        run: |
-          file bin/orchestrator-linux-x64
-          file bin/orchestrator-linux-x64 | grep -F "x86-64"
-          file bin/orchestrator-linux-arm64
-          file bin/orchestrator-linux-arm64 | grep -F "ARM aarch64"
+      - name: Verify release artifacts
+        run: node scripts/verify-release-artifacts.mjs
 
-      - name: Configure GitHub Packages auth
-        run: |
-          cat <<EOF > ~/.npmrc
-          @agnusdei1207:registry=https://npm.pkg.github.com
-          //npm.pkg.github.com/:_authToken=${NODE_AUTH_TOKEN}
-          always-auth=true
-          EOF
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Publish to GitHub Registry
-        run: |
-          PACKAGE_VERSION="$(node -p "require('./package.json').version")"
-          SCOPED_PACKAGE="@agnusdei1207/opencode-orchestrator@${PACKAGE_VERSION}"
-          if npm view "${SCOPED_PACKAGE}" version --registry=https://npm.pkg.github.com >/dev/null 2>&1; then
-            echo "${SCOPED_PACKAGE} is already published to GitHub Packages. Skipping."
-            exit 0
-          fi
-          cp package.json package.json.bak
-          trap 'mv package.json.bak package.json' EXIT
-          node -e "let pkg=require('./package.json'); pkg.name='@agnusdei1207/opencode-orchestrator'; pkg.publishConfig={registry:'https://npm.pkg.github.com'}; require('fs').writeFileSync('package.json', JSON.stringify(pkg, null, 2));"
-          npm publish
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Smoke-test packed package
+        run: node scripts/package-smoke.mjs
 
       - name: Configure npm auth
         if: env.NPM_TOKEN != ''
@@ -183,7 +179,6 @@ jobs:
       - name: Publish to NPM Registry
         if: env.NPM_TOKEN != ''
         run: |
-          git checkout package.json
           PACKAGE_NAME="$(node -p "require('./package.json').name")"
           PACKAGE_VERSION="$(node -p "require('./package.json').version")"
           if npm view "${PACKAGE_NAME}@${PACKAGE_VERSION}" version >/dev/null 2>&1; then
@@ -194,8 +189,24 @@ jobs:
         env:
           NODE_AUTH_TOKEN: ${{ env.NPM_TOKEN }}
 
-      - name: Require npm registry authentication
-        if: env.NPM_TOKEN == ''
-        run: |
-          echo "::error::NPM_TOKEN secret is required for a complete public release."
-          exit 1
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v3
+        with:
+          files: binaries/**/*
+          body: |
+            # OpenCode Orchestrator ${{ github.ref_name }}
+
+            Release for OpenCode Orchestrator.
+
+            ### Included
+            * Four-agent OpenCode orchestration
+            * Mission-loop continuation guards
+            * Config and permission compatibility fixes
+            * Cross-platform release binaries
+
+            ## Install
+            ```bash
+            opencode plugin opencode-orchestrator --global
+            ```
+          generate_release_notes: true
+          fail_on_unmatched_files: true

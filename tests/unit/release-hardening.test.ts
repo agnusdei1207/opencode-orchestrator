@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import path from "node:path";
+import { execFileSync } from "node:child_process";
 
 const repoRoot = path.resolve(__dirname, "../..");
 
@@ -19,17 +20,34 @@ describe("issue #27 release hardening", () => {
         expect(workflow).toContain('grep -F "x86-64"');
     });
 
-    it("validates npm package Linux binaries before publishing", () => {
+    it("assembles and validates every npm binary before publishing", () => {
         const workflow = readRepoFile(".github/workflows/release.yml");
-        const validationIndex = workflow.indexOf("Validate NPM Linux binary architectures");
+        const validationIndex = workflow.indexOf("Verify release artifacts");
         const publishIndex = workflow.indexOf("npm publish");
 
         expect(validationIndex).toBeGreaterThan(-1);
         expect(publishIndex).toBeGreaterThan(validationIndex);
-        expect(workflow).toContain("file bin/orchestrator-linux-x64");
-        expect(workflow).toContain("file bin/orchestrator-linux-arm64");
-        expect(workflow).toContain('file bin/orchestrator-linux-x64 | grep -F "x86-64"');
-        expect(workflow).toContain('file bin/orchestrator-linux-arm64 | grep -F "ARM aarch64"');
+        expect(workflow).toContain("node scripts/verify-release-artifacts.mjs");
+        for (const artifact of [
+            "orchestrator-linux-x64",
+            "orchestrator-linux-arm64",
+            "orchestrator-macos-x64",
+            "orchestrator-macos-arm64",
+            "orchestrator-windows-x64.exe",
+        ]) {
+            expect(workflow).toContain(`binaries/${artifact}/${artifact}`);
+        }
+    });
+
+    it("builds versioned binaries from the tag instead of tracking stale artifacts", () => {
+        const trackedBinaries = execFileSync("git", ["ls-files", "bin"], {
+            cwd: repoRoot,
+            encoding: "utf8",
+        }).trim();
+        const gitignore = readRepoFile(".gitignore");
+
+        expect(trackedBinaries).toBe("");
+        expect(gitignore).toMatch(/^bin\/$/m);
     });
 
     it("keeps the Docker x64 build pinned to a Linux amd64 target and artifact name", () => {
@@ -43,7 +61,7 @@ describe("issue #27 release hardening", () => {
         );
     });
 
-    it("routes local release scripts through Docker Rust artifact rebuilds", () => {
+    it("routes release commands through the hosted all-platform artifact matrix", () => {
         const packageJson = JSON.parse(readRepoFile("package.json")) as {
             scripts: Record<string, string>;
         };
@@ -51,33 +69,63 @@ describe("issue #27 release hardening", () => {
         expect(packageJson.scripts["docker:rust-dist"]).toContain("docker compose run --rm dev");
         expect(packageJson.scripts["docker:rust-dist"]).toContain("docker compose run --rm rust-arm64");
         expect(packageJson.scripts["release:preflight"]).toContain("scripts/release-preflight.mjs");
-        expect(packageJson.scripts["release:patch"]).toContain("npm run docker:rust-dist");
-        expect(packageJson.scripts["release:minor"]).toContain("npm run docker:rust-dist");
-        expect(packageJson.scripts["release:major"]).toContain("npm run docker:rust-dist");
-        expect(packageJson.scripts["release:patch"]).toContain("scripts/release-sync-artifacts.mjs");
-        expect(packageJson.scripts["release:minor"]).toContain("scripts/release-sync-artifacts.mjs");
-        expect(packageJson.scripts["release:major"]).toContain("scripts/release-sync-artifacts.mjs");
-        expect(packageJson.scripts["release:patch"]).toContain("scripts/release-auth-check.mjs");
-        expect(packageJson.scripts["release:minor"]).toContain("scripts/release-auth-check.mjs");
-        expect(packageJson.scripts["release:major"]).toContain("scripts/release-auth-check.mjs");
-        expect(packageJson.scripts["release:patch"]).toContain("scripts/release-version.mjs patch");
-        expect(packageJson.scripts["release:minor"]).toContain("scripts/release-version.mjs minor");
-        expect(packageJson.scripts["release:major"]).toContain("scripts/release-version.mjs major");
-        expect(packageJson.scripts["release:patch"]).not.toContain("npm version patch");
+        for (const bump of ["patch", "minor", "major"]) {
+            const release = packageJson.scripts[`release:${bump}`];
+            expect(release).toContain(`scripts/release-version.mjs ${bump}`);
+            expect(release).toContain("npm run release:preflight");
+            expect(release).toContain("npm run release:push");
+            expect(release).not.toContain("npm publish");
+            expect(release).not.toContain("docker:rust-dist");
+            expect(release).not.toContain("release-sync-artifacts");
+            expect(release).not.toContain("release-auth-check");
+        }
+        expect(packageJson.scripts["release:push"]).toBe("node scripts/release-push.mjs");
         expect(packageJson.scripts.version).toContain("sync-readme-version.mjs --stage");
-        expect(packageJson.scripts["release:patch"]).toContain("npm run release:preflight");
-        expect(packageJson.scripts["release:minor"]).toContain("npm run release:preflight");
-        expect(packageJson.scripts["release:major"]).toContain("npm run release:preflight");
         expect(packageJson.scripts["release:dry-run"]).toContain("--allow-dirty");
         expect(packageJson.scripts["release:dry-run"]).toContain("--skip-version-check");
+        expect(packageJson.scripts["docker:rust-dist"]).not.toContain("sudo");
+        expect(packageJson.scripts["docker:rust-dist"]).not.toContain("$(");
+        expect(packageJson.scripts["reset:local"]).toBeUndefined();
+        expect(packageJson.scripts["reset:prod"]).toBeUndefined();
+    });
+
+    it("has one release implementation and installs the lockfile deterministically", () => {
+        const compose = readRepoFile("compose.yml");
+        const workflow = readRepoFile(".github/workflows/release.yml");
+
+        expect(compose).not.toContain("npm-release:");
+        expect(workflow).toContain("uses: actions/checkout@v7");
+        expect(workflow).toContain("uses: actions/setup-node@v7");
+        expect(workflow).not.toContain("uses: actions/checkout@v6");
+        expect(workflow).not.toContain("uses: actions/setup-node@v6");
+        expect(workflow).toContain("run: npm ci");
+        expect(workflow).not.toContain("npm install --force");
     });
 
     it("falls back to Docker Rust tests when local cargo is unavailable", () => {
         const preflight = readRepoFile("scripts/release-preflight.mjs");
 
         expect(preflight).toContain('commandIsAvailable("cargo", ["--version"])');
-        expect(preflight).toContain('"test", "cargo", ...cargoArgs');
-        expect(preflight).toContain('const cargoArgs = ["test", "--workspace", "--all-targets"]');
+        expect(preflight).toContain('["fmt", "--all", "--", "--check"]');
+        expect(preflight).toContain('["clippy", "--workspace", "--all-targets", "--", "-D", "warnings"]');
+        expect(preflight).toContain('["test", "--workspace", "--all-targets"]');
+        expect(preflight).toContain('"test", "sh", "-c"');
+        expect(preflight).toContain("rustup component add rustfmt clippy");
+    });
+
+    it("gates local and hosted releases on full quality checks", () => {
+        const preflight = readRepoFile("scripts/release-preflight.mjs");
+        const workflow = readRepoFile(".github/workflows/release.yml");
+
+        expect(preflight).toContain('runNpm(["run", "test:coverage"])');
+        expect(workflow).toContain("qa:");
+        expect(workflow).toContain("npm run test:coverage");
+        expect(workflow).toContain("cargo fmt --all -- --check");
+        expect(workflow).toContain("cargo clippy --workspace --all-targets -- -D warnings");
+        expect(workflow).toContain("cargo test --workspace --all-targets");
+        expect(workflow).toContain("needs: [qa, build]");
+        expect(workflow).toContain("node scripts/package-smoke.mjs");
+        expect(preflight).toContain('"scripts/package-smoke.mjs", "--skip-cli"');
     });
 
     it("avoids invoking the Windows npm command shim directly", () => {
@@ -88,28 +136,35 @@ describe("issue #27 release hardening", () => {
         expect(preflight).not.toContain('? "npm.cmd" : "npm"');
     });
 
-    it("makes GitHub Actions package publishing idempotent and complete", () => {
+    it("makes the single npm package publishing path idempotent and complete", () => {
         const workflow = readRepoFile(".github/workflows/release.yml");
 
+        expect(workflow).toContain("if: startsWith(github.ref, 'refs/tags/v')");
+        expect(workflow).toContain("Verify tag matches package version");
+        expect(workflow).toContain('test "${GITHUB_REF_NAME}" = "v${PACKAGE_VERSION}"');
         expect(workflow).toContain("NPM_TOKEN: ${{ secrets.NPM_TOKEN }}");
-        expect(workflow).toContain("SCOPED_PACKAGE=\"@agnusdei1207/opencode-orchestrator@${PACKAGE_VERSION}\"");
-        expect(workflow).toContain("is already published to GitHub Packages. Skipping.");
         expect(workflow).toContain("if: env.NPM_TOKEN != ''");
         expect(workflow).toContain("npm view \"${PACKAGE_NAME}@${PACKAGE_VERSION}\" version");
         expect(workflow).toContain("is already published to npm. Skipping.");
         expect(workflow).toContain("if: env.NPM_TOKEN == ''");
         expect(workflow).toContain("NPM_TOKEN secret is required for a complete public release.");
+        expect(workflow).not.toContain("npm.pkg.github.com");
+        expect(workflow).not.toContain("Publish to GitHub Registry");
+        expect(workflow).not.toContain("packages: write");
         expect(workflow).not.toContain("skipping public npm publish");
     });
 
-    it("keeps local release artifact sync restricted to generated Linux binaries", () => {
-        const script = readRepoFile("scripts/release-sync-artifacts.mjs");
+    it("atomically pushes only main and the package version tag", () => {
+        const script = readRepoFile("scripts/release-push.mjs");
 
-        expect(script).toContain("bin/orchestrator-linux-arm64");
-        expect(script).toContain("bin/orchestrator-linux-x64");
-        expect(script).toContain("Unexpected dirty release paths");
-        expect(script).toContain("git\", [\"commit\", \"--amend\", \"--no-edit\"]");
-        expect(script).toContain("git\", [\"tag\", \"-f\", `v${readVersion()}`]");
+        expect(script).toContain('["push", "--atomic", "origin", expectedBranch, `refs/tags/${tag}`]');
+        expect(script).not.toContain("--tags");
+    });
+
+    it("fails the GitHub release if the validated artifact glob becomes empty", () => {
+        const workflow = readRepoFile(".github/workflows/release.yml");
+
+        expect(workflow).toContain("fail_on_unmatched_files: true");
     });
 
     it("uses cross-platform Node build and clean scripts for local packaging", () => {

@@ -79,7 +79,7 @@ function collectFileCandidates(args: Record<string, unknown> | undefined): strin
     return candidates;
 }
 
-export function recordChangedFile(sessionID: string, filePath: string, now: number = Date.now()): void {
+function recordChangedFile(sessionID: string, filePath: string, now: number = Date.now()): void {
     if (!sessionID || !filePath) return;
     const evidence = ensure(sessionID);
     if (evidence.changedFiles.size < MAX_TRACKED_FILES) {
@@ -88,7 +88,7 @@ export function recordChangedFile(sessionID: string, filePath: string, now: numb
     evidence.lastChangeAt = now;
 }
 
-export function recordVerification(sessionID: string, now: number = Date.now()): void {
+function recordVerification(sessionID: string, now: number = Date.now()): void {
     if (!sessionID) return;
     ensure(sessionID).lastVerifyAt = now;
 }

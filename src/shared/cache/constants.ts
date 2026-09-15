@@ -9,5 +9,3 @@ export const FILTER_STATUS = {
     ERROR: "error",
     PENDING: "pending",
 } as const;
-
-export type FilterStatus = (typeof FILTER_STATUS)[keyof typeof FILTER_STATUS];

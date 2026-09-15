@@ -22,7 +22,7 @@
 import type { PluginInput } from "@opencode-ai/plugin";
 import { CONTEXT_MONITOR_CONFIG } from "./context-window-monitor.js";
 import { log } from "../agents/logger.js";
-import { withTimeout } from "../queue/async-utils.js";
+import { withTimeout } from "../async/with-timeout.js";
 
 type OpencodeClient = PluginInput["client"];
 

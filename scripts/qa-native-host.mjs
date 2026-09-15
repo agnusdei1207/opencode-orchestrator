@@ -383,7 +383,7 @@ async function cleanup(context, report) {
     catch { report.checks.cleanup = { status: "fail", reason: "Owned temporary directory could not be removed." }; }
 }
 
-export async function runNativeHostQa() {
+async function runNativeHostQa() {
     const report = { generatedAt: new Date().toISOString(), sdk: null, host: null, plugin: { enabled: Boolean(process.env.OCO_QA_PLUGIN) },
         evidence: ["https://opencode.ai/docs/sdk/", "https://opencode.ai/docs/plugins/", "https://opencode.ai/docs/agents/", "https://opencode.ai/docs/tools/", "https://opencode.ai/docs/providers/"],
         isolation: "temporary home, XDG, cwd; allowlisted environment; loopback fixture; no real provider credentials", capabilities: unsupportedCapabilities, checks: {} };

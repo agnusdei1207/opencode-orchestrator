@@ -37,12 +37,24 @@ Requirements:
 - Node.js `>=24.15.0`
 - OpenCode `1.18.31` is the host version exercised by this release's isolated
   integration suite.
+- Bundled Rust tools and CLI: Linux x64/arm64, macOS x64/arm64, or Windows x64.
 
 ```bash
 npm install -g opencode-orchestrator
 ```
 
-> **Note**: The install hook automatically registers the plugin in `opencode.json` / `opencode.jsonc`.
+This installs both the OpenCode plugin and the `orchestrator` CLI. The install
+hook registers the plugin in `opencode.json` / `opencode.jsonc`.
+
+OpenCode 1.18.31 can also install the plugin through its native package flow:
+
+```bash
+opencode plugin opencode-orchestrator --global
+```
+
+The native command detects this package's `./server` entry and updates the
+global OpenCode config. It does not create a global `orchestrator` shell
+command; use the npm global install above when you need the bundled CLI.
 
 OpenCode accepts either the package name or a package/options tuple. The simple
 form is `"plugin": ["opencode-orchestrator"]`; use the tuple shown below when
@@ -79,6 +91,11 @@ To remove the plugin:
 npm explore -g opencode-orchestrator -- npm run cleanup:plugin
 npm uninstall -g opencode-orchestrator
 ```
+
+The npm hooks above are the recommended configuration path because they
+preserve JSONC comments. The bundled `orchestrator install` and
+`orchestrator uninstall` commands target the same config directory, create a
+backup before changes, and refuse to rewrite commented or malformed JSONC.
 
 ---
 
@@ -190,6 +207,12 @@ For authorized testing environments, a multi-session TCP shell listener TUI is a
 orchestrator shell-listener --bind 127.0.0.1 --port 4444
 ```
 
+For one-off use without a global CLI install:
+
+```bash
+npx --yes opencode-orchestrator shell-listener --bind 127.0.0.1 --port 4444
+```
+
 ---
 
 ## 6. Development
@@ -199,6 +222,7 @@ orchestrator shell-listener --bind 127.0.0.1 --port 4444
 npm run build
 npx tsc --noEmit
 npm test
+npm run release:dry-run
 
 # Rust tests in the repository container workflow
 npm run docker:test

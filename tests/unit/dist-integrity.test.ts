@@ -11,7 +11,12 @@ const DIST_ENTRYPOINT_LOAD_TIMEOUT_MS = 15_000;
 
 // Every bundle that ships to npm (package.json "files" → dist) and is loaded
 // at runtime on end-user machines, where only "dependencies" are installed.
-const SHIPPED_BUNDLES = ["dist/index.js", "dist/scripts/postinstall.js", "dist/scripts/preuninstall.js"];
+const SHIPPED_BUNDLES = [
+    "dist/index.js",
+    "dist/cli.js",
+    "dist/scripts/postinstall.js",
+    "dist/scripts/preuninstall.js",
+];
 
 interface PackageManifest {
     dependencies?: Record<string, string>;

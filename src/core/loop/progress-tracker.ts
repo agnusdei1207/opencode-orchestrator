@@ -88,7 +88,7 @@ export function hashTodos(todos: NormalizedTodo[]): string {
     return JSON.stringify(normalized);
 }
 
-export function countCompleted(todos: NormalizedTodo[]): number {
+function countCompleted(todos: NormalizedTodo[]): number {
     return todos.filter((todo) => todo.status === "completed").length;
 }
 

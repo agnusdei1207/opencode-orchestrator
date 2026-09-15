@@ -104,50 +104,6 @@ export function useFakeTimers() {
 }
 
 // ============================================================================
-// File System Mock
-// ============================================================================
-
-/**
- * Create an in-memory file system mock
- */
-export function createMockFs(initialFiles: Record<string, string> = {}) {
-    const files = new Map<string, string>(Object.entries(initialFiles));
-
-    return {
-        existsSync: (path: string) => files.has(path),
-        readFileSync: (path: string) => {
-            const content = files.get(path);
-            if (content === undefined) {
-                const error = new Error(`ENOENT: ${path}`);
-                (error as any).code = "ENOENT";
-                throw error;
-            }
-            return content;
-        },
-        writeFileSync: (path: string, content: string) => {
-            files.set(path, content);
-        },
-        unlinkSync: (path: string) => {
-            files.delete(path);
-        },
-        readdirSync: (path: string) => {
-            const entries: string[] = [];
-            for (const key of files.keys()) {
-                if (key.startsWith(path + "/")) {
-                    const relative = key.slice(path.length + 1);
-                    if (!relative.includes("/")) {
-                        entries.push(relative);
-                    }
-                }
-            }
-            return entries;
-        },
-        mkdirSync: vi.fn(),
-        files,
-    };
-}
-
-// ============================================================================
 // Event Emitter Mock
 // ============================================================================
 

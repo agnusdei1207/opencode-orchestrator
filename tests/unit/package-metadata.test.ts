@@ -6,9 +6,20 @@ interface PackageMetadata {
     description?: string;
     version?: string;
     homepage?: string;
+    bin?: Record<string, string>;
+    scripts?: Record<string, string>;
+    files?: string[];
     bugs?: {
         url?: string;
     };
+}
+
+function readCargoWorkspaceLicense(): string {
+    const cargoToml = readFileSync(resolve(process.cwd(), "Cargo.toml"), "utf8");
+    const workspacePackage = cargoToml.match(/\[workspace\.package\]([\s\S]*?)(?:\n\[|$)/);
+    const licenseMatch = workspacePackage?.[1].match(/license\s*=\s*"([^"]+)"/);
+    if (!licenseMatch) throw new Error("Cargo.toml is missing the workspace package license.");
+    return licenseMatch[1];
 }
 
 function readPackageMetadata(): PackageMetadata {
@@ -53,5 +64,25 @@ describe("package metadata", () => {
 
         expect(metadata.version).toBeDefined();
         expect(cargoVersion).toBe(metadata.version);
+    });
+
+    it("uses the repository MIT license for npm and Cargo packages", () => {
+        const metadata = JSON.parse(readFileSync(resolve(process.cwd(), "package.json"), "utf8")) as { license?: string };
+        expect(readFileSync(resolve(process.cwd(), "LICENSE"), "utf8")).toContain("MIT License");
+        expect(metadata.license).toBe("MIT");
+        expect(readCargoWorkspaceLicense()).toBe("MIT");
+    });
+
+    it("exposes the documented orchestrator CLI through the built launcher", () => {
+        const metadata = readPackageMetadata();
+
+        expect(metadata.bin).toEqual({ orchestrator: "dist/cli.js" });
+    });
+
+    it("tails the development log through the cross-platform Node helper", () => {
+        const metadata = readPackageMetadata();
+
+        expect(metadata.scripts?.log).toBe("node scripts/tail-log.mjs");
+        expect(metadata.files).toContain("scripts/tail-log.mjs");
     });
 });

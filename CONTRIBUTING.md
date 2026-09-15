@@ -1,14 +1,15 @@
 # Contributing to OpenCode Orchestrator 🦀
 
-Last updated: 2026-09-03 22:52 KST
+Last updated: 2026-09-15 KST
 
-Welcome to the OpenCode Orchestrator development guide. This project uses a high-performance hybrid architecture combining **TypeScript** for agent orchestration and **Rust** for core tool execution.
+OpenCode Orchestrator uses TypeScript for the OpenCode plugin boundary and Rust
+for its retained search, AST, LSP, config, and operator CLI paths.
 
 ---
 
 ## 🏗️ Architecture Overview
 
-The system is built on a **4-Agent Cognitive Architecture**:
+The plugin provides four agent presets:
 - **Commander**: Mission orchestration and execution.
 - **Planner**: Strategic planning and initial research.
 - **Worker**: Implementation, refactoring, and documentation.
@@ -23,8 +24,8 @@ The system is built on a **4-Agent Cognitive Architecture**:
 ## 🚀 Development Setup
 
 ### Prerequisites
-- **Node.js**: v24+ (Latest LTS)
-- **Rust**: Latest stable (with `cargo`)
+- **Node.js**: `>=24.15.0`
+- **Rust**: `1.98.1` (with `cargo`), matching CI and release builders
 - **OpenCode**: Installed locally
 
 ### Quick Start
@@ -32,7 +33,7 @@ The system is built on a **4-Agent Cognitive Architecture**:
 # Install dependencies
 npm install
 
-# Build TypeScript and Docker-based Rust distribution artifacts
+# Build TypeScript and the two Linux Rust distribution artifacts
 npm run build:all
 
 # Start OpenCode and see the "Orchestrator" in action!
@@ -45,12 +46,12 @@ npm run build:all
 | Command | Description |
 |---------|-------------|
 | `npm run build` | Build the TypeScript plugin and install hook bundles |
-| `npm run build:all` | Build TypeScript and Docker-based Rust distribution artifacts |
+| `npm run build:all` | Build TypeScript and the Linux x64/arm64 Rust artifacts |
 | `cargo test --workspace --all-targets` | Run Rust tests |
 | `npm run test:all` | Run TypeScript build and Vitest suite |
-| `npm run release:dry-run` | Run local release preflight and package dry-run |
-| `npm run release:patch` | Verify npm auth, bump patch version, rebuild release artifacts, and publish |
-| `npm run log` | Follow real-time logs of the orchestrator |
+| `npm run release:dry-run` | Run local release preflight and an isolated packed-install smoke |
+| `npm run release:patch` | Bump and verify the version, then push `main` and its exact tag for hosted publishing |
+| `npm run log` | Follow orchestrator logs with the cross-platform Node helper |
 
 ---
 
@@ -93,11 +94,14 @@ Since we use JSON-RPC for communication, **Constants must be synchronized**.
 Always update both sides when adding new tools, agents, or status labels.
 
 ### 2. Tool Implementation
-- Performance-heavy tools (Search, AST, Diff) should be implemented in **Rust**.
-- UI-heavy or complex logic flows should be handled in **TypeScript**.
+- Keep the OpenCode plugin boundary and orchestration state in **TypeScript**.
+- Keep existing Rust search, AST, LSP, and operator CLI behavior synchronized
+  with the TypeScript tool contracts until ADR-0021's migration gates are met.
 
 ### 3. Logging
-Always use the centralized logger (`src/core/agents/logger.ts`) in TS and `tracing` in Rust. Do not use `console.log` as it can corrupt the OpenCode TUI.
+Use the centralized logger (`src/core/agents/logger.ts`) in plugin runtime code
+and `tracing` in the Rust stdio server. Standalone install and release scripts
+may write to their own terminal; the JSON-RPC stdout channel may not.
 
 ---
 
@@ -107,9 +111,17 @@ Always use the centralized logger (`src/core/agents/logger.ts`) in TS and `traci
 npm run release:patch   # Bug fixes
 npm run release:minor   # New features / Agent upgrades
 ```
-Releases automatically handle binary distribution for multiple architectures (Windows/macOS/Linux).
-Patch/minor/major release scripts verify npm authentication before `npm version` so a missing token cannot leave behind a local version commit or tag.
-Use `npm run release:dry-run` first to run build, tests, Rust tests, audit, and package dry-run without publishing.
+The release command creates a version commit and exact tag only after a clean
+worktree check, runs the complete local preflight, and pushes `main` plus that
+tag. The tag-triggered GitHub workflow is the sole publisher. It builds all five
+Linux/macOS/Windows artifacts from the tag, verifies their format, architecture,
+and embedded version, smoke-tests the assembled npm package, publishes both
+the npm package and GitHub release. Branch-only manual workflow runs do
+not publish.
+
+Use `npm run release:dry-run` first to run build, coverage, Rust formatting,
+Clippy, Rust tests, audit, dependency validation, and the isolated package smoke
+without publishing.
 
 Installation hooks are bootstrapped through `scripts/run-install-hook.mjs`.
 They prefer built `dist/scripts/*.js`, fall back to source `scripts/*.ts` in a source checkout, prefer `opencode.jsonc` over `opencode.json`, preserve sibling plugin entries/comments, and no-op in CI to avoid mutating runner config.

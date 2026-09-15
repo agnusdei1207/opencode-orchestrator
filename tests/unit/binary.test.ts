@@ -1,7 +1,4 @@
 import { describe, expect, it } from "vitest";
-import { execFileSync } from "node:child_process";
-import { existsSync } from "node:fs";
-import { arch, platform } from "node:os";
 import path from "node:path";
 import {
     getCandidateBinDirs,
@@ -12,6 +9,24 @@ import {
 const repoRoot = path.resolve(__dirname, "../..");
 
 describe("binary path resolution", () => {
+    it.each([
+        ["linux", "x64", "orchestrator-linux-x64"],
+        ["linux", "arm64", "orchestrator-linux-arm64"],
+        ["darwin", "x64", "orchestrator-macos-x64"],
+        ["darwin", "arm64", "orchestrator-macos-arm64"],
+        ["win32", "x64", "orchestrator-windows-x64.exe"],
+    ])("maps %s-%s to its packaged artifact", (os, cpu, expected) => {
+        expect(getPlatformBinaryName(os, cpu)).toBe(expected);
+    });
+
+    it.each([
+        ["win32", "arm64"],
+        ["linux", "ia32"],
+        ["freebsd", "x64"],
+    ])("rejects unsupported target %s-%s instead of launching an incompatible binary", (os, cpu) => {
+        expect(() => getPlatformBinaryName(os, cpu)).toThrow(`Unsupported platform: ${os}-${cpu}`);
+    });
+
     it("prefers package-local bin next to bundled dist output", () => {
         const moduleDir = path.join(repoRoot, "dist");
         const expectedBinDir = path.join(repoRoot, "bin");
@@ -53,21 +68,5 @@ describe("binary path resolution", () => {
         });
 
         expect(resolved).toBe(fallbackPath);
-    });
-});
-
-describe("packaged Linux x64 artifact", () => {
-    it("is an x86-64 ELF on Linux x64 hosts", () => {
-        if (platform() !== "linux" || arch() !== "x64") {
-            return;
-        }
-
-        const binaryPath = path.join(repoRoot, "bin", "orchestrator-linux-x64");
-        expect(existsSync(binaryPath)).toBe(true);
-
-        const output = execFileSync("file", [binaryPath], { encoding: "utf8" });
-        expect(output).toContain("ELF 64-bit");
-        expect(output).toContain("x86-64");
-        expect(output).not.toContain("ARM aarch64");
     });
 });

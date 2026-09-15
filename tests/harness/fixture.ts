@@ -49,7 +49,7 @@ function clean(dir: string): void {
 /**
  * Options for creating temporary test directories
  */
-export interface TmpDirOptions<T = unknown> {
+interface TmpDirOptions<T = unknown> {
     /** Initialize a git repository */
     git?: boolean;
     /** Create initial opencode.json config */
@@ -65,7 +65,7 @@ export interface TmpDirOptions<T = unknown> {
 /**
  * Result of tmpdir creation
  */
-export interface TmpDirResult<T = unknown> {
+interface TmpDirResult<T = unknown> {
     /** Absolute path to temp directory */
     path: string;
     /** Extra data from init function */

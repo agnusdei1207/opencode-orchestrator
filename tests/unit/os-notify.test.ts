@@ -1,428 +1,256 @@
-/**
- * OS Native Notification Tests
- *
- * Full scenario coverage for:
- *   - platform detection
- *   - todo-checker
- *   - notifier (all platforms, edge cases, WSL2)
- *   - sound-player (all platforms, empty path, real path, fallback)
- */
-
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { detectPlatform, getDefaultSoundPath } from "../../src/core/notification/os-notify/platform";
-import { hasIncompleteTodos } from "../../src/core/notification/os-notify/todo-checker";
 import { log } from "../../src/core/agents/logger.js";
 import { PLATFORM } from "../../src/shared/os/index.js";
-import { TODO_STATUS } from "../../src/shared/loop/index.js";
 
-// ---------------------------------------------------------------------------
-// Global Mocks
-// ---------------------------------------------------------------------------
-
-// Mock log (suppress noise)
-vi.mock("../../src/core/agents/logger.js", () => ({ log: vi.fn() }));
-
-// Mock child_process — supports both exec(cmd, cb) and promisify(exec)(cmd)
-const mockExec = vi.fn();
-vi.mock("node:child_process", () => ({
-    exec: vi.fn((cmd: string, cb?: Function) => {
-        mockExec(cmd);
-        // promisify wraps exec and passes a nodeback: exec(cmd, opts?, cb)
-        if (typeof cb === "function") cb(null, "", "");
+const processMocks = vi.hoisted(() => ({
+    execFile: vi.fn((...args: unknown[]) => {
+        const callback = args.findLast(value => typeof value === "function") as
+            | ((error: Error | null, stdout?: string, stderr?: string) => void)
+            | undefined;
+        callback?.(null, "", "");
         return { on: vi.fn() };
     }),
 }));
 
-// Mock node:fs — prevents isWSL() from reading /proc/version on disk.
-// Default: /proc/version throws (non-WSL). Individual tests set env vars for WSL.
+vi.mock("node:child_process", () => ({ execFile: processMocks.execFile }));
 vi.mock("node:fs", () => ({
     readFileSync: vi.fn((path: string) => {
         if (path === "/proc/version") throw new Error("mocked: not on disk");
         return "";
     }),
 }));
+vi.mock("../../src/core/agents/logger.js", () => ({ log: vi.fn() }));
 
-// Mock node:util promisify — return a function that calls the mocked exec
-// and resolves when exec calls its callback.
-vi.mock("node:util", () => ({
-    promisify: vi.fn((fn: Function) => {
-        return (...args: any[]) =>
-            new Promise<{ stdout: string; stderr: string }>((resolve, reject) => {
-                fn(...args, (err: Error | null, stdout = "", stderr = "") => {
-                    if (err) reject(err);
-                    else resolve({ stdout, stderr });
-                });
-            });
-    }),
-}));
-
-// Mock platform-resolver
-const mockResolveCommandPath = vi.fn();
+const mockResolveCommandPath = vi.hoisted(() => vi.fn());
 vi.mock("../../src/core/notification/os-notify/platform-resolver", () => ({
     resolveCommandPath: (key: string, name: string) => mockResolveCommandPath(key, name),
 }));
 
-// Mock deps not under test
-vi.mock("../../src/core/agents/manager.js", () => ({
-    ParallelAgentManager: { getInstance: vi.fn(() => ({ getTasksByParent: vi.fn() })) },
-}));
-vi.mock("../../src/core/recovery/session-recovery.js", () => ({ isSessionRecovering: vi.fn() }));
-vi.mock("../../src/core/loop/mission-loop.js", () => ({ isLoopActive: vi.fn() }));
-vi.mock("../../src/core/notification/os-notify/todo-checker", async () => {
-    const actual = await vi.importActual("../../src/core/notification/os-notify/todo-checker") as any;
-    return { ...actual, hasIncompleteTodos: vi.fn(actual.hasIncompleteTodos) };
-});
-
-// ---------------------------------------------------------------------------
-// os-notify/platform
-// ---------------------------------------------------------------------------
-
 describe("os-notify/platform", () => {
-    it("detectPlatform returns a valid platform constant", () => {
-        const platform = detectPlatform();
-        expect([PLATFORM.DARWIN, PLATFORM.LINUX, PLATFORM.WIN32, PLATFORM.UNSUPPORTED]).toContain(platform);
+    it("detects a supported platform value", () => {
+        expect([
+            PLATFORM.DARWIN,
+            PLATFORM.LINUX,
+            PLATFORM.WIN32,
+            PLATFORM.UNSUPPORTED,
+        ]).toContain(detectPlatform());
     });
 
-    it("getDefaultSoundPath returns empty string for all OS built-ins (sound is inline)", () => {
+    it("uses built-in sounds unless a custom path is configured", () => {
         expect(getDefaultSoundPath(PLATFORM.DARWIN)).toBe("");
         expect(getDefaultSoundPath(PLATFORM.LINUX)).toBe("");
         expect(getDefaultSoundPath(PLATFORM.WIN32)).toBe("");
-    });
-
-    it("getDefaultSoundPath returns empty string for unsupported platform", () => {
         expect(getDefaultSoundPath(PLATFORM.UNSUPPORTED)).toBe("");
     });
 });
 
-// ---------------------------------------------------------------------------
-// os-notify/todo-checker
-// ---------------------------------------------------------------------------
-
-describe("os-notify/todo-checker", () => {
-    it("returns true when at least one todo is incomplete", async () => {
-        const client = {
-            session: {
-                todo: vi.fn().mockResolvedValue({
-                    data: [{ status: TODO_STATUS.COMPLETED }, { status: TODO_STATUS.PENDING }],
-                }),
-            },
-        };
-        expect(await hasIncompleteTodos(client as any, "s1")).toBe(true);
-    });
-
-    it("returns false when all todos are completed or cancelled", async () => {
-        const client = {
-            session: {
-                todo: vi.fn().mockResolvedValue({
-                    data: [{ status: TODO_STATUS.COMPLETED }, { status: TODO_STATUS.CANCELLED }],
-                }),
-            },
-        };
-        expect(await hasIncompleteTodos(client as any, "s1")).toBe(false);
-    });
-
-    it("returns false when todo list is empty", async () => {
-        const client = {
-            session: { todo: vi.fn().mockResolvedValue({ data: [] }) },
-        };
-        expect(await hasIncompleteTodos(client as any, "s1")).toBe(false);
-    });
-
-    it("returns false when client throws (fail-safe)", async () => {
-        const client = {
-            session: { todo: vi.fn().mockRejectedValue(new Error("network")) },
-        };
-        expect(await hasIncompleteTodos(client as any, "s1")).toBe(false);
-    });
-});
-
-// ---------------------------------------------------------------------------
-// os-notify/notifier  — all platform branches + edge cases
-// ---------------------------------------------------------------------------
-
 describe("os-notify/notifier", () => {
     beforeEach(() => {
-        mockExec.mockClear();
+        processMocks.execFile.mockClear();
         mockResolveCommandPath.mockReset();
         vi.mocked(log).mockClear();
-        // Ensure WSL env vars are clean unless a test sets them
         delete process.env.WSL_DISTRO_NAME;
         delete process.env.WSLENV;
     });
 
-    // ── macOS ───────────────────────────────────────────────────────────────
-
-    it("[darwin] calls osascript with Glass sound and redirects output", async () => {
+    it("passes macOS notification data as separate process arguments", async () => {
         const { sendNotification } = await import("../../src/core/notification/os-notify/notifier");
         mockResolveCommandPath.mockResolvedValue("/usr/bin/osascript");
 
-        await sendNotification(PLATFORM.DARWIN, "Title", "Message");
+        await sendNotification(PLATFORM.DARWIN, 'Title "quoted"', "Message");
 
-        expect(mockExec).toHaveBeenCalledTimes(1);
-        const cmd = mockExec.mock.calls[0][0] as string;
-        expect(cmd).toContain('display notification "Message"');
-        expect(cmd).toContain('sound name "Glass"');
-        expect(cmd).toContain(">/dev/null 2>/dev/null");
+        expect(processMocks.execFile).toHaveBeenCalledOnce();
+        const [executable, args, options] = processMocks.execFile.mock.calls[0];
+        expect(executable).toBe("/usr/bin/osascript");
+        expect(args).toEqual(expect.arrayContaining([
+            "-e",
+            "on run argv",
+            'Title "quoted"',
+            "Message",
+        ]));
+        expect(args).toContain('display notification (item 2 of argv) with title (item 1 of argv) sound name "Glass"');
+        expect(options).toEqual(expect.objectContaining({ windowsHide: true }));
     });
 
-    it("[darwin] does nothing when osascript is not found", async () => {
-        const { sendNotification } = await import("../../src/core/notification/os-notify/notifier");
-        mockResolveCommandPath.mockResolvedValue(null); // not found
-
-        await sendNotification(PLATFORM.DARWIN, "Title", "Message");
-
-        expect(mockExec).not.toHaveBeenCalled();
-        expect(log).toHaveBeenCalledWith(expect.stringContaining("Command not found for darwin notification"));
-    });
-
-    it("[darwin] escapes double quotes in title and message", async () => {
-        const { sendNotification } = await import("../../src/core/notification/os-notify/notifier");
-        mockResolveCommandPath.mockResolvedValue("/usr/bin/osascript");
-
-        await sendNotification(PLATFORM.DARWIN, 'Title "quoted"', 'Msg "special"');
-
-        const cmd = mockExec.mock.calls[0][0] as string;
-        expect(cmd).toContain('Title \\"quoted\\"');
-        expect(cmd).toContain('Msg \\"special\\"');
-    });
-
-    // ── Linux (non-WSL) ──────────────────────────────────────────────────────
-
-    it("[linux non-WSL] calls notify-send with stdout+stderr redirected", async () => {
-        const { sendNotification } = await import("../../src/core/notification/os-notify/notifier");
-        mockResolveCommandPath.mockResolvedValue("/usr/bin/notify-send");
-
-        await sendNotification(PLATFORM.LINUX, "Title", "Msg");
-
-        expect(mockExec).toHaveBeenCalledTimes(1);
-        const cmd = mockExec.mock.calls[0][0] as string;
-        expect(cmd).toContain('/usr/bin/notify-send "Title" "Msg"');
-        expect(cmd).toContain(">/dev/null 2>/dev/null");
-    });
-
-    it("[linux non-WSL] does nothing when notify-send is not found", async () => {
+    it.each([
+        [PLATFORM.DARWIN, "osascript"],
+        [PLATFORM.LINUX, "notify-send"],
+        [PLATFORM.WIN32, "powershell"],
+    ] as const)("logs and skips %s when %s is unavailable", async (platform, command) => {
         const { sendNotification } = await import("../../src/core/notification/os-notify/notifier");
         mockResolveCommandPath.mockResolvedValue(null);
 
-        await sendNotification(PLATFORM.LINUX, "Title", "Msg");
+        await sendNotification(platform, "Title", "Message");
 
-        expect(mockExec).not.toHaveBeenCalled();
-        expect(log).toHaveBeenCalledWith(expect.stringContaining("Command not found for linux notification"));
+        expect(processMocks.execFile).not.toHaveBeenCalled();
+        expect(log).toHaveBeenCalledWith(expect.stringContaining(`Command not found for ${platform} notification: ${command}`));
     });
 
-    // ── Linux WSL2 ───────────────────────────────────────────────────────────
-
-    it("[linux WSL2] skips notify-send when WSL_DISTRO_NAME is set", async () => {
-        process.env.WSL_DISTRO_NAME = "Ubuntu";
+    it("passes Linux title and message directly to notify-send", async () => {
         const { sendNotification } = await import("../../src/core/notification/os-notify/notifier");
         mockResolveCommandPath.mockResolvedValue("/usr/bin/notify-send");
 
-        await sendNotification(PLATFORM.LINUX, "Title", "Msg");
+        await sendNotification(PLATFORM.LINUX, "Title", "Message");
 
-        expect(mockExec).not.toHaveBeenCalled();
+        expect(processMocks.execFile).toHaveBeenCalledWith(
+            "/usr/bin/notify-send",
+            ["Title", "Message"],
+            expect.objectContaining({ windowsHide: true }),
+            expect.any(Function),
+        );
+    });
+
+    it.each(["WSL_DISTRO_NAME", "WSLENV"])("skips Linux notifications when %s marks WSL", async variable => {
+        const { sendNotification } = await import("../../src/core/notification/os-notify/notifier");
+        process.env[variable] = "set";
+        mockResolveCommandPath.mockResolvedValue("/usr/bin/notify-send");
+
+        await sendNotification(PLATFORM.LINUX, "Title", "Message");
+
+        expect(processMocks.execFile).not.toHaveBeenCalled();
         expect(log).toHaveBeenCalledWith(expect.stringContaining("Skipping Linux notification in WSL"));
-        delete process.env.WSL_DISTRO_NAME;
+        delete process.env[variable];
     });
 
-    it("[linux WSL2] skips notify-send when WSLENV is set", async () => {
-        process.env.WSLENV = "PATH/l";
-        const { sendNotification } = await import("../../src/core/notification/os-notify/notifier");
-        mockResolveCommandPath.mockResolvedValue("/usr/bin/notify-send");
-
-        await sendNotification(PLATFORM.LINUX, "Title", "Msg");
-
-        expect(mockExec).not.toHaveBeenCalled();
-        delete process.env.WSLENV;
-    });
-
-    // ── Windows ──────────────────────────────────────────────────────────────
-
-    it("[windows] calls powershell Toast and redirects output to NUL", async () => {
-        const { sendNotification } = await import("../../src/core/notification/os-notify/notifier");
-        mockResolveCommandPath.mockResolvedValue("powershell.exe");
-
-        await sendNotification(PLATFORM.WIN32, "Title", "Msg");
-
-        expect(mockExec).toHaveBeenCalledTimes(1);
-        const cmd = mockExec.mock.calls[0][0] as string;
-        expect(cmd).toContain("powershell.exe");
-        expect(cmd).toContain("ToastNotificationManager");
-        expect(cmd).toContain(">NUL 2>NUL");
-    });
-
-    it("[windows] does nothing when powershell is not found", async () => {
-        const { sendNotification } = await import("../../src/core/notification/os-notify/notifier");
-        mockResolveCommandPath.mockResolvedValue(null);
-
-        await sendNotification(PLATFORM.WIN32, "Title", "Msg");
-
-        expect(mockExec).not.toHaveBeenCalled();
-        expect(log).toHaveBeenCalledWith(expect.stringContaining("Command not found for win32 notification"));
-    });
-
-    it("[windows] escapes single quotes in title and message for PS", async () => {
+    it("passes Windows notification data through the child environment", async () => {
         const { sendNotification } = await import("../../src/core/notification/os-notify/notifier");
         mockResolveCommandPath.mockResolvedValue("powershell.exe");
 
         await sendNotification(PLATFORM.WIN32, "It's", "O'Reilly");
 
-        const cmd = mockExec.mock.calls[0][0] as string;
-        // Single quotes are doubled in PS: ' → ''
-        expect(cmd).toContain("It''s");
-        expect(cmd).toContain("O''Reilly");
+        expect(processMocks.execFile).toHaveBeenCalledOnce();
+        const [executable, args, options] = processMocks.execFile.mock.calls[0] as [string, string[], { env: NodeJS.ProcessEnv }];
+        expect(executable).toBe("powershell.exe");
+        expect(args.slice(0, 3)).toEqual(["-NoProfile", "-NonInteractive", "-Command"]);
+        expect(args[3]).toContain("ToastNotificationManager");
+        expect(args[3]).not.toContain("It's");
+        expect(args[3]).not.toContain("O'Reilly");
+        expect(options.env).toEqual(expect.objectContaining({
+            OPENCODE_NOTIFICATION_TITLE: "It's",
+            OPENCODE_NOTIFICATION_MESSAGE: "O'Reilly",
+        }));
     });
 
-    // ── Unknown platform ──────────────────────────────────────────────────────
-
-    it("[unsupported] does nothing for unknown platform", async () => {
+    it("logs and skips unsupported platforms", async () => {
         const { sendNotification } = await import("../../src/core/notification/os-notify/notifier");
 
-        await sendNotification(PLATFORM.UNSUPPORTED as any, "Title", "Msg");
+        await sendNotification(PLATFORM.UNSUPPORTED, "Title", "Message");
 
-        expect(mockExec).not.toHaveBeenCalled();
+        expect(processMocks.execFile).not.toHaveBeenCalled();
         expect(log).toHaveBeenCalledWith(expect.stringContaining("Unsupported notification platform"));
     });
 });
 
-// ---------------------------------------------------------------------------
-// os-notify/sound-player — all platform branches + edge cases
-// ---------------------------------------------------------------------------
-
 describe("os-notify/sound-player", () => {
     beforeEach(() => {
-        mockExec.mockClear();
+        processMocks.execFile.mockClear();
         mockResolveCommandPath.mockReset();
+        vi.mocked(log).mockClear();
     });
 
-    // ── macOS ───────────────────────────────────────────────────────────────
-
-    it("[darwin] skips exec when soundPath is empty", async () => {
+    it.each([PLATFORM.DARWIN, PLATFORM.LINUX])("skips empty custom paths on %s", async platform => {
         const { playSound } = await import("../../src/core/notification/os-notify/sound-player");
-        await playSound(PLATFORM.DARWIN, "");
-        expect(mockExec).not.toHaveBeenCalled();
+        await playSound(platform, "");
+        expect(processMocks.execFile).not.toHaveBeenCalled();
     });
 
-    it("[darwin] calls afplay with path and redirects output", async () => {
+    it("passes macOS sound paths directly to afplay", async () => {
         const { playSound } = await import("../../src/core/notification/os-notify/sound-player");
         mockResolveCommandPath.mockResolvedValue("/usr/bin/afplay");
 
         await playSound(PLATFORM.DARWIN, "/sounds/alert.aiff");
 
-        expect(mockExec).toHaveBeenCalledTimes(1);
-        const cmd = mockExec.mock.calls[0][0] as string;
-        expect(cmd).toContain('/usr/bin/afplay');
-        expect(cmd).toContain('/sounds/alert.aiff');
-        expect(cmd).toContain(">/dev/null 2>/dev/null");
+        expect(processMocks.execFile).toHaveBeenCalledWith(
+            "/usr/bin/afplay",
+            ["/sounds/alert.aiff"],
+            expect.objectContaining({ windowsHide: true }),
+            expect.any(Function),
+        );
     });
 
-    it("[darwin] skips exec when afplay is not found", async () => {
+    it("prefers paplay on Linux", async () => {
         const { playSound } = await import("../../src/core/notification/os-notify/sound-player");
-        mockResolveCommandPath.mockResolvedValue(null);
-
-        await playSound(PLATFORM.DARWIN, "/sounds/alert.aiff");
-
-        expect(mockExec).not.toHaveBeenCalled();
-    });
-
-    // ── Linux ────────────────────────────────────────────────────────────────
-
-    it("[linux] skips exec when soundPath is empty", async () => {
-        const { playSound } = await import("../../src/core/notification/os-notify/sound-player");
-        await playSound(PLATFORM.LINUX, "");
-        expect(mockExec).not.toHaveBeenCalled();
-    });
-
-    it("[linux] uses paplay when available (and redirects output)", async () => {
-        const { playSound } = await import("../../src/core/notification/os-notify/sound-player");
-        // First call (paplay) resolves, second (aplay) should never be reached
         mockResolveCommandPath.mockResolvedValueOnce("/usr/bin/paplay");
 
         await playSound(PLATFORM.LINUX, "/sounds/alert.ogg");
 
-        expect(mockExec).toHaveBeenCalledTimes(1);
-        const cmd = mockExec.mock.calls[0][0] as string;
-        expect(cmd).toContain('/usr/bin/paplay');
-        expect(cmd).toContain('/sounds/alert.ogg');
-        expect(cmd).toContain(">/dev/null 2>/dev/null");
+        expect(processMocks.execFile).toHaveBeenCalledWith(
+            "/usr/bin/paplay",
+            ["/sounds/alert.ogg"],
+            expect.objectContaining({ windowsHide: true }),
+            expect.any(Function),
+        );
+        expect(mockResolveCommandPath).toHaveBeenCalledOnce();
     });
 
-    it("[linux] falls back to aplay when paplay is not found", async () => {
+    it("falls back to aplay on Linux", async () => {
         const { playSound } = await import("../../src/core/notification/os-notify/sound-player");
-        mockResolveCommandPath
-            .mockResolvedValueOnce(null)           // paplay → not found
-            .mockResolvedValueOnce("/usr/bin/aplay"); // aplay → found
+        mockResolveCommandPath.mockResolvedValueOnce(null).mockResolvedValueOnce("/usr/bin/aplay");
 
         await playSound(PLATFORM.LINUX, "/sounds/alert.wav");
 
-        expect(mockExec).toHaveBeenCalledTimes(1);
-        const cmd = mockExec.mock.calls[0][0] as string;
-        expect(cmd).toContain('/usr/bin/aplay');
-        expect(cmd).toContain('/sounds/alert.wav');
-        expect(cmd).toContain(">/dev/null 2>/dev/null");
+        expect(processMocks.execFile).toHaveBeenCalledWith(
+            "/usr/bin/aplay",
+            ["/sounds/alert.wav"],
+            expect.objectContaining({ windowsHide: true }),
+            expect.any(Function),
+        );
     });
 
-    it("[linux] skips exec when neither paplay nor aplay is found", async () => {
+    it("skips Linux sound when no player is installed", async () => {
         const { playSound } = await import("../../src/core/notification/os-notify/sound-player");
         mockResolveCommandPath.mockResolvedValue(null);
 
         await playSound(PLATFORM.LINUX, "/sounds/alert.wav");
 
-        expect(mockExec).not.toHaveBeenCalled();
+        expect(processMocks.execFile).not.toHaveBeenCalled();
     });
 
-    // ── Windows ──────────────────────────────────────────────────────────────
-
-    it("[windows] uses Asterisk system sound when soundPath is empty", async () => {
+    it("uses the built-in Windows sound when no path is configured", async () => {
         const { playSound } = await import("../../src/core/notification/os-notify/sound-player");
         mockResolveCommandPath.mockResolvedValue("powershell.exe");
 
         await playSound(PLATFORM.WIN32, "");
 
-        expect(mockExec).toHaveBeenCalledTimes(1);
-        const cmd = mockExec.mock.calls[0][0] as string;
-        expect(cmd).toContain("[System.Media.SystemSounds]::Asterisk.Play()");
-        expect(cmd).toContain(">NUL 2>NUL");
+        expect(processMocks.execFile).toHaveBeenCalledWith(
+            "powershell.exe",
+            ["-NoProfile", "-NonInteractive", "-Command", "[System.Media.SystemSounds]::Asterisk.Play()"],
+            expect.objectContaining({ windowsHide: true }),
+            expect.any(Function),
+        );
     });
 
-    it("[windows] uses SoundPlayer with custom sound file path", async () => {
+    it("passes a custom Windows sound path through the child environment", async () => {
         const { playSound } = await import("../../src/core/notification/os-notify/sound-player");
         mockResolveCommandPath.mockResolvedValue("powershell.exe");
+        const soundPath = "C:\\my sounds\\it's nice.wav";
 
-        await playSound(PLATFORM.WIN32, "C:\\sounds\\alert.wav");
+        await playSound(PLATFORM.WIN32, soundPath);
 
-        expect(mockExec).toHaveBeenCalledTimes(1);
-        const cmd = mockExec.mock.calls[0][0] as string;
-        expect(cmd).toContain("New-Object Media.SoundPlayer");
-        expect(cmd).toContain("C:\\sounds\\alert.wav");
-        expect(cmd).toContain(">NUL 2>NUL");
+        const [, args, options] = processMocks.execFile.mock.calls[0] as [string, string[], { env: NodeJS.ProcessEnv }];
+        expect(args[3]).toContain("$env:OPENCODE_NOTIFICATION_SOUND");
+        expect(args[3]).not.toContain(soundPath);
+        expect(options.env.OPENCODE_NOTIFICATION_SOUND).toBe(soundPath);
     });
 
-    it("[windows] escapes single quotes in sound file path", async () => {
+    it("logs asynchronous player failures", async () => {
         const { playSound } = await import("../../src/core/notification/os-notify/sound-player");
-        mockResolveCommandPath.mockResolvedValue("powershell.exe");
+        processMocks.execFile.mockImplementationOnce((...args: unknown[]) => {
+            const callback = args.findLast(value => typeof value === "function") as (error: Error) => void;
+            callback(new Error("spawn failed"));
+            return { on: vi.fn() };
+        });
+        mockResolveCommandPath.mockResolvedValue("/usr/bin/afplay");
 
-        await playSound(PLATFORM.WIN32, "C:\\my sounds\\it's nice.wav");
+        await playSound(PLATFORM.DARWIN, "/sounds/alert.aiff");
 
-        const cmd = mockExec.mock.calls[0][0] as string;
-        expect(cmd).toContain("it''s nice.wav"); // single-quote PS escape
+        expect(log).toHaveBeenCalledWith(expect.stringContaining("Sound player failed"));
     });
 
-    it("[windows] skips exec when powershell is not found", async () => {
+    it("does nothing on unsupported platforms", async () => {
         const { playSound } = await import("../../src/core/notification/os-notify/sound-player");
-        mockResolveCommandPath.mockResolvedValue(null);
-
-        await playSound(PLATFORM.WIN32, "");
-
-        expect(mockExec).not.toHaveBeenCalled();
-    });
-
-    // ── Unknown platform ──────────────────────────────────────────────────────
-
-    it("[unsupported] does nothing for unknown platform", async () => {
-        const { playSound } = await import("../../src/core/notification/os-notify/sound-player");
-
-        await playSound(PLATFORM.UNSUPPORTED as any, "/some/sound");
-
-        expect(mockExec).not.toHaveBeenCalled();
+        await playSound(PLATFORM.UNSUPPORTED, "/some/sound");
+        expect(processMocks.execFile).not.toHaveBeenCalled();
     });
 });

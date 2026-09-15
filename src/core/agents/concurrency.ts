@@ -2,7 +2,7 @@
  * Enhanced Concurrency Controller
  *
  * Queue-based rate limiting with:
- * - Priority queue (HIGH/NORMAL/LOW)
+ * - Priority queue (NORMAL/LOW)
  * - Circuit breaker pattern
  * - Resource-aware scheduling
  * - Adaptive auto-scaling
@@ -14,7 +14,6 @@ import type { ConcurrencyConfig } from "../../shared/agent/index.js";
 export type { ConcurrencyConfig } from "../../shared/agent/index.js";
 
 export enum TaskPriority {
-    HIGH = 0,
     NORMAL = 1,
     LOW = 2
 }

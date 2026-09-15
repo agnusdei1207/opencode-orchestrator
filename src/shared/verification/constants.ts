@@ -61,7 +61,7 @@ export const CHECKLIST = {
 /**
  * Category IDs - Used as keys for category identification
  */
-export const CATEGORY_ID = {
+const CATEGORY_ID = {
     CODE_QUALITY: "code-quality",
     UNIT_TESTS: "unit-tests",
     INTEGRATION_TESTS: "integration-tests",
@@ -74,7 +74,7 @@ export const CATEGORY_ID = {
 /**
  * Category Display Labels - Human-readable names for each category
  */
-export const CATEGORY_LABEL = {
+const CATEGORY_LABEL = {
     [CATEGORY_ID.CODE_QUALITY]: "Code Quality",
     [CATEGORY_ID.UNIT_TESTS]: "Unit Tests",
     [CATEGORY_ID.INTEGRATION_TESTS]: "Integration Tests",
@@ -87,7 +87,7 @@ export const CATEGORY_LABEL = {
 /**
  * Category Descriptions - Detailed descriptions for each category
  */
-export const CATEGORY_DESCRIPTION = {
+const CATEGORY_DESCRIPTION = {
     [CATEGORY_ID.CODE_QUALITY]: "Lint, type check, static analysis",
     [CATEGORY_ID.UNIT_TESTS]: "Unit tests execution",
     [CATEGORY_ID.INTEGRATION_TESTS]: "E2E and integration tests",
@@ -100,7 +100,7 @@ export const CATEGORY_DESCRIPTION = {
 /**
  * Category Icons - Visual indicators for each category
  */
-export const CATEGORY_ICON = {
+const CATEGORY_ICON = {
     [CATEGORY_ID.CODE_QUALITY]: "🔍",
     [CATEGORY_ID.UNIT_TESTS]: "🧪",
     [CATEGORY_ID.INTEGRATION_TESTS]: "🔗",

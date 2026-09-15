@@ -107,19 +107,6 @@ export const LIMITS = {
 } as const;
 
 /**
- * WAL (Write-Ahead Log) Action constants
- */
-
-export const WAL_ACTIONS = {
-    LAUNCH: "LAUNCH",
-    UPDATE: "UPDATE",
-    COMPLETE: "COMPLETE",
-    DELETE: "DELETE",
-} as const;
-
-export type WALAction = typeof WAL_ACTIONS[keyof typeof WAL_ACTIONS];
-
-/**
  * Unified Status Labels
  * 
  * Primitive string values for all status indicators across the system.
@@ -213,9 +200,6 @@ export const LOG_PREFIX = {
     FILE_WATCHER: "FileWatcher",
 } as const;
 
-/** Type for log prefixes */
-export type LogPrefix = typeof LOG_PREFIX[keyof typeof LOG_PREFIX];
-
 /**
  * Lifecycle & Shutdown Handler Constants
  *
@@ -254,10 +238,6 @@ export const SHUTDOWN_HANDLERS = {
     /** MissionLoopHandler - Session-state store prune timer */
     MISSION_LOOP_HANDLER: "MissionLoopHandler",
 } as const;
-
-/** Type for shutdown handler names */
-export type ShutdownHandlerName = typeof SHUTDOWN_HANDLERS[keyof typeof SHUTDOWN_HANDLERS];
-
 
 export const MEMORY_CONSTANTS = {
     ID_PREFIX: "mem_",

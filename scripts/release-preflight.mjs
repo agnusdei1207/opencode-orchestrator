@@ -51,15 +51,25 @@ function commandIsAvailable(command, commandArgs) {
   return !result.error && result.status === 0;
 }
 
-function runRustTests() {
-  const cargoArgs = ["test", "--workspace", "--all-targets"];
+function runRustQualityChecks() {
+  const cargoCommands = [
+    ["fmt", "--all", "--", "--check"],
+    ["clippy", "--workspace", "--all-targets", "--", "-D", "warnings"],
+    ["test", "--workspace", "--all-targets"],
+  ];
   if (commandIsAvailable("cargo", ["--version"])) {
-    run("cargo", cargoArgs);
+    for (const cargoArgs of cargoCommands) {
+      run("cargo", cargoArgs);
+    }
     return;
   }
 
-  console.log("[release-preflight] cargo unavailable; using Docker");
-  run("docker", ["compose", "run", "--rm", "--no-deps", "test", "cargo", ...cargoArgs]);
+  console.log("[release-preflight] cargo unavailable; using Docker for Rust quality checks");
+  const command = [
+    "rustup component add rustfmt clippy",
+    ...cargoCommands.map(cargoArgs => ["cargo", ...cargoArgs].join(" ")),
+  ].join(" && ");
+  run("docker", ["compose", "run", "--rm", "--no-deps", "test", "sh", "-c", command]);
 }
 
 function assertCleanWorktree() {
@@ -111,16 +121,19 @@ assertVersionIsUnpublished();
 console.log("[release-preflight] running build");
 runNpm(["run", "build"]);
 
-console.log("[release-preflight] running tests");
-runNpm(["test"]);
+console.log("[release-preflight] running tests with coverage thresholds");
+runNpm(["run", "test:coverage"]);
 
-console.log("[release-preflight] running Rust tests");
-runRustTests();
+console.log("[release-preflight] running Rust quality checks");
+runRustQualityChecks();
 
 console.log("[release-preflight] running npm audit");
 runNpm(["audit", "--json"]);
 
-console.log("[release-preflight] checking package contents");
-runNpm(["pack", "--dry-run"]);
+console.log("[release-preflight] validating installed dependency tree");
+runNpm(["ls", "--depth=0"]);
+
+console.log("[release-preflight] smoke-testing the packed package");
+run(process.execPath, ["scripts/package-smoke.mjs", "--skip-cli"]);
 
 console.log("[release-preflight] passed");

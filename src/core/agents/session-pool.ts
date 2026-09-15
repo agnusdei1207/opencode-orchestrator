@@ -20,7 +20,7 @@
 import type { PluginInput } from "@opencode-ai/plugin";
 import { PARALLEL_TASK } from "../../shared/index.js";
 import { log } from "./logger.js";
-import { withTimeout } from "../queue/async-utils.js";
+import { withTimeout } from "../async/with-timeout.js";
 import { getLastActivityAt, isSessionBusy } from "../session/activity.js";
 
 interface PooledSession {
@@ -617,8 +617,3 @@ export class SessionPool {
         this.healthCheckInterval.unref?.();
     }
 }
-
-// Singleton accessor
-export const sessionPool = {
-    getInstance: SessionPool.getInstance.bind(SessionPool),
-};

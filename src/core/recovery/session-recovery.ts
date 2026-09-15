@@ -17,7 +17,6 @@ import { presets } from "../notification/toast.js";
 import { syntheticTextPart } from "../session/injection.js";
 import { isSessionBusy } from "../session/activity.js";
 import { queueNotice } from "../session/pending-injection.js";
-import { handleError, type ErrorContext } from "./handler.js";
 
 type OpencodeClient = PluginInput["client"];
 type RecoveryErrorType = NonNullable<ReturnType<typeof detectErrorType>>;
@@ -36,7 +35,6 @@ interface PromptRecovery {
 interface RecoveryExecution {
     client: OpencodeClient;
     sessionID: string;
-    error: unknown;
     errorType: RecoveryErrorType;
     state: RecoveryState;
 }
@@ -99,22 +97,11 @@ function promptRecoveryFor(errorType: RecoveryErrorType): PromptRecovery | null 
     }
 }
 
-async function recoverRateLimit(
-    sessionID: string,
-    error: unknown,
-    state: RecoveryState,
-): Promise<boolean> {
-    const context: ErrorContext = {
-        sessionId: sessionID,
-        error: error instanceof Error ? error : new Error(String(error)),
-        attempt: state.errorCount,
-        timestamp: new Date(),
-    };
-    const action = handleError(context);
-    if (action.type === "retry" && action.delay) {
-        log("[session-recovery] Rate limit, waiting", { delay: action.delay });
-        await new Promise(resolve => setTimeout(resolve, action.delay));
-    }
+async function recoverRateLimit(state: RecoveryState): Promise<boolean> {
+    presets.warningRateLimited();
+    const delay = RECOVERY.BASE_DELAY_MS * Math.pow(2, state.errorCount);
+    log("[session-recovery] Rate limit, waiting", { delay });
+    await new Promise(resolve => setTimeout(resolve, delay));
     return true;
 }
 
@@ -157,10 +144,10 @@ async function recoverWithPrompt(
 }
 
 async function executeRecovery(execution: RecoveryExecution): Promise<boolean> {
-    const { client, sessionID, error, errorType, state } = execution;
+    const { client, sessionID, errorType, state } = execution;
     const promptRecovery = promptRecoveryFor(errorType);
     if (promptRecovery) return recoverWithPrompt(client, sessionID, errorType, promptRecovery);
-    if (errorType === ERROR_TYPE.RATE_LIMIT) return recoverRateLimit(sessionID, error, state);
+    if (errorType === ERROR_TYPE.RATE_LIMIT) return recoverRateLimit(state);
     if (errorType === ERROR_TYPE.MESSAGE_ABORTED) {
         log("[session-recovery] Message aborted by user, not recovering", { sessionID });
     }
@@ -209,7 +196,7 @@ export async function handleSessionError(
     if (!prepared) return false;
     prepared.state.isRecovering = true;
     try {
-        return await executeRecovery({ client, sessionID, error, ...prepared });
+        return await executeRecovery({ client, sessionID, ...prepared });
     } catch (injectionError) {
         log("[session-recovery] Failed to inject recovery prompt", { sessionID, error: injectionError });
         return false;

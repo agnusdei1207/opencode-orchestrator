@@ -10,7 +10,7 @@ $dockerArgs = @(
     '--volume', 'oco-cargo-registry:/usr/local/cargo/registry',
     '--volume', 'oco-cargo-target:/workspace/target',
     '--workdir', '/workspace', '--env', 'CARGO_BUILD_JOBS=2',
-    'rust:1.92-bookworm'
+    'rust:1.98.1-bookworm'
 )
 if ($args[0] -in @('fmt', 'clippy')) {
     $component = if ($args[0] -eq 'fmt') { 'rustfmt' } else { 'clippy' }

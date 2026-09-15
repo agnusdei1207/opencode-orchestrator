@@ -29,46 +29,6 @@ describe("Barrel Modules Integrity", () => {
         expect(typeof mod.estimateRemaining).toBe("function");
     });
 
-    it("verifies src/core/recovery/auto-recovery.ts re-exports", async () => {
-        const mod = await import("../../src/core/recovery/auto-recovery.js");
-        expect(typeof mod.handleError).toBe("function");
-        expect(typeof mod.withRecovery).toBe("function");
-        expect(typeof mod.getStats).toBe("function");
-        expect(typeof mod.getHistory).toBe("function");
-        expect(typeof mod.clearSession).toBe("function");
-        expect(typeof mod.errorPatterns).toBe("object");
-    });
-
-    it("verifies src/core/session/shared-context.ts re-exports", async () => {
-        const mod = await import("../../src/core/session/shared-context.js");
-        expect(typeof mod.create).toBe("function");
-        expect(typeof mod.get).toBe("function");
-        expect(typeof mod.getMerged).toBe("function");
-        expect(typeof mod.addDocument).toBe("function");
-        expect(typeof mod.addFinding).toBe("function");
-        expect(typeof mod.addDecision).toBe("function");
-        expect(typeof mod.getChildren).toBe("function");
-        expect(typeof mod.clear).toBe("function");
-        expect(typeof mod.clearAll).toBe("function");
-        expect(typeof mod.getStats).toBe("function");
-        expect(typeof mod.getSummary).toBe("function");
-    });
-
-    it("verifies src/core/task/task-decomposer.ts re-exports", async () => {
-        const mod = await import("../../src/core/task/task-decomposer.js");
-        expect(typeof mod.create).toBe("function");
-        expect(typeof mod.getHierarchy).toBe("function");
-        expect(typeof mod.addTask).toBe("function");
-        expect(typeof mod.updateStatus).toBe("function");
-        expect(typeof mod.clear).toBe("function");
-        expect(typeof mod.isComplete).toBe("function");
-        expect(typeof mod.getProgress).toBe("function");
-        expect(typeof mod.getNextTasks).toBe("function");
-        expect(typeof mod.getParallelBatch).toBe("function");
-        expect(typeof mod.parseFromText).toBe("function");
-        expect(typeof mod.getSummary).toBe("function");
-    });
-
     it("verifies other index re-export modules", async () => {
         const commands = await import("../../src/core/commands/index.js");
         expect(typeof commands.backgroundTaskManager).toBe("object");
@@ -79,14 +39,8 @@ describe("Barrel Modules Integrity", () => {
         const orchestrator = await import("../../src/core/orchestrator/index.js");
         expect(typeof orchestrator.state).toBe("object");
 
-        const queue = await import("../../src/core/queue/index.js");
-        expect(typeof queue.AsyncQueue).toBe("function");
-
         const agents = await import("../../src/core/agents/index.js");
         expect(typeof agents.ParallelAgentManager).toBe("function");
-
-        const agentMgr = await import("../../src/core/agents/manager/index.js");
-        expect(typeof agentMgr.TaskLauncher).toBe("function");
 
         const pluginHandlers = await import("../../src/plugin-handlers/index.js");
         expect(typeof pluginHandlers.createChatMessageHandler).toBe("function");
@@ -163,7 +117,7 @@ describe("Barrel Modules Integrity", () => {
         expect(sharedRecovery.RECOVERY).toBeDefined();
 
         const sharedSession = await import("../../src/shared/session/index.js");
-        expect(sharedSession.TASK_EVENTS).toBeDefined();
+        expect(sharedSession.SESSION_EVENTS).toBeDefined();
 
         const sharedTask = await import("../../src/shared/task/index.js");
         expect(sharedTask.BACKGROUND_STATUS).toBeDefined();
@@ -176,9 +130,6 @@ describe("Barrel Modules Integrity", () => {
 
         const sharedToolNames = await import("../../src/shared/tool/tool-names.js");
         expect(sharedToolNames.TOOL_NAMES).toBeDefined();
-
-        const sharedToolTypes = await import("../../src/shared/tool/types.js");
-        expect(sharedToolTypes).toBeDefined();
 
         const sharedVerif = await import("../../src/shared/verification/index.js");
         expect(sharedVerif.VERIFICATION_SIGNALS).toBeDefined();

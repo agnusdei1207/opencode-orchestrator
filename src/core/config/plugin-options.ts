@@ -8,7 +8,7 @@ import { parseContextMaxTokens, parseMissionLoopOptions } from "./options-schema
 
 type UnknownRecord = Record<string, unknown>;
 
-export type MissionLoopPluginOptions = MissionRuntimeOptions;
+type MissionLoopPluginOptions = MissionRuntimeOptions;
 
 export interface OrchestratorPluginOptions {
     concurrency: ConcurrencyConfig;

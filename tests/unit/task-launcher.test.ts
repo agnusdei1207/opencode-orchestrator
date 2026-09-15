@@ -26,6 +26,24 @@ if (!global.crypto) {
     };
 }
 
+function createTaskLauncher(
+    client: any,
+    store: TaskStore,
+    concurrency: ConcurrencyController,
+    sessionPool: any,
+    onTaskError: any,
+    startPolling: any,
+): TaskLauncher {
+    return new TaskLauncher({
+        client,
+        store,
+        concurrency,
+        sessionPool,
+        onTaskError,
+        startPolling,
+    });
+}
+
 describe("TaskLauncher", () => {
     let mockClient: any;
     let store: TaskStore;
@@ -63,7 +81,7 @@ describe("TaskLauncher", () => {
             release: vi.fn().mockResolvedValue(undefined),
         };
 
-        launcher = new TaskLauncher(
+        launcher = createTaskLauncher(
             mockClient,
             store,
             concurrency,
@@ -233,7 +251,7 @@ describe("TaskLauncher", () => {
     it("should respect concurrency limits in background", async () => {
         // Limit is 1
         concurrency = new ConcurrencyController({ defaultConcurrency: 1 });
-        launcher = new TaskLauncher(mockClient, store, concurrency, sessionPool, onTaskError, startPolling);
+        launcher = createTaskLauncher(mockClient, store, concurrency, sessionPool, onTaskError, startPolling);
 
         const inputs = [
             { description: "T1", prompt: "P1", agent: "a", parentSessionID: "p" },
@@ -258,7 +276,7 @@ describe("TaskLauncher", () => {
             await new Promise(resolve => setTimeout(resolve, 5));
             events.push("handled");
         });
-        launcher = new TaskLauncher(mockClient, store, concurrency, sessionPool, onTaskError, startPolling);
+        launcher = createTaskLauncher(mockClient, store, concurrency, sessionPool, onTaskError, startPolling);
 
         await launcher.launch({
             description: "Failing task",
@@ -275,7 +293,7 @@ describe("TaskLauncher", () => {
     it("does not replay a prompt after an ambiguous transport failure", async () => {
         vi.useFakeTimers();
         mockClient.session.prompt.mockRejectedValue(new Error("ECONNREFUSED"));
-        launcher = new TaskLauncher(mockClient, store, concurrency, sessionPool, onTaskError, startPolling);
+        launcher = createTaskLauncher(mockClient, store, concurrency, sessionPool, onTaskError, startPolling);
 
         await launcher.launch({
             description: "Retrying task",
@@ -304,7 +322,7 @@ describe("TaskLauncher", () => {
             promptSignal = signal;
             return new Promise(() => { });
         });
-        launcher = new TaskLauncher(mockClient, store, concurrency, sessionPool, onTaskError, startPolling);
+        launcher = createTaskLauncher(mockClient, store, concurrency, sessionPool, onTaskError, startPolling);
 
         await launcher.launch({
             description: "Timeout task",

@@ -13,16 +13,22 @@ type BinaryPathOptions = {
     exists?: (path: string) => boolean;
 };
 
+const PLATFORM_BINARY_NAMES = new Map<string, string>([
+    ["linux-x64", "orchestrator-linux-x64"],
+    ["linux-arm64", "orchestrator-linux-arm64"],
+    ["darwin-x64", "orchestrator-macos-x64"],
+    ["darwin-arm64", "orchestrator-macos-arm64"],
+    ["win32-x64", "orchestrator-windows-x64.exe"],
+]);
+
 export function getPlatformBinaryName(os: string = platform(), cpu: string = arch()): string {
-    if (os === PLATFORM.WIN32) {
-        return "orchestrator-windows-x64.exe";
+    const target = `${os}-${cpu}`;
+    const binaryName = PLATFORM_BINARY_NAMES.get(target);
+    if (!binaryName) {
+        throw new Error(`Unsupported platform: ${target}`);
     }
 
-    if (os === PLATFORM.DARWIN) {
-        return cpu === "arm64" ? "orchestrator-macos-arm64" : "orchestrator-macos-x64";
-    }
-
-    return cpu === "arm64" ? "orchestrator-linux-arm64" : "orchestrator-linux-x64";
+    return binaryName;
 }
 
 export function getCandidateBinDirs(moduleDir: string = __dirname): string[] {

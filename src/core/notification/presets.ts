@@ -11,13 +11,6 @@ export const taskStarted = (taskId: string, agent: string) => show({
     duration: 3000,
 });
 
-export const taskCompleted = (taskId: string, agent: string) => show({
-    title: "Task Completed",
-    message: `${agent}: ${taskId}`,
-    variant: TOAST_VARIANTS.SUCCESS,
-    duration: 3000,
-});
-
 export const taskFailed = (taskId: string, error: string) => show({
     title: "Task Failed",
     message: `${taskId}: ${error}`,

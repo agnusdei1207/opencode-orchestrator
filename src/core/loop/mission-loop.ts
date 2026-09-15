@@ -60,38 +60,50 @@ function isOptionalNonNegativeInteger(value: unknown): value is number | undefin
     return value === undefined || isNonNegativeInteger(value);
 }
 
+const STATE_FIELD_VALIDATORS = [
+    ["active", (value: unknown) => typeof value === "boolean"],
+    ["iteration", isNonNegativeInteger],
+    ["maxIterations", isPositiveInteger],
+    ["prompt", (value: unknown) => typeof value === "string"],
+    ["objective", isOptionalString],
+    ["sessionID", (value: unknown) => typeof value === "string"],
+    ["startedAt", (value: unknown) => typeof value === "string"],
+    ["lastActivity", isOptionalString],
+    ["lastProgress", isOptionalString],
+    ["stagnationCount", isOptionalNonNegativeInteger],
+    ["lastVerificationSummary", isOptionalString],
+    ["lastContinuationReason", isOptionalString],
+    ["lastContinuationAt", isOptionalString],
+] as const;
+
+const OPTIONAL_STATE_FIELDS = [
+    "objective",
+    "lastActivity",
+    "lastProgress",
+    "stagnationCount",
+    "lastVerificationSummary",
+    "lastContinuationReason",
+    "lastContinuationAt",
+] as const;
+
 function parseLoopState(value: unknown): MissionLoopState | null {
     if (!isRecord(value)) return null;
-    if (typeof value.active !== "boolean") return null;
-    if (!isNonNegativeInteger(value.iteration)) return null;
-    if (!isPositiveInteger(value.maxIterations)) return null;
-    if (typeof value.prompt !== "string") return null;
-    if (!isOptionalString(value.objective)) return null;
-    if (typeof value.sessionID !== "string") return null;
-    if (typeof value.startedAt !== "string") return null;
-    if (!isOptionalString(value.lastActivity)) return null;
-    if (!isOptionalString(value.lastProgress)) return null;
-    if (!isOptionalNonNegativeInteger(value.stagnationCount)) return null;
-    if (!isOptionalString(value.lastVerificationSummary)) return null;
-    if (!isOptionalString(value.lastContinuationReason)) return null;
-    if (!isOptionalString(value.lastContinuationAt)) return null;
+    if (!STATE_FIELD_VALIDATORS.every(([field, validate]) => validate(value[field]))) return null;
 
-    const state: MissionLoopState = {
-        active: value.active,
-        iteration: value.iteration,
-        maxIterations: value.maxIterations,
-        prompt: value.prompt,
-        sessionID: value.sessionID,
-        startedAt: value.startedAt,
+    const optional = Object.fromEntries(
+        OPTIONAL_STATE_FIELDS
+            .filter(field => value[field] !== undefined)
+            .map(field => [field, value[field]]),
+    ) as Partial<MissionLoopState>;
+    return {
+        active: value.active as boolean,
+        iteration: value.iteration as number,
+        maxIterations: value.maxIterations as number,
+        prompt: value.prompt as string,
+        sessionID: value.sessionID as string,
+        startedAt: value.startedAt as string,
+        ...optional,
     };
-    if (value.objective !== undefined) state.objective = value.objective;
-    if (value.lastActivity !== undefined) state.lastActivity = value.lastActivity;
-    if (value.lastProgress !== undefined) state.lastProgress = value.lastProgress;
-    if (value.stagnationCount !== undefined) state.stagnationCount = value.stagnationCount;
-    if (value.lastVerificationSummary !== undefined) state.lastVerificationSummary = value.lastVerificationSummary;
-    if (value.lastContinuationReason !== undefined) state.lastContinuationReason = value.lastContinuationReason;
-    if (value.lastContinuationAt !== undefined) state.lastContinuationAt = value.lastContinuationAt;
-    return state;
 }
 
 // ============================================================================

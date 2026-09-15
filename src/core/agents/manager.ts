@@ -19,7 +19,6 @@ import {
 import { ConcurrencyController } from "./concurrency.js";
 import { TaskStore } from "./task-store.js";
 import { log } from "./logger.js";
-import { formatDuration } from "./format.js";
 
 // Import components
 import { TaskLauncher, type LaunchResult } from "./manager/task-launcher.js";
@@ -28,7 +27,6 @@ import { TaskPoller } from "./manager/task-poller.js";
 import { TaskCleaner } from "./manager/task-cleaner.js";
 import { EventHandler } from "./manager/event-handler.js";
 import { SessionPool } from "./session-pool.js";
-import { progressNotifier } from "../progress/progress-notifier.js";
 import { MemoryLevel, MemoryManager } from "../memory/memory-manager.js";
 import { CORE_PHILOSOPHY } from "../../agents/prompts/shared/philosophy.js";
 import { AgentRegistry } from "./agent-registry.js";
@@ -39,11 +37,10 @@ import { fetchTaskResultText } from "./manager/task-result.js";
 
 // Re-export
 export type { ParallelTask };
-export { formatDuration };
 
 type OpencodeClient = PluginInput["client"];
 export class ParallelAgentManager {
-    private static _instance: ParallelAgentManager;
+    private static _instance: ParallelAgentManager | undefined;
 
     private store: TaskStore;
     private client: OpencodeClient;
@@ -61,46 +58,11 @@ export class ParallelAgentManager {
         this.client = client;
         this.store = new TaskStore(directory);
         this.concurrency = new ConcurrencyController(concurrencyConfig);
-
-        // Initialize Memory System
-        const memory = MemoryManager.getInstance();
-        memory.add(MemoryLevel.SYSTEM, CORE_PHILOSOPHY, 1.0);
-        memory.add(MemoryLevel.PROJECT, `Working directory: ${directory}`, 0.9);
-
-        // Initialize Agent Registry
-        AgentRegistry.getInstance().setDirectory(directory);
-
-        // Initialize Todo Manager
-        TodoManager.getInstance().setDirectory(directory);
-
-        // Initialize SessionPool
+        this.initializeProjectServices(directory);
         this.sessionPool = SessionPool.getInstance(client, directory);
-
-
-        // Initialize cleaner first (needed by others)
         this.cleaner = new TaskCleaner(client, this.store, this.concurrency, this.sessionPool);
-
-        // Initialize poller
-        this.poller = new TaskPoller(
-            client,
-            this.store,
-            this.concurrency,
-            (parentSessionID) => this.cleaner.notifyParentIfAllComplete(parentSessionID),
-            (taskId) => this.cleaner.scheduleCleanup(taskId),
-            () => this.cleaner.pruneExpiredTasks()
-        );
-
-        // Initialize launcher
-        this.launcher = new TaskLauncher(
-            client,
-            this.store,
-            this.concurrency,
-            this.sessionPool,
-            (taskId, error) => this.handleTaskError(taskId, error),
-            () => this.poller.start()
-        );
-
-        // Initialize resumer
+        this.poller = this.createPoller();
+        this.launcher = this.createLauncher();
         this.resumer = new TaskResumer(
             client,
             this.store,
@@ -110,23 +72,49 @@ export class ParallelAgentManager {
                 this.launcher.startTask(task, prompt);
             },
         );
+        this.eventHandler = this.createEventHandler();
+    }
 
-        // Initialize event handler
-        this.eventHandler = new EventHandler(
-            client,
-            this.store,
-            this.concurrency,
-            (sessionID) => this.findBySession(sessionID),
-            (parentSessionID) => this.cleaner.notifyParentIfAllComplete(parentSessionID),
-            (taskId) => this.cleaner.scheduleCleanup(taskId),
-            (sessionID) => this.poller.validateSessionHasOutput(sessionID),
-            (sessionID) => this.sessionPool.forget(sessionID)
-        );
+    private initializeProjectServices(directory: string): void {
+        const memory = MemoryManager.getInstance();
+        memory.add(MemoryLevel.SYSTEM, CORE_PHILOSOPHY, 1.0);
+        memory.add(MemoryLevel.PROJECT, `Working directory: ${directory}`, 0.9);
+        AgentRegistry.getInstance().setDirectory(directory);
+        TodoManager.getInstance().setDirectory(directory);
+    }
 
-        // Initialize ProgressNotifier
-        // Task progress reaches the TUI through TaskToastManager; the old
-        // TerminalMonitor that used to be started here is gone.
-        progressNotifier.setManager(this);
+    private createPoller(): TaskPoller {
+        return new TaskPoller({
+            client: this.client,
+            store: this.store,
+            concurrency: this.concurrency,
+            notifyParentIfAllComplete: parentSessionID => this.cleaner.notifyParentIfAllComplete(parentSessionID),
+            scheduleCleanup: taskId => this.cleaner.scheduleCleanup(taskId),
+            pruneExpiredTasks: () => this.cleaner.pruneExpiredTasks(),
+        });
+    }
+
+    private createLauncher(): TaskLauncher {
+        return new TaskLauncher({
+            client: this.client,
+            store: this.store,
+            concurrency: this.concurrency,
+            sessionPool: this.sessionPool,
+            onTaskError: (taskId, error) => this.handleTaskError(taskId, error),
+            startPolling: () => this.poller.start(),
+        });
+    }
+
+    private createEventHandler(): EventHandler {
+        return new EventHandler({
+            store: this.store,
+            concurrency: this.concurrency,
+            findBySession: sessionID => this.findBySession(sessionID),
+            notifyParentIfAllComplete: parentSessionID => this.cleaner.notifyParentIfAllComplete(parentSessionID),
+            scheduleCleanup: taskId => this.cleaner.scheduleCleanup(taskId),
+            validateSessionHasOutput: sessionID => this.poller.validateSessionHasOutput(sessionID),
+            forgetSession: sessionID => this.sessionPool.forget(sessionID),
+        });
     }
 
     static getInstance(
@@ -144,7 +132,6 @@ export class ParallelAgentManager {
     }
 
     static _resetForTesting(): void {
-        // @ts-expect-error test reset
         ParallelAgentManager._instance = undefined;
     }
 
@@ -154,9 +141,7 @@ export class ParallelAgentManager {
 
     async launch(inputs: LaunchInput | LaunchInput[]): Promise<LaunchResult> {
         this.cleaner.pruneExpiredTasks();
-        const result = await this.launcher.launch(inputs);
-        progressNotifier.update();
-        return result;
+        return this.launcher.launch(inputs);
     }
 
     async resume(input: ResumeInput): Promise<ParallelTask> {
@@ -216,10 +201,6 @@ export class ParallelAgentManager {
         this.cleaner.scheduleCleanup(taskId);
         this.store.queueNotification(task);
         await this.cleaner.notifyParentIfAllComplete(task.parentSessionID);
-
-
-
-        progressNotifier.update();
         log(`Cancelled ${taskId}`);
         return true;
     }
@@ -260,11 +241,6 @@ export class ParallelAgentManager {
         this.cleaner.shutdown();
         this.store.clear();
         MemoryManager.getInstance().clearTaskMemory();
-        void import("../session/store.js")
-            .then(store => store.clearAll())
-            .catch((error) => {
-                log("[ParallelAgentManager] Failed to clear session store", error);
-            });
     }
 
     /**
@@ -314,25 +290,9 @@ export class ParallelAgentManager {
         this.store.queueNotification(task);
         await this.cleaner.notifyParentIfAllComplete(task.parentSessionID);
         this.cleaner.scheduleCleanup(taskId);
-
-        progressNotifier.update();
-
-
     }
-
 }
 
 export function isCancellableTaskStatus(status: string): boolean {
     return status === TASK_STATUS.RUNNING || status === TASK_STATUS.PENDING;
 }
-
-export const parallelAgentManager = {
-    getInstance: ParallelAgentManager.getInstance.bind(ParallelAgentManager),
-    cleanup: () => {
-        try {
-            ParallelAgentManager.getInstance().cleanup();
-        } catch (error) {
-            log("[ParallelAgentManager] cleanup skipped or failed", error);
-        }
-    },
-};

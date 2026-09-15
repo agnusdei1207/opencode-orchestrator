@@ -52,3 +52,10 @@ surface of an authorized-lab tool.
   since `main` tracks only the Linux pair. Residual pipeline gap: `release.yml`
   copies the five platform names into `bin/` without pruning other entries, so
   any future tag tree with extra `bin/` files would ship them again.
+
+## 2026-09-15 amendment
+
+[ADR-0023](0023-remove-unreachable-runtime-plumbing.md) supersedes the tracked
+Linux-pair arrangement. `bin/` is now ignored, the hosted matrix rebuilds all
+five binaries from the exact tag, and exact-set validation rejects missing or
+extra artifacts before npm publishing.

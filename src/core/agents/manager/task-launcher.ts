@@ -28,17 +28,32 @@ type PrepareTaskResult =
   | { task: ParallelTask }
   | { input: LaunchInput; error: unknown };
 
+interface TaskLauncherOptions {
+  client: OpencodeClient;
+  store: TaskStore;
+  concurrency: ConcurrencyController;
+  sessionPool: SessionPool;
+  onTaskError: (taskId: string, error: unknown) => void | Promise<void>;
+  startPolling: () => void;
+}
+
 export class TaskLauncher {
   private readonly shutdownController = new AbortController();
+  private readonly client: OpencodeClient;
+  private readonly store: TaskStore;
+  private readonly concurrency: ConcurrencyController;
+  private readonly sessionPool: SessionPool;
+  private readonly onTaskError: TaskLauncherOptions["onTaskError"];
+  private readonly startPolling: () => void;
 
-  constructor(
-    private client: OpencodeClient,
-    private store: TaskStore,
-    private concurrency: ConcurrencyController,
-    private sessionPool: SessionPool,
-    private onTaskError: (taskId: string, error: unknown) => void | Promise<void>,
-    private startPolling: () => void,
-  ) { }
+  constructor(options: TaskLauncherOptions) {
+    this.client = options.client;
+    this.store = options.store;
+    this.concurrency = options.concurrency;
+    this.sessionPool = options.sessionPool;
+    this.onTaskError = options.onTaskError;
+    this.startPolling = options.startPolling;
+  }
 
   /**
    * Unified launch method - handles both single and multiple tasks efficiently.

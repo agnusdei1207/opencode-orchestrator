@@ -4,15 +4,6 @@
  * Tracks progress of sessions, tasks, and todos
  */
 
-// Re-export store-owned contracts
-export type {
-    TodoProgress,
-    TaskProgress,
-    StepProgress,
-    ProgressSnapshot,
-    SnapshotInput,
-} from "./store.js";
-
 // Re-export store operations
 export {
     startSession,

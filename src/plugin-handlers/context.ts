@@ -26,7 +26,7 @@ export interface PluginSessionState {
     };
 }
 
-export interface OrchestratorStateContext {
+interface OrchestratorStateContext {
     missionActive: boolean;
     sessions: Map<string, OrchestratorSessionState>;
 }

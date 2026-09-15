@@ -1,13 +1,6 @@
 //! OpenCode Orchestrator CLI
 //!
-//! CLI binary for OpenCode Orchestrator plugin.
-//!
-//! ## Philosophy
-//!
-//! This binary is pre-built and included in the package to enable immediate use of the
-//! high-performance engine without requiring a separate Rust environment. While this
-//! increases the package footprint, it aligns with our core philosophy: providing
-//! maximum performance and out-of-the-box convenience for every user.
+//! Bundled Rust utility server and operator CLI for the OpenCode Orchestrator plugin.
 //!
 //! ## Usage
 //!
@@ -25,17 +18,16 @@
 //! orchestrator serve
 //! ```
 
-use anyhow::{Context, Result};
+use anyhow::Result;
 use orchestrator_core::constants::{agent, field, rpc, tool};
 use orchestrator_core::hooks::Hook;
 use serde_json::{Value, json};
 use std::env;
-use std::fs;
 use std::io::{self, BufRead, Write};
-use std::path::PathBuf;
 use tracing::{debug, error, info};
 use tracing_subscriber::EnvFilter;
 
+mod config;
 mod shell_listener;
 mod tools;
 
@@ -48,8 +40,8 @@ async fn main() -> Result<()> {
         Some("hooks") => list_hooks(),
         Some("agents") => list_agents(),
         Some("shell-listener") => shell_listener::run(&args[2..]),
-        Some("install") => install().await,
-        Some("uninstall") => uninstall().await,
+        Some("install") => config::install(),
+        Some("uninstall") => config::uninstall(),
         Some("--version") | Some("-V") => {
             println!("{}", env!("CARGO_PKG_VERSION"));
             Ok(())
@@ -72,8 +64,8 @@ fn print_help() {
     eprintln!("Usage: orchestrator <command>");
     eprintln!();
     eprintln!("Commands:");
-    eprintln!("  hooks      List available hooks");
-    eprintln!("  agents     List available agents");
+    eprintln!("  hooks      List Rust hook metadata");
+    eprintln!("  agents     List bundled agent presets");
     eprintln!("  shell-listener  Run authorized lab TCP session TUI");
     eprintln!("  serve      Run tool server (called by OpenCode)");
     eprintln!("  install    Register plugin with OpenCode");
@@ -93,7 +85,7 @@ fn list_hooks() -> Result<()> {
     println!();
 
     println!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-    println!("To disable in config: disabled_hooks: [\"auto\"]");
+    println!("Mission-loop settings are managed by the OpenCode plugin configuration.");
 
     Ok(())
 }
@@ -123,86 +115,7 @@ fn list_agents() -> Result<()> {
     );
     println!();
     println!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-    println!("To change model in config: agents.Worker.model = \"custom/model\"");
-
-    Ok(())
-}
-
-/// Install: Add plugin config to opencode.json
-async fn install() -> Result<()> {
-    println!("🦀 OpenCode Orchestrator");
-    println!();
-
-    let config_path = get_opencode_config_path()?;
-    println!("📁 Config: {}", config_path.display());
-
-    let mut config: Value = if config_path.exists() {
-        let content = fs::read_to_string(&config_path)?;
-        serde_json::from_str(&content).unwrap_or_else(|_| json!({}))
-    } else {
-        if let Some(parent) = config_path.parent() {
-            fs::create_dir_all(parent)?;
-        }
-        json!({})
-    };
-
-    // Add plugin
-    let plugins = config
-        .as_object_mut()
-        .context("Config is not an object")?
-        .entry("plugin")
-        .or_insert_with(|| json!([]));
-
-    if let Some(arr) = plugins.as_array_mut() {
-        let plugin_name = "opencode-orchestrator";
-        if !arr.iter().any(|v| v.as_str() == Some(plugin_name)) {
-            arr.push(json!(plugin_name));
-        }
-    }
-
-    let config_str = serde_json::to_string_pretty(&config)?;
-    fs::write(&config_path, config_str)?;
-
-    println!("✅ Installed!");
-    println!();
-    println!("Restart OpenCode to use.");
-    println!();
-    println!("Available commands:");
-    println!("  orchestrator hooks   - List hooks");
-    println!("  orchestrator agents  - List agents");
-    println!("  orchestrator shell-listener --help");
-
-    Ok(())
-}
-
-/// Uninstall: Remove plugin config
-async fn uninstall() -> Result<()> {
-    println!("🗑️  Uninstalling");
-
-    let config_path = get_opencode_config_path()?;
-
-    if !config_path.exists() {
-        println!("Config not found.");
-        return Ok(());
-    }
-
-    let content = fs::read_to_string(&config_path)?;
-    let mut config: Value = serde_json::from_str(&content)?;
-
-    // Remove plugin
-    if let Some(plugins) = config.get_mut("plugin").and_then(|p| p.as_array_mut()) {
-        plugins.retain(|v| v.as_str() != Some("opencode-orchestrator"));
-    }
-
-    // Remove MCP entry if exists
-    if let Some(mcp) = config.get_mut("mcp").and_then(|m| m.as_object_mut()) {
-        mcp.remove("orchestrator");
-    }
-
-    let config_str = serde_json::to_string_pretty(&config)?;
-    fs::write(&config_path, config_str)?;
-
-    println!("✅ Uninstalled!");
+    println!("Configure models in OpenCode under agent.<name>.model.");
 
     Ok(())
 }
@@ -496,30 +409,6 @@ async fn handle_request(request: &Value) -> Option<Value> {
     }))
 }
 
-fn get_opencode_config_path() -> Result<PathBuf> {
-    if let Ok(xdg) = env::var("XDG_CONFIG_HOME") {
-        return Ok(PathBuf::from(xdg).join("opencode").join("opencode.json"));
-    }
-
-    // 2. Try APPDATA (Windows legacy/native)
-    if let Ok(appdata) = env::var("APPDATA") {
-        return Ok(PathBuf::from(appdata)
-            .join("opencode")
-            .join("opencode.json"));
-    }
-
-    // 3. Try HOME or USERPROFILE (Windows) -> .config/opencode
-    if let Ok(home) = env::var("HOME").or_else(|_| env::var("USERPROFILE")) {
-        return Ok(PathBuf::from(home)
-            .join(".config")
-            .join("opencode")
-            .join("opencode.json"));
-    }
-
-    Err(anyhow::anyhow!(
-        "Could not determine config path (checked XDG_CONFIG_HOME, HOME, USERPROFILE, APPDATA)"
-    ))
-}
 #[cfg(test)]
 mod tests {
     use super::*;

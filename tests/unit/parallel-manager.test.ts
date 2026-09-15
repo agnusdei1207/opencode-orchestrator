@@ -52,6 +52,45 @@ function createMockTask(overrides: Partial<ParallelTask> = {}): ParallelTask {
     };
 }
 
+function createTaskPoller(
+    client: any,
+    store: TaskStore,
+    concurrency: ConcurrencyController,
+    notifyParentIfAllComplete: any,
+    scheduleCleanup: any,
+    pruneExpiredTasks: any,
+): TaskPoller {
+    return new TaskPoller({
+        client,
+        store,
+        concurrency,
+        notifyParentIfAllComplete,
+        scheduleCleanup,
+        pruneExpiredTasks,
+    });
+}
+
+function createManagerEventHandler(
+    _client: any,
+    store: TaskStore,
+    concurrency: ConcurrencyController,
+    findBySession: any,
+    notifyParentIfAllComplete: any,
+    scheduleCleanup: any,
+    validateSessionHasOutput: any,
+    forgetSession?: any,
+): EventHandler {
+    return new EventHandler({
+        store,
+        concurrency,
+        findBySession,
+        notifyParentIfAllComplete,
+        scheduleCleanup,
+        validateSessionHasOutput,
+        forgetSession,
+    });
+}
+
 describe("ParallelAgentManager Features", () => {
     let store: TaskStore;
     let concurrency: ConcurrencyController;
@@ -73,7 +112,7 @@ describe("ParallelAgentManager Features", () => {
     describe("session output validation", () => {
         it("does not treat message fetch failures as confirmed assistant output", async () => {
             const task = createMockTask();
-            const poller = new TaskPoller(
+            const poller = createTaskPoller(
                 { session: { messages: vi.fn().mockRejectedValue(new Error("messages unavailable")) } } as never,
                 store,
                 concurrency,
@@ -90,7 +129,7 @@ describe("ParallelAgentManager Features", () => {
 
         it("treats assistant tool_use parts as valid output", async () => {
             const task = createMockTask();
-            const poller = new TaskPoller(
+            const poller = createTaskPoller(
                 {
                     session: {
                         messages: vi.fn().mockResolvedValue({
@@ -127,7 +166,7 @@ describe("ParallelAgentManager Features", () => {
                 },
             });
             const messages = vi.fn().mockResolvedValue({ data: [] });
-            const poller = new TaskPoller(
+            const poller = createTaskPoller(
                 { session: { status, messages } } as never,
                 store,
                 concurrency,
@@ -152,7 +191,7 @@ describe("ParallelAgentManager Features", () => {
                 },
             });
             const messages = vi.fn().mockResolvedValue({ data: [] });
-            const poller = new TaskPoller(
+            const poller = createTaskPoller(
                 { session: { status, messages } } as never,
                 store,
                 concurrency,
@@ -178,7 +217,7 @@ describe("ParallelAgentManager Features", () => {
             const notifyParent = vi.fn().mockResolvedValue(undefined);
             const scheduleCleanup = vi.fn();
             const status = vi.fn().mockRejectedValue(new Error("status unavailable"));
-            const poller = new TaskPoller(
+            const poller = createTaskPoller(
                 { session: { status, abort: vi.fn().mockResolvedValue({ data: true }) } } as never,
                 store,
                 concurrency,
@@ -213,7 +252,7 @@ describe("ParallelAgentManager Features", () => {
                 },
             });
             const messages = vi.fn().mockResolvedValue({ error: "messages unavailable" });
-            const poller = new TaskPoller(
+            const poller = createTaskPoller(
                 { session: { status, messages, abort: vi.fn().mockResolvedValue({ data: true }) } } as never,
                 store,
                 concurrency,
@@ -244,7 +283,7 @@ describe("ParallelAgentManager Features", () => {
             store.trackPending(task.parentSessionID, task.id);
             const notifyParent = vi.fn().mockResolvedValue(undefined);
             const scheduleCleanup = vi.fn();
-            const poller = new TaskPoller(
+            const poller = createTaskPoller(
                 { session: {} } as never,
                 store,
                 concurrency,
@@ -267,7 +306,7 @@ describe("ParallelAgentManager Features", () => {
 
     describe("poller timer lifecycle", () => {
         it("starts and stops the scheduled poll timer", () => {
-            const poller = new TaskPoller(
+            const poller = createTaskPoller(
                 { session: { status: vi.fn().mockResolvedValue({ data: {} }) } } as never,
                 store,
                 concurrency,
@@ -297,7 +336,7 @@ describe("ParallelAgentManager Features", () => {
             const notifyParent = vi.fn().mockResolvedValue(undefined);
             const scheduleCleanup = vi.fn();
 
-            const handler = new EventHandler(
+            const handler = createManagerEventHandler(
                 {} as never,
                 store,
                 concurrency,
@@ -341,7 +380,7 @@ describe("ParallelAgentManager Features", () => {
             store.set(task.id, task);
             const notifyParent = vi.fn().mockResolvedValue(undefined);
 
-            const handler = new EventHandler(
+            const handler = createManagerEventHandler(
                 {} as never,
                 store,
                 concurrency,

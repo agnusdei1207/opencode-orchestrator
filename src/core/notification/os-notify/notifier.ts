@@ -4,7 +4,7 @@
  * Low-level logic for sending native notifications.
  */
 
-import { exec } from "node:child_process";
+import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { readFileSync } from "node:fs";
 import { log } from "../../agents/logger.js";
@@ -15,7 +15,8 @@ import {
 import { type Platform, PLATFORM } from "../../../shared/os/index.js";
 import { resolveCommandPath } from "./platform-resolver.js";
 
-const execAsync = promisify(exec);
+const execFileAsync = promisify(execFile);
+const PROCESS_OPTIONS = { windowsHide: true } as const;
 
 async function notifyDarwin(title: string, message: string): Promise<void> {
     const path = await resolveCommandPath(
@@ -26,10 +27,13 @@ async function notifyDarwin(title: string, message: string): Promise<void> {
         logMissingCommand(NOTIFICATION_COMMANDS.OSASCRIPT, PLATFORM.DARWIN);
         return;
     }
-    const escT = title.replace(/"/g, '\\"');
-    const escM = message.replace(/"/g, '\\"');
-    // Redirect both stdout and stderr to /dev/null to prevent any TUI output corruption
-    await execAsync(`${path} -e 'display notification "${escM}" with title "${escT}" sound name "Glass"' >/dev/null 2>/dev/null`);
+    await execFileAsync(path, [
+        "-e", "on run argv",
+        "-e", 'display notification (item 2 of argv) with title (item 1 of argv) sound name "Glass"',
+        "-e", "end run",
+        title,
+        message,
+    ], PROCESS_OPTIONS);
 }
 
 function isWSL(): boolean {
@@ -56,13 +60,12 @@ async function notifyLinux(title: string, message: string): Promise<void> {
         NOTIFICATION_COMMAND_KEYS.NOTIFY_SEND,
         NOTIFICATION_COMMANDS.NOTIFY_SEND
     );
-    // Redirect both stdout and stderr to /dev/null to prevent TUI corruption
     if (!path) {
         logMissingCommand(NOTIFICATION_COMMANDS.NOTIFY_SEND, PLATFORM.LINUX);
         return;
     }
 
-    await execAsync(`${path} "${title}" "${message}" >/dev/null 2>/dev/null`);
+    await execFileAsync(path, [title, message], PROCESS_OPTIONS);
 }
 
 async function notifyWindows(title: string, message: string): Promise<void> {
@@ -74,21 +77,26 @@ async function notifyWindows(title: string, message: string): Promise<void> {
         logMissingCommand(NOTIFICATION_COMMANDS.POWERSHELL, PLATFORM.WIN32);
         return;
     }
-    const psT = title.replace(/'/g, "''");
-    const psM = message.replace(/'/g, "''");
     const script = `
 [Windows.UI.Notifications.ToastNotificationManager, Windows.UI.Notifications, ContentType = WindowsRuntime] | Out-Null
 $Template = [Windows.UI.Notifications.ToastNotificationManager]::GetTemplateContent([Windows.UI.Notifications.ToastTemplateType]::ToastText02)
 $RawXml = [xml] $Template.GetXml()
-($RawXml.toast.visual.binding.text | Where-Object {$_.id -eq '1'}).AppendChild($RawXml.CreateTextNode('${psT}')) | Out-Null
-($RawXml.toast.visual.binding.text | Where-Object {$_.id -eq '2'}).AppendChild($RawXml.CreateTextNode('${psM}')) | Out-Null
+($RawXml.toast.visual.binding.text | Where-Object {$_.id -eq '1'}).AppendChild($RawXml.CreateTextNode($env:OPENCODE_NOTIFICATION_TITLE)) | Out-Null
+($RawXml.toast.visual.binding.text | Where-Object {$_.id -eq '2'}).AppendChild($RawXml.CreateTextNode($env:OPENCODE_NOTIFICATION_MESSAGE)) | Out-Null
 $SerializedXml = New-Object Windows.Data.Xml.Dom.XmlDocument
 $SerializedXml.LoadXml($RawXml.OuterXml)
 $Toast = [Windows.UI.Notifications.ToastNotification]::new($SerializedXml)
 $Notifier = [Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier('OpenCode Orchestrator')
 $Notifier.Show($Toast)
 `.trim().replace(/\n/g, "; ");
-    await execAsync(`${ps} -Command "${script}" >NUL 2>NUL`);
+    await execFileAsync(ps, ["-NoProfile", "-NonInteractive", "-Command", script], {
+        ...PROCESS_OPTIONS,
+        env: {
+            ...process.env,
+            OPENCODE_NOTIFICATION_TITLE: title,
+            OPENCODE_NOTIFICATION_MESSAGE: message,
+        },
+    });
 }
 
 export async function sendNotification(platform: Platform, title: string, message: string): Promise<void> {

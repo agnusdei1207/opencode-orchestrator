@@ -2,30 +2,43 @@
  * Event Handler - Handles OpenCode session events
  */
 
-import type { PluginInput } from "@opencode-ai/plugin";
 import { TASK_STATUS, SESSION_EVENTS } from "../../../shared/index.js";
 import { TaskStore } from "../task-store.js";
 import { ConcurrencyController } from "../concurrency.js";
 import { CONFIG } from "../config.js";
 import { log } from "../logger.js";
 import { formatDuration } from "../format.js";
-import { progressNotifier } from "../../progress/progress-notifier.js";
 import type { ParallelTask } from "../../../shared/index.js";
 import { finishTaskConcurrency } from "./task-lifecycle.js";
 
-type OpencodeClient = PluginInput["client"];
+interface EventHandlerOptions {
+    store: TaskStore;
+    concurrency: ConcurrencyController;
+    findBySession: (sessionID: string) => ParallelTask | undefined;
+    notifyParentIfAllComplete: (parentSessionID: string) => Promise<void>;
+    scheduleCleanup: (taskId: string) => void;
+    validateSessionHasOutput: (sessionID: string) => Promise<boolean>;
+    forgetSession?: (sessionID: string) => void;
+}
 
 export class EventHandler {
-    constructor(
-        _client: OpencodeClient,
-        private store: TaskStore,
-        private concurrency: ConcurrencyController,
-        private findBySession: (sessionID: string) => ParallelTask | undefined,
-        private notifyParentIfAllComplete: (parentSessionID: string) => Promise<void>,
-        private scheduleCleanup: (taskId: string) => void,
-        private validateSessionHasOutput: (sessionID: string) => Promise<boolean>,
-        private forgetSession?: (sessionID: string) => void
-    ) { }
+    private readonly store: TaskStore;
+    private readonly concurrency: ConcurrencyController;
+    private readonly findBySession: EventHandlerOptions["findBySession"];
+    private readonly notifyParentIfAllComplete: EventHandlerOptions["notifyParentIfAllComplete"];
+    private readonly scheduleCleanup: (taskId: string) => void;
+    private readonly validateSessionHasOutput: EventHandlerOptions["validateSessionHasOutput"];
+    private readonly forgetSession?: (sessionID: string) => void;
+
+    constructor(options: EventHandlerOptions) {
+        this.store = options.store;
+        this.concurrency = options.concurrency;
+        this.findBySession = options.findBySession;
+        this.notifyParentIfAllComplete = options.notifyParentIfAllComplete;
+        this.scheduleCleanup = options.scheduleCleanup;
+        this.validateSessionHasOutput = options.validateSessionHasOutput;
+        this.forgetSession = options.forgetSession;
+    }
 
     /**
      * Handle OpenCode session events for proper resource cleanup.
@@ -89,7 +102,6 @@ export class EventHandler {
         this.store.queueNotification(task);
         await this.notifyParentIfAllComplete(task.parentSessionID);
         this.scheduleCleanup(task.id);
-        progressNotifier.update();
         log(`Task ${task.id} completed via session.idle event (${formatDuration(task.startedAt, task.completedAt)})`);
     }
 
@@ -131,7 +143,6 @@ export class EventHandler {
             await this.notifyParentIfAllComplete(task.parentSessionID);
         }
 
-        progressNotifier.update();
         log(`Cleaned up deleted session task: ${task.id}`);
     }
 }

@@ -11,7 +11,7 @@ import { vi } from "vitest";
 
 let taskCounter = 0;
 
-export interface CreateParallelTaskOptions {
+interface CreateParallelTaskOptions {
     id?: string;
     sessionId?: string;
     description?: string;
@@ -59,7 +59,7 @@ export function createParallelTasks(count: number, options?: CreateParallelTaskO
 
 let bgTaskCounter = 0;
 
-export interface CreateBackgroundTaskOptions {
+interface CreateBackgroundTaskOptions {
     id?: string;
     command?: string;
     cwd?: string;
@@ -93,7 +93,7 @@ export function createBackgroundTask(options: CreateBackgroundTaskOptions = {}):
 
 let todoCounter = 0;
 
-export interface CreateTodoOptions {
+interface CreateTodoOptions {
     id?: string;
     content?: string;
     status?: TodoStatus;

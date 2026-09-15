@@ -30,8 +30,6 @@ export const COMMAND_NAMES = {
     CANCEL: "cancel",
 } as const;
 
-export type CommandName = (typeof COMMAND_NAMES)[keyof typeof COMMAND_NAMES];
-
 /**
  * Plugin Hook Constants (OpenCode plugin hook names from @opencode-ai/plugin).
  */
@@ -50,8 +48,6 @@ export const PLUGIN_HOOKS = {
     EXPERIMENTAL_CHAT_SYSTEM_TRANSFORM: "experimental.chat.system.transform",
 } as const;
 
-export type PluginHookName = (typeof PLUGIN_HOOKS)[keyof typeof PLUGIN_HOOKS];
-
 /**
  * Message Role Constants (OpenCode message roles).
  */
@@ -63,8 +59,6 @@ export const MESSAGE_ROLES = {
     /** System message */
     SYSTEM: "system",
 } as const;
-
-export type MessageRole = (typeof MESSAGE_ROLES)[keyof typeof MESSAGE_ROLES];
 
 /**
  * Session Status Types.
@@ -78,5 +72,3 @@ export const SESSION_STATUS = {
     BUSY: "busy",
     RETRY: "retry",
 } as const;
-
-export type SessionStatus = (typeof SESSION_STATUS)[keyof typeof SESSION_STATUS];

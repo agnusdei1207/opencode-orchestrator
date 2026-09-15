@@ -9,8 +9,8 @@ import { syncMissionEpisodeMemory } from "./mission-episode.js";
 
 import { atomicWrite, escapeYaml, loadNoteMetadata, numberMeta, stringMeta, type FrontmatterData } from "./mission-note.js";
 
-// Existing consumers import the parser and type through this module or its barrel.
-export { parseFrontmatter, type FrontmatterData } from "./mission-note.js";
+// Existing consumers import the parser and type through this module.
+export { parseFrontmatter } from "./mission-note.js";
 
 function horizonForLevel(level: string): string {
     switch (level) {
@@ -62,6 +62,25 @@ const MISSION_MEMORY_LEVELS: readonly MemoryLevel[] = [
     MemoryLevel.MISSION,
     MemoryLevel.TASK,
 ];
+
+interface MemoryNoteLifecycle {
+    ingestionTime: string;
+    lastAccessed: string;
+    accessCount: number;
+    accessEma?: number;
+    memoryLayer: string;
+    tombstone: boolean;
+    validTo?: string;
+    supersedes?: unknown[];
+}
+
+interface MemoryNoteContext {
+    state: MissionLoopState;
+    entry: MemoryEntry;
+    recordedAt: string;
+    now: string;
+    lifecycle: MemoryNoteLifecycle;
+}
 
 export function syncMissionMemory(directory: string, state: MissionLoopState): boolean {
     const options = getMissionRuntimeOptions();
@@ -256,22 +275,32 @@ function buildMemoryNoteContent(
 ): string {
     const recordedAt = new Date(entry.timestamp).toISOString();
     const now = new Date().toISOString();
-    const body = entry.content.length > MAX_MEMORY_BODY_CHARS
-        ? `${entry.content.slice(0, MAX_MEMORY_BODY_CHARS)}...`
-        : entry.content;
+    const lifecycle = resolveMemoryNoteLifecycle(existing, now);
+    const frontmatter = buildMemoryNoteFrontmatter({ state, entry, recordedAt, now, lifecycle });
+    return [...frontmatter, ...buildMemoryNoteBody(state, entry, recordedAt)].join("\n");
+}
 
+function resolveMemoryNoteLifecycle(
+    existing: FrontmatterData | null | undefined,
+    now: string,
+): MemoryNoteLifecycle {
     // Lifecycle state belongs to the note (its long-term memory), not to the
     // volatile MemoryManager projection. Preserve it across resyncs; fall back
     // to fresh values only when the note is first created.
-    const ingestionTime = stringMeta(existing?.ingestion_time) ?? now;
-    const lastAccessed = stringMeta(existing?.last_accessed) ?? now;
-    const accessCount = numberMeta(existing?.access_count) ?? 1;
-    const accessEma = numberMeta(existing?.access_ema);
-    const memoryLayer = stringMeta(existing?.memory_layer) ?? "warm";
-    const tombstone = existing?.tombstone === true;
-    const validTo = stringMeta(existing?.valid_to);
-    const supersedes = Array.isArray(existing?.supersedes) ? existing?.supersedes : undefined;
+    return {
+        ingestionTime: stringMeta(existing?.ingestion_time) ?? now,
+        lastAccessed: stringMeta(existing?.last_accessed) ?? now,
+        accessCount: numberMeta(existing?.access_count) ?? 1,
+        accessEma: numberMeta(existing?.access_ema),
+        memoryLayer: stringMeta(existing?.memory_layer) ?? "warm",
+        tombstone: existing?.tombstone === true,
+        validTo: stringMeta(existing?.valid_to),
+        supersedes: Array.isArray(existing?.supersedes) ? existing.supersedes : undefined,
+    };
+}
 
+function buildMemoryNoteFrontmatter(context: MemoryNoteContext): string[] {
+    const { state, entry, recordedAt, now, lifecycle } = context;
     const profile = decayProfileForLevel(entry.level);
     const frontmatter: string[] = [
         "---",
@@ -289,36 +318,49 @@ function buildMemoryNoteContent(
         `session: "${escapeYaml(state.sessionID)}"`,
         `recorded_at: "${recordedAt}"`,
         `event_time: "${recordedAt}"`,
-        `ingestion_time: "${ingestionTime}"`,
+        `ingestion_time: "${lifecycle.ingestionTime}"`,
         `record_updated_at: "${now}"`,
-        `last_accessed: "${lastAccessed}"`,
-        `access_count: ${accessCount}`,
+        `last_accessed: "${lifecycle.lastAccessed}"`,
+        `access_count: ${lifecycle.accessCount}`,
     );
-    if (accessEma !== undefined) {
-        frontmatter.push(`access_ema: ${accessEma}`);
-    }
-    frontmatter.push(
-        `memory_kind: "${profile.kind}"`,
-        `decay_lambda: ${profile.lambda}`,
-        `memory_layer: "${memoryLayer}"`,
-    );
-    if (tombstone) {
-        frontmatter.push("tombstone: true");
-    }
-    if (validTo) {
-        frontmatter.push(`valid_to: "${validTo}"`);
-    }
-    if (supersedes && supersedes.length > 0) {
-        frontmatter.push(`supersedes: [${supersedes.map(item => String(item)).join(", ")}]`);
-    }
+    appendMemoryLifecycleFields(frontmatter, lifecycle, profile);
     frontmatter.push(
         "confidence: 1",
         `objective: "${escapeYaml(state.objective ?? state.prompt)}"`,
         "---",
     );
+    return frontmatter;
+}
 
+function appendMemoryLifecycleFields(
+    frontmatter: string[],
+    lifecycle: MemoryNoteLifecycle,
+    profile: ReturnType<typeof decayProfileForLevel>,
+): void {
+    if (lifecycle.accessEma !== undefined) {
+        frontmatter.push(`access_ema: ${lifecycle.accessEma}`);
+    }
+    frontmatter.push(
+        `memory_kind: "${profile.kind}"`,
+        `decay_lambda: ${profile.lambda}`,
+        `memory_layer: "${lifecycle.memoryLayer}"`,
+    );
+    if (lifecycle.tombstone) {
+        frontmatter.push("tombstone: true");
+    }
+    if (lifecycle.validTo) {
+        frontmatter.push(`valid_to: "${lifecycle.validTo}"`);
+    }
+    if (lifecycle.supersedes && lifecycle.supersedes.length > 0) {
+        frontmatter.push(`supersedes: [${lifecycle.supersedes.map(item => String(item)).join(", ")}]`);
+    }
+}
+
+function buildMemoryNoteBody(state: MissionLoopState, entry: MemoryEntry, recordedAt: string): string[] {
+    const body = entry.content.length > MAX_MEMORY_BODY_CHARS
+        ? `${entry.content.slice(0, MAX_MEMORY_BODY_CHARS)}...`
+        : entry.content;
     return [
-        ...frontmatter,
         `# ${capitalize(entry.level)} Memory`,
         "",
         `- Session: ${state.sessionID}`,
@@ -328,7 +370,7 @@ function buildMemoryNoteContent(
         "## Content",
         body,
         "",
-    ].join("\n");
+    ];
 }
 
 /**

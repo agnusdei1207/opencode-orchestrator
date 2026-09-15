@@ -14,7 +14,7 @@ import { DEFAULT_MISSION_RUNTIME_OPTIONS } from "../loop/mission-runtime-options
 
 const D = DEFAULT_MISSION_RUNTIME_OPTIONS;
 
-export const MissionLoopOptionsSchema = z
+const MissionLoopOptionsSchema = z
     .object({
         ledger: z.boolean().catch(D.ledger).default(D.ledger),
         markdownMemory: z.boolean().catch(D.markdownMemory).default(D.markdownMemory),

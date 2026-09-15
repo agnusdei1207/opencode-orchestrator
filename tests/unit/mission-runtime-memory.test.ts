@@ -223,6 +223,27 @@ describe("mission runtime memory", () => {
             expect(parsed.level).toBe("project");
             expect(parsed.horizon).toBe("strategic");
 
+            const preservedLifecycle = projectContent
+                .replace(/^ingestion_time: .*$/mu, 'ingestion_time: "older"')
+                .replace(/^last_accessed: .*$/mu, 'last_accessed: "previous"')
+                .replace(/^access_count: .*$/mu, "access_count: 7\naccess_ema: 0.42")
+                .replace(
+                    /^memory_layer: .*$/mu,
+                    'memory_layer: "cold"\ntombstone: true\nvalid_to: "2030-01-01T00:00:00.000Z"\nsupersedes: [old-a, old-b]',
+                );
+            fs.writeFileSync(path.join(notesDir, projectNote!), preservedLifecycle, "utf8");
+            syncMissionMemory(testDir, loopState);
+            expect(parseFrontmatter(fs.readFileSync(path.join(notesDir, projectNote!), "utf8"))).toMatchObject({
+                ingestion_time: "older",
+                last_accessed: "previous",
+                access_count: 7,
+                access_ema: 0.42,
+                memory_layer: "cold",
+                tombstone: true,
+                valid_to: "2030-01-01T00:00:00.000Z",
+                supersedes: ["old-a", "old-b"],
+            });
+
             // Resync after clearing task memories to test unlinking obsolete projection note
             memoryManager.import({
                 [MemoryLevel.SYSTEM]: [],

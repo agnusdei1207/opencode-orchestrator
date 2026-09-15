@@ -3,7 +3,6 @@ import { mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "n
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { parseFrontmatter } from "../../src/core/knowledge/mission-memory.js";
-import { parseFrontmatter as parseFromBarrel } from "../../src/core/knowledge/index.js";
 import { syncMissionEpisodeMemory } from "../../src/core/knowledge/mission-episode.js";
 import type { MissionLoopState } from "../../src/shared/loop/types.js";
 
@@ -29,10 +28,6 @@ describe("mission note compatibility", () => {
     afterEach(() => {
         vi.useRealTimers();
         rmSync(directory, { recursive: true, force: true });
-    });
-
-    it("preserves both existing parser import paths", () => {
-        expect(parseFromBarrel).toBe(parseFrontmatter);
     });
 
     it("preserves CRLF, scalar types, empty values and duplicate-key precedence", () => {

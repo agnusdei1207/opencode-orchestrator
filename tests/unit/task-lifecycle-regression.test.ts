@@ -13,12 +13,40 @@ vi.mock("../../src/core/agents/manager/prompt-routing", () => ({
     buildRoutedAgentPrompt: vi.fn(async (_agent, text) => ({ wireAgent: "Worker", text, tools: {} })),
 }));
 vi.mock("../../src/core/agents/logger", () => ({ log: vi.fn() }));
-vi.mock("../../src/core/progress/progress-notifier", () => ({ progressNotifier: { update: vi.fn() } }));
 
 function deferred<T>() {
     let resolve!: (value: T) => void;
     const promise = new Promise<T>(done => { resolve = done; });
     return { promise, resolve };
+}
+
+function createTaskLauncher(
+    client: any,
+    store: TaskStore,
+    concurrency: ConcurrencyController,
+    sessionPool: any,
+    onTaskError: any,
+    startPolling: any,
+): TaskLauncher {
+    return new TaskLauncher({ client, store, concurrency, sessionPool, onTaskError, startPolling });
+}
+
+function createTaskPoller(
+    client: any,
+    store: TaskStore,
+    concurrency: ConcurrencyController,
+    notifyParentIfAllComplete: any,
+    scheduleCleanup: any,
+    pruneExpiredTasks: any,
+): TaskPoller {
+    return new TaskPoller({
+        client,
+        store,
+        concurrency,
+        notifyParentIfAllComplete,
+        scheduleCleanup,
+        pruneExpiredTasks,
+    });
 }
 
 describe("task lifecycle across execution boundaries", () => {
@@ -44,7 +72,7 @@ describe("task lifecycle across execution boundaries", () => {
         pool = { acquire: vi.fn(async () => ({ id: `session-${++sequence}` })), release: vi.fn().mockResolvedValue(undefined) };
         cleaner = new TaskCleaner(client as never, store, concurrency, pool as never);
         manager = Object.assign(Object.create(ParallelAgentManager.prototype), { client, store, concurrency, cleaner });
-        launcher = new TaskLauncher(client as never, store, concurrency, pool as never, vi.fn(), vi.fn());
+        launcher = createTaskLauncher(client, store, concurrency, pool, vi.fn(), vi.fn());
     });
 
     afterEach(async () => { launcher.shutdown(); cleaner.shutdown(); await concurrency.shutdown(); vi.clearAllTimers(); vi.useRealTimers(); });
@@ -60,7 +88,7 @@ describe("task lifecycle across execution boundaries", () => {
         await vi.advanceTimersByTimeAsync(0);
         const second = await launch();
         const third = await launch();
-        const poller = new TaskPoller(client as never, store, concurrency, vi.fn(), vi.fn(), vi.fn());
+        const poller = createTaskPoller(client, store, concurrency, vi.fn(), vi.fn(), vi.fn());
         await poller.completeTask(first);
         request.resolve({ data: {} });
         await vi.advanceTimersByTimeAsync(0);
@@ -79,7 +107,7 @@ describe("task lifecycle across execution boundaries", () => {
         expect(queued.status).not.toBe(TASK_STATUS.RUNNING);
         expect(concurrency.getActiveCount("Worker")).toBe(1);
         expect(client.session.prompt).toHaveBeenCalledTimes(1);
-        const poller = new TaskPoller(client as never, store, concurrency, vi.fn(), vi.fn(), vi.fn());
+        const poller = createTaskPoller(client, store, concurrency, vi.fn(), vi.fn(), vi.fn());
         await poller.completeTask(first);
         await vi.advanceTimersByTimeAsync(0);
         expect(client.session.prompt).toHaveBeenCalledTimes(1);
@@ -115,7 +143,7 @@ describe("task lifecycle across execution boundaries", () => {
         task.startedAt = new Date(Date.now() - 20_000);
         client.session.status.mockResolvedValue({ data: { [task.sessionID]: { type: "busy", messageCount: 1 } } });
         client.session.messages.mockResolvedValue({ data: [{ info: { role: "assistant", time: { created: Date.now(), completed: Date.now() }, finish: "stop" }, parts: [{ type: "text", text: "still working" }] }] });
-        const poller = new TaskPoller(client as never, store, concurrency, vi.fn(), vi.fn(), vi.fn());
+        const poller = createTaskPoller(client, store, concurrency, vi.fn(), vi.fn(), vi.fn());
         for (let i = 0; i < 5; i++) await poller.poll();
         expect(task.status).toBe(TASK_STATUS.RUNNING);
     });
@@ -126,7 +154,7 @@ describe("task lifecycle across execution boundaries", () => {
         task.startedAt = new Date(Date.now() - 20_000);
         client.session.status.mockResolvedValue({ data: { [task.sessionID]: { type: "idle" } } });
         client.session.messages.mockResolvedValue({ data: [{ info: { role: "assistant", time: { created: task.startedAt.getTime() - 1, completed: Date.now() }, finish: "stop" }, parts: [{ type: "text", text: "old result" }] }] });
-        const poller = new TaskPoller(client as never, store, concurrency, vi.fn(), vi.fn(), vi.fn());
+        const poller = createTaskPoller(client, store, concurrency, vi.fn(), vi.fn(), vi.fn());
         await poller.poll();
         expect(task.status).toBe(TASK_STATUS.RUNNING);
     });
@@ -137,7 +165,7 @@ describe("task lifecycle across execution boundaries", () => {
         task.startedAt = new Date(Date.now() - 20_000);
         client.session.status.mockResolvedValue({ data: {} });
         client.session.messages.mockResolvedValue({ data: [{ info: { role: "assistant", time: { created: Date.now(), completed: Date.now() }, finish: "stop" }, parts: [{ type: "text", text: "current result" }] }] });
-        const poller = new TaskPoller(client as never, store, concurrency, vi.fn(), vi.fn(), vi.fn());
+        const poller = createTaskPoller(client, store, concurrency, vi.fn(), vi.fn(), vi.fn());
         await poller.poll();
         expect(task.status).toBe(TASK_STATUS.COMPLETED);
     });
@@ -154,7 +182,7 @@ describe("task lifecycle across execution boundaries", () => {
         await vi.advanceTimersByTimeAsync(0);
         client.session.status.mockRejectedValue(new Error("offline"));
         client.session.abort.mockResolvedValue({ data: false });
-        const poller = new TaskPoller(client as never, store, concurrency, vi.fn(), vi.fn(), vi.fn());
+        const poller = createTaskPoller(client, store, concurrency, vi.fn(), vi.fn(), vi.fn());
         for (let i = 0; i < 3; i++) await poller.poll();
         expect(task.status).toBe(TASK_STATUS.RUNNING);
         expect(concurrency.getActiveCount("Worker")).toBe(1);
@@ -176,7 +204,7 @@ describe("task lifecycle across execution boundaries", () => {
         concurrency.configure({ defaultConcurrency: 1, acquisitionTimeoutMs: 2 * CONFIG.CLEANUP_DELAY_MS });
         const task = await launch();
         await vi.advanceTimersByTimeAsync(0);
-        const poller = new TaskPoller(client as never, store, concurrency, vi.fn(), id => cleaner.scheduleCleanup(id), vi.fn());
+        const poller = createTaskPoller(client, store, concurrency, vi.fn(), id => cleaner.scheduleCleanup(id), vi.fn());
         await poller.completeTask(task);
         const blocker = await launch();
         await vi.advanceTimersByTimeAsync(0);

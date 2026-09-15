@@ -61,3 +61,4 @@ What followed, including verification evidence and known limits.
 | [0020](0020-risk-graded-test-coverage-policy.md) | 2026-09-04 07:39 | Risk-graded test coverage policy | Implemented |
 | [0021](0021-minimal-mission-plugin.md) | 2026-09-14 17:41 | Minimal mission plugin: identity and deletion-first plan | Accepted; implementation in progress |
 | [0022](0022-opencode-1-18-plugin-boundary.md) | 2026-09-15 16:25 | OpenCode 1.18 plugin boundary and runtime separation | Implemented |
+| [0023](0023-remove-unreachable-runtime-plumbing.md) | 2026-09-15 18:20 | Remove unreachable runtime plumbing | Implemented |

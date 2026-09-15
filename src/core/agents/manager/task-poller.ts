@@ -11,7 +11,6 @@ import { formatDuration } from "../format.js";
 import { presets } from "../../notification/toast.js";
 import { TASK_STATUS, PART_TYPES, MESSAGE_ROLES, SESSION_STATUS, AGENT_NAMES } from "../../../shared/index.js";
 import type { ParallelTask } from "../../../shared/index.js";
-import { progressNotifier } from "../../progress/progress-notifier.js";
 import { finishTaskConcurrency, confirmSessionAbort } from "./task-lifecycle.js";
 
 type OpencodeClient = PluginInput["client"];
@@ -43,24 +42,66 @@ function getReportedMessageCount(sessionInfo?: SessionStatusInfo): number | unde
         : undefined;
 }
 
+function hasCompletedTaskOutput(message: SessionMessage | undefined, task: ParallelTask | undefined): boolean {
+    if (!message || !task) return false;
+    const info = message.info;
+    if (info?.time?.created === undefined || info.time.created < task.startedAt.getTime()) return false;
+    if (!info.time.completed || info.error || !info.finish) return false;
+    if (["tool-calls", "unknown"].includes(info.finish)) return false;
+    return Boolean(message.parts?.some(hasOutputPart));
+}
+
+function summarizeAssistantProgress(messages: SessionMessage[]): NonNullable<ParallelTask["progress"]> {
+    const parts = messages.flatMap(message =>
+        message.info?.role === MESSAGE_ROLES.ASSISTANT ? message.parts ?? [] : []
+    );
+    const toolParts = parts.filter(part => part.type === PART_TYPES.TOOL_USE || Boolean(part.tool));
+    const lastToolPart = toolParts.at(-1);
+    const lastMessage = parts
+        .filter(part => part.type === PART_TYPES.TEXT && Boolean(part.text))
+        .at(-1)?.text;
+
+    return {
+        toolCalls: toolParts.length,
+        lastTool: lastToolPart?.tool || lastToolPart?.name,
+        lastMessage: lastMessage?.slice(0, 100),
+        lastUpdate: new Date(),
+    };
+}
+
+interface TaskPollerOptions {
+    client: OpencodeClient;
+    store: TaskStore;
+    concurrency: ConcurrencyController;
+    notifyParentIfAllComplete: (parentSessionID: string) => Promise<void>;
+    scheduleCleanup: (taskId: string) => void;
+    pruneExpiredTasks: () => void;
+}
+
 export class TaskPoller {
     private pollingTimer?: ReturnType<typeof setTimeout>;
     private messageCache: Map<string, { count: number }> = new Map();
     private sessionStatusFailureCount = 0;
+    private readonly client: OpencodeClient;
+    private readonly store: TaskStore;
+    private readonly concurrency: ConcurrencyController;
+    private readonly notifyParentIfAllComplete: TaskPollerOptions["notifyParentIfAllComplete"];
+    private readonly scheduleCleanup: (taskId: string) => void;
+    private readonly pruneExpiredTasks: () => void;
 
     // Adaptive polling
     private currentPollInterval: number = CONFIG.POLL_INTERVAL_MS; // Start at default (2000ms)
     private readonly MIN_POLL_INTERVAL = 500;  // 500ms when very busy
     private readonly MAX_POLL_INTERVAL = 5000; // 5s when idle
 
-    constructor(
-        private client: OpencodeClient,
-        private store: TaskStore,
-        private concurrency: ConcurrencyController,
-        private notifyParentIfAllComplete: (parentSessionID: string) => Promise<void>,
-        private scheduleCleanup: (taskId: string) => void,
-        private pruneExpiredTasks: () => void
-    ) { }
+    constructor(options: TaskPollerOptions) {
+        this.client = options.client;
+        this.store = options.store;
+        this.concurrency = options.concurrency;
+        this.notifyParentIfAllComplete = options.notifyParentIfAllComplete;
+        this.scheduleCleanup = options.scheduleCleanup;
+        this.pruneExpiredTasks = options.pruneExpiredTasks;
+    }
 
     start(): void {
         if (this.pollingTimer) return;
@@ -122,37 +163,26 @@ export class TaskPoller {
 
         for (const task of running) {
             try {
-                // Skip tasks that haven't actually started running yet
-                if (task.status !== TASK_STATUS.RUNNING) continue;
-                const startedAt = task.startedAt;
-
-                const sessionStatus = allStatuses[task.sessionID];
-
-                // If session is idle, try to complete
-                if (!sessionStatus || sessionStatus.type === SESSION_STATUS.IDLE) {
-                    const elapsed = Date.now() - task.startedAt.getTime();
-                    if (elapsed < CONFIG.MIN_STABILITY_MS) continue;
-
-                    // Smart Polling optimization: Skip heavy message check if we already know it has output
-                    if (!(await this.validateSessionHasOutput(task.sessionID, task))) {
-                        this.clearTaskPollFailure(task);
-                        continue;
-                    }
-
-                    if (task.startedAt === startedAt) await this.completeTask(task);
-                    this.clearTaskPollFailure(task);
-                    continue;
-                }
-
-                // Update progress tracking
-                await this.updateTaskProgress(task, sessionStatus);
-
-                this.clearTaskPollFailure(task);
+                const checked = await this.pollTask(task, allStatuses[task.sessionID]);
+                if (checked) this.clearTaskPollFailure(task);
             } catch (error) {
                 await this.handleTaskPollError(task, error);
             }
         }
-        progressNotifier.update();
+    }
+
+    private async pollTask(task: ParallelTask, sessionStatus?: SessionStatusInfo): Promise<boolean> {
+        if (task.status !== TASK_STATUS.RUNNING) return false;
+        if (sessionStatus && sessionStatus.type !== SESSION_STATUS.IDLE) {
+            await this.updateTaskProgress(task, sessionStatus);
+            return true;
+        }
+
+        const startedAt = task.startedAt;
+        if (Date.now() - startedAt.getTime() < CONFIG.MIN_STABILITY_MS) return false;
+        if (!(await this.validateSessionHasOutput(task.sessionID, task))) return true;
+        if (task.startedAt === startedAt) await this.completeTask(task);
+        return true;
     }
 
     private async fetchSessionStatuses(running: ParallelTask[]): Promise<Record<string, SessionStatusInfo> | undefined> {
@@ -178,7 +208,6 @@ export class TaskPoller {
                 `Session status polling failed ${this.sessionStatusFailureCount} consecutive times: ${formatError(error)}`
             )));
             this.sessionStatusFailureCount = 0;
-            progressNotifier.update();
             return undefined;
         }
     }
@@ -241,13 +270,11 @@ export class TaskPoller {
             const response = await this.client.session.messages({ path: { id: sessionID } });
             if (response.error) return false;
             const messages = (response.data ?? []) as SessionMessage[];
-            const currentTask = task ?? this.store.getBySession(sessionID);
             const latest = messages.filter(m => m.info?.role === MESSAGE_ROLES.ASSISTANT).at(-1);
-            const info = latest?.info;
-            const hasOutput = Boolean(currentTask && info?.time?.created !== undefined &&
-                info.time.created >= currentTask.startedAt.getTime() && info.time.completed &&
-                !info.error && info.finish && info.finish !== "tool-calls" && info.finish !== "unknown" &&
-                latest?.parts?.some(hasOutputPart));
+            const hasOutput = hasCompletedTaskOutput(
+                latest,
+                task ?? this.store.getBySession(sessionID),
+            );
 
             if (hasOutput && task) {
                 task.hasStartedOutputting = true;
@@ -279,7 +306,6 @@ export class TaskPoller {
         presets.sessionCompleted(task.sessionID, duration);
 
         log(`Completed ${task.id} (${duration})`);
-        progressNotifier.update();
     }
 
     private async updateTaskProgress(task: ParallelTask, sessionInfo?: SessionStatusInfo): Promise<void> {
@@ -306,30 +332,7 @@ export class TaskPoller {
         // Update cache
         this.messageCache.set(task.sessionID, { count: currentMsgCount });
 
-        const assistantMsgs = messages.filter(m => m.info?.role === MESSAGE_ROLES.ASSISTANT);
-        let toolCalls = 0;
-        let lastTool: string | undefined;
-        let lastMessage: string | undefined;
-
-        for (const msg of assistantMsgs) {
-            for (const part of msg.parts ?? []) {
-                if (part.type === PART_TYPES.TOOL_USE || part.tool) {
-                    toolCalls++;
-                    lastTool = part.tool || part.name;
-                }
-                if (part.type === PART_TYPES.TEXT && part.text) {
-                    lastMessage = part.text;
-                }
-            }
-        }
-
-        // Update progress
-        task.progress = {
-            toolCalls,
-            lastTool,
-            lastMessage: lastMessage?.slice(0, 100),
-            lastUpdate: new Date(),
-        };
+        task.progress = summarizeAssistantProgress(messages);
 
         task.stablePolls = messageCountChanged ? 0 : (task.stablePolls ?? 0) + 1;
         task.lastMsgCount = currentMsgCount;

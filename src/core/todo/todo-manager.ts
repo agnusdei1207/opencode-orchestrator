@@ -8,7 +8,7 @@ import { randomUUID } from "node:crypto";
 import { PATHS, TODO_CONSTANTS } from "../../shared/index.js";
 import { log } from "../agents/logger.js";
 
-export interface TodoVersion {
+interface TodoVersion {
     version: number;
     timestamp: number;
     author: string;

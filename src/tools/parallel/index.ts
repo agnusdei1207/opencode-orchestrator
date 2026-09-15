@@ -13,8 +13,6 @@ import { createShowMetricsTool } from "./show-metrics.js";
 import { createUpdateTodoTool } from "./update-todo.js";
 import { TOOL_NAMES } from "../../shared/index.js";
 
-export { ParallelAgentManager as AsyncAgentManager } from "../../core/agents/index.js";
-
 export function createAsyncAgentTools(manager: ParallelAgentManager): Record<string, ToolDefinition> {
     return {
         [TOOL_NAMES.DELEGATE_TASK]: createDelegateTaskTool(manager),

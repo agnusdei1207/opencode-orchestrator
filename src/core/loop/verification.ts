@@ -25,7 +25,7 @@ export {
     buildVerificationSummary,
 } from "./verification-prompts.js";
 
-export const CHECKLIST_FILE = CHECKLIST.FILE;
+const CHECKLIST_FILE = CHECKLIST.FILE;
 
 interface ChecklistReadResult {
     present: boolean;
@@ -95,7 +95,7 @@ function detectCategory(headerLine: string): ChecklistCategory {
     return CHECKLIST_CATEGORIES.IDS.CUSTOM;
 }
 
-export function parseChecklist(content: string): ChecklistItem[] {
+function parseChecklist(content: string): ChecklistItem[] {
     const items: ChecklistItem[] = [];
     const lines = content.split('\n');
 
@@ -149,7 +149,7 @@ function readChecklistWithDiagnostics(directory: string): ChecklistReadResult {
 // Verification Functions
 // ============================================================================
 
-export function verifyChecklist(directory: string): ChecklistVerificationResult {
+function verifyChecklist(directory: string): ChecklistVerificationResult {
     const checklistRead = readChecklistWithDiagnostics(directory);
     const result: ChecklistVerificationResult = {
         present: checklistRead.present,
@@ -252,7 +252,7 @@ function isCompleteTodoStatus(status: string): boolean | undefined {
     return undefined;
 }
 
-export function countTodoCompletion(content: string): TodoCompletionStats {
+function countTodoCompletion(content: string): TodoCompletionStats {
     const stats: TodoCompletionStats = {
         complete: 0,
         incomplete: 0,
@@ -299,7 +299,7 @@ function createVerificationResult(): VerificationResult {
     };
 }
 
-export function getSyncIssueLines(content: string): string[] {
+function getSyncIssueLines(content: string): string[] {
     const trimmed = content.trim();
     if (!trimmed) return [];
 

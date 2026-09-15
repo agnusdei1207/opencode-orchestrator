@@ -5,7 +5,7 @@ import {
     isSessionRecovering,
     markRecoveryComplete,
 } from "../../src/core/recovery/session-recovery";
-import { detectErrorType, ERROR_TYPE } from "../../src/shared";
+import { detectErrorType, ERROR_TYPE, RECOVERY } from "../../src/shared";
 import * as SessionActivity from "../../src/core/session/activity";
 
 vi.mock("../../src/core/agents/logger", () => ({ log: vi.fn() }));
@@ -33,6 +33,7 @@ describe("SessionRecovery", () => {
             cleanupSessionRecovery(sessionID);
         }
         vi.clearAllMocks();
+        vi.useRealTimers();
     });
 
     it("detects recovery-supported error types using the shared detector", () => {
@@ -109,14 +110,17 @@ describe("SessionRecovery", () => {
     });
 
     it("handles rate limit errors by waiting without prompt injection", async () => {
+        vi.useFakeTimers();
         const sessionID = "session-recovery-rate-limit";
         touchedSessions.push(sessionID);
 
-        const recovered = await handleSessionError(
+        const recovery = handleSessionError(
             mockClient as unknown as Parameters<typeof handleSessionError>[0],
             sessionID,
             new Error("429 rate limit exceeded"),
         );
+        await vi.advanceTimersByTimeAsync(RECOVERY.BASE_DELAY_MS * 2);
+        const recovered = await recovery;
 
         expect(recovered).toBe(true);
         expect(mockClient.session.prompt).not.toHaveBeenCalled();

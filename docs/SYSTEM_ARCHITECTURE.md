@@ -1,6 +1,6 @@
 # System Architecture
 
-Date: 2026-09-15 (OpenCode 1.18.31 plugin boundary and continuation runtime reviewed)
+Date: 2026-09-15 (OpenCode 1.18.31 boundary, legacy removal, and release path reviewed)
 
 This document describes the current architecture that is directly verifiable from the repository source. It intentionally avoids speculative performance claims.
 
@@ -10,7 +10,8 @@ This document describes the current architecture that is directly verifiable fro
 | --- | --- | --- |
 | OpenCode plugin boundary | `src/index.ts` | Exposes the function-form server plugin and composes the public hook object. |
 | Plugin runtime bootstrap | `src/plugin-runtime.ts` | Parses options, configures shared runtime services, creates tools and handler state, and registers cleanup. |
-| Rust CLI | `crates/orchestrator-cli/src/main.rs` | Dispatches local commands including `serve`, metadata commands, install/uninstall, and explicit terminal utilities. |
+| npm CLI launcher | `src/cli.ts` → `dist/cli.js` | Selects one supported bundled Rust binary, forwards argv and inherited stdio without a shell, and preserves child exit status. |
+| Rust CLI | `crates/orchestrator-cli/src/main.rs` | Dispatches `serve`, metadata, config, and explicit terminal commands; `config.rs` owns safe install/uninstall mutations. |
 | Shell listener CLI | `crates/orchestrator-cli/src/shell_listener.rs` | Runs the authorized-lab TCP session listener and line-mode TUI outside OpenCode RPC. |
 | Config hook | `src/plugin-handlers/config-handler.ts` | Registers commands and the four generated agents, merges user agent overrides, and copies global permissions. |
 | Event hook | `src/plugin-handlers/event-handler.ts` | Bridges OpenCode session/message events into mission continuation, recovery, and cleanup paths. |
@@ -79,7 +80,7 @@ The retained task manager is the sole completion authority. Foreground delegatio
 
 Notifications acknowledge only the accepted batch; failed sends remain pending. Deferred delivery rechecks ownership after asynchronous status reads. Cleanup timers and archive collection preserve resumed or replaced runs. Task archives use the plugin's project directory; they are diagnostic records, not a restart restoration mechanism.
 
-Transport failures are not automatically replayed. Rust RPC drains output under backpressure and rejects outstanding requests on shutdown. Background commands resolve working directories from the native tool context and report termination only after confirmation. Rust command deadlines include pipe draining and stdin completion; AST/LSP failures remain distinguishable from valid empty diagnostics or search results.
+Transport failures are not automatically replayed. Rust RPC drains output under backpressure and rejects outstanding requests on shutdown. Background commands resolve working directories from the native tool context and report termination only after confirmation. Rust command deadlines include pipe draining and stdin completion; AST/LSP failures remain distinguishable from valid empty diagnostics or search results. Desktop notification text and sound paths cross the process boundary only as argument arrays or child-only environment values; notification code does not construct shell commands.
 
 ## 3. Configuration Contract
 
@@ -194,7 +195,7 @@ The generated markdown scratchpad and `.canvas` graph are the main Builder-deriv
 2. Generate a readable markdown scratchpad instead of introducing a separate database.
 3. Treat the graph as a visualization and navigation artifact, not as a second source of truth.
 
-The current implementation writes these artifacts through `src/core/knowledge/mission-memory.ts` and `mission-episode.ts`. Both use `mission-note.ts` for frontmatter parsing, metadata reads, escaping, and temporary-file replacement. The episode writer does not depend on the mission projection orchestrator. Existing parser and type exports through `mission-memory.ts` and the knowledge barrel remain available.
+The current implementation writes these artifacts through `src/core/knowledge/mission-memory.ts` and `mission-episode.ts`. Both use `mission-note.ts` for frontmatter parsing, metadata reads, escaping, and temporary-file replacement. The episode writer does not depend on the mission projection orchestrator. Existing parser and type exports remain available through `mission-memory.ts`; the unused knowledge barrel was removed.
 
 `src/plugin-handlers/system-transform-handler.ts` injects the compact scratchpad directly. Automatic knowledge-note indexing and RAG prompt injection were retired by [ADR-0019](adr/0019-retire-knowledge-rag-subsystem.md); lifecycle fields retained in note files do not imply an active decay or retrieval engine. The parser deliberately retains its existing limited frontmatter syntax rather than providing general YAML decoding.
 
@@ -207,7 +208,28 @@ Current verified release baseline:
 3. `@opencode-ai/sdk` `1.18.31`
 4. GitHub Actions build matrix for Linux x64/arm64, macOS x64/arm64, and Windows x64 in `.github/workflows/release.yml`
 
-Compatibility research uses the [public plugin](https://opencode.ai/docs/plugins/) and [SDK documentation](https://opencode.ai/docs/sdk/), deployed package types, and `scripts/qa-native-host.mjs`. The 2026-09-15 isolated run passed all 14 scenarios with released OpenCode `1.18.31`, matching SDK/plugin packages `1.18.31`, and the local built plugin. The current host source prefers a package `./server` export and supports both the new `{ id?, server }` module and the legacy function export; this package exposes `./server` while retaining its function export for existing installations. Native background task parity remains unverified, so the bounded execution path remains. See [ADR-0021](adr/0021-minimal-mission-plugin.md) for pending deletion gates and [ADR-0022](adr/0022-opencode-1-18-plugin-boundary.md) for this compatibility decision.
+The development gate uses TypeScript `7.0.2`, Vitest `5.0.1`, and explicit
+Node 24 types. Rust builders and CI are pinned to `1.98.1`. The release workflow requires coverage, npm audit, dependency
+validation, Rust formatting, Clippy with warnings denied, and all Rust tests
+before publishing can run.
+
+Tags are the only publishing trigger. The hosted matrix builds all five
+supported binaries from the tagged source, then verifies the exact artifact
+set, executable format, CPU architecture, and embedded package version. An
+isolated packed install checks the root and `./server` plugin entries plus the
+generated `orchestrator` npm command before the npm publish. A manual
+workflow run on a branch can run QA and builds but cannot publish a package.
+The repository ignores `bin/`; versioned executables exist only as local build
+outputs or artifacts rebuilt from the exact release tag.
+
+The npm postinstall/preuninstall hooks are the normal configuration path and
+preserve JSONC comments. The secondary Rust CLI commands use the same config
+root precedence, prefer `opencode.jsonc`, preserve invalid input, back up and
+verify mutations, recognize versioned/tuple entries, and never remove an
+unrelated `mcp.orchestrator` entry. They reject commented JSONC and direct the
+operator to the JSONC-aware npm hook.
+
+Compatibility research uses the [public plugin](https://opencode.ai/docs/plugins/) and [SDK documentation](https://opencode.ai/docs/sdk/), deployed package types, and `scripts/qa-native-host.mjs`. The 2026-09-15 isolated run passed all 14 scenarios with released OpenCode `1.18.31`, matching SDK/plugin packages `1.18.31`, and the local built plugin. The current host source prefers a package `./server` export and supports both the new `{ id?, server }` module and the legacy function export; this package exposes `./server` while retaining its function export for existing installations. Host source includes background subagents only behind the experimental `OPENCODE_EXPERIMENTAL_BACKGROUND_SUBAGENTS` path, so stable native background-task parity remains unverified and the bounded execution path remains. See [ADR-0021](adr/0021-minimal-mission-plugin.md) for pending deletion gates and [ADR-0022](adr/0022-opencode-1-18-plugin-boundary.md) for this compatibility decision.
 
 Package metadata separates the project homepage from issue reporting:
 

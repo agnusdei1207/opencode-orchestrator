@@ -14,7 +14,7 @@
 import { log } from "../agents/logger.js";
 import { createPruneTimer } from "./prune-timer.js";
 
-export type CircuitTripCause = "tool" | "output";
+type CircuitTripCause = "tool" | "output";
 
 export interface CircuitBreakerState {
     lastAccessedAt: number;
@@ -182,12 +182,6 @@ export function tripOutputCircuit(sessionID: string): boolean {
         return true;
     }
     return false;
-}
-
-/** True when the circuit is open specifically because output kept repeating. */
-export function isOutputCircuitOpen(sessionID: string): boolean {
-    if (!isCircuitOpen(sessionID)) return false;
-    return circuitStates.get(sessionID)?.openedBy === "output";
 }
 
 export function recordToolCall(sessionID: string, toolName: string): void {

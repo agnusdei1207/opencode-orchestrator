@@ -4,7 +4,7 @@ import { randomUUID } from "node:crypto";
 import { PATHS } from "../../shared/index.js";
 import { getMissionRuntimeOptions } from "./mission-runtime-options.js";
 
-export type MissionLedgerEventType =
+type MissionLedgerEventType =
     | "mission_started"
     | "verification_failed"
     | "continuation_scheduled"
