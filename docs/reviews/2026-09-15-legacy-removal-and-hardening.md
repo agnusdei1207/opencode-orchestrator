@@ -165,4 +165,25 @@ Node `24.20.0` Linux container, starting without `node_modules` or `dist`, then
 passed the build, isolated packed install, config registration, package entry
 imports, and Linux CLI execution with all five hosted `1.7.20` artifacts.
 
-The corrected `1.7.21` patch publish and registry verification are pending.
+The correction was committed as `1857e8559c9c2655d4fbe5aa3d491fec358ed446`.
+Patch commit `49717319d5a0928327031c64019de68d5ef49d4f` and tag
+`v1.7.21` were pushed atomically. Hosted run
+[`34960594424`](https://github.com/agnusdei1207/opencode-orchestrator/actions/runs/34960594424)
+passed its quality gate, five native build jobs, exact artifact verification,
+packed-package smoke, npm publish, and GitHub Release creation on the first
+attempt. The resulting
+[`v1.7.21` release](https://github.com/agnusdei1207/opencode-orchestrator/releases/tag/v1.7.21)
+contains exactly the five expected native assets.
+
+npm reports `opencode-orchestrator@1.7.21` with 204 files, 26,544,115 unpacked
+bytes, SHA-1 `77717c55fd8456c83f3796c3d0ececdaae5e5d39`, and integrity
+`sha512-FqfLD1OQ9aP1GrMGpH0Dz/LlCrhvTLWqiVXGAgtTfVQKc8xUsnYHZunTUMTq70941spdo0o0l76qq4u5f3qF7w==`.
+Fresh registry installs on Windows and Linux registered the plugin in isolated
+OpenCode configuration, exposed only the same default function through the
+package root and `/server`, contained exactly five validated native artifacts,
+and executed the platform CLI as `1.7.21`.
+
+After registry verification, generated `dist/` and `bin/` outputs were removed,
+Compose volumes were deleted, `docker system prune -af --volumes` reclaimed
+5.332 GB, and the remaining Docker image, container, volume, and build-cache
+usage was 0 B.

@@ -1,7 +1,7 @@
 # Legacy removal and runtime hardening plan
 
 Date: 2026-09-15
-Status: Implemented; corrected `1.7.21` patch release pending
+Status: Complete; released as `1.7.21`
 
 ## Target and reason
 

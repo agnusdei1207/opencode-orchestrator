@@ -1,37 +1,33 @@
 # Agent Memory - OCO Session
 
-Last updated: 2026-09-15 19:54 KST
+Last updated: 2026-09-15 20:03 KST
 
 ## Current task
 
 Legacy removal, runtime hardening, full QA, commit/push, and patch release to
-`1.7.21`. The implementation and `v1.7.20` were committed and pushed. Hosted
-QA and all five native builds passed, but package smoke blocked npm publication
-because the isolated release job had not generated ignored `dist/` output.
+`1.7.21` are complete. npm and GitHub Release contain the corrected package,
+and registry installs passed on Windows and Linux.
 
 ## Last completed step
 
-Diagnosed the failed `v1.7.20` release from the authenticated Actions log. The
-five hosted binaries passed exact-set, header, architecture, and embedded
-version validation. Added an explicit `npm run build` to the isolated release
-job before package smoke and publication, plus a regression test for that
-ordering. A clean Node 24.20.0 Linux container then passed build, packed install,
-config registration, package imports, and the Linux CLI using those hosted
-artifacts. The corrected tree also passed the full local release preflight:
-1,022 TypeScript tests with coverage, 64 Rust tests plus format/Clippy, zero npm
-audit findings, a valid dependency tree, and packed-install smoke.
+Published npm/GitHub patch `1.7.21` from commit
+`49717319d5a0928327031c64019de68d5ef49d4f`. Hosted run `34960594424`
+passed quality, all five native builds, package assembly/smoke, npm publication,
+and GitHub Release creation. Fresh registry installs on Windows and Linux
+registered the plugin, loaded identical root and `/server` defaults, contained
+the exact five validated artifacts, and ran CLI version `1.7.21`. Docker cleanup
+removed all Compose volumes and reclaimed 5.332 GB through system prune; Docker
+now reports zero images, containers, volumes, and build cache.
 
 ## Next exact step
 
-Commit and push the workflow correction, then run the authorized patch release
-from a Bash login shell so the user's `.bashrc` authentication is loaded. Verify
-`1.7.21` from npm and reclaim Docker resources afterward.
+No remaining step for this task. Preserve the release evidence below and start
+future compatibility work from the current `main` branch.
 
 ## Incomplete items and why
 
-- `v1.7.20` exists remotely but was not published to npm; the failed hosted run
-  is `34959635053`. The corrected workflow must ship under `v1.7.21`.
-- Docker resources remain until registry verification; reclaim them afterward.
+- None within the authorized scope. `v1.7.20` remains an unpublished failed tag
+  for audit history; `v1.7.21` is the public corrected release.
 
 ## Key decisions
 
