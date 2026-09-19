@@ -1,28 +1,18 @@
 # Agent Memory - OCO Session
 
-Last updated: 2026-09-15 20:03 KST
+Last updated: 2026-09-19 (fork arfoux, branch fix/sync-counter-and-stop-cancel-commands)
 
 ## Current task
 
-Legacy removal, runtime hardening, full QA, commit/push, and patch release to
-`1.7.21` are complete. npm and GitHub Release contain the corrected package,
-and registry installs passed on Windows and Linux.
+Fix two mission-loop bugs on fork arfoux/opencode-orchestrator and open upstream PR #43: (1) sync-counter treated any status text in sync-issues.md as an open issue, trapping missions in an infinite verification-failed loop; (2) /stop and /cancel were documented and hook-handled but never registered as OpenCode slash commands.
 
 ## Last completed step
 
-Published npm/GitHub patch `1.7.21` from commit
-`49717319d5a0928327031c64019de68d5ef49d4f`. Hosted run `34960594424`
-passed quality, all five native builds, package assembly/smoke, npm publication,
-and GitHub Release creation. Fresh registry installs on Windows and Linux
-registered the plugin, loaded identical root and `/server` defaults, contained
-the exact five validated artifacts, and ran CLI version `1.7.21`. Docker cleanup
-removed all Compose volumes and reclaimed 5.332 GB through system prune; Docker
-now reports zero images, containers, volumes, and build cache.
+Pushed branch fix/sync-counter-and-stop-cancel-commands to arfoux/opencode-orchestrator and opened PR #43 to agnusdei1207/opencode-orchestrator. Tests: 49/49 on touched files, tsc clean, full unit 944 passed + 1 pre-existing Windows-only os-notify failure (verified failing on clean tree too). README documents the sync-issues resolved convention; repo topics set.
 
 ## Next exact step
 
-No remaining step for this task. Preserve the release evidence below and start
-future compatibility work from the current `main` branch.
+Watch PR #43 review feedback from upstream maintainer; address comments if any. No further code changes planned unless requested.
 
 ## Incomplete items and why
 
