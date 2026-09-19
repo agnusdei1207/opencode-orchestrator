@@ -35,4 +35,26 @@ describe("native mission command", () => {
         expect(readLoopState(ctx.directory)).toBeNull();
         expect(ctx.sessions.size).toBe(0);
     });
+
+    it.each(["stop", "cancel"])("cancels an active loop for an owned /%s command after host expansion", async (command) => {
+        const goal = "Stop the loop";
+        const taskOutput = { parts: [{ type: "text", text: COMMANDS.task.template.replace(/\$ARGUMENTS/g, goal) }] };
+        await createCommandExecuteBeforeHandler(ctx)({ command: "task", arguments: goal, sessionID: "native-root" }, taskOutput as never);
+        expect(readLoopState(ctx.directory)).toMatchObject({ active: true });
+
+        const stopOutput = { parts: [{ type: "text", text: COMMANDS[command].template }] };
+        await createCommandExecuteBeforeHandler(ctx)({ command, arguments: "", sessionID: "native-root" }, stopOutput as never);
+        expect(readLoopState(ctx.directory)).toBeNull();
+    });
+
+    it.each(["stop", "cancel"])("does not cancel missions for a user-owned /%s command", async (command) => {
+        const goal = "Keep running";
+        const taskOutput = { parts: [{ type: "text", text: COMMANDS.task.template.replace(/\$ARGUMENTS/g, goal) }] };
+        await createCommandExecuteBeforeHandler(ctx)({ command: "task", arguments: goal, sessionID: "native-root" }, taskOutput as never);
+        expect(readLoopState(ctx.directory)).toMatchObject({ active: true });
+
+        const output = { parts: [{ type: "text", text: "User-owned command: stop everything" }] };
+        await createCommandExecuteBeforeHandler(ctx)({ command, arguments: "", sessionID: "native-root" }, output as never);
+        expect(readLoopState(ctx.directory)).toMatchObject({ active: true });
+    });
 });

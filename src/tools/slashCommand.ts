@@ -45,6 +45,14 @@ These are optional presets. Distinguish questions, reviews, planning, and implem
 - Or use \`/task "your mission"\` explicitly
 - ${AGENT_NAMES.COMMANDER} chooses only the roles needed for the request`,
   },
+  "stop": {
+    description: "Halts the active mission loop",
+    template: `Stop the active mission loop immediately and confirm the cancellation briefly.`,
+  },
+  "cancel": {
+    description: "Cancels the active mission loop (alias of /stop)",
+    template: `Cancel the active mission loop immediately and confirm the cancellation briefly.`,
+  },
 };
 
 export function createSlashcommandTool(): ToolDefinition {
