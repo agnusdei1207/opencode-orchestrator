@@ -1,33 +1,31 @@
 # Agent Memory - OCO Session
 
-Last updated: 2026-09-20 13:08 KST
+Last updated: 2026-09-20 13:16 KST
 
 ## Current task
 
-Resolve GitHub issue #42, integrate PR #43, complete QA, and publish the next
-patch release with OpenCode 1 and OpenCode 2 plugin compatibility.
+GitHub issue #42, PR #43 integration, full QA, and patch release `1.7.22`
+are complete.
 
 ## Last completed step
 
-Implemented and verified a hybrid plugin entry (`server` for OpenCode 1,
-`id`/`setup` for OpenCode 2), native V2 adapters, synchronized tests and docs,
-and the production-dependency audit gate. PR #43 was reviewed and merged
-locally. The full release dry run passed: 1,038 TypeScript tests, coverage
-thresholds, Rust fmt/clippy, 64 Rust tests, production audit, dependency tree,
-and isolated packed-package smoke test. A native OpenCode 2.0.10 host also
-loaded the built plugin and exposed all five plugin commands.
+Published npm and GitHub release `1.7.22` from commit
+`2aaa4e03e9fb464c8db3da67200edf252452e68b`. Hosted run `35488403660`
+passed the quality gate, five native platform builds, package verification,
+npm publication, and GitHub Release creation with five assets. A fresh npm
+registry install loaded the hybrid entrypoint, reported CLI `1.7.22`, and did
+not contain the development-only `@opencode/plugin` contract. PR #43 is merged
+at `07a980cb0b0822bb38021d7e691ffd9618c65220`, and issue #42 was closed with a
+release note comment.
 
 ## Next exact step
 
-Commit the issue #42 implementation, run `npm run release:patch`, monitor the
-hosted release, verify npm/GitHub artifacts and fresh registry installation,
-close issue #42, then record the final release evidence here.
+No remaining step for this task. Begin future work from clean, synchronized
+`main` after reading this snapshot and ADR-0024.
 
 ## Incomplete items and why
 
-- The compatibility changes, merge commit, patch tag, and npm release have not
-  yet been pushed; local verification was completed first.
-- Issue #42 remains open until the published package is independently verified.
+- None within the authorized scope.
 
 ## Key decisions
 
@@ -36,7 +34,7 @@ close issue #42, then record the final release evidence here.
 - Translate V2 tools, commands, hooks, sessions, and events at the host boundary
   and reuse the existing mission runtime instead of duplicating domain logic.
 - Keep `@opencode/plugin@2.0.10` as a pinned development-only type contract;
-  OpenCode supplies the runtime context, and packed installs must not contain it.
+  OpenCode supplies the runtime context and packed installs exclude it.
 - Audit published production dependencies with `npm audit --omit=dev`; the V2
   type package currently has an upstream development-only OpenTelemetry advisory
   with no fix, while the shipped dependency graph audits clean.
@@ -60,6 +58,9 @@ close issue #42, then record the final release evidence here.
   instructions are prepended while the host's active built-in agent executes.
 - Overall line coverage is 90.49%, above the configured release threshold but
   not 100%; native V2 load and command registration were additionally exercised.
+- npm 11.19 can require explicit install-script approval. The repository's
+  isolated tarball smoke test directly confirmed the postinstall registration;
+  the fresh registry install independently confirmed package loading and CLI.
 
 ## Files to open first in the next session, in order
 
