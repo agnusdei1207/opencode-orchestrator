@@ -85,7 +85,7 @@ describe("background task notification never interrupts a working parent (issue 
         };
 
         const { default: plugin } = await import(pathToFileURL(DIST_ENTRY).href);
-        const hooks = await plugin({ directory: workspace, client, worktree: workspace, $: () => {} }, {});
+        const hooks = await plugin.server({ directory: workspace, client, worktree: workspace, $: () => {} }, {});
         const fire = (event: unknown) => hooks.event?.({ event });
 
         await fire({ type: "session.created", properties: { info: { id: PARENT } } });

@@ -92,11 +92,18 @@ import * as root from "opencode-orchestrator";
 import * as server from "opencode-orchestrator/server";
 if (JSON.stringify(Object.keys(root).sort()) !== JSON.stringify(["default"])) throw new Error("unexpected root exports");
 if (JSON.stringify(Object.keys(server).sort()) !== JSON.stringify(["default"])) throw new Error("unexpected server exports");
-if (typeof root.default !== "function" || root.default !== server.default) throw new Error("plugin entrypoints diverged");
+if (root.default !== server.default) throw new Error("plugin entrypoints diverged");
+if (root.default.id !== "opencode-orchestrator") throw new Error("plugin id is missing");
+if (typeof root.default.server !== "function") throw new Error("OpenCode 1 server entry is missing");
+if (typeof root.default.setup !== "function") throw new Error("OpenCode 2 setup entry is missing");
 `);
   run(process.execPath, [smokeModule], { cwd: consumer, capture: true });
 
   const installedRoot = path.join(consumer, "node_modules", "opencode-orchestrator");
+  const leakedV2Contract = path.join(consumer, "node_modules", "@opencode", "plugin");
+  if (existsSync(leakedV2Contract)) {
+    throw new Error("development-only OpenCode 2 contract leaked into the packed install");
+  }
   const installedManifest = JSON.parse(readFileSync(path.join(installedRoot, "package.json"), "utf8"));
   if (installedManifest.bin?.orchestrator !== "dist/cli.js") {
     throw new Error("installed package does not expose the orchestrator CLI");

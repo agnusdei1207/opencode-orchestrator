@@ -41,8 +41,14 @@ describe("OrchestratorPlugin Entry Point", () => {
         }
     });
 
+    it("exports one hybrid module for OpenCode 1 and OpenCode 2", () => {
+        expect(OrchestratorPlugin.id).toBe("opencode-orchestrator");
+        expect(typeof OrchestratorPlugin.server).toBe("function");
+        expect(typeof OrchestratorPlugin.setup).toBe("function");
+    });
+
     it("initializes plugin with all hooks and default options", async () => {
-        const pluginInstance = await OrchestratorPlugin(
+        const pluginInstance = await OrchestratorPlugin.server(
             { directory: testDir, client: mockClient } as any,
             {}
         );
@@ -67,8 +73,8 @@ describe("OrchestratorPlugin Entry Point", () => {
     });
 
     it("does not create a placeholder TODO file during initialization", async () => {
-        const pluginInstance = await OrchestratorPlugin(
-            { directory: testDir, client: mockClient } as Parameters<typeof OrchestratorPlugin>[0],
+        const pluginInstance = await OrchestratorPlugin.server(
+            { directory: testDir, client: mockClient } as Parameters<typeof OrchestratorPlugin.server>[0],
             {},
         );
 
@@ -88,8 +94,8 @@ describe("OrchestratorPlugin Entry Point", () => {
 writeFileSync(${JSON.stringify(marker)}, 'imported');
 export default { name: 'host-owned', version: '1' };`;
         writeFileSync(pluginPath, source);
-        const instance = await OrchestratorPlugin(
-            { directory: testDir, client: mockClient } as Parameters<typeof OrchestratorPlugin>[0], {},
+        const instance = await OrchestratorPlugin.server(
+            { directory: testDir, client: mockClient } as Parameters<typeof OrchestratorPlugin.server>[0], {},
         );
         try {
             expect(existsSync(marker)).toBe(false);
@@ -105,8 +111,8 @@ export default { name: 'host-owned', version: '1' };`;
         mkdirSync(path.dirname(todoPath), { recursive: true });
         writeFileSync(todoPath, original);
 
-        const pluginInstance = await OrchestratorPlugin(
-            { directory: testDir, client: mockClient } as Parameters<typeof OrchestratorPlugin>[0],
+        const pluginInstance = await OrchestratorPlugin.server(
+            { directory: testDir, client: mockClient } as Parameters<typeof OrchestratorPlugin.server>[0],
             {},
         );
 
@@ -118,7 +124,7 @@ export default { name: 'host-owned', version: '1' };`;
     });
 
     it("handles session.created event with direct and nested session IDs", async () => {
-        const pluginInstance = await OrchestratorPlugin(
+        const pluginInstance = await OrchestratorPlugin.server(
             { directory: testDir, client: mockClient } as any,
             { contextMaxTokens: 150000 }
         );

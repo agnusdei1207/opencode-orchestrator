@@ -97,7 +97,7 @@ describe("session injection regression (issues #35, #37, #38)", () => {
         };
 
         const { default: plugin } = await import(pathToFileURL(DIST_ENTRY).href);
-        const hooks = await plugin({ directory: workspace, client, worktree: workspace, $: () => {} }, {});
+        const hooks = await plugin.server({ directory: workspace, client, worktree: workspace, $: () => {} }, {});
         const fire = (event: unknown) => hooks.event?.({ event });
 
         await fire({ type: "session.created", properties: { info: { id: SESSION } } });
@@ -200,7 +200,7 @@ describe("recovery never interrupts an in-flight retry (issue #38)", () => {
         };
 
         const { default: plugin } = await import(pathToFileURL(DIST_ENTRY).href);
-        const hooks = await plugin({ directory: workspace, client, worktree: workspace, $: () => {} }, {});
+        const hooks = await plugin.server({ directory: workspace, client, worktree: workspace, $: () => {} }, {});
         const fire = (event: unknown) => hooks.event?.({ event });
 
         await fire({ type: "session.created", properties: { info: { id: SESSION } } });

@@ -29,7 +29,7 @@ jobs:
         run: |
           npm run build
           npm run test:coverage
-          npm audit
+          npm audit --omit=dev
 
       - name: Install Rust quality tools
         uses: dtolnay/rust-toolchain@stable

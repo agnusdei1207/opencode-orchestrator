@@ -11,6 +11,7 @@ import type { Plugin } from "@opencode-ai/plugin";
 import { registerAllTools } from "./tools/registry.js";
 import { PLUGIN_HOOKS } from "./shared/index.js";
 import { initializePluginRuntime } from "./plugin-runtime.js";
+import { setupV2 } from "./v2/setup.js";
 
 // Import modularized handlers
 import { createToolExecuteBeforeHandler } from "./plugin-handlers/tool-execute-pre-handler.js";
@@ -29,7 +30,7 @@ import {
 // Plugin Definition
 // ============================================================================
 
-const OrchestratorPlugin: Plugin = async (input, options) => {
+const OrchestratorServerPlugin: Plugin = async (input, options) => {
     const runtime = initializePluginRuntime(input, options);
     const { directory, handlerContext, asyncAgentTools, shutdownManager } = runtime;
 
@@ -51,4 +52,10 @@ const OrchestratorPlugin: Plugin = async (input, options) => {
 // NOTE: Do NOT export functions from main index.ts!
 // OpenCode treats ALL exports as plugin instances and calls them.
 // Only default export the plugin.
+const OrchestratorPlugin = {
+    id: "opencode-orchestrator",
+    server: OrchestratorServerPlugin,
+    setup: setupV2,
+};
+
 export default OrchestratorPlugin;

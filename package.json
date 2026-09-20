@@ -87,6 +87,7 @@
     "zod": "^4.3.6"
   },
   "devDependencies": {
+    "@opencode/plugin": "2.0.10",
     "@types/node": "^24.13.4",
     "@vitest/coverage-v8": "^5.0.1",
     "es-module-lexer": "^3.0.2",

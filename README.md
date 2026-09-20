@@ -35,8 +35,7 @@ This README describes the current development tree. Tool removals below are pend
 Requirements:
 
 - Node.js `>=24.15.0`
-- OpenCode `1.18.31` is the host version exercised by this release's isolated
-  integration suite.
+- OpenCode `1.18.31` and OpenCode `2.0.10` plugin contracts are supported.
 - Bundled Rust tools and CLI: Linux x64/arm64, macOS x64/arm64, or Windows x64.
 
 ```bash
@@ -46,7 +45,7 @@ npm install -g opencode-orchestrator
 This installs both the OpenCode plugin and the `orchestrator` CLI. The install
 hook registers the plugin in `opencode.json` / `opencode.jsonc`.
 
-OpenCode 1.18.31 can also install the plugin through its native package flow:
+OpenCode can also install the plugin through its native package flow:
 
 ```bash
 opencode plugin opencode-orchestrator --global
@@ -56,11 +55,11 @@ The native command detects this package's `./server` entry and updates the
 global OpenCode config. It does not create a global `orchestrator` shell
 command; use the npm global install above when you need the bundled CLI.
 
-OpenCode accepts either the package name or a package/options tuple. The simple
-form is `"plugin": ["opencode-orchestrator"]`; use the tuple shown below when
-you need plugin options. The package exposes both its root entry and the
-OpenCode `./server` entry, so current and earlier supported loaders reach the
-same plugin implementation.
+OpenCode 1 accepts either the package name or a package/options tuple under
+`plugin`. OpenCode 2 accepts the package name or a package/options object under
+`plugins`; it also normalizes the supported OpenCode 1 configuration while you
+migrate. The package exports one hybrid entrypoint: OpenCode 1 uses `server`,
+while OpenCode 2 uses `id` and `setup`.
 
 ### Troubleshooting: plugin installed but `/task` is missing
 
@@ -122,6 +121,27 @@ Add or customize in `opencode.jsonc`:
         }
       }
     ]
+  ]
+}
+```
+
+The equivalent native OpenCode 2 plugin entry is:
+
+```jsonc
+{
+  "$schema": "https://opencode.ai/config.json",
+  "plugins": [
+    {
+      "package": "opencode-orchestrator",
+      "options": {
+        "agentConcurrency": {
+          "commander": 1,
+          "planner": 10,
+          "worker": 10,
+          "reviewer": 10
+        }
+      }
+    }
   ]
 }
 ```

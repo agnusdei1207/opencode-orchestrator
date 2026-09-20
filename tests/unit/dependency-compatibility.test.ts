@@ -7,6 +7,7 @@ interface PackageManifest {
         node?: string;
     };
     dependencies?: Record<string, string>;
+    devDependencies?: Record<string, string>;
     exports?: Record<string, unknown>;
 }
 
@@ -22,6 +23,11 @@ describe("dependency compatibility", () => {
 
         expect(pluginVersion).toBe("1.18.31");
         expect(sdkVersion).toBe("1.18.31");
+    });
+
+    it("pins the OpenCode 2 plugin contract used by the hybrid entrypoint", () => {
+        const manifest = readManifest();
+        expect(manifest.devDependencies?.["@opencode/plugin"]).toBe("2.0.10");
     });
 
     it("exposes the server entrypoint OpenCode resolves for npm plugins", () => {

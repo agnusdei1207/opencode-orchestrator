@@ -127,8 +127,8 @@ runNpm(["run", "test:coverage"]);
 console.log("[release-preflight] running Rust quality checks");
 runRustQualityChecks();
 
-console.log("[release-preflight] running npm audit");
-runNpm(["audit", "--json"]);
+console.log("[release-preflight] auditing published dependencies");
+runNpm(["audit", "--omit=dev", "--json"]);
 
 console.log("[release-preflight] validating installed dependency tree");
 runNpm(["ls", "--depth=0"]);

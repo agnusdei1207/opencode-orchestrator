@@ -1,85 +1,73 @@
 # Agent Memory - OCO Session
 
-Last updated: 2026-09-15 20:03 KST
+Last updated: 2026-09-20 13:08 KST
 
 ## Current task
 
-Legacy removal, runtime hardening, full QA, commit/push, and patch release to
-`1.7.21` are complete. npm and GitHub Release contain the corrected package,
-and registry installs passed on Windows and Linux.
+Resolve GitHub issue #42, integrate PR #43, complete QA, and publish the next
+patch release with OpenCode 1 and OpenCode 2 plugin compatibility.
 
 ## Last completed step
 
-Published npm/GitHub patch `1.7.21` from commit
-`49717319d5a0928327031c64019de68d5ef49d4f`. Hosted run `34960594424`
-passed quality, all five native builds, package assembly/smoke, npm publication,
-and GitHub Release creation. Fresh registry installs on Windows and Linux
-registered the plugin, loaded identical root and `/server` defaults, contained
-the exact five validated artifacts, and ran CLI version `1.7.21`. Docker cleanup
-removed all Compose volumes and reclaimed 5.332 GB through system prune; Docker
-now reports zero images, containers, volumes, and build cache.
+Implemented and verified a hybrid plugin entry (`server` for OpenCode 1,
+`id`/`setup` for OpenCode 2), native V2 adapters, synchronized tests and docs,
+and the production-dependency audit gate. PR #43 was reviewed and merged
+locally. The full release dry run passed: 1,038 TypeScript tests, coverage
+thresholds, Rust fmt/clippy, 64 Rust tests, production audit, dependency tree,
+and isolated packed-package smoke test. A native OpenCode 2.0.10 host also
+loaded the built plugin and exposed all five plugin commands.
 
 ## Next exact step
 
-No remaining step for this task. Preserve the release evidence below and start
-future compatibility work from the current `main` branch.
+Commit the issue #42 implementation, run `npm run release:patch`, monitor the
+hosted release, verify npm/GitHub artifacts and fresh registry installation,
+close issue #42, then record the final release evidence here.
 
 ## Incomplete items and why
 
-- None within the authorized scope. `v1.7.20` remains an unpublished failed tag
-  for audit history; `v1.7.21` is the public corrected release.
+- The compatibility changes, merge commit, patch tag, and npm release have not
+  yet been pushed; local verification was completed first.
+- Issue #42 remains open until the published package is independently verified.
 
 ## Key decisions
 
-- Delete only code proven unreachable or connected solely to no-op projections;
-  preserve every registered OpenCode tool and public package entry.
-- Keep the used timeout as `core/async/with-timeout.ts` and the rate-limit path
-  directly in `session-recovery.ts`.
-- Pass desktop notification data as process arguments or child-only environment
-  values, never as shell source.
-- Keep the Rust CLI config commands for compatibility while making them match
-  OpenCode path precedence, preserve invalid input, back up writes, and leave
-  unrelated MCP configuration untouched. The npm hook remains the JSONC-aware
-  path.
-- Use TypeScript 7.0.2 and Vitest 5.0.1. Keep Node type definitions on the
-  supported Node 24 line rather than exposing Node 26-only APIs.
-- Build all five release binaries from the exact tag in the hosted matrix.
-  Keep `bin/` as an ignored build output so a version tag cannot retain binaries
-  with an older embedded version.
-- Build ignored `dist/` output inside the release job itself; artifacts from a
-  separate QA job do not share a filesystem with the publisher.
-- Use a Node log follower for `npm run log` so the development command works on
-  Windows, Linux, and macOS without shell command substitution.
+- Keep the working OpenCode 1 `server` contract while adding the OpenCode 2
+  `id`/`setup` contract at the same default export.
+- Translate V2 tools, commands, hooks, sessions, and events at the host boundary
+  and reuse the existing mission runtime instead of duplicating domain logic.
+- Keep `@opencode/plugin@2.0.10` as a pinned development-only type contract;
+  OpenCode supplies the runtime context, and packed installs must not contain it.
+- Audit published production dependencies with `npm audit --omit=dev`; the V2
+  type package currently has an upstream development-only OpenTelemetry advisory
+  with no fix, while the shipped dependency graph audits clean.
+- Preserve PR #43's resolved-marker handling and native `/stop` and `/cancel`
+  registrations in the same patch release.
 
 ## Rejected alternatives
 
-- Do not remove the public toolbelt, Rust bridge, or bounded task runtime in a
-  patch release. ADR-0021 keeps those changes behind explicit compatibility
-  gates.
-- Do not retain unreachable implementations because tests import them; those
-  tests preserve dead code rather than shipped behavior.
-- Do not rewrite malformed or commented JSONC from the Rust CLI. Return an
-  actionable error and preserve the file; the npm hook supports JSONC edits.
-- Do not refactor the stateful Rust process pool solely to satisfy a static
-  size threshold while its public replacement remains unresolved.
+- Do not replace the default export with V2-only behavior because that would
+  break supported OpenCode 1 installations.
+- Do not merely wrap the V1 hook object in `{ id, setup }`; OpenCode 2 requires
+  native registrations and different data shapes.
+- Do not add the full V2 SDK runtime dependency when the supplied plugin context
+  already exposes the necessary domains.
 
 ## Known risks
 
-- Native background-task parity is still unverified, so the bounded task runtime
-  remains.
-- The static survey reports 40 function-size, parameter, or complexity findings,
-  concentrated in retained process/task state machines and handler adapters.
-- The Rust CLI accepts strict JSON content in either `opencode.json` or
-  `opencode.jsonc`; commented JSONC requires the npm hook.
-- npm 11.17 reports advisory approval warnings for install scripts. Isolated
-  installs confirmed this package's postinstall runs and registers the plugin.
+- OpenCode 2 does not expose session deletion to plugins. Retired delegated
+  sessions are interrupted and forgotten locally; host retention owns cleanup.
+- V2 transforms cannot create custom agents dynamically. Delegated role
+  instructions are prepended while the host's active built-in agent executes.
+- Overall line coverage is 90.49%, above the configured release threshold but
+  not 100%; native V2 load and command registration were additionally exercised.
 
 ## Files to open first in the next session, in order
 
 1. `AGENT_MEMORY.md`
-2. `docs/reviews/2026-09-15-legacy-removal-and-hardening.md`
-3. `docs/adr/0023-remove-unreachable-runtime-plumbing.md`
-4. `docs/plans/2026-09-15-legacy-removal-and-hardening.md`
-5. `package.json`
-6. `src/index.ts`
-7. `crates/orchestrator-cli/src/config.rs`
+2. `docs/adr/0024-opencode-2-plugin-compatibility.md`
+3. `src/index.ts`
+4. `src/v2/setup.ts`
+5. `src/v2/client-adapter.ts`
+6. `tests/unit/v2-plugin.test.ts`
+7. `scripts/release-preflight.mjs`
+8. `package.json`

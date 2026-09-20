@@ -123,7 +123,9 @@ describe.skipIf(!existsSync(path.join(distDir, "index.js")))("dist bundle integr
     it("dist/index.js loads and exposes the plugin entrypoint", async () => {
         const mod = await import(pathToFileURL(path.join(distDir, "index.js")).href);
 
-        expect(typeof mod.default).toBe("function");
+        expect(mod.default.id).toBe("opencode-orchestrator");
+        expect(typeof mod.default.server).toBe("function");
+        expect(typeof mod.default.setup).toBe("function");
     }, DIST_ENTRYPOINT_LOAD_TIMEOUT_MS);
 
     it("resolves the explicit OpenCode server package export", async () => {
@@ -131,6 +133,7 @@ describe.skipIf(!existsSync(path.join(distDir, "index.js")))("dist bundle integr
         const mod = await import(serverEntry);
 
         expect(serverEntry.replaceAll("\\", "/")).toContain("/dist/index.js");
-        expect(typeof mod.default).toBe("function");
+        expect(typeof mod.default.server).toBe("function");
+        expect(typeof mod.default.setup).toBe("function");
     }, DIST_ENTRYPOINT_LOAD_TIMEOUT_MS);
 });
