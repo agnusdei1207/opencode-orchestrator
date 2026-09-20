@@ -152,6 +152,8 @@ The plugin preserves your default agent, native build/plan modes, agent override
 
 One project directory supports one active mission. Another root session cannot replace it until its owner stops it. Ordinary sessions do not automatically resume a leftover TODO. Interrupt protection is process-local; delegated task state is not restored after restarting the plugin.
 
+Mission completion is verified against `.opencode/todo.md`, `.opencode/verification-checklist.md` (when present), and `.opencode/sync-issues.md`. A sync-issues file counts as resolved when it is empty, holds only the header, or contains only resolved markers: checked `- [x]` items or an explicit all-clear line such as `No open issues`. Any other text — including unchecked `- [ ]` items — keeps the mission open.
+
 ---
 
 ## 4. How work is chosen

@@ -26,6 +26,8 @@ describe("slashCommand Tool", () => {
         expect(result).toContain("/task");
         expect(result).toContain("/plan");
         expect(result).toContain("/agents");
+        expect(result).toContain("/stop");
+        expect(result).toContain("/cancel");
     });
 
     it("returns unknown command notice when command is invalid", async () => {
@@ -56,5 +58,12 @@ describe("slashCommand Tool", () => {
         expect(result).toContain("Planner");
         expect(result).toContain("Worker");
         expect(result).toContain("Reviewer");
+    });
+
+    it.each(["stop", "cancel"])("exposes /%s as a registered command", async (command) => {
+        expect(COMMANDS[command]).toBeDefined();
+        const result = await (tool as any).execute({ command: `/${command}` });
+        expect(result).toContain("mission loop");
+        expect(result).not.toContain("$ARGUMENTS");
     });
 });

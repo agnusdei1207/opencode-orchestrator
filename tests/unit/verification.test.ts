@@ -225,6 +225,67 @@ Needs manual reconciliation
                 expect(result.passed).toBe(false);
                 expect(result.errors.join("\n")).toContain("Failed to read sync issues");
             });
+
+            it("should ignore checked sync checkboxes as resolved", () => {
+                writeFileSync(join(opencodeDir, "todo.md"), "- [x] Done");
+                writeFileSync(join(opencodeDir, "sync-issues.md"), `# Sync Issues
+
+- [x] TypeScript error in file.ts fixed
+* [X] Import conflict resolved
+`);
+
+                const result = verifyMissionCompletion(testDir);
+
+                expect(result.syncIssuesEmpty).toBe(true);
+                expect(result.passed).toBe(true);
+            });
+
+            it("should ignore explicit all-clear declarations", () => {
+                writeFileSync(join(opencodeDir, "todo.md"), "- [x] Done");
+                writeFileSync(join(opencodeDir, "sync-issues.md"), `# Sync Issues
+
+No open issues. All 10 agents finished.
+`);
+
+                const result = verifyMissionCompletion(testDir);
+
+                expect(result.syncIssuesEmpty).toBe(true);
+                expect(result.passed).toBe(true);
+            });
+
+            it.each(["All clear", "Clean", "Resolved."])("should ignore bare all-clear marker '%s'", (marker) => {
+                writeFileSync(join(opencodeDir, "todo.md"), "- [x] Done");
+                writeFileSync(join(opencodeDir, "sync-issues.md"), `# Sync Issues\n\n${marker}\n`);
+
+                const result = verifyMissionCompletion(testDir);
+
+                expect(result.syncIssuesEmpty).toBe(true);
+            });
+
+            it("should still count substantive lines after a resolved marker word", () => {
+                writeFileSync(join(opencodeDir, "todo.md"), "- [x] Done");
+                writeFileSync(join(opencodeDir, "sync-issues.md"), "Clean up the database");
+
+                const result = verifyMissionCompletion(testDir);
+
+                expect(result.syncIssuesEmpty).toBe(false);
+                expect(result.syncIssuesCount).toBe(1);
+            });
+
+            it("should still count unchecked sync checkboxes as open", () => {
+                writeFileSync(join(opencodeDir, "todo.md"), "- [x] Done");
+                writeFileSync(join(opencodeDir, "sync-issues.md"), `# Sync Issues
+
+- [x] Fixed earlier
+- [ ] Still broken
+`);
+
+                const result = verifyMissionCompletion(testDir);
+
+                expect(result.syncIssuesEmpty).toBe(false);
+                expect(result.syncIssuesCount).toBe(1);
+                expect(result.passed).toBe(false);
+            });
         });
 
         describe("Overall verification", () => {

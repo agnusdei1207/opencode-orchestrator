@@ -240,6 +240,22 @@ const TODO_INCOMPLETE_STATUSES = new Set([
 
 const SYNC_ISSUES_HEADER_PATTERN = /^#+\s*Sync Issues\s*$/i;
 
+// Checked sync items are resolved, mirroring TODO checkbox semantics.
+const SYNC_RESOLVED_CHECKBOX_PATTERN = /^\s*[-*]\s*\[[xX]\]/;
+
+// Explicit all-clear declarations resolve the file even with trailing notes.
+const SYNC_ALL_CLEAR_PREFIX_PATTERN = /^(no open issues|no issues|all clear|all resolved)\b/i;
+
+// Bare single-word markers only resolve when nothing substantive follows,
+// so lines like "Clean up the database" still count as open issues.
+const SYNC_ALL_CLEAR_SINGLE_WORD_PATTERN = /^(clean|resolved)[\s.:!\-]*$/i;
+
+function isResolvedSyncLine(line: string): boolean {
+    if (SYNC_RESOLVED_CHECKBOX_PATTERN.test(line)) return true;
+    if (SYNC_ALL_CLEAR_PREFIX_PATTERN.test(line)) return true;
+    return SYNC_ALL_CLEAR_SINGLE_WORD_PATTERN.test(line);
+}
+
 function normalizeTodoStatus(status: string): string {
     return status.trim().toLowerCase().replace(/-/g, "_");
 }
@@ -306,7 +322,7 @@ function getSyncIssueLines(content: string): string[] {
     return trimmed
         .split('\n')
         .map(line => line.trim())
-        .filter(line => line && line !== '---' && !SYNC_ISSUES_HEADER_PATTERN.test(line));
+        .filter(line => line && line !== '---' && !SYNC_ISSUES_HEADER_PATTERN.test(line) && !isResolvedSyncLine(line));
 }
 
 function applyChecklistVerification(directory: string, result: VerificationResult): boolean {
