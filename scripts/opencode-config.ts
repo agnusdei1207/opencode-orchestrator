@@ -310,18 +310,12 @@ export function removeOurPluginEntries(
 }
 
 export function readExistingConfig(configDir: string): { file: string; config: OpenCodeConfig } | null {
-  for (const configFile of getConfigFileCandidates(configDir)) {
-    if (!existsSync(configFile)) continue;
-    const rawContent = readFileSync(configFile, "utf-8").trim();
-    if (!rawContent) {
-      return { file: configFile, config: {} };
-    }
-    const parsed = parseConfigContent(rawContent);
-    if (parsed.config) {
-      return { file: configFile, config: parsed.config };
-    }
-  }
-  return null;
+  const configFile = resolveConfigFile(configDir);
+  if (!existsSync(configFile)) return null;
+  const rawContent = readFileSync(configFile, "utf-8").trim();
+  if (!rawContent) return { file: configFile, config: {} };
+  const parsed = parseConfigContent(rawContent);
+  return parsed.config ? { file: configFile, config: parsed.config } : null;
 }
 
 export function validateConfig(config: unknown): config is OpenCodeConfig {

@@ -74,7 +74,7 @@
     "release:dry-run": "node scripts/release-preflight.mjs --allow-dirty --skip-branch --skip-version-check",
     "release:push": "node scripts/release-push.mjs",
     "release:clean": "shx rm -rf dist bin && docker compose down -v",
-    "ginstall": "npm install -g opencode-orchestrator",
+    "ginstall": "npm install -g --allow-scripts=opencode-orchestrator opencode-orchestrator",
     "log": "node scripts/tail-log.mjs"
   },
   "engines": {

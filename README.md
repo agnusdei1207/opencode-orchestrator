@@ -37,11 +37,16 @@ Requirements:
 - Bundled Rust tools and CLI: Linux x64/arm64, macOS x64/arm64, or Windows x64.
 
 ```bash
-npm install -g opencode-orchestrator
+npm install -g --allow-scripts=opencode-orchestrator opencode-orchestrator
 ```
 
 This installs both the OpenCode plugin and the `orchestrator` CLI. The install
 hook registers the plugin in `opencode.json` / `opencode.jsonc`.
+Recent npm versions require explicit approval for dependency install scripts;
+the `--allow-scripts` flag approves this package's registration hook for the
+global install. For a project-local install, run
+`npm install-scripts approve opencode-orchestrator` and
+`npm rebuild opencode-orchestrator` after installing.
 
 OpenCode can also install the plugin through its native package flow:
 
@@ -81,6 +86,8 @@ opencode debug paths
   loading a stale cached copy: reinstalling clears
   `<cache>/opencode/packages/opencode-orchestrator@*` automatically.
 - `OPENCODE_CONFIG_DIR`, when set, takes precedence over every default location.
+- If npm reports that this package's postinstall script was skipped, approve
+  it as shown above and rerun the hook before restarting OpenCode.
 
 To remove the plugin:
 

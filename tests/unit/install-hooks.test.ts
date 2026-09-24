@@ -18,7 +18,15 @@ const postinstallPath = path.join(repoRoot, "scripts", "postinstall.ts");
 const preuninstallPath = path.join(repoRoot, "scripts", "preuninstall.ts");
 
 function runNode(args: string[], cwd: string, env: NodeJS.ProcessEnv = {}) {
-    const childEnv = { ...process.env, CI: "", CONTINUOUS_INTEGRATION: "", ...env };
+    const childEnv = {
+        ...process.env,
+        CI: "",
+        CONTINUOUS_INTEGRATION: "",
+        OPENCODE_CONFIG_DIR: "",
+        XDG_CONFIG_HOME: "",
+        XDG_CACHE_HOME: env.HOME ? path.join(env.HOME, "xdg-cache") : "",
+        ...env,
+    };
     if (env.HOME) {
         childEnv.USERPROFILE = env.USERPROFILE ?? env.HOME;
         childEnv.APPDATA = env.APPDATA ?? path.join(env.HOME, "AppData", "Roaming");
@@ -153,6 +161,63 @@ describe("install hook scripts", () => {
         expect(existsSync(path.join(configRoot, "opencode", "opencode.json"))).toBe(false);
     });
 
+    it("keeps inherited install paths outside the fixture untouched", async () => {
+        await using tmp = await tmpdir({ prefix: "postinstall-env-isolation-" });
+        const inheritedConfig = path.join(tmp.path, "ambient-config");
+        const inheritedCache = path.join(tmp.path, "ambient-cache");
+        const staleDir = path.join(inheritedCache, "opencode", "opencode-orchestrator@old");
+        const configRoot = path.join(tmp.path, "xdg");
+        mkdirSync(staleDir, { recursive: true });
+        vi.stubEnv("OPENCODE_CONFIG_DIR", inheritedConfig);
+        vi.stubEnv("XDG_CACHE_HOME", inheritedCache);
+
+        try {
+            const result = runNode(
+                ["--experimental-strip-types", postinstallPath],
+                repoRoot,
+                { XDG_CONFIG_HOME: configRoot, HOME: path.join(tmp.path, "home") }
+            );
+
+            expect(result.status).toBe(0);
+            expect(existsSync(path.join(configRoot, "opencode", "opencode.jsonc"))).toBe(true);
+            expect(existsSync(inheritedConfig)).toBe(false);
+            expect(existsSync(staleDir)).toBe(true);
+        } finally {
+            vi.unstubAllEnvs();
+        }
+    });
+
+    it.each(["OPENCODE_CONFIG_DIR", "XDG_CONFIG_HOME"])(
+        "postinstall registers in the active %s path despite an existing home registration",
+        async (variable) => {
+            await using tmp = await tmpdir({ prefix: "postinstall-precedence-" });
+            const homeDir = path.join(tmp.path, "home");
+            const homeConfigDir = path.join(homeDir, ".config", "opencode");
+            const homeConfigFile = path.join(homeConfigDir, "opencode.jsonc");
+            const overrideDir = path.join(tmp.path, "override");
+            const activeDir = variable === "XDG_CONFIG_HOME"
+                ? path.join(overrideDir, "opencode") : overrideDir;
+            mkdirSync(homeConfigDir, { recursive: true });
+            writeFileSync(homeConfigFile, '{"plugin":["opencode-orchestrator"]}\n');
+
+            const result = runNode(
+                ["--experimental-strip-types", postinstallPath],
+                repoRoot,
+                {
+                    HOME: homeDir,
+                    OPENCODE_CONFIG_DIR: variable === "OPENCODE_CONFIG_DIR" ? overrideDir : "",
+                    XDG_CONFIG_HOME: variable === "XDG_CONFIG_HOME" ? overrideDir : "",
+                }
+            );
+
+            expect(result.status).toBe(0);
+            expect(readFileSync(path.join(activeDir, "opencode.jsonc"), "utf8"))
+                .toContain('"opencode-orchestrator"');
+            expect(readFileSync(homeConfigFile, "utf8"))
+                .toBe('{"plugin":["opencode-orchestrator"]}\n');
+        }
+    );
+
     it("postinstall invalidates stale cached plugin copies", async () => {
         await using tmp = await tmpdir({ prefix: "postinstall-cache-" });
         const cacheRoot = path.join(tmp.path, "xdg-cache");
@@ -253,6 +318,29 @@ describe("install hook scripts", () => {
         expect(skipResult.status).toBe(0);
         expect(skipResult.stdout).toContain("Plugin already registered");
         expect(readFileSync(configFile, "utf8")).toBe(before);
+    });
+
+    it("postinstall reports an invalid active JSONC file even when JSON has a registration", async () => {
+        await using tmp = await tmpdir({ prefix: "postinstall-active-file-" });
+        const configDir = path.join(tmp.path, "xdg", "opencode");
+        const jsoncFile = path.join(configDir, "opencode.jsonc");
+        const jsonFile = path.join(configDir, "opencode.json");
+        mkdirSync(configDir, { recursive: true });
+        writeFileSync(jsoncFile, "{ invalid jsonc");
+        writeFileSync(jsonFile, '{"plugin":["opencode-orchestrator"]}\n');
+
+        const result = runNode(
+            ["--experimental-strip-types", postinstallPath],
+            repoRoot,
+            { XDG_CONFIG_HOME: path.join(tmp.path, "xdg"), HOME: tmp.path }
+        );
+
+        expect(result.status).toBe(0);
+        expect(result.stdout).toContain("has invalid JSON/JSONC and was skipped");
+        expect(readFileSync(jsoncFile, "utf8")).toBe("{ invalid jsonc");
+        expect(readFileSync(jsonFile, "utf8")).toBe('{"plugin":["opencode-orchestrator"]}\n');
+        expect(readdirSync(configDir).some((name) => name.startsWith("opencode.jsonc.backup.")))
+            .toBe(true);
     });
 
     it("postinstall exits cleanly in CI without writing config", async () => {

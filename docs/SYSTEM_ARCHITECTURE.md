@@ -1,6 +1,6 @@
 # System Architecture
 
-Date: 2026-09-15 (OpenCode 1.18.31 boundary, legacy removal, and release path reviewed)
+Date: 2026-09-24 (OpenCode 1.18.32 boundary, install path, and release path reviewed)
 
 This document describes the current architecture that is directly verifiable from the repository source. It intentionally avoids speculative performance claims.
 
@@ -204,8 +204,8 @@ The current implementation writes these artifacts through `src/core/knowledge/mi
 Current verified release baseline:
 
 1. Node.js `>=24.15.0`
-2. `@opencode-ai/plugin` `1.18.31`
-3. `@opencode-ai/sdk` `1.18.31`
+2. `@opencode-ai/plugin` `1.18.32`
+3. `@opencode-ai/sdk` `1.18.32`
 4. GitHub Actions build matrix for Linux x64/arm64, macOS x64/arm64, and Windows x64 in `.github/workflows/release.yml`
 
 The development gate uses TypeScript `7.0.2`, Vitest `5.0.1`, and explicit
@@ -223,8 +223,11 @@ The repository ignores `bin/`; versioned executables exist only as local build
 outputs or artifacts rebuilt from the exact release tag.
 
 The npm postinstall/preuninstall hooks are the normal configuration path and
-preserve JSONC comments. The secondary Rust CLI commands use the same config
-root precedence, prefer `opencode.jsonc`, preserve invalid input, back up and
+preserve JSONC comments. Postinstall registers in the first config path, which
+is the one selected by `OPENCODE_CONFIG_DIR`, `XDG_CONFIG_HOME`, or the home
+fallback. npm versions that restrict dependency install scripts require explicit
+approval for this package's registration hook. The secondary Rust CLI commands
+use the same config root precedence, prefer `opencode.jsonc`, preserve invalid input, back up and
 verify mutations, recognize versioned/tuple entries, and never remove an
 unrelated `mcp.orchestrator` entry. They reject commented JSONC and direct the
 operator to the JSONC-aware npm hook.

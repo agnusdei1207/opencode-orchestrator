@@ -38,7 +38,7 @@ function runNpm(args, options = {}) {
 function parsePackResult(stdout) {
   const parsed = JSON.parse(stdout.trim());
   const packed = Array.isArray(parsed) ? parsed[0] : undefined;
-  if (!packed?.filename || !packed?.shasum) {
+  if (!packed?.filename || !packed?.shasum || !packed?.name || !packed?.version) {
     throw new Error("npm pack did not return package metadata");
   }
   return packed;
@@ -62,8 +62,17 @@ try {
   const tarball = path.join(temporaryRoot, packed.filename);
   const consumer = path.join(temporaryRoot, "consumer");
   const configRoot = path.join(temporaryRoot, "opencode-config");
+  const homeRoot = path.join(temporaryRoot, "home");
+  const homeConfigDir = path.join(homeRoot, ".config", "opencode");
+  const homeConfigFile = path.join(homeConfigDir, "opencode.jsonc");
+  const homeConfigContent = '{"plugin":["opencode-orchestrator"]}\n';
   mkdirSync(consumer);
-  writeFileSync(path.join(consumer, "package.json"), JSON.stringify({ private: true }, null, 2));
+  mkdirSync(homeConfigDir, { recursive: true });
+  writeFileSync(homeConfigFile, homeConfigContent);
+  writeFileSync(path.join(consumer, "package.json"), JSON.stringify({
+    private: true,
+    allowScripts: { [`${packed.name}@${packed.version}`]: true },
+  }, null, 2));
 
   runNpm(["install", tarball, "--no-audit", "--no-fund"], {
     cwd: consumer,
@@ -76,14 +85,17 @@ try {
       XDG_CONFIG_HOME: path.join(temporaryRoot, "xdg"),
       XDG_CACHE_HOME: path.join(temporaryRoot, "cache"),
       APPDATA: path.join(temporaryRoot, "appdata"),
-      USERPROFILE: path.join(temporaryRoot, "home"),
-      HOME: path.join(temporaryRoot, "home"),
+      USERPROFILE: homeRoot,
+      HOME: homeRoot,
     },
   });
 
   const installedConfig = JSON.parse(readFileSync(path.join(configRoot, "opencode.jsonc"), "utf8"));
   if (!installedConfig.plugin?.includes("opencode-orchestrator")) {
     throw new Error("packed postinstall did not register the plugin in the isolated config");
+  }
+  if (readFileSync(homeConfigFile, "utf8") !== homeConfigContent) {
+    throw new Error("packed postinstall changed a lower-priority home config");
   }
 
   const smokeModule = path.join(consumer, "smoke.mjs");

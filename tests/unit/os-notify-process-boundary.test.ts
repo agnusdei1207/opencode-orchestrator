@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { PLATFORM } from "../../src/shared/os/index.js";
 
 const processMocks = vi.hoisted(() => {
@@ -16,6 +16,11 @@ const processMocks = vi.hoisted(() => {
 });
 
 vi.mock("node:child_process", () => processMocks);
+vi.mock("node:fs", () => ({
+    readFileSync: vi.fn((filePath: string) =>
+        filePath === "/proc/version" ? "Linux version 6.1" : ""
+    ),
+}));
 vi.mock("node:util", () => ({
     promisify: (fn: (...args: unknown[]) => unknown) => (...args: unknown[]) =>
         new Promise((resolve, reject) => {
@@ -34,7 +39,11 @@ describe("OS notification process boundary", () => {
     beforeEach(() => {
         processMocks.exec.mockClear();
         processMocks.execFile.mockClear();
+        vi.stubEnv("WSL_DISTRO_NAME", "");
+        vi.stubEnv("WSLENV", "");
     });
+
+    afterEach(() => vi.unstubAllEnvs());
 
     it("passes notification text as argv without invoking a shell", async () => {
         const { sendNotification } = await import("../../src/core/notification/os-notify/notifier.js");

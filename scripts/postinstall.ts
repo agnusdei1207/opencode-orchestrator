@@ -205,20 +205,11 @@ try {
   let alreadyRegistered = false;
   let skippedCorrupt = false;
   let backupCreated: string | null = null;
-  let targetConfigDir = configPaths[0];
-
-  for (const configDir of configPaths) {
-    const existing = readExistingConfig(configDir);
-    if (!existing) {
-      continue;
-    }
-
-    targetConfigDir = configDir;
-    if (existing.config.plugin?.some((entry: unknown) => isOurPluginEntry(entry))) {
-      alreadyRegistered = true;
-      log("Plugin already registered in this location", { configFile: existing.file });
-      break;
-    }
+  const targetConfigDir = configPaths[0];
+  const existing = targetConfigDir ? readExistingConfig(targetConfigDir) : null;
+  if (existing?.config.plugin?.some((entry: unknown) => isOurPluginEntry(entry))) {
+    alreadyRegistered = true;
+    log("Plugin already registered in this location", { configFile: existing.file });
   }
 
   if (!alreadyRegistered && targetConfigDir) {
@@ -243,7 +234,7 @@ try {
   if (registered) {
     // Already printed per-file success above
   } else if (alreadyRegistered) {
-    console.log("✅ Plugin already registered in all detected config locations.");
+    console.log("✅ Plugin already registered in the active config location.");
     log("Plugin was already registered");
   } else if (skippedCorrupt) {
     log("Skipped due to corrupted config");
