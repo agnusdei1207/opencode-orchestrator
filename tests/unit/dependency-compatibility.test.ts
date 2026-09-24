@@ -21,13 +21,13 @@ describe("dependency compatibility", () => {
         const pluginVersion = manifest.dependencies?.["@opencode-ai/plugin"];
         const sdkVersion = manifest.dependencies?.["@opencode-ai/sdk"];
 
-        expect(pluginVersion).toBe("1.18.31");
-        expect(sdkVersion).toBe("1.18.31");
+        expect(pluginVersion).toBe("1.18.32");
+        expect(sdkVersion).toBe("1.18.32");
     });
 
     it("pins the OpenCode 2 plugin contract used by the hybrid entrypoint", () => {
         const manifest = readManifest();
-        expect(manifest.devDependencies?.["@opencode/plugin"]).toBe("2.0.10");
+        expect(manifest.devDependencies?.["@opencode/plugin"]).toBe("2.0.15");
     });
 
     it("exposes the server entrypoint OpenCode resolves for npm plugins", () => {

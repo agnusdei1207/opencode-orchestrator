@@ -1,74 +1,71 @@
 # Agent Memory - OCO Session
 
-Last updated: 2026-09-20 13:16 KST
+Last updated: 2026-09-24 KST
 
 ## Current task
 
-GitHub issue #42, PR #43 integration, full QA, and patch release `1.7.22`
-are complete.
+Release a tested npm patch for GitHub issues #44, #45, and #46, then install
+the published package from npm, verify it, and close the issues in English.
 
 ## Last completed step
 
-Published npm and GitHub release `1.7.22` from commit
-`2aaa4e03e9fb464c8db3da67200edf252452e68b`. Hosted run `35488403660`
-passed the quality gate, five native platform builds, package verification,
-npm publication, and GitHub Release creation with five assets. A fresh npm
-registry install loaded the hybrid entrypoint, reported CLI `1.7.22`, and did
-not contain the development-only `@opencode/plugin` contract. PR #43 is merged
-at `07a980cb0b0822bb38021d7e691ffd9618c65220`, and issue #42 was closed with a
-release note comment.
+Implemented per-agent temperature, accurate verification advisories, and
+synthetic native command instructions for both OpenCode 1 and 2. An independent
+read-only code review found two defects; both were reproduced, fixed, and
+reviewed again with no remaining findings. Refreshed the supported OpenCode 1
+and 2 contracts to 1.18.32 and 2.0.15. `npm ci --ignore-scripts` succeeded.
+`npm run release:dry-run` passed: build, 1,052 TypeScript tests with coverage,
+64 Rust tests with format and Clippy checks, production dependency audit,
+dependency tree validation, and packed-package postinstall smoke test.
+`npx tsc --noEmit` and `git diff --check` passed. Generated the public options
+schema from its Zod source. English thank-you comments are on issues #44-46.
 
 ## Next exact step
 
-No remaining step for this task. Begin future work from clean, synchronized
-`main` after reading this snapshot and ADR-0024.
+Reread changed files and connection paths, update any remaining release notes,
+commit the issue fixes and dependency updates, then run `npm run release:patch`
+to prepare v1.7.23, recheck the release gate, and atomically push main and tag.
+Observe GitHub Actions through npm publication, install v1.7.23 in an isolated
+consumer, verify CLI and plugin entrypoints, then update and close issues #44-46.
 
 ## Incomplete items and why
 
-- None within the authorized scope.
+- v1.7.23 is not committed, tagged, pushed, or published yet.
+- Registry download and install QA requires publication.
+- Live interactive OpenCode UI behavior was not exercised; the host contracts,
+  source paths, and plugin boundaries were checked directly.
+- Issue comments still say publication is pending, and issues remain open.
 
 ## Key decisions
 
-- Keep the working OpenCode 1 `server` contract while adding the OpenCode 2
-  `id`/`setup` contract at the same default export.
-- Translate V2 tools, commands, hooks, sessions, and events at the host boundary
-  and reuse the existing mission runtime instead of duplicating domain logic.
-- Keep `@opencode/plugin@2.0.10` as a pinned development-only type contract;
-  OpenCode supplies the runtime context and packed installs exclude it.
-- Audit published production dependencies with `npm audit --omit=dev`; the V2
-  type package currently has an upstream development-only OpenTelemetry advisory
-  with no fix, while the shipped dependency graph audits clean.
-- Preserve PR #43's resolved-marker handling and native `/stop` and `/cancel`
-  registrations in the same patch release.
+- V1 native command parts are marked synthetic only when the expanded template
+  belongs to this plugin; V2 injects via `session.synthetic`.
+- Verification advisory tracks only files changed after the latest recognized
+  verification; TODO, checklist, and sync-issues remain completion authority.
+- `agentTemperatures` is opt-in; unsupported V1 models retain host settings.
+- Dependency refresh stays within the tested OpenCode 1 and 2 patch lines.
+- The tag-triggered GitHub Actions workflow publishes npm after QA and binary
+  builds. The release script pushes the main branch and tag atomically.
 
 ## Rejected alternatives
 
-- Do not replace the default export with V2-only behavior because that would
-  break supported OpenCode 1 installations.
-- Do not merely wrap the V1 hook object in `{ id, setup }`; OpenCode 2 requires
-  native registrations and different data shapes.
-- Do not add the full V2 SDK runtime dependency when the supplied plugin context
-  already exposes the necessary domains.
+- Avoid broad major-version dependency upgrades during this patch release.
+- Do not close issues before the published package passes registry install QA.
 
 ## Known risks
 
-- OpenCode 2 does not expose session deletion to plugins. Retired delegated
-  sessions are interrupted and forgotten locally; host retention owns cleanup.
-- V2 transforms cannot create custom agents dynamically. Delegated role
-  instructions are prepended while the host's active built-in agent executes.
-- Overall line coverage is 90.49%, above the configured release threshold but
-  not 100%; native V2 load and command registration were additionally exercised.
-- npm 11.19 can require explicit install-script approval. The repository's
-  isolated tarball smoke test directly confirmed the postinstall registration;
-  the fresh registry install independently confirmed package loading and CLI.
+- V2 context exposes a model reference without a temperature capability flag;
+  users should configure temperature only for models that support it.
+- Verification-command detection remains heuristic and advisory only.
 
 ## Files to open first in the next session, in order
 
 1. `AGENT_MEMORY.md`
-2. `docs/adr/0024-opencode-2-plugin-compatibility.md`
-3. `src/index.ts`
-4. `src/v2/setup.ts`
-5. `src/v2/client-adapter.ts`
-6. `tests/unit/v2-plugin.test.ts`
-7. `scripts/release-preflight.mjs`
-8. `package.json`
+2. `.github/workflows/release.yml`
+3. `scripts/release-version.mjs`
+4. `scripts/release-preflight.mjs`
+5. `scripts/release-push.mjs`
+6. `src/core/loop/evidence.ts`
+7. `src/plugin-handlers/command-execute-handler.ts`
+8. `src/v2/command-adapter.ts`
+9. `package.json`

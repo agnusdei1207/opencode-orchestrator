@@ -10,7 +10,7 @@
   <!-- VERSION:START -->
   **Version:** `1.7.22`
   <!-- VERSION:END -->
-  <!-- LAST-UPDATED: 2026-09-14 18:19 KST -->
+  <!-- LAST-UPDATED: 2026-09-24 15:46 KST -->
 </div>
 
 ---
@@ -20,8 +20,6 @@
 OpenCode Orchestrator keeps an objective and unfinished work connected across turns. Commander coordinates mission progress, delegation, and completion evidence inside OpenCode.
 
 The project is moving toward a smaller mission core. The accepted scope and remaining migrations are recorded in [ADR-0021](docs/adr/0021-minimal-mission-plugin.md).
-
-This README describes the current development tree. Tool removals below are pending a compatibility release; the version badge does not mean those removals are already published.
 
 - **Intent first**: Answer, review, plan, or implement according to the request; use only the roles that help.
 - **Small agent presets**: Commander owns the goal; planning, implementation, and independent review can be delegated when useful.
@@ -35,7 +33,7 @@ This README describes the current development tree. Tool removals below are pend
 Requirements:
 
 - Node.js `>=24.15.0`
-- OpenCode `1.18.31` and OpenCode `2.0.10` plugin contracts are supported.
+- OpenCode `1.18.32` and OpenCode `2.0.15` plugin contracts are supported.
 - Bundled Rust tools and CLI: Linux x64/arm64, macOS x64/arm64, or Windows x64.
 
 ```bash
@@ -115,6 +113,9 @@ Add or customize in `opencode.jsonc`:
           "worker": 10,
           "reviewer": 10
         },
+        "agentTemperatures": {
+          "Commander": 0.1
+        },
         "missionLoop": {
           "ledger": true,
           "markdownMemory": true
@@ -139,6 +140,9 @@ The equivalent native OpenCode 2 plugin entry is:
           "planner": 10,
           "worker": 10,
           "reviewer": 10
+        },
+        "agentTemperatures": {
+          "Commander": 0.1
         }
       }
     }
@@ -147,6 +151,7 @@ The equivalent native OpenCode 2 plugin entry is:
 ```
 
 - **Model Inheritance**: Subagents inherit the primary agent model unless explicitly configured under `agent.<name>.model`.
+- **Agent Temperature**: Set `agentTemperatures` by active OpenCode agent name (0 to 2). Unlisted agents keep the host value. Omit it for models without temperature support. On OpenCode 2, delegated role instructions run under the active host agent, so that agent's temperature applies.
 - **Context Window Limits**: Context usage alerts are measured against the window OpenCode reports for the model in use (a 1M-token model is no longer measured against a 200k default). Set `contextMaxTokens` (an integer token count) in the plugin options to force one limit for every model.
 - **Options Schema**: Full configuration schema is available in `opencode-orchestrator.schema.json`.
 
@@ -163,6 +168,8 @@ Select Commander in OpenCode, then start a mission:
 ```
 
 The plugin preserves your default agent, native build/plan modes, agent overrides, and same-name user commands. It no longer creates an empty TODO file on startup or automatically launches Reviewer after every Worker completion. Existing mission files remain intact.
+
+Generated native command instructions stay in the model context without appearing as user-authored text in the conversation.
 
 | Command | Action |
 | --- | --- |
