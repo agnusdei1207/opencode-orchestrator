@@ -44,6 +44,23 @@ describe("release workflow", () => {
         expect(workflow).not.toContain("os: macos-latest");
     });
 
+    it("builds Linux binaries against Bookworm and executes both releases there", () => {
+        const workflow = readReleaseWorkflow();
+
+        expect(workflow).toContain("- name: Build Linux in Debian Bookworm");
+        expect(workflow).toContain("rust:1.98.1-bookworm");
+        expect(workflow).toContain("gcc-aarch64-linux-gnu");
+        expect(workflow).toContain("docker/setup-qemu-action@v4");
+        expect(workflow).toContain("- name: Verify Linux x64 runtime on Debian Bookworm");
+        expect(workflow).toContain("- name: Verify Linux arm64 runtime on Debian Bookworm");
+        expect(workflow).toContain("debian:bookworm-slim");
+        expect(workflow).toContain("./orchestrator-linux-x64 --version");
+        expect(workflow).toContain("./orchestrator-linux-arm64 --version");
+        const uploadIndex = workflow.indexOf("- name: Upload artifact");
+        expect(workflow.indexOf("- name: Verify Linux x64 runtime on Debian Bookworm")).toBeLessThan(uploadIndex);
+        expect(workflow.indexOf("- name: Verify Linux arm64 runtime on Debian Bookworm")).toBeLessThan(uploadIndex);
+    });
+
     it("builds the publishable package inside the release job before smoke testing it", () => {
         const workflow = readReleaseWorkflow();
         const releaseJob = workflow.slice(workflow.indexOf("\n  release:"));

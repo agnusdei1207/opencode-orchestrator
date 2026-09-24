@@ -34,7 +34,7 @@ Requirements:
 
 - Node.js `>=24.15.0`
 - OpenCode `1.18.32` and OpenCode `2.0.15` plugin contracts are supported.
-- Bundled Rust tools and CLI: Linux x64/arm64, macOS x64/arm64, or Windows x64.
+- Bundled Rust tools and CLI: glibc-based Linux x64/arm64, macOS x64/arm64, or Windows x64. Linux binaries are built and run on Debian Bookworm during release QA.
 
 ```bash
 npm install -g --allow-scripts=opencode-orchestrator opencode-orchestrator

@@ -213,6 +213,11 @@ Node 24 types. Rust builders and CI are pinned to `1.98.1`. The release workflow
 validation, Rust formatting, Clippy with warnings denied, and all Rust tests
 before publishing can run.
 
+The Linux x64 and arm64 release binaries are built inside a Debian Bookworm
+Rust container. Both artifacts must execute on Debian Bookworm before upload;
+the arm64 check uses QEMU on the x64 runner. This keeps the Linux runtime
+checks on the same glibc baseline used to build the release artifacts.
+
 Tags are the only publishing trigger. The hosted matrix builds all five
 supported binaries from the tagged source, then verifies the exact artifact
 set, executable format, CPU architecture, and embedded package version. An

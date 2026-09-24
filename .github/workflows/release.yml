@@ -69,21 +69,37 @@ jobs:
       - uses: actions/checkout@v7
 
       - name: Install Rust
+        if: runner.os != 'Linux'
         uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: 1.98.1
           targets: ${{ matrix.target }}
 
-      - name: Install cross-compilation tools (Linux ARM64)
+      - name: Set up QEMU for Linux arm64 runtime
         if: matrix.target == 'aarch64-unknown-linux-gnu'
+        uses: docker/setup-qemu-action@v4
+        with:
+          platforms: arm64
+
+      - name: Build Linux in Debian Bookworm
+        if: runner.os == 'Linux'
         run: |
-          sudo apt-get update
-          sudo apt-get install -y gcc-aarch64-linux-gnu
+          docker run --rm --platform linux/amd64 \
+            -v "$PWD:/app" -w /app \
+            -e CARGO_BUILD_TARGET="${{ matrix.target }}" \
+            -e CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc \
+            rust:1.98.1-bookworm sh -ec '
+              rustup target add "$CARGO_BUILD_TARGET"
+              if [ "$CARGO_BUILD_TARGET" = "aarch64-unknown-linux-gnu" ]; then
+                apt-get update -q
+                apt-get install -y -q gcc-aarch64-linux-gnu
+              fi
+              cargo build --release --locked --target "$CARGO_BUILD_TARGET"
+            '
 
       - name: Build
-        run: cargo build --release --target ${{ matrix.target }}
-        env:
-          CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: aarch64-linux-gnu-gcc
+        if: runner.os != 'Linux'
+        run: cargo build --release --locked --target ${{ matrix.target }}
 
       - name: Rename binary (Unix)
         if: runner.os != 'Windows'
@@ -102,11 +118,29 @@ jobs:
           file ${{ matrix.binary }}
           file ${{ matrix.binary }} | grep -F "x86-64"
 
+      - name: Verify Linux x64 runtime on Debian Bookworm
+        if: matrix.target == 'x86_64-unknown-linux-gnu'
+        run: |
+          version="$(docker run --rm --platform linux/amd64 \
+            -v "$PWD:/app:ro" -w /app debian:bookworm-slim \
+            ./orchestrator-linux-x64 --version)"
+          expected="$(node -p "require('./package.json').version")"
+          test "$version" = "$expected"
+
       - name: Validate Linux arm64 artifact architecture
         if: matrix.target == 'aarch64-unknown-linux-gnu'
         run: |
           file ${{ matrix.binary }}
           file ${{ matrix.binary }} | grep -F "ARM aarch64"
+
+      - name: Verify Linux arm64 runtime on Debian Bookworm
+        if: matrix.target == 'aarch64-unknown-linux-gnu'
+        run: |
+          version="$(docker run --rm --platform linux/arm64 \
+            -v "$PWD:/app:ro" -w /app debian:bookworm-slim \
+            ./orchestrator-linux-arm64 --version)"
+          expected="$(node -p "require('./package.json').version")"
+          test "$version" = "$expected"
 
       - name: Upload artifact
         uses: actions/upload-artifact@v7
