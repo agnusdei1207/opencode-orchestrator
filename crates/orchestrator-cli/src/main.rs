@@ -27,7 +27,6 @@ use std::io::{self, BufRead, Write};
 use tracing::{debug, error, info};
 use tracing_subscriber::EnvFilter;
 
-mod config;
 mod shell_listener;
 mod tools;
 
@@ -40,8 +39,6 @@ async fn main() -> Result<()> {
         Some("hooks") => list_hooks(),
         Some("agents") => list_agents(),
         Some("shell-listener") => shell_listener::run(&args[2..]),
-        Some("install") => config::install(),
-        Some("uninstall") => config::uninstall(),
         Some("--version") | Some("-V") => {
             println!("{}", env!("CARGO_PKG_VERSION"));
             Ok(())
@@ -68,8 +65,6 @@ fn print_help() {
     eprintln!("  agents     List bundled agent presets");
     eprintln!("  shell-listener  Run authorized lab TCP session TUI");
     eprintln!("  serve      Run tool server (called by OpenCode)");
-    eprintln!("  install    Register plugin with OpenCode");
-    eprintln!("  uninstall  Remove plugin from OpenCode");
     eprintln!("  --version  Show version");
     eprintln!("  --help     Show this help");
 }

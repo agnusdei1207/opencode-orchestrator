@@ -39,7 +39,6 @@
   },
   "files": [
     "dist",
-    "scripts/run-install-hook.mjs",
     "scripts/tail-log.mjs",
     "bin",
     "README.md",
@@ -62,8 +61,6 @@
     "test:unit": "vitest run tests/unit --reporter=verbose",
     "test:e2e": "vitest run tests/e2e --reporter=verbose",
     "test:all": "npm run build && vitest run --reporter=verbose && echo '=== ALL TESTS PASSED ==='",
-    "postinstall": "node scripts/run-install-hook.mjs postinstall",
-    "cleanup:plugin": "node scripts/run-install-hook.mjs preuninstall",
     "prepublishOnly": "npm run build",
     "sync:readme-version": "node scripts/sync-readme-version.mjs",
     "version": "node scripts/sync-readme-version.mjs --stage",
@@ -74,7 +71,6 @@
     "release:dry-run": "node scripts/release-preflight.mjs --allow-dirty --skip-branch --skip-version-check",
     "release:push": "node scripts/release-push.mjs",
     "release:clean": "shx rm -rf dist bin && docker compose down -v",
-    "ginstall": "npm install -g --allow-scripts=opencode-orchestrator opencode-orchestrator",
     "log": "node scripts/tail-log.mjs"
   },
   "engines": {

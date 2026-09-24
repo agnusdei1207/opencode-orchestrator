@@ -16,13 +16,16 @@ OpenCode Orchestrator keeps a task and its unfinished work connected across turn
 
 ## Install
 
-Requires Node.js `>=24.15.0` and OpenCode. The package includes the plugin and an optional `orchestrator` CLI.
+Requires Node.js `>=24.15.0` and OpenCode. On OpenCode 2, let OpenCode install and manage the plugin:
 
 ```bash
-npm install -g --allow-scripts=opencode-orchestrator opencode-orchestrator
+opencode plugin add opencode-orchestrator
+opencode plugin list
 ```
 
-The install hook registers the plugin in your OpenCode config. If npm skips install scripts, run `npm install-scripts approve opencode-orchestrator` and `npm rebuild opencode-orchestrator`, then restart OpenCode.
+To remove it, run `opencode plugin remove opencode-orchestrator`.
+
+For OpenCode 1 versions 1.18.29 and newer, add `"plugin": ["opencode-orchestrator"]` to your OpenCode `opencode.json(c)`. OpenCode installs configured npm plugins when it starts. The optional `orchestrator` terminal CLI is available separately with `npm install -g opencode-orchestrator`.
 
 ## Use
 
@@ -42,7 +45,24 @@ Ordinary questions and small edits can be handled directly. Roles are used when 
 
 ## Configuration
 
-The default installation needs no extra options. OpenCode 1 uses `plugin`; OpenCode 2 uses `plugins` for package options. See the [options schema](opencode-orchestrator.schema.json) and [architecture notes](https://github.com/agnusdei1207/opencode-orchestrator/blob/main/docs/SYSTEM_ARCHITECTURE.md) for details. If commands are missing, check registration with `opencode debug config` and confirm npm ran the install hook.
+The default installation needs no extra options. On OpenCode 2, set options in `opencode.jsonc` using the package object:
+
+```jsonc
+{
+  "plugins": [
+    {
+      "package": "opencode-orchestrator",
+      "options": {
+        "agentConcurrency": { "worker": 4 }
+      }
+    }
+  ]
+}
+```
+
+See the [options schema](opencode-orchestrator.schema.json) for all settings. Replace a plain string entry with the object when adding options; keep only one entry for this package. OpenCode 1 uses a `plugin` array and `["opencode-orchestrator", { ...options }]` for options.
+
+If commands are missing, check `opencode plugin list` on OpenCode 2 or `opencode debug config` on OpenCode 1.
 
 ## Contributing
 

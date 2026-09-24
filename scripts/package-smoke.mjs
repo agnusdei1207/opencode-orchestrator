@@ -71,7 +71,6 @@ try {
   writeFileSync(homeConfigFile, homeConfigContent);
   writeFileSync(path.join(consumer, "package.json"), JSON.stringify({
     private: true,
-    allowScripts: { [`${packed.name}@${packed.version}`]: true },
   }, null, 2));
 
   runNpm(["install", tarball, "--no-audit", "--no-fund"], {
@@ -90,12 +89,11 @@ try {
     },
   });
 
-  const installedConfig = JSON.parse(readFileSync(path.join(configRoot, "opencode.jsonc"), "utf8"));
-  if (!installedConfig.plugin?.includes("opencode-orchestrator")) {
-    throw new Error("packed postinstall did not register the plugin in the isolated config");
+  if (existsSync(configRoot)) {
+    throw new Error("packed npm install changed the isolated OpenCode config");
   }
   if (readFileSync(homeConfigFile, "utf8") !== homeConfigContent) {
-    throw new Error("packed postinstall changed a lower-priority home config");
+    throw new Error("packed npm install changed the home OpenCode config");
   }
 
   const smokeModule = path.join(consumer, "smoke.mjs");
@@ -117,6 +115,9 @@ if (typeof root.default.setup !== "function") throw new Error("OpenCode 2 setup 
     throw new Error("development-only OpenCode 2 contract leaked into the packed install");
   }
   const installedManifest = JSON.parse(readFileSync(path.join(installedRoot, "package.json"), "utf8"));
+  if (installedManifest.scripts?.postinstall || installedManifest.scripts?.preuninstall) {
+    throw new Error("installed package still declares npm config mutation hooks");
+  }
   if (installedManifest.bin?.orchestrator !== "dist/cli.js") {
     throw new Error("installed package does not expose the orchestrator CLI");
   }
@@ -132,6 +133,13 @@ if (typeof root.default.setup !== "function") throw new Error("OpenCode 2 setup 
     if (cliVersion !== installedManifest.version) {
       throw new Error(`CLI version ${cliVersion || "(empty)"} does not match package ${installedManifest.version}`);
     }
+    const cliHelpArgs = process.platform === "win32"
+      ? [path.join(installedRoot, "dist", "cli.js"), "--help"]
+      : ["--help"];
+    const cliHelp = run(cliCommand, cliHelpArgs, { cwd: consumer, capture: true }).stderr;
+    if (/^\s+(?:install|uninstall)\s/m.test(cliHelp)) {
+      throw new Error("bundled CLI still advertises obsolete config mutation commands");
+    }
   }
 
   runNpm(["ls", "--depth=0"], { cwd: consumer, capture: true });
@@ -142,7 +150,7 @@ if (typeof root.default.setup !== "function") throw new Error("OpenCode 2 setup 
     unpackedBytes: packed.unpackedSize,
     sha1: packed.shasum,
     sha256: sha256(tarball),
-    postinstall: "passed",
+    configMutation: "none",
     cli: skipCli ? "skipped" : "passed",
   }));
 } finally {

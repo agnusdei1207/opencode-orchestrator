@@ -233,17 +233,9 @@ jobs:
           body: |
             # OpenCode Orchestrator ${{ github.ref_name }}
 
-            Release for OpenCode Orchestrator.
-
-            ### Included
-            * Four-agent OpenCode orchestration
-            * Mission-loop continuation guards
-            * Config and permission compatibility fixes
-            * Cross-platform release binaries
-
             ## Install
             ```bash
-            opencode plugin opencode-orchestrator --global
+            opencode plugin add opencode-orchestrator
             ```
           generate_release_notes: true
           fail_on_unmatched_files: true

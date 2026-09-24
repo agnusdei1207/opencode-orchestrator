@@ -1,6 +1,6 @@
 # System Architecture
 
-Date: 2026-09-24 (OpenCode 1.18.32 boundary, install path, and release path reviewed)
+Date: 2026-09-24 (OpenCode 1 and 2 plugin boundaries and host-managed installation reviewed)
 
 This document describes the current architecture that is directly verifiable from the repository source. It intentionally avoids speculative performance claims.
 
@@ -8,10 +8,10 @@ This document describes the current architecture that is directly verifiable fro
 
 | Surface | File | Responsibility |
 | --- | --- | --- |
-| OpenCode plugin boundary | `src/index.ts` | Exposes the function-form server plugin and composes the public hook object. |
+| OpenCode plugin boundary | `src/index.ts` | Exposes the OpenCode 1 `server` and OpenCode 2 `setup` entrypoints from one default export. |
 | Plugin runtime bootstrap | `src/plugin-runtime.ts` | Parses options, configures shared runtime services, creates tools and handler state, and registers cleanup. |
 | npm CLI launcher | `src/cli.ts` → `dist/cli.js` | Selects one supported bundled Rust binary, forwards argv and inherited stdio without a shell, and preserves child exit status. |
-| Rust CLI | `crates/orchestrator-cli/src/main.rs` | Dispatches `serve`, metadata, config, and explicit terminal commands; `config.rs` owns safe install/uninstall mutations. |
+| Rust CLI | `crates/orchestrator-cli/src/main.rs` | Dispatches `serve`, metadata, and explicit terminal commands. |
 | Shell listener CLI | `crates/orchestrator-cli/src/shell_listener.rs` | Runs the authorized-lab TCP session listener and line-mode TUI outside OpenCode RPC. |
 | Config hook | `src/plugin-handlers/config-handler.ts` | Registers commands and the four generated agents, merges user agent overrides, and copies global permissions. |
 | Event hook | `src/plugin-handlers/event-handler.ts` | Bridges OpenCode session/message events into mission continuation, recovery, and cleanup paths. |
@@ -84,14 +84,14 @@ Transport failures are not automatically replayed. Rust RPC drains output under 
 
 ## 3. Configuration Contract
 
-The plugin accepts scoped options through the OpenCode plugin tuple:
+OpenCode 2 passes scoped options through the package object in `opencode.json(c)`:
 
 ```jsonc
 {
-  "plugin": [
-    [
-      "opencode-orchestrator",
-      {
+  "plugins": [
+    {
+      "package": "opencode-orchestrator",
+      "options": {
         "agentConcurrency": {
           "commander": 1,
           "planner": 10,
@@ -104,10 +104,14 @@ The plugin accepts scoped options through the OpenCode plugin tuple:
           "maxEvidenceEvents": 20
         }
       }
-    ]
+    }
   ]
 }
 ```
+
+OpenCode 1.18.29 and newer use `"plugin": ["opencode-orchestrator"]` or
+`["opencode-orchestrator", { ...options }]` for options. Both entrypoints
+parse the same option fields; OpenCode owns installation and configuration.
 
 Current option readers:
 
@@ -206,7 +210,8 @@ Current verified release baseline:
 1. Node.js `>=24.15.0`
 2. `@opencode-ai/plugin` `1.18.32`
 3. `@opencode-ai/sdk` `1.18.32`
-4. GitHub Actions build matrix for Linux x64/arm64, macOS x64/arm64, and Windows x64 in `.github/workflows/release.yml`
+4. `@opencode/plugin` `2.0.15` as the development-only OpenCode 2 contract
+5. GitHub Actions build matrix for Linux x64/arm64, macOS x64/arm64, and Windows x64 in `.github/workflows/release.yml`
 
 The development gate uses TypeScript `7.0.2`, Vitest `5.0.1`, and explicit
 Node 24 types. Rust builders and CI are pinned to `1.98.1`. The release workflow requires coverage, npm audit, dependency
@@ -227,17 +232,12 @@ workflow run on a branch can run QA and builds but cannot publish a package.
 The repository ignores `bin/`; versioned executables exist only as local build
 outputs or artifacts rebuilt from the exact release tag.
 
-The npm postinstall/preuninstall hooks are the normal configuration path and
-preserve JSONC comments. Postinstall registers in the first config path, which
-is the one selected by `OPENCODE_CONFIG_DIR`, `XDG_CONFIG_HOME`, or the home
-fallback. npm versions that restrict dependency install scripts require explicit
-approval for this package's registration hook. The secondary Rust CLI commands
-use the same config root precedence, prefer `opencode.jsonc`, preserve invalid input, back up and
-verify mutations, recognize versioned/tuple entries, and never remove an
-unrelated `mcp.orchestrator` entry. They reject commented JSONC and direct the
-operator to the JSONC-aware npm hook.
+OpenCode 2 owns registration and removal through `opencode plugin add/remove`.
+OpenCode 1 loads npm packages listed in its `plugin` configuration. The npm
+package and Rust CLI do not rewrite OpenCode configuration during installation
+or removal. The packed-install smoke checks this boundary in an isolated home.
 
-Compatibility research uses the [public plugin](https://opencode.ai/docs/plugins/) and [SDK documentation](https://opencode.ai/docs/sdk/), deployed package types, and `scripts/qa-native-host.mjs`. The 2026-09-15 isolated run passed all 14 scenarios with released OpenCode `1.18.31`, matching SDK/plugin packages `1.18.31`, and the local built plugin. The current host source prefers a package `./server` export and supports both the new `{ id?, server }` module and the legacy function export; this package exposes `./server` while retaining its function export for existing installations. Host source includes background subagents only behind the experimental `OPENCODE_EXPERIMENTAL_BACKGROUND_SUBAGENTS` path, so stable native background-task parity remains unverified and the bounded execution path remains. See [ADR-0021](adr/0021-minimal-mission-plugin.md) for pending deletion gates and [ADR-0022](adr/0022-opencode-1-18-plugin-boundary.md) for this compatibility decision.
+Compatibility research uses the [OpenCode 1 plugin](https://opencode.ai/docs/plugins/) and [SDK documentation](https://opencode.ai/docs/sdk/), deployed package types, and `scripts/qa-native-host.mjs`. The 2026-09-15 isolated run passed all 14 scenarios with released OpenCode `1.18.31`, matching SDK/plugin packages `1.18.31`, and the local built plugin. The current OpenCode 1 host prefers a package `./server` export and supports the `{ id?, server }` module; this package exposes that hybrid object at `./server`. Host source includes background subagents only behind the experimental `OPENCODE_EXPERIMENTAL_BACKGROUND_SUBAGENTS` path, so stable native background-task parity remains unverified and the bounded execution path remains. See [ADR-0021](adr/0021-minimal-mission-plugin.md) for pending deletion gates and [ADR-0022](adr/0022-opencode-1-18-plugin-boundary.md) for the OpenCode 1 compatibility decision, and [ADR-0024](adr/0024-opencode-2-plugin-compatibility.md) for OpenCode 2.
 
 Package metadata separates the project homepage from issue reporting:
 

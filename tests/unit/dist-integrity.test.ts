@@ -14,8 +14,6 @@ const DIST_ENTRYPOINT_LOAD_TIMEOUT_MS = 15_000;
 const SHIPPED_BUNDLES = [
     "dist/index.js",
     "dist/cli.js",
-    "dist/scripts/postinstall.js",
-    "dist/scripts/preuninstall.js",
 ];
 
 interface PackageManifest {

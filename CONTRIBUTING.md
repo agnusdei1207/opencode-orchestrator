@@ -1,9 +1,9 @@
 # Contributing to OpenCode Orchestrator 🦀
 
-Last updated: 2026-09-15 KST
+Last updated: 2026-09-24 KST
 
 OpenCode Orchestrator uses TypeScript for the OpenCode plugin boundary and Rust
-for its retained search, AST, LSP, config, and operator CLI paths.
+for its retained search, AST, LSP, and operator CLI paths.
 
 ---
 
@@ -45,7 +45,7 @@ npm run build:all
 
 | Command | Description |
 |---------|-------------|
-| `npm run build` | Build the TypeScript plugin and install hook bundles |
+| `npm run build` | Build the TypeScript plugin and CLI launcher |
 | `npm run build:all` | Build TypeScript and the Linux x64/arm64 Rust artifacts |
 | `cargo test --workspace --all-targets` | Run Rust tests |
 | `npm run test:all` | Run TypeScript build and Vitest suite |
@@ -100,8 +100,8 @@ Always update both sides when adding new tools, agents, or status labels.
 
 ### 3. Logging
 Use the centralized logger (`src/core/agents/logger.ts`) in plugin runtime code
-and `tracing` in the Rust stdio server. Standalone install and release scripts
-may write to their own terminal; the JSON-RPC stdout channel may not.
+and `tracing` in the Rust stdio server. Standalone release scripts may write to
+their own terminal; the JSON-RPC stdout channel may not.
 
 ---
 
@@ -110,6 +110,7 @@ may write to their own terminal; the JSON-RPC stdout channel may not.
 ```bash
 npm run release:patch   # Bug fixes
 npm run release:minor   # New features / Agent upgrades
+npm run release:major   # Breaking changes
 ```
 The release command creates a version commit and exact tag only after a clean
 worktree check, runs the complete local preflight, and pushes `main` plus that
@@ -123,5 +124,6 @@ Use `npm run release:dry-run` first to run build, coverage, Rust formatting,
 Clippy, Rust tests, audit, dependency validation, and the isolated package smoke
 without publishing.
 
-Installation hooks are bootstrapped through `scripts/run-install-hook.mjs`.
-They prefer built `dist/scripts/*.js`, fall back to source `scripts/*.ts` in a source checkout, prefer `opencode.jsonc` over `opencode.json`, preserve sibling plugin entries/comments, and no-op in CI to avoid mutating runner config.
+The npm package has no install or uninstall config hook. OpenCode 2 manages
+package registration through `opencode plugin add/remove`; the packed-install
+smoke verifies that npm installation leaves OpenCode configuration untouched.

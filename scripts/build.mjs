@@ -1,4 +1,4 @@
-import { rm, mkdir } from "node:fs/promises";
+import { rm } from "node:fs/promises";
 import path from "node:path";
 import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
@@ -66,13 +66,3 @@ await bundle("src/index.ts", "dist/index.js");
 await bundle("src/cli.ts", "dist/cli.js");
 
 await run(process.execPath, [resolveTscBin(), "--emitDeclarationOnly"]);
-
-await mkdir(path.join(distDir, "scripts"), { recursive: true });
-
-await bundle("scripts/postinstall.ts", "dist/scripts/postinstall.js", {
-  mainFields: ["module", "main"],
-});
-
-await bundle("scripts/preuninstall.ts", "dist/scripts/preuninstall.js", {
-  mainFields: ["module", "main"],
-});
