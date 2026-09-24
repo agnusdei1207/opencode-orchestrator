@@ -189,7 +189,7 @@
 | **§7** | Readability | One meaning per line, uniform abstraction level, Happy path without indentation |
 | **§8** | Test & Verification | Unit 70%, boundary values mandatory, Test-Source synchronization (Test Sync) |
 | **§9** | Security & Safety | Scope guards, approval gates, sensitive data isolation |
-| **§10** | Performance | Measure first, top 20% bottlenecks, no optimization that harms readability |
+| **§10** | Performance | Apply only to explicitly scoped performance work |
 | **§11** | Execution Protocol | AUDIT→PLAN→EXECUTE→TEST→HARDEN→DOCUMENT→VERIFY |
 | **§12** | Master Checklist | A~V 22-category checklist (for final verification) |
 | **§13** | Domain-Driven Structure | 1 concept = 1 domain, ≤7 per folder, no direct cross-domain references |
@@ -197,7 +197,7 @@
 | **§16** | API Contract | SemVer, Breaking change definition, Deprecation sunset |
 | **§17** | Dependency Management | Implementable in 50 lines? → external dependency unnecessary, adapter wrapping |
 | **§18** | Production Safety | Feature flags, canary rollout, rollback within 5 minutes |
-| **§19** | Monitoring | Baseline recording, same-workload comparison, 24-hour observation |
+| **§19** | Monitoring | Review relevant operational telemetry when in scope |
 | **§20** | Technical Debt | Inventory management, reserve 15~20% per sprint, quarterly audit |
 | **§21** | Legacy Code | Capture current behavior with characterization tests, then refactor safely |
 | **§22** | Git Hygiene | type(scope): subject, atomic commits, PR ≤400 lines |
@@ -251,7 +251,7 @@
 **0-1. State snapshot**: VCS clean · build 0 warnings · all tests 100% pass · rollback path secured · no vulnerable dependencies
 **0-2. Scope declaration**: Target Module · Change Type · Expected Impact · Regression Risk · Rollback Strategy
 **0-3. Prohibitions**: no modification without a scope declaration · no structural change without tests · no commit mixing refactoring + feature addition · no fixing a discovered bug without separate tracking
-**0-4. Completion criteria**: all Master Checklist (§12) items ✅ · build 0 errors · tests 100% · 0 regression · docs updated · no performance degradation
+**0-4. Completion criteria**: applicable Master Checklist (§12) items ✅ · build 0 errors · tests 100% · 0 regression · docs updated
 **0-5. Reachability analysis**: dynamic registration mapping complete · external uses of Barrel/Entry point understood · generation-based flows understood · reachability analysis from entry points complete
 
 ---
@@ -479,7 +479,7 @@
 
 ## 10. Performance
 
-- **Principles**: measure first · identify bottlenecks (top 20%) · prioritize algorithmic improvement · optimization that harms readability requires measurement evidence
+- **Principles (only for explicitly scoped performance work)**: identify measured bottlenecks · prioritize algorithmic improvement · optimization that harms readability requires measurement evidence
 - **Common bottlenecks**: unnecessary allocation → pooling · N+1 → batching · unnecessary copy → pass by reference · blocking IO → async · lock contention → fine-grained locks
 - **Caching**: cache only when read>>write AND stale data is acceptable AND the computation is expensive · TTL mandatory · cache = temporary store
 
@@ -569,7 +569,7 @@ Cross-module verification: import resolution · data flow · state mutation · e
 ```
 ### I. Performance
 ```
-□ Profiling-based bottleneck identification · □ N+1 problems 0 · □ unnecessary allocation/copy minimized · □ before/after benchmarks recorded · □ measurement evidence for readability-harming optimizations
+□ N+1 problems reviewed · □ unnecessary allocation/copy reviewed · □ performance claims backed by evidence when performance is in scope
 ```
 ### J. Operations
 ```
@@ -601,7 +601,7 @@ Cross-module verification: import resolution · data flow · state mutation · e
 ```
 ### Q. Monitoring & Observability
 ```
-□ Baseline recorded before refactoring · □ no degradation after refactoring · □ alerts set on critical paths · □ error rate/latency/throughput monitored · □ observation period completed with no anomalies
+□ For operational changes in scope: existing telemetry reviewed · □ affected critical-path alerts checked
 ```
 ### R. Technical Debt & Legacy
 ```
@@ -676,8 +676,8 @@ Cross-module verification: import resolution · data flow · state mutation · e
 
 ## 19. Monitoring & Observability
 
-- **Baseline recording**: error rate, latency (p50/p95/p99), throughput, resources, business metrics, build/test time
-- **Verification**: compare with the same workload · error rate↓ · latency↓ (5% tolerance) · throughput↑ · observe in production for at least 24 hours
+- **Operational monitoring (when in scope)**: use existing error rate, latency, throughput, resource, and business metrics
+- **Verification**: review relevant telemetry for operational changes and record only observed results
 
 ---
 
@@ -927,7 +927,6 @@ Build             : [ ] ✅ 0 errors  [ ] ❌ has errors → reason:
 Static analysis   : [ ] ✅ 0 errors  [ ] ❌ has errors → reason:
 All tests         : [ ] ✅ n/n pass  [ ] ❌ failed → reason:
 Regression        : [ ] ✅ 0  [ ] ❌ found → details:
-Perf baseline cmp : error rate [before/after], p95 latency [before/after], throughput [before/after]
 Rollback path     : [ ] ✅ verified  [ ] ❌ unverified → reason:
 ```
 
