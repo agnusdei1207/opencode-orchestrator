@@ -14,10 +14,11 @@ describe("OpenCode 2 plugin setup", () => {
         }
     });
 
-    it("registers native V2 tools, commands, hooks, and cleanup", async () => {
+    it("registers native V2 agents, tools, commands, hooks, and cleanup", async () => {
         const directory = mkdtempSync(path.join(tmpdir(), "oco-v2-test-"));
         directories.push(directory);
         const registrations: Array<{ dispose: ReturnType<typeof vi.fn> }> = [];
+        const agents = new Map<string, { id: string; description?: string; system?: string; mode: string; hidden: boolean }>();
         const tools: Array<{ name?: string }> = [];
         const commands: Array<{ name?: string }> = [];
         const hookNames: string[] = [];
@@ -29,7 +30,17 @@ describe("OpenCode 2 plugin setup", () => {
         const context = {
             location: { directory, project: { directory } },
             options: {},
-            agent: { list: vi.fn().mockResolvedValue([]) },
+            agent: {
+                list: vi.fn().mockResolvedValue([]),
+                transform: vi.fn((callback: (editor: { update: (id: string, edit: (agent: NonNullable<ReturnType<typeof agents.get>>) => void) => void }) => void) => {
+                    callback({ update: (id, edit) => {
+                        const agent = agents.get(id) ?? { id, mode: "all", hidden: false };
+                        edit(agent);
+                        agents.set(id, agent);
+                    } });
+                    return registration();
+                }),
+            },
             session: {
                 create: vi.fn(), prompt: vi.fn(), synthetic: vi.fn(), interrupt: vi.fn(), context: vi.fn(),
                 hook: vi.fn((name: string) => { hookNames.push(`session.${name}`); return registration(); }),
@@ -52,6 +63,13 @@ describe("OpenCode 2 plugin setup", () => {
 
         const cleanup = await OrchestratorPlugin.setup(context);
 
+        expect([...agents.keys()]).toEqual(["Commander", "Planner", "Worker", "Reviewer"]);
+        expect(agents.get("Commander")).toMatchObject({ mode: "primary", hidden: false, system: expect.any(String) });
+        expect(agents.get("Commander")?.system).toContain("You are Commander.");
+        for (const name of ["Planner", "Worker", "Reviewer"]) {
+            expect(agents.get(name)).toMatchObject({ mode: "subagent", hidden: true, system: expect.any(String) });
+            expect(agents.get(name)?.system).toContain(`You are ${name}.`);
+        }
         expect(tools.some(tool => tool.name === "delegate_task")).toBe(true);
         expect(commands.map(command => command.name)).toEqual(expect.arrayContaining([
             "task", "plan", "agents", "stop", "cancel",
@@ -92,7 +110,7 @@ describe("OpenCode 2 plugin setup", () => {
         const context = {
             location: { directory, project: { directory } },
             options: { agentTemperatures: { Commander: 0.1 } },
-            agent: { list: vi.fn().mockResolvedValue([]) },
+            agent: { list: vi.fn().mockResolvedValue([]), transform: registration },
             session: { hook: vi.fn((name: string, callback: (input: unknown) => Promise<void>) => {
                 if (name === "context") contextHook = callback;
                 return registration();

@@ -11,6 +11,7 @@ import { createV2ClientBridge } from "./client-adapter.js";
 import { startV2EventBridge } from "./event-bridge.js";
 import { registerV2Tools } from "./tool-adapter.js";
 import { registerV2Commands } from "./command-adapter.js";
+import { registerV2Agents } from "./agent-adapter.js";
 import { ContextLimitResolver } from "../core/context/context-limit-resolver.js";
 import { parseAgentTemperatures } from "../core/config/options-schema.js";
 
@@ -26,6 +27,7 @@ export async function setupV2(contextInput: unknown): Promise<() => Promise<void
     } as unknown as Parameters<typeof initializePluginRuntime>[0], context.options);
     const { handlerContext } = runtime;
     const registrations = await registerHooks(context, handlerContext, parseAgentTemperatures(context.options.agentTemperatures));
+    registrations.push(await registerV2Agents(context));
     registrations.push(await registerV2Tools(
         context,
         registerAllTools(runtime.directory, runtime.asyncAgentTools),
