@@ -4,80 +4,53 @@ Last updated: 2026-09-24 KST
 
 ## Current task
 
-The issue #44-46 maintenance and release task is complete. The latest npm
-version is 1.7.25, and all three issues are closed with short English thanks.
+Simplify the root README, invite contributors and prospective maintainers, and
+ship the updated README in the requested npm patch release.
 
 ## Last completed step
 
-Implemented per-agent temperature (#44), corrected verification guidance
-(#45), and kept generated /task instructions out of user-authored output
-(#46). Refreshed tested OpenCode 1 and 2 contracts, removed confirmed legacy
-code, fixed active-config npm postinstall precedence, and released 1.7.23
-through 1.7.25. The 1.7.25 release builds Linux x64 and arm64 on Debian
-Bookworm, runs both there before upload, and fixes the glibc startup failure
-discovered by installing 1.7.24 on Bookworm.
-
-The v1.7.25 preflight passed: build, 117 TypeScript test files / 1,057 tests
-with coverage, 64 Rust tests with format and Clippy checks in Docker,
-production dependency audit, dependency tree, and packed-package postinstall
-smoke. TypeScript typecheck and the full Node suite also passed in Docker
-with --init. GitHub Actions run 35970048556 and all five binary builds plus
-publication succeeded. Fresh registry installs of 1.7.25 passed in Windows
-and Linux x64/arm64 Docker: active-config registration, plugin exports, five
-bundled binaries, and native/launcher CLI versions. GitHub Release v1.7.25
-contains five assets and specific release notes. Issues #44-46 are closed as
-completed; the open issue count is zero. Main and tag v1.7.25 were pushed.
+Read the plugin entrypoint, command registration, install hook, package metadata,
+contribution guide, and README. Shortened the README to installation, use,
+configuration, and contribution essentials. Opened issue #47 with a short
+English invitation for pull requests and prospective maintainers. Verified
+README version synchronization, build, package contents, local links, and the
+published issue body. Confirmed release scripts contain no benchmark run and
+that npm 1.7.26 is not published yet.
 
 ## Next exact step
 
-There is no pending release step. On the next request, open this snapshot,
-then the restore files below in order; check git status, npm latest, and new
-issues before starting a new scoped task.
+Commit the README and this snapshot, run `npm run release:patch`, inspect the
+hosted release and a fresh registry install, then record final evidence here.
 
 ## Incomplete items and why
 
-- No release or issue-closure work remains.
-- A live interactive OpenCode UI session was not exercised. Host contract
-  tests, plugin entrypoint tests, and registry installation checks passed.
+Patch release and registry installation QA remain pending.
 
 ## Key decisions
 
-- Keep agentTemperatures opt-in and preserve host settings when unset or
-  unsupported.
-- Treat changed-file verification evidence as advisory; TODO, checklist,
-  and sync-issues remain completion authority.
-- Register npm postinstall in the active OpenCode config before fallbacks.
-- Use Debian Bookworm for both Linux builds and runtime checks; QEMU runs
-  the arm64 artifact on the x64 CI runner.
-- Use Docker --init for Node process-tree E2E tests so orphaned children are
-  reaped. Run Windows registry QA on Windows.
-- Publish through the tag-triggered workflow after QA and artifact checks.
+- Keep the root README focused on the first-use path and link detailed development and architecture documents.
+- Preserve the README version markers used by `scripts/sync-readme-version.mjs`.
+- Use an open GitHub issue (#47) because no open issue existed for the contribution invitation.
+- Publish a patch because the user previously requested commit, push, and patch release and the npm 1.7.25 README is immutable.
 
 ## Rejected alternatives
 
-- Keep building Linux binaries on ubuntu-latest: 1.7.24 required GLIBC_2.39
-  and failed on Debian Bookworm.
-- Pin the deprecated Ubuntu 22.04 runner: Bookworm containers give a stable
-  runtime baseline without relying on that runner image.
-- Close issues before the registry package passes actual install QA.
+- Retain long historical Windows troubleshooting, migration, and internal workflow explanations in the root README.
+- Edit the already published npm 1.7.25 package in place; registry versions are immutable.
 
 ## Known risks
 
-- The 1.7.24 Linux binary remains downloadable; npm latest is 1.7.25.
-- OpenCode 2 does not expose a temperature capability flag at the V2 plugin
-  boundary; users should opt in only for models that support temperature.
-- Verification-command detection is heuristic and advisory.
-- Interactive host UI behavior is not proven by the automated checks.
+- Hosted release and fresh registry installation still need direct verification.
+- A live interactive OpenCode UI session is outside this documentation check.
 
 ## Files to open first in the next session, in order
 
-1. AGENT_MEMORY.md
-2. AGENTS.md
-3. .github/workflows/release.yml
-4. scripts/release-preflight.mjs
-5. scripts/package-smoke.mjs
-6. scripts/postinstall.ts
-7. src/core/loop/evidence.ts
-8. src/plugin-handlers/command-execute-handler.ts
-9. src/v2/command-adapter.ts
-10. package.json
+1. `AGENTS.md`
+2. `AGENT_MEMORY.md`
+3. `README.md`
+4. `CONTRIBUTING.md`
+5. `package.json`
+6. `src/index.ts`
+7. `src/tools/slashCommand.ts`
+8. `scripts/release-preflight.mjs`
+9. `.github/workflows/release.yml`
