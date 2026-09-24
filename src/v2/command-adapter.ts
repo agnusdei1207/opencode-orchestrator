@@ -40,5 +40,5 @@ async function executeCommand(
     if (name === "stop" || name === "cancel") return;
     const template = COMMANDS[name]?.template;
     const text = result.modifiedMessage ?? template?.replace(/\$ARGUMENTS/g, argument);
-    if (text) await context.session.prompt({ sessionID: input.sessionID, text, resume: true });
+    if (text) await context.session.synthetic({ sessionID: input.sessionID, text, resume: true });
 }

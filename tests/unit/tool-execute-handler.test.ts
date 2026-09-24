@@ -7,7 +7,7 @@ import {
 } from "../../src/core/loop/circuit-breaker";
 import {
     clearEvidence,
-    getChangedFiles,
+    getUnverifiedFiles,
 } from "../../src/core/loop/evidence";
 import type { ToolExecuteHandlerContext } from "../../src/plugin-handlers/context";
 import type {
@@ -27,7 +27,7 @@ describe("createToolExecuteAfterHandler", () => {
     it("records tool calls and evidence before running post-tool hooks", async () => {
         const executePostTool = vi.fn().mockImplementation(async () => {
             expect(getCircuitState("session-1")?.toolCallHistory).toEqual(["write"]);
-            expect(getChangedFiles("session-1")).toEqual(["src/a.ts"]);
+            expect(getUnverifiedFiles("session-1")).toEqual(["src/a.ts"]);
         });
         vi.spyOn(HookRegistry, "getInstance").mockReturnValue({
             executePostTool,
@@ -61,7 +61,7 @@ describe("createToolExecuteAfterHandler", () => {
         )).rejects.toThrow("post hook failed");
 
         expect(getCircuitState("session-1")?.toolCallHistory).toEqual(["write"]);
-        expect(getChangedFiles("session-1")).toEqual(["src/a.ts"]);
+        expect(getUnverifiedFiles("session-1")).toEqual(["src/a.ts"]);
     });
 });
 

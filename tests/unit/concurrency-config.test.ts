@@ -64,6 +64,7 @@ describe("concurrency config helpers", () => {
                 agentConcurrency: { worker: 4 },
             },
             contextMaxTokens: undefined,
+            agentTemperatures: {},
             missionLoop: {
                 ledger: false,
                 markdownMemory: true,

@@ -64,6 +64,49 @@ describe("OpenCode 2 plugin setup", () => {
         await cleanup?.();
         expect(registrations.every(item => item.dispose.mock.calls.length === 1)).toBe(true);
     });
+
+    it("runs task as a synthetic instruction instead of a visible user prompt", async () => {
+        const directory = mkdtempSync(path.join(tmpdir(), "oco-v2-command-"));
+        directories.push(directory);
+        const commands: Array<{ name: string; execute: (input: unknown) => Promise<void> }> = [];
+        const context = {
+            session: { prompt: vi.fn(), synthetic: vi.fn().mockResolvedValue(undefined) },
+            command: { transform: vi.fn(async (edit: (editor: { add: (command: typeof commands[number]) => void }) => void) => {
+                edit({ add: command => commands.push(command) });
+                return { dispose: vi.fn() };
+            }) },
+        } as unknown as Plugin.Context;
+        const { registerV2Commands } = await import("../../src/v2/command-adapter.js");
+        const handlerContext = { directory, sessions: new Map() } as unknown as Parameters<typeof registerV2Commands>[1];
+        await registerV2Commands(context, handlerContext);
+        await commands.find(command => command.name === "task")?.execute({ sessionID: "s1", prompt: { text: "do work" } });
+        expect(context.session.synthetic).toHaveBeenCalledWith(expect.objectContaining({ sessionID: "s1" }));
+        expect(context.session.prompt).not.toHaveBeenCalled();
+    });
+
+    it("applies configured temperature in the V2 generation context", async () => {
+        const directory = mkdtempSync(path.join(tmpdir(), "oco-v2-temperature-"));
+        directories.push(directory);
+        let contextHook: ((input: unknown) => Promise<void>) | undefined;
+        const registration = async () => ({ dispose: vi.fn() });
+        const context = {
+            location: { directory, project: { directory } },
+            options: { agentTemperatures: { Commander: 0.1 } },
+            agent: { list: vi.fn().mockResolvedValue([]) },
+            session: { hook: vi.fn((name: string, callback: (input: unknown) => Promise<void>) => {
+                if (name === "context") contextHook = callback;
+                return registration();
+            }) },
+            tool: { hook: registration, transform: registration },
+            command: { transform: registration },
+            event: { subscribe: () => emptyEvents() },
+        } as unknown as Plugin.Context;
+        const cleanup = await OrchestratorPlugin.setup(context);
+        const request = { sessionID: "s1", agent: "Commander", model: { providerID: "p", id: "m" }, system: [], options: { temperature: 0.7 } };
+        await contextHook?.(request);
+        expect(request.options.temperature).toBe(0.1);
+        await cleanup?.();
+    });
 });
 
 async function* emptyEvents(): AsyncGenerator<never> {

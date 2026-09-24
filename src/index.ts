@@ -12,6 +12,7 @@ import { registerAllTools } from "./tools/registry.js";
 import { PLUGIN_HOOKS } from "./shared/index.js";
 import { initializePluginRuntime } from "./plugin-runtime.js";
 import { setupV2 } from "./v2/setup.js";
+import { parseOrchestratorPluginOptions } from "./core/config/plugin-options.js";
 
 // Import modularized handlers
 import { createToolExecuteBeforeHandler } from "./plugin-handlers/tool-execute-pre-handler.js";
@@ -40,7 +41,7 @@ const OrchestratorServerPlugin: Plugin = async (input, options) => {
         event: createEventHandler(handlerContext),
         [PLUGIN_HOOKS.CHAT_MESSAGE]: createChatMessageHandler(handlerContext),
         "command.execute.before": createCommandExecuteBeforeHandler(handlerContext),
-        [PLUGIN_HOOKS.CHAT_PARAMS]: createChatParamsHandler(),
+        [PLUGIN_HOOKS.CHAT_PARAMS]: createChatParamsHandler(parseOrchestratorPluginOptions(options).agentTemperatures),
         [PLUGIN_HOOKS.TOOL_EXECUTE_BEFORE]: createToolExecuteBeforeHandler(handlerContext),
         [PLUGIN_HOOKS.TOOL_EXECUTE_AFTER]: createToolExecuteAfterHandler(handlerContext),
         [PLUGIN_HOOKS.EXPERIMENTAL_SESSION_COMPACTING]: createSessionCompactingHandler(handlerContext),

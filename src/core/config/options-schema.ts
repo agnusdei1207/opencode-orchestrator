@@ -28,11 +28,13 @@ const MissionLoopOptionsSchema = z
     .catch({ ...D });
 
 const ConcurrencyMap = z.record(z.string(), z.number().int().nonnegative());
+const Temperature = z.number().finite().min(0).max(2);
 
 /** Full plugin-tuple options object — used to generate the public JSON Schema. */
 export const OrchestratorOptionsSchema = z
     .object({
         agentConcurrency: ConcurrencyMap.optional(),
+        agentTemperatures: z.record(z.string(), Temperature).optional(),
         providerConcurrency: ConcurrencyMap.optional(),
         modelConcurrency: ConcurrencyMap.optional(),
         defaultConcurrency: z.number().int().nonnegative().optional(),
@@ -54,6 +56,14 @@ export const OrchestratorOptionsSchema = z
 export function parseContextMaxTokens(value: unknown): number | undefined {
     const parsed = z.number().int().positive().safeParse(value);
     return parsed.success ? parsed.data : undefined;
+}
+
+export function parseAgentTemperatures(value: unknown): Record<string, number> {
+    if (typeof value !== "object" || value === null || Array.isArray(value)) return {};
+    return Object.fromEntries(Object.entries(value).flatMap(([agent, raw]) => {
+        const result = Temperature.safeParse(raw);
+        return result.success ? [[agent, result.data]] : [];
+    }));
 }
 
 /** Tolerant parse of the `missionLoop` option block. */

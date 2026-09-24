@@ -32,4 +32,14 @@ describe("mission continuation: self-review + escalation (Phase D)", () => {
     it("does not escalate below the threshold", () => {
         expect(generateMissionContinuationPrompt(stateWith(4))).not.toContain("<escalation");
     });
+
+    it("identifies files in the advisory without making it a completion gate", () => {
+        const prompt = generateMissionContinuationPrompt(stateWith(0), {
+            unverifiedFiles: ["src/a.ts", "src/b.ts"],
+        });
+        expect(prompt).toContain("src/a.ts");
+        expect(prompt).toContain("src/b.ts");
+        expect(prompt).toContain("advisory");
+        expect(prompt).not.toContain("no verification evidence yet");
+    });
 });

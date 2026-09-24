@@ -12,6 +12,7 @@ import { startV2EventBridge } from "./event-bridge.js";
 import { registerV2Tools } from "./tool-adapter.js";
 import { registerV2Commands } from "./command-adapter.js";
 import { ContextLimitResolver } from "../core/context/context-limit-resolver.js";
+import { parseAgentTemperatures } from "../core/config/options-schema.js";
 
 type Context = Plugin.Context;
 type Registration = Awaited<ReturnType<Context["tool"]["transform"]>>;
@@ -24,7 +25,7 @@ export async function setupV2(contextInput: unknown): Promise<() => Promise<void
         directory: context.location.directory,
     } as unknown as Parameters<typeof initializePluginRuntime>[0], context.options);
     const { handlerContext } = runtime;
-    const registrations = await registerHooks(context, handlerContext);
+    const registrations = await registerHooks(context, handlerContext, parseAgentTemperatures(context.options.agentTemperatures));
     registrations.push(await registerV2Tools(
         context,
         registerAllTools(runtime.directory, runtime.asyncAgentTools),
@@ -42,7 +43,7 @@ export async function setupV2(contextInput: unknown): Promise<() => Promise<void
     };
 }
 
-async function registerHooks(context: Context, handlerContext: ReturnType<typeof initializePluginRuntime>["handlerContext"]): Promise<Registration[]> {
+async function registerHooks(context: Context, handlerContext: ReturnType<typeof initializePluginRuntime>["handlerContext"], temperatures: Readonly<Record<string, number>>): Promise<Registration[]> {
     const chat = createChatMessageHandler(handlerContext);
     const before = createToolExecuteBeforeHandler(handlerContext);
     const after = createToolExecuteAfterHandler(handlerContext);
@@ -50,7 +51,7 @@ async function registerHooks(context: Context, handlerContext: ReturnType<typeof
     const system = createSystemTransformHandler(handlerContext);
     return Promise.all([
         context.session.hook("prompt", input => runPromptHook(chat, input)),
-        context.session.hook("context", input => runSystemHook(system, input)),
+        context.session.hook("context", input => runSystemHook(system, input, temperatures)),
         context.session.hook("compaction", input => runCompactionHook(compact, input)),
         context.tool.hook("execute.before", input => runBeforeToolHook(before, input)),
         context.tool.hook("execute.after", input => runAfterToolHook(after, input)),
@@ -67,8 +68,10 @@ async function runPromptHook(chat: ReturnType<typeof createChatMessageHandler>, 
     prompt.prompt.text = output.parts[0]?.text ?? "";
 }
 
-async function runSystemHook(system: ReturnType<typeof createSystemTransformHandler>, input: unknown): Promise<void> {
+async function runSystemHook(system: ReturnType<typeof createSystemTransformHandler>, input: unknown, temperatures: Readonly<Record<string, number>>): Promise<void> {
     const request = input as V2ContextRequest;
+    const temperature = Object.hasOwn(temperatures, request.agent) ? temperatures[request.agent] : undefined;
+    if (temperature !== undefined) request.options.temperature = temperature;
     ContextLimitResolver.getInstance().rememberModel(
         request.sessionID,
         request.model.providerID,
@@ -88,6 +91,7 @@ type V2ContextRequest = {
     agent: string;
     model: { providerID: string; id: string };
     system: Array<{ type: "text"; text: string }>;
+    options: { temperature?: number };
 };
 
 async function runCompactionHook(compact: ReturnType<typeof createSessionCompactingHandler>, input: unknown): Promise<void> {

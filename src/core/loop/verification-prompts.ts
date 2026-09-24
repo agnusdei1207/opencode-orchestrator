@@ -8,8 +8,7 @@ export function buildVerificationSummary(result: VerificationResult): string {
         : `${VERIFICATION_MARK.failed} FAILED`;
     const hasChecklist = result.checklistPresent;
 
-    if (hasChecklist) {
-        return `[Verification ${status}] Checklist: ${result.checklistProgress}, TODO: ${result.todoProgress}, Sync: ${result.syncIssuesEmpty ? 'clean' : result.syncIssuesCount + ' issues'}`;
-    }
-    return `[Verification ${status}] TODO: ${result.todoProgress}, Sync: ${result.syncIssuesEmpty ? 'clean' : result.syncIssuesCount + ' issues'}`;
+    const checklist = hasChecklist ? `Checklist: ${result.checklistProgress}, ` : "";
+    const summary = `[Verification ${status}] ${checklist}TODO: ${result.todoProgress}, Sync: ${result.syncIssuesEmpty ? 'clean' : result.syncIssuesCount + ' issues'}`;
+    return result.errors.length > 0 ? `${summary}\nFailures:\n${result.errors.join("\n")}` : summary;
 }

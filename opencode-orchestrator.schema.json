@@ -13,6 +13,17 @@
         "maximum": 9007199254740991
       }
     },
+    "agentTemperatures": {
+      "type": "object",
+      "propertyNames": {
+        "type": "string"
+      },
+      "additionalProperties": {
+        "type": "number",
+        "minimum": 0,
+        "maximum": 2
+      }
+    },
     "providerConcurrency": {
       "type": "object",
       "propertyNames": {

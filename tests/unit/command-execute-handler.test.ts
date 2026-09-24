@@ -27,6 +27,13 @@ describe("native mission command", () => {
         await createCommandExecuteBeforeHandler(ctx)({ command: "task", arguments: goal, sessionID: "native-root" }, output as never);
         expect(readLoopState(ctx.directory)).toMatchObject({ active: true, sessionID: "native-root", objective: goal });
         expect(ctx.sessions.get("native-root")?.active).toBe(true);
+        expect(output.parts[0]).toMatchObject({ synthetic: true });
+    });
+
+    it.each(["plan", "agents", "stop", "cancel"])("hides the owned /%s instruction from user output", async (command) => {
+        const output = { parts: [{ type: "text", text: COMMANDS[command].template.replace(/\$ARGUMENTS/g, "goal") }] };
+        await createCommandExecuteBeforeHandler(ctx)({ command, arguments: "goal", sessionID: "native-root" }, output as never);
+        expect(output.parts[0]).toMatchObject({ synthetic: true });
     });
 
     it.each(["task", "plan"])("does not activate missions for a user-owned /%s command", async (command) => {
@@ -34,6 +41,15 @@ describe("native mission command", () => {
         await createCommandExecuteBeforeHandler(ctx)({ command, arguments: "custom action", sessionID: "native-root" }, output as never);
         expect(readLoopState(ctx.directory)).toBeNull();
         expect(ctx.sessions.size).toBe(0);
+        expect(output.parts[0]).not.toHaveProperty("synthetic");
+    });
+
+    it.each(["constructor", "toString"])("ignores unrelated /%s commands", async (command) => {
+        const output = { parts: [{ type: "text", text: "User-owned command" }] };
+        await expect(createCommandExecuteBeforeHandler(ctx)(
+            { command, arguments: "", sessionID: "native-root" }, output as never,
+        )).resolves.toBeUndefined();
+        expect(output.parts[0]).not.toHaveProperty("synthetic");
     });
 
     it.each(["stop", "cancel"])("cancels an active loop for an owned /%s command after host expansion", async (command) => {

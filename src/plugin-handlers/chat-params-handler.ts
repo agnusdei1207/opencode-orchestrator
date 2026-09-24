@@ -4,9 +4,8 @@
  * Hook: chat.params
  *
  * Runs before every LLM call with the model the host resolved for it. The
- * only thing the orchestrator needs from it is the model's context window,
- * which the context monitor measures usage against (issue #40). Nothing in
- * the output is changed.
+ * context monitor reads the host model window (issue #40). Configured
+ * agent temperatures are applied when the model reports support.
  */
 
 import type { Hooks } from "@opencode-ai/plugin";
@@ -16,10 +15,15 @@ type ChatParamsHook = NonNullable<Hooks["chat.params"]>;
 export type ChatParamsInput = Parameters<ChatParamsHook>[0];
 export type ChatParamsOutput = Parameters<ChatParamsHook>[1];
 
-export function createChatParamsHandler() {
-    return async (input: ChatParamsInput, _output: ChatParamsOutput): Promise<void> => {
+export function createChatParamsHandler(temperatures: Readonly<Record<string, number>> = {}) {
+    return async (input: ChatParamsInput, output: ChatParamsOutput): Promise<void> => {
         const model = input.model;
         if (!model) return;
+
+        const temperature = Object.hasOwn(temperatures, input.agent) ? temperatures[input.agent] : undefined;
+        if (temperature !== undefined && model.capabilities?.temperature !== false) {
+            output.temperature = temperature;
+        }
 
         ContextLimitResolver.getInstance().rememberModel(
             input.sessionID,

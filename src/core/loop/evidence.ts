@@ -6,17 +6,13 @@
  * changed files must be traced/verified). Orchestrator is a plugin and cannot
  * own the per-turn loop, but it DOES own the mission-loop continuation decision.
  *
- * This module records, by observing `tool.execute.after`, which files a session
- * changed and whether a verification command (test/build/lint) ran afterward. A
- * "wiring gap" exists when files were changed with no later verification. The
- * gap is surfaced as an emphatic continuation nudge — never a hard block — so it
- * can never cause a false "not done" loop.
+ * This module observes `tool.execute.after` and tracks files changed since
+ * the latest recognized verification command. The file list is advisory;
+ * mission completion follows the TODO, checklist, and sync issue verifier.
  */
 
 interface SessionEvidence {
-    changedFiles: Set<string>;
-    lastChangeAt: number;
-    lastVerifyAt: number;
+    unverifiedFiles: Set<string>;
 }
 
 const MAX_TRACKED_FILES = 200;
@@ -39,7 +35,7 @@ const SHELL_TOOLS = new Set(["bash", "shell", "run_command", "run_background"]);
 
 /** A command counts as verification when it runs tests/build/lint/typecheck. */
 const VERIFY_HINT =
-    /\b(test|spec|vitest|jest|pytest|build|tsc|typecheck|lint|eslint|clippy|cargo\s+test|npm\s+test|go\s+test|check)\b/i;
+    /\b(test|spec|vitest|jest|pytest|build|tsc|typecheck|lint|eslint|clippy|cargo\s+test|npm\s+test|go\s+test|check|py_compile)\b/i;
 
 const FILE_ARG_KEYS = ["filePath", "filepath", "file_path", "path", "file", "directory", "dir"] as const;
 const FILE_ARRAY_ARG_KEYS = ["files", "filePaths", "file_paths", "paths"] as const;
@@ -47,7 +43,7 @@ const FILE_ARRAY_ARG_KEYS = ["files", "filePaths", "file_paths", "paths"] as con
 function ensure(sessionID: string): SessionEvidence {
     let evidence = store.get(sessionID);
     if (!evidence) {
-        evidence = { changedFiles: new Set(), lastChangeAt: 0, lastVerifyAt: 0 };
+        evidence = { unverifiedFiles: new Set() };
         store.set(sessionID, evidence);
     }
     return evidence;
@@ -79,18 +75,17 @@ function collectFileCandidates(args: Record<string, unknown> | undefined): strin
     return candidates;
 }
 
-function recordChangedFile(sessionID: string, filePath: string, now: number = Date.now()): void {
+function recordChangedFile(sessionID: string, filePath: string): void {
     if (!sessionID || !filePath) return;
     const evidence = ensure(sessionID);
-    if (evidence.changedFiles.size < MAX_TRACKED_FILES) {
-        evidence.changedFiles.add(filePath);
+    if (evidence.unverifiedFiles.size < MAX_TRACKED_FILES) {
+        evidence.unverifiedFiles.add(filePath);
     }
-    evidence.lastChangeAt = now;
 }
 
-function recordVerification(sessionID: string, now: number = Date.now()): void {
+function recordVerification(sessionID: string): void {
     if (!sessionID) return;
-    ensure(sessionID).lastVerifyAt = now;
+    ensure(sessionID).unverifiedFiles.clear();
 }
 
 /** Record evidence from a single observed tool call. */
@@ -98,29 +93,21 @@ export function recordToolEvidence(
     sessionID: string,
     tool: string,
     args: Record<string, unknown> | undefined,
-    now: number = Date.now(),
 ): void {
     if (!sessionID || !tool) return;
     const name = tool.toLowerCase();
     if (WRITE_TOOLS.has(name)) {
         for (const candidate of collectFileCandidates(args)) {
-            recordChangedFile(sessionID, candidate, now);
+            recordChangedFile(sessionID, candidate);
         }
     } else if (SHELL_TOOLS.has(name)) {
         const command = String(args?.command ?? args?.cmd ?? "");
-        if (VERIFY_HINT.test(command)) recordVerification(sessionID, now);
+        if (VERIFY_HINT.test(command)) recordVerification(sessionID);
     }
 }
 
-/** Number of changed files with no verification recorded after the last change. */
-export function getUnverifiedChangeCount(sessionID: string): number {
-    const evidence = store.get(sessionID);
-    if (!evidence || evidence.changedFiles.size === 0) return 0;
-    return evidence.lastVerifyAt >= evidence.lastChangeAt ? 0 : evidence.changedFiles.size;
-}
-
-export function getChangedFiles(sessionID: string): string[] {
-    return Array.from(store.get(sessionID)?.changedFiles ?? []);
+export function getUnverifiedFiles(sessionID: string): string[] {
+    return Array.from(store.get(sessionID)?.unverifiedFiles ?? []);
 }
 
 export function clearEvidence(sessionID: string): void {

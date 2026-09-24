@@ -29,7 +29,7 @@ import { verifyMissionCompletion, buildVerificationSummary } from "./verificatio
 import { syncMissionMemory } from "../knowledge/mission-memory.js";
 import { appendMissionLedgerEvent } from "./mission-ledger.js";
 import { createSessionStateStore, type SessionState } from "./session-state-store.js";
-import { getUnverifiedChangeCount, clearEvidence } from "./evidence.js";
+import { getUnverifiedFiles, clearEvidence } from "./evidence.js";
 import { trackProgress, resetProgress, isStagnant, markInjectionPerformed, DEFAULT_STAGNATION_THRESHOLD } from "./progress-tracker.js";
 import { armCompactionGuard, isCompactionSafe, clearCompactionState } from "./compaction-guard.js";
 import { isCircuitOpen, tripOutputCircuit, clearCircuitState } from "./circuit-breaker.js";
@@ -159,7 +159,7 @@ function prepareContinuationPrompt(
     const generated = generateMissionContinuationPrompt(loopState, {
         verificationSummary: summary,
         continuationReason,
-        unverifiedChanges: getUnverifiedChangeCount(sessionID),
+        unverifiedFiles: getUnverifiedFiles(sessionID),
     });
     const text = customPrompt ? `${customPrompt}\n\n${generated}` : generated;
     return { text, summary, reason: continuationReason };

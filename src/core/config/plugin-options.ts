@@ -4,7 +4,7 @@ import { extractConcurrencyConfig } from "../agents/concurrency-config.js";
 import {
     type MissionRuntimeOptions,
 } from "../loop/mission-runtime-options.js";
-import { parseContextMaxTokens, parseMissionLoopOptions } from "./options-schema.js";
+import { parseAgentTemperatures, parseContextMaxTokens, parseMissionLoopOptions } from "./options-schema.js";
 
 type UnknownRecord = Record<string, unknown>;
 
@@ -15,6 +15,7 @@ export interface OrchestratorPluginOptions {
     missionLoop: MissionLoopPluginOptions;
     /** Explicit context window override; undefined resolves from model metadata. */
     contextMaxTokens?: number;
+    agentTemperatures: Record<string, number>;
 }
 
 export function parseOrchestratorPluginOptions(options?: PluginOptions): OrchestratorPluginOptions {
@@ -23,6 +24,7 @@ export function parseOrchestratorPluginOptions(options?: PluginOptions): Orchest
         concurrency: extractConcurrencyConfig(source),
         missionLoop: readMissionLoopOptions(source.missionLoop),
         contextMaxTokens: parseContextMaxTokens(source.contextMaxTokens),
+        agentTemperatures: parseAgentTemperatures(source.agentTemperatures),
     };
 }
 

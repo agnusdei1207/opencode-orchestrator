@@ -426,6 +426,8 @@ No open issues. All 10 agents finished.
             expect(summary).toContain("❌ FAILED");
             expect(summary).toContain("3/5");
             expect(summary).toContain("3 issues");
+            expect(summary).toContain("TODO incomplete");
+            expect(summary).toContain("Sync issues");
         });
     });
 });

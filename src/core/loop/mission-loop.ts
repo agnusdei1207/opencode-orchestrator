@@ -32,8 +32,8 @@ const DEFAULT_MAX_ITERATIONS = MISSION_CONTROL.DEFAULT_MAX_ITERATIONS;
 type MissionContinuationContext = {
     verificationSummary?: string;
     continuationReason?: string;
-    /** Files changed this mission with no verification recorded afterward. */
-    unverifiedChanges?: number;
+    /** Files changed this mission with no recognized verification afterward. */
+    unverifiedFiles?: string[];
 };
 
 type MissionContinuationInput = string | MissionContinuationContext;
@@ -334,11 +334,13 @@ Follow ${RECOVERY_PRINCIPLE}
 </escalation>`;
     }
 
-    if (context.unverifiedChanges > 0) {
-        prompt += `\n\n<wiring_gate>
-${context.unverifiedChanges} changed file(s) this mission have no verification evidence yet.
-Run the project's tests/build/lint over the changed surface and cite the result before declaring done.
-</wiring_gate>`;
+    if (context.unverifiedFiles.length > 0) {
+        prompt += `\n\n<verification_advisory>
+The runtime observed changes to these files without a recognized verification command afterward:
+${context.unverifiedFiles.map(file => `- ${file}`).join("\n")}
+This is an advisory only. A command outside the runtime's recognition may already verify them.
+Use the actual TODO, checklist, and sync issue results for mission completion.
+</verification_advisory>`;
     }
 
     // Inject Maintenance Instruction based on iteration
@@ -355,7 +357,7 @@ function normalizeContinuationContext(
 ) {
     const verificationSummary = typeof input === "string" ? input : input?.verificationSummary;
     const continuationReason = typeof input === "string" ? undefined : input?.continuationReason;
-    const unverifiedChanges = typeof input === "string" ? 0 : input?.unverifiedChanges ?? 0;
+    const unverifiedFiles = typeof input === "string" ? [] : input?.unverifiedFiles ?? [];
     const stagnationCount = state.stagnationCount ?? 0;
     return {
         objective: state.objective || deriveObjective(state.prompt),
@@ -363,7 +365,7 @@ function normalizeContinuationContext(
         verification: verificationSummary ?? state.lastVerificationSummary ?? UNKNOWN_STATUS,
         reason: continuationReason ?? state.lastContinuationReason ?? "verification_failed",
         stagnation: stagnationCount > 0 ? `${stagnationCount} unchanged check(s)` : "not detected",
-        unverifiedChanges,
+        unverifiedFiles,
         escalate: stagnationCount >= ESCALATION_STAGNATION_THRESHOLD,
     };
 }
