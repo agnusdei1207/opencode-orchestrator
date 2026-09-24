@@ -4,24 +4,23 @@ Last updated: 2026-09-24 KST
 
 ## Current task
 
-Simplify the root README, invite contributors and prospective maintainers, and
-ship the updated README in the requested npm patch release. The task is complete.
+Correct the root README so prospective maintainers are asked to open a new issue,
+close the issue mistakenly opened for that invitation, and publish the correction.
+The task is complete.
 
 ## Last completed step
 
-Read the plugin entrypoint, command registration, install hook, package metadata,
-contribution guide, and README. Shortened the README to installation, use,
-configuration, and contribution essentials. Opened issue #47 with a short
-English invitation for pull requests and prospective maintainers. Verified
-README version synchronization, build, package contents, local links, and the
-published issue body. Committed the documentation as `e4deb55` and released
-`v1.7.26` at `7b8050b`. Local preflight passed 117 TypeScript files / 1,057
-tests, 64 Rust tests with format and Clippy checks in Docker, a zero-finding
-production dependency audit, dependency validation, and packed-install smoke.
-GitHub Actions run 35991500226 passed and published five release assets and
-the npm package. Fresh registry installs in Windows and Node 24 Debian Docker
-verified version 1.7.26, the updated README and issue link, plugin registration,
-five bundled binaries, JavaScript CLI, and native CLI. No benchmark ran.
+Corrected the contribution sentence in README: PRs are appreciated, and anyone
+wanting maintainer access should open a new issue. Removed the #47 link. Closed
+issue #47 as not planned with a short English correction. Committed the README
+as `02fbb1e` and released `v1.7.27` at `7863d11`. Local preflight passed 117
+TypeScript files / 1,057 tests, 64 Rust tests with format and Clippy checks in
+Docker, production dependency audit, dependency validation, and packed-install
+smoke. GitHub Actions run 35994035183 passed and published five release assets
+and the npm package. A fresh Docker registry install and a Windows registry
+upgrade verified the corrected README, absence of the #47 link, plugin
+registration, all five binaries, JavaScript CLI, and native CLI. No benchmark
+ran.
 
 ## Next exact step
 
@@ -38,13 +37,14 @@ directory, so they remain there.
 
 - Keep the root README focused on the first-use path and link detailed development and architecture documents.
 - Preserve the README version markers used by `scripts/sync-readme-version.mjs`.
-- Use an open GitHub issue (#47) because no open issue existed for the contribution invitation.
-- Publish a patch because the user previously requested commit, push, and patch release and the npm 1.7.25 README is immutable.
+- Place the maintainer invitation only in README and link to the new-issue form.
+- Close the mistakenly created issue #47 and explain the correction in English.
+- Publish a patch because the npm 1.7.26 README is immutable.
 
 ## Rejected alternatives
 
-- Retain long historical Windows troubleshooting, migration, and internal workflow explanations in the root README.
-- Edit the already published npm 1.7.25 package in place; registry versions are immutable.
+- Keep issue #47 open as a standing maintainer invitation.
+- Leave the already published npm 1.7.26 README incorrect; registry versions are immutable.
 
 ## Known risks
 
