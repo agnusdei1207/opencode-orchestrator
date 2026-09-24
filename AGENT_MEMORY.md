@@ -4,68 +4,80 @@ Last updated: 2026-09-24 KST
 
 ## Current task
 
-Release a tested npm patch for GitHub issues #44, #45, and #46, then install
-the published package from npm, verify it, and close the issues in English.
+The issue #44-46 maintenance and release task is complete. The latest npm
+version is 1.7.25, and all three issues are closed with short English thanks.
 
 ## Last completed step
 
-Implemented per-agent temperature, accurate verification advisories, and
-synthetic native command instructions for both OpenCode 1 and 2. An independent
-read-only code review found two defects; both were reproduced, fixed, and
-reviewed again with no remaining findings. Refreshed the supported OpenCode 1
-and 2 contracts to 1.18.32 and 2.0.15. `npm ci --ignore-scripts` succeeded.
-`npm run release:dry-run` passed: build, 1,052 TypeScript tests with coverage,
-64 Rust tests with format and Clippy checks, production dependency audit,
-dependency tree validation, and packed-package postinstall smoke test.
-`npx tsc --noEmit` and `git diff --check` passed. Generated the public options
-schema from its Zod source. English thank-you comments are on issues #44-46.
+Implemented per-agent temperature (#44), corrected verification guidance
+(#45), and kept generated /task instructions out of user-authored output
+(#46). Refreshed tested OpenCode 1 and 2 contracts, removed confirmed legacy
+code, fixed active-config npm postinstall precedence, and released 1.7.23
+through 1.7.25. The 1.7.25 release builds Linux x64 and arm64 on Debian
+Bookworm, runs both there before upload, and fixes the glibc startup failure
+discovered by installing 1.7.24 on Bookworm.
+
+The v1.7.25 preflight passed: build, 117 TypeScript test files / 1,057 tests
+with coverage, 64 Rust tests with format and Clippy checks in Docker,
+production dependency audit, dependency tree, and packed-package postinstall
+smoke. TypeScript typecheck and the full Node suite also passed in Docker
+with --init. GitHub Actions run 35970048556 and all five binary builds plus
+publication succeeded. Fresh registry installs of 1.7.25 passed in Windows
+and Linux x64/arm64 Docker: active-config registration, plugin exports, five
+bundled binaries, and native/launcher CLI versions. GitHub Release v1.7.25
+contains five assets and specific release notes. Issues #44-46 are closed as
+completed; the open issue count is zero. Main and tag v1.7.25 were pushed.
 
 ## Next exact step
 
-Reread changed files and connection paths, update any remaining release notes,
-commit the issue fixes and dependency updates, then run `npm run release:patch`
-to prepare v1.7.23, recheck the release gate, and atomically push main and tag.
-Observe GitHub Actions through npm publication, install v1.7.23 in an isolated
-consumer, verify CLI and plugin entrypoints, then update and close issues #44-46.
+There is no pending release step. On the next request, open this snapshot,
+then the restore files below in order; check git status, npm latest, and new
+issues before starting a new scoped task.
 
 ## Incomplete items and why
 
-- v1.7.23 is not committed, tagged, pushed, or published yet.
-- Registry download and install QA requires publication.
-- Live interactive OpenCode UI behavior was not exercised; the host contracts,
-  source paths, and plugin boundaries were checked directly.
-- Issue comments still say publication is pending, and issues remain open.
+- No release or issue-closure work remains.
+- A live interactive OpenCode UI session was not exercised. Host contract
+  tests, plugin entrypoint tests, and registry installation checks passed.
 
 ## Key decisions
 
-- V1 native command parts are marked synthetic only when the expanded template
-  belongs to this plugin; V2 injects via `session.synthetic`.
-- Verification advisory tracks only files changed after the latest recognized
-  verification; TODO, checklist, and sync-issues remain completion authority.
-- `agentTemperatures` is opt-in; unsupported V1 models retain host settings.
-- Dependency refresh stays within the tested OpenCode 1 and 2 patch lines.
-- The tag-triggered GitHub Actions workflow publishes npm after QA and binary
-  builds. The release script pushes the main branch and tag atomically.
+- Keep agentTemperatures opt-in and preserve host settings when unset or
+  unsupported.
+- Treat changed-file verification evidence as advisory; TODO, checklist,
+  and sync-issues remain completion authority.
+- Register npm postinstall in the active OpenCode config before fallbacks.
+- Use Debian Bookworm for both Linux builds and runtime checks; QEMU runs
+  the arm64 artifact on the x64 CI runner.
+- Use Docker --init for Node process-tree E2E tests so orphaned children are
+  reaped. Run Windows registry QA on Windows.
+- Publish through the tag-triggered workflow after QA and artifact checks.
 
 ## Rejected alternatives
 
-- Avoid broad major-version dependency upgrades during this patch release.
-- Do not close issues before the published package passes registry install QA.
+- Keep building Linux binaries on ubuntu-latest: 1.7.24 required GLIBC_2.39
+  and failed on Debian Bookworm.
+- Pin the deprecated Ubuntu 22.04 runner: Bookworm containers give a stable
+  runtime baseline without relying on that runner image.
+- Close issues before the registry package passes actual install QA.
 
 ## Known risks
 
-- V2 context exposes a model reference without a temperature capability flag;
-  users should configure temperature only for models that support it.
-- Verification-command detection remains heuristic and advisory only.
+- The 1.7.24 Linux binary remains downloadable; npm latest is 1.7.25.
+- OpenCode 2 does not expose a temperature capability flag at the V2 plugin
+  boundary; users should opt in only for models that support temperature.
+- Verification-command detection is heuristic and advisory.
+- Interactive host UI behavior is not proven by the automated checks.
 
 ## Files to open first in the next session, in order
 
-1. `AGENT_MEMORY.md`
-2. `.github/workflows/release.yml`
-3. `scripts/release-version.mjs`
-4. `scripts/release-preflight.mjs`
-5. `scripts/release-push.mjs`
-6. `src/core/loop/evidence.ts`
-7. `src/plugin-handlers/command-execute-handler.ts`
-8. `src/v2/command-adapter.ts`
-9. `package.json`
+1. AGENT_MEMORY.md
+2. AGENTS.md
+3. .github/workflows/release.yml
+4. scripts/release-preflight.mjs
+5. scripts/package-smoke.mjs
+6. scripts/postinstall.ts
+7. src/core/loop/evidence.ts
+8. src/plugin-handlers/command-execute-handler.ts
+9. src/v2/command-adapter.ts
+10. package.json
