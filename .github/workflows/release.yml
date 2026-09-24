@@ -6,6 +6,10 @@ on:
       - "v*"
   workflow_dispatch:
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
 permissions:
   contents: write
 
@@ -218,7 +222,7 @@ jobs:
         run: |
           PACKAGE_NAME="$(node -p "require('./package.json').name")"
           PACKAGE_VERSION="$(node -p "require('./package.json').version")"
-          if npm view "${PACKAGE_NAME}@${PACKAGE_VERSION}" version >/dev/null 2>&1; then
+          if npm view "${PACKAGE_NAME}@${PACKAGE_VERSION}" version --prefer-online >/dev/null 2>&1; then
             echo "${PACKAGE_NAME}@${PACKAGE_VERSION} is already published to npm. Skipping."
             exit 0
           fi
