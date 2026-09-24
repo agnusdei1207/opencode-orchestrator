@@ -46,6 +46,6 @@ The default installation needs no extra options. OpenCode 1 uses `plugin`; OpenC
 
 ## Contributing
 
-Pull requests are welcome from everyone. See [CONTRIBUTING.md](https://github.com/agnusdei1207/opencode-orchestrator/blob/main/CONTRIBUTING.md) for development and test commands. If you would like to help maintain the project, comment on the [maintainer invitation](https://github.com/agnusdei1207/opencode-orchestrator/issues/47); I am open to granting maintainer access to contributors who want an ongoing role.
+Pull requests from anyone are appreciated. See [CONTRIBUTING.md](https://github.com/agnusdei1207/opencode-orchestrator/blob/main/CONTRIBUTING.md) for development and test commands. If you'd like maintainer access, please [open an issue](https://github.com/agnusdei1207/opencode-orchestrator/issues/new); I'm happy to grant it.
 
 [MIT License](LICENSE) © agnusdei1207
