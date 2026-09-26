@@ -1,6 +1,6 @@
 import type { Plugin } from "@opencode/plugin";
 import { registerAllTools } from "../tools/registry.js";
-import { initializePluginRuntime } from "../plugin-runtime.js";
+import { initializePluginRuntime, type PluginRuntime } from "../plugin-runtime.js";
 import { createChatMessageHandler } from "../plugin-handlers/chat-message-handler.js";
 import { createToolExecuteBeforeHandler } from "../plugin-handlers/tool-execute-pre-handler.js";
 import { createToolExecuteAfterHandler } from "../plugin-handlers/tool-execute-handler.js";
@@ -26,38 +26,62 @@ export async function setupV2(contextInput: unknown): Promise<() => Promise<void
         directory: context.location.directory,
     } as unknown as Parameters<typeof initializePluginRuntime>[0], context.options);
     const { handlerContext } = runtime;
-    const registrations = await registerHooks(context, handlerContext, parseAgentTemperatures(context.options.agentTemperatures));
-    registrations.push(await registerV2Agents(context));
-    registrations.push(await registerV2Tools(
-        context,
-        registerAllTools(runtime.directory, runtime.asyncAgentTools),
-    ));
-    registrations.push(await registerV2Commands(context, handlerContext));
-    const stopEvents = startV2EventBridge(
-        context,
-        createEventHandler(handlerContext),
-        bridge.statuses,
-    );
-    return async () => {
-        stopEvents();
-        await Promise.all(registrations.map(registration => registration.dispose()));
-        await runtime.shutdownManager.shutdown();
-    };
+    const registrations: Registration[] = [];
+    let stopEvents: (() => void) | undefined;
+    try {
+        await registerHooks(context, handlerContext, parseAgentTemperatures(context.options.agentTemperatures), registrations);
+        registrations.push(await registerV2Agents(context));
+        registrations.push(await registerV2Tools(
+            context,
+            registerAllTools(runtime.directory, runtime.asyncAgentTools),
+        ));
+        registrations.push(await registerV2Commands(context, handlerContext));
+        stopEvents = startV2EventBridge(
+            context,
+            createEventHandler(handlerContext),
+            bridge.statuses,
+        );
+    } catch (error) {
+        try {
+            await disposeV2(registrations, stopEvents, runtime.shutdownManager);
+        } catch (cleanupError) {
+            throw new AggregateError([error, cleanupError], "OpenCode 2 setup and cleanup failed");
+        }
+        throw error;
+    }
+    return () => disposeV2(registrations, stopEvents, runtime.shutdownManager);
 }
 
-async function registerHooks(context: Context, handlerContext: ReturnType<typeof initializePluginRuntime>["handlerContext"], temperatures: Readonly<Record<string, number>>): Promise<Registration[]> {
+async function disposeV2(registrations: Registration[], stopEvents: (() => void) | undefined, shutdownManager: PluginRuntime["shutdownManager"]): Promise<void> {
+    stopEvents?.();
+    const results = await Promise.allSettled(registrations.map(registration =>
+        Promise.resolve().then(() => registration.dispose()),
+    ));
+    await shutdownManager.shutdown();
+    const failures = results.filter((result): result is PromiseRejectedResult => result.status === "rejected");
+    if (failures.length === 1) throw failures[0].reason;
+    if (failures.length > 1) throw new AggregateError(failures.map(failure => failure.reason), "OpenCode 2 registration cleanup failed");
+}
+
+async function registerHooks(context: Context, handlerContext: PluginRuntime["handlerContext"], temperatures: Readonly<Record<string, number>>, registrations: Registration[]): Promise<void> {
     const chat = createChatMessageHandler(handlerContext);
     const before = createToolExecuteBeforeHandler(handlerContext);
     const after = createToolExecuteAfterHandler(handlerContext);
     const compact = createSessionCompactingHandler(handlerContext);
     const system = createSystemTransformHandler(handlerContext);
-    return Promise.all([
-        context.session.hook("prompt", input => runPromptHook(chat, input)),
-        context.session.hook("context", input => runSystemHook(system, input, temperatures)),
-        context.session.hook("compaction", input => runCompactionHook(compact, input)),
-        context.tool.hook("execute.before", input => runBeforeToolHook(before, input)),
-        context.tool.hook("execute.after", input => runAfterToolHook(after, input)),
-    ]);
+    const hooks = [
+        () => context.session.hook("prompt", input => runPromptHook(chat, input)),
+        () => context.session.hook("context", input => runSystemHook(system, input, temperatures)),
+        () => context.session.hook("compaction", input => runCompactionHook(compact, input)),
+        () => context.tool.hook("execute.before", input => runBeforeToolHook(before, input)),
+        () => context.tool.hook("execute.after", input => runAfterToolHook(after, input)),
+    ];
+    const results = await Promise.allSettled(hooks.map(hook => Promise.resolve().then(hook)));
+    for (const result of results) {
+        if (result.status === "fulfilled") registrations.push(result.value);
+    }
+    const failure = results.find((result): result is PromiseRejectedResult => result.status === "rejected");
+    if (failure) throw failure.reason;
 }
 
 async function runPromptHook(chat: ReturnType<typeof createChatMessageHandler>, input: unknown): Promise<void> {

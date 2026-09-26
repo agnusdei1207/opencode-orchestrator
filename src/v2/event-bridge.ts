@@ -23,7 +23,7 @@ async function consumeEvents(
     statuses: Map<string, string>,
     signal: AbortSignal,
 ): Promise<void> {
-    for await (const event of context.event.subscribe()) {
+    for await (const event of context.event.subscribe({ signal })) {
         if (signal.aborted) return;
         for (const translated of translateEvents(event, statuses)) {
             await handler({ event: translated });
