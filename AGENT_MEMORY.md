@@ -1,88 +1,90 @@
-﻿# Agent Memory - OCO Session
+# Agent Memory - OCO Session
 
-Last updated: 2026-09-27 16:46 KST
+Last updated: 2026-09-27 23:25 KST
 
 ## Current task
 
-The requested code review, SDK/plugin contract check, dead legacy cleanup, and
-`2.0.6` patch release are complete. The next active verification is a live
-OpenCode 2 host contract for the retained delegation path.
+Issue #49 (`/task` blocked by another session's project mission) is fixed and
+released in `v2.0.7`. Issue #48 (compressed conversation treated as user input)
+remains open pending a reproducible session transcript and plugin inventory.
 
 ## Last completed step
 
-Read the official OpenCode 2 plugin, SDK, and V1 migration documentation, the
-installed `@opencode/plugin@2.0.15` and `@opencode-ai/sdk@1.18.32` contracts,
-and the plugin entry points and affected data flow. The OpenCode 2 tool context
-supplies `signal`; forward it to legacy tool executors (`c01e890`). Both
-supported plugin clients lack the old `client.v2.session.compact` route, so the
-child-session reuse branch never ran. Replaced that pool with a deletion-guarded
-`SessionRegistry` and removed obsolete state and tests (`02bdb38`). A red
-reload regression showed that shutdown retained a closed agent manager and
-registry; clear both singleton references after shutdown (`ed92b95`).
+Traced the V1 chat/native command and V2 command entry points through
+`MissionControlHook`, persisted mission state, delegated task cancellation, and
+idle continuation. New `/task` in another session now aborts a busy owner,
+cancels its running/pending children without notifying the retired parent,
+checks the expected prior mission identity, replaces the project record, and
+deactivates the old local session. Same-session restart remains available.
+The patch is commit `5b69611`; `npm run release:patch` created release commit
+`9e7a4e7` and tag `v2.0.7` and atomically pushed both.
 
-The final local build and typecheck passed. Release preflight passed 119
-TypeScript test files / 1,019 tests with coverage above all configured
-thresholds, 57 Rust tests, production dependency audit, dependency tree, and
-packed-package smoke. The isolated built-plugin QA passed 14 checks with
-OpenCode and SDK `1.18.32`. `npm run release:patch` made commit `3b92457`
-and tag `v2.0.6`, then atomically pushed both. GitHub Build & Release run
-`36303826326` succeeded, created the release with five binaries, and logged
-`+ opencode-orchestrator@2.0.6`. A fresh npm cache confirmed `2.0.6` and
-`latest: 2.0.6`. GitHub CI and Pages runs also succeeded.
+Release preflight passed 119 TypeScript test files / 1,033 tests (coverage
+statements 89.93%, branches 80.58%, functions 91.93%, lines 92.18%),
+57 Rust tests, Rust fmt and Clippy, production npm audit, dependency checks,
+and packed-package smoke. The built plugin passed all 14 isolated live-host
+checks with OpenCode and SDK `1.18.32`, including a busy old mission replaced
+by a native `/task`, compaction, delegation, abort, and restart. Hosted run
+`36325507529` succeeded with five platform binaries, published the GitHub
+release, and logged `+ opencode-orchestrator@2.0.7`. A fresh npm cache
+confirmed `2.0.7` and `latest: 2.0.7`. Issue #49 was closed after publication.
+
+For #48, the issue supplies only a screenshot. The screenshot's compressed
+conversation wording matches the DCP compression placeholder documented in
+the separate OpenCode Dynamic Context Pruning project, but the reporter's
+installed plugins and actual message roles are unknown. This repository has
+no matching placeholder; its compaction handler adds context to the host
+compaction hook, and its own continuation prompts are synthetic. The isolated
+host compaction check passed. No issue-specific change is justified yet.
 
 ## Next exact step
 
-When a released OpenCode 2 executable is available, run an isolated live-host
-contract against the built plugin: tool cancellation, setup/cleanup/reload,
-child-session lifecycle, and the host-owned deletion boundary. Then evaluate
-native background delegation parity before retiring any public delegation
-tools or V1 compatibility.
+Obtain #48's OpenCode version, installed plugin list, and the session messages
+immediately before/after the compressed section. Reproduce with only
+OpenCode Orchestrator, then with other installed compression plugins. Fix a
+confirmed Orchestrator path or route the finding to the owning project.
 
 ## Incomplete items and why
 
-- OpenCode 2 was checked against official documentation, installed package
-  types, and tests, but no OpenCode 2 executable was installed for live QA.
-- Native background task and busy-parent notification parity remain unproved;
-  the existing delegation runtime remains in service.
-- Issue #48 still needs the reporter's environment and a reproducible
-  compressed-message transcript before an issue-specific change.
-- An older intermittent Windows background-task E2E failure was not reproduced
-  during this work.
+- #48 remains open because the screenshot does not identify the producing
+  plugin or show serialized message roles.
+- No released OpenCode 2 executable was installed for live QA. V2 command
+  replacement and interrupt were covered with the installed `@opencode/plugin`
+  contract and tests; perform a live-host run when an executable is available.
+- Native background task parity and overlapping plugin-instance isolation
+  remain outside this patch's verified scope.
 
 ## Key decisions
 
-- Retain OpenCode 1 support in the patch release; its `server` entry remains
-  active and the isolated host QA exercises it.
-- Remove only unreachable session reuse state. On OpenCode 1, guard deletion
-  until idle and settled. OpenCode 2 has no plugin deletion API, so leave those
-  sessions to the host.
-- Keep the V2 cancellation fix, the session refactor, and the reload fix in
-  separate commits. Use the existing tag-driven release workflow.
+- Honor the requested overwrite behavior for a new `/task`, after confirmed
+  interruption/cancellation. Keep one project mission record.
+- Preserve project TODO/checklist files for the new mission to reconcile.
+- Keep `/stop` session-owned; it does not stop another session's mission.
+- Do not change compaction behavior based solely on #48's screenshot.
 
 ## Rejected alternatives
 
-- Remove V1 compatibility in a patch release.
-- Keep simulated compaction or reuse code for an API neither supported plugin
-  client exposes.
-- Replace retained background delegation before live host parity is verified.
+- Require a manual `/stop` in the old session before a new `/task`.
+- Replace the mission without aborting busy owner and delegated work.
+- Attribute #48 to Orchestrator and alter message roles without a transcript.
 
 ## Known risks
 
-- Live OpenCode 2 behavior remains unverified.
-- Concurrent overlapping plugin instances still share process-global manager
-  state; the regression test covers sequential reload only.
-- The local npm cache can lag after publication; the fresh-cache lookup was
-  used to confirm the registry state.
+- Project TODO/checklist content from the old mission can still affect the new
+  mission until reconciled.
+- Abort/pause protection and delegated task state are process-local; distinct
+  plugin processes do not share those in-memory guards.
+- The #48 wording suggests another compression plugin, but its presence in
+  the reporter's environment is unconfirmed.
 
 ## Files to open first in the next session, in order
 
 1. `AGENTS.md`
 2. `AGENT_MEMORY.md`
-3. `src/index.ts`
-4. `src/plugin-runtime.ts`
+3. `src/plugin-handlers/session-compacting-handler.ts`
+4. `src/core/session/injection.ts`
 5. `src/v2/setup.ts`
-6. `src/v2/tool-adapter.ts`
-7. `src/core/agents/manager.ts`
-8. `src/core/agents/session-registry.ts`
+6. `src/plugin-handlers/chat-message-handler.ts`
+7. `src/hooks/features/mission-loop.ts`
+8. `src/core/loop/mission-loop.ts`
 9. `scripts/qa-native-host.mjs`
-10. `docs/adr/0021-minimal-mission-plugin.md`
