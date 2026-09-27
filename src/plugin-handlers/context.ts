@@ -40,4 +40,4 @@ export interface PluginHandlerContext {
 
 export type AssistantDoneHandlerContext = Pick<PluginHandlerContext, "client" | "directory" | "sessions">;
 export type ChatMessageHandlerContext = Pick<PluginHandlerContext, "client" | "directory" | "sessions">;
-export type ToolExecuteHandlerContext = Pick<PluginHandlerContext, "directory" | "sessions">;
+export type ToolExecuteHandlerContext = Pick<PluginHandlerContext, "client" | "directory" | "sessions">;

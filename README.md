@@ -37,11 +37,12 @@ Select **Commander** in OpenCode and send a request, or start a continuing missi
 
 | Command | Purpose |
 | --- | --- |
-| `/task <objective>` | Start a persisted mission |
+| `/task <objective>` | Start a persisted mission, replacing an active mission in the same project |
 | `/plan <objective>` | Prepare a plan without implementing it |
 | `/stop` or `/cancel` | Stop the active mission |
 
 Ordinary questions and small edits can be handled directly. Roles are used when they help; they are not a required pipeline.
+Replacing a mission stops its previous session and delegated work before the new goal starts. Existing project TODO and checklist files remain available for the new mission to reconcile.
 
 ## Configuration
 

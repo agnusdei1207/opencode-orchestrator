@@ -1,11 +1,13 @@
 import { log } from "../core/agents/logger.js";
 import { HOOK_ACTIONS } from "./constants.js";
+import type { PluginInput } from "@opencode-ai/plugin";
 
 export interface HookContext {
     sessionID: string;
     agent?: string;
     directory: string;
     sessions: Map<string, unknown>;
+    client?: PluginInput["client"];
 }
 
 type ErrorHandling = "continue" | "stop";

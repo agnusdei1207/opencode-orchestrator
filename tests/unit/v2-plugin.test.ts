@@ -102,6 +102,41 @@ describe("OpenCode 2 plugin setup", () => {
         expect(context.session.prompt).not.toHaveBeenCalled();
     });
 
+    it("replaces an active V2 mission after interrupting its owner", async () => {
+        const directory = mkdtempSync(path.join(tmpdir(), "oco-v2-replace-"));
+        directories.push(directory);
+        const commands: Array<{ name: string; execute: (input: unknown) => Promise<void> }> = [];
+        const session = {
+            synthetic: vi.fn().mockResolvedValue(undefined),
+            interrupt: vi.fn().mockResolvedValue({ interrupted: true }),
+        };
+        const context = {
+            session,
+            command: { transform: vi.fn(async (edit: (editor: { add: (command: typeof commands[number]) => void }) => void) => {
+                edit({ add: command => commands.push(command) });
+                return { dispose: vi.fn() };
+            }) },
+        } as unknown as Plugin.Context;
+        const { createV2ClientBridge } = await import("../../src/v2/client-adapter.js");
+        const { registerV2Commands } = await import("../../src/v2/command-adapter.js");
+        const { ParallelAgentManager } = await import("../../src/core/agents/manager.js");
+        const bridge = createV2ClientBridge(context);
+        const manager = vi.spyOn(ParallelAgentManager, "getInstance").mockReturnValue({
+            cancelTasksForParent: vi.fn().mockResolvedValue(true),
+        } as never);
+        try {
+            await registerV2Commands(context, { client: bridge.client, directory, sessions: new Map() } as never);
+            const task = commands.find(command => command.name === "task")!;
+            await task.execute({ sessionID: "old-root", prompt: { text: "Old mission" } });
+            bridge.statuses.set("old-root", "busy");
+            await task.execute({ sessionID: "new-root", prompt: { text: "New mission" } });
+            expect(session.interrupt).toHaveBeenCalledWith({ sessionID: "old-root", resume: false });
+            expect(session.synthetic).toHaveBeenLastCalledWith(expect.objectContaining({ sessionID: "new-root" }));
+        } finally {
+            manager.mockRestore();
+        }
+    });
+
     it("applies configured temperature in the V2 generation context", async () => {
         const directory = mkdtempSync(path.join(tmpdir(), "oco-v2-temperature-"));
         directories.push(directory);

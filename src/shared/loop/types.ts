@@ -50,6 +50,8 @@ export interface MissionLoopOptions {
     maxIterations?: number;
     /** Countdown seconds before auto-continue (default: 3) */
     countdownSeconds?: number;
+    /** Expected prior mission; permits replacement only if its identity still matches. */
+    replaceExisting?: Pick<MissionLoopState, "sessionID" | "startedAt" | "prompt">;
 }
 
 /**
@@ -65,4 +67,3 @@ export interface Todo {
     createdAt: Date;
     completedAt?: Date;
 }
-

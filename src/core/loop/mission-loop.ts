@@ -201,6 +201,30 @@ function deriveObjective(prompt: string): string {
     return firstLine?.trim() || prompt.trim() || "Continue the active mission";
 }
 
+function recordStartedMission(directory: string, state: MissionLoopState, previous?: MissionLoopState): void {
+    if (previous) {
+        appendMissionLedgerEvent(directory, {
+            type: "mission_cancelled",
+            sessionID: previous.sessionID,
+            iteration: previous.iteration,
+            objective: previous.objective,
+            reason: "replaced_by_new_task",
+        });
+    }
+    appendMissionLedgerEvent(directory, {
+        type: "mission_started",
+        sessionID: state.sessionID,
+        iteration: state.iteration,
+        objective: state.objective,
+        summary: "Mission loop started",
+    });
+    syncMissionMemory(directory, state);
+    log(`[${MISSION_CONTROL.LOG_SOURCE}] Loop started`, {
+        sessionID: state.sessionID,
+        maxIterations: state.maxIterations,
+    });
+}
+
 // ============================================================================
 // Loop Control
 // ============================================================================
@@ -215,8 +239,11 @@ export function startMissionLoop(
     options: MissionLoopOptions = {}
 ): boolean {
     const existing = readLoopState(directory);
-    if (existing?.active && existing.sessionID !== sessionID) {
-        throw new Error(`The active mission belongs to session ${existing.sessionID}. Stop that mission in its owning session before starting another project mission.`);
+    const replacing = existing?.active && existing.sessionID !== sessionID;
+    if (replacing && (existing.sessionID !== options.replaceExisting?.sessionID
+        || existing.startedAt !== options.replaceExisting?.startedAt
+        || existing.prompt !== options.replaceExisting?.prompt)) {
+        throw new Error(`The active mission belongs to session ${existing.sessionID}. Retry /task to replace the current mission safely.`);
     }
     const state: MissionLoopState = {
         active: true,
@@ -229,22 +256,7 @@ export function startMissionLoop(
     };
 
     const success = writeLoopState(directory, state);
-
-    if (success) {
-        appendMissionLedgerEvent(directory, {
-            type: "mission_started",
-            sessionID,
-            iteration: state.iteration,
-            objective: state.objective,
-            summary: "Mission loop started",
-        });
-        syncMissionMemory(directory, state);
-        log(`[${MISSION_CONTROL.LOG_SOURCE}] Loop started`, {
-            sessionID,
-            maxIterations: state.maxIterations,
-        });
-    }
-
+    if (success) recordStartedMission(directory, state, replacing ? existing : undefined);
     return success;
 }
 

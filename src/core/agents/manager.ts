@@ -176,7 +176,15 @@ export class ParallelAgentManager {
         return this.store.getBySession(sessionID);
     }
 
-    async cancelTask(taskId: string): Promise<boolean> {
+    async cancelTasksForParent(parentSessionID: string): Promise<boolean> {
+        const active = () => this.getTasksByParent(parentSessionID).filter(task => isCancellableTaskStatus(task.status));
+        for (const task of active()) await this.cancelTask(task.id, false);
+        if (active().length > 0) return false;
+        this.store.clearNotifications(parentSessionID);
+        return true;
+    }
+
+    async cancelTask(taskId: string, notifyParent = true): Promise<boolean> {
         const task = this.store.get(taskId);
         if (!task || !isCancellableTaskStatus(task.status)) return false;
         const startedAt = task.startedAt;
@@ -196,8 +204,10 @@ export class ParallelAgentManager {
         // A busy session must be aborted before scheduled cleanup releases it
         // (issue #41). Releasing here as well would release it twice.
         this.cleaner.scheduleCleanup(taskId);
-        this.store.queueNotification(task);
-        await this.cleaner.notifyParentIfAllComplete(task.parentSessionID);
+        if (notifyParent) {
+            this.store.queueNotification(task);
+            await this.cleaner.notifyParentIfAllComplete(task.parentSessionID);
+        }
         log(`Cancelled ${taskId}`);
         return true;
     }

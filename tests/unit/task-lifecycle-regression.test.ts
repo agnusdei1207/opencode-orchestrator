@@ -114,6 +114,30 @@ describe("task lifecycle across execution boundaries", () => {
         expect(client.session.prompt).toHaveBeenCalledTimes(1);
     });
 
+    it("silently retires a prior mission's child tasks during replacement", async () => {
+        client.session.prompt.mockReturnValue(new Promise(() => {}));
+        const running = await launch();
+        const queued = await launch();
+        await vi.advanceTimersByTimeAsync(0);
+        store.queueNotification(running);
+
+        expect(await manager.cancelTasksForParent("parent")).toBe(true);
+        expect(running.status).toBe(TASK_STATUS.ERROR);
+        expect(queued.status).toBe(TASK_STATUS.ERROR);
+        expect(store.getNotifications("parent")).toEqual([]);
+        expect(client.session.prompt).toHaveBeenCalledTimes(1);
+    });
+
+    it("keeps the prior mission when a child session cannot be aborted", async () => {
+        client.session.prompt.mockReturnValue(new Promise(() => {}));
+        const running = await launch();
+        await vi.advanceTimersByTimeAsync(0);
+        client.session.abort.mockResolvedValueOnce({ data: false });
+
+        expect(await manager.cancelTasksForParent("parent")).toBe(false);
+        expect(running.status).toBe(TASK_STATUS.RUNNING);
+    });
+
     it.each(["reject", "error", "false"])("retains running state and slot when abort returns %s", async (failure) => {
         client.session.prompt.mockReturnValue(new Promise(() => {}));
         const task = await launch();

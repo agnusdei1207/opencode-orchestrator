@@ -61,6 +61,7 @@ export function createChatMessageHandler(ctx: ChatMessageHandlerContext) {
         const hookContext = {
             sessionID,
             agent: agentName || undefined,
+            client: ctx.client,
             directory,
             sessions: sessions as Map<string, unknown>
         };

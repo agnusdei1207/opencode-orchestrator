@@ -61,6 +61,16 @@ describe("mission idle ownership", () => {
         expect(readLoopState(directory)).toEqual(original);
     });
 
+    it("rejects replacement when the expected mission has changed", () => {
+        const expected = readLoopState(directory)!;
+        cancelMissionLoop(directory, sessionID);
+        startMissionLoop(directory, "third-owner", "Newer mission");
+        expect(() => startMissionLoop(directory, "other-root", "Stale request", {
+            replaceExisting: expected,
+        })).toThrow(/active mission.*third-owner/i);
+        expect(readLoopState(directory)).toMatchObject({ sessionID: "third-owner", objective: "Newer mission" });
+    });
+
     it("does not infer task completion when the task manager is unavailable", async () => {
         tasks.read.mockImplementation(() => { throw new Error("unavailable"); });
         writeFileSync(join(directory, ".opencode/todo.md"), "- [x] Parent checked item");
@@ -93,6 +103,16 @@ describe("mission idle ownership", () => {
         await vi.advanceTimersByTimeAsync(3000);
         expect(readLoopState(directory)?.sessionID).toBe("new-owner");
         expect(prompt).not.toHaveBeenCalled();
+    });
+
+    it("does not inject an old countdown after an authorized replacement", async () => {
+        writeFileSync(join(directory, ".opencode/todo.md"), "- [ ] Remaining");
+        await handleMissionIdle(client, directory, sessionID);
+        const expected = readLoopState(directory)!;
+        startMissionLoop(directory, "new-owner", "Replacement objective", { replaceExisting: expected });
+        await vi.advanceTimersByTimeAsync(3000);
+        expect(prompt).not.toHaveBeenCalled();
+        expect(readLoopState(directory)).toMatchObject({ sessionID: "new-owner", objective: "Replacement objective" });
     });
 
     it("rechecks abort after awaiting the final host status", async () => {

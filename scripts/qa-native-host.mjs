@@ -310,7 +310,17 @@ async function missionCommandCheck(context, report) {
         assert.equal(state.sessionID, session.id);
         assert.equal(state.active, true);
         assert.equal(state.objective, "QA mission objective");
-        await prompt(context.client, session.id, "/stop", { agent: "Commander" });
+        const heldBefore = context.fixture.state.held;
+        const pending = prompt(context.client, session.id, "QA_HOLD").catch(() => undefined);
+        await waitFor(() => context.fixture.state.held > heldBefore, "prior mission in flight");
+        const replacement = (await context.client.session.create({ body: { title: "Replacement command QA" } })).data;
+        await context.client.session.command({ path: { id: replacement.id },
+            body: { command: "task", arguments: "Replacement objective", model: "fixture/qa", agent: "Commander" } });
+        await pending;
+        const replaced = JSON.parse(await readFile(statePath, "utf8"));
+        assert.equal(replaced.sessionID, replacement.id);
+        assert.equal(replaced.objective, "Replacement objective");
+        await prompt(context.client, replacement.id, "/stop", { agent: "Commander" });
         const stopped = await readFile(statePath, "utf8").then(JSON.parse, (error) => {
             if (error.code === "ENOENT") return null;
             throw error;

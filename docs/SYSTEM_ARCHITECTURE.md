@@ -1,6 +1,6 @@
 # System Architecture
 
-Date: 2026-09-24 (OpenCode 1 and 2 plugin boundaries and host-managed installation reviewed)
+Date: 2026-09-27 (mission replacement and OpenCode 1 and 2 plugin boundaries reviewed)
 
 This document describes the current architecture that is directly verifiable from the repository source. It intentionally avoids speculative performance claims.
 
@@ -145,7 +145,7 @@ Mission loop state is file-backed under `.opencode/`:
 
 `startMissionLoop()` persists the mission state. `handleMissionIdle()` re-verifies completion before scheduling a continuation. Pure verification-count and continuation-metadata policy lives in `src/core/loop/mission-continuation.ts`; effectful host checks, persistence, notification, and prompt injection remain in the handler. `generateMissionContinuationPrompt()` injects a compact prompt containing objective, progress, verification summary, stagnation signal, and completion rule.
 
-The current record is project-wide: one active root owns it, and a foreign root start is rejected without replacing the record. This is not per-root multi-mission storage. Abort/pause protection is process-local, and delegated task state is in memory. Durable pause and task restoration remain separate migration work.
+The current record is project-wide: one active root owns it. A new `/task` from another root interrupts a busy owner, cancels its delegated tasks without notifying the retired parent, and replaces the record only after those operations succeed. The expected prior mission identity is checked again before the write, so a concurrent change rejects a stale replacement. Existing TODO and checklist files are retained for the new mission to reconcile. This is not per-root multi-mission storage. Abort/pause protection is process-local, and delegated task state is in memory. Durable pause and task restoration remain separate migration work.
 
 Plugin startup no longer creates a placeholder `todo.md` or watches it through an empty synchronization service. Existing user TODO files are preserved; actual mission TODO reads and writes remain in their existing owners.
 
