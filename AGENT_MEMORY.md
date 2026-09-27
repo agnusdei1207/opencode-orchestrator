@@ -1,90 +1,87 @@
 # Agent Memory - OCO Session
 
-Last updated: 2026-09-27 23:25 KST
+Last updated: 2026-09-27 23:51 KST
 
 ## Current task
 
-Issue #49 (`/task` blocked by another session's project mission) is fixed and
-released in `v2.0.7`. Issue #48 (compressed conversation treated as user input)
-remains open pending a reproducible session transcript and plugin inventory.
+Issue #48: a compressed conversation section appears to the model as a user
+message. A Commander prompt mitigation was committed and released as `v2.0.8`.
+The issue remains open until the reporter's environment and model behavior can
+be checked.
 
 ## Last completed step
 
-Traced the V1 chat/native command and V2 command entry points through
-`MissionControlHook`, persisted mission state, delegated task cancellation, and
-idle continuation. New `/task` in another session now aborts a busy owner,
-cancels its running/pending children without notifying the retired parent,
-checks the expected prior mission identity, replaces the project record, and
-deactivates the old local session. Same-session restart remains available.
-The patch is commit `5b69611`; `npm run release:patch` created release commit
-`9e7a4e7` and tag `v2.0.7` and atomically pushed both.
+Read the issue and screenshot, OCO compaction and prompt paths, and OpenCode
+1.18.32's compaction source. The screenshot's exact `[Compressed conversation
+section]` marker is defined by OpenCode Dynamic Context Pruning (DCP). Its
+`filterCompressedRanges` calls `createSyntheticUserMessage`, which sets
+`info.role` to `user`. The reporter's DCP installation is unconfirmed because
+the issue provides no plugin list, version, or serialized session messages.
+OCO itself has no producer of that marker; its compaction hook contributes
+host context, and its own continuation prompts are marked synthetic.
 
-Release preflight passed 119 TypeScript test files / 1,033 tests (coverage
-statements 89.93%, branches 80.58%, functions 91.93%, lines 92.18%),
-57 Rust tests, Rust fmt and Clippy, production npm audit, dependency checks,
-and packed-package smoke. The built plugin passed all 14 isolated live-host
-checks with OpenCode and SDK `1.18.32`, including a busy old mission replaced
-by a native `/task`, compaction, delegation, abort, and restart. Hosted run
-`36325507529` succeeded with five platform binaries, published the GitHub
-release, and logged `+ opencode-orchestrator@2.0.7`. A fresh npm cache
-confirmed `2.0.7` and `latest: 2.0.7`. Issue #49 was closed after publication.
+Commit `1d92b96` adds a Commander instruction to interpret marked compressed
+sections as historical context while honoring actual user requests. The same
+definition reaches OpenCode 1 through generated agent config and OpenCode 2
+through the agent transform. Tests cover both registration paths and the
+snapshot. Architecture documentation describes the boundary. The role on the
+wire is still owned by the producing plugin or host; OCO does not rewrite
+another plugin's messages. A user-supplied same-name V1 Commander prompt can
+override the default instruction.
 
-For #48, the issue supplies only a screenshot. The screenshot's compressed
-conversation wording matches the DCP compression placeholder documented in
-the separate OpenCode Dynamic Context Pruning project, but the reporter's
-installed plugins and actual message roles are unknown. This repository has
-no matching placeholder; its compaction handler adds context to the host
-compaction hook, and its own continuation prompts are synthetic. The isolated
-host compaction check passed. No issue-specific change is justified yet.
+`npm run release:patch` created `ad2128c` and `v2.0.8` and atomically pushed
+main and tag. Local release preflight passed build, 119 TypeScript files /
+1,034 tests and coverage gate, 57 Rust tests and quality checks, production
+npm audit, dependency check, and packed-package smoke. Built v2.0.8 passed
+all 16 isolated OpenCode 1.18.32 live-host checks, including compressed-only
+and compressed-then-real-user provider payloads. This QA verifies prompt and
+message delivery, not the behavior of the reporter's MiMo model or DCP plugin.
+Hosted release run `36327070709` succeeded. The GitHub release contains all
+five platform binaries. CI logged `+ opencode-orchestrator@2.0.8` and a fresh
+npm cache confirmed version `2.0.8` and `latest: 2.0.8` after registry
+processing completed.
 
 ## Next exact step
 
-Obtain #48's OpenCode version, installed plugin list, and the session messages
-immediately before/after the compressed section. Reproduce with only
-OpenCode Orchestrator, then with other installed compression plugins. Fix a
-confirmed Orchestrator path or route the finding to the owning project.
+Obtain the reporter's OpenCode version, plugin list, and messages immediately
+around the compressed block. Reproduce with DCP if installed and assess
+whether its producer-side role should change. Verify the v2.0.8 model-level
+behavior with the reporter's MiMo setup before closing #48.
 
 ## Incomplete items and why
 
-- #48 remains open because the screenshot does not identify the producing
-  plugin or show serialized message roles.
-- No released OpenCode 2 executable was installed for live QA. V2 command
-  replacement and interrupt were covered with the installed `@opencode/plugin`
-  contract and tests; perform a live-host run when an executable is available.
-- Native background task parity and overlapping plugin-instance isolation
-  remain outside this patch's verified scope.
+- #48 stays open: reporter configuration and model-level reproduction are
+  missing. The shipped change mitigates interpretation, not the DCP user role.
+- No released OpenCode 2 executable was installed for live QA. V2 prompt
+  registration is covered by the installed plugin contract and tests.
 
 ## Key decisions
 
-- Honor the requested overwrite behavior for a new `/task`, after confirmed
-  interruption/cancellation. Keep one project mission record.
-- Preserve project TODO/checklist files for the new mission to reconcile.
-- Keep `/stop` session-owned; it does not stop another session's mission.
-- Do not change compaction behavior based solely on #48's screenshot.
+- Add the interpretation rule to the shared Commander definition so both
+  OpenCode generations receive it.
+- Preserve a real request accompanying or following a compressed section.
+- Keep #48 open until real reporter confirmation.
 
 ## Rejected alternatives
 
-- Require a manual `/stop` in the old session before a new `/task`.
-- Replace the mission without aborting busy owner and delegated work.
-- Attribute #48 to Orchestrator and alter message roles without a transcript.
+- Rewrite DCP's user-role message from OCO: plugin ordering and message schema
+  make this unsafe without reporter evidence or a stable shared contract.
+- Attribute the reporter's plugin inventory from the screenshot alone.
 
 ## Known risks
 
-- Project TODO/checklist content from the old mission can still affect the new
-  mission until reconciled.
-- Abort/pause protection and delegated task state are process-local; distinct
-  plugin processes do not share those in-memory guards.
-- The #48 wording suggests another compression plugin, but its presence in
-  the reporter's environment is unconfirmed.
+- A model can still ignore the prompt rule; the actual user-role payload is
+  unchanged. The reporter's MiMo model was not available for QA.
+- User-overridden V1 Commander prompts do not inherit this default rule.
+- OCO and DCP hook ordering in the reporter's setup is unknown.
 
 ## Files to open first in the next session, in order
 
 1. `AGENTS.md`
 2. `AGENT_MEMORY.md`
-3. `src/plugin-handlers/session-compacting-handler.ts`
-4. `src/core/session/injection.ts`
-5. `src/v2/setup.ts`
-6. `src/plugin-handlers/chat-message-handler.ts`
-7. `src/hooks/features/mission-loop.ts`
-8. `src/core/loop/mission-loop.ts`
-9. `scripts/qa-native-host.mjs`
+3. `src/agents/commander.ts`
+4. `src/agents/definitions.ts`
+5. `src/plugin-handlers/config-handler.ts`
+6. `src/v2/agent-adapter.ts`
+7. `scripts/qa-native-host.mjs`
+8. `docs/SYSTEM_ARCHITECTURE.md`
