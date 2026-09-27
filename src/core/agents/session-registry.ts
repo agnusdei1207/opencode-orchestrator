@@ -50,7 +50,7 @@ function shortID(sessionID: string): string {
 }
 
 export class SessionRegistry {
-    private static _instance: SessionRegistry;
+    private static _instance: SessionRegistry | undefined;
 
     private sessionsById = new Map<string, TrackedSession>();
     private deleteTimers = new Map<string, NodeJS.Timeout>();
@@ -141,15 +141,19 @@ export class SessionRegistry {
         }
         for (const sessionID of this.deleteTimers.keys()) this.cancelDeferredDelete(sessionID);
 
-        const deletions: Promise<unknown>[] = [];
-        for (const [sessionID, session] of this.sessionsById) {
-            if (session.inUse || (await this.deletionGate(session)).kind !== "ready") continue;
-            deletions.push(this.deleteSessionNow(sessionID).catch(error => {
-                log(`[SessionRegistry] Shutdown delete failed for ${shortID(sessionID)}`, error);
-            }));
+        try {
+            const deletions: Promise<unknown>[] = [];
+            for (const [sessionID, session] of this.sessionsById) {
+                if (session.inUse || (await this.deletionGate(session)).kind !== "ready") continue;
+                deletions.push(this.deleteSessionNow(sessionID).catch(error => {
+                    log(`[SessionRegistry] Shutdown delete failed for ${shortID(sessionID)}`, error);
+                }));
+            }
+            await Promise.all(deletions);
+        } finally {
+            this.sessionsById.clear();
+            if (SessionRegistry._instance === this) SessionRegistry._instance = undefined;
         }
-        await Promise.all(deletions);
-        this.sessionsById.clear();
     }
 
     private async deleteSession(sessionID: string): Promise<boolean> {

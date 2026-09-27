@@ -4,6 +4,8 @@ import path from "node:path";
 import type { Plugin } from "@opencode/plugin";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { CleanupScheduler } from "../../src/core/cleanup/cleanup-scheduler.js";
+import { ParallelAgentManager } from "../../src/core/agents/manager.js";
+import { SessionRegistry } from "../../src/core/agents/session-registry.js";
 import { setupV2 } from "../../src/v2/setup.js";
 
 type Registration = { dispose: ReturnType<typeof vi.fn> };
@@ -118,5 +120,21 @@ describe("OpenCode 2 registration lifecycle", () => {
 
         for (const dispose of disposals) expect(dispose).toHaveBeenCalledOnce();
         expect(stop).toHaveBeenCalledOnce();
+    });
+
+    it("creates fresh agent resources after a plugin reload", async () => {
+        const { context } = fixture();
+        const firstCleanup = await setupV2(context);
+        const firstManager = ParallelAgentManager.getInstance();
+        const firstRegistry = SessionRegistry.getInstance();
+
+        await firstCleanup();
+        const secondCleanup = await setupV2(context);
+        try {
+            expect(ParallelAgentManager.getInstance()).not.toBe(firstManager);
+            expect(SessionRegistry.getInstance()).not.toBe(firstRegistry);
+        } finally {
+            await secondCleanup();
+        }
     });
 });

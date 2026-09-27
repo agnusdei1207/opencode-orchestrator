@@ -244,9 +244,16 @@ export class ParallelAgentManager {
      * Shutdown - alias for cleanup, releases all resources
      */
     async shutdown(): Promise<void> {
-        this.cleanup();
-        await this.concurrency.shutdown();
-        await this.sessionRegistry.shutdown();
+        try {
+            this.cleanup();
+            await this.concurrency.shutdown();
+        } finally {
+            try {
+                await this.sessionRegistry.shutdown();
+            } finally {
+                if (ParallelAgentManager._instance === this) ParallelAgentManager._instance = undefined;
+            }
+        }
     }
 
     // ========================================================================
