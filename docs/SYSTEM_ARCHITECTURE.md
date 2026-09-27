@@ -70,6 +70,8 @@ Prompt definitions are now four short role presets using `src/agents/prompts/com
 
 The slash-command templates and runtime continuation/checkpoint prompts follow the same discipline. Planning does not require file creation or delegation. Continuation preserves document structure and existing files. A context checkpoint does not claim that OpenCode compaction has completed.
 
+The Commander prompt instructs the model to treat `[Compressed conversation section]` blocks as historical context, even when a context-pruning plugin carries them in a user-role message. A real instruction accompanying or following a summary still takes precedence. This instruction reaches OpenCode 1 through the generated agent config and OpenCode 2 through the agent transform. Orchestrator does not rewrite another plugin's message roles; the originating plugin or host owns that boundary (issue #48).
+
 OpenCode loads extensions. Orchestrator does not inspect or execute files in `.opencode/plugins`. Its internal `HookRegistry` is a small ordered adapter for owned callbacks: there is no dynamic metadata, topological sorting, dependency declaration, or retry configuration. Registration order in `src/hooks/index.ts` defines execution order; stop/continue errors, block/intercept outcomes, and prompt injection preserve the native handler boundaries.
 
 The custom web fetch/search/cache/code-search family and its document cache are removed. Native web tools remain owned by OpenCode and follow its permissions and availability. Existing cached documents and host dependency files are preserved. Remaining custom tools are the mission command adapter, ten search/Git/utility wrappers, four background-command tools, three AST/LSP tools, and seven task/TODO tools (25 total).

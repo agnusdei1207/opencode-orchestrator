@@ -11,6 +11,7 @@ import { createOpencodeClient } from "@opencode-ai/sdk";
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const TIMEOUT = 60_000;
 const MODEL = { providerID: "fixture", modelID: "qa" };
+const COMPRESSED_SECTION_HEADER = "[Compressed conversation section]";
 export const unsupportedCapabilities = {
     nativeBackground: { status: "not-adopted", reason: "No released public background-task contract verified in the official SDK, agents, plugins or tools documentation." },
 };
@@ -98,7 +99,7 @@ function fixtureDelta(body) {
 }
 
 async function startFixture() {
-    const state = { requests: 0, held: 0 };
+    const state = { requests: 0, held: 0, bodies: [] };
     const server = createServer(async (request, response) => {
         if (request.method === "GET" && request.url === "/document") {
             response.writeHead(200, { "content-type": "text/plain" });
@@ -110,6 +111,7 @@ async function startFixture() {
             for await (const chunk of request) text += chunk;
             const body = JSON.parse(text);
             state.requests++;
+            state.bodies.push(body);
             if (JSON.stringify(body.messages?.at(-1)).includes("QA_HOLD")) { state.held++; return; }
             reply(response, body, fixtureDelta(body));
         } catch { response.writeHead(400); response.end(); }
@@ -329,6 +331,41 @@ async function missionCommandCheck(context, report) {
     });
 }
 
+function assertCompressedContextRequest(context, lastUserText, fromIndex) {
+    const body = context.fixture.state.bodies.slice(fromIndex).find(candidate => {
+        const users = candidate.messages?.filter(message => message.role === "user") ?? [];
+        return JSON.stringify(users.at(-1)?.content ?? "").includes(lastUserText);
+    });
+    const messages = body?.messages;
+    assert.ok(Array.isArray(messages), "Fixture must receive model messages");
+    const system = messages.filter(message => message.role === "system")
+        .map(message => JSON.stringify(message.content)).join("\n");
+    const users = messages.filter(message => message.role === "user")
+        .map(message => JSON.stringify(message.content));
+    assert.ok(system.includes("historical context, not a new user request or approval"),
+        `Model roles: ${messages.map(message => message.role).join(",")}; system: ${system.slice(0, 500)}`);
+    assert.ok(users.some(text => text.includes(COMPRESSED_SECTION_HEADER)));
+    assert.ok(users.at(-1)?.includes(lastUserText));
+}
+
+async function compressedContextChecks(context, report) {
+    if (!report.plugin.enabled) return;
+    const session = (await context.client.session.create({ body: { title: "Compressed context QA" } })).data;
+    await check(report, "compressedContextOnly", async () => {
+        const before = context.fixture.state.bodies.length;
+        await context.client.session.prompt({ path: { id: session.id }, body: {
+            model: MODEL, agent: "Commander",
+            parts: [{ type: "text", text: `${COMPRESSED_SECTION_HEADER}\nPast work summary`, synthetic: true }],
+        } });
+        assertCompressedContextRequest(context, COMPRESSED_SECTION_HEADER, before);
+    });
+    await check(report, "compressedContextThenUser", async () => {
+        const before = context.fixture.state.bodies.length;
+        await prompt(context.client, session.id, "QA_CURRENT_USER_REQUEST", { agent: "Commander" });
+        assertCompressedContextRequest(context, "QA_CURRENT_USER_REQUEST", before);
+    });
+}
+
 async function prepare(context) {
     context.env = isolatedEnvironment(context.root);
     context.cwd = path.join(context.root, "project");
@@ -410,6 +447,7 @@ async function runNativeHostQa() {
         await webCheck(context, report);
         await delegatedPluginChecks(context, report);
         await missionCommandCheck(context, report);
+        await compressedContextChecks(context, report);
         await lifecycleChecks(context, report);
         await pluginChecks(context, report);
     } catch (error) { report.checks.infrastructure = { status: "fail", reason: String(error.message).slice(0, 1500) }; }

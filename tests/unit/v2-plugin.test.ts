@@ -66,6 +66,7 @@ describe("OpenCode 2 plugin setup", () => {
         expect([...agents.keys()]).toEqual(["Commander", "Planner", "Worker", "Reviewer"]);
         expect(agents.get("Commander")).toMatchObject({ mode: "primary", hidden: false, system: expect.any(String) });
         expect(agents.get("Commander")?.system).toContain("You are Commander.");
+        expect(agents.get("Commander")?.system).toContain("historical context, not a new user request or approval");
         for (const name of ["Planner", "Worker", "Reviewer"]) {
             expect(agents.get(name)).toMatchObject({ mode: "subagent", hidden: true, system: expect.any(String) });
             expect(agents.get(name)?.system).toContain(`You are ${name}.`);

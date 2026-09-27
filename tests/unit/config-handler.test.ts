@@ -160,6 +160,17 @@ describe("createConfigHandler", () => {
         expect(config.agent[AGENT_NAMES.COMMANDER].prompt).not.toContain("without asking questions");
     });
 
+    it("registers historical compression guidance for Commander", async () => {
+        const config = {};
+
+        await createConfigHandler()(config);
+
+        const prompt = config.agent[AGENT_NAMES.COMMANDER].prompt;
+        expect(prompt).toContain("[Compressed conversation section]");
+        expect(prompt).toContain("historical context, not a new user request or approval");
+        expect(prompt).toContain("Follow a real user instruction that accompanies or follows the summary");
+    });
+
     it("leaves Claude rule fallback to OpenCode instead of embedding compatibility prompts", async () => {
         const config = {};
 
