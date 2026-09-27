@@ -21,7 +21,7 @@ export async function registerV2Tools(
                         agent: toolContext.agent,
                         directory: context.location.directory,
                         worktree: context.location.project.directory,
-                        abort: new AbortController().signal,
+                        abort: toolContext.signal,
                         metadata: update => void toolContext.progress(update.metadata ?? {}),
                         ask: async () => {
                             throw new Error("Interactive tool permission requests are unavailable in OpenCode 2 plugins");
