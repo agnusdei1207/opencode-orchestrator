@@ -26,7 +26,7 @@ import { TaskResumer } from "./manager/task-resumer.js";
 import { TaskPoller } from "./manager/task-poller.js";
 import { TaskCleaner } from "./manager/task-cleaner.js";
 import { EventHandler } from "./manager/event-handler.js";
-import { SessionPool } from "./session-pool.js";
+import { SessionRegistry } from "./session-registry.js";
 import { MemoryLevel, MemoryManager } from "../memory/memory-manager.js";
 import { CORE_PHILOSOPHY } from "../../agents/prompts/shared/philosophy.js";
 import { AgentRegistry } from "./agent-registry.js";
@@ -45,7 +45,7 @@ export class ParallelAgentManager {
     private store: TaskStore;
     private client: OpencodeClient;
     private concurrency: ConcurrencyController;
-    private sessionPool: SessionPool;
+    private sessionRegistry: SessionRegistry;
 
     // Composed components
     private launcher: TaskLauncher;
@@ -59,8 +59,8 @@ export class ParallelAgentManager {
         this.store = new TaskStore(directory);
         this.concurrency = new ConcurrencyController(concurrencyConfig);
         this.initializeProjectServices(directory);
-        this.sessionPool = SessionPool.getInstance(client, directory);
-        this.cleaner = new TaskCleaner(client, this.store, this.concurrency, this.sessionPool);
+        this.sessionRegistry = SessionRegistry.getInstance(client, directory);
+        this.cleaner = new TaskCleaner(client, this.store, this.concurrency, this.sessionRegistry);
         this.poller = this.createPoller();
         this.launcher = this.createLauncher();
         this.resumer = new TaskResumer(
@@ -99,7 +99,7 @@ export class ParallelAgentManager {
             client: this.client,
             store: this.store,
             concurrency: this.concurrency,
-            sessionPool: this.sessionPool,
+            sessionRegistry: this.sessionRegistry,
             onTaskError: (taskId, error) => this.handleTaskError(taskId, error),
             startPolling: () => this.poller.start(),
         });
@@ -113,7 +113,7 @@ export class ParallelAgentManager {
             notifyParentIfAllComplete: parentSessionID => this.cleaner.notifyParentIfAllComplete(parentSessionID),
             scheduleCleanup: taskId => this.cleaner.scheduleCleanup(taskId),
             validateSessionHasOutput: sessionID => this.poller.validateSessionHasOutput(sessionID),
-            forgetSession: sessionID => this.sessionPool.forget(sessionID),
+            forgetSession: sessionID => this.sessionRegistry.forget(sessionID),
         });
     }
 
@@ -193,12 +193,8 @@ export class ParallelAgentManager {
         }
         this.store.untrackPending(task.parentSessionID, taskId);
 
-        // Deleting the session used to double as the abort. The pool no longer
-        // deletes a busy session (issue #41), so stop the run explicitly and
-        // let the scheduled cleanup be the single owner of releasing the
-        // session ??releasing here too would release it twice, and the second
-        // release (10 min later) could compact a session another task has
-        // since acquired.
+        // A busy session must be aborted before scheduled cleanup releases it
+        // (issue #41). Releasing here as well would release it twice.
         this.cleaner.scheduleCleanup(taskId);
         this.store.queueNotification(task);
         await this.cleaner.notifyParentIfAllComplete(task.parentSessionID);
@@ -250,7 +246,7 @@ export class ParallelAgentManager {
     async shutdown(): Promise<void> {
         this.cleanup();
         await this.concurrency.shutdown();
-        await this.sessionPool.shutdown();
+        await this.sessionRegistry.shutdown();
     }
 
     // ========================================================================

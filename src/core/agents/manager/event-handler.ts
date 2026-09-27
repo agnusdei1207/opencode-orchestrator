@@ -133,9 +133,9 @@ export class EventHandler {
     }
 
     /**
-     * The host deleted a task's session (a user removing it in the TUI, or a
-     * pool deletion that raced the task). A task that was still running dies
-     * here, and its parent must hear about it: nothing else fires when the
+     * The host deleted a task's session (for example, a user removing it in
+     * the TUI). A task that was still running dies here, and its parent must
+     * hear about it: nothing else fires when the
      * last pending task disappears this way, so without a notice the parent
      * waits forever on a result that will never arrive (issue #41).
      */
@@ -163,7 +163,7 @@ export class EventHandler {
             this.store.delete(task.id);
         }
 
-        // The server already removed the session; the pool only has to forget it.
+        // The server already removed the session; the registry only has to forget it.
         this.forgetSession?.(task.sessionID);
 
         if (diedRunning) {

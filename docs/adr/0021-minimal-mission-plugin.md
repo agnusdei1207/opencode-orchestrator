@@ -74,7 +74,7 @@ One writer owns each mission record. Restart must reconcile referenced native se
 | Custom web search/fetch/cache/code-search, AST, LSP wrappers | Remove from core; users can use native tools, CLI, or independently installed extensions | LSP/search availability is conditional; document the actual supported configuration |
 | Rust RPC pool, binaries, native build/release matrix | Remove from the plugin package when their final core consumer is gone | Do not silently delete the separate shell-listener user feature; retire or move that public surface in an explicitly scoped release |
 | Background shell runner | Remove after native shell/background parity | Verify wait, cancel, output retrieval, and process cleanup on supported platforms |
-| `ParallelAgentManager`, session pooling, task polling, work stealing | Target removal: native host owns execution | Native task/resume/abort/result/parent-notification tests must pass first; never import internal host services to force parity |
+| `ParallelAgentManager`, child-session registry, task polling, work stealing | Target removal: native host owns execution | Native task/resume/abort/result/parent-notification tests must pass first; never import internal host services to force parity |
 | `PluginManager` and general `HookRegistry` | Remove generic extension framework | Migrate needed callbacks directly to OpenCode hooks; document migration of user extensions instead of auto-deleting their files |
 | `TodoSyncService` | Remove: the inspected consumer `sendTodosToSession()` is empty | Preserve any real file-creation dependency until its callers are migrated; do not claim native TUI parity from its stale comment |
 | Custom TODO hierarchy, verification checklist parser, mandatory FINAL_PASS | Replace with native task planning plus explicit mission finish receipt | Define pause/unfinished/failed-check behavior before switching completion logic |
@@ -160,10 +160,11 @@ Exit: one current mission record, one continuation path, one explicit finish sur
 
 ### 5. Hand execution to OpenCode and simplify the cast
 
-Files: `src/core/agents/manager.ts`, `src/core/agents/manager/`, `src/core/agents/session-pool.ts`, `src/core/agents/concurrency.ts`, `src/core/queue/`, `src/tools/parallel/`, `src/agents/definitions.ts`, `src/agents/commander.ts`, `src/plugin-handlers/config-handler.ts`, `src/tools/slashCommand.ts`.
+Files: `src/core/agents/manager.ts`, `src/core/agents/manager/`, `src/core/agents/session-registry.ts`, `src/core/agents/concurrency.ts`, `src/core/queue/`, `src/tools/parallel/`, `src/agents/definitions.ts`, `src/agents/commander.ts`, `src/plugin-handlers/config-handler.ts`, `src/tools/slashCommand.ts`.
 
 - [ ] Use native task/session identity and result retrieval under the stage-1 contract; do not create a second scheduler around it.
-- [ ] Delete custom polling, pooling, work stealing and redundant task tools only after their lifecycle scenarios pass on the host. If the host cannot bound independent delegation adequately, keep the smallest existing admission guard, not the whole manager.
+- [ ] Delete custom polling, work stealing and redundant task tools only after their lifecycle scenarios pass on the host. If the host cannot bound independent delegation adequately, keep the smallest existing admission guard, not the whole manager.
+- [x] Remove unreachable child-session compaction and reuse state. Keep guarded deletion on OpenCode 1. OpenCode 2's plugin API exposes neither deletion nor a safe transcript reset, so leave those sessions to the host. Isolated OpenCode 1.18.32 QA passed all 14 checks on 2026-09-27; live OpenCode 2 verification remains pending.
 - [x] Delete producerless work-stealing loops and the foreground tool's duplicate SDK completion polling. Launch/resume share admission; result tools use current-run manager state. Preserve failed abort ownership, unsent notification batches, and resumed tasks during cleanup; do not replay ambiguous prompt or transport failures.
 - [x] Remove unconditional Worker → Reviewer launches and their unused completion callbacks. The four role names remain optional presets for compatibility.
 - [x] Preserve user-selected default agents and models. Remove build/plan demotion and duplicate Commander system-prompt injection.

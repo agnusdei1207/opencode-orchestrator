@@ -30,7 +30,7 @@ function createTaskLauncher(
     client: any,
     store: TaskStore,
     concurrency: ConcurrencyController,
-    sessionPool: any,
+    sessionRegistry: any,
     onTaskError: any,
     startPolling: any,
 ): TaskLauncher {
@@ -38,7 +38,7 @@ function createTaskLauncher(
         client,
         store,
         concurrency,
-        sessionPool,
+        sessionRegistry,
         onTaskError,
         startPolling,
     });
@@ -48,7 +48,7 @@ describe("TaskLauncher", () => {
     let mockClient: any;
     let store: TaskStore;
     let concurrency: ConcurrencyController;
-    let sessionPool: any;
+    let sessionRegistry: any;
     let launcher: TaskLauncher;
     let startPolling: any;
     let onTaskError: any;
@@ -73,7 +73,7 @@ describe("TaskLauncher", () => {
         startPolling = vi.fn();
         onTaskError = vi.fn();
 
-        sessionPool = {
+        sessionRegistry = {
             acquire: vi.fn().mockImplementation(async (agentName, parentID, description) => {
                 const result = await mockClient.session.create({ body: { parentID, title: description } });
                 return { id: result.data.id, agentName };
@@ -85,7 +85,7 @@ describe("TaskLauncher", () => {
             mockClient,
             store,
             concurrency,
-            sessionPool,
+            sessionRegistry,
             onTaskError,
             startPolling
         );
@@ -111,7 +111,7 @@ describe("TaskLauncher", () => {
     });
 
     it("should return null for a single launch when task preparation fails", async () => {
-        sessionPool.acquire.mockRejectedValueOnce(new Error("session unavailable"));
+        sessionRegistry.acquire.mockRejectedValueOnce(new Error("session unavailable"));
 
         const result = await launcher.launch({
             description: "Test task",
@@ -139,7 +139,7 @@ describe("TaskLauncher", () => {
         });
 
         expect(result).toBeNull();
-        expect(sessionPool.acquire).not.toHaveBeenCalled();
+        expect(sessionRegistry.acquire).not.toHaveBeenCalled();
         expect(log).toHaveBeenCalledWith(
             "[TaskLauncher] Failed to prepare task for builder: Too deep",
             expect.objectContaining({
@@ -251,7 +251,7 @@ describe("TaskLauncher", () => {
     it("should respect concurrency limits in background", async () => {
         // Limit is 1
         concurrency = new ConcurrencyController({ defaultConcurrency: 1 });
-        launcher = createTaskLauncher(mockClient, store, concurrency, sessionPool, onTaskError, startPolling);
+        launcher = createTaskLauncher(mockClient, store, concurrency, sessionRegistry, onTaskError, startPolling);
 
         const inputs = [
             { description: "T1", prompt: "P1", agent: "a", parentSessionID: "p" },
@@ -276,7 +276,7 @@ describe("TaskLauncher", () => {
             await new Promise(resolve => setTimeout(resolve, 5));
             events.push("handled");
         });
-        launcher = createTaskLauncher(mockClient, store, concurrency, sessionPool, onTaskError, startPolling);
+        launcher = createTaskLauncher(mockClient, store, concurrency, sessionRegistry, onTaskError, startPolling);
 
         await launcher.launch({
             description: "Failing task",
@@ -293,7 +293,7 @@ describe("TaskLauncher", () => {
     it("does not replay a prompt after an ambiguous transport failure", async () => {
         vi.useFakeTimers();
         mockClient.session.prompt.mockRejectedValue(new Error("ECONNREFUSED"));
-        launcher = createTaskLauncher(mockClient, store, concurrency, sessionPool, onTaskError, startPolling);
+        launcher = createTaskLauncher(mockClient, store, concurrency, sessionRegistry, onTaskError, startPolling);
 
         await launcher.launch({
             description: "Retrying task",
@@ -322,7 +322,7 @@ describe("TaskLauncher", () => {
             promptSignal = signal;
             return new Promise(() => { });
         });
-        launcher = createTaskLauncher(mockClient, store, concurrency, sessionPool, onTaskError, startPolling);
+        launcher = createTaskLauncher(mockClient, store, concurrency, sessionRegistry, onTaskError, startPolling);
 
         await launcher.launch({
             description: "Timeout task",

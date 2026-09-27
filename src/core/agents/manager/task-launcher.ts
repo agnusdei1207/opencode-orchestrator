@@ -15,7 +15,7 @@ import { presets } from "../../notification/toast.js";
 import { getTaskToastManager } from "../../notification/task-toast-manager.js";
 import type { LaunchInput, ParallelTask } from "../../../shared/index.js";
 
-import { SessionPool } from "../session-pool.js";
+import { SessionRegistry } from "../session-registry.js";
 import { log } from "../logger.js";
 import { acquireParallelTask } from "../../pool/task-pool.js";
 import { buildRoutedAgentPrompt, type RoutedAgentPrompt } from "./prompt-routing.js";
@@ -32,7 +32,7 @@ interface TaskLauncherOptions {
   client: OpencodeClient;
   store: TaskStore;
   concurrency: ConcurrencyController;
-  sessionPool: SessionPool;
+  sessionRegistry: SessionRegistry;
   onTaskError: (taskId: string, error: unknown) => void | Promise<void>;
   startPolling: () => void;
 }
@@ -42,7 +42,7 @@ export class TaskLauncher {
   private readonly client: OpencodeClient;
   private readonly store: TaskStore;
   private readonly concurrency: ConcurrencyController;
-  private readonly sessionPool: SessionPool;
+  private readonly sessionRegistry: SessionRegistry;
   private readonly onTaskError: TaskLauncherOptions["onTaskError"];
   private readonly startPolling: () => void;
 
@@ -50,7 +50,7 @@ export class TaskLauncher {
     this.client = options.client;
     this.store = options.store;
     this.concurrency = options.concurrency;
-    this.sessionPool = options.sessionPool;
+    this.sessionRegistry = options.sessionRegistry;
     this.onTaskError = options.onTaskError;
     this.startPolling = options.startPolling;
   }
@@ -116,8 +116,7 @@ export class TaskLauncher {
   private async prepareTask(input: LaunchInput): Promise<ParallelTask> {
     const childDepth = resolveChildDepth(input.depth);
 
-    // Use SessionPool to acquire or create session
-    const session = await this.sessionPool.acquire(
+    const session = await this.sessionRegistry.acquire(
       input.agent,
       input.parentSessionID,
       input.description,

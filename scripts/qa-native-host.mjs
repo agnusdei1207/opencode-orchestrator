@@ -347,7 +347,8 @@ function record(name, input) {
     writeFileSync(marker, JSON.stringify(counts));
 }
 export default async function(input, options) {
-    const hooks = await plugin(input, options);
+    const server = typeof plugin === "function" ? plugin : plugin.server;
+    const hooks = await server(input, options);
     record("initialization");
     for (const name of ["config", "event", "experimental.session.compacting"]) {
         const original = hooks[name];

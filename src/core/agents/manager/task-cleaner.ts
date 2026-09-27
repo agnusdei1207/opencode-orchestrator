@@ -12,7 +12,7 @@ import { TaskStore } from "../task-store.js";
 import { ConcurrencyController } from "../concurrency.js";
 import { CONFIG } from "../config.js";
 import { log } from "../logger.js";
-import { SessionPool } from "../session-pool.js";
+import { SessionRegistry } from "../session-registry.js";
 import { buildAgentTaskCompletionMessage, buildAgentTaskProgressMessage, formatDuration } from "../format.js";
 import { getTaskToastManager } from "../../notification/task-toast-manager.js";
 import type { TaskCompletionInfo, ParallelTask } from "../../../shared/index.js";
@@ -31,7 +31,7 @@ export class TaskCleaner {
         private client: OpencodeClient,
         private store: TaskStore,
         private concurrency: ConcurrencyController,
-        private sessionPool: SessionPool
+        private sessionRegistry: SessionRegistry
     ) { }
 
     pruneExpiredTasks(): void {
@@ -102,7 +102,7 @@ export class TaskCleaner {
             this.cleaning.add(taskId);
             if (sessionID) {
                 try {
-                    await this.sessionPool.release(sessionID);
+                    await this.sessionRegistry.release(sessionID);
                 } catch (error) {
                     log(`Session cleanup error for ${sessionID}:`, error);
                 }

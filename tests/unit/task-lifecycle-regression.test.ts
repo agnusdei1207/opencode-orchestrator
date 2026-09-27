@@ -25,11 +25,11 @@ function createTaskLauncher(
     client: any,
     store: TaskStore,
     concurrency: ConcurrencyController,
-    sessionPool: any,
+    sessionRegistry: any,
     onTaskError: any,
     startPolling: any,
 ): TaskLauncher {
-    return new TaskLauncher({ client, store, concurrency, sessionPool, onTaskError, startPolling });
+    return new TaskLauncher({ client, store, concurrency, sessionRegistry, onTaskError, startPolling });
 }
 
 function createTaskPoller(
@@ -57,7 +57,7 @@ describe("task lifecycle across execution boundaries", () => {
     let cleaner: TaskCleaner;
     let manager: ParallelAgentManager;
     let client: { session: { prompt: ReturnType<typeof vi.fn>; abort: ReturnType<typeof vi.fn>; status: ReturnType<typeof vi.fn>; messages: ReturnType<typeof vi.fn> } };
-    let pool: { acquire: ReturnType<typeof vi.fn>; release: ReturnType<typeof vi.fn> };
+    let registry: { acquire: ReturnType<typeof vi.fn>; release: ReturnType<typeof vi.fn> };
 
     beforeEach(() => {
         vi.useFakeTimers();
@@ -70,10 +70,10 @@ describe("task lifecycle across execution boundaries", () => {
             messages: vi.fn().mockResolvedValue({ data: [] }),
         } };
         let sequence = 0;
-        pool = { acquire: vi.fn(async () => ({ id: `session-${++sequence}` })), release: vi.fn().mockResolvedValue(undefined) };
-        cleaner = new TaskCleaner(client as never, store, concurrency, pool as never);
+        registry = { acquire: vi.fn(async () => ({ id: `session-${++sequence}` })), release: vi.fn().mockResolvedValue(undefined) };
+        cleaner = new TaskCleaner(client as never, store, concurrency, registry as never);
         manager = Object.assign(Object.create(ParallelAgentManager.prototype), { client, store, concurrency, cleaner });
-        launcher = createTaskLauncher(client, store, concurrency, pool, vi.fn(), vi.fn());
+        launcher = createTaskLauncher(client, store, concurrency, registry, vi.fn(), vi.fn());
     });
 
     afterEach(async () => { launcher.shutdown(); cleaner.shutdown(); await concurrency.shutdown(); vi.clearAllTimers(); vi.useRealTimers(); });
@@ -153,7 +153,7 @@ describe("task lifecycle across execution boundaries", () => {
         task.status = TASK_STATUS.RUNNING;
         await vi.advanceTimersByTimeAsync(CONFIG.CLEANUP_DELAY_MS);
         expect(store.get(task.id)).toBe(task);
-        expect(pool.release).not.toHaveBeenCalled();
+        expect(registry.release).not.toHaveBeenCalled();
     });
 
     it("does not complete busy work based on stable message counts", async () => {
@@ -250,7 +250,7 @@ describe("task lifecycle across execution boundaries", () => {
         expect(run.status).toBe(TASK_STATUS.PENDING);
         await vi.advanceTimersByTimeAsync(CONFIG.CLEANUP_DELAY_MS);
         expect(store.get(task.id)).toBe(task);
-        expect(pool.release).not.toHaveBeenCalled();
+        expect(registry.release).not.toHaveBeenCalled();
         await poller.completeTask(blocker);
         await vi.advanceTimersByTimeAsync(0);
         expect(task.status).toBe(TASK_STATUS.RUNNING);
