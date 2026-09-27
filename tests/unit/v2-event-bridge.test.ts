@@ -21,4 +21,49 @@ describe("OpenCode 2 event bridge", () => {
         expect(subscribe).toHaveBeenCalledWith({ signal: expect.any(AbortSignal) });
         await vi.waitFor(() => expect(streamClosed).toHaveBeenCalledOnce());
     });
+
+    it.each(["session.execution.failed", "session.execution.interrupted"])(
+        "marks a session idle after %s",
+        async terminalType => {
+            const statuses = new Map<string, string>();
+            const handler = vi.fn().mockResolvedValue(undefined);
+            const context = {
+                event: { subscribe: async function* () {
+                    yield { type: "session.execution.started", data: { sessionID: "session-1" } };
+                    yield { type: terminalType, data: { sessionID: "session-1", error: { message: "failed" } } };
+                } },
+            } as unknown as Plugin.Context;
+
+            const stop = startV2EventBridge(context, handler, statuses);
+            await vi.waitFor(() => expect(handler).toHaveBeenCalledWith(expect.objectContaining({
+                event: expect.objectContaining({ type: "session.error" }),
+            })));
+
+            expect(handler).toHaveBeenCalledWith({
+                event: { type: terminalType, properties: expect.objectContaining({ sessionID: "session-1" }) },
+            });
+            expect(statuses.has("session-1")).toBe(false);
+            stop();
+        },
+    );
+
+    it.each(["session.execution.succeeded", "session.deleted"])(
+        "removes stale session status after %s",
+        async terminalType => {
+            const statuses = new Map<string, string>();
+            const handler = vi.fn().mockResolvedValue(undefined);
+            const context = {
+                event: { subscribe: async function* () {
+                    yield { type: "session.execution.started", data: { sessionID: "session-1" } };
+                    yield { type: terminalType, data: { sessionID: "session-1" } };
+                } },
+            } as unknown as Plugin.Context;
+
+            const stop = startV2EventBridge(context, handler, statuses);
+            await vi.waitFor(() => expect(handler).toHaveBeenCalledTimes(2));
+
+            expect(statuses.has("session-1")).toBe(false);
+            stop();
+        },
+    );
 });

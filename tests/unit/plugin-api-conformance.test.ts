@@ -25,6 +25,8 @@ const SDK_TYPES = readFileSync(
     join(ROOT, "node_modules/@opencode-ai/sdk/dist/gen/sdk.gen.d.ts"), "utf8");
 const SDK_EVENT_TYPES = readFileSync(
     join(ROOT, "node_modules/@opencode-ai/sdk/dist/gen/types.gen.d.ts"), "utf8");
+const V2_EVENT_TYPES = readFileSync(
+    join(ROOT, "node_modules/@opencode/schema/dist/session-event.d.ts"), "utf8");
 
 function sourceFiles(dir = SRC_ROOT, prefix = ""): string[] {
     return readdirSync(dir, { withFileTypes: true }).flatMap(entry => {
@@ -110,5 +112,13 @@ describe("plugin API conformance", () => {
 
         const unpublished = subscribed.filter(ev => !SDK_EVENT_TYPES.includes(`"${ev}"`));
         expect(unpublished, `events OpenCode never emits: ${unpublished.join(", ")}`).toEqual([]);
+    });
+
+    it("uses only OpenCode 2 execution events declared by the installed schema", () => {
+        const constants = readFileSync(join(SRC_ROOT, "shared/session/v2-constants.ts"), "utf8");
+        const events = [...constants.matchAll(/"(session\.[a-z.]+)"/g)].map(match => match[1]);
+
+        expect(events.length).toBeGreaterThan(0);
+        expect(events.filter(event => !V2_EVENT_TYPES.includes(`"${event}"`))).toEqual([]);
     });
 });

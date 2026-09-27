@@ -16,7 +16,7 @@ import * as ContextMonitor from "../core/context/index.js";
 import { ContextLimitResolver } from "../core/context/context-limit-resolver.js";
 import * as SessionActivity from "../core/session/activity.js";
 import * as PendingInjection from "../core/session/pending-injection.js";
-import { SESSION_EVENTS, MESSAGE_EVENTS, MESSAGE_ROLES, SESSION_STATUS } from "../shared/index.js";
+import { SESSION_EVENTS, MESSAGE_EVENTS, MESSAGE_ROLES, SESSION_STATUS, TASK_STATUS } from "../shared/index.js";
 import type { PluginHandlerContext, PluginSessionState } from "./context.js";
 import { handleCompletedAssistantMessage } from "./assistant-done-handler.js";
 import { log } from "../core/agents/logger.js";
@@ -101,7 +101,7 @@ async function handlePluginEvent(ctx: EventHandlerContext, event: PluginEvent): 
 function notifyParallelAgentManager(event: PluginEvent): void {
     try {
         const manager = ParallelAgentManager.getInstance();
-        manager.handleEvent(event as { type: string; properties?: { sessionID?: string; info?: { id?: string } } });
+        manager.handleEvent(event as { type: string; properties?: { sessionID?: string; info?: { id?: string }; error?: unknown } });
     } catch (error) {
         log(`[event-handler] Parallel agent manager could not handle ${event.type}: ${error}`);
     }
@@ -154,6 +154,7 @@ async function handleSessionError(ctx: EventHandlerContext, event: PluginEvent):
     }
 
     if (sessionID && error) {
+        if (isFailedChildTask(sessionID)) return;
         const recovered = await SessionRecovery.handleSessionError(
             ctx.client, sessionID, error, event.properties
         );
@@ -161,6 +162,14 @@ async function handleSessionError(ctx: EventHandlerContext, event: PluginEvent):
     }
 
     Toast.presets.taskFailed("session", String(error).slice(0, ERROR_PREVIEW_LENGTH));
+}
+
+function isFailedChildTask(sessionID: string): boolean {
+    try {
+        return ParallelAgentManager.getInstance().getTaskBySession(sessionID)?.status === TASK_STATUS.ERROR;
+    } catch {
+        return false;
+    }
 }
 
 async function handleMessageUpdated(ctx: EventHandlerContext, event: PluginEvent): Promise<void> {

@@ -11,12 +11,15 @@ import * as Toast from "../../src/core/notification/toast";
 import * as SessionActivity from "../../src/core/session/activity";
 import * as PendingInjection from "../../src/core/session/pending-injection";
 import { log } from "../../src/core/agents/logger";
+import { ParallelAgentManager } from "../../src/core/agents/manager";
+import { TASK_STATUS } from "../../src/shared";
 import type { EventHandlerContext } from "../../src/plugin-handlers/event-handler";
 
 vi.mock("../../src/core/agents/manager", () => ({
     ParallelAgentManager: {
         getInstance: vi.fn(() => ({
             handleEvent: vi.fn(),
+            getTaskBySession: vi.fn(),
         })),
     },
 }));
@@ -113,6 +116,24 @@ describe("createEventHandler", () => {
         await vi.advanceTimersByTimeAsync(1000);
         expect(prompt).not.toHaveBeenCalled();
         expect(MissionLoopHandler.handleMissionIdle).not.toHaveBeenCalled();
+    });
+
+    it("does not inject recovery into a failed child task", async () => {
+        const manager = {
+            handleEvent: vi.fn(),
+            getTaskBySession: vi.fn().mockReturnValue({ status: TASK_STATUS.ERROR }),
+        };
+        vi.mocked(ParallelAgentManager.getInstance)
+            .mockReturnValueOnce(manager as never)
+            .mockReturnValueOnce(manager as never);
+
+        await createEventHandler(ctx)({ event: {
+            type: "session.error",
+            properties: { sessionID: "session-1", error: { message: "rate limit" } },
+        } });
+
+        expect(manager.getTaskBySession).toHaveBeenCalledWith("session-1");
+        expect(SessionRecovery.handleSessionError).not.toHaveBeenCalled();
     });
 
     it("routes completed assistant messages through the done-hook bridge", async () => {

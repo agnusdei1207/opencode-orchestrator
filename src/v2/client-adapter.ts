@@ -1,6 +1,7 @@
 import type { PluginInput } from "@opencode-ai/plugin";
 import type { Plugin } from "@opencode/plugin";
 import { AgentRegistry } from "../core/agents/agent-registry.js";
+import { SessionDeletionUnavailableError } from "../shared/errors/session-deletion-unavailable.js";
 
 type Context = Plugin.Context;
 type LegacyClient = PluginInput["client"];
@@ -29,12 +30,14 @@ function createSessionApi(context: Context, statuses: Map<string, string>) {
             title: readString(request.body?.title),
         })),
         prompt: async (request: LegacyRequest) => prompt(context, request),
-        abort: async (request: LegacyRequest) => wrap(await context.session.interrupt({
+        abort: async (request: LegacyRequest) => wrap((await context.session.interrupt({
             sessionID: requireSessionID(request),
-        })),
-        delete: async (request: LegacyRequest) => wrap(await context.session.interrupt({
-            sessionID: requireSessionID(request),
-        })),
+            resume: false,
+        })).interrupted),
+        delete: async (request: LegacyRequest) => {
+            requireSessionID(request);
+            throw new SessionDeletionUnavailableError();
+        },
         messages: async (request: LegacyRequest) => wrap(mapMessages(
             await context.session.context({ sessionID: requireSessionID(request) }),
         )),
@@ -50,12 +53,15 @@ function createSessionApi(context: Context, statuses: Map<string, string>) {
 
 async function prompt(context: Context, request: LegacyRequest): Promise<{ data: unknown }> {
     const sessionID = requireSessionID(request);
-    const text = await addAgentRole(readPromptText(request.body), readString(request.body?.agent));
+    const agent = readString(request.body?.agent);
+    if (agent) await context.session.switchAgent({ sessionID, agent });
+    const text = await addAgentRole(readPromptText(request.body), agent);
     const synthetic = readSynthetic(request.body);
+    const resume = request.body?.noReply !== true;
     if (synthetic) {
-        return wrap(await context.session.synthetic({ sessionID, text, resume: true }));
+        return wrap(await context.session.synthetic({ sessionID, text, resume }));
     }
-    return wrap(await context.session.prompt({ sessionID, text, resume: true }));
+    return wrap(await context.session.prompt({ sessionID, text, resume }));
 }
 
 async function addAgentRole(text: string, agent: string | undefined): Promise<string> {
@@ -82,6 +88,7 @@ function mapMessage(message: Record<string, unknown>): LegacyMessage {
             role,
             time: message.time,
             error: message.error,
+            finish: message.finish,
             tokens: message.tokens,
             providerID: readNestedString(message, "model", "providerID"),
             modelID: readNestedString(message, "model", "id"),

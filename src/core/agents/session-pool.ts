@@ -22,6 +22,7 @@ import { PARALLEL_TASK } from "../../shared/index.js";
 import { log } from "./logger.js";
 import { withTimeout } from "../async/with-timeout.js";
 import { getLastActivityAt, isSessionBusy } from "../session/activity.js";
+import { SessionDeletionUnavailableError } from "../../shared/errors/session-deletion-unavailable.js";
 
 interface PooledSession {
     id: string;
@@ -576,8 +577,18 @@ export class SessionPool {
         this.cancelDeferredDelete(sessionId);
 
         try {
-            await this.client.session.delete({ path: { id: sessionId } });
+            const response = await this.client.session.delete({ path: { id: sessionId } });
+            if (response.error || response.data !== true) {
+                session.health = "unhealthy";
+                log(`[SessionPool] Host did not confirm session deletion ${shortID(sessionId)}`, response.error ?? response.data);
+                return false;
+            }
         } catch (error) {
+            if (error instanceof SessionDeletionUnavailableError) {
+                log(`[SessionPool] Host plugin cannot delete session ${shortID(sessionId)}; leaving it to the host`);
+                this.removeFromIndex(sessionId);
+                return false;
+            }
             session.health = "unhealthy";
             log(`[SessionPool] Failed to delete session from server ${shortID(sessionId)}`, error);
             return false;

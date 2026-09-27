@@ -181,6 +181,7 @@ export class ParallelAgentManager {
         if (!task || !isCancellableTaskStatus(task.status)) return false;
         const startedAt = task.startedAt;
         if (task.status === TASK_STATUS.RUNNING && !(await confirmSessionAbort(this.client, task.sessionID))) return false;
+        if (task.startedAt === startedAt && task.status === TASK_STATUS.ERROR) return true;
         if (task.startedAt !== startedAt || !isCancellableTaskStatus(task.status)) return false;
 
         task.status = TASK_STATUS.ERROR;
@@ -256,7 +257,7 @@ export class ParallelAgentManager {
     // Event Handling
     // ========================================================================
 
-    handleEvent(event: { type: string; properties?: { sessionID?: string; info?: { id?: string } } }): void {
+    handleEvent(event: { type: string; properties?: { sessionID?: string; info?: { id?: string }; error?: unknown } }): void {
         this.eventHandler.handle(event);
         if (event.type === "session.idle" && event.properties?.sessionID) {
             void this.cleaner.notifyParentIfAllComplete(event.properties.sessionID).catch(error => log("Parent notice retry failed", error));

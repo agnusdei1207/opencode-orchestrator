@@ -142,18 +142,57 @@ async function runBeforeToolHook(before: ReturnType<typeof createToolExecuteBefo
 
 async function runAfterToolHook(after: ReturnType<typeof createToolExecuteAfterHandler>, input: unknown): Promise<void> {
     const request = input as { sessionID: string; tool: string; id: string; input: unknown; status: string; result?: { content?: unknown }; error?: unknown };
-    const output = { title: request.tool, output: readResult(request), metadata: {} };
+    const original = readResult(request);
+    const output = { title: request.tool, output: original, metadata: {} };
     await after(
         { sessionID: request.sessionID, tool: request.tool, callID: request.id, args: request.input } as Parameters<typeof after>[0],
         output as Parameters<typeof after>[1],
     );
-    if (request.status === "completed" && request.result) request.result.content = output.output;
+    if (request.status === "completed" && request.result) {
+        writeResultContent(request.result, original, output.output);
+    }
 }
 
 function readResult(input: { status: string; result?: unknown; error?: unknown }): string {
     const value = input.status === "completed" ? input.result : input.error;
+    if (input.status === "completed" && isRecord(value) && typeof value.content === "string") {
+        return value.content;
+    }
+    if (input.status === "completed" && isRecord(value) && Array.isArray(value.content)) {
+        return value.content.filter(isTextContent).map(part => part.text).join("\n");
+    }
     if (typeof value === "string") return value;
     return JSON.stringify(value ?? "");
+}
+
+function writeResultContent(result: { content?: unknown }, original: string, updated: string): void {
+    if (updated === original) return;
+    const content = result.content;
+    if (!Array.isArray(content)) {
+        result.content = updated;
+        return;
+    }
+    const parts: readonly unknown[] = content;
+    const textIndices = parts.flatMap((part, index) => isTextContent(part) ? [index] : []);
+    const lastTextIndex = textIndices.at(-1);
+    if (lastTextIndex === undefined) {
+        result.content = [...parts, { type: "text", text: updated }];
+        return;
+    }
+    if (updated.startsWith(original)) {
+        result.content = parts.map((part, index) => index === lastTextIndex && isTextContent(part)
+            ? { ...part, text: part.text + updated.slice(original.length) }
+            : part);
+        return;
+    }
+    const firstTextIndex = textIndices[0];
+    result.content = parts.flatMap((part, index) => !isTextContent(part)
+        ? [part]
+        : index === firstTextIndex ? [{ ...part, text: updated }] : []);
+}
+
+function isTextContent(value: unknown): value is { type: "text"; text: string } {
+    return isRecord(value) && value.type === "text" && typeof value.text === "string";
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

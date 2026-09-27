@@ -1,5 +1,8 @@
 import type { Plugin } from "@opencode/plugin";
 import { log } from "../core/agents/logger.js";
+import { SESSION_EVENTS } from "../shared/session/constants.js";
+import { V2_EXECUTION_EVENTS } from "../shared/session/v2-constants.js";
+import { SESSION_STATUS } from "../shared/message/constants.js";
 
 type Context = Plugin.Context;
 type LegacyHandler = (input: { event: LegacyEvent }) => Promise<void>;
@@ -35,21 +38,34 @@ function translateEvents(event: unknown, statuses: Map<string, string>): LegacyE
     if (!isRecord(event) || typeof event.type !== "string") return [];
     const data = isRecord(event.data) ? event.data : {};
     const sessionID = readSessionID(data);
-    if (event.type === "session.execution.started") return statusEvent(statuses, sessionID, "busy");
-    if (event.type === "session.execution.succeeded") return statusEvent(statuses, sessionID, "idle");
+    if (event.type === "session.execution.started") return statusEvent(statuses, sessionID, SESSION_STATUS.BUSY);
+    if (event.type === "session.execution.succeeded") return statusEvent(statuses, sessionID, SESSION_STATUS.IDLE);
+    if (event.type === SESSION_EVENTS.DELETED) statuses.delete(sessionID);
+    if (event.type === V2_EXECUTION_EVENTS.FAILED) {
+        return [
+            { type: event.type, properties: { ...data, sessionID } },
+            { type: "session.error", properties: { ...data, sessionID } },
+            ...statusEvent(statuses, sessionID, SESSION_STATUS.IDLE),
+        ];
+    }
     if (event.type === "session.step.ended") return [messageEvent(data, sessionID, event.created)];
     if (PART_EVENTS.has(event.type)) {
         return [{ type: "message.part.updated", properties: { part: { ...data, sessionID } } }];
     }
-    if (event.type === "session.execution.interrupted") {
-        return [{ type: "session.error", properties: { ...data, sessionID, error: { name: "AbortError" } } }];
+    if (event.type === V2_EXECUTION_EVENTS.INTERRUPTED) {
+        return [
+            { type: event.type, properties: { ...data, sessionID } },
+            { type: "session.error", properties: { ...data, sessionID, error: { name: "AbortError" } } },
+            ...statusEvent(statuses, sessionID, SESSION_STATUS.IDLE),
+        ];
     }
     const type = EVENT_TYPES[event.type] ?? event.type;
     return [{ type, properties: { ...data, sessionID } }];
 }
 
 function statusEvent(statuses: Map<string, string>, sessionID: string, type: string): LegacyEvent[] {
-    statuses.set(sessionID, type);
+    if (type === SESSION_STATUS.IDLE) statuses.delete(sessionID);
+    else statuses.set(sessionID, type);
     return [{ type: "session.status", properties: { sessionID, status: { type } } }];
 }
 
@@ -80,7 +96,6 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 const EVENT_TYPES: Record<string, string> = {
     "session.compaction.ended": "session.compacted",
-    "session.execution.failed": "session.error",
 };
 
 const PART_EVENTS = new Set([

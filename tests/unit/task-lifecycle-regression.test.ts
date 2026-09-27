@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ParallelAgentManager } from "../../src/core/agents/manager";
 import { TaskLauncher } from "../../src/core/agents/manager/task-launcher";
 import { TaskPoller } from "../../src/core/agents/manager/task-poller";
+import { EventHandler } from "../../src/core/agents/manager/event-handler";
 import { TaskCleaner } from "../../src/core/agents/manager/task-cleaner";
 import { TaskResumer } from "../../src/core/agents/manager/task-resumer";
 import { TaskStore } from "../../src/core/agents/task-store";
@@ -125,6 +126,24 @@ describe("task lifecycle across execution boundaries", () => {
         expect(store.hasPending(task.parentSessionID)).toBe(true);
     });
 
+    it("reports a successful cancel when the interruption event arrives before abort resolves", async () => {
+        const task = await launch();
+        await vi.advanceTimersByTimeAsync(0);
+        const handler = new EventHandler({
+            store, concurrency, findBySession: id => store.getBySession(id),
+            notifyParentIfAllComplete: vi.fn().mockResolvedValue(undefined),
+            scheduleCleanup: vi.fn(), validateSessionHasOutput: vi.fn().mockResolvedValue(false),
+        });
+        client.session.abort.mockImplementationOnce(async () => {
+            handler.handle({ type: "session.execution.interrupted", properties: { sessionID: task.sessionID } });
+            return { data: true };
+        });
+
+        expect(await manager.cancelTask(task.id)).toBe(true);
+        expect(task.status).toBe(TASK_STATUS.ERROR);
+        expect(concurrency.getActiveCount("Worker")).toBe(0);
+    });
+
     it("does not clean a task that resumed before its old retention timer", async () => {
         const task = await launch();
         await vi.advanceTimersByTimeAsync(0);
@@ -168,6 +187,22 @@ describe("task lifecycle across execution boundaries", () => {
         const poller = createTaskPoller(client, store, concurrency, vi.fn(), vi.fn(), vi.fn());
         await poller.poll();
         expect(task.status).toBe(TASK_STATUS.COMPLETED);
+    });
+
+    it("does not complete output whose terminal finish is an error", async () => {
+        const task = await launch();
+        await vi.advanceTimersByTimeAsync(0);
+        task.startedAt = new Date(Date.now() - 20_000);
+        client.session.status.mockResolvedValue({ data: {} });
+        client.session.messages.mockResolvedValue({ data: [{
+            info: { role: "assistant", time: { created: Date.now(), completed: Date.now() }, finish: "error" },
+            parts: [{ type: "text", text: "partial output" }],
+        }] });
+        const poller = createTaskPoller(client, store, concurrency, vi.fn(), vi.fn(), vi.fn());
+
+        await poller.poll();
+
+        expect(task.status).toBe(TASK_STATUS.RUNNING);
     });
 
     it("treats zero default concurrency as unlimited", async () => {

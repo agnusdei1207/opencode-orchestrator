@@ -2,7 +2,7 @@
  * Event Handler - Handles OpenCode session events
  */
 
-import { TASK_STATUS, SESSION_EVENTS } from "../../../shared/index.js";
+import { TASK_STATUS, SESSION_EVENTS, V2_EXECUTION_EVENTS } from "../../../shared/index.js";
 import { TaskStore } from "../task-store.js";
 import { ConcurrencyController } from "../concurrency.js";
 import { CONFIG } from "../config.js";
@@ -44,8 +44,13 @@ export class EventHandler {
      * Handle OpenCode session events for proper resource cleanup.
      * Call this from your plugin's event hook.
      */
-    handle(event: { type: string; properties?: { sessionID?: string; info?: { id?: string } } }): void {
+    handle(event: { type: string; properties?: { sessionID?: string; info?: { id?: string }; error?: unknown } }): void {
         const props = event.properties;
+
+        if (event.type === V2_EXECUTION_EVENTS.FAILED || event.type === V2_EXECUTION_EVENTS.INTERRUPTED) {
+            this.handleExecutionTerminalEvent(event);
+            return;
+        }
 
         // Handle session.idle - task might be complete
         if (event.type === SESSION_EVENTS.IDLE) {
@@ -72,6 +77,28 @@ export class EventHandler {
                 log("Error handling session.deleted:", err);
             });
         }
+    }
+
+    private handleExecutionTerminalEvent(event: { type: string; properties?: { sessionID?: string; error?: unknown } }): void {
+        const sessionID = event.properties?.sessionID;
+        if (!sessionID) return;
+        const task = this.findBySession(sessionID);
+        if (!task || task.status !== TASK_STATUS.RUNNING) return;
+        this.failTaskFromExecutionEvent(task, event).catch(error => {
+            log("Error handling session execution failure:", error);
+        });
+    }
+
+    private async failTaskFromExecutionEvent(task: ParallelTask, event: { type: string; properties?: { error?: unknown } }): Promise<void> {
+        if (this.store.get(task.id) !== task || task.status !== TASK_STATUS.RUNNING) return;
+        task.status = TASK_STATUS.ERROR;
+        task.error = executionErrorMessage(event.type, event.properties?.error);
+        task.completedAt = new Date();
+        finishTaskConcurrency(task, this.concurrency, false);
+        this.store.untrackPending(task.parentSessionID, task.id);
+        this.store.queueNotification(task);
+        this.scheduleCleanup(task.id);
+        await this.notifyParentIfAllComplete(task.parentSessionID);
     }
 
     private async handleSessionIdle(task: ParallelTask): Promise<void> {
@@ -145,6 +172,16 @@ export class EventHandler {
 
         log(`Cleaned up deleted session task: ${task.id}`);
     }
+}
+
+function executionErrorMessage(type: string, error: unknown): string {
+    if (type === V2_EXECUTION_EVENTS.INTERRUPTED) return "Session interrupted";
+    if (isRecord(error) && typeof error.message === "string" && error.message) return error.message;
+    return "Session failed";
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+    return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 function readSessionID(properties: { sessionID?: string; info?: { id?: string } } | undefined): string | undefined {

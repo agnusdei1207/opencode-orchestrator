@@ -47,7 +47,7 @@ function hasCompletedTaskOutput(message: SessionMessage | undefined, task: Paral
     const info = message.info;
     if (info?.time?.created === undefined || info.time.created < task.startedAt.getTime()) return false;
     if (!info.time.completed || info.error || !info.finish) return false;
-    if (["tool-calls", "unknown"].includes(info.finish)) return false;
+    if (["tool-calls", "unknown", "error"].includes(info.finish)) return false;
     return Boolean(message.parts?.some(hasOutputPart));
 }
 

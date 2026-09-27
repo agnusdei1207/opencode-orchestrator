@@ -19,6 +19,7 @@ import {
     resetSessionActivity,
     touchSessionActivity,
 } from "../../src/core/session/activity";
+import { SessionDeletionUnavailableError } from "../../src/shared/errors/session-deletion-unavailable";
 
 type StatusMap = Record<string, { type: string }>;
 
@@ -31,7 +32,7 @@ function createClient(initialStatus: StatusMap = {}) {
         },
         session: {
             create: vi.fn().mockImplementation(async () => ({ data: { id: `ses_${++nextID}` } })),
-            delete: vi.fn().mockResolvedValue({}),
+            delete: vi.fn().mockResolvedValue({ data: true }),
             status: vi.fn().mockImplementation(async () => ({ data: statuses })),
         },
     };
@@ -133,6 +134,33 @@ describe("SessionPool (deletion guards)", () => {
         // A later release is a no-op rather than an error.
         await expect(pool.release(session.id)).resolves.toBeUndefined();
     });
+
+    it("forgets retired sessions locally when the plugin cannot delete host sessions", async () => {
+        client.session.delete.mockRejectedValueOnce(new SessionDeletionUnavailableError());
+        const session = await pool.acquire("worker", "parent", "task");
+
+        await pool.release(session.id);
+        await vi.advanceTimersByTimeAsync(DELETE_SETTLE_MS + 1);
+
+        expect(client.session.delete).toHaveBeenCalledTimes(1);
+        expect(pool.getStats().totalSessions).toBe(0);
+        expect(session.health).toBe("degraded");
+    });
+
+    it.each([{ error: "permission denied" }, { data: false }])(
+        "keeps a session indexed when the host does not confirm deletion: %j",
+        async response => {
+            client.session.delete.mockResolvedValueOnce(response);
+            const session = await pool.acquire("worker", "parent", "task");
+            session.inUse = false;
+            session.lastUsedAt = new Date(Date.now() - DELETE_SETTLE_MS * 2);
+
+            await pool.invalidate(session.id);
+
+            expect(session.health).toBe("unhealthy");
+            expect(pool.getStats().totalSessions).toBe(1);
+        },
+    );
 
     it("does not reuse an age-retired session before its deferred delete (uncompacted context leak)", async () => {
         // Compaction available so a normal release would keep the session pooled.
