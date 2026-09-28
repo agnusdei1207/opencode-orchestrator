@@ -25,6 +25,7 @@ import {
     createToolExecuteAfterHandler,
     createSessionCompactingHandler,
     createSystemTransformHandler,
+    createTextCompleteHandler,
 } from "./plugin-handlers/index.js";
 
 // ============================================================================
@@ -46,6 +47,7 @@ const OrchestratorServerPlugin: Plugin = async (input, options) => {
         [PLUGIN_HOOKS.TOOL_EXECUTE_AFTER]: createToolExecuteAfterHandler(handlerContext),
         [PLUGIN_HOOKS.EXPERIMENTAL_SESSION_COMPACTING]: createSessionCompactingHandler(handlerContext),
         [PLUGIN_HOOKS.EXPERIMENTAL_CHAT_SYSTEM_TRANSFORM]: createSystemTransformHandler(handlerContext),
+        [PLUGIN_HOOKS.EXPERIMENTAL_TEXT_COMPLETE]: createTextCompleteHandler(),
         dispose: () => shutdownManager.shutdown(),
     };
 };

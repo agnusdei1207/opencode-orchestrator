@@ -1,87 +1,91 @@
 # Agent Memory - OCO Session
 
-Last updated: 2026-09-27 23:51 KST
+Last updated: 2026-09-28 KST
 
 ## Current task
 
-Issue #48: a compressed conversation section appears to the model as a user
-message. A Commander prompt mitigation was committed and released as `v2.0.8`.
-The issue remains open until the reporter's environment and model behavior can
-be checked.
+Issue #50: a reporter saw `</assistant-thinking></think>` as a standalone
+assistant text line below a MiMo-V2.6-Flash thought block in OpenCode Go.
+An OpenCode 1 plugin mitigation is implemented locally and verified with a
+fixture; the reporter's actual setup has not yet been retested.
 
 ## Last completed step
 
-Read the issue and screenshot, OCO compaction and prompt paths, and OpenCode
-1.18.32's compaction source. The screenshot's exact `[Compressed conversation
-section]` marker is defined by OpenCode Dynamic Context Pruning (DCP). Its
-`filterCompressedRanges` calls `createSyntheticUserMessage`, which sets
-`info.role` to `user`. The reporter's DCP installation is unconfirmed because
-the issue provides no plugin list, version, or serialized session messages.
-OCO itself has no producer of that marker; its compaction hook contributes
-host context, and its own continuation prompts are marked synthetic.
+Read issue #50 and screenshot, the local `../opencode` host source, the OCO
+V1/V2 plugin paths, and the SDK contracts. The local OpenCode source identifies
+as 1.18.32. OCO declares and locks `@opencode-ai/plugin` and
+`@opencode-ai/sdk` 1.18.32 plus OpenCode 2 `@opencode/plugin` 2.0.15. Local
+node_modules had stale 1.18.31 V1 packages; `npm ci --ignore-scripts` restored
+the declared versions. The installed host executable is OpenCode 1.18.31.
 
-Commit `1d92b96` adds a Commander instruction to interpret marked compressed
-sections as historical context while honoring actual user requests. The same
-definition reaches OpenCode 1 through generated agent config and OpenCode 2
-through the agent transform. Tests cover both registration paths and the
-snapshot. Architecture documentation describes the boundary. The role on the
-wire is still owned by the producing plugin or host; OCO does not rewrite
-another plugin's messages. A user-supplied same-name V1 Commander prompt can
-override the default instruction.
+In OpenCode 1's `session/processor.ts`, text deltas are streamed to session
+parts, then `experimental.text.complete` can replace text before the final
+part update. No equivalent text completion hook exists in the inspected
+OpenCode 2 plugin contract. OCO's V1 entry now registers
+`createTextCompleteHandler`, which blanks a completed text part only when its
+trimmed content is exactly the reported closing-tag pair. Other text remains
+unchanged. The shared hook constant, handler barrel, entry-point test, native
+host QA fixture, and architecture document are synchronized.
 
-`npm run release:patch` created `ad2128c` and `v2.0.8` and atomically pushed
-main and tag. Local release preflight passed build, 119 TypeScript files /
-1,034 tests and coverage gate, 57 Rust tests and quality checks, production
-npm audit, dependency check, and packed-package smoke. Built v2.0.8 passed
-all 16 isolated OpenCode 1.18.32 live-host checks, including compressed-only
-and compressed-then-real-user provider payloads. This QA verifies prompt and
-message delivery, not the behavior of the reporter's MiMo model or DCP plugin.
-Hosted release run `36327070709` succeeded. The GitHub release contains all
-five platform binaries. CI logged `+ opencode-orchestrator@2.0.8` and a fresh
-npm cache confirmed version `2.0.8` and `latest: 2.0.8` after registry
-processing completed.
+TDD: the entry test failed before hook registration and passed afterward. A
+second red/green cycle narrowed the behavior to an entire standalone text
+part. `npm run build`, `npx tsc --noEmit`, and all 119 Vitest files / 1,035
+tests passed. Built-plugin QA against installed OpenCode 1.18.31 passed all
+17 checks, including a streamed fixture with the exact reported tag and a
+stored assistant text part that was empty after the completion hook.
+`git diff --check` passed. The sibling `../opencode` repository was read only.
 
 ## Next exact step
 
-Obtain the reporter's OpenCode version, plugin list, and messages immediately
-around the compressed block. Reproduce with DCP if installed and assess
-whether its producer-side role should change. Verify the v2.0.8 model-level
-behavior with the reporter's MiMo setup before closing #48.
+Have the reporter test the built change with their OpenCode Go / MiMo setup,
+record their OpenCode version and plugin list, and check whether the tag is a
+standalone text part or a reasoning part. If it is a reasoning part, or if the
+tag remains visible after text completion, investigate an upstream OpenCode
+provider/TUI fix. Do not close #50 before this confirmation.
 
 ## Incomplete items and why
 
-- #48 stays open: reporter configuration and model-level reproduction are
-  missing. The shipped change mitigates interpretation, not the DCP user role.
-- No released OpenCode 2 executable was installed for live QA. V2 prompt
-  registration is covered by the installed plugin contract and tests.
+- #50 actual MiMo model behavior and reporter's OpenCode version are unknown.
+  The fixture proves the V1 hook path for the reported text shape.
+- OpenCode 2 has no corresponding text-completion hook in its inspected
+  `@opencode/plugin` 2.0.15 contract; this OCO mitigation is V1 only.
+- #48 remains open from the prior session pending the reporter's DCP/plugin
+  configuration and model-level behavior after v2.0.8.
 
 ## Key decisions
 
-- Add the interpretation rule to the shared Commander definition so both
-  OpenCode generations receive it.
-- Preserve a real request accompanying or following a compressed section.
-- Keep #48 open until real reporter confirmation.
+- Use the OpenCode 1 text completion hook, which runs before the final part
+  update, for the narrow standalone artifact shown in #50.
+- Preserve text that merely contains the same tag or includes legitimate
+  surrounding content.
+- Leave the sibling OpenCode repository unchanged; its response pipeline and
+  SDK contract were used as evidence for the OCO fix.
 
 ## Rejected alternatives
 
-- Rewrite DCP's user-role message from OCO: plugin ordering and message schema
-  make this unsafe without reporter evidence or a stable shared contract.
-- Attribute the reporter's plugin inventory from the screenshot alone.
+- Strip all `<think>` markup or every occurrence of the tag pair: this could
+  alter code examples and ordinary assistant output.
+- Rewrite reasoning parts through event callbacks: the event path is after
+  host storage and provides no safe V1 response mutation contract.
+- Change only the TUI display: stored session text and follow-up context
+  would still contain the artifact.
 
 ## Known risks
 
-- A model can still ignore the prompt rule; the actual user-role payload is
-  unchanged. The reporter's MiMo model was not available for QA.
-- User-overridden V1 Commander prompts do not inherit this default rule.
-- OCO and DCP hook ordering in the reporter's setup is unknown.
+- The tag can be visible transiently during streaming before the completion
+  hook replaces the finalized part.
+- If the reporter's tag is in a reasoning part, this text-only hook cannot
+  affect it. The screenshot suggests a text line but has no serialized parts.
+- The implementation has no OpenCode 2 equivalent at this SDK version.
 
 ## Files to open first in the next session, in order
 
 1. `AGENTS.md`
 2. `AGENT_MEMORY.md`
-3. `src/agents/commander.ts`
-4. `src/agents/definitions.ts`
-5. `src/plugin-handlers/config-handler.ts`
-6. `src/v2/agent-adapter.ts`
+3. `src/plugin-handlers/text-complete-handler.ts`
+4. `src/index.ts`
+5. `src/shared/message/constants.ts`
+6. `tests/unit/plugin-entry.test.ts`
 7. `scripts/qa-native-host.mjs`
 8. `docs/SYSTEM_ARCHITECTURE.md`
+9. `../opencode/packages/opencode/src/session/processor.ts`

@@ -46,6 +46,8 @@ export const PLUGIN_HOOKS = {
     EXPERIMENTAL_SESSION_COMPACTING: "experimental.session.compacting",
     /** Injects dynamic system prompt additions */
     EXPERIMENTAL_CHAT_SYSTEM_TRANSFORM: "experimental.chat.system.transform",
+    /** Normalizes finalized assistant text */
+    EXPERIMENTAL_TEXT_COMPLETE: "experimental.text.complete",
 } as const;
 
 /**

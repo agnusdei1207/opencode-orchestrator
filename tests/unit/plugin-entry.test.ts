@@ -64,11 +64,39 @@ describe("OrchestratorPlugin Entry Point", () => {
         expect(typeof pluginInstance[PLUGIN_HOOKS.TOOL_EXECUTE_AFTER]).toBe("function");
         expect(typeof pluginInstance[PLUGIN_HOOKS.EXPERIMENTAL_SESSION_COMPACTING]).toBe("function");
         expect(typeof pluginInstance[PLUGIN_HOOKS.EXPERIMENTAL_CHAT_SYSTEM_TRANSFORM]).toBe("function");
+        expect(typeof pluginInstance["experimental.text.complete"]).toBe("function");
         expect(typeof pluginInstance.dispose).toBe("function");
 
         // Clean up
         if (pluginInstance.dispose) {
             await pluginInstance.dispose();
+        }
+    });
+
+    it("removes only a standalone model thinking closer from completed text", async () => {
+        const pluginInstance = await OrchestratorPlugin.server(
+            { directory: testDir, client: mockClient } as Parameters<typeof OrchestratorPlugin.server>[0],
+            {},
+        );
+        try {
+            const hook = pluginInstance["experimental.text.complete"];
+            expect(typeof hook).toBe("function");
+            const input = { sessionID: "session-1", messageID: "message-1", partID: "part-1" };
+            const cases = [
+                { text: "</assistant-thinking></think>", expected: "" },
+                { text: "  </assistant-thinking></think>\r\n", expected: "" },
+                { text: "</assistant-thinking></think>\nAnswer", expected: "</assistant-thinking></think>\nAnswer" },
+                { text: "Answer </assistant-thinking></think>", expected: "Answer </assistant-thinking></think>" },
+                { text: "```xml\n</assistant-thinking></think>\n```", expected: "```xml\n</assistant-thinking></think>\n```" },
+                { text: "</think>\nAnswer", expected: "</think>\nAnswer" },
+            ];
+            for (const { text, expected } of cases) {
+                const output = { text };
+                await hook?.(input, output);
+                expect(output.text).toBe(expected);
+            }
+        } finally {
+            await pluginInstance.dispose?.();
         }
     });
 

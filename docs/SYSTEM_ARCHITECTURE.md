@@ -16,6 +16,7 @@ This document describes the current architecture that is directly verifiable fro
 | Config hook | `src/plugin-handlers/config-handler.ts` | Registers commands and the four generated agents, merges user agent overrides, and copies global permissions. |
 | Event hook | `src/plugin-handlers/event-handler.ts` | Bridges OpenCode session/message events into mission continuation, recovery, and cleanup paths. |
 | Chat hook | `src/plugin-handlers/chat-message-handler.ts` | Tracks user activity and routes slash-command text through the local hook registry. |
+| Text completion hook | `src/plugin-handlers/text-complete-handler.ts` | Blanks a known standalone MiMo thinking closer in finalized OpenCode 1 text parts (issue #50). |
 | Command hook | `src/plugin-handlers/command-execute-handler.ts` | Starts an owned `/task` mission after OpenCode expands its command template; preserves user command overrides. |
 
 ## 2. Runtime Shape
@@ -71,6 +72,8 @@ Prompt definitions are now four short role presets using `src/agents/prompts/com
 The slash-command templates and runtime continuation/checkpoint prompts follow the same discipline. Planning does not require file creation or delegation. Continuation preserves document structure and existing files. A context checkpoint does not claim that OpenCode compaction has completed.
 
 The Commander prompt instructs the model to treat `[Compressed conversation section]` blocks as historical context, even when a context-pruning plugin carries them in a user-role message. A real instruction accompanying or following a summary still takes precedence. This instruction reaches OpenCode 1 through the generated agent config and OpenCode 2 through the agent transform. Orchestrator does not rewrite another plugin's message roles; the originating plugin or host owns that boundary (issue #48).
+
+OpenCode 1 calls `experimental.text.complete` after streaming a text part and before its final part update. Orchestrator blanks a text part only when its entire trimmed content is `</assistant-thinking></think>` (issue #50). OpenCode owns the streaming deltas, reasoning parts, and TUI rendering, so a tag can appear briefly while the text is still streaming. OpenCode 2's `@opencode/plugin` 2.0.15 session hooks do not expose a text completion equivalent; this normalization is limited to the OpenCode 1 server entrypoint.
 
 OpenCode loads extensions. Orchestrator does not inspect or execute files in `.opencode/plugins`. Its internal `HookRegistry` is a small ordered adapter for owned callbacks: there is no dynamic metadata, topological sorting, dependency declaration, or retry configuration. Registration order in `src/hooks/index.ts` defines execution order; stop/continue errors, block/intercept outcomes, and prompt injection preserve the native handler boundaries.
 

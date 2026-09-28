@@ -7,3 +7,4 @@ export * from "./tool-execute-handler.js";
 export * from "./tool-execute-pre-handler.js"; // Added
 export * from "./session-compacting-handler.js";
 export * from "./system-transform-handler.js";
+export * from "./text-complete-handler.js";

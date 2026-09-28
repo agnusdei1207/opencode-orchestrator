@@ -78,6 +78,9 @@ function fixtureDelta(body) {
     const text = JSON.stringify(last?.content ?? "");
     const lastIndex = messages.lastIndexOf(last);
     const completed = messages.slice(lastIndex + 1).some((message) => message.role === "tool");
+    if (text.includes("QA_THINKING_CLOSER")) {
+        return { content: "</assistant-thinking></think>" };
+    }
     if (text.includes("QA_PLUGIN_TASK") && !completed) {
         const resume = text.match(/QA_RESUME:(ses_[a-zA-Z0-9]+)/)?.[1];
         return { tool_calls: [{ index: 0, id: "call_qa_plugin", type: "function", function: {
@@ -203,6 +206,21 @@ async function basicChecks(context, report) {
         const result = await prompt(client, parent.id, "QA_HELLO");
         assert.equal(result.data.info.error, undefined);
         assert.ok(result.data.parts.some((part) => part.text === "QA fixture completed."));
+    });
+    if (report.plugin.enabled) await strayThinkingCloserCheck(client, route, parent.id, report);
+}
+
+async function strayThinkingCloserCheck(client, route, sessionID, report) {
+    await check(report, "strayThinkingCloser", async () => {
+        const result = await prompt(client, sessionID, "QA_THINKING_CLOSER");
+        assert.equal(result.data.info.error, undefined);
+        const cleaned = result.data.parts.find((part) => part.type === "text" && part.text === "");
+        assert.ok(cleaned);
+        assert.ok(result.data.parts.every((part) => !part.text?.includes("</assistant-thinking></think>")));
+        const messages = (await client.session.messages(route)).data;
+        const stored = messages.filter((item) => item.info.role === "assistant")
+            .flatMap((item) => item.parts).find((part) => part.id === cleaned.id);
+        assert.equal(stored?.text, "");
     });
 }
 
