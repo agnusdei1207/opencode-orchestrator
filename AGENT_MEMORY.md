@@ -4,10 +4,10 @@ Last updated: 2026-09-28 KST
 
 ## Current task
 
-Issue #50: a reporter saw `</assistant-thinking></think>` as a standalone
-assistant text line below a MiMo-V2.6-Flash thought block in OpenCode Go.
-An OpenCode 1 plugin mitigation is implemented locally and verified with a
-fixture; the reporter's actual setup has not yet been retested.
+Issue #50's standalone `</assistant-thinking></think>` artifact has an
+OpenCode 1 plugin mitigation in patch release v2.0.9. The reporter's actual
+OpenCode Go / MiMo-V2.6-Flash setup still needs confirmation before closing
+the issue.
 
 ## Last completed step
 
@@ -30,14 +30,24 @@ host QA fixture, and architecture document are synchronized.
 TDD: the entry test failed before hook registration and passed afterward. A
 second red/green cycle narrowed the behavior to an entire standalone text
 part. `npm run build`, `npx tsc --noEmit`, and all 119 Vitest files / 1,035
-tests passed. Built-plugin QA against installed OpenCode 1.18.31 passed all
-17 checks, including a streamed fixture with the exact reported tag and a
-stored assistant text part that was empty after the completion hook.
+tests passed. Rust fmt/clippy, all 57 Rust tests, production dependency audit,
+and package smoke test passed. Built-plugin QA against installed OpenCode
+1.18.31 passed all 17 checks, including a streamed fixture with the exact
+reported tag and a persisted assistant text part that was empty after the
+completion hook. Both local release dry run and v2.0.9 preflight passed.
 `git diff --check` passed. The sibling `../opencode` repository was read only.
+A read-only code review found no critical defect; its QA and documentation
+findings were addressed.
+
+Implementation commit `44fa6d5` and version commit `cfc1c24` were pushed
+to `origin/main` with tag `v2.0.9`. GitHub CI run 36363989484 and Build &
+Release run 36363989401 succeeded. The GitHub Release has five platform
+binaries. The public npm registry reports `opencode-orchestrator@2.0.9` and
+`latest: 2.0.9`; its tarball metadata is present.
 
 ## Next exact step
 
-Have the reporter test the built change with their OpenCode Go / MiMo setup,
+Have the reporter test v2.0.9 with their OpenCode Go / MiMo setup,
 record their OpenCode version and plugin list, and check whether the tag is a
 standalone text part or a reasoning part. If it is a reasoning part, or if the
 tag remains visible after text completion, investigate an upstream OpenCode
@@ -60,6 +70,9 @@ provider/TUI fix. Do not close #50 before this confirmation.
   surrounding content.
 - Leave the sibling OpenCode repository unchanged; its response pipeline and
   SDK contract were used as evidence for the OCO fix.
+- Keep the existing unrelated `ARCHITECTURE_SURVEY_KO.tmp.md` untouched. It
+  was temporarily excluded for the clean release gate; the local exclude
+  file was restored afterward.
 
 ## Rejected alternatives
 
