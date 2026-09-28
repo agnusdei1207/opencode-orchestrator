@@ -4,10 +4,11 @@ Last updated: 2026-09-28 KST
 
 ## Current task
 
-Issue #50's standalone `</assistant-thinking></think>` artifact has an
-OpenCode 1 plugin mitigation in patch release v2.0.9. The reporter's actual
-OpenCode Go / MiMo-V2.6-Flash setup still needs confirmation before closing
-the issue.
+Issue #50's standalone `</assistant-thinking></think>` artifact has a
+stored-text mitigation for OpenCode 1 in patch release v2.0.9. Static flow
+analysis found that append-only streaming clients can retain already emitted
+text. The reporter's OpenCode Go / MiMo-V2.6-Flash setup still needs
+confirmation before closing the issue.
 
 ## Last completed step
 
@@ -45,13 +46,22 @@ Release run 36363989401 succeeded. The GitHub Release has five platform
 binaries. The public npm registry reports `opencode-orchestrator@2.0.9` and
 `latest: 2.0.9`; its tarball metadata is present.
 
+Post-release static flow analysis traced model text/reasoning events through
+the host processor, shared plugin trigger, final part update, model-history
+conversion, compaction, OpenCode `run`, ACP, and app state reducers. The host
+publishes text deltas before the completion hook. The `run` renderer and ACP
+can retain those deltas even when the final stored part is blank. Host cleanup
+also bypasses the hook if a stream ends before `text-end`. Other plugins can
+mutate the same output in load order. No direct OCO-internal hook collision
+was found; the reporter's other plugins are unknown.
+
 ## Next exact step
 
-Have the reporter test v2.0.9 with their OpenCode Go / MiMo setup,
-record their OpenCode version and plugin list, and check whether the tag is a
-standalone text part or a reasoning part. If it is a reasoning part, or if the
-tag remains visible after text completion, investigate an upstream OpenCode
-provider/TUI fix. Do not close #50 before this confirmation.
+Have the reporter test v2.0.9 with their OpenCode Go / MiMo setup. Record
+their OpenCode version, plugin list, client surface, and serialized assistant
+part type. If the tag remains visible, compare stored parts with streamed
+deltas and investigate an upstream OpenCode provider/client fix. Do not close
+#50 before this confirmation.
 
 ## Incomplete items and why
 
@@ -59,6 +69,8 @@ provider/TUI fix. Do not close #50 before this confirmation.
   The fixture proves the V1 hook path for the reported text shape.
 - OpenCode 2 has no corresponding text-completion hook in its inspected
   `@opencode/plugin` 2.0.15 contract; this OCO mitigation is V1 only.
+- Append-only clients can retain already emitted tag deltas; the finalized
+  text hook cannot retract them. Actual reporter client behavior is unknown.
 - #48 remains open from the prior session pending the reporter's DCP/plugin
   configuration and model-level behavior after v2.0.8.
 
@@ -85,8 +97,11 @@ provider/TUI fix. Do not close #50 before this confirmation.
 
 ## Known risks
 
-- The tag can be visible transiently during streaming before the completion
-  hook replaces the finalized part.
+- OpenCode `run` and ACP can retain streamed tag text after the final part is
+  blanked; other clients may show it transiently until the final update.
+- An interrupted stream can bypass `experimental.text.complete` and store
+  unfinished tag text. Another plugin can modify the shared hook output
+  before or after OCO depending on load order.
 - If the reporter's tag is in a reasoning part, this text-only hook cannot
   affect it. The screenshot suggests a text line but has no serialized parts.
 - The implementation has no OpenCode 2 equivalent at this SDK version.
