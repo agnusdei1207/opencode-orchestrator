@@ -29,8 +29,17 @@ async function consumeEvents(
     for await (const event of context.event.subscribe({ signal })) {
         if (signal.aborted) return;
         for (const translated of translateEvents(event, statuses)) {
-            await handler({ event: translated });
+            await dispatch(handler, translated);
         }
+    }
+}
+
+// The subscription has no restart path, so one failing handler must not end the stream.
+async function dispatch(handler: LegacyHandler, event: LegacyEvent): Promise<void> {
+    try {
+        await handler({ event });
+    } catch (error) {
+        log(`[v2-event-bridge] Handler failed for ${event.type}: ${error}`);
     }
 }
 

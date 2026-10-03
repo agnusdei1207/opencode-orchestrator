@@ -22,6 +22,25 @@ describe("OpenCode 2 event bridge", () => {
         await vi.waitFor(() => expect(streamClosed).toHaveBeenCalledOnce());
     });
 
+    it("keeps delivering events after a handler throws", async () => {
+        const handler = vi.fn()
+            .mockRejectedValueOnce(new Error("handler failed"))
+            .mockResolvedValue(undefined);
+        const context = {
+            event: { subscribe: async function* () {
+                yield { type: "session.deleted", data: { sessionID: "session-1" } };
+                yield { type: "session.deleted", data: { sessionID: "session-2" } };
+            } },
+        } as unknown as Plugin.Context;
+
+        const stop = startV2EventBridge(context, handler, new Map());
+
+        await vi.waitFor(() => expect(handler).toHaveBeenCalledWith({
+            event: expect.objectContaining({ properties: expect.objectContaining({ sessionID: "session-2" }) }),
+        }));
+        stop();
+    });
+
     it.each(["session.execution.failed", "session.execution.interrupted"])(
         "marks a session idle after %s",
         async terminalType => {
