@@ -385,6 +385,9 @@ async function runScheduledContinuation(
     state.countdownTimer = undefined;
     try {
         await injectContinuation(request);
+    } catch (error) {
+        // Runs from a timer callback; an escaping rejection would be unhandled.
+        log("[mission-loop-handler] Scheduled continuation failed", { sessionID: request.sessionID, error });
     } finally {
         if (state.countdownStartedAt === request.scheduledAt) {
             sessionStateStore.cancelCountdown(request.sessionID);
