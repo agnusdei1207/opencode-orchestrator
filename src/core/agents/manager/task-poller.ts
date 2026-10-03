@@ -122,6 +122,7 @@ export class TaskPoller {
             clearTimeout(this.pollingTimer);
             this.pollingTimer = undefined;
         }
+        this.messageCache.clear();
     }
 
     isRunning(): boolean {
@@ -153,6 +154,7 @@ export class TaskPoller {
     async poll(): Promise<void> {
         this.pruneExpiredTasks();
         const running = this.store.getRunning();
+        this.pruneMessageCache(running);
 
         if (running.length === 0) {
             this.stop();
@@ -174,6 +176,21 @@ export class TaskPoller {
             } catch (error) {
                 await this.handleTaskPollError(task, error);
             }
+        }
+    }
+
+    /**
+     * Tasks also end outside the poller (cancel, TTL timeout, session delete,
+     * execution failure, gc), so entries are kept only for sessions still
+     * RUNNING. This bounds the cache and stops a resumed session from trusting
+     * a message count recorded during its previous run.
+     */
+    private pruneMessageCache(active: ParallelTask[]): void {
+        const runningSessions = new Set(
+            active.filter(task => task.status === TASK_STATUS.RUNNING).map(task => task.sessionID),
+        );
+        for (const sessionID of this.messageCache.keys()) {
+            if (!runningSessions.has(sessionID)) this.messageCache.delete(sessionID);
         }
     }
 
