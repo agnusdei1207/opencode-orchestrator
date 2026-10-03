@@ -85,7 +85,7 @@ The retained task manager is the sole completion authority. Foreground delegatio
 
 Notifications acknowledge only the accepted batch; failed sends remain pending. Deferred delivery rechecks ownership after asynchronous status reads. Cleanup timers and archive collection preserve resumed or replaced runs. Task archives use the plugin's project directory; they are diagnostic records, not a restart restoration mechanism.
 
-Transport failures are not automatically replayed. Rust RPC drains output under backpressure and rejects outstanding requests on shutdown. Background commands resolve working directories from the native tool context and report termination only after confirmation. Rust command deadlines include pipe draining and stdin completion; AST/LSP failures remain distinguishable from valid empty diagnostics or search results. Desktop notification text and sound paths cross the process boundary only as argument arrays or child-only environment values; notification code does not construct shell commands.
+Transport failures are not automatically replayed. Rust RPC drains output under backpressure and rejects outstanding requests on shutdown. Background commands resolve working directories from the native tool context and report termination only after confirmation. Rust command deadlines include pipe draining and stdin completion; AST/LSP failures remain distinguishable from valid empty diagnostics or search results. Every JSON-RPC request with an id receives a reply, including JSON-RPC error objects for malformed or unknown requests, so the TypeScript pool never waits out its timeout. Shell-outs treat non-zero git and `diff` trouble exits as errors. The curl-backed `http` tool sends request bodies on stdin and limits requests and redirects to http/https. Desktop notification text and sound paths cross the process boundary only as argument arrays or child-only environment values; notification code does not construct shell commands.
 
 ## 3. Configuration Contract
 
@@ -184,7 +184,7 @@ Runtime flow:
 3. Non-loopback binds are rejected unless the operator passes `--allow-remote`.
 4. Each accepted TCP stream receives a stable session id, peer metadata, a writer handle, an in-memory preview buffer, and a raw log path.
 5. Reader threads append raw bytes to `.opencode-orchestrator/shell-listener/` and send sanitized preview events to the line-mode TUI.
-6. Operator commands select sessions, send prompt responses, run sentinel-marked one-shot commands, or close sessions.
+6. Operator commands select sessions, send prompt responses, run sentinel-marked one-shot commands, or close sessions. A malformed command prints its error and the prompt continues; only `quit`, end of input, or a stdin read error ends the loop.
 
 The design separates three concerns:
 
