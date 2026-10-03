@@ -1,9 +1,8 @@
 //! Hooks Module
 //!
-//! Hooks are features that run automatically before/after tool execution.
+//! Hook metadata listed by the CLI; the mission loop itself runs in the
+//! OpenCode plugin.
 
-mod registry;
 mod types;
 
-pub use registry::HookRegistry;
-pub use types::{Hook, HookOutput, HookResult, HookTiming, ToolContext};
+pub use types::Hook;

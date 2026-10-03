@@ -48,18 +48,6 @@ impl FileStatsTool {
         }
         Ok(totals.finish())
     }
-
-    /// Get statistics for a single file
-    pub fn file_info(&self, file_path: &Path) -> Result<(u64, usize)> {
-        let metadata = std::fs::metadata(file_path)?;
-        let size = metadata.len();
-
-        let lines = std::fs::read_to_string(file_path)
-            .map(|c| c.lines().count())
-            .unwrap_or(0);
-
-        Ok((size, lines))
-    }
 }
 
 impl Default for FileStatsTool {
@@ -147,19 +135,6 @@ mod tests {
     use super::*;
     use std::fs;
     use tempfile::tempdir;
-
-    #[test]
-    fn test_file_info() {
-        let dir = tempdir().unwrap();
-        let file = dir.path().join("test.txt");
-        fs::write(&file, "line1\nline2\nline3").unwrap();
-
-        let tool = FileStatsTool::new();
-        let (size, lines) = tool.file_info(&file).unwrap();
-
-        assert_eq!(size, 17);
-        assert_eq!(lines, 3);
-    }
 
     #[test]
     fn test_dir_analyze() {

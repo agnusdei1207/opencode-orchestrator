@@ -90,58 +90,6 @@ impl GlobTool {
         Ok(results)
     }
 
-    /// Find files by extension
-    pub fn find_by_extension(&self, extension: &str, directory: &Path) -> Result<Vec<PathBuf>> {
-        let pattern = format!("**/*.{}", extension);
-        self.find(&pattern, directory)
-    }
-
-    /// Find directories matching a pattern
-    pub fn find_dirs(&self, pattern: &str, directory: &Path) -> Result<Vec<PathBuf>> {
-        let start = Instant::now();
-        let mut results = Vec::new();
-
-        let glob_pattern = glob::Pattern::new(pattern)
-            .map_err(|e| crate::Error::Tool(format!("Invalid glob pattern: {}", e)))?;
-
-        let mut walker = WalkDir::new(directory).follow_links(false);
-
-        if let Some(max_depth) = self.config.max_depth {
-            walker = walker.max_depth(max_depth);
-        }
-
-        for entry in walker
-            .into_iter()
-            .filter_entry(|e| self.should_include(e.path()))
-        {
-            if start.elapsed() > self.config.timeout {
-                break;
-            }
-
-            if results.len() >= self.config.max_results {
-                break;
-            }
-
-            let entry = match entry {
-                Ok(e) => e,
-                Err(_) => continue,
-            };
-
-            if !entry.file_type().is_dir() {
-                continue;
-            }
-
-            let path = entry.path();
-            let relative = path.strip_prefix(directory).unwrap_or(path);
-
-            if glob_pattern.matches_path(relative) {
-                results.push(path.to_path_buf());
-            }
-        }
-
-        Ok(results)
-    }
-
     fn should_include(&self, path: &Path) -> bool {
         let path_str = path.to_string_lossy();
 
@@ -198,7 +146,7 @@ mod tests {
     }
 
     #[test]
-    fn test_find_by_extension() {
+    fn double_star_patterns_find_nested_files() {
         let dir = tempdir().unwrap();
         let sub = dir.path().join("sub");
         fs::create_dir(&sub).unwrap();
@@ -211,7 +159,7 @@ mod tests {
             exclude_patterns: vec![],
             ..Default::default()
         });
-        let results = tool.find_by_extension("ts", dir.path()).unwrap();
+        let results = tool.find("**/*.ts", dir.path()).unwrap();
 
         assert_eq!(results.len(), 2);
     }

@@ -80,13 +80,6 @@ impl GitTool {
         Ok(files)
     }
 
-    /// Get recent commits
-    pub fn log(&self, repo_path: &Path, count: usize) -> Result<Vec<String>> {
-        let count = count.to_string();
-        let text = run_git(repo_path, &["log", "--oneline", "-n", &count])?;
-        Ok(text.lines().map(|s| s.to_string()).collect())
-    }
-
     /// Get current branch, or `HEAD` when HEAD is detached.
     pub fn current_branch(&self, repo_path: &Path) -> Result<String> {
         // Unlike `rev-parse --abbrev-ref HEAD`, `symbolic-ref` also resolves an
@@ -100,16 +93,6 @@ impl GitTool {
             return Ok(DETACHED_HEAD_NAME.to_string());
         }
         Err(git_failure(&args, &output))
-    }
-
-    /// Get list of modified files
-    pub fn modified_files(&self, repo_path: &Path) -> Result<Vec<String>> {
-        let text = run_git(repo_path, &["diff", "--no-ext-diff", "--name-only"])?;
-        Ok(text
-            .lines()
-            .filter(|s| !s.is_empty())
-            .map(|s| s.to_string())
-            .collect())
     }
 
     fn parse_stat_line(&self, text: &str) -> (usize, usize, usize) {
@@ -204,8 +187,6 @@ mod tests {
         assert!(tool.status(dir.path()).is_err());
         assert!(tool.diff(dir.path(), false).is_err());
         assert!(tool.current_branch(dir.path()).is_err());
-        assert!(tool.modified_files(dir.path()).is_err());
-        assert!(tool.log(dir.path(), 1).is_err());
     }
 
     #[test]

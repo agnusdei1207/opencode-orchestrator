@@ -198,35 +198,6 @@ impl HttpTool {
             });
         }
     }
-
-    /// GET request
-    pub fn get(
-        &self,
-        url: &str,
-        headers: Option<&HashMap<String, String>>,
-    ) -> Result<HttpResponse> {
-        self.request(HttpRequest {
-            method: HttpMethod::GET,
-            url,
-            headers,
-            body: None,
-        })
-    }
-
-    /// POST request
-    pub fn post(
-        &self,
-        url: &str,
-        body: &str,
-        headers: Option<&HashMap<String, String>>,
-    ) -> Result<HttpResponse> {
-        self.request(HttpRequest {
-            method: HttpMethod::POST,
-            url,
-            headers,
-            body: Some(body),
-        })
-    }
 }
 
 impl Default for HttpTool {
