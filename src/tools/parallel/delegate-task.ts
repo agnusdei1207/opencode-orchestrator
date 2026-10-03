@@ -72,28 +72,65 @@ async function readResultWithinWait(manager: ParallelAgentManager, taskID: strin
     }
 }
 
+interface TaskWait {
+    manager: ParallelAgentManager;
+    task: ParallelTask;
+    /** Captured at the start: a restarted task is a different run, not this one. */
+    startedAt: ParallelTask["startedAt"];
+    deadline: number;
+    signal?: AbortSignal;
+}
+
+/**
+ * One poll of the task. Returns the final reply text, the task once it has
+ * completed (its result still has to be read), or null to keep waiting.
+ */
+function pollTask(wait: TaskWait): string | ParallelTask | null {
+    const { manager, task, startedAt, signal } = wait;
+    if (signal?.aborted) return `[ERROR] Polling aborted\n${identity(task)}\nUse get_task_result later.`;
+    const current = manager.getTask(task.id);
+    if (!current || current.startedAt !== startedAt) return `[ERROR] Task state changed or is unavailable\n${identity(task)}`;
+    if (current.status === TASK_STATUS.COMPLETED) return current;
+    if (current.status !== TASK_STATUS.PENDING && current.status !== TASK_STATUS.RUNNING) {
+        return `[${current.status.toUpperCase()}] ${current.error || "Task did not complete"}\n${identity(task)}`;
+    }
+    return null;
+}
+
+function retrievalInterrupted(wait: TaskWait, completed: ParallelTask): boolean {
+    const { manager, task, startedAt, signal } = wait;
+    return signal?.aborted
+        || manager.getTask(task.id) !== completed
+        || completed.startedAt !== startedAt
+        || completed.status !== TASK_STATUS.COMPLETED;
+}
+
+async function readCompletedResult(wait: TaskWait, completed: ParallelTask): Promise<string> {
+    const { manager, task, deadline, signal } = wait;
+    try {
+        const result = await readResultWithinWait(manager, task.id, deadline, signal);
+        if (retrievalInterrupted(wait, completed)) {
+            return `[ERROR] Task changed or wait interrupted during result retrieval\n${identity(task)}`;
+        }
+        return `[DONE]\n${identity(task)}\n\n${result || "(No output)"}`;
+    } catch (error) {
+        return `[ERROR] Result unavailable: ${errorText(error)}\n${identity(task)}`;
+    }
+}
+
 // The manager owns completion. A synchronous tool only waits for that same result.
 async function waitForTask(manager: ParallelAgentManager, task: ParallelTask, signal?: AbortSignal): Promise<string> {
-    const startedAt = task.startedAt;
-    const deadline = Date.now() + PARALLEL_TASK.SYNC_TIMEOUT_MS;
-    while (Date.now() < deadline) {
-        if (signal?.aborted) return `[ERROR] Polling aborted\n${identity(task)}\nUse get_task_result later.`;
-        const current = manager.getTask(task.id);
-        if (!current || current.startedAt !== startedAt) return `[ERROR] Task state changed or is unavailable\n${identity(task)}`;
-        if (current.status === TASK_STATUS.COMPLETED) {
-            try {
-                const result = await readResultWithinWait(manager, task.id, deadline, signal);
-                if (signal?.aborted || manager.getTask(task.id) !== current || current.startedAt !== startedAt || current.status !== TASK_STATUS.COMPLETED) {
-                    return `[ERROR] Task changed or wait interrupted during result retrieval\n${identity(task)}`;
-                }
-                return `[DONE]\n${identity(task)}\n\n${result || "(No output)"}`;
-            } catch (error) {
-                return `[ERROR] Result unavailable: ${errorText(error)}\n${identity(task)}`;
-            }
-        }
-        if (current.status !== TASK_STATUS.PENDING && current.status !== TASK_STATUS.RUNNING) {
-            return `[${current.status.toUpperCase()}] ${current.error || "Task did not complete"}\n${identity(task)}`;
-        }
+    const wait: TaskWait = {
+        manager,
+        task,
+        startedAt: task.startedAt,
+        deadline: Date.now() + PARALLEL_TASK.SYNC_TIMEOUT_MS,
+        signal,
+    };
+    while (Date.now() < wait.deadline) {
+        const polled = pollTask(wait);
+        if (typeof polled === "string") return polled;
+        if (polled) return readCompletedResult(wait, polled);
         await delay(PARALLEL_TASK.POLL_INTERVAL_MS, signal);
     }
     return `[TIMEOUT] Waiting for task completion\n${identity(task)}\nUse get_task_result or resume later.`;
@@ -106,6 +143,29 @@ async function dispatch(manager: ParallelAgentManager, args: DelegateArgs, paren
         parentSessionID, depth, mode: args.mode, groupID: args.groupID,
     });
     return Array.isArray(result) ? result[0] ?? null : result ?? null;
+}
+
+interface DelegationContext {
+    sessionID: string;
+    abort?: AbortSignal;
+}
+
+function announceBackground(task: ParallelTask, args: DelegateArgs): string {
+    if (!args.resume) presets.taskStarted(task.id, args.agent);
+    return `[${args.resume ? "RESUME" : "SPAWNED"}] ${identity(task)}`;
+}
+
+async function runDelegation(
+    manager: ParallelAgentManager,
+    args: DelegateArgs,
+    context: DelegationContext,
+    depth: number,
+): Promise<string> {
+    const task = await dispatch(manager, args, context.sessionID, depth);
+    if (!task) return `[ERROR] Failed to launch task: ${args.description}`;
+    if (args.background) return announceBackground(task, args);
+    const result = await waitForTask(manager, task, context.abort);
+    return args.resume ? result.replace(/^\[DONE\]/, "[RESUMED & DONE]") : result;
 }
 
 export const createDelegateTaskTool = (manager: ParallelAgentManager): ToolDefinition => tool({
@@ -121,14 +181,7 @@ export const createDelegateTaskTool = (manager: ParallelAgentManager): ToolDefin
             return `[ERROR] Delegation blocked: You are a terminal node (depth ${depth}). Report blockers to Commander and complete your assigned scope directly.`;
         }
         try {
-            const task = await dispatch(manager, args, context.sessionID, depth);
-            if (!task) return `[ERROR] Failed to launch task: ${args.description}`;
-            if (args.background) {
-                if (!args.resume) presets.taskStarted(task.id, args.agent);
-                return `[${args.resume ? "RESUME" : "SPAWNED"}] ${identity(task)}`;
-            }
-            const result = await waitForTask(manager, task, context.abort);
-            return args.resume ? result.replace(/^\[DONE\]/, "[RESUMED & DONE]") : result;
+            return await runDelegation(manager, args, context, depth);
         } catch (error) {
             return `[ERROR] ${args.resume ? "Resume failed" : "Failed"}: ${errorText(error)}`;
         }
