@@ -2,10 +2,13 @@
 
 use crate::tools::process::run_with_timeout;
 use crate::{Error, Result};
+use std::io;
 use std::path::Path;
 use std::process::Command;
 use std::time::Duration;
 
+/// External binary used to compute diffs; absent on a default Windows install.
+const DIFF_BINARY: &str = "diff";
 /// `diff` exit status when the inputs are identical.
 const DIFF_EXIT_SAME: i32 = 0;
 /// `diff` exit status when the inputs differ; anything else means trouble.
@@ -60,7 +63,8 @@ impl DiffTool {
     /// Compare two files
     pub fn diff_files(&self, file1: &Path, file2: &Path) -> Result<DiffResult> {
         let cmd = self.build_command(file1, file2);
-        let output = run_with_timeout(cmd, self.config.timeout, None)?;
+        let output =
+            run_with_timeout(cmd, self.config.timeout, None).map_err(explain_missing_diff)?;
         let has_differences = match output.status.code() {
             Some(DIFF_EXIT_SAME) => false,
             Some(DIFF_EXIT_DIFFERENT) => true,
@@ -95,7 +99,7 @@ impl DiffTool {
     }
 
     fn build_command(&self, file1: &Path, file2: &Path) -> Command {
-        let mut cmd = Command::new("diff");
+        let mut cmd = Command::new(DIFF_BINARY);
 
         if self.config.unified {
             cmd.arg(format!("-U{}", self.config.context_lines));
@@ -130,6 +134,19 @@ impl DiffTool {
 impl Default for DiffTool {
     fn default() -> Self {
         Self::new(DiffConfig::default())
+    }
+}
+
+/// Turn the OS "program not found" error into a message that names the
+/// missing binary. `diff` ships with Unix but not with a default Windows
+/// install, where the user must add diffutils (e.g. via Git for Windows).
+fn explain_missing_diff(err: Error) -> Error {
+    match &err {
+        Error::Io(io_err) if io_err.kind() == io::ErrorKind::NotFound => Error::Tool(format!(
+            "the '{DIFF_BINARY}' binary was not found on PATH; install diffutils \
+             (it is not bundled with Windows) to use the diff tool"
+        )),
+        _ => err,
     }
 }
 
@@ -208,6 +225,23 @@ mod tests {
 
         assert!(started.elapsed() < std::time::Duration::from_secs(5));
         assert!(result.unwrap_err().to_string().contains("timed out"));
+    }
+
+    #[test]
+    fn a_missing_diff_binary_is_a_clear_error() {
+        let err = explain_missing_diff(Error::Io(std::io::Error::from(
+            std::io::ErrorKind::NotFound,
+        )));
+
+        let message = err.to_string();
+        assert!(message.contains("diff"), "{message}");
+        assert!(message.contains("not found"), "{message}");
+    }
+
+    #[test]
+    fn other_errors_pass_through_unchanged() {
+        let err = explain_missing_diff(Error::Tool("boom".to_string()));
+        assert!(err.to_string().contains("boom"));
     }
 
     #[test]
