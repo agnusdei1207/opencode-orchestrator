@@ -30,29 +30,42 @@ export class MissionControlHook implements ChatMessageHook {
         }
         if (parsed.command !== COMMAND_NAMES.TASK) return { action: HOOK_ACTIONS.PROCESS };
 
-        const { sessionID, sessions, directory } = ctx;
-        const previous = readLoopState(directory);
-        if (previous?.active && previous.sessionID !== sessionID) {
-            await prepareReplacement(ctx, previous.sessionID);
-        }
-        if (!startMissionLoop(directory, sessionID, parsed.args || "continue from where we left off", {
-            replaceExisting: previous?.active ? previous : undefined,
-        })) {
-            throw new Error("Could not persist the mission; activation stopped");
-        }
-        if (previous?.active && previous.sessionID !== sessionID) {
-            deactivateOwnedSession(ctx, previous.sessionID);
-        }
-        ensureSessionInitialized(sessions, sessionID, directory).active = true;
-        activateMissionState(sessionID);
-        handleUserMessage(sessionID);
-        ProgressTracker.startSession(sessionID);
+        await activateTaskMission(ctx, parsed.args);
         const command = COMMANDS[parsed.command];
         return {
             action: HOOK_ACTIONS.PROCESS,
             modifiedMessage: command?.template.replace(/\$ARGUMENTS/g, parsed.args || PROMPTS.CONTINUE),
         };
     }
+}
+
+type LoopState = ReturnType<typeof readLoopState>;
+
+/** The active mission owned by another session, which this /task must replace. */
+function foreignActiveOwner(previous: LoopState, sessionID: string): string | null {
+    if (previous?.active && previous.sessionID !== sessionID) return previous.sessionID;
+    return null;
+}
+
+async function activateTaskMission(ctx: HookContext, args: string): Promise<void> {
+    const { sessionID, sessions, directory } = ctx;
+    const previous = readLoopState(directory);
+    const replacedOwner = foreignActiveOwner(previous, sessionID);
+    if (replacedOwner !== null) {
+        await prepareReplacement(ctx, replacedOwner);
+    }
+    if (!startMissionLoop(directory, sessionID, args || "continue from where we left off", {
+        replaceExisting: previous?.active ? previous : undefined,
+    })) {
+        throw new Error("Could not persist the mission; activation stopped");
+    }
+    if (replacedOwner !== null) {
+        deactivateOwnedSession(ctx, replacedOwner);
+    }
+    ensureSessionInitialized(sessions, sessionID, directory).active = true;
+    activateMissionState(sessionID);
+    handleUserMessage(sessionID);
+    ProgressTracker.startSession(sessionID);
 }
 
 async function prepareReplacement(ctx: HookContext, ownerID: string): Promise<void> {
