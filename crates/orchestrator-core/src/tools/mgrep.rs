@@ -50,7 +50,25 @@ pub struct MgrepMatch {
 /// Multi-grep results grouped by pattern
 #[derive(Debug, Clone, Default)]
 pub struct MgrepResult {
+    /// Matches of every pattern that compiled
     pub results: HashMap<String, Vec<MgrepMatch>>,
+    /// Patterns that are not valid regexes and were not searched
+    pub invalid_patterns: Vec<InvalidPattern>,
+    /// The shared deadline stopped at least one pattern early
+    pub timed_out: bool,
+}
+
+/// A pattern that failed to compile
+#[derive(Debug, Clone)]
+pub struct InvalidPattern {
+    pub pattern: String,
+    pub error: String,
+}
+
+/// Matches of one pattern and whether the deadline cut it short.
+struct PatternSearch {
+    matches: Vec<MgrepMatch>,
+    timed_out: bool,
 }
 
 /// Multi-pattern grep tool
@@ -66,25 +84,28 @@ impl MgrepTool {
     /// Search for multiple patterns in parallel
     pub fn search(&self, patterns: &[String], directory: &Path) -> Result<MgrepResult> {
         let start = Instant::now();
-
-        // Compile all patterns
-        let regexes: Vec<(String, Regex)> = patterns
-            .iter()
-            .filter_map(|p| Regex::new(p).ok().map(|r| (p.clone(), r)))
-            .collect();
-
+        let (regexes, invalid_patterns) = compile_patterns(patterns);
         let files = self.collect_files(directory);
 
         // Search in parallel
-        let results: HashMap<String, Vec<MgrepMatch>> = regexes
+        let searches: Vec<(String, PatternSearch)> = regexes
             .par_iter()
             .map(|compiled| {
-                let matches = self.search_pattern(compiled, &files, start);
-                (compiled.0.clone(), matches)
+                let search = self.search_pattern(compiled, &files, start);
+                (compiled.0.clone(), search)
             })
             .collect();
 
-        Ok(MgrepResult { results })
+        let timed_out = searches.iter().any(|(_, search)| search.timed_out);
+        let results = searches
+            .into_iter()
+            .map(|(pattern, search)| (pattern, search.matches))
+            .collect();
+        Ok(MgrepResult {
+            results,
+            invalid_patterns,
+            timed_out,
+        })
     }
 
     /// Every included regular file whose size is known and within the limit.
@@ -113,11 +134,17 @@ impl MgrepTool {
         (pattern, regex): &(String, Regex),
         files: &[PathBuf],
         start: Instant,
-    ) -> Vec<MgrepMatch> {
+    ) -> PatternSearch {
         let limit = self.config.max_results_per_pattern;
         let mut matches = Vec::new();
         for file_path in files {
-            if start.elapsed() > self.config.timeout || matches.len() >= limit {
+            if start.elapsed() > self.config.timeout {
+                return PatternSearch {
+                    matches,
+                    timed_out: true,
+                };
+            }
+            if matches.len() >= limit {
                 break;
             }
             let Ok(content) = std::fs::read_to_string(file_path) else {
@@ -138,8 +165,27 @@ impl MgrepTool {
                 }
             }
         }
-        matches
+        PatternSearch {
+            matches,
+            timed_out: false,
+        }
     }
+}
+
+/// Split `patterns` into compiled regexes and the ones that do not compile.
+fn compile_patterns(patterns: &[String]) -> (Vec<(String, Regex)>, Vec<InvalidPattern>) {
+    let mut regexes = Vec::new();
+    let mut invalid = Vec::new();
+    for pattern in patterns {
+        match Regex::new(pattern) {
+            Ok(regex) => regexes.push((pattern.clone(), regex)),
+            Err(err) => invalid.push(InvalidPattern {
+                pattern: pattern.clone(),
+                error: err.to_string(),
+            }),
+        }
+    }
+    (regexes, invalid)
 }
 
 impl Default for MgrepTool {

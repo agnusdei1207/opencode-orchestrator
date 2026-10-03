@@ -7,7 +7,7 @@ use orchestrator_core::tools::{
     JqTool, MgrepTool, SedTool, ast::AstConfig, ast::AstScope, diff::DiffConfig, glob::GlobConfig,
     grep::GrepConfig, http::HttpConfig, http::HttpMethod, http::HttpRequest, jq::JqConfig,
     lsp::Diagnostic, lsp::DiagnosticSeverity, lsp::DiagnosticsConfig, mgrep::MgrepConfig,
-    mgrep::MgrepMatch, sed::SedConfig, sed::SedDirectoryReport,
+    mgrep::MgrepMatch, mgrep::MgrepResult, sed::SedConfig, sed::SedDirectoryReport,
 };
 
 use orchestrator_core::constants::{status, tool};
@@ -40,11 +40,34 @@ pub async fn execute_tool(name: &str, arguments: Value) -> Result<String> {
     }
 }
 
+/// Upper bound for `max_results` of grep and glob and for mgrep's
+/// `max_results_per_pattern`, keeping a single reply bounded.
+const MAX_SEARCH_RESULTS: usize = 1000;
+/// `max_results` of grep and glob when the caller gives none.
+const DEFAULT_SEARCH_RESULTS: usize = 100;
+
 /// Tools default to the process working directory when none is given.
 fn resolve_directory(directory: Option<String>) -> PathBuf {
     directory
         .map(PathBuf::from)
         .unwrap_or_else(|| std::env::current_dir().unwrap_or_default())
+}
+
+/// A `timeout_ms` of 0 (or none) keeps the tool's default deadline instead of
+/// expiring before the first file is read.
+fn timeout_or_default(timeout_ms: Option<u64>, default: Duration) -> Duration {
+    timeout_ms
+        .filter(|ms| *ms > 0)
+        .map_or(default, Duration::from_millis)
+}
+
+/// The requested result limit (0 or none means `default`), capped at
+/// [`MAX_SEARCH_RESULTS`].
+fn result_limit(requested: Option<usize>, default: usize) -> usize {
+    requested
+        .filter(|limit| *limit > 0)
+        .unwrap_or(default)
+        .min(MAX_SEARCH_RESULTS)
 }
 
 #[derive(Deserialize)]
@@ -59,21 +82,18 @@ fn grep_search(arguments: Value) -> Result<String> {
     let args: GrepArgs = serde_json::from_value(arguments)?;
 
     let mut config = GrepConfig::default();
-    if let Some(ms) = args.timeout_ms {
-        config.timeout = Duration::from_millis(ms);
-    }
-    if let Some(max) = args.max_results {
-        config.max_results = max;
-    }
+    config.timeout = timeout_or_default(args.timeout_ms, config.timeout);
+    config.max_results = result_limit(args.max_results, DEFAULT_SEARCH_RESULTS);
+    let limit = config.max_results;
 
     let search_dir = resolve_directory(args.directory);
 
     let tool = GrepTool::new(config);
-    let results = tool.search(&args.pattern, &search_dir)?;
+    let found = tool.search(&args.pattern, &search_dir)?;
 
-    let matches: Vec<Value> = results
+    let matches: Vec<Value> = found
+        .matches
         .iter()
-        .take(100)
         .map(|m| {
             json!({
                 "file": m.file.clone(),
@@ -85,7 +105,9 @@ fn grep_search(arguments: Value) -> Result<String> {
 
     Ok(serde_json::to_string_pretty(&json!({
         "matches": matches,
-        "total": results.len()
+        "total": found.matches.len(),
+        "truncated": found.matches.len() >= limit,
+        "timed_out": found.timed_out
     }))?)
 }
 
@@ -106,31 +128,44 @@ fn mgrep(arguments: Value) -> Result<String> {
     }
 
     let mut config = MgrepConfig::default();
-    if let Some(ms) = args.timeout_ms {
-        config.timeout = Duration::from_millis(ms);
-    }
-    if let Some(max) = args.max_results_per_pattern {
-        config.max_results_per_pattern = max;
-    }
+    config.timeout = timeout_or_default(args.timeout_ms, config.timeout);
+    config.max_results_per_pattern =
+        result_limit(args.max_results_per_pattern, config.max_results_per_pattern);
+    let limit = config.max_results_per_pattern;
 
     let search_dir = resolve_directory(args.directory);
 
     let tool = MgrepTool::new(config);
     let result = tool.search(&args.patterns, &search_dir)?;
 
+    Ok(serde_json::to_string_pretty(&mgrep_json(
+        &result,
+        args.patterns.len(),
+        limit,
+    ))?)
+}
+
+fn mgrep_json(result: &MgrepResult, requested: usize, limit: usize) -> Value {
     let all_results: Vec<Value> = result
         .results
         .iter()
-        .map(|(pattern, matches)| mgrep_pattern_json(pattern, matches))
+        .map(|(pattern, matches)| mgrep_pattern_json(pattern, matches, limit))
+        .collect();
+    let invalid: Vec<Value> = result
+        .invalid_patterns
+        .iter()
+        .map(|p| json!({"pattern": p.pattern, "error": p.error}))
         .collect();
 
-    Ok(serde_json::to_string_pretty(&json!({
+    json!({
         "results": all_results,
-        "patterns_searched": args.patterns.len()
-    }))?)
+        "patterns_searched": requested - invalid.len(),
+        "invalid_patterns": invalid,
+        "timed_out": result.timed_out
+    })
 }
 
-fn mgrep_pattern_json(pattern: &str, matches: &[MgrepMatch]) -> Value {
+fn mgrep_pattern_json(pattern: &str, matches: &[MgrepMatch], limit: usize) -> Value {
     let formatted: Vec<Value> = matches
         .iter()
         .map(|m| {
@@ -145,7 +180,8 @@ fn mgrep_pattern_json(pattern: &str, matches: &[MgrepMatch]) -> Value {
     json!({
         "pattern": pattern,
         "matches": formatted,
-        "total": matches.len()
+        "total": matches.len(),
+        "truncated": matches.len() >= limit
     })
 }
 
@@ -159,25 +195,28 @@ struct GlobArgs {
 fn glob_search(arguments: Value) -> Result<String> {
     let args: GlobArgs = serde_json::from_value(arguments)?;
 
-    let mut config = GlobConfig::default();
-    if let Some(max) = args.max_results {
-        config.max_results = max;
-    }
+    let limit = result_limit(args.max_results, DEFAULT_SEARCH_RESULTS);
+    let config = GlobConfig {
+        max_results: limit,
+        ..GlobConfig::default()
+    };
 
     let search_dir = resolve_directory(args.directory);
 
     let tool = GlobTool::new(config);
-    let results = tool.find(&args.pattern, &search_dir)?;
+    let found = tool.find(&args.pattern, &search_dir)?;
 
-    let files: Vec<String> = results
+    let files: Vec<String> = found
+        .paths
         .iter()
-        .take(100)
         .map(|p| p.display().to_string())
         .collect();
 
     Ok(serde_json::to_string_pretty(&json!({
         "files": files,
-        "total": results.len()
+        "total": found.paths.len(),
+        "truncated": found.paths.len() >= limit,
+        "timed_out": found.timed_out
     }))?)
 }
 
@@ -705,6 +744,106 @@ mod tests {
         assert_eq!(report["success"], false);
         assert_eq!(report["timed_out"], true);
         assert_eq!(report["errors"], json!([]));
+    }
+
+    async fn run_json(name: &str, arguments: Value) -> Value {
+        let output = execute_tool(name, arguments).await.unwrap();
+        serde_json::from_str(&output).unwrap()
+    }
+
+    fn write_lines(dir: &std::path::Path, name: &str, count: usize) {
+        std::fs::write(dir.join(name), "needle\n".repeat(count)).unwrap();
+    }
+
+    #[tokio::test]
+    async fn grep_honors_max_results_above_the_old_hard_cap() {
+        let dir = tempfile::tempdir().unwrap();
+        write_lines(dir.path(), "a.txt", 150);
+
+        let report = run_json(
+            tool::GREP_SEARCH,
+            json!({"pattern": "needle", "directory": dir.path(), "max_results": 150}),
+        )
+        .await;
+
+        assert_eq!(report["matches"].as_array().unwrap().len(), 150);
+        assert_eq!(report["truncated"], true);
+        assert_eq!(report["timed_out"], false);
+    }
+
+    #[tokio::test]
+    async fn grep_caps_max_results_and_flags_truncation() {
+        let dir = tempfile::tempdir().unwrap();
+        write_lines(dir.path(), "a.txt", MAX_SEARCH_RESULTS + 5);
+
+        let report = run_json(
+            tool::GREP_SEARCH,
+            json!({"pattern": "needle", "directory": dir.path(), "max_results": 1_000_000}),
+        )
+        .await;
+
+        assert_eq!(report["total"], MAX_SEARCH_RESULTS);
+        assert_eq!(report["truncated"], true);
+    }
+
+    #[tokio::test]
+    async fn zero_timeouts_use_the_default_instead_of_returning_nothing() {
+        let dir = tempfile::tempdir().unwrap();
+        write_lines(dir.path(), "a.txt", 1);
+        let base = json!({"directory": dir.path(), "timeout_ms": 0});
+
+        let mut grep = base.clone();
+        grep["pattern"] = json!("needle");
+        let mut mgrep = base.clone();
+        mgrep["patterns"] = json!(["needle"]);
+        let grep = run_json(tool::GREP_SEARCH, grep).await;
+        let mgrep = run_json(tool::MGREP, mgrep).await;
+
+        assert_eq!(grep["total"], 1);
+        assert_eq!(grep["timed_out"], false);
+        assert_eq!(mgrep["results"][0]["total"], 1);
+        assert_eq!(mgrep["timed_out"], false);
+    }
+
+    #[tokio::test]
+    async fn mgrep_reports_invalid_patterns_instead_of_dropping_them() {
+        let dir = tempfile::tempdir().unwrap();
+        write_lines(dir.path(), "a.txt", 1);
+
+        let report = run_json(
+            tool::MGREP,
+            json!({"patterns": ["needle", "("], "directory": dir.path()}),
+        )
+        .await;
+
+        assert_eq!(report["patterns_searched"], 1);
+        assert_eq!(report["invalid_patterns"][0]["pattern"], "(");
+        assert!(report["invalid_patterns"][0]["error"].is_string());
+    }
+
+    #[tokio::test]
+    async fn glob_honors_max_results_and_flags_truncation() {
+        let dir = tempfile::tempdir().unwrap();
+        for index in 0..120 {
+            std::fs::write(dir.path().join(format!("f{index}.rs")), "").unwrap();
+        }
+
+        let limited = run_json(
+            tool::GLOB_SEARCH,
+            json!({"pattern": "*.rs", "directory": dir.path(), "max_results": 110}),
+        )
+        .await;
+        let all = run_json(
+            tool::GLOB_SEARCH,
+            json!({"pattern": "*.rs", "directory": dir.path(), "max_results": 500}),
+        )
+        .await;
+
+        assert_eq!(limited["files"].as_array().unwrap().len(), 110);
+        assert_eq!(limited["truncated"], true);
+        assert_eq!(all["total"], 120);
+        assert_eq!(all["truncated"], false);
+        assert_eq!(all["timed_out"], false);
     }
 
     #[test]

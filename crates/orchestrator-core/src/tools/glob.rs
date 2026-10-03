@@ -48,9 +48,9 @@ impl GlobTool {
     }
 
     /// Find files matching a glob pattern
-    pub fn find(&self, pattern: &str, directory: &Path) -> Result<Vec<PathBuf>> {
+    pub fn find(&self, pattern: &str, directory: &Path) -> Result<GlobSearch> {
         let start = Instant::now();
-        let mut results = Vec::new();
+        let mut found = GlobSearch::default();
 
         let glob_pattern = glob::Pattern::new(pattern)
             .map_err(|e| crate::Error::Tool(format!("Invalid glob pattern: {}", e)))?;
@@ -64,31 +64,32 @@ impl GlobTool {
         let filter = PathFilter::new(directory, &self.config.exclude_patterns)
             .include_hidden(self.config.include_hidden);
         for entry in walker.into_iter().filter_entry(|e| filter.allows(e.path())) {
-            // Check timeout
             if start.elapsed() > self.config.timeout {
+                found.timed_out = true;
                 break;
             }
-
-            // Check result limit
-            if results.len() >= self.config.max_results {
+            if found.paths.len() >= self.config.max_results {
                 break;
             }
-
-            let entry = match entry {
-                Ok(e) => e,
-                Err(_) => continue,
-            };
+            let Ok(entry) = entry else { continue };
 
             let path = entry.path();
             let relative = path.strip_prefix(directory).unwrap_or(path);
-
             if glob_pattern.matches_path(relative) {
-                results.push(path.to_path_buf());
+                found.paths.push(path.to_path_buf());
             }
         }
 
-        Ok(results)
+        Ok(found)
     }
+}
+
+/// Paths found by one search, at most `GlobConfig::max_results`
+#[derive(Debug, Clone, Default)]
+pub struct GlobSearch {
+    pub paths: Vec<PathBuf>,
+    /// The walk stopped at `GlobConfig::timeout`; more paths may match
+    pub timed_out: bool,
 }
 
 impl Default for GlobTool {
@@ -115,7 +116,7 @@ mod tests {
             exclude_patterns: vec![],
             ..Default::default()
         });
-        let results = tool.find("*.rs", dir.path()).unwrap();
+        let results = tool.find("*.rs", dir.path()).unwrap().paths;
 
         assert_eq!(results.len(), 1);
         assert!(results[0].to_string_lossy().contains("test.rs"));
@@ -129,7 +130,7 @@ mod tests {
         fs::write(root.join("a.rs"), "").unwrap();
         fs::write(root.join("target").join("b.rs"), "").unwrap();
 
-        let results = GlobTool::default().find("**/*.rs", &root).unwrap();
+        let results = GlobTool::default().find("**/*.rs", &root).unwrap().paths;
 
         assert_eq!(results, vec![root.join("a.rs")]);
     }
@@ -142,7 +143,7 @@ mod tests {
         fs::write(root.join("a.rs"), "").unwrap();
         fs::write(root.join(".secret").join("b.rs"), "").unwrap();
 
-        let results = GlobTool::default().find("**/*.rs", &root).unwrap();
+        let results = GlobTool::default().find("**/*.rs", &root).unwrap().paths;
 
         assert_eq!(results, vec![root.join("a.rs")]);
     }
@@ -161,7 +162,7 @@ mod tests {
             exclude_patterns: vec![],
             ..Default::default()
         });
-        let results = tool.find("**/*.ts", dir.path()).unwrap();
+        let results = tool.find("**/*.ts", dir.path()).unwrap().paths;
 
         assert_eq!(results.len(), 2);
     }

@@ -47,6 +47,14 @@ pub struct GrepMatch {
     pub match_end: usize,
 }
 
+/// Matches of one search, at most `GrepConfig::max_results`
+#[derive(Debug, Clone, Default)]
+pub struct GrepSearch {
+    pub matches: Vec<GrepMatch>,
+    /// The walk stopped at `GrepConfig::timeout`; more files may match
+    pub timed_out: bool,
+}
+
 /// Enhanced grep tool with timeout and resource limits
 pub struct GrepTool {
     config: GrepConfig,
@@ -58,10 +66,10 @@ impl GrepTool {
     }
 
     /// Search for a pattern in files
-    pub fn search(&self, pattern: &str, directory: &Path) -> Result<Vec<GrepMatch>> {
+    pub fn search(&self, pattern: &str, directory: &Path) -> Result<GrepSearch> {
         let start = Instant::now();
         let regex = Regex::new(pattern)?;
-        let mut results = Vec::new();
+        let mut found = GrepSearch::default();
 
         let filter = PathFilter::new(directory, &self.config.exclude_patterns)
             .include_hidden(self.config.include_hidden)
@@ -72,16 +80,20 @@ impl GrepTool {
             .filter_entry(|e| filter.allows(e.path()));
 
         for entry in walker {
-            if start.elapsed() > self.config.timeout || results.len() >= self.config.max_results {
+            if start.elapsed() > self.config.timeout {
+                found.timed_out = true;
+                break;
+            }
+            if found.matches.len() >= self.config.max_results {
                 break;
             }
             let Ok(entry) = entry else { continue };
             if self.is_searchable(&entry) {
-                self.search_file(&regex, entry.path(), &mut results);
+                self.search_file(&regex, entry.path(), &mut found.matches);
             }
         }
 
-        Ok(results)
+        Ok(found)
     }
 
     /// Regular files only; a file whose size cannot be read is still searched.
@@ -137,7 +149,7 @@ mod tests {
             exclude_patterns: vec![],
             ..Default::default()
         });
-        let results = tool.search("hello", dir.path()).unwrap();
+        let results = tool.search("hello", dir.path()).unwrap().matches;
 
         assert_eq!(results.len(), 2);
         assert_eq!(results[0].line_number, 1);
@@ -154,7 +166,7 @@ mod tests {
         fs::write(root.join("node_modules").join("b.txt"), "needle\n").unwrap();
         fs::write(root.join(".cache").join("c.txt"), "needle\n").unwrap();
 
-        let results = GrepTool::default().search("needle", &root).unwrap();
+        let results = GrepTool::default().search("needle", &root).unwrap().matches;
 
         assert_eq!(results.len(), 1, "{results:?}");
         assert!(results[0].file.ends_with("a.txt"));
@@ -182,7 +194,12 @@ mod tests {
         .search("needle", dir.path())
         .unwrap();
 
-        assert_eq!(unbounded.len(), 20);
-        assert!(expired.is_empty(), "an expired deadline must stop the walk");
+        assert_eq!(unbounded.matches.len(), 20);
+        assert!(!unbounded.timed_out);
+        assert!(
+            expired.matches.is_empty(),
+            "an expired deadline must stop the walk"
+        );
+        assert!(expired.timed_out);
     }
 }

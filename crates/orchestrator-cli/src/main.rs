@@ -280,8 +280,8 @@ fn tools_list_result() -> Value {
                     "properties": {
                         "pattern": {"type": "string", "description": "Regex pattern"},
                         "directory": {"type": "string", "description": "Search directory"},
-                        "max_results": {"type": "number", "description": "Max results (default: 100)"},
-                        "timeout_ms": {"type": "number", "description": "Timeout in milliseconds (default: 30000)"}
+                        "max_results": {"type": "number", "description": "Max results (default: 100, max: 1000)"},
+                        "timeout_ms": {"type": "number", "description": "Timeout in milliseconds (default: 30000; 0 uses the default)"}
                     },
                     "required": ["pattern"]
                 }
@@ -306,8 +306,8 @@ fn tools_list_result() -> Value {
                     "properties": {
                         "patterns": {"type": "array", "items": {"type": "string"}, "description": "Array of regex patterns to search"},
                         "directory": {"type": "string", "description": "Search directory (optional)"},
-                        "max_results_per_pattern": {"type": "number", "description": "Max results per pattern (default: 50)"},
-                        "timeout_ms": {"type": "number", "description": "Timeout in milliseconds"}
+                        "max_results_per_pattern": {"type": "number", "description": "Max results per pattern (default: 50, max: 1000)"},
+                        "timeout_ms": {"type": "number", "description": "Timeout in milliseconds (default: 60000; 0 uses the default)"}
                     },
                     "required": ["patterns"]
                 }
