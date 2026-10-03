@@ -369,12 +369,20 @@ function normalizeContinuationContext(
     const unverifiedFiles = typeof input === "string" ? [] : input?.unverifiedFiles ?? [];
     const stagnationCount = state.stagnationCount ?? 0;
     return {
-        objective: state.objective || deriveObjective(state.prompt),
-        progress: state.lastProgress ?? UNKNOWN_STATUS,
-        verification: verificationSummary ?? state.lastVerificationSummary ?? UNKNOWN_STATUS,
-        reason: continuationReason ?? state.lastContinuationReason ?? "verification_failed",
+        objective: neutralizeLoopTags(state.objective || deriveObjective(state.prompt)),
+        progress: neutralizeLoopTags(state.lastProgress ?? UNKNOWN_STATUS),
+        verification: neutralizeLoopTags(verificationSummary ?? state.lastVerificationSummary ?? UNKNOWN_STATUS),
+        reason: neutralizeLoopTags(continuationReason ?? state.lastContinuationReason ?? "verification_failed"),
         stagnation: stagnationCount > 0 ? `${stagnationCount} unchanged check(s)` : "not detected",
-        unverifiedFiles,
+        unverifiedFiles: unverifiedFiles.map(neutralizeLoopTags),
         escalate: stagnationCount >= ESCALATION_STAGNATION_THRESHOLD,
     };
+}
+
+/**
+ * User and tool text is embedded inside `<mission_loop>`; an embedded opening
+ * or closing tag would let it rewrite the block's structure.
+ */
+function neutralizeLoopTags(text: string): string {
+    return text.replace(/<(\/?)mission_loop/gi, "&lt;$1mission_loop");
 }
