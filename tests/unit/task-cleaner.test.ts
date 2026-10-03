@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { TaskCleaner } from "../../src/core/agents/manager/task-cleaner";
+import { SESSION_ABORT_TIMEOUT_MS } from "../../src/core/agents/manager/task-lifecycle";
 import { TaskStore } from "../../src/core/agents/task-store";
 import { ConcurrencyController } from "../../src/core/agents/concurrency";
 import { CONFIG } from "../../src/core/agents/config";
@@ -197,6 +198,35 @@ it("does not re-fire a timeout while the previous abort is still unconfirmed", a
     });
     await vi.waitFor(() => expect(task.status).toBe(TASK_STATUS.TIMEOUT));
     guarded.shutdown();
+});
+
+it("retries the timeout after an abort request that never settles", async () => {
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    try {
+        const abort = vi.fn();
+        abort.mockImplementationOnce(() => new Promise(() => {}));
+        abort.mockResolvedValue({ data: true });
+        const client = { session: { prompt, status: vi.fn().mockResolvedValue({ data: {} }), abort } };
+        const guarded = new TaskCleaner(
+            client as unknown as ConstructorParameters<typeof TaskCleaner>[0],
+            store,
+            concurrency,
+            { release: vi.fn().mockResolvedValue(undefined) } as unknown as ConstructorParameters<typeof TaskCleaner>[3],
+        );
+        const task = createTask({ status: TASK_STATUS.RUNNING, startedAt: new Date(Date.now() - CONFIG.TASK_TTL_MS - 1) });
+        store.set(task.id, task);
+
+        guarded.pruneExpiredTasks();
+        await vi.advanceTimersByTimeAsync(SESSION_ABORT_TIMEOUT_MS);
+        guarded.pruneExpiredTasks();
+        await vi.advanceTimersByTimeAsync(0);
+
+        expect(abort).toHaveBeenCalledTimes(2);
+        await vi.waitFor(() => expect(task.status).toBe(TASK_STATUS.TIMEOUT));
+        guarded.shutdown();
+    } finally {
+        vi.useRealTimers();
+    }
 });
 
 /**
