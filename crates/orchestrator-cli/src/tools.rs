@@ -5,8 +5,8 @@ use orchestrator_core::hooks::Hook;
 use orchestrator_core::tools::{
     AstTool, DiagnosticsTool, DiffTool, FileStatsTool, GitTool, GlobTool, GrepTool, HttpTool,
     JqTool, MgrepTool, SedTool, ast::AstConfig, diff::DiffConfig, glob::GlobConfig,
-    grep::GrepConfig, http::HttpConfig, jq::JqConfig, lsp::DiagnosticsConfig, mgrep::MgrepConfig,
-    sed::SedConfig,
+    grep::GrepConfig, http::HttpConfig, http::HttpMethod, jq::JqConfig, lsp::DiagnosticsConfig,
+    mgrep::MgrepConfig, sed::SedConfig,
 };
 
 use orchestrator_core::constants::{status, tool};
@@ -393,21 +393,7 @@ async fn http_request(arguments: Value) -> Result<String> {
 
     let tool = HttpTool::new(config);
 
-    use orchestrator_core::tools::http::HttpMethod;
-    let method = match args
-        .method
-        .as_deref()
-        .unwrap_or("GET")
-        .to_uppercase()
-        .as_str()
-    {
-        "POST" => HttpMethod::POST,
-        "PUT" => HttpMethod::PUT,
-        "DELETE" => HttpMethod::DELETE,
-        "PATCH" => HttpMethod::PATCH,
-        "HEAD" => HttpMethod::HEAD,
-        _ => HttpMethod::GET,
-    };
+    let method: HttpMethod = args.method.as_deref().unwrap_or("GET").parse()?;
 
     let result = tool.request(
         method,
@@ -685,4 +671,20 @@ async fn ast_replace(arguments: Value) -> Result<String> {
         "pattern": args.pattern,
         "rewrite": args.rewrite
     }))?)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn http_rejects_unknown_methods_instead_of_sending_get() {
+        let result = execute_tool(
+            tool::HTTP,
+            json!({"url": "http://127.0.0.1:9/", "method": "FETCH"}),
+        )
+        .await;
+        let error = result.expect_err("unknown method must be rejected");
+        assert!(error.to_string().contains("FETCH"));
+    }
 }
