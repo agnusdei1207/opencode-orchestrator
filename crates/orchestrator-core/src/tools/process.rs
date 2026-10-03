@@ -140,7 +140,9 @@ fn timeout_error(timeout: Duration) -> Error {
     Error::Tool(format!("command timed out after {}ms", timeout.as_millis()))
 }
 
-#[cfg(test)]
+// These tests drive `echo`, `cat`, `sleep`, and `sh`, which are not
+// executables on Windows.
+#[cfg(all(test, unix))]
 mod tests {
     use super::*;
 

@@ -428,6 +428,7 @@ mod tests {
         }
     }
 
+    #[cfg(unix)]
     #[test]
     fn drains_large_stdout_and_stderr_before_waiting_for_command_exit() {
         let tool = DiagnosticsTool::new(DiagnosticsConfig {
@@ -511,6 +512,7 @@ mod tests {
         );
     }
 
+    #[cfg(unix)]
     #[test]
     fn command_execution_respects_configured_timeout() {
         let directory = tempdir().expect("create temp diagnostics directory");
@@ -547,6 +549,8 @@ mod tests {
         assert!(diagnostics.is_empty());
     }
 
+    // The fake ESLint binary is a `/bin/sh` script.
+    #[cfg(unix)]
     #[test]
     fn eslint_with_config_and_failed_output_returns_error_diagnostic() {
         let directory = tempdir().expect("create temp diagnostics directory");

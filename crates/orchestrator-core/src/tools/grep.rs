@@ -190,12 +190,27 @@ mod tests {
 
     #[test]
     fn test_grep_timeout() {
-        let tool = GrepTool::new(GrepConfig {
-            timeout: Duration::from_millis(1),
+        let dir = tempdir().unwrap();
+        for index in 0..20 {
+            fs::write(dir.path().join(format!("file{index}.txt")), "needle\n").unwrap();
+        }
+        let config = GrepConfig {
+            include_hidden: true,
+            exclude_patterns: vec![],
             ..Default::default()
-        });
+        };
 
-        // This should complete quickly due to timeout
-        let _ = tool.search("test", Path::new("/"));
+        let unbounded = GrepTool::new(config.clone())
+            .search("needle", dir.path())
+            .unwrap();
+        let expired = GrepTool::new(GrepConfig {
+            timeout: Duration::ZERO,
+            ..config
+        })
+        .search("needle", dir.path())
+        .unwrap();
+
+        assert_eq!(unbounded.len(), 20);
+        assert!(expired.is_empty(), "an expired deadline must stop the walk");
     }
 }
