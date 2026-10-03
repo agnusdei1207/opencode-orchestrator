@@ -13,7 +13,7 @@ import { recordToolCall } from "../core/loop/circuit-breaker.js";
 import { recordToolEvidence } from "../core/loop/evidence.js";
 import { formatElapsedTime, formatTimestamp } from "../utils/formatting/index.js";
 import { HookRegistry } from "../hooks/registry.js";
-import type { ToolExecuteHandlerContext } from "./context.js";
+import type { PluginSessionState, ToolExecuteHandlerContext } from "./context.js";
 
 type ToolExecuteAfterHook = NonNullable<Hooks["tool.execute.after"]>;
 export type ToolExecuteAfterInput = Parameters<ToolExecuteAfterHook>[0];
@@ -33,16 +33,7 @@ export function createToolExecuteAfterHandler(ctx: ToolExecuteHandlerContext) {
         const session = sessions.get(toolInput.sessionID);
         if (!session?.active) return;
 
-        const now = Date.now();
-        const stepDuration = formatElapsedTime(session.lastStepTime, now);
-        const totalElapsed = formatElapsedTime(session.startTime, now);
-        session.step++;
-        session.timestamp = now;
-        session.lastStepTime = now;
-
-        if (!session.tokens) {
-            session.tokens = { totalInput: 0, totalOutput: 0, estimatedCost: 0 };
-        }
+        const { stepDuration, totalElapsed } = advanceSessionStep(session);
 
         const toolArguments = readToolArgs(toolInput.args);
         recordToolCall(toolInput.sessionID, toolInput.tool);
@@ -71,6 +62,21 @@ export function createToolExecuteAfterHandler(ctx: ToolExecuteHandlerContext) {
         const currentTime = formatTimestamp();
         toolOutput.output += `\n\n[${currentTime}] Step ${session.step} | This step: ${stepDuration} | Total: ${totalElapsed}`;
     };
+}
+
+/** Counts the finished tool call as a step; durations are measured before the clock advances. */
+function advanceSessionStep(session: PluginSessionState): { stepDuration: string; totalElapsed: string } {
+    const now = Date.now();
+    const stepDuration = formatElapsedTime(session.lastStepTime, now);
+    const totalElapsed = formatElapsedTime(session.startTime, now);
+    session.step++;
+    session.timestamp = now;
+    session.lastStepTime = now;
+
+    if (!session.tokens) {
+        session.tokens = { totalInput: 0, totalOutput: 0, estimatedCost: 0 };
+    }
+    return { stepDuration, totalElapsed };
 }
 
 function readToolArgs(value: unknown): Record<string, unknown> {
