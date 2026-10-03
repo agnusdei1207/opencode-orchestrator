@@ -354,7 +354,26 @@ function scheduleIdleContinuation(ctx: EventHandlerContext, sessionID: string): 
     // and skipping it would strand that notice until the TTL sweep discarded it.
     if (!sessions.has(sessionID) && !PendingInjection.hasPendingPrompts(sessionID)) return;
 
-    scheduleDelayedHandler("idle continuation", sessionID, () => runIdleContinuation(ctx, sessionID));
+    // The host publishes both session.status(idle) and session.idle for one
+    // transition; collapse them into a single delayed run per session.
+    const scheduled = scheduledIdleSessions(ctx);
+    if (scheduled.has(sessionID)) return;
+    scheduled.add(sessionID);
+    scheduleDelayedHandler("idle continuation", sessionID, () => {
+        scheduled.delete(sessionID);
+        return runIdleContinuation(ctx, sessionID);
+    });
+}
+
+const idleSchedules = new WeakMap<EventHandlerContext, Set<string>>();
+
+function scheduledIdleSessions(ctx: EventHandlerContext): Set<string> {
+    let scheduled = idleSchedules.get(ctx);
+    if (!scheduled) {
+        scheduled = new Set();
+        idleSchedules.set(ctx, scheduled);
+    }
+    return scheduled;
 }
 
 async function runIdleContinuation(ctx: EventHandlerContext, sessionID: string): Promise<void> {

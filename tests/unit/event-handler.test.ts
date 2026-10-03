@@ -399,6 +399,22 @@ describe("createEventHandler", () => {
         );
     });
 
+    it("runs one idle continuation when the host reports idle through both events", async () => {
+        vi.useFakeTimers();
+        vi.mocked(MissionLoop.isLoopActive).mockReturnValue(true);
+        const handler = createEventHandler(ctx);
+        const session = ctx.sessions.get("session-1");
+        session.lastUserMessageAt = Date.now();
+        session.lastAssistantCompletedAt = session.lastUserMessageAt + 1;
+
+        // OpenCode publishes session.status(idle) and session.idle for the same transition.
+        await handler({ event: { type: "session.status", properties: { sessionID: "session-1", status: { type: "idle" } } } });
+        await handler({ event: { type: "session.idle", properties: { sessionID: "session-1" } } });
+        await vi.advanceTimersByTimeAsync(500);
+
+        expect(MissionLoopHandler.handleMissionIdle).toHaveBeenCalledOnce();
+    });
+
     it("logs idle continuation failures without breaking the timer callback", async () => {
         vi.useFakeTimers();
         vi.mocked(MissionLoop.isLoopActive).mockReturnValue(true);
