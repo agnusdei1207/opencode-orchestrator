@@ -5,8 +5,9 @@ use orchestrator_core::hooks::Hook;
 use orchestrator_core::tools::{
     AstTool, DiagnosticsTool, DiffTool, FileStatsTool, GitTool, GlobTool, GrepTool, HttpTool,
     JqTool, MgrepTool, SedTool, ast::AstConfig, diff::DiffConfig, glob::GlobConfig,
-    grep::GrepConfig, http::HttpConfig, http::HttpMethod, jq::JqConfig, lsp::DiagnosticsConfig,
-    mgrep::MgrepConfig, sed::SedConfig, sed::SedDirectoryReport,
+    grep::GrepConfig, http::HttpConfig, http::HttpMethod, jq::JqConfig, lsp::Diagnostic,
+    lsp::DiagnosticSeverity, lsp::DiagnosticsConfig, mgrep::MgrepConfig, mgrep::MgrepMatch,
+    sed::SedConfig, sed::SedDirectoryReport,
 };
 
 use orchestrator_core::constants::{status, tool};
@@ -16,26 +17,34 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 use std::time::Duration;
 
-/// Execute a tool by name
+/// Execute a tool by name. The tools themselves are synchronous; this stays
+/// async for the RPC loop that awaits it.
 pub async fn execute_tool(name: &str, arguments: Value) -> Result<String> {
     match name {
-        tool::GREP_SEARCH => grep_search(arguments).await,
-        tool::GLOB_SEARCH => glob_search(arguments).await,
-        tool::MGREP => mgrep(arguments).await,
-        tool::SED_REPLACE => sed_replace(arguments).await,
-        tool::DIFF => diff_files(arguments).await,
-        tool::JQ => jq_query(arguments).await,
-        tool::HTTP => http_request(arguments).await,
-        tool::FILE_STATS => file_stats(arguments).await,
-        tool::GIT_DIFF => git_diff(arguments).await,
-        tool::GIT_STATUS => git_status(arguments).await,
-        tool::LSP_DIAGNOSTICS => lsp_diagnostics(arguments).await,
-        tool::AST_SEARCH => ast_search(arguments).await,
-        tool::AST_REPLACE => ast_replace(arguments).await,
-        tool::LIST_AGENTS => list_agents().await,
-        tool::LIST_HOOKS => list_hooks().await,
+        tool::GREP_SEARCH => grep_search(arguments),
+        tool::GLOB_SEARCH => glob_search(arguments),
+        tool::MGREP => mgrep(arguments),
+        tool::SED_REPLACE => sed_replace(arguments),
+        tool::DIFF => diff_files(arguments),
+        tool::JQ => jq_query(arguments),
+        tool::HTTP => http_request(arguments),
+        tool::FILE_STATS => file_stats(arguments),
+        tool::GIT_DIFF => git_diff(arguments),
+        tool::GIT_STATUS => git_status(arguments),
+        tool::LSP_DIAGNOSTICS => lsp_diagnostics(arguments),
+        tool::AST_SEARCH => ast_search(arguments),
+        tool::AST_REPLACE => ast_replace(arguments),
+        tool::LIST_AGENTS => list_agents(),
+        tool::LIST_HOOKS => list_hooks(),
         _ => Err(anyhow::anyhow!("Unknown tool: {}", name)),
     }
+}
+
+/// Tools default to the process working directory when none is given.
+fn resolve_directory(directory: Option<String>) -> PathBuf {
+    directory
+        .map(PathBuf::from)
+        .unwrap_or_else(|| std::env::current_dir().unwrap_or_default())
 }
 
 #[derive(Deserialize)]
@@ -46,7 +55,7 @@ struct GrepArgs {
     max_results: Option<usize>,
 }
 
-async fn grep_search(arguments: Value) -> Result<String> {
+fn grep_search(arguments: Value) -> Result<String> {
     let args: GrepArgs = serde_json::from_value(arguments)?;
 
     let mut config = GrepConfig::default();
@@ -57,10 +66,7 @@ async fn grep_search(arguments: Value) -> Result<String> {
         config.max_results = max;
     }
 
-    let search_dir = args
-        .directory
-        .map(PathBuf::from)
-        .unwrap_or_else(|| std::env::current_dir().unwrap_or_default());
+    let search_dir = resolve_directory(args.directory);
 
     let tool = GrepTool::new(config);
     let results = tool.search(&args.pattern, &search_dir)?;
@@ -92,7 +98,7 @@ struct MgrepArgs {
 }
 
 /// Multi-pattern grep - search multiple patterns in parallel
-async fn mgrep(arguments: Value) -> Result<String> {
+fn mgrep(arguments: Value) -> Result<String> {
     let args: MgrepArgs = serde_json::from_value(arguments)?;
 
     if args.patterns.is_empty() {
@@ -107,39 +113,40 @@ async fn mgrep(arguments: Value) -> Result<String> {
         config.max_results_per_pattern = max;
     }
 
-    let search_dir = args
-        .directory
-        .map(PathBuf::from)
-        .unwrap_or_else(|| std::env::current_dir().unwrap_or_default());
+    let search_dir = resolve_directory(args.directory);
 
     let tool = MgrepTool::new(config);
     let result = tool.search(&args.patterns, &search_dir)?;
 
-    // Format results
-    let mut all_results = Vec::new();
-    for (pattern, matches) in &result.results {
-        let formatted: Vec<Value> = matches
-            .iter()
-            .map(|m| {
-                json!({
-                    "file": m.file.clone(),
-                    "line": m.line,
-                    "content": m.content.trim()
-                })
-            })
-            .collect();
-
-        all_results.push(json!({
-            "pattern": pattern,
-            "matches": formatted,
-            "total": matches.len()
-        }));
-    }
+    let all_results: Vec<Value> = result
+        .results
+        .iter()
+        .map(|(pattern, matches)| mgrep_pattern_json(pattern, matches))
+        .collect();
 
     Ok(serde_json::to_string_pretty(&json!({
         "results": all_results,
         "patterns_searched": args.patterns.len()
     }))?)
+}
+
+fn mgrep_pattern_json(pattern: &str, matches: &[MgrepMatch]) -> Value {
+    let formatted: Vec<Value> = matches
+        .iter()
+        .map(|m| {
+            json!({
+                "file": m.file.clone(),
+                "line": m.line,
+                "content": m.content.trim()
+            })
+        })
+        .collect();
+
+    json!({
+        "pattern": pattern,
+        "matches": formatted,
+        "total": matches.len()
+    })
 }
 
 #[derive(Deserialize)]
@@ -149,7 +156,7 @@ struct GlobArgs {
     max_results: Option<usize>,
 }
 
-async fn glob_search(arguments: Value) -> Result<String> {
+fn glob_search(arguments: Value) -> Result<String> {
     let args: GlobArgs = serde_json::from_value(arguments)?;
 
     let mut config = GlobConfig::default();
@@ -157,10 +164,7 @@ async fn glob_search(arguments: Value) -> Result<String> {
         config.max_results = max;
     }
 
-    let search_dir = args
-        .directory
-        .map(PathBuf::from)
-        .unwrap_or_else(|| std::env::current_dir().unwrap_or_default());
+    let search_dir = resolve_directory(args.directory);
 
     let tool = GlobTool::new(config);
     let results = tool.find(&args.pattern, &search_dir)?;
@@ -178,7 +182,7 @@ async fn glob_search(arguments: Value) -> Result<String> {
 }
 
 /// List all available agents (4-agent architecture)
-async fn list_agents() -> Result<String> {
+fn list_agents() -> Result<String> {
     let agents = vec![
         json!({
             "id": "Commander",
@@ -201,7 +205,7 @@ async fn list_agents() -> Result<String> {
     Ok(serde_json::to_string_pretty(&json!({"agents": agents}))?)
 }
 
-async fn list_hooks() -> Result<String> {
+fn list_hooks() -> Result<String> {
     let hooks: Vec<Value> = Hook::all()
         .iter()
         .map(|h| {
@@ -227,9 +231,24 @@ struct SedArgs {
 }
 
 /// Sed-like find and replace tool
-async fn sed_replace(arguments: Value) -> Result<String> {
+fn sed_replace(arguments: Value) -> Result<String> {
     let args: SedArgs = serde_json::from_value(arguments)?;
+    let tool = SedTool::new(sed_config(&args));
 
+    let output = if let Some(file_path) = args.file.as_deref() {
+        sed_file_mode_json(&tool, &args, file_path)
+    } else if let Some(dir_path) = args.directory.as_deref() {
+        sed_directory_mode_json(&tool, &args, dir_path)
+    } else {
+        json!({
+            "success": false,
+            "error": "Either 'file' or 'directory' must be specified"
+        })
+    };
+    Ok(serde_json::to_string_pretty(&output)?)
+}
+
+fn sed_config(args: &SedArgs) -> SedConfig {
     let mut config = SedConfig::default();
     if let Some(ms) = args.timeout_ms {
         config.timeout = Duration::from_millis(ms);
@@ -240,49 +259,39 @@ async fn sed_replace(arguments: Value) -> Result<String> {
     if let Some(backup) = args.backup {
         config.backup = backup;
     }
+    config
+}
 
-    let tool = SedTool::new(config);
-
-    // Single file mode
-    if let Some(file_path) = args.file {
-        let path = PathBuf::from(&file_path);
-        match tool.replace_in_file(&args.pattern, &args.replacement, &path) {
-            Ok(Some(result)) => Ok(serde_json::to_string_pretty(&json!({
-                "success": true,
-                "file": result.file,
-                "replacements": result.replacements,
-                "dry_run": args.dry_run.unwrap_or(false)
-            }))?),
-            Ok(None) => Ok(serde_json::to_string_pretty(&json!({
-                "success": true,
-                "file": file_path,
-                "replacements": 0,
-                "message": "No matches found"
-            }))?),
-            Err(e) => Ok(serde_json::to_string_pretty(&json!({
-                "success": false,
-                "error": e.to_string()
-            }))?),
-        }
-    }
-    // Directory mode
-    else if let Some(dir_path) = args.directory {
-        let path = PathBuf::from(&dir_path);
-        match tool.replace_in_directory(&args.pattern, &args.replacement, &path) {
-            Ok(report) => Ok(serde_json::to_string_pretty(&sed_directory_json(
-                &report,
-                args.dry_run.unwrap_or(false),
-            ))?),
-            Err(e) => Ok(serde_json::to_string_pretty(&json!({
-                "success": false,
-                "error": e.to_string()
-            }))?),
-        }
-    } else {
-        Ok(serde_json::to_string_pretty(&json!({
+fn sed_file_mode_json(tool: &SedTool, args: &SedArgs, file_path: &str) -> Value {
+    let path = PathBuf::from(file_path);
+    match tool.replace_in_file(&args.pattern, &args.replacement, &path) {
+        Ok(Some(result)) => json!({
+            "success": true,
+            "file": result.file,
+            "replacements": result.replacements,
+            "dry_run": args.dry_run.unwrap_or(false)
+        }),
+        Ok(None) => json!({
+            "success": true,
+            "file": file_path,
+            "replacements": 0,
+            "message": "No matches found"
+        }),
+        Err(e) => json!({
             "success": false,
-            "error": "Either 'file' or 'directory' must be specified"
-        }))?)
+            "error": e.to_string()
+        }),
+    }
+}
+
+fn sed_directory_mode_json(tool: &SedTool, args: &SedArgs, dir_path: &str) -> Value {
+    let path = PathBuf::from(dir_path);
+    match tool.replace_in_directory(&args.pattern, &args.replacement, &path) {
+        Ok(report) => sed_directory_json(&report, args.dry_run.unwrap_or(false)),
+        Err(e) => json!({
+            "success": false,
+            "error": e.to_string()
+        }),
     }
 }
 
@@ -323,7 +332,7 @@ struct DiffArgs {
     ignore_whitespace: Option<bool>,
 }
 
-async fn diff_files(arguments: Value) -> Result<String> {
+fn diff_files(arguments: Value) -> Result<String> {
     let args: DiffArgs = serde_json::from_value(arguments)?;
 
     let mut config = DiffConfig::default();
@@ -359,7 +368,7 @@ struct JqArgs {
     raw_output: Option<bool>,
 }
 
-async fn jq_query(arguments: Value) -> Result<String> {
+fn jq_query(arguments: Value) -> Result<String> {
     let args: JqArgs = serde_json::from_value(arguments)?;
 
     let mut config = JqConfig::default();
@@ -393,7 +402,7 @@ struct HttpArgs {
     timeout_ms: Option<u64>,
 }
 
-async fn http_request(arguments: Value) -> Result<String> {
+fn http_request(arguments: Value) -> Result<String> {
     let args: HttpArgs = serde_json::from_value(arguments)?;
 
     let mut config = HttpConfig::default();
@@ -427,7 +436,7 @@ struct FileStatsArgs {
     max_depth: Option<usize>,
 }
 
-async fn file_stats(arguments: Value) -> Result<String> {
+fn file_stats(arguments: Value) -> Result<String> {
     let args: FileStatsArgs = serde_json::from_value(arguments)?;
 
     let tool = FileStatsTool::new();
@@ -464,14 +473,11 @@ struct GitDiffArgs {
     staged_only: Option<bool>,
 }
 
-async fn git_diff(arguments: Value) -> Result<String> {
+fn git_diff(arguments: Value) -> Result<String> {
     let args: GitDiffArgs = serde_json::from_value(arguments)?;
 
     let tool = GitTool::new();
-    let repo_path = args
-        .directory
-        .map(PathBuf::from)
-        .unwrap_or_else(|| std::env::current_dir().unwrap_or_default());
+    let repo_path = resolve_directory(args.directory);
 
     let stats = tool.diff(&repo_path, args.staged_only.unwrap_or(false))?;
 
@@ -488,14 +494,11 @@ struct GitStatusArgs {
     directory: Option<String>,
 }
 
-async fn git_status(arguments: Value) -> Result<String> {
+fn git_status(arguments: Value) -> Result<String> {
     let args: GitStatusArgs = serde_json::from_value(arguments)?;
 
     let tool = GitTool::new();
-    let repo_path = args
-        .directory
-        .map(PathBuf::from)
-        .unwrap_or_else(|| std::env::current_dir().unwrap_or_default());
+    let repo_path = resolve_directory(args.directory);
 
     let files = tool.status(&repo_path)?;
     let branch = tool.current_branch(&repo_path)?;
@@ -526,7 +529,7 @@ struct LspDiagnosticsArgs {
     include_warnings: Option<bool>,
 }
 
-async fn lsp_diagnostics(arguments: Value) -> Result<String> {
+fn lsp_diagnostics(arguments: Value) -> Result<String> {
     let args: LspDiagnosticsArgs = serde_json::from_value(arguments)?;
 
     let mut config = DiagnosticsConfig::default();
@@ -534,10 +537,7 @@ async fn lsp_diagnostics(arguments: Value) -> Result<String> {
         config.include_warnings = include_warnings;
     }
 
-    let directory = args
-        .directory
-        .map(PathBuf::from)
-        .unwrap_or_else(|| std::env::current_dir().unwrap_or_default());
+    let directory = resolve_directory(args.directory);
 
     let tool = DiagnosticsTool::new(config);
     let diagnostics = tool.get_diagnostics(&directory, args.file.as_deref())?;
@@ -549,47 +549,41 @@ async fn lsp_diagnostics(arguments: Value) -> Result<String> {
         );
     }
 
-    let errors: Vec<&_> = diagnostics
-        .iter()
-        .filter(|d| {
-            matches!(
-                d.severity,
-                orchestrator_core::tools::lsp::DiagnosticSeverity::Error
-            )
-        })
-        .collect();
-    let warnings: Vec<&_> = diagnostics
-        .iter()
-        .filter(|d| {
-            matches!(
-                d.severity,
-                orchestrator_core::tools::lsp::DiagnosticSeverity::Warning
-            )
-        })
-        .collect();
+    Ok(serde_json::to_string_pretty(&diagnostics_report_json(
+        &diagnostics,
+    ))?)
+}
 
-    let diag_list: Vec<Value> = diagnostics
-        .iter()
-        .take(50)
-        .map(|d| {
-            json!({
-                "file": d.file,
-                "line": d.line,
-                "column": d.column,
-                "severity": format!("{:?}", d.severity).to_lowercase(),
-                "message": d.message,
-                "source": d.source,
-                "code": d.code
-            })
-        })
-        .collect();
+fn diagnostics_report_json(diagnostics: &[Diagnostic]) -> Value {
+    let errors = count_severity(diagnostics, DiagnosticSeverity::Error);
+    let warnings = count_severity(diagnostics, DiagnosticSeverity::Warning);
+    let diag_list: Vec<Value> = diagnostics.iter().take(50).map(diagnostic_json).collect();
 
-    Ok(serde_json::to_string_pretty(&json!({
-        "status": if !errors.is_empty() { status::ERROR } else if !warnings.is_empty() { status::WARNING } else { status::CLEAN },
-        "summary": format!("{} error(s), {} warning(s)", errors.len(), warnings.len()),
+    json!({
+        "status": if errors > 0 { status::ERROR } else if warnings > 0 { status::WARNING } else { status::CLEAN },
+        "summary": format!("{} error(s), {} warning(s)", errors, warnings),
         "diagnostics": diag_list,
         "total": diagnostics.len()
-    }))?)
+    })
+}
+
+fn count_severity(diagnostics: &[Diagnostic], severity: DiagnosticSeverity) -> usize {
+    diagnostics
+        .iter()
+        .filter(|d| d.severity == severity)
+        .count()
+}
+
+fn diagnostic_json(d: &Diagnostic) -> Value {
+    json!({
+        "file": d.file,
+        "line": d.line,
+        "column": d.column,
+        "severity": format!("{:?}", d.severity).to_lowercase(),
+        "message": d.message,
+        "source": d.source,
+        "code": d.code
+    })
 }
 
 // ========== AST SEARCH TOOL ==========
@@ -602,13 +596,10 @@ struct AstSearchArgs {
     include: Option<String>,
 }
 
-async fn ast_search(arguments: Value) -> Result<String> {
+fn ast_search(arguments: Value) -> Result<String> {
     let args: AstSearchArgs = serde_json::from_value(arguments)?;
 
-    let directory = args
-        .directory
-        .map(PathBuf::from)
-        .unwrap_or_else(|| std::env::current_dir().unwrap_or_default());
+    let directory = resolve_directory(args.directory);
 
     let tool = AstTool::new(AstConfig::default());
     let matches = tool.search(
@@ -656,13 +647,10 @@ struct AstReplaceArgs {
     include: Option<String>,
 }
 
-async fn ast_replace(arguments: Value) -> Result<String> {
+fn ast_replace(arguments: Value) -> Result<String> {
     let args: AstReplaceArgs = serde_json::from_value(arguments)?;
 
-    let directory = args
-        .directory
-        .map(PathBuf::from)
-        .unwrap_or_else(|| std::env::current_dir().unwrap_or_default());
+    let directory = resolve_directory(args.directory);
 
     let tool = AstTool::new(AstConfig::default());
     let result = tool.replace(
@@ -717,6 +705,35 @@ mod tests {
         assert_eq!(report["success"], false);
         assert_eq!(report["timed_out"], true);
         assert_eq!(report["errors"], json!([]));
+    }
+
+    #[test]
+    fn diagnostics_report_counts_errors_and_warnings() {
+        let diagnostic = |severity| Diagnostic {
+            file: "a.ts".to_string(),
+            line: 1,
+            column: 2,
+            severity,
+            message: "m".to_string(),
+            source: None,
+            code: None,
+        };
+        let diagnostics = [
+            diagnostic(DiagnosticSeverity::Warning),
+            diagnostic(DiagnosticSeverity::Error),
+            diagnostic(DiagnosticSeverity::Hint),
+        ];
+
+        let value = diagnostics_report_json(&diagnostics);
+
+        assert_eq!(value["status"], status::ERROR);
+        assert_eq!(value["summary"], "1 error(s), 1 warning(s)");
+        assert_eq!(value["diagnostics"][0]["severity"], "warning");
+        assert_eq!(value["total"], 3);
+        assert_eq!(
+            diagnostics_report_json(&diagnostics[..1])["status"],
+            status::WARNING
+        );
     }
 
     #[test]
