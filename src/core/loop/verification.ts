@@ -69,30 +69,22 @@ function parseChecklistLine(line: string, currentCategory: ChecklistCategory): C
     return null;
 }
 
+/** Header keywords per category, checked in order; the first matching category wins. */
+const CATEGORY_HEADER_KEYWORDS: ReadonlyArray<readonly [ChecklistCategory, readonly string[]]> = [
+    [CHECKLIST_CATEGORIES.IDS.CODE_QUALITY, ['code quality', 'lint', 'type']],
+    [CHECKLIST_CATEGORIES.IDS.UNIT_TESTS, ['unit test']],
+    [CHECKLIST_CATEGORIES.IDS.INTEGRATION_TESTS, ['integration', 'e2e']],
+    [CHECKLIST_CATEGORIES.IDS.BUILD, ['build']],
+    [CHECKLIST_CATEGORIES.IDS.RUNTIME, ['runtime', 'start', 'run']],
+    [CHECKLIST_CATEGORIES.IDS.INFRASTRUCTURE, ['infrastructure', 'environment', 'docker', 'deploy']],
+];
+
 function detectCategory(headerLine: string): ChecklistCategory {
     const headerLower = headerLine.toLowerCase();
-
-    if (headerLower.includes('code quality') || headerLower.includes('lint') || headerLower.includes('type')) {
-        return CHECKLIST_CATEGORIES.IDS.CODE_QUALITY;
-    }
-    if (headerLower.includes('unit test')) {
-        return CHECKLIST_CATEGORIES.IDS.UNIT_TESTS;
-    }
-    if (headerLower.includes('integration') || headerLower.includes('e2e')) {
-        return CHECKLIST_CATEGORIES.IDS.INTEGRATION_TESTS;
-    }
-    if (headerLower.includes('build')) {
-        return CHECKLIST_CATEGORIES.IDS.BUILD;
-    }
-    if (headerLower.includes('runtime') || headerLower.includes('start') || headerLower.includes('run')) {
-        return CHECKLIST_CATEGORIES.IDS.RUNTIME;
-    }
-    if (headerLower.includes('infrastructure') || headerLower.includes('environment') ||
-        headerLower.includes('docker') || headerLower.includes('deploy')) {
-        return CHECKLIST_CATEGORIES.IDS.INFRASTRUCTURE;
-    }
-
-    return CHECKLIST_CATEGORIES.IDS.CUSTOM;
+    const match = CATEGORY_HEADER_KEYWORDS.find(([, keywords]) =>
+        keywords.some(keyword => headerLower.includes(keyword))
+    );
+    return match ? match[0] : CHECKLIST_CATEGORIES.IDS.CUSTOM;
 }
 
 function parseChecklist(content: string): ChecklistItem[] {
@@ -149,10 +141,9 @@ function readChecklistWithDiagnostics(directory: string): ChecklistReadResult {
 // Verification Functions
 // ============================================================================
 
-function verifyChecklist(directory: string): ChecklistVerificationResult {
-    const checklistRead = readChecklistWithDiagnostics(directory);
-    const result: ChecklistVerificationResult = {
-        present: checklistRead.present,
+function createChecklistResult(present: boolean): ChecklistVerificationResult {
+    return {
+        present,
         passed: false,
         totalItems: 0,
         completedItems: 0,
@@ -161,28 +152,42 @@ function verifyChecklist(directory: string): ChecklistVerificationResult {
         incompleteList: [],
         errors: []
     };
+}
 
+/** Errors that stop verification before any item is counted, or undefined when items can be counted. */
+function checklistReadErrors(checklistRead: ChecklistReadResult): string[] | undefined {
     if (!checklistRead.present) {
-        result.errors.push(`Verification checklist not found at ${CHECKLIST_FILE}`);
-        result.errors.push("Create checklist with at least: build, tests, and any environment-specific checks");
+        return [
+            `Verification checklist not found at ${CHECKLIST_FILE}`,
+            "Create checklist with at least: build, tests, and any environment-specific checks",
+        ];
+    }
+
+    if (checklistRead.error) {
+        return [checklistRead.error];
+    }
+
+    if (checklistRead.items.length < CHECKLIST.MIN_ITEMS) {
+        const error = checklistRead.empty
+            ? "Verification checklist is empty"
+            : "Verification checklist contains no valid items";
+        return [error, "Add verification items (build, tests, environment checks)"];
+    }
+
+    return undefined;
+}
+
+function verifyChecklist(directory: string): ChecklistVerificationResult {
+    const checklistRead = readChecklistWithDiagnostics(directory);
+    const result = createChecklistResult(checklistRead.present);
+
+    const readErrors = checklistReadErrors(checklistRead);
+    if (readErrors) {
+        result.errors.push(...readErrors);
         return result;
     }
 
     const items = checklistRead.items;
-
-    if (checklistRead.error) {
-        result.errors.push(checklistRead.error);
-        return result;
-    }
-
-    if (items.length < CHECKLIST.MIN_ITEMS) {
-        const error = checklistRead.empty
-            ? "Verification checklist is empty"
-            : "Verification checklist contains no valid items";
-        result.errors.push(error);
-        result.errors.push("Add verification items (build, tests, environment checks)");
-        return result;
-    }
 
     // Count completions
     result.totalItems = items.length;
@@ -351,26 +356,28 @@ function applyTodoVerification(directory: string, result: VerificationResult, ha
     if (result.todoPresent) {
         try {
             const content = readFileSync(todoPath, 'utf-8');
-            const stats = countTodoCompletion(content);
-
-            result.todoIncomplete = stats.incomplete;
-            result.todoComplete = stats.incomplete === 0 && stats.total > 0;
-            result.todoProgress = `${stats.complete}/${stats.total}`;
-
-            if (!result.todoComplete) {
-                if (stats.total === 0 && !hasChecklist) {
-                    result.errors.push("No TODO items found - create tasks first");
-                } else if (stats.total > 0) {
-                    result.errors.push(
-                        `TODO incomplete: ${result.todoProgress} (${stats.incomplete} remaining)`
-                    );
-                }
-            }
+            applyTodoStats(result, countTodoCompletion(content), hasChecklist);
         } catch (error) {
             result.errors.push(`Failed to read TODO: ${error}`);
         }
     } else if (!hasChecklist) {
         result.errors.push(`TODO file not found at ${PATHS.TODO}`);
+    }
+}
+
+function applyTodoStats(result: VerificationResult, stats: TodoCompletionStats, hasChecklist: boolean): void {
+    result.todoIncomplete = stats.incomplete;
+    result.todoComplete = stats.incomplete === 0 && stats.total > 0;
+    result.todoProgress = `${stats.complete}/${stats.total}`;
+
+    if (result.todoComplete) return;
+
+    if (stats.total === 0 && !hasChecklist) {
+        result.errors.push("No TODO items found - create tasks first");
+    } else if (stats.total > 0) {
+        result.errors.push(
+            `TODO incomplete: ${result.todoProgress} (${stats.incomplete} remaining)`
+        );
     }
 }
 
