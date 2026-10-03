@@ -80,7 +80,9 @@ impl FileStatsTool {
         let filter = PathFilter::new(directory, &self.config.exclude_patterns).include_hidden(true);
 
         let mut totals = StatsAccumulator::default();
-        let entries = walker.into_iter().filter_entry(|e| filter.allows(e.path()));
+        let entries = walker
+            .into_iter()
+            .filter_entry(|e| filter.allows(e.path(), e.file_type().is_dir()));
         for entry in entries.filter_map(|e| e.ok()) {
             if start.elapsed() >= self.config.timeout {
                 totals.timed_out = true;

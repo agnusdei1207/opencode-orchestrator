@@ -156,7 +156,7 @@ impl SedTool {
         let walker = WalkDir::new(directory)
             .follow_links(false)
             .into_iter()
-            .filter_entry(|e| filter.allows(e.path()));
+            .filter_entry(|e| filter.allows(e.path(), e.file_type().is_dir()));
 
         for entry in walker {
             if start.elapsed() > self.config.timeout {

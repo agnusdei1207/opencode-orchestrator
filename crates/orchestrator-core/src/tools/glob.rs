@@ -71,7 +71,10 @@ impl GlobTool {
 
         let filter = PathFilter::new(directory, &self.config.exclude_patterns)
             .include_hidden(self.config.include_hidden);
-        for entry in walker.into_iter().filter_entry(|e| filter.allows(e.path())) {
+        for entry in walker
+            .into_iter()
+            .filter_entry(|e| filter.allows(e.path(), e.file_type().is_dir()))
+        {
             if start.elapsed() > self.config.timeout {
                 found.timed_out = true;
                 break;

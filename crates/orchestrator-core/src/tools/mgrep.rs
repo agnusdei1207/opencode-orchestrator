@@ -115,7 +115,7 @@ impl MgrepTool {
         WalkDir::new(directory)
             .follow_links(false)
             .into_iter()
-            .filter_entry(|e| filter.allows(e.path()))
+            .filter_entry(|e| filter.allows(e.path(), e.file_type().is_dir()))
             .filter_map(|e| e.ok())
             .filter(|e| e.file_type().is_file())
             .filter(|e| {

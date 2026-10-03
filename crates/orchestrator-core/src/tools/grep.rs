@@ -77,7 +77,7 @@ impl GrepTool {
         let walker = WalkDir::new(directory)
             .follow_links(false)
             .into_iter()
-            .filter_entry(|e| filter.allows(e.path()));
+            .filter_entry(|e| filter.allows(e.path(), e.file_type().is_dir()));
 
         for entry in walker {
             if start.elapsed() > self.config.timeout {
@@ -170,6 +170,26 @@ mod tests {
 
         assert_eq!(results.len(), 1, "{results:?}");
         assert!(results[0].file.ends_with("a.txt"));
+    }
+
+    #[test]
+    fn regular_files_named_like_excluded_directories_are_searched() {
+        let dir = tempdir().unwrap();
+        fs::create_dir_all(dir.path().join("scripts")).unwrap();
+        fs::create_dir_all(dir.path().join("build")).unwrap();
+        fs::write(dir.path().join("scripts").join("build"), "needle\n").unwrap();
+        fs::write(dir.path().join("build").join("out.txt"), "needle\n").unwrap();
+
+        let results = GrepTool::default()
+            .search("needle", dir.path())
+            .unwrap()
+            .matches;
+
+        assert_eq!(results.len(), 1, "{results:?}");
+        assert!(
+            Path::new(&results[0].file).ends_with("scripts/build"),
+            "{results:?}"
+        );
     }
 
     #[test]

@@ -41,8 +41,9 @@ impl PathFilter {
     }
 
     /// Whether `path`, an entry below the root, should be visited. The root
-    /// itself is always visited.
-    pub(crate) fn allows(&self, path: &Path) -> bool {
+    /// itself is always visited. `is_dir` tells whether the entry is a
+    /// directory, which only the walker knows without another `stat`.
+    pub(crate) fn allows(&self, path: &Path, is_dir: bool) -> bool {
         let relative = path.strip_prefix(&self.root).unwrap_or(path);
         if relative.as_os_str().is_empty() {
             return true;
@@ -50,7 +51,7 @@ impl PathFilter {
         if !self.include_hidden && is_hidden(relative) {
             return false;
         }
-        if self.is_excluded(relative) {
+        if self.is_excluded(relative, is_dir) {
             return false;
         }
         self.include
@@ -58,13 +59,15 @@ impl PathFilter {
             .is_none_or(|patterns| patterns.iter().any(|p| p.matches_path(relative)))
     }
 
-    /// `dir/**` also excludes `dir` itself, so the whole tree is pruned
-    /// instead of visiting the directory and rejecting each child.
-    fn is_excluded(&self, relative: &Path) -> bool {
-        let as_directory = relative.join("");
-        self.exclude
-            .iter()
-            .any(|p| p.matches_path(relative) || p.matches_path(&as_directory))
+    /// `dir/**` also excludes the directory `dir` itself, so the whole tree is
+    /// pruned instead of visiting the directory and rejecting each child. A
+    /// regular file that happens to be named `build` or `dist` is not a tree
+    /// and stays visible.
+    fn is_excluded(&self, relative: &Path, is_dir: bool) -> bool {
+        let as_directory = is_dir.then(|| relative.join(""));
+        self.exclude.iter().any(|p| {
+            p.matches_path(relative) || as_directory.as_ref().is_some_and(|d| p.matches_path(d))
+        })
     }
 }
 
@@ -105,17 +108,32 @@ mod tests {
         values.iter().map(|value| value.to_string()).collect()
     }
 
+    const DIR: bool = true;
+    const FILE: bool = false;
+
     #[test]
     fn patterns_apply_below_the_root_only() {
         let root = Path::new("/home/user/build/app");
         let filter = PathFilter::new(root, &strings(&["**/build/**", "**/node_modules/**"]));
 
-        assert!(filter.allows(root));
-        assert!(filter.allows(&root.join("src/main.rs")));
-        assert!(!filter.allows(&root.join("node_modules/x/index.js")));
-        assert!(!filter.allows(&root.join("node_modules")));
-        assert!(filter.allows(&root.join("node_modules_backup")));
-        assert!(!filter.allows(&root.join("sub/build/out.o")));
+        assert!(filter.allows(root, DIR));
+        assert!(filter.allows(&root.join("src/main.rs"), FILE));
+        assert!(!filter.allows(&root.join("node_modules/x/index.js"), FILE));
+        assert!(!filter.allows(&root.join("node_modules"), DIR));
+        assert!(filter.allows(&root.join("node_modules_backup"), DIR));
+        assert!(!filter.allows(&root.join("sub/build/out.o"), FILE));
+    }
+
+    #[test]
+    fn directory_form_applies_to_directories_only() {
+        let root = Path::new("/repo");
+        let filter = PathFilter::new(root, &heavy_directory_excludes());
+
+        assert!(!filter.allows(&root.join("build"), DIR));
+        assert!(!filter.allows(&root.join("scripts/dist"), DIR));
+        assert!(filter.allows(&root.join("scripts/build"), FILE));
+        assert!(filter.allows(&root.join("target"), FILE));
+        assert!(filter.allows(&root.join("bin/node_modules"), FILE));
     }
 
     #[test]
@@ -123,13 +141,13 @@ mod tests {
         let root = Path::new("/tmp/.work/app");
         let filter = PathFilter::new(root, &[]);
 
-        assert!(filter.allows(&root.join("src")));
-        assert!(!filter.allows(&root.join(".git")));
+        assert!(filter.allows(&root.join("src"), DIR));
+        assert!(!filter.allows(&root.join(".git"), DIR));
         assert!(
             filter
                 .clone()
                 .include_hidden(true)
-                .allows(&root.join(".git"))
+                .allows(&root.join(".git"), DIR)
         );
     }
 
@@ -138,12 +156,12 @@ mod tests {
         let root = Path::new("/repo");
         let filter = PathFilter::new(root, &[]).include_only(&strings(&["*.rs"]));
 
-        assert!(filter.allows(&root.join("lib.rs")));
-        assert!(!filter.allows(&root.join("lib.ts")));
+        assert!(filter.allows(&root.join("lib.rs"), FILE));
+        assert!(!filter.allows(&root.join("lib.ts"), FILE));
         assert!(
             PathFilter::new(root, &[])
                 .include_only(&[])
-                .allows(&root.join("lib.ts"))
+                .allows(&root.join("lib.ts"), FILE)
         );
     }
 }
