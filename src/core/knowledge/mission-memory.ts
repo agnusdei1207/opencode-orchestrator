@@ -299,15 +299,16 @@ function resolveMemoryNoteLifecycle(
     // Lifecycle state belongs to the note (its long-term memory), not to the
     // volatile MemoryManager projection. Preserve it across resyncs; fall back
     // to fresh values only when the note is first created.
+    const meta: FrontmatterData = existing ?? {};
     return {
-        ingestionTime: stringMeta(existing?.ingestion_time) ?? now,
-        lastAccessed: stringMeta(existing?.last_accessed) ?? now,
-        accessCount: numberMeta(existing?.access_count) ?? 1,
-        accessEma: numberMeta(existing?.access_ema),
-        memoryLayer: stringMeta(existing?.memory_layer) ?? "warm",
-        tombstone: existing?.tombstone === true,
-        validTo: stringMeta(existing?.valid_to),
-        supersedes: Array.isArray(existing?.supersedes) ? existing.supersedes : undefined,
+        ingestionTime: stringMeta(meta.ingestion_time) ?? now,
+        lastAccessed: stringMeta(meta.last_accessed) ?? now,
+        accessCount: numberMeta(meta.access_count) ?? 1,
+        accessEma: numberMeta(meta.access_ema),
+        memoryLayer: stringMeta(meta.memory_layer) ?? "warm",
+        tombstone: meta.tombstone === true,
+        validTo: stringMeta(meta.valid_to),
+        supersedes: Array.isArray(meta.supersedes) ? meta.supersedes : undefined,
     };
 }
 
