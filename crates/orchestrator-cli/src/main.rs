@@ -23,8 +23,8 @@ use orchestrator_core::constants::{agent, field, rpc, tool};
 use orchestrator_core::hooks::Hook;
 use serde_json::{Value, json};
 use std::env;
-use std::io::{self, BufRead, Write};
-use tracing::{debug, error, info};
+use std::io::{self, BufRead, Read, Write};
+use tracing::{debug, error, info, warn};
 use tracing_subscriber::EnvFilter;
 
 mod shell_listener;
@@ -124,32 +124,92 @@ async fn serve() -> Result<()> {
 
     info!("OpenCode Orchestrator starting");
 
-    let stdin = io::stdin();
+    let mut stdin = io::stdin().lock();
     let mut stdout = io::stdout();
+    let mut buf = Vec::new();
 
-    for line in stdin.lock().lines() {
-        let line = match line {
-            Ok(l) => l,
+    loop {
+        let response = match read_request_line(&mut stdin, &mut buf, MAX_REQUEST_LINE_BYTES) {
+            Ok(LineRead::Eof) => return Ok(()),
+            Ok(LineRead::Line(line)) => respond_to(&line).await,
+            Ok(LineRead::TooLong) => {
+                warn!(
+                    limit = MAX_REQUEST_LINE_BYTES,
+                    "Rejected oversized request line"
+                );
+                Some(oversized_request_response())
+            }
             Err(e) => {
                 error!("Read error: {}", e);
                 continue;
             }
         };
-
-        if line.trim().is_empty() {
-            continue;
-        }
-
-        debug!("Received: {}", line);
-
-        if let Some(resp) = response_for_line(&line).await {
-            let resp_str = serde_json::to_string(&resp)?;
-            debug!("Sending: {}", resp_str);
-            writeln!(stdout, "{}", resp_str)?;
-            stdout.flush()?;
+        if let Some(response) = response {
+            write_response(&mut stdout, &response)?;
         }
     }
+}
 
+/// Longest request line the server buffers; longer lines are skipped and
+/// answered with an invalid-request error.
+const MAX_REQUEST_LINE_BYTES: u64 = 16 * 1024 * 1024;
+/// Characters of a client-supplied method name written to the debug log.
+const MAX_LOGGED_METHOD_CHARS: usize = 64;
+
+/// One read from the request stream.
+#[derive(Debug, PartialEq, Eq)]
+enum LineRead {
+    Line(String),
+    /// The line exceeded the limit; it was consumed without being buffered.
+    TooLong,
+    Eof,
+}
+
+/// Read one request line of at most `limit` bytes (excluding the line
+/// ending). A longer line is skipped up to its newline so the next request
+/// still parses. Invalid UTF-8 is an `InvalidData` error, as with `lines()`.
+fn read_request_line(
+    reader: &mut impl BufRead,
+    buf: &mut Vec<u8>,
+    limit: u64,
+) -> io::Result<LineRead> {
+    buf.clear();
+    if reader.by_ref().take(limit + 1).read_until(b'\n', buf)? == 0 {
+        return Ok(LineRead::Eof);
+    }
+    if !buf.ends_with(b"\n") && buf.len() as u64 > limit {
+        reader.skip_until(b'\n')?;
+        return Ok(LineRead::TooLong);
+    }
+    let text =
+        std::str::from_utf8(buf).map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
+    let line = text.strip_suffix('\n').unwrap_or(text);
+    Ok(LineRead::Line(
+        line.strip_suffix('\r').unwrap_or(line).to_string(),
+    ))
+}
+
+/// No id can be read from a request that was never buffered.
+fn oversized_request_response() -> Value {
+    let message = format!("Invalid request: line exceeds {MAX_REQUEST_LINE_BYTES} bytes");
+    error_response(Value::Null, RpcError::new(rpc::INVALID_REQUEST, message))
+}
+
+/// Answer one non-empty line. Only sizes are logged: requests and replies
+/// carry file contents, HTTP headers and bodies.
+async fn respond_to(line: &str) -> Option<Value> {
+    if line.trim().is_empty() {
+        return None;
+    }
+    debug!(bytes = line.len(), "Received request line");
+    response_for_line(line).await
+}
+
+fn write_response(stdout: &mut impl Write, response: &Value) -> Result<()> {
+    let text = serde_json::to_string(response)?;
+    debug!(bytes = text.len(), "Sending response");
+    writeln!(stdout, "{}", text)?;
+    stdout.flush()?;
     Ok(())
 }
 
@@ -189,6 +249,14 @@ async fn response_for_line(line: &str) -> Option<Value> {
 /// (no id) are not answered when they fail.
 async fn handle_request(request: &Value) -> Option<Value> {
     let id = request.get(field::ID).cloned();
+    let method: String = request
+        .get(field::METHOD)
+        .and_then(Value::as_str)
+        .unwrap_or_default()
+        .chars()
+        .take(MAX_LOGGED_METHOD_CHARS)
+        .collect();
+    debug!(method = %method, id = ?id, "Handling request");
     match dispatch(request).await {
         Ok(result) => Some(json!({
             "jsonrpc": rpc::VERSION,
@@ -582,6 +650,52 @@ mod tests {
     async fn notifications_never_get_error_replies() {
         let req = json!({"jsonrpc": rpc::VERSION, field::METHOD: "tools/nope"});
         assert!(handle_request(&req).await.is_none());
+    }
+
+    fn read_all(input: &str, limit: u64) -> Vec<LineRead> {
+        let mut reader = io::Cursor::new(input.as_bytes().to_vec());
+        let mut buf = Vec::new();
+        let mut lines = Vec::new();
+        loop {
+            match read_request_line(&mut reader, &mut buf, limit).unwrap() {
+                LineRead::Eof => return lines,
+                other => lines.push(other),
+            }
+        }
+    }
+
+    #[test]
+    fn request_lines_over_the_limit_are_rejected_and_skipped() {
+        let lines = read_all("{\"a\":1}\n0123456789abcdef\n{}\r\n", 8);
+
+        assert_eq!(
+            lines,
+            [
+                LineRead::Line("{\"a\":1}".to_string()),
+                LineRead::TooLong,
+                LineRead::Line("{}".to_string()),
+            ]
+        );
+    }
+
+    #[test]
+    fn a_line_of_exactly_the_limit_is_accepted() {
+        assert_eq!(
+            read_all("12345678\n12345678", 8),
+            [
+                LineRead::Line("12345678".to_string()),
+                LineRead::Line("12345678".to_string()),
+            ]
+        );
+    }
+
+    #[test]
+    fn oversized_requests_get_an_invalid_request_reply() {
+        assert_rpc_error(
+            &oversized_request_response(),
+            Value::Null,
+            rpc::INVALID_REQUEST,
+        );
     }
 
     #[tokio::test]
