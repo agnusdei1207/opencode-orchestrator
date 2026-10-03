@@ -244,7 +244,11 @@ describe("mission runtime memory", () => {
                 supersedes: ["old-a", "old-b"],
             });
 
-            // Resync after clearing task memories to test unlinking obsolete projection note
+            const userNote = "project-user-written.md";
+            fs.writeFileSync(path.join(notesDir, userNote), "# My own project notes\n", "utf8");
+
+            // An empty MemoryManager is what a plugin restart looks like. Resync must
+            // drop only unpinned generated notes.
             memoryManager.import({
                 [MemoryLevel.SYSTEM]: [],
                 [MemoryLevel.PROJECT]: [],
@@ -253,7 +257,7 @@ describe("mission runtime memory", () => {
             });
             syncMissionMemory(testDir, loopState);
             const remainingNotes = fs.readdirSync(notesDir).filter(f => f.startsWith("project-") || f.startsWith("mission-") || f.startsWith("task-"));
-            expect(remainingNotes.length).toBe(0);
+            expect(remainingNotes.sort()).toEqual([projectNote!, userNote].sort());
         } finally {
             memoryManager.import(originalEntries);
         }

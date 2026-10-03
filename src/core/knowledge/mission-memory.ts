@@ -46,6 +46,8 @@ const BRAIN_DIR = join(PATHS.DOCS, "brain");
 const SCRATCHPAD_FILE = "scratchpad.md";
 const CANVAS_FILE = "knowledge-map.canvas";
 const MEMORY_NOTES_DIR = "memories";
+/** Frontmatter tag that marks a note as generated here (and therefore prunable). */
+const MEMORY_NOTE_TAG = "mission-memory";
 const MAX_CANVAS_EVENTS = 3;
 const MAX_SCRATCHPAD_EVENTS = 6;
 const MAX_MEMORY_NOTES = 8;
@@ -179,14 +181,24 @@ function syncMissionMemoryNotes(directory: string, state: MissionLoopState): voi
 
     for (const entry of readdirSync(notesDir, { withFileTypes: true })) {
         if (!entry.isFile() || !entry.name.endsWith(".md")) continue;
-        if (!expectedFiles.has(entry.name) && isMemoryProjectionNote(entry.name)) {
-            unlinkSync(join(notesDir, entry.name));
-        }
+        if (expectedFiles.has(entry.name) || !isMemoryProjectionNote(entry.name)) continue;
+        const notePath = join(notesDir, entry.name);
+        if (isPrunableGeneratedNote(loadNoteMetadata(notePath))) unlinkSync(notePath);
     }
 }
 
 function isMemoryProjectionNote(fileName: string): boolean {
     return fileName.startsWith("project-") || fileName.startsWith("mission-") || fileName.startsWith("task-");
+}
+
+/**
+ * MemoryManager is in-memory only, so after a restart nothing is "expected".
+ * Only unpinned notes this module generated may be pruned; pinned notes and
+ * user-written files that share the filename prefix must survive.
+ */
+function isPrunableGeneratedNote(metadata: FrontmatterData | null): boolean {
+    if (!metadata || metadata.keep === true) return false;
+    return Array.isArray(metadata.tags) && metadata.tags.includes(MEMORY_NOTE_TAG);
 }
 
 function buildCanvasNodes(state: MissionLoopState, events: MissionLedgerEvent[]): CanvasNode[] {
@@ -304,7 +316,7 @@ function buildMemoryNoteFrontmatter(context: MemoryNoteContext): string[] {
     const profile = decayProfileForLevel(entry.level);
     const frontmatter: string[] = [
         "---",
-        `tags: [mission-memory, orchestrator, ${entry.level}]`,
+        `tags: [${MEMORY_NOTE_TAG}, orchestrator, ${entry.level}]`,
         `title: "${escapeYaml(`${entry.level} memory ${entry.id}`)}"`,
     ];
     // Pin only high-value memory; everything else decays via the Ebbinghaus model.
