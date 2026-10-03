@@ -13,28 +13,34 @@ each, then commit, push, and cut a patch release (v2.0.10).
 Audit covered `src/**`, `crates/**`, tests, docs, CI. High items were
 re-opened and verified before fixing. Seven TDD commits (red then green):
 
-1. `c7f86a1` root-deletion / fork-bomb guard bypasses
+1. `5c10197` root-deletion / fork-bomb guard bypasses
    (`security-patterns.ts`, `strict-role-guard.ts`).
-2. `f40e443` multi-line `/task` detection (`slash-command.ts`, dotAll flag).
-3. `b9d788b` unlimited (0) concurrency keys threw on auto-scale-down
+2. `813cf52` multi-line `/task` detection (`slash-command.ts`, dotAll flag).
+3. `c4b5d6e` unlimited (0) concurrency keys threw on auto-scale-down
    (`concurrency.ts handleFailure`).
-4. `cfb2e00` V2 event bridge ended on the first handler throw
+4. `c0e6060` V2 event bridge ended on the first handler throw
    (`v2/event-bridge.ts dispatch`).
-5. `2b06b05` unhandled rejection from the countdown timer
+5. `52c142b` unhandled rejection from the countdown timer
    (`mission-loop-handler.ts runScheduledContinuation`).
-6. `9825e57` pooled tasks never left `ObjectPool.inUse` on normal delete
+6. `eecda63` pooled tasks never left `ObjectPool.inUse` on normal delete
    (`ObjectPool.discard`, `TaskStore.removeEntry`).
-7. `164162e` Rust CLI integration test looked for a non-existent
+7. `7c320d8` Rust CLI integration test looked for a non-existent
    `orchestrator-cli` binary; now uses `getBinaryPath()` and stderr for help.
 
 `tsc --noEmit`, `npm run build`, and all 120 Vitest files / 1,053 tests
 passed after the last commit.
 
+Released v2.0.10 via `npm run release:patch` (version commit `50cfa55`, tag
+`v2.0.10`). Preflight passed. GitHub CI run 37109170711, Build & Release run
+37109170390 and Pages deploy succeeded; the GitHub Release has five platform
+binaries. The public npm registry reports `opencode-orchestrator@2.0.10` as
+`latest`, with tarball metadata present.
+
 ## Next exact step
 
-Run `npm run release:patch` (version bump, preflight, push with tag), then
-confirm GitHub CI, Build & Release, and npm `latest` for 2.0.10 and record
-the result here.
+Pick the next audit batch from "Incomplete items" below. Recommended order:
+Rust `http.rs` exfiltration fix (needs a Rust toolchain or CI-only
+verification), then the Medium TS items.
 
 ## Incomplete items and why
 
