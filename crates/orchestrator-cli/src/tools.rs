@@ -6,7 +6,7 @@ use orchestrator_core::tools::{
     AstTool, DiagnosticsTool, DiffTool, FileStatsTool, GitTool, GlobTool, GrepTool, HttpTool,
     JqTool, MgrepTool, SedTool, ast::AstConfig, diff::DiffConfig, glob::GlobConfig,
     grep::GrepConfig, http::HttpConfig, http::HttpMethod, jq::JqConfig, lsp::DiagnosticsConfig,
-    mgrep::MgrepConfig, sed::SedConfig,
+    mgrep::MgrepConfig, sed::SedConfig, sed::SedDirectoryReport,
 };
 
 use orchestrator_core::constants::{status, tool};
@@ -269,26 +269,10 @@ async fn sed_replace(arguments: Value) -> Result<String> {
     else if let Some(dir_path) = args.directory {
         let path = PathBuf::from(&dir_path);
         match tool.replace_in_directory(&args.pattern, &args.replacement, &path) {
-            Ok(results) => {
-                let total_replacements: usize = results.iter().map(|r| r.replacements).sum();
-                let files: Vec<Value> = results
-                    .iter()
-                    .map(|r| {
-                        json!({
-                            "file": r.file,
-                            "replacements": r.replacements
-                        })
-                    })
-                    .collect();
-
-                Ok(serde_json::to_string_pretty(&json!({
-                    "success": true,
-                    "files_modified": results.len(),
-                    "total_replacements": total_replacements,
-                    "files": files,
-                    "dry_run": args.dry_run.unwrap_or(false)
-                }))?)
-            }
+            Ok(report) => Ok(serde_json::to_string_pretty(&sed_directory_json(
+                &report,
+                args.dry_run.unwrap_or(false),
+            ))?),
             Err(e) => Ok(serde_json::to_string_pretty(&json!({
                 "success": false,
                 "error": e.to_string()
@@ -300,6 +284,32 @@ async fn sed_replace(arguments: Value) -> Result<String> {
             "error": "Either 'file' or 'directory' must be specified"
         }))?)
     }
+}
+
+/// Directory mode only succeeds when every file was processed: per-file
+/// errors and a timeout leave the tree partially rewritten.
+fn sed_directory_json(report: &SedDirectoryReport, dry_run: bool) -> Value {
+    let total_replacements: usize = report.results.iter().map(|r| r.replacements).sum();
+    let files: Vec<Value> = report
+        .results
+        .iter()
+        .map(|r| json!({"file": r.file, "replacements": r.replacements}))
+        .collect();
+    let errors: Vec<Value> = report
+        .errors
+        .iter()
+        .map(|e| json!({"file": e.file, "error": e.error}))
+        .collect();
+
+    json!({
+        "success": report.errors.is_empty() && !report.timed_out,
+        "files_modified": report.results.len(),
+        "total_replacements": total_replacements,
+        "files": files,
+        "errors": errors,
+        "timed_out": report.timed_out,
+        "dry_run": dry_run
+    })
 }
 
 // ========== DIFF TOOL ==========
@@ -684,5 +694,44 @@ mod tests {
         .await;
         let error = result.expect_err("unknown method must be rejected");
         assert!(error.to_string().contains("FETCH"));
+    }
+
+    #[tokio::test]
+    async fn sed_directory_mode_is_not_successful_after_a_timeout() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(dir.path().join("a.txt"), "foo\n").unwrap();
+
+        let output = execute_tool(
+            tool::SED_REPLACE,
+            json!({
+                "pattern": "foo",
+                "replacement": "bar",
+                "directory": dir.path(),
+                "timeout_ms": 0
+            }),
+        )
+        .await
+        .unwrap();
+        let report: Value = serde_json::from_str(&output).unwrap();
+
+        assert_eq!(report["success"], false);
+        assert_eq!(report["timed_out"], true);
+        assert_eq!(report["errors"], json!([]));
+    }
+
+    #[test]
+    fn sed_directory_json_reports_per_file_errors() {
+        let report = SedDirectoryReport {
+            errors: vec![orchestrator_core::tools::sed::SedFileError {
+                file: "locked.txt".to_string(),
+                error: "permission denied".to_string(),
+            }],
+            ..SedDirectoryReport::default()
+        };
+
+        let value = sed_directory_json(&report, false);
+
+        assert_eq!(value["success"], false);
+        assert_eq!(value["errors"][0]["file"], "locked.txt");
     }
 }
