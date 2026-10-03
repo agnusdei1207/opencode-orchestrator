@@ -6,7 +6,7 @@ import * as Toast from "./core/notification/toast.js";
 import { initializeHooks } from "./hooks/index.js";
 import { CleanupScheduler } from "./core/cleanup/cleanup-scheduler.js";
 import { ShutdownManager } from "./shared/lifecycle/index.js";
-import { backgroundTaskManager } from "./core/commands/manager.js";
+import { BACKGROUND_SHUTDOWN_TIMEOUT_MS, backgroundTaskManager } from "./core/commands/manager.js";
 import { shutdownRustToolPool } from "./tools/rust-pool.js";
 import { SHUTDOWN_HANDLERS } from "./shared/index.js";
 import { parseOrchestratorPluginOptions } from "./core/config/plugin-options.js";
@@ -29,7 +29,12 @@ export interface PluginRuntime {
 
 function registerProcessShutdownHandlers(shutdownManager: ShutdownManager): void {
     shutdownManager.register(SHUTDOWN_HANDLERS.RUST_TOOL_POOL, shutdownRustToolPool, 15);
-    shutdownManager.register(SHUTDOWN_HANDLERS.BACKGROUND_TASK_MANAGER, () => backgroundTaskManager.shutdown(), 20);
+    shutdownManager.register(
+        SHUTDOWN_HANDLERS.BACKGROUND_TASK_MANAGER,
+        () => backgroundTaskManager.shutdown(),
+        20,
+        BACKGROUND_SHUTDOWN_TIMEOUT_MS,
+    );
     shutdownManager.register(SHUTDOWN_HANDLERS.CIRCUIT_BREAKER, shutdownCircuitBreaker, 45);
     shutdownManager.register(SHUTDOWN_HANDLERS.COMPACTION_GUARD, shutdownCompactionGuard, 45);
     shutdownManager.register(SHUTDOWN_HANDLERS.SESSION_ACTIVITY, shutdownSessionActivity, 45);

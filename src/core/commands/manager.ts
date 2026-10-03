@@ -36,6 +36,13 @@ interface ManagedBackgroundTask extends BackgroundTask {
 const TERMINATION_TIMEOUT_MS = 10_000;
 
 /**
+ * Shutdown budget for the whole manager. Tasks terminate in parallel, so one
+ * termination window plus slack for close events is enough; the shutdown
+ * manager default (5 s) would cut a slow termination short and hide its error.
+ */
+export const BACKGROUND_SHUTDOWN_TIMEOUT_MS = TERMINATION_TIMEOUT_MS + 2_000;
+
+/**
  * Kill a Windows process tree. taskkill runs asynchronously (spawnSync would
  * block the event loop for up to the termination timeout); spawn's timeout
  * kills a hung taskkill, which then reports a non-zero close.
@@ -251,6 +258,8 @@ class BackgroundTaskManager {
             };
             const onClose = () => finish(true);
             const timer = setTimeout(() => finish(false), TERMINATION_TIMEOUT_MS);
+            // Waiting on a child must not by itself keep the host process alive.
+            timer.unref?.();
             proc.once("close", onClose);
             void this.signalTask(task).then(signalled => { if (!signalled) finish(false); });
         }).finally(() => { task.stopping = undefined; });

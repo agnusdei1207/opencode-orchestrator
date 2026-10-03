@@ -32,4 +32,18 @@ describe("ShutdownManager", () => {
         expect(log).toHaveBeenCalledWith(expect.stringContaining("slow failed: Timeout"));
         expect(vi.getTimerCount()).toBe(0);
     });
+
+    it("lets a handler with a longer budget finish past the default timeout", async () => {
+        vi.useFakeTimers();
+        const log = vi.fn();
+        const manager = new ShutdownManager(log);
+        manager.register("terminate", () => new Promise<void>(resolve => setTimeout(resolve, 8_000)), 1, 12_000);
+
+        const shutdown = manager.shutdown();
+        await vi.advanceTimersByTimeAsync(8_000);
+        await shutdown;
+
+        expect(log).toHaveBeenCalledWith(expect.stringContaining("✓ terminate completed"));
+        expect(log).not.toHaveBeenCalledWith(expect.stringContaining("terminate failed"));
+    });
 });

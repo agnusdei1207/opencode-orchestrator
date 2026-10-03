@@ -24,14 +24,15 @@ export class ShutdownManager {
      * @param name - Identifier for logging
      * @param fn - Cleanup function to execute
      * @param priority - Lower numbers run first (0-100). Default: 100
+     * @param timeoutMs - Time this handler may take. Default: CLEANUP_TIMEOUT_MS
      */
-    register(name: string, fn: CleanupFunction, priority: number = 100): void {
+    register(name: string, fn: CleanupFunction, priority: number = 100, timeoutMs: number = CLEANUP_TIMEOUT_MS): void {
         if (this.isShuttingDown) {
             this.log(`[${LOG_PREFIX.SHUTDOWN_MANAGER}] Cannot register ${name} during shutdown`);
             return;
         }
 
-        this.cleanupHandlers.push({ name, fn, priority });
+        this.cleanupHandlers.push({ name, fn, priority, timeoutMs });
         // Sort by priority (lower numbers first)
         this.cleanupHandlers.sort((a, b) => a.priority - b.priority);
         this.log(`[${LOG_PREFIX.SHUTDOWN_MANAGER}] Registered: ${name} (priority ${priority})`);
@@ -39,7 +40,7 @@ export class ShutdownManager {
 
     /**
      * Execute all cleanup handlers in priority order
-     * Each handler gets 5 seconds max
+     * Each handler gets its registered budget (5 seconds by default)
      */
     async shutdown(): Promise<void> {
         // Prevent multiple simultaneous shutdowns
@@ -59,7 +60,7 @@ export class ShutdownManager {
             try {
                 this.log(`[${LOG_PREFIX.SHUTDOWN_MANAGER}] Cleaning up: ${handler.name}`);
 
-                await runWithCleanupTimeout(handler.fn, CLEANUP_TIMEOUT_MS);
+                await runWithCleanupTimeout(handler.fn, handler.timeoutMs ?? CLEANUP_TIMEOUT_MS);
 
                 this.log(`[${LOG_PREFIX.SHUTDOWN_MANAGER}] ✓ ${handler.name} completed`);
             } catch (error) {

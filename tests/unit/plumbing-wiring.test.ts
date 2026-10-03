@@ -249,4 +249,9 @@ describe("Plumbing / Wiring Guards", () => {
             /MissionLoopHandler\.handleSessionBusy\(/,
         );
     });
+
+    it("gives background task shutdown its termination budget, not the 5 s default", () => {
+        const src = readFileSync(SRC("plugin-runtime.ts"), "utf8");
+        expect(src).toMatch(/SHUTDOWN_HANDLERS\.BACKGROUND_TASK_MANAGER,[\s\S]{0,120}BACKGROUND_SHUTDOWN_TIMEOUT_MS/);
+    });
 });
