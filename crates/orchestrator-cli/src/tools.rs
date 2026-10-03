@@ -439,7 +439,7 @@ struct FileStatsArgs {
 fn file_stats(arguments: Value) -> Result<String> {
     let args: FileStatsArgs = serde_json::from_value(arguments)?;
 
-    let tool = FileStatsTool::new();
+    let tool = FileStatsTool::default();
     let stats = tool.analyze(&PathBuf::from(&args.directory), args.max_depth)?;
 
     let file_types: Vec<Value> = stats
@@ -461,7 +461,8 @@ fn file_stats(arguments: Value) -> Result<String> {
         "total_size_bytes": stats.total_size,
         "total_lines": stats.total_lines,
         "file_types": file_types,
-        "largest_files": stats.largest_files
+        "largest_files": stats.largest_files,
+        "timed_out": stats.timed_out
     }))?)
 }
 

@@ -50,13 +50,38 @@ impl PathFilter {
         if !self.include_hidden && is_hidden(relative) {
             return false;
         }
-        if self.exclude.iter().any(|p| p.matches_path(relative)) {
+        if self.is_excluded(relative) {
             return false;
         }
         self.include
             .as_ref()
             .is_none_or(|patterns| patterns.iter().any(|p| p.matches_path(relative)))
     }
+
+    /// `dir/**` also excludes `dir` itself, so the whole tree is pruned
+    /// instead of visiting the directory and rejecting each child.
+    fn is_excluded(&self, relative: &Path) -> bool {
+        let as_directory = relative.join("");
+        self.exclude
+            .iter()
+            .any(|p| p.matches_path(relative) || p.matches_path(&as_directory))
+    }
+}
+
+/// Dependency, VCS and build-output trees that searches and statistics skip.
+pub(crate) const HEAVY_DIRECTORY_EXCLUDES: &[&str] = &[
+    "**/node_modules/**",
+    "**/.git/**",
+    "**/target/**",
+    "**/dist/**",
+    "**/build/**",
+];
+
+pub(crate) fn heavy_directory_excludes() -> Vec<String> {
+    HEAVY_DIRECTORY_EXCLUDES
+        .iter()
+        .map(|pattern| pattern.to_string())
+        .collect()
 }
 
 fn compile(patterns: &[String]) -> Vec<Pattern> {
@@ -88,6 +113,8 @@ mod tests {
         assert!(filter.allows(root));
         assert!(filter.allows(&root.join("src/main.rs")));
         assert!(!filter.allows(&root.join("node_modules/x/index.js")));
+        assert!(!filter.allows(&root.join("node_modules")));
+        assert!(filter.allows(&root.join("node_modules_backup")));
         assert!(!filter.allows(&root.join("sub/build/out.o")));
     }
 

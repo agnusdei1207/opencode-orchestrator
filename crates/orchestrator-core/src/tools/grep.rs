@@ -1,7 +1,7 @@
 //! Enhanced grep tool with timeout protection
 
 use crate::Result;
-use crate::tools::path_filter::PathFilter;
+use crate::tools::path_filter::{PathFilter, heavy_directory_excludes};
 use regex::Regex;
 use std::path::Path;
 use std::time::{Duration, Instant};
@@ -32,13 +32,7 @@ impl Default for GrepConfig {
             max_file_size: 10 * 1024 * 1024, // 10MB
             include_hidden: false,
             include_patterns: vec![],
-            exclude_patterns: vec![
-                "**/node_modules/**".to_string(),
-                "**/.git/**".to_string(),
-                "**/target/**".to_string(),
-                "**/dist/**".to_string(),
-                "**/build/**".to_string(),
-            ],
+            exclude_patterns: heavy_directory_excludes(),
         }
     }
 }
