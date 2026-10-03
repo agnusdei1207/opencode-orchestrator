@@ -62,6 +62,22 @@ function serializeToolCallRequest(request: JsonRpcToolCallRequest): string {
     return JSON.stringify(request);
 }
 
+/**
+ * Must match MAX_REQUEST_LINE_BYTES in crates/orchestrator-cli/src/main.rs. The
+ * server rejects longer lines; checking here fails fast instead of waiting out
+ * the request timeout and killing a healthy process.
+ */
+export const RUST_MAX_REQUEST_LINE_BYTES = 16 * 1024 * 1024;
+const REQUEST_ID_HEADROOM_BYTES = 32;
+
+function assertRequestFits(name: string, args: Record<string, unknown>): void {
+    // Measured with id 0; the real id adds at most a few digits, covered by the headroom.
+    const bytes = Buffer.byteLength(serializeToolCallRequest(buildToolCallRequest(0, name, args)));
+    if (bytes + REQUEST_ID_HEADROOM_BYTES >= RUST_MAX_REQUEST_LINE_BYTES) {
+        throw new Error(`Rust tool request for ${name} is too large (${bytes} bytes, limit ${RUST_MAX_REQUEST_LINE_BYTES})`);
+    }
+}
+
 function stringifyJsonRpcPayload(value: unknown): string {
     return JSON.stringify(value) ?? String(value);
 }
@@ -202,6 +218,7 @@ export class RustToolPool {
         if (this.shuttingDown) {
             throw new Error("Pool is shutting down");
         }
+        assertRequestFits(name, args);
 
         const binary = this.binaryPath();
         if (!this.exists(binary)) {

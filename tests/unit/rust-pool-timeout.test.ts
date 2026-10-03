@@ -2,7 +2,7 @@ import { EventEmitter } from "node:events";
 import type { ChildProcess, spawn } from "node:child_process";
 import { PassThrough } from "node:stream";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { RustToolPool } from "../../src/tools/rust-pool.js";
+import { RUST_MAX_REQUEST_LINE_BYTES, RustToolPool } from "../../src/tools/rust-pool.js";
 
 class FakeRustProcess extends EventEmitter {
     readonly stdout = new EventEmitter();
@@ -70,6 +70,20 @@ function createPool(
 }
 
 describe("RustToolPool timeout recovery", () => {
+    it("rejects a request larger than the server line limit without sending it", async () => {
+        const process = new FakeRustProcess();
+        process.onWrite = request => emitTextResponse(process, request, "ok");
+        const pool = createPool([process], 60_000);
+        const oversized = "x".repeat(RUST_MAX_REQUEST_LINE_BYTES);
+
+        await expect(pool.call("jq", { json_input: oversized })).rejects.toThrow(/too large/);
+
+        expect(process.requests).toHaveLength(0);
+        expect(process.kill).not.toHaveBeenCalled();
+        await expect(pool.call("git_status", {})).resolves.toBe("ok");
+        await pool.shutdown();
+    });
+
     it("drains stderr while the server is idle", async () => {
         const process = new FakeRustProcess();
         process.onWrite = request => emitTextResponse(process, request, "ok");
