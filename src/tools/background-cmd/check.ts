@@ -4,7 +4,7 @@
 
 import { tool, type ToolDefinition } from "@opencode-ai/plugin";
 import { backgroundTaskManager } from "../../core/commands/index.js";
-import { STATUS_LABEL } from "../../shared/index.js";
+import { BACKGROUND_TASK, STATUS_LABEL } from "../../shared/index.js";
 
 export const checkBackgroundTool: ToolDefinition = tool({
     description: `Check the status and output of a background task.`,
@@ -36,9 +36,9 @@ export const checkBackgroundTool: ToolDefinition = tool({
             stderr = stderr.split("\n").slice(-tailLines).join("\n");
         }
 
-        const maxLen = 10000;
-        if (output.length > maxLen) output = `[...truncated...]\\n` + output.slice(-maxLen);
-        if (stderr.length > maxLen) stderr = `[...truncated...]\\n` + stderr.slice(-maxLen);
+        const { MAX_OUTPUT_LENGTH: maxLen, OUTPUT_TRUNCATION_MARKER: marker } = BACKGROUND_TASK;
+        if (output.length > maxLen) output = marker + output.slice(-maxLen);
+        if (stderr.length > maxLen) stderr = marker + stderr.slice(-maxLen);
 
         let result = `${statusEmoji} **Task ${task.id}**${task.label ? ` (${task.label})` : ""}
 | Command | \`${task.command}\` |

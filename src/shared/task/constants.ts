@@ -21,7 +21,9 @@ export const BACKGROUND_STATUS = {
 
 export const BACKGROUND_TASK = {
     DEFAULT_TIMEOUT_MS: 5 * TIME.MINUTE,
+    /** Characters of stdout/stderr retained per stream; older output is dropped. */
     MAX_OUTPUT_LENGTH: 10000,
+    OUTPUT_TRUNCATION_MARKER: "[...truncated...]\n",
     MAX_CONCURRENT: 5,
     POLL_INTERVAL_MS: 500,
     RETRY_COOLDOWN_MS: 30 * TIME.SECOND,

@@ -7,6 +7,7 @@
 import { spawn, spawnSync } from "node:child_process";
 import { randomBytes } from "node:crypto";
 import {
+    BACKGROUND_TASK,
     ID_PREFIX,
     getStatusIndicator,
     STATUS_LABEL,
@@ -25,6 +26,18 @@ interface ManagedBackgroundTask extends BackgroundTask {
 }
 
 const TERMINATION_TIMEOUT_MS = 2_000;
+
+// A long-running command can print without bound; keep only the recent tail,
+// which is what check_background shows anyway.
+function appendBounded(current: string, chunk: string): string {
+    const combined = current + chunk;
+    if (combined.length <= BACKGROUND_TASK.MAX_OUTPUT_LENGTH) return combined;
+    const tail = combined.slice(-BACKGROUND_TASK.MAX_OUTPUT_LENGTH);
+    const body = tail.startsWith(BACKGROUND_TASK.OUTPUT_TRUNCATION_MARKER)
+        ? tail.slice(BACKGROUND_TASK.OUTPUT_TRUNCATION_MARKER.length)
+        : tail;
+    return BACKGROUND_TASK.OUTPUT_TRUNCATION_MARKER + body;
+}
 
 class BackgroundTaskManager {
     private static _instance: BackgroundTaskManager;
@@ -96,10 +109,10 @@ class BackgroundTaskManager {
         });
         task.process = proc;
         proc.stdout?.on("data", (data: Buffer) => {
-            task.output += data.toString();
+            task.output = appendBounded(task.output, data.toString());
         });
         proc.stderr?.on("data", (data: Buffer) => {
-            task.errorOutput += data.toString();
+            task.errorOutput = appendBounded(task.errorOutput, data.toString());
         });
         proc.on("close", code => this.finishTaskProcess(task, code));
         proc.on("error", error => {

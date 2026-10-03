@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { spawn } from "node:child_process";
 import { backgroundTaskManager } from "../../src/core/commands/manager";
 import { runBackgroundTool } from "../../src/tools/background-cmd/run";
+import { BACKGROUND_TASK } from "../../src/shared";
 
 vi.mock("node:child_process", () => ({ spawn: vi.fn() }));
 class FakeProcess extends EventEmitter {
@@ -25,6 +26,22 @@ afterEach(async () => {
 });
 
 describe("Background shell transport", () => {
+    it("keeps only the most recent output of a chatty command", () => {
+        const task = backgroundTaskManager.run({ command: "fixture" });
+        const chunk = "x".repeat(BACKGROUND_TASK.MAX_OUTPUT_LENGTH);
+        for (let index = 0; index < 5; index += 1) {
+            child.stdout.emit("data", Buffer.from(chunk));
+            child.stderr.emit("data", Buffer.from(chunk));
+        }
+        child.stdout.emit("data", Buffer.from("LAST-LINE"));
+
+        const stored = backgroundTaskManager.get(task.id)!;
+        expect(stored.output.length).toBeLessThanOrEqual(BACKGROUND_TASK.MAX_OUTPUT_LENGTH + 64);
+        expect(stored.errorOutput.length).toBeLessThanOrEqual(BACKGROUND_TASK.MAX_OUTPUT_LENGTH + 64);
+        expect(stored.output.startsWith("[...truncated...]\n")).toBe(true);
+        expect(stored.output.endsWith("LAST-LINE")).toBe(true);
+    });
+
     it("retains ownership after a process error until close confirms exit", () => {
         const task = backgroundTaskManager.run({ command: "fixture" });
         child.emit("error", new Error("signal failed"));
