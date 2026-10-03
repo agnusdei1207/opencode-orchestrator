@@ -1,4 +1,4 @@
-﻿# Minimal plugin implementation checkpoint
+# Minimal plugin implementation checkpoint
 
 Date: 2026-09-14
 Status: Current reduction checkpoint; ADR-0021 remains in progress

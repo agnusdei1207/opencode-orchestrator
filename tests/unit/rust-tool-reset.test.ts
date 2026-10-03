@@ -1,4 +1,4 @@
-﻿import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({ call: vi.fn(), reset: vi.fn() }));
 vi.mock("../../src/tools/rust-pool.js", () => ({

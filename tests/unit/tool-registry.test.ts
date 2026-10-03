@@ -1,4 +1,4 @@
-﻿import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 import { registerAllTools } from "../../src/tools/registry.js";
 import { TOOL_NAMES } from "../../src/shared/index.js";
 import type { ToolDefinition } from "@opencode-ai/plugin";

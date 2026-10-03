@@ -1,4 +1,4 @@
-﻿import { tool, type ToolDefinition } from "@opencode-ai/plugin";
+import { tool, type ToolDefinition } from "@opencode-ai/plugin";
 import type { ParallelAgentManager } from "../../core/agents/manager.js";
 import { presets } from "../../core/notification/toast.js";
 import { PARALLEL_TASK, TASK_STATUS, type ParallelTask } from "../../shared/index.js";

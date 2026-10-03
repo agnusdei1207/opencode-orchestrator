@@ -1,4 +1,4 @@
-﻿import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 import { PROMPT_TAGS, PHILOSOPHY_TAGLINE } from "../../src/shared/index.js";
 import { CORE_PHILOSOPHY } from "../../src/agents/prompts/shared/philosophy.js";
 import { CONTINUE_INSTRUCTION, CLEANUP_INSTRUCTION, STAGNATION_INTERVENTION } from "../../src/shared/constants/system-messages.js";

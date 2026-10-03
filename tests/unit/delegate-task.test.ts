@@ -1,4 +1,4 @@
-﻿import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createDelegateTaskTool } from "../../src/tools/parallel/delegate-task.js";
 import type { ParallelAgentManager } from "../../src/core/agents/manager.js";
 import type { ParallelTask } from "../../src/shared/index.js";

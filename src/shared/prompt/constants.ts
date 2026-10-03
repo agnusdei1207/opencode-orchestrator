@@ -1,4 +1,4 @@
-﻿export const PHILOSOPHY_TAGLINE = "Explore → Learn → Adapt → Act";
+export const PHILOSOPHY_TAGLINE = "Explore → Learn → Adapt → Act";
 
 export const PROMPT_TAGS = {
     CORE_PHILOSOPHY: { open: "<core_philosophy>", close: "</core_philosophy>" },
