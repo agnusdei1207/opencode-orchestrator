@@ -12,8 +12,8 @@ import type { Hooks } from "@opencode-ai/plugin";
 import { ContextLimitResolver } from "../core/context/context-limit-resolver.js";
 
 type ChatParamsHook = NonNullable<Hooks["chat.params"]>;
-export type ChatParamsInput = Parameters<ChatParamsHook>[0];
-export type ChatParamsOutput = Parameters<ChatParamsHook>[1];
+type ChatParamsInput = Parameters<ChatParamsHook>[0];
+type ChatParamsOutput = Parameters<ChatParamsHook>[1];
 
 export function createChatParamsHandler(temperatures: Readonly<Record<string, number>> = {}) {
     return async (input: ChatParamsInput, output: ChatParamsOutput): Promise<void> => {

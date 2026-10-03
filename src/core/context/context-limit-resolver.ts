@@ -29,7 +29,7 @@ type OpencodeClient = PluginInput["client"];
 /** Bound on the one-time provider-metadata fetch so a hung server cannot stall callers. */
 const LISTING_TIMEOUT_MS = 5_000;
 
-export interface ContextLimitResolverConfig {
+interface ContextLimitResolverConfig {
     /** OpenCode client used for the `provider.list()` fallback. */
     client?: OpencodeClient;
     /** Explicit limit for every model, from the `contextMaxTokens` option. */

@@ -15,7 +15,7 @@ export interface NormalizedTodo {
     status: string;
 }
 
-export interface ProgressUpdateResult {
+interface ProgressUpdateResult {
     hasProgressed: boolean;
     stagnationCount: number;
     previousIncompleteCount?: number;

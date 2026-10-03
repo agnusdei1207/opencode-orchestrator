@@ -44,7 +44,7 @@ interface MonitorState {
 }
 
 /** A context measurement as reported by the host for one assistant message. */
-export interface ContextUsage {
+interface ContextUsage {
     usedTokens: number;
     maxTokens: number;
 }

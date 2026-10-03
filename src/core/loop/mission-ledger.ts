@@ -24,7 +24,7 @@ export interface MissionLedgerEvent {
     reason?: string;
 }
 
-export type MissionLedgerInput = Omit<MissionLedgerEvent, "id" | "timestamp"> & {
+type MissionLedgerInput = Omit<MissionLedgerEvent, "id" | "timestamp"> & {
     timestamp?: string;
 };
 

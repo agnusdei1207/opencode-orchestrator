@@ -37,7 +37,6 @@ import { finishTaskConcurrency, confirmSessionAbort } from "./manager/task-lifec
 import { fetchTaskResultText } from "./manager/task-result.js";
 
 // Re-export
-export type { ParallelTask };
 
 type OpencodeClient = PluginInput["client"];
 

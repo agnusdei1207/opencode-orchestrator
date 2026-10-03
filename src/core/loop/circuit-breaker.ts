@@ -16,7 +16,7 @@ import { createPruneTimer } from "./prune-timer.js";
 
 type CircuitTripCause = "tool" | "output";
 
-export interface CircuitBreakerState {
+interface CircuitBreakerState {
     lastAccessedAt: number;
     lastTrippedAt: number;
     isOpen: boolean;

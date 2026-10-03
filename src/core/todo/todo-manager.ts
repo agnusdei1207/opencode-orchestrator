@@ -14,7 +14,7 @@ interface TodoVersion {
     author: string;
 }
 
-export interface TodoData {
+interface TodoData {
     content: string;
     version: TodoVersion;
 }

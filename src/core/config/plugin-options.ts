@@ -10,7 +10,7 @@ type UnknownRecord = Record<string, unknown>;
 
 type MissionLoopPluginOptions = MissionRuntimeOptions;
 
-export interface OrchestratorPluginOptions {
+interface OrchestratorPluginOptions {
     concurrency: ConcurrencyConfig;
     missionLoop: MissionLoopPluginOptions;
     /** Explicit context window override; undefined resolves from model metadata. */

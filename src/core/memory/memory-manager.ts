@@ -25,14 +25,14 @@ export interface MemoryEntry {
     importance: number; // 0 to 1
 }
 
-export interface MemorySnapshot {
+interface MemorySnapshot {
     [MemoryLevel.SYSTEM]: MemoryEntry[];
     [MemoryLevel.PROJECT]: MemoryEntry[];
     [MemoryLevel.MISSION]: MemoryEntry[];
     [MemoryLevel.TASK]: MemoryEntry[];
 }
 
-export interface MemoryConfig {
+interface MemoryConfig {
     /** Token budget per level (approximate or percentage) */
     tokenBudgets: Record<MemoryLevel, number>;
     /** Enable dynamic relevance filtering */

@@ -8,7 +8,7 @@
 import { LOG_PREFIX } from "../core/constants.js";
 import type { CleanupRegistration } from "./registration.js";
 
-export type CleanupFunction = () => void | Promise<void>;
+type CleanupFunction = () => void | Promise<void>;
 type ShutdownLogger = (...args: unknown[]) => void;
 const CLEANUP_TIMEOUT_MS = 5_000;
 

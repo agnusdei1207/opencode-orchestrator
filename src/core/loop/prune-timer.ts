@@ -1,9 +1,9 @@
-export interface PruneTimer {
+interface PruneTimer {
     start: () => void;
     shutdown: () => void;
 }
 
-export interface PruneTimerOptions {
+interface PruneTimerOptions {
     intervalMs: number;
     prune: () => void;
 }

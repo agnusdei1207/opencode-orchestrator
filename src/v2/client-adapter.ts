@@ -8,7 +8,7 @@ type LegacyClient = PluginInput["client"];
 type LegacyRequest = { path?: { id?: string; messageID?: string }; body?: Record<string, unknown> };
 type LegacyMessage = { info: Record<string, unknown>; parts: Record<string, unknown>[] };
 
-export interface V2ClientBridge {
+interface V2ClientBridge {
     client: LegacyClient;
     statuses: Map<string, string>;
 }

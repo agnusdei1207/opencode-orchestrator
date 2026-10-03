@@ -9,7 +9,7 @@
 import { log } from "../agents/logger.js";
 import { createPruneTimer } from "./prune-timer.js";
 
-export interface CompactionGuardState {
+interface CompactionGuardState {
     compactionEpoch: number;
     lastAccessedAt: number;
 }

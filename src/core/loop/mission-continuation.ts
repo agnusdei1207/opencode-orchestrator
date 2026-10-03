@@ -1,7 +1,7 @@
 import type { MissionLoopState } from "../../shared/loop/types.js";
 import type { VerificationResult } from "../../shared/verification/types.js";
 
-export interface ContinuationMetadata {
+interface ContinuationMetadata {
     progress: string;
     verificationSummary: string;
     stagnant: boolean;

@@ -6,7 +6,7 @@
  * constant per agent/tool key no matter how long the process runs.
  */
 
-export interface PerformanceStats {
+interface PerformanceStats {
     avgAgentLatency: Record<string, number>;
     avgToolLatency: Record<string, number>;
     tokenUsage: number;

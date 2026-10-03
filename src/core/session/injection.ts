@@ -27,7 +27,7 @@
 import { PART_TYPES } from "../../shared/index.js";
 
 /** A text part accepted by `client.session.prompt`. */
-export interface SyntheticTextPart {
+interface SyntheticTextPart {
     type: typeof PART_TYPES.TEXT;
     text: string;
     /** Hides the part in the TUI while keeping it in the model context. */

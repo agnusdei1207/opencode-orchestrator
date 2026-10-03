@@ -45,7 +45,7 @@ const DEFAULT_CIRCUIT_RECOVERY_TIMEOUT_MS = 30_000;
 const DEFAULT_HALF_OPEN_SUCCESS_THRESHOLD = 2;
 const DEFAULT_RESOURCE_PRESSURE_MAX_HEAP_PERCENT = 80;
 
-export interface ResourcePressureStatus {
+interface ResourcePressureStatus {
     underPressure: boolean;
     heapUsed: number;
     heapTotal: number;

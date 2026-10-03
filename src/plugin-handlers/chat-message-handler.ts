@@ -17,8 +17,8 @@ import { handleUserMessage } from "../core/loop/mission-loop-handler.js";
 import type { ChatMessageHandlerContext, PluginSessionState } from "./context.js";
 
 type ChatMessageHook = NonNullable<Hooks["chat.message"]>;
-export type ChatMessageInput = Parameters<ChatMessageHook>[0];
-export type ChatMessageOutput = Parameters<ChatMessageHook>[1];
+type ChatMessageInput = Parameters<ChatMessageHook>[0];
+type ChatMessageOutput = Parameters<ChatMessageHook>[1];
 
 /**
  * Create chat.message handler
