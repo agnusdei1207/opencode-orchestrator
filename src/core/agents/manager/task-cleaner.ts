@@ -23,11 +23,22 @@ import { queueNotice } from "../../session/pending-injection.js";
 
 type OpencodeClient = PluginInput["client"];
 
+function toCompletionInfo(task: ParallelTask): TaskCompletionInfo {
+    return {
+        id: task.id,
+        description: task.description,
+        duration: formatDuration(task.startedAt, task.completedAt),
+        status: task.status as TaskCompletionInfo["status"],
+        error: task.error,
+    };
+}
+
 export class TaskCleaner {
     private cleanupTimers = new Map<string, ReturnType<typeof setTimeout>>();
     private cleaning = new Set<string>();
     private notifying = new Set<string>();
     private timingOut = new Set<string>();
+    private toasted = new WeakSet<ParallelTask>();
     constructor(
         private client: OpencodeClient,
         private store: TaskStore,
@@ -160,25 +171,7 @@ export class TaskCleaner {
         if (notifications.length === 0) return true;
 
         const allComplete = pendingCount === 0;
-
-        // Show toast for each completed task
-        const toastManager = getTaskToastManager();
-        const completionInfos: TaskCompletionInfo[] = notifications.map(task => ({
-            id: task.id,
-            description: task.description,
-            duration: formatDuration(task.startedAt, task.completedAt),
-            status: task.status as TaskCompletionInfo["status"],
-            error: task.error,
-        }));
-
-        // Show individual or batch toast
-        if (allComplete && completionInfos.length > 1 && toastManager) {
-            toastManager.showAllCompleteToast(parentSessionID, completionInfos);
-        } else if (toastManager) {
-            for (const info of completionInfos) {
-                toastManager.showCompletionToast(info);
-            }
-        }
+        this.showCompletionToasts(parentSessionID, notifications, allComplete);
 
         // User-facing toast details stay separate from compact agent-to-agent prompts.
         let message: string;
@@ -193,6 +186,26 @@ export class TaskCleaner {
             return true;
         }
         return false;
+    }
+
+    /**
+     * A failed delivery keeps its notifications queued for retry, so toasts
+     * are tracked per queued notification object: each completion is shown to
+     * the user once, while a resumed task's next completion (a new queued
+     * copy) still gets its own toast.
+     */
+    private showCompletionToasts(parentSessionID: string, notifications: ParallelTask[], allComplete: boolean): void {
+        const fresh = notifications.filter(task => !this.toasted.has(task));
+        const toastManager = getTaskToastManager();
+        if (fresh.length === 0 || !toastManager) return;
+        for (const task of fresh) this.toasted.add(task);
+
+        const completionInfos = fresh.map(toCompletionInfo);
+        if (allComplete && completionInfos.length > 1) {
+            toastManager.showAllCompleteToast(parentSessionID, completionInfos);
+            return;
+        }
+        for (const info of completionInfos) toastManager.showCompletionToast(info);
     }
 
     /**

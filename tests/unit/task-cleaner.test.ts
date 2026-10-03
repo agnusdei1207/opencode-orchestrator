@@ -99,6 +99,25 @@ describe("TaskCleaner", () => {
         expect(store.getNotifications(task.parentSessionID)).toEqual([task]);
     });
 
+    it("retries failed delivery without replaying completion toasts", async () => {
+        const first = createTask({ id: "first" });
+        const second = createTask({ id: "second" });
+        store.queueNotification(first);
+        prompt.mockRejectedValueOnce(new Error("offline"));
+        await cleaner.notifyParentIfAllComplete(first.parentSessionID);
+        expect(toastMocks.showCompletionToast).toHaveBeenCalledOnce();
+
+        store.queueNotification(second);
+        await cleaner.notifyParentIfAllComplete(first.parentSessionID);
+
+        expect(prompt).toHaveBeenCalledTimes(2);
+        expect(prompt.mock.calls[1][0].body.parts[0].text).toContain("first");
+        expect(store.getNotifications(first.parentSessionID)).toEqual([]);
+        expect(toastMocks.showAllCompleteToast).not.toHaveBeenCalled();
+        expect(toastMocks.showCompletionToast).toHaveBeenCalledTimes(2);
+        expect(toastMocks.showCompletionToast).toHaveBeenLastCalledWith(expect.objectContaining({ id: "second" }));
+    });
+
     it("acknowledges only the notification batch actually sent", async () => {
         const first = createTask({ id: "first" });
         const second = createTask({ id: "second" });
