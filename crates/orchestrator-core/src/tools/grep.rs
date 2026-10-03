@@ -4,7 +4,7 @@ use crate::Result;
 use regex::Regex;
 use std::path::Path;
 use std::time::{Duration, Instant};
-use walkdir::WalkDir;
+use walkdir::{DirEntry, WalkDir};
 
 /// Configuration for grep operations
 #[derive(Debug, Clone)]
@@ -74,53 +74,45 @@ impl GrepTool {
             .filter_entry(|e| self.should_include(e.path()));
 
         for entry in walker {
-            // Check timeout
-            if start.elapsed() > self.config.timeout {
+            if start.elapsed() > self.config.timeout || results.len() >= self.config.max_results {
                 break;
             }
-
-            // Check result limit
-            if results.len() >= self.config.max_results {
-                break;
-            }
-
-            let entry = match entry {
-                Ok(e) => e,
-                Err(_) => continue,
-            };
-
-            if !entry.file_type().is_file() {
-                continue;
-            }
-
-            // Check file size
-            if let Ok(metadata) = entry.metadata()
-                && metadata.len() > self.config.max_file_size
-            {
-                continue;
-            }
-
-            // Search file
-            if let Ok(content) = std::fs::read_to_string(entry.path()) {
-                for (line_num, line) in content.lines().enumerate() {
-                    if let Some(m) = regex.find(line) {
-                        results.push(GrepMatch {
-                            file: entry.path().display().to_string(),
-                            line_number: line_num + 1,
-                            line_content: line.to_string(),
-                            match_start: m.start(),
-                            match_end: m.end(),
-                        });
-
-                        if results.len() >= self.config.max_results {
-                            break;
-                        }
-                    }
-                }
+            let Ok(entry) = entry else { continue };
+            if self.is_searchable(&entry) {
+                self.search_file(&regex, entry.path(), &mut results);
             }
         }
 
         Ok(results)
+    }
+
+    /// Regular files only; a file whose size cannot be read is still searched.
+    fn is_searchable(&self, entry: &DirEntry) -> bool {
+        entry.file_type().is_file()
+            && !entry
+                .metadata()
+                .is_ok_and(|metadata| metadata.len() > self.config.max_file_size)
+    }
+
+    /// Append the first match of each line of a readable text file, stopping
+    /// at `max_results`.
+    fn search_file(&self, regex: &Regex, path: &Path, results: &mut Vec<GrepMatch>) {
+        let Ok(content) = std::fs::read_to_string(path) else {
+            return;
+        };
+        for (line_num, line) in content.lines().enumerate() {
+            let Some(m) = regex.find(line) else { continue };
+            results.push(GrepMatch {
+                file: path.display().to_string(),
+                line_number: line_num + 1,
+                line_content: line.to_string(),
+                match_start: m.start(),
+                match_end: m.end(),
+            });
+            if results.len() >= self.config.max_results {
+                break;
+            }
+        }
     }
 
     /// Check if a path should be included in search
