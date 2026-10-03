@@ -49,10 +49,20 @@ HEAD, git, glob, grep, jq env isolation with jq 1.8.1, diff); native host QA
 against installed OpenCode 1.18.32 with the built plugin 17/17;
 `npm run release:dry-run` passed.
 
+Released v2.0.13 via `npm run release:patch` (tag `v2.0.13`, main at
+`ec9391d`). This was the first release on the hardened workflows
+(read-only default permissions, release-job write, timeouts, `--locked`):
+Build & Release run 37117022666 succeeded in every job (quality gate, five
+platform builds including MSVC Windows with the new release profile,
+release), CI run 37117024191 and the Pages deploy succeeded, the GitHub
+Release has five platform binaries, and npm reports
+`opencode-orchestrator@2.0.13` as `latest`.
+
 ## Next exact step
 
-Run `npm run release:patch` for v2.0.13, then verify CI, Build & Release,
-GitHub Release assets and npm `latest`, and record the result here.
+No audit, refactor or QA item is pending. Wait for reporter confirmation on
+#50 and #48; verify V2 `session.remove` on a real OpenCode 2 host when one is
+available.
 
 ## Incomplete items and why
 
