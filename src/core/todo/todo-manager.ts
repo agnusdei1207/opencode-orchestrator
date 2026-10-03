@@ -19,6 +19,14 @@ export interface TodoData {
     version: TodoVersion;
 }
 
+type TodoUpdateResult = { success: boolean; currentVersion: number; conflict?: boolean };
+
+/** Temp files written but not yet renamed into place during one update attempt. */
+interface PendingTempFiles {
+    todoTmpPath?: string;
+    versionTmpPath?: string;
+}
+
 export class TodoManager {
     private static _instance: TodoManager;
     private directory: string = "";
@@ -106,65 +114,87 @@ export class TodoManager {
         expectedVersion: number,
         updater: (content: string) => string,
         author: string
-    ): Promise<{ success: boolean; currentVersion: number; conflict?: boolean }> {
+    ): Promise<TodoUpdateResult> {
         const MAX_RETRIES = 3;
         const RETRY_DELAY = 50;
 
         for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
-            let tmpPath: string | undefined;
-            let versionTmpPath: string | undefined;
+            const temp: PendingTempFiles = {};
             try {
-                const current = await this.readWithVersion();
-
-                if (current.version.version !== expectedVersion) {
-                    log(`[TodoManager] Conflict: expected v${expectedVersion}, found v${current.version.version}`);
-                    return {
-                        success: false,
-                        currentVersion: current.version.version,
-                        conflict: true
-                    };
-                }
-
-                const newContent = updater(current.content);
-                if (newContent === current.content) {
-                    return {
-                        success: false,
-                        currentVersion: current.version.version
-                    };
-                }
-
-                const newVersion = current.version.version + 1;
-                const tmpSuffix = `${Date.now()}.${randomUUID()}`;
-                tmpPath = `${this.todoPath}.tmp.${tmpSuffix}`;
-                versionTmpPath = `${this.versionPath}.tmp.${tmpSuffix}`;
-
-                await fs.promises.writeFile(tmpPath, newContent, "utf-8");
-                await fs.promises.rename(tmpPath, this.todoPath);
-                tmpPath = undefined;
-
-                await fs.promises.writeFile(
-                    versionTmpPath,
-                    JSON.stringify({
-                        version: newVersion,
-                        timestamp: Date.now(),
-                        author
-                    }),
-                    "utf-8"
-                );
-                await fs.promises.rename(versionTmpPath, this.versionPath);
-                versionTmpPath = undefined;
-
-                log(`[TodoManager] Updated TODO to v${newVersion} by ${author}`);
-                return { success: true, currentVersion: newVersion };
-
+                return await this.attemptUpdate(expectedVersion, updater, author, temp);
             } catch (error) {
-                await cleanupTempFile(tmpPath);
-                await cleanupTempFile(versionTmpPath);
+                await cleanupTempFile(temp.todoTmpPath);
+                await cleanupTempFile(temp.versionTmpPath);
                 if (attempt === MAX_RETRIES - 1) throw error;
                 await new Promise(r => setTimeout(r, RETRY_DELAY));
             }
         }
         throw new Error("Failed to update TODO");
+    }
+
+    private async attemptUpdate(
+        expectedVersion: number,
+        updater: (content: string) => string,
+        author: string,
+        temp: PendingTempFiles
+    ): Promise<TodoUpdateResult> {
+        const current = await this.readWithVersion();
+
+        if (current.version.version !== expectedVersion) {
+            log(`[TodoManager] Conflict: expected v${expectedVersion}, found v${current.version.version}`);
+            return {
+                success: false,
+                currentVersion: current.version.version,
+                conflict: true
+            };
+        }
+
+        const newContent = updater(current.content);
+        if (newContent === current.content) {
+            return {
+                success: false,
+                currentVersion: current.version.version
+            };
+        }
+
+        const newVersion = current.version.version + 1;
+        await this.writeVersionedContent(newContent, newVersion, author, temp);
+
+        log(`[TodoManager] Updated TODO to v${newVersion} by ${author}`);
+        return { success: true, currentVersion: newVersion };
+    }
+
+    /**
+     * Write content then version via temp-file renames. `temp` tracks any temp
+     * file not yet renamed so the caller can remove it if a write fails.
+     */
+    private async writeVersionedContent(
+        newContent: string,
+        newVersion: number,
+        author: string,
+        temp: PendingTempFiles
+    ): Promise<void> {
+        const tmpSuffix = `${Date.now()}.${randomUUID()}`;
+        const tmpPath = `${this.todoPath}.tmp.${tmpSuffix}`;
+        const versionTmpPath = `${this.versionPath}.tmp.${tmpSuffix}`;
+        temp.todoTmpPath = tmpPath;
+        temp.versionTmpPath = versionTmpPath;
+
+        await fs.promises.writeFile(tmpPath, newContent, "utf-8");
+        await fs.promises.rename(tmpPath, this.todoPath);
+        temp.todoTmpPath = undefined;
+
+        await fs.promises.writeFile(
+            versionTmpPath,
+            JSON.stringify({
+                version: newVersion,
+                timestamp: Date.now(),
+                author
+            }),
+            "utf-8"
+        );
+        await fs.promises.rename(versionTmpPath, this.versionPath);
+        temp.versionTmpPath = undefined;
     }
 
     public async updateItem(searchText: string, newStatus: string, author: string = "system"): Promise<boolean> {
