@@ -270,6 +270,33 @@ describe("Hook System", () => {
             expect(result.output).toContain("REDACTED");
             expect(result.output).not.toContain("ghp_000000000000000000000000000000000000");
         });
+
+        // Synthetic values shaped like current credential formats.
+        it.each([
+            ["OpenAI project key", "sk-proj-AbCdEfGhIjKlMnOpQrStUvWxYz0123456789"],
+            ["Anthropic key", "sk-ant-api03-AbCdEfGhIjKlMnOpQrStUvWxYz0123456789"],
+            ["GitHub fine-grained PAT", "github_pat_11ABCDEFG0123456789_abcdefghijklmnopqrstuvwxyz"],
+            ["GitHub OAuth token", "gho_abcdefghijklmnopqrstuvwxyz0123456789"],
+            ["AWS access key id", "AKIAIOSFODNN7EXAMPLE"],
+            ["Google API key", "AIzaSyA1234567890abcdefghijklmnopqrstuv"],
+        ])("redacts a %s", async (_label, secret) => {
+            const output = { title: "Res", output: `value=${secret} end`, metadata: {} };
+            const result = await hook.execute(mockContext, "tool", {}, output);
+            expect(result.output).toContain("REDACTED");
+            expect(result.output).not.toContain(secret);
+        });
+
+        it("redacts a PEM private key block", async () => {
+            const pem = "-----BEGIN RSA PRIVATE KEY-----\nMIIEowIBAAKCAQEAabc\n-----END RSA PRIVATE KEY-----";
+            const result = await hook.execute(mockContext, "tool", {}, { title: "Res", output: pem, metadata: {} });
+            expect(result.output).not.toContain("MIIEowIBAAKCAQEAabc");
+        });
+
+        it("leaves ordinary identifiers alone", async () => {
+            const text = "task-1234567890abcdefghijklmn sk-learn ask-questions-about-everything-here";
+            const result = await hook.execute(mockContext, "tool", {}, { title: "Res", output: text, metadata: {} });
+            expect(result).toEqual({});
+        });
     });
 
     describe("SanityCheckHook", () => {

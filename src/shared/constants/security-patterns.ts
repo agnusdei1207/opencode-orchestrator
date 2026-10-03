@@ -14,9 +14,15 @@ export const SECURITY_PATTERNS = {
 
     // Secret Detection
     SECRETS: [
-        /sk-[a-zA-Z0-9]{20,}T3BlbkFJ/g, // OpenAI-like
+        // OpenAI (legacy, sk-proj-, sk-svcacct-) and Anthropic (sk-ant-) keys.
+        // The word boundary keeps identifiers such as `task-...` from matching.
+        /\bsk-[A-Za-z0-9][A-Za-z0-9_-]{19,}/g,
         /(AWS|aws|Aws)?[_ ]?(SECRET|secret|Secret)?[_ ]?(KEY|key|Key)[:= ]+[A-Za-z0-9\/+]{40}/g, // AWS Secret Key
-        /ghp_[a-zA-Z0-9]{36}/g, // GitHub PAT
-        /xox[baprs]-([0-9a-zA-Z]{10,48})/g // Slack Token
+        /\b(?:AKIA|ASIA)[0-9A-Z]{16}\b/g, // AWS access key id
+        /\bgh[pousr]_[A-Za-z0-9]{36,}/g, // GitHub classic, OAuth, user, server and refresh tokens
+        /\bgithub_pat_[A-Za-z0-9_]{22,}/g, // GitHub fine-grained PAT
+        /\bAIza[0-9A-Za-z_-]{35}/g, // Google API key
+        /xox[baprs]-([0-9a-zA-Z]{10,48})/g, // Slack Token
+        /-----BEGIN [A-Z ]*PRIVATE KEY-----[\s\S]*?-----END [A-Z ]*PRIVATE KEY-----/g, // PEM private key
     ]
 } as const;
