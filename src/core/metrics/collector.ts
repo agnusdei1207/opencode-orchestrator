@@ -1,5 +1,9 @@
 /**
  * MetricsCollector - Tracks system performance and token usage
+ *
+ * Every reported value is an all-time aggregate, so samples are folded into
+ * running totals as they arrive instead of being retained: memory stays
+ * constant per agent/tool key no matter how long the process runs.
  */
 
 export interface PerformanceStats {
@@ -11,14 +15,35 @@ export interface PerformanceStats {
     successRate: number;
 }
 
+interface LatencyTotal {
+    sum: number;
+    count: number;
+}
+
+function addLatency(totals: Map<string, LatencyTotal>, key: string, duration: number): void {
+    const total = totals.get(key) ?? { sum: 0, count: 0 };
+    total.sum += duration;
+    total.count += 1;
+    totals.set(key, total);
+}
+
+function averageLatencies(totals: Map<string, LatencyTotal>): Record<string, number> {
+    const averages: Record<string, number> = {};
+    for (const [key, { sum, count }] of totals.entries()) {
+        averages[key] = Math.round(sum / count);
+    }
+    return averages;
+}
+
 export class MetricsCollector {
     private static instance: MetricsCollector;
 
-    private agentLatencies: Map<string, number[]> = new Map();
-    private toolLatencies: Map<string, number[]> = new Map();
+    private agentLatencies: Map<string, LatencyTotal> = new Map();
+    private toolLatencies: Map<string, LatencyTotal> = new Map();
     private tokenUsage: number = 0;
     private lineCount: number = 0;
-    private tasks: { id: string; success: boolean }[] = [];
+    private taskCount: number = 0;
+    private successfulTaskCount: number = 0;
 
     private constructor() { }
 
@@ -34,23 +59,20 @@ export class MetricsCollector {
     }
 
     public recordAgentExecution(agent: string, duration: number): void {
-        const latencies = this.agentLatencies.get(agent) || [];
-        latencies.push(duration);
-        this.agentLatencies.set(agent, latencies);
+        addLatency(this.agentLatencies, agent, duration);
     }
 
     public recordToolExecution(tool: string, duration: number): void {
-        const latencies = this.toolLatencies.get(tool) || [];
-        latencies.push(duration);
-        this.toolLatencies.set(tool, latencies);
+        addLatency(this.toolLatencies, tool, duration);
     }
 
     public recordTokenUsage(tokens: number): void {
         this.tokenUsage += tokens;
     }
 
-    public recordTaskResult(id: string, success: boolean): void {
-        this.tasks.push({ id, success });
+    public recordTaskResult(_id: string, success: boolean): void {
+        this.taskCount += 1;
+        if (success) this.successfulTaskCount += 1;
     }
 
     public recordLinesProduced(lines: number): void {
@@ -58,25 +80,13 @@ export class MetricsCollector {
     }
 
     public getStats(): PerformanceStats {
-        const avgAgentLatency: Record<string, number> = {};
-        for (const [agent, lats] of this.agentLatencies.entries()) {
-            avgAgentLatency[agent] = Math.round(lats.reduce((a, b) => a + b, 0) / lats.length);
-        }
-
-        const avgToolLatency: Record<string, number> = {};
-        for (const [tool, lats] of this.toolLatencies.entries()) {
-            avgToolLatency[tool] = Math.round(lats.reduce((a, b) => a + b, 0) / lats.length);
-        }
-
-        const successfulTasks = this.tasks.filter(t => t.success).length;
-
         return {
-            avgAgentLatency,
-            avgToolLatency,
+            avgAgentLatency: averageLatencies(this.agentLatencies),
+            avgToolLatency: averageLatencies(this.toolLatencies),
             tokenUsage: this.tokenUsage,
             efficiency: this.lineCount > 0 ? this.tokenUsage / this.lineCount : 0,
-            totalTasks: this.tasks.length,
-            successRate: this.tasks.length > 0 ? successfulTasks / this.tasks.length : 0,
+            totalTasks: this.taskCount,
+            successRate: this.taskCount > 0 ? this.successfulTaskCount / this.taskCount : 0,
         };
     }
 }

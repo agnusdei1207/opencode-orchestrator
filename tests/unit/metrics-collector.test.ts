@@ -33,6 +33,23 @@ describe("MetricsCollector", () => {
         expect(stats.successRate).toBe(0.5);
     });
 
+    it("keeps memory bounded while reporting exact all-time stats", () => {
+        const collector = MetricsCollector.getInstance();
+        const samples = 10_000;
+        for (let i = 1; i <= samples; i++) {
+            collector.recordAgentExecution("worker", i);
+            collector.recordToolExecution("grep", i);
+            collector.recordTaskResult(`t${i}`, i % 4 !== 0);
+        }
+
+        expect(countStoredValues(collector)).toBeLessThan(100);
+        const stats = collector.getStats();
+        expect(stats.avgAgentLatency["worker"]).toBe(Math.round((samples + 1) / 2));
+        expect(stats.avgToolLatency["grep"]).toBe(Math.round((samples + 1) / 2));
+        expect(stats.totalTasks).toBe(samples);
+        expect(stats.successRate).toBe(0.75);
+    });
+
     it("handles empty stats safely", () => {
         const collector = MetricsCollector.getInstance();
         const stats = collector.getStats();
@@ -43,3 +60,13 @@ describe("MetricsCollector", () => {
         expect(stats.tokenUsage).toBe(0);
     });
 });
+
+/** Counts every value retained in the collector's maps, arrays and objects. */
+function countStoredValues(value: unknown): number {
+    if (value instanceof Map) return [...value.values()].reduce((sum: number, item) => sum + 1 + countStoredValues(item), 0);
+    if (Array.isArray(value)) return value.reduce((sum: number, item) => sum + 1 + countStoredValues(item), 0);
+    if (typeof value === "object" && value !== null) {
+        return Object.values(value).reduce((sum: number, item) => sum + 1 + countStoredValues(item), 0);
+    }
+    return 0;
+}
