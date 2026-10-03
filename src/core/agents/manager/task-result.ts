@@ -13,13 +13,21 @@ export async function fetchTaskResultText(
     const result = await client.session.messages({ path: { id: sessionID } });
     if (result.error) throw new Error(formatError(result.error));
     const messages = (result.data ?? []) as ResultMessage[];
-    const current = startedAt ? messages.filter(message =>
-        message.info?.time?.created !== undefined && message.info.time.created >= startedAt.getTime()
-    ) : messages;
+    const current = startedAt ? messagesCreatedSince(messages, startedAt) : messages;
     const latest = current.filter(message => message.info?.role === MESSAGE_ROLES.ASSISTANT).at(-1);
+    assertLatestResultAvailable(latest, startedAt);
+    return extractTaskResultText(current);
+}
+
+function messagesCreatedSince(messages: ResultMessage[], startedAt: Date): ResultMessage[] {
+    return messages.filter(message =>
+        message.info?.time?.created !== undefined && message.info.time.created >= startedAt.getTime()
+    );
+}
+
+function assertLatestResultAvailable(latest: ResultMessage | undefined, startedAt: Date | undefined): void {
     if (latest?.info?.error) throw new Error(formatError(latest.info.error));
     if (startedAt && !latest?.info?.time?.completed) throw new Error("Current task result is not available");
-    return extractTaskResultText(current);
 }
 
 export function extractTaskResultText(messages: ResultMessage[]): string {
