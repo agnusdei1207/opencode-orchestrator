@@ -41,7 +41,7 @@ describe("build toolchain pinning", () => {
         const ci = read(".github/workflows/ci.yml");
 
         expect(ci).toContain("cargo fmt --all -- --check");
-        expect(ci).toContain("cargo clippy --workspace --all-targets -- -D warnings");
-        expect(ci).toContain("cargo test --workspace --all-targets");
+        expect(ci).toContain("cargo clippy --locked --workspace --all-targets -- -D warnings");
+        expect(ci).toContain("cargo test --locked --workspace --all-targets");
     });
 });

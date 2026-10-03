@@ -12,10 +12,16 @@ on:
 permissions:
   contents: read
 
+# A newer push to the same ref supersedes an in-flight run.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   typescript:
     name: TypeScript (typecheck + tests)
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -24,6 +30,7 @@ jobs:
         uses: actions/setup-node@v7
         with:
           node-version: 24
+          cache: npm
 
       - name: Install dependencies
         run: npm ci
@@ -40,6 +47,7 @@ jobs:
   rust:
     name: Rust (fmt + clippy + tests)
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -54,7 +62,7 @@ jobs:
         run: cargo fmt --all -- --check
 
       - name: Clippy
-        run: cargo clippy --workspace --all-targets -- -D warnings
+        run: cargo clippy --locked --workspace --all-targets -- -D warnings
 
       - name: Test
-        run: cargo test --workspace --all-targets
+        run: cargo test --locked --workspace --all-targets

@@ -4,6 +4,9 @@ on:
   push:
     branches:
       - main
+    paths:
+      - "public/**"
+      - ".github/workflows/deploy-pages.yml"
   workflow_dispatch:
 
 permissions:
@@ -24,8 +27,6 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v7
-        with:
-          submodules: recursive
 
       - name: Setup Pages
         uses: actions/configure-pages@v6

@@ -107,8 +107,8 @@ describe("issue #27 release hardening", () => {
 
         expect(preflight).toContain('commandIsAvailable("cargo", ["--version"])');
         expect(preflight).toContain('["fmt", "--all", "--", "--check"]');
-        expect(preflight).toContain('["clippy", "--workspace", "--all-targets", "--", "-D", "warnings"]');
-        expect(preflight).toContain('["test", "--workspace", "--all-targets"]');
+        expect(preflight).toContain('["clippy", "--locked", "--workspace", "--all-targets", "--", "-D", "warnings"]');
+        expect(preflight).toContain('["test", "--locked", "--workspace", "--all-targets"]');
         expect(preflight).toContain('"test", "sh", "-c"');
         expect(preflight).toContain("rustup component add rustfmt clippy");
     });
@@ -121,8 +121,8 @@ describe("issue #27 release hardening", () => {
         expect(workflow).toContain("qa:");
         expect(workflow).toContain("npm run test:coverage");
         expect(workflow).toContain("cargo fmt --all -- --check");
-        expect(workflow).toContain("cargo clippy --workspace --all-targets -- -D warnings");
-        expect(workflow).toContain("cargo test --workspace --all-targets");
+        expect(workflow).toContain("cargo clippy --locked --workspace --all-targets -- -D warnings");
+        expect(workflow).toContain("cargo test --locked --workspace --all-targets");
         expect(workflow).toContain("needs: [qa, build]");
         expect(workflow).toContain("node scripts/package-smoke.mjs");
         expect(preflight).toContain('"scripts/package-smoke.mjs", "--skip-cli"');

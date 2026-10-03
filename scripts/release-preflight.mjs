@@ -54,8 +54,8 @@ function commandIsAvailable(command, commandArgs) {
 function runRustQualityChecks() {
   const cargoCommands = [
     ["fmt", "--all", "--", "--check"],
-    ["clippy", "--workspace", "--all-targets", "--", "-D", "warnings"],
-    ["test", "--workspace", "--all-targets"],
+    ["clippy", "--locked", "--workspace", "--all-targets", "--", "-D", "warnings"],
+    ["test", "--locked", "--workspace", "--all-targets"],
   ];
   if (commandIsAvailable("cargo", ["--version"])) {
     for (const cargoArgs of cargoCommands) {
