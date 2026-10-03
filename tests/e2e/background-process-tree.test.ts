@@ -1,4 +1,4 @@
-﻿import { setTimeout as delay } from "node:timers/promises";
+import { setTimeout as delay } from "node:timers/promises";
 import { expect, it } from "vitest";
 import { backgroundTaskManager } from "../../src/core/commands/manager";
 
