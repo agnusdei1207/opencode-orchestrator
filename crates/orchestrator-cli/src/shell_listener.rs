@@ -6,13 +6,17 @@ use std::net::{IpAddr, Shutdown, SocketAddr, TcpListener, TcpStream};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::{self, Receiver, Sender};
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 use std::thread;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 const DEFAULT_BIND: &str = "127.0.0.1";
 const DEFAULT_PORT: u16 = 4444;
 const MAX_BUFFER_LINES: usize = 200;
+/// Largest raw session log before further output is dropped.
+const MAX_RAW_LOG_BYTES: u64 = 50 * 1024 * 1024;
+/// Pause between write retries while a session socket's send buffer is full.
+const WRITE_RETRY_BACKOFF: Duration = Duration::from_millis(10);
 
 type SharedState = Arc<Mutex<ListenerState>>;
 
@@ -278,11 +282,7 @@ fn prepare_session(
     stream.set_nonblocking(true)?;
     let writer = Arc::new(Mutex::new(stream.try_clone()?));
     let log_path = log_path_for(log_dir, peer);
-    let id =
-        state
-            .lock()
-            .expect("listener state poisoned")
-            .add_session(peer, writer, log_path.clone());
+    let id = lock_recover(state).add_session(peer, writer, log_path.clone());
     Ok((id, stream, log_path))
 }
 
@@ -457,7 +457,7 @@ fn parse_optional_id(value: &str) -> Result<Option<u64>> {
 }
 
 fn set_active_session(id: u64, state: &SharedState) -> Result<()> {
-    let mut guard = state.lock().expect("listener state poisoned");
+    let mut guard = lock_recover(state);
     if !guard.sessions.contains_key(&id) {
         bail!("session {id} does not exist");
     }
@@ -467,41 +467,32 @@ fn set_active_session(id: u64, state: &SharedState) -> Result<()> {
 }
 
 fn detach_session(state: &SharedState) -> Result<()> {
-    state.lock().expect("listener state poisoned").active_id = None;
+    lock_recover(state).active_id = None;
     println!("active session cleared");
     Ok(())
 }
 
 fn close_session(id: Option<u64>, state: &SharedState) -> Result<()> {
-    let id = id.or_else(|| state.lock().ok()?.active_id);
+    let id = id.or_else(|| lock_recover(state).active_id);
     let writer = session_writer(state, id.context("no active session")?)?;
-    writer
-        .lock()
-        .expect("session writer poisoned")
-        .shutdown(Shutdown::Both)?;
+    lock_recover(&writer).shutdown(Shutdown::Both)?;
     Ok(())
 }
 
 fn send_to_active(state: &SharedState, bytes: &[u8]) -> Result<()> {
-    let id = state
-        .lock()
-        .expect("listener state poisoned")
-        .active_id
-        .context("no active session")?;
+    let id = lock_recover(state).active_id.context("no active session")?;
     send_to_session(state, id, bytes)
 }
 
 fn send_to_session(state: &SharedState, id: u64, bytes: &[u8]) -> Result<()> {
     let writer = session_writer(state, id)?;
-    writer
-        .lock()
-        .expect("session writer poisoned")
-        .write_all(bytes)
+    let mut guard = lock_recover(&writer);
+    write_all_retrying(&mut *guard, bytes, WRITE_RETRY_BACKOFF)
         .with_context(|| format!("failed to write to session {id}"))
 }
 
 fn session_writer(state: &SharedState, id: u64) -> Result<Arc<Mutex<TcpStream>>> {
-    let guard = state.lock().expect("listener state poisoned");
+    let guard = lock_recover(state);
     let session = guard
         .sessions
         .get(&id)
@@ -532,7 +523,7 @@ fn sentinel_token() -> String {
 }
 
 fn append_preview(id: u64, preview: &str, state: &SharedState) {
-    let mut guard = state.lock().expect("listener state poisoned");
+    let mut guard = lock_recover(state);
     if let Some(session) = guard.sessions.get_mut(&id) {
         for line in preview.lines() {
             session.output.push_back(line.to_string());
@@ -544,7 +535,7 @@ fn append_preview(id: u64, preview: &str, state: &SharedState) {
 }
 
 fn mark_closed(id: u64, state: &SharedState) {
-    let mut guard = state.lock().expect("listener state poisoned");
+    let mut guard = lock_recover(state);
     if let Some(session) = guard.sessions.get_mut(&id) {
         session.closed = true;
     }
@@ -554,8 +545,47 @@ fn mark_closed(id: u64, state: &SharedState) {
 }
 
 fn append_raw_log(path: &Path, bytes: &[u8]) -> Result<()> {
+    append_capped_log(path, bytes, MAX_RAW_LOG_BYTES)
+}
+
+/// Append to the raw log until it reaches `cap`, then stop. A single hostile
+/// peer must not be able to fill the disk through an unbounded session log.
+fn append_capped_log(path: &Path, bytes: &[u8], cap: u64) -> Result<()> {
     let mut file = OpenOptions::new().create(true).append(true).open(path)?;
-    file.write_all(bytes)?;
+    let len = file.metadata()?.len();
+    if len >= cap {
+        return Ok(());
+    }
+    let room = (cap - len) as usize;
+    let end = bytes.len().min(room);
+    file.write_all(&bytes[..end])?;
+    Ok(())
+}
+
+/// Recover the guarded value even if another thread panicked while holding the
+/// lock: the listener's state and socket stay consistent, so one panicking
+/// session must not cascade into every later command panicking.
+fn lock_recover<T>(mutex: &Mutex<T>) -> MutexGuard<'_, T> {
+    mutex.lock().unwrap_or_else(PoisonError::into_inner)
+}
+
+/// Write every byte, retrying on `WouldBlock`. The session sockets are
+/// non-blocking for the read loop, so a large operator write can briefly fill
+/// the kernel send buffer and must be resumed rather than dropped.
+fn write_all_retrying<W: Write>(
+    writer: &mut W,
+    mut bytes: &[u8],
+    backoff: Duration,
+) -> io::Result<()> {
+    while !bytes.is_empty() {
+        match writer.write(bytes) {
+            Ok(0) => return Err(io::Error::from(io::ErrorKind::WriteZero)),
+            Ok(written) => bytes = &bytes[written..],
+            Err(err) if err.kind() == io::ErrorKind::WouldBlock => thread::sleep(backoff),
+            Err(err) if err.kind() == io::ErrorKind::Interrupted => {}
+            Err(err) => return Err(err),
+        }
+    }
     Ok(())
 }
 
@@ -577,7 +607,7 @@ fn event_line(event: &ListenerEvent) -> String {
 }
 
 fn print_dashboard(state: &SharedState) {
-    let guard = state.lock().expect("listener state poisoned");
+    let guard = lock_recover(state);
     println!("sessions:");
     for (id, session) in &guard.sessions {
         let active = if guard.active_id == Some(*id) {
@@ -599,25 +629,61 @@ fn print_prompt() {
     let _ = io::stdout().flush();
 }
 
+/// Where the scanner is within a terminal escape sequence.
+enum Scan {
+    Text,
+    /// Just saw ESC; the next char selects the sequence kind.
+    AfterEsc,
+    /// Inside a CSI (`ESC [ ... letter`) sequence.
+    Csi,
+    /// Inside an OSC (`ESC ] ... BEL` or `... ESC \`) sequence.
+    Osc,
+    /// Saw ESC inside an OSC; `\` ends it (ST), anything else resumes OSC.
+    OscEsc,
+}
+
+/// Strip terminal control sequences from untrusted session output before it
+/// is echoed next to an `[session_N]` prefix.
+///
+/// CSI and OSC sequences are removed (OSC can carry visible text and set the
+/// window title), and carriage returns are dropped so a peer cannot use `\r`
+/// to move the cursor back over the prefix and spoof another session's line.
 fn sanitize_preview(input: &str) -> String {
     let mut output = String::new();
-    let mut escaping = false;
+    let mut state = Scan::Text;
     for ch in input.chars() {
-        update_sanitized_char(ch, &mut escaping, &mut output);
+        state = scan_char(state, ch, &mut output);
     }
     output
 }
 
-fn update_sanitized_char(ch: char, escaping: &mut bool, output: &mut String) {
-    if *escaping {
-        *escaping = !ch.is_ascii_alphabetic();
-        return;
+fn scan_char(state: Scan, ch: char, output: &mut String) -> Scan {
+    match state {
+        Scan::Text if ch == '\u{1b}' => Scan::AfterEsc,
+        Scan::Text => {
+            push_visible(ch, output);
+            Scan::Text
+        }
+        Scan::AfterEsc if ch == ']' => Scan::Osc,
+        // `ESC [` opens a CSI; any other byte is a short escape that ends here.
+        Scan::AfterEsc => scan_after_esc(ch),
+        Scan::Csi if ch.is_ascii_alphabetic() => Scan::Text,
+        Scan::Csi => Scan::Csi,
+        Scan::Osc if ch == '\u{07}' => Scan::Text,
+        Scan::Osc if ch == '\u{1b}' => Scan::OscEsc,
+        Scan::Osc => Scan::Osc,
+        Scan::OscEsc if ch == '\\' => Scan::Text,
+        Scan::OscEsc => Scan::Osc,
     }
-    if ch == '\u{1b}' {
-        *escaping = true;
-        return;
-    }
-    if ch == '\n' || ch == '\r' || ch == '\t' || !ch.is_control() {
+}
+
+fn scan_after_esc(ch: char) -> Scan {
+    if ch == '[' { Scan::Csi } else { Scan::Text }
+}
+
+/// Keep printable characters plus `\n` and `\t`; drop `\r` and other controls.
+fn push_visible(ch: char, output: &mut String) {
+    if ch == '\n' || ch == '\t' || (ch != '\r' && !ch.is_control()) {
         output.push(ch);
     }
 }
@@ -734,7 +800,76 @@ mod tests {
     #[test]
     fn sanitize_preview_removes_escape_sequences() {
         let clean = sanitize_preview("\u{1b}[31mred\u{1b}[0m\r\nok");
-        assert_eq!(clean, "red\r\nok");
+        assert_eq!(clean, "red\nok");
+    }
+
+    #[test]
+    fn sanitize_preview_strips_osc_sequences() {
+        let bel = sanitize_preview("\u{1b}]0;spoofed title\u{07}safe");
+        assert_eq!(bel, "safe");
+        let st = sanitize_preview("\u{1b}]8;;http://evil\u{1b}\\link");
+        assert_eq!(st, "link");
+    }
+
+    #[test]
+    fn sanitize_preview_drops_carriage_returns_that_could_spoof_a_line() {
+        assert_eq!(
+            sanitize_preview("[session_1] safe\rpwned"),
+            "[session_1] safepwned"
+        );
+        assert_eq!(sanitize_preview("a\tb\nc"), "a\tb\nc");
+    }
+
+    #[test]
+    fn capped_log_stops_appending_at_the_limit() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("s.log");
+        append_capped_log(&path, b"12345", 10).unwrap();
+        append_capped_log(&path, b"67890", 10).unwrap();
+        append_capped_log(&path, b"OVERFLOW", 10).unwrap();
+
+        assert_eq!(fs::read(&path).unwrap(), b"1234567890");
+    }
+
+    #[test]
+    fn lock_recover_returns_the_value_after_a_poisoning_panic() {
+        let mutex = Arc::new(Mutex::new(7));
+        let poisoned = mutex.clone();
+        let _ = thread::spawn(move || {
+            let _guard = poisoned.lock().unwrap();
+            panic!("poison the mutex");
+        })
+        .join();
+
+        assert_eq!(*lock_recover(&mutex), 7);
+    }
+
+    #[test]
+    fn write_all_retrying_waits_out_would_block() {
+        struct Flaky {
+            blocks_left: usize,
+            written: Vec<u8>,
+        }
+        impl Write for Flaky {
+            fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
+                if self.blocks_left > 0 {
+                    self.blocks_left -= 1;
+                    return Err(io::Error::from(io::ErrorKind::WouldBlock));
+                }
+                self.written.extend_from_slice(&buf[..1]);
+                Ok(1)
+            }
+            fn flush(&mut self) -> io::Result<()> {
+                Ok(())
+            }
+        }
+
+        let mut writer = Flaky {
+            blocks_left: 3,
+            written: Vec::new(),
+        };
+        write_all_retrying(&mut writer, b"hi", Duration::ZERO).unwrap();
+        assert_eq!(writer.written, b"hi");
     }
 
     #[test]
