@@ -319,6 +319,26 @@ describe("createEventHandler", () => {
         expect(MissionLoopHandler.handleMissionIdle).not.toHaveBeenCalled();
     });
 
+    it("still delivers a later background notice after an idle it declined", async () => {
+        vi.useFakeTimers();
+        const prompt = vi.fn().mockResolvedValue({ data: {} });
+        ctx.client = { session: { prompt, status: async () => ({ data: {} }) } } as never;
+        const session = ctx.sessions.get("session-1")!;
+        session.lastUserMessageAt = Date.now();
+        const handler = createEventHandler(ctx);
+
+        await handler({ event: { type: "session.idle", properties: { sessionID: "session-1" } } });
+        await vi.advanceTimersByTimeAsync(500);
+        expect(session.lastAbortAt).toBeUndefined();
+
+        PendingInjection.queueNotice("session-1", "Background task finished");
+        await handler({ event: { type: "session.idle", properties: { sessionID: "session-1" } } });
+        await vi.advanceTimersByTimeAsync(500);
+
+        expect(prompt).toHaveBeenCalledOnce();
+        expect(PendingInjection.hasPendingPrompts("session-1")).toBe(false);
+    });
+
     it("does not continue a session that does not own the project mission", async () => {
         vi.useFakeTimers();
         const handler = createEventHandler(ctx);

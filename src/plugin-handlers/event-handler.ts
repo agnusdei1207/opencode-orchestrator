@@ -379,7 +379,9 @@ async function runIdleContinuation(ctx: EventHandlerContext, sessionID: string):
     }
 
     if (!shouldContinueAfterIdle(session)) {
-        markAbort(sessions, sessionID);
+        // Pause the mission, but leave `lastAbortAt` to explicit host aborts:
+        // it is sticky and would discard every later background notice.
+        MissionLoopHandler.handleAbort(sessionID);
         return;
     }
 
