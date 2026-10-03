@@ -59,6 +59,22 @@ describe("Plumbing / Wiring Guards", () => {
         );
     });
 
+    it("redacts credentials from tool arguments before they enter task memory", async () => {
+        const hook = new MemoryGateHook();
+        const token = "ghp_abcdefghijklmnopqrstuvwxyz0123456789";
+        await hook.execute(
+            ctx("worker"),
+            "http",
+            { url: "https://api.github.com/user", headers: { Authorization: `Bearer ${token}` } },
+            { title: "http", output: "{\"login\":\"octocat\"}", metadata: {} },
+        );
+
+        const task = MemoryManager.getInstance().export()[MemoryLevel.TASK];
+        const recorded = task.map((m) => m.content).join("\n");
+        expect(recorded).toContain("api.github.com");
+        expect(recorded).not.toContain(token);
+    });
+
     it("degrades to a readable placeholder when agent is genuinely unknown", async () => {
         const hook = new MemoryGateHook();
         await hook.execute(ctx(undefined), "Task DONE with SUCCESS");

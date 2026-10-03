@@ -14,6 +14,7 @@ import type {
 import { MemoryLevel, MemoryManager } from "../../core/memory/memory-manager.js";
 import { HOOK_ACTIONS } from "../constants.js";
 import { MEMORY_CONSTANTS, HOOK_NAMES } from "../../shared/index.js";
+import { redactSecrets } from "./secret-scanner.js";
 
 export class MemoryGateHook implements PostToolUseHook, AssistantDoneHook {
     name = HOOK_NAMES.MEMORY_GATE;
@@ -64,7 +65,9 @@ export class MemoryGateHook implements PostToolUseHook, AssistantDoneHook {
             content = content.substring(0, maxContentLength) + "... [truncated]";
         }
 
-        const memoryText = `Tool [${tool}] result for input ${JSON.stringify(input)}: ${content}`;
+        // Task memory is injected into delegated prompts, so arguments such as
+        // http headers must not carry credentials into it.
+        const memoryText = redactSecrets(`Tool [${tool}] result for input ${JSON.stringify(input)}: ${content}`);
 
         // Add to Task memory (Short-term)
         this.memoryManager.add(MemoryLevel.TASK, memoryText, MEMORY_CONSTANTS.IMPORTANCE.LOW);
