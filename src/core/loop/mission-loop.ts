@@ -235,13 +235,7 @@ export function startMissionLoop(
     prompt: string,
     options: MissionLoopOptions = {}
 ): boolean {
-    const existing = readLoopState(directory);
-    const replacing = existing?.active && existing.sessionID !== sessionID;
-    if (replacing && (existing.sessionID !== options.replaceExisting?.sessionID
-        || existing.startedAt !== options.replaceExisting?.startedAt
-        || existing.prompt !== options.replaceExisting?.prompt)) {
-        throw new Error(`The active mission belongs to session ${existing.sessionID}. Retry /task to replace the current mission safely.`);
-    }
+    const replaced = resolveReplacedMission(readLoopState(directory), sessionID, options.replaceExisting);
     const state: MissionLoopState = {
         active: true,
         iteration: 1,
@@ -253,8 +247,33 @@ export function startMissionLoop(
     };
 
     const success = writeLoopState(directory, state);
-    if (success) recordStartedMission(directory, state, replacing ? existing : undefined);
+    if (success) recordStartedMission(directory, state, replaced);
     return success;
+}
+
+type ReplaceTarget = MissionLoopOptions["replaceExisting"];
+
+function matchesReplaceTarget(existing: MissionLoopState, target: ReplaceTarget): boolean {
+    return existing.sessionID === target?.sessionID
+        && existing.startedAt === target?.startedAt
+        && existing.prompt === target?.prompt;
+}
+
+/**
+ * Returns the other session's active mission that this start replaces, or
+ * undefined when nothing is replaced. Replacing is allowed only when the caller
+ * names the exact mission it expects to replace.
+ */
+function resolveReplacedMission(
+    existing: MissionLoopState | null,
+    sessionID: string,
+    target: ReplaceTarget,
+): MissionLoopState | undefined {
+    if (!existing?.active || existing.sessionID === sessionID) return undefined;
+    if (!matchesReplaceTarget(existing, target)) {
+        throw new Error(`The active mission belongs to session ${existing.sessionID}. Retry /task to replace the current mission safely.`);
+    }
+    return existing;
 }
 
 /**
@@ -334,22 +353,11 @@ Before declaring done, briefly self-account: (1) scope fit vs the objective,
 </mission_loop>`;
 
     if (context.escalate) {
-        prompt += `\n\n<escalation reason="repeated_stagnation">
-Progress has stalled across ${context.stagnation}. Stop blind retries.
-Follow ${RECOVERY_PRINCIPLE}
-1. DECOMPOSE the blocked step into smaller, independently verifiable pieces.
-2. RE-PLAN with a different approach if decomposition does not unblock it.
-3. If still blocked, summarize the exact blocker and ASK the user for direction.
-</escalation>`;
+        prompt += buildEscalationBlock(context.stagnation);
     }
 
     if (context.unverifiedFiles.length > 0) {
-        prompt += `\n\n<verification_advisory>
-The runtime observed changes to these files without a recognized verification command afterward:
-${context.unverifiedFiles.map(file => `- ${file}`).join("\n")}
-This is an advisory only. A command outside the runtime's recognition may already verify them.
-Use the actual TODO, checklist, and sync issue results for mission completion.
-</verification_advisory>`;
+        prompt += buildVerificationAdvisory(context.unverifiedFiles);
     }
 
     // Inject Maintenance Instruction based on iteration
@@ -360,13 +368,30 @@ Use the actual TODO, checklist, and sync issue results for mission completion.
     return prompt;
 }
 
+function buildEscalationBlock(stagnation: string): string {
+    return `\n\n<escalation reason="repeated_stagnation">
+Progress has stalled across ${stagnation}. Stop blind retries.
+Follow ${RECOVERY_PRINCIPLE}
+1. DECOMPOSE the blocked step into smaller, independently verifiable pieces.
+2. RE-PLAN with a different approach if decomposition does not unblock it.
+3. If still blocked, summarize the exact blocker and ASK the user for direction.
+</escalation>`;
+}
+
+function buildVerificationAdvisory(unverifiedFiles: string[]): string {
+    return `\n\n<verification_advisory>
+The runtime observed changes to these files without a recognized verification command afterward:
+${unverifiedFiles.map(file => `- ${file}`).join("\n")}
+This is an advisory only. A command outside the runtime's recognition may already verify them.
+Use the actual TODO, checklist, and sync issue results for mission completion.
+</verification_advisory>`;
+}
+
 function normalizeContinuationContext(
     state: MissionLoopState,
     input?: MissionContinuationInput,
 ) {
-    const verificationSummary = typeof input === "string" ? input : input?.verificationSummary;
-    const continuationReason = typeof input === "string" ? undefined : input?.continuationReason;
-    const unverifiedFiles = typeof input === "string" ? [] : input?.unverifiedFiles ?? [];
+    const { verificationSummary, continuationReason, unverifiedFiles } = readContinuationInput(input);
     const stagnationCount = state.stagnationCount ?? 0;
     return {
         objective: neutralizeLoopTags(state.objective || deriveObjective(state.prompt)),
@@ -376,6 +401,18 @@ function normalizeContinuationContext(
         stagnation: stagnationCount > 0 ? `${stagnationCount} unchanged check(s)` : "not detected",
         unverifiedFiles: unverifiedFiles.map(neutralizeLoopTags),
         escalate: stagnationCount >= ESCALATION_STAGNATION_THRESHOLD,
+    };
+}
+
+/** A bare string input carries only the verification summary. */
+function readContinuationInput(input?: MissionContinuationInput): MissionContinuationContext & { unverifiedFiles: string[] } {
+    if (typeof input === "string") {
+        return { verificationSummary: input, continuationReason: undefined, unverifiedFiles: [] };
+    }
+    return {
+        verificationSummary: input?.verificationSummary,
+        continuationReason: input?.continuationReason,
+        unverifiedFiles: input?.unverifiedFiles ?? [],
     };
 }
 
