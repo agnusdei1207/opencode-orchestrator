@@ -31,27 +31,15 @@ export function createSystemTransformHandler(ctx: EventHandlerContext) {
         // sessionID may be undefined in some opencode versions — skip safely
         if (!sessionID) return;
 
-        // Check if this is an orchestrated session
-        const loopState = readLoopState(directory);
-        const isActiveLoop = loopState?.active === true && loopState.sessionID === sessionID;
-
         // Only inject for orchestrated sessions
-        if (!isActiveLoop) {
+        const loopState = readLoopState(directory);
+        if (loopState?.active !== true || loopState.sessionID !== sessionID) {
             return;
         }
         const session = ensureSessionInitialized(sessions, sessionID, directory);
 
-        // Build system prompt additions
-        const systemAdditions: string[] = [];
-
-        // 1. Mission loop context (if active)
-        if (isActiveLoop && loopState) {
-            systemAdditions.push(buildMissionLoopSystemPrompt(loopState));
-            const scratchpadPrompt = buildMissionScratchpadPrompt(directory);
-            if (scratchpadPrompt) {
-                systemAdditions.push(scratchpadPrompt);
-            }
-        }
+        // 1. Mission loop context
+        const systemAdditions = missionLoopAdditions(loopState, directory);
 
         // 2. Active session context
         if (session?.active) {
@@ -59,17 +47,9 @@ export function createSystemTransformHandler(ctx: EventHandlerContext) {
         }
 
         // 3. Background task awareness
-        try {
-            const manager = ParallelAgentManager.getInstance();
-            const tasks = manager.getTasksByParent(sessionID);
-            const runningCount = tasks.filter(t => t.status === STATUS_LABEL.RUNNING).length;
-            const pendingCount = tasks.filter(t => t.status === STATUS_LABEL.PENDING).length;
-
-            if (runningCount > 0 || pendingCount > 0) {
-                systemAdditions.push(buildBackgroundTasksPrompt(runningCount, pendingCount));
-            }
-        } catch (error) {
-            log(`[system-transform] Failed to inspect background tasks for ${sessionID}: ${error}`);
+        const backgroundPrompt = buildBackgroundTasksAddition(sessionID);
+        if (backgroundPrompt) {
+            systemAdditions.push(backgroundPrompt);
         }
 
         // Inject additions
@@ -77,6 +57,34 @@ export function createSystemTransformHandler(ctx: EventHandlerContext) {
             output.system.unshift(...systemAdditions); // unshift to put core instructions first
         }
     };
+}
+
+function missionLoopAdditions(
+    loopState: Parameters<typeof buildMissionLoopSystemPrompt>[0],
+    directory: string,
+): string[] {
+    const additions = [buildMissionLoopSystemPrompt(loopState)];
+    const scratchpadPrompt = buildMissionScratchpadPrompt(directory);
+    if (scratchpadPrompt) {
+        additions.push(scratchpadPrompt);
+    }
+    return additions;
+}
+
+function buildBackgroundTasksAddition(sessionID: string): string | null {
+    try {
+        const manager = ParallelAgentManager.getInstance();
+        const tasks = manager.getTasksByParent(sessionID);
+        const runningCount = tasks.filter(t => t.status === STATUS_LABEL.RUNNING).length;
+        const pendingCount = tasks.filter(t => t.status === STATUS_LABEL.PENDING).length;
+
+        if (runningCount > 0 || pendingCount > 0) {
+            return buildBackgroundTasksPrompt(runningCount, pendingCount);
+        }
+    } catch (error) {
+        log(`[system-transform] Failed to inspect background tasks for ${sessionID}: ${error}`);
+    }
+    return null;
 }
 
 function buildMissionScratchpadPrompt(directory: string): string | null {
