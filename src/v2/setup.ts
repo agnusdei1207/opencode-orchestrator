@@ -69,9 +69,13 @@ async function registerHooks(context: Context, handlerContext: PluginRuntime["ha
     const after = createToolExecuteAfterHandler(handlerContext);
     const compact = createSessionCompactingHandler(handlerContext);
     const system = createSystemTransformHandler(handlerContext);
+    const { sessions } = handlerContext;
     const hooks = [
-        () => context.session.hook("prompt", input => runPromptHook(chat, input)),
-        () => context.session.hook("context", input => runSystemHook(system, input, temperatures)),
+        () => context.session.hook("prompt", input => runPromptHook(chat, input, sessions)),
+        () => context.session.hook("context", async input => {
+            await runSystemHook(system, input, temperatures);
+            rememberContextAgent(sessions, input as V2ContextRequest);
+        }),
         () => context.session.hook("compaction", input => runCompactionHook(compact, input)),
         () => context.tool.hook("execute.before", input => runBeforeToolHook(before, input)),
         () => context.tool.hook("execute.after", input => runAfterToolHook(after, input)),
@@ -84,11 +88,25 @@ async function registerHooks(context: Context, handlerContext: PluginRuntime["ha
     if (failure) throw failure.reason;
 }
 
-async function runPromptHook(chat: ReturnType<typeof createChatMessageHandler>, input: unknown): Promise<void> {
+type SessionStates = PluginRuntime["handlerContext"]["sessions"];
+
+/**
+ * V2 prompt hooks carry no agent; only the per-request `context` hook does.
+ * The latest one is kept on the existing session state (which the session's
+ * lifecycle already bounds) so prompt hooks and tool hooks can attribute work.
+ */
+function rememberContextAgent(sessions: SessionStates, request: V2ContextRequest): void {
+    const session = sessions.get(request.sessionID);
+    const agent = (request.agent || "").toLowerCase();
+    if (session && agent) session.agent = agent;
+}
+
+async function runPromptHook(chat: ReturnType<typeof createChatMessageHandler>, input: unknown, sessions: SessionStates): Promise<void> {
     const prompt = input as { sessionID: string; prompt: { text: string } };
     const output = { parts: [{ type: "text", text: prompt.prompt.text }] };
+    const agent = sessions.get(prompt.sessionID)?.agent ?? "";
     await chat(
-        { sessionID: prompt.sessionID, agent: "" } as Parameters<typeof chat>[0],
+        { sessionID: prompt.sessionID, agent } as Parameters<typeof chat>[0],
         output as unknown as Parameters<typeof chat>[1],
     );
     prompt.prompt.text = output.parts[0]?.text ?? "";

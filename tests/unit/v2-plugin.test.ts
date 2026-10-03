@@ -161,6 +161,46 @@ describe("OpenCode 2 plugin setup", () => {
         expect(request.options.temperature).toBe(0.1);
         await cleanup?.();
     });
+
+    it("passes the agent seen in the V2 context hook to later prompt hooks", async () => {
+        const directory = mkdtempSync(path.join(tmpdir(), "oco-v2-agent-"));
+        directories.push(directory);
+        const hooks = new Map<string, (input: unknown) => Promise<void>>();
+        const registration = async () => ({ dispose: vi.fn() });
+        const context = {
+            location: { directory, project: { directory } },
+            options: {},
+            agent: { list: vi.fn().mockResolvedValue([]), transform: registration },
+            session: { hook: vi.fn((name: string, callback: (input: unknown) => Promise<void>) => {
+                hooks.set(name, callback);
+                return registration();
+            }) },
+            tool: { hook: registration, transform: registration },
+            command: { transform: registration },
+            event: { subscribe: () => emptyEvents() },
+        } as unknown as Plugin.Context;
+        const { HookRegistry } = await import("../../src/hooks/registry.js");
+        const cleanup = await OrchestratorPlugin.setup(context);
+        const executeChat = vi.spyOn(HookRegistry.getInstance(), "executeChat");
+        const sessionID = "ses_v2_agent_memory";
+        try {
+            // /task creates the orchestrator session state the agent is remembered in.
+            await hooks.get("prompt")?.({ sessionID, prompt: { text: "/task Build the feature" } });
+            await hooks.get("context")?.({
+                sessionID, agent: "Commander", model: { providerID: "p", id: "m" }, system: [], options: {},
+            });
+            await hooks.get("prompt")?.({ sessionID, prompt: { text: "keep going" } });
+
+            expect(executeChat).toHaveBeenLastCalledWith(
+                expect.objectContaining({ sessionID, agent: "commander" }),
+                "keep going",
+            );
+        } finally {
+            executeChat.mockRestore();
+            await hooks.get("prompt")?.({ sessionID, prompt: { text: "/stop" } });
+            await cleanup?.();
+        }
+    });
 });
 
 async function* emptyEvents(): AsyncGenerator<never> {
