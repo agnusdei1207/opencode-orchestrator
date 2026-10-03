@@ -3,11 +3,14 @@
  * 
  * Integrates with the OpenCode event system to automatically recover from session errors.
  * 
- * Supported error types:
+ * Recovered error types:
  * - tool_result_missing: Tool crashed, inject error message
- * - thinking_block_order: Thinking block ordering issue
- * - rate_limit: API rate limiting
- * - context_overflow: Token limit exceeded
+ * - thinking_block_order / thinking_disabled: Thinking block issue
+ * - rate_limit: API rate limiting, back off and retry
+ *
+ * Other detected types (context_overflow, message_aborted, network, auth)
+ * count against the cooldown and attempt budget but are not recovered here;
+ * undetected errors touch no recovery state.
  */
 
 import type { PluginInput } from "@opencode-ai/plugin";
@@ -161,6 +164,15 @@ function prepareSessionRecovery(sessionID: string, error: unknown): PreparedReco
         return undefined;
     }
 
+    // Unknown errors are left to the default handler before touching state, so
+    // they neither start the cooldown nor spend the attempt budget that a
+    // later recoverable error needs.
+    const errorType = detectErrorType(error);
+    if (!errorType) {
+        log("[session-recovery] Unknown error type, using default handler", { sessionID, error });
+        return undefined;
+    }
+
     const now = Date.now();
     if (now - state.lastErrorTime < BACKGROUND_TASK.RETRY_COOLDOWN_MS) {
         log("[session-recovery] Too soon since last error, skipping", { sessionID });
@@ -169,11 +181,6 @@ function prepareSessionRecovery(sessionID: string, error: unknown): PreparedReco
     state.lastErrorTime = now;
     state.errorCount++;
 
-    const errorType = detectErrorType(error);
-    if (!errorType) {
-        log("[session-recovery] Unknown error type, using default handler", { sessionID, error });
-        return undefined;
-    }
     log("[session-recovery] Detected error type", { sessionID, errorType, errorCount: state.errorCount });
     if (state.errorCount > RECOVERY.MAX_ATTEMPTS) {
         log("[session-recovery] Max recovery attempts exceeded", { sessionID });

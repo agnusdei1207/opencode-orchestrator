@@ -5,7 +5,7 @@ import {
     isSessionRecovering,
     markRecoveryComplete,
 } from "../../src/core/recovery/session-recovery";
-import { detectErrorType, ERROR_TYPE, RECOVERY } from "../../src/shared";
+import { BACKGROUND_TASK, detectErrorType, ERROR_TYPE, RECOVERY } from "../../src/shared";
 import * as SessionActivity from "../../src/core/session/activity";
 
 vi.mock("../../src/core/agents/logger", () => ({ log: vi.fn() }));
@@ -165,6 +165,29 @@ describe("SessionRecovery", () => {
 
         expect(recovered).toBe(false);
         expect(mockClient.session.prompt).not.toHaveBeenCalled();
+    });
+
+    it("does not let an unknown error start the cooldown for a recoverable one", async () => {
+        const sessionID = "session-recovery-unknown-then-tool";
+        touchedSessions.push(sessionID);
+        const client = mockClient as unknown as Parameters<typeof handleSessionError>[0];
+
+        expect(await handleSessionError(client, sessionID, new Error("unmatched failure"))).toBe(false);
+        expect(await handleSessionError(client, sessionID, new Error("tool_result_missing"))).toBe(true);
+    });
+
+    it("does not spend the recovery attempt budget on unknown errors", async () => {
+        vi.useFakeTimers();
+        const sessionID = "session-recovery-unknown-budget";
+        touchedSessions.push(sessionID);
+        const client = mockClient as unknown as Parameters<typeof handleSessionError>[0];
+
+        for (let attempt = 0; attempt <= RECOVERY.MAX_ATTEMPTS; attempt++) {
+            await handleSessionError(client, sessionID, new Error("unmatched failure"));
+            vi.advanceTimersByTime(BACKGROUND_TASK.RETRY_COOLDOWN_MS);
+        }
+
+        expect(await handleSessionError(client, sessionID, new Error("tool_result_missing"))).toBe(true);
     });
 
     it("cleans and resets recovery state without throwing", () => {
