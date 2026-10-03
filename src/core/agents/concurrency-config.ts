@@ -38,37 +38,44 @@ function isPercentage(value: unknown): value is number {
         value <= 100;
 }
 
+type ScalarConfigKey =
+    | "defaultConcurrency"
+    | "acquisitionTimeoutMs"
+    | "circuitFailureThreshold"
+    | "circuitRecoveryTimeoutMs"
+    | "halfOpenSuccessThreshold"
+    | "resourcePressureMaxHeapPercent";
+
+type LimitMapConfigKey = "agentConcurrency" | "providerConcurrency" | "modelConcurrency";
+
+const SCALAR_FIELDS: ReadonlyArray<readonly [ScalarConfigKey, (value: unknown) => value is number]> = [
+    ["defaultConcurrency", isValidLimit],
+    ["acquisitionTimeoutMs", isPositiveInteger],
+    ["circuitFailureThreshold", isPositiveInteger],
+    ["circuitRecoveryTimeoutMs", isPositiveInteger],
+    ["halfOpenSuccessThreshold", isPositiveInteger],
+    ["resourcePressureMaxHeapPercent", isPercentage],
+];
+
+const LIMIT_MAP_FIELDS: readonly LimitMapConfigKey[] = [
+    "agentConcurrency",
+    "providerConcurrency",
+    "modelConcurrency",
+];
+
 export function extractConcurrencyConfig(source: unknown): ConcurrencyConfig {
     if (!isRecord(source)) return {};
 
     const config: ConcurrencyConfig = {};
-    if (isValidLimit(source.defaultConcurrency)) {
-        config.defaultConcurrency = source.defaultConcurrency;
-    }
-    if (isPositiveInteger(source.acquisitionTimeoutMs)) {
-        config.acquisitionTimeoutMs = source.acquisitionTimeoutMs;
-    }
-    if (isPositiveInteger(source.circuitFailureThreshold)) {
-        config.circuitFailureThreshold = source.circuitFailureThreshold;
-    }
-    if (isPositiveInteger(source.circuitRecoveryTimeoutMs)) {
-        config.circuitRecoveryTimeoutMs = source.circuitRecoveryTimeoutMs;
-    }
-    if (isPositiveInteger(source.halfOpenSuccessThreshold)) {
-        config.halfOpenSuccessThreshold = source.halfOpenSuccessThreshold;
-    }
-    if (isPercentage(source.resourcePressureMaxHeapPercent)) {
-        config.resourcePressureMaxHeapPercent = source.resourcePressureMaxHeapPercent;
+    for (const [key, isValid] of SCALAR_FIELDS) {
+        const value = source[key];
+        if (isValid(value)) config[key] = value;
     }
 
-    const agentConcurrency = readLimitMap(source.agentConcurrency);
-    if (agentConcurrency) config.agentConcurrency = agentConcurrency;
-
-    const providerConcurrency = readLimitMap(source.providerConcurrency);
-    if (providerConcurrency) config.providerConcurrency = providerConcurrency;
-
-    const modelConcurrency = readLimitMap(source.modelConcurrency);
-    if (modelConcurrency) config.modelConcurrency = modelConcurrency;
+    for (const key of LIMIT_MAP_FIELDS) {
+        const limits = readLimitMap(source[key]);
+        if (limits) config[key] = limits;
+    }
 
     return config;
 }
