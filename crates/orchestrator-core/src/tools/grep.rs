@@ -1,6 +1,7 @@
 //! Enhanced grep tool with timeout protection
 
 use crate::Result;
+use crate::tools::path_filter::PathFilter;
 use regex::Regex;
 use std::path::Path;
 use std::time::{Duration, Instant};
@@ -68,10 +69,13 @@ impl GrepTool {
         let regex = Regex::new(pattern)?;
         let mut results = Vec::new();
 
+        let filter = PathFilter::new(directory, &self.config.exclude_patterns)
+            .include_hidden(self.config.include_hidden)
+            .include_only(&self.config.include_patterns);
         let walker = WalkDir::new(directory)
             .follow_links(false)
             .into_iter()
-            .filter_entry(|e| self.should_include(e.path()));
+            .filter_entry(|e| filter.allows(e.path()));
 
         for entry in walker {
             if start.elapsed() > self.config.timeout || results.len() >= self.config.max_results {
@@ -114,40 +118,6 @@ impl GrepTool {
             }
         }
     }
-
-    /// Check if a path should be included in search
-    fn should_include(&self, path: &Path) -> bool {
-        let path_str = path.to_string_lossy();
-
-        // Check hidden files
-        if !self.config.include_hidden
-            && let Some(name) = path.file_name()
-            && name.to_string_lossy().starts_with('.')
-        {
-            return false;
-        }
-
-        // Check exclude patterns
-        for pattern in &self.config.exclude_patterns {
-            if glob::Pattern::new(pattern)
-                .map(|p| p.matches(&path_str))
-                .unwrap_or(false)
-            {
-                return false;
-            }
-        }
-
-        // Check include patterns (if specified)
-        if !self.config.include_patterns.is_empty() {
-            return self.config.include_patterns.iter().any(|pattern| {
-                glob::Pattern::new(pattern)
-                    .map(|p| p.matches(&path_str))
-                    .unwrap_or(false)
-            });
-        }
-
-        true
-    }
 }
 
 impl Default for GrepTool {
@@ -178,6 +148,22 @@ mod tests {
         assert_eq!(results.len(), 2);
         assert_eq!(results[0].line_number, 1);
         assert_eq!(results[1].line_number, 3);
+    }
+
+    #[test]
+    fn exclusions_ignore_directories_above_the_search_root() {
+        let dir = tempdir().unwrap();
+        let root = dir.path().join("build").join("project");
+        fs::create_dir_all(root.join("node_modules")).unwrap();
+        fs::create_dir_all(root.join(".cache")).unwrap();
+        fs::write(root.join("a.txt"), "needle\n").unwrap();
+        fs::write(root.join("node_modules").join("b.txt"), "needle\n").unwrap();
+        fs::write(root.join(".cache").join("c.txt"), "needle\n").unwrap();
+
+        let results = GrepTool::default().search("needle", &root).unwrap();
+
+        assert_eq!(results.len(), 1, "{results:?}");
+        assert!(results[0].file.ends_with("a.txt"));
     }
 
     #[test]

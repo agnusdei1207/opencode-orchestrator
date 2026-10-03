@@ -1,6 +1,7 @@
 //! Enhanced glob tool with timeout protection
 
 use crate::Result;
+use crate::tools::path_filter::PathFilter;
 use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
 use walkdir::WalkDir;
@@ -60,10 +61,9 @@ impl GlobTool {
             walker = walker.max_depth(max_depth);
         }
 
-        for entry in walker
-            .into_iter()
-            .filter_entry(|e| self.should_include(e.path()))
-        {
+        let filter = PathFilter::new(directory, &self.config.exclude_patterns)
+            .include_hidden(self.config.include_hidden);
+        for entry in walker.into_iter().filter_entry(|e| filter.allows(e.path())) {
             // Check timeout
             if start.elapsed() > self.config.timeout {
                 break;
@@ -88,30 +88,6 @@ impl GlobTool {
         }
 
         Ok(results)
-    }
-
-    fn should_include(&self, path: &Path) -> bool {
-        let path_str = path.to_string_lossy();
-
-        // Check hidden files
-        if !self.config.include_hidden
-            && let Some(name) = path.file_name()
-            && name.to_string_lossy().starts_with('.')
-        {
-            return false;
-        }
-
-        // Check exclude patterns
-        for pattern in &self.config.exclude_patterns {
-            if glob::Pattern::new(pattern)
-                .map(|p| p.matches(&path_str))
-                .unwrap_or(false)
-            {
-                return false;
-            }
-        }
-
-        true
     }
 }
 
@@ -143,6 +119,32 @@ mod tests {
 
         assert_eq!(results.len(), 1);
         assert!(results[0].to_string_lossy().contains("test.rs"));
+    }
+
+    #[test]
+    fn exclusions_ignore_directories_above_the_search_root() {
+        let dir = tempdir().unwrap();
+        let root = dir.path().join("target").join("project");
+        fs::create_dir_all(root.join("target")).unwrap();
+        fs::write(root.join("a.rs"), "").unwrap();
+        fs::write(root.join("target").join("b.rs"), "").unwrap();
+
+        let results = GlobTool::default().find("**/*.rs", &root).unwrap();
+
+        assert_eq!(results, vec![root.join("a.rs")]);
+    }
+
+    #[test]
+    fn a_hidden_search_root_is_still_searched() {
+        let dir = tempdir().unwrap();
+        let root = dir.path().join(".config");
+        fs::create_dir_all(root.join(".secret")).unwrap();
+        fs::write(root.join("a.rs"), "").unwrap();
+        fs::write(root.join(".secret").join("b.rs"), "").unwrap();
+
+        let results = GlobTool::default().find("**/*.rs", &root).unwrap();
+
+        assert_eq!(results, vec![root.join("a.rs")]);
     }
 
     #[test]

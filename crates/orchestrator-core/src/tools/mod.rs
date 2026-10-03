@@ -10,6 +10,7 @@ pub mod http;
 pub mod jq;
 pub mod lsp;
 pub mod mgrep;
+mod path_filter;
 pub mod process;
 pub mod sed;
 

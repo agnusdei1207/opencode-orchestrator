@@ -3,6 +3,7 @@
 //! Searches for multiple patterns in parallel using rayon.
 
 use crate::Result;
+use crate::tools::path_filter::PathFilter;
 use rayon::prelude::*;
 use regex::Regex;
 use std::collections::HashMap;
@@ -88,10 +89,12 @@ impl MgrepTool {
 
     /// Every included regular file whose size is known and within the limit.
     fn collect_files(&self, directory: &Path) -> Vec<PathBuf> {
+        let filter = PathFilter::new(directory, &self.config.exclude_patterns)
+            .include_hidden(self.config.include_hidden);
         WalkDir::new(directory)
             .follow_links(false)
             .into_iter()
-            .filter_entry(|e| self.should_include(e.path()))
+            .filter_entry(|e| filter.allows(e.path()))
             .filter_map(|e| e.ok())
             .filter(|e| e.file_type().is_file())
             .filter(|e| {
@@ -137,30 +140,6 @@ impl MgrepTool {
         }
         matches
     }
-
-    fn should_include(&self, path: &Path) -> bool {
-        let path_str = path.to_string_lossy();
-
-        // Check hidden files
-        if !self.config.include_hidden
-            && let Some(name) = path.file_name()
-            && name.to_string_lossy().starts_with('.')
-        {
-            return false;
-        }
-
-        // Check exclude patterns
-        for pattern in &self.config.exclude_patterns {
-            if glob::Pattern::new(pattern)
-                .map(|p| p.matches(&path_str))
-                .unwrap_or(false)
-            {
-                return false;
-            }
-        }
-
-        true
-    }
 }
 
 impl Default for MgrepTool {
@@ -197,5 +176,20 @@ mod tests {
         assert!(result.results.contains_key("let"));
         assert_eq!(result.results["const"].len(), 2);
         assert_eq!(result.results["let"].len(), 1);
+    }
+
+    #[test]
+    fn exclusions_ignore_directories_above_the_search_root() {
+        let dir = tempdir().unwrap();
+        let root = dir.path().join("dist").join(".work").join("project");
+        fs::create_dir_all(root.join("target")).unwrap();
+        fs::write(root.join("a.txt"), "needle\n").unwrap();
+        fs::write(root.join("target").join("b.txt"), "needle\n").unwrap();
+
+        let result = MgrepTool::default()
+            .search(&["needle".to_string()], &root)
+            .unwrap();
+
+        assert_eq!(result.results["needle"].len(), 1);
     }
 }

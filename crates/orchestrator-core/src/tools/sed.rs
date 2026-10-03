@@ -1,5 +1,6 @@
 //! Sed-like find and replace tool with timeout protection
 
+use crate::tools::path_filter::PathFilter;
 use crate::{Error, Result};
 use regex::Regex;
 use std::ffi::OsStr;
@@ -151,10 +152,11 @@ impl SedTool {
         let start = Instant::now();
         let mut report = SedDirectoryReport::default();
 
+        let filter = self.walk_filter(directory);
         let walker = WalkDir::new(directory)
             .follow_links(false)
             .into_iter()
-            .filter_entry(|e| self.should_include(e.path()));
+            .filter_entry(|e| filter.allows(e.path()));
 
         for entry in walker {
             if start.elapsed() > self.config.timeout {
@@ -202,30 +204,12 @@ impl SedTool {
         }
     }
 
-    /// Check if a path should be included
-    fn should_include(&self, path: &Path) -> bool {
-        let path_str = path.to_string_lossy();
-
-        // Check exclude patterns
-        for pattern in &self.config.exclude_patterns {
-            if glob::Pattern::new(pattern)
-                .map(|p| p.matches(&path_str))
-                .unwrap_or(false)
-            {
-                return false;
-            }
-        }
-
-        // Check include patterns (if specified)
-        if !self.config.include_patterns.is_empty() {
-            return self.config.include_patterns.iter().any(|pattern| {
-                glob::Pattern::new(pattern)
-                    .map(|p| p.matches(&path_str))
-                    .unwrap_or(false)
-            });
-        }
-
-        true
+    /// Directory mode has always rewritten hidden files too; only the
+    /// configured globs, relative to `directory`, restrict the walk.
+    fn walk_filter(&self, directory: &Path) -> PathFilter {
+        PathFilter::new(directory, &self.config.exclude_patterns)
+            .include_hidden(true)
+            .include_only(&self.config.include_patterns)
     }
 }
 
@@ -455,6 +439,26 @@ mod tests {
         );
         assert_eq!(
             fs::read_to_string(dir.path().join("a.txt.bak")).unwrap(),
+            "foo\n"
+        );
+    }
+
+    #[test]
+    fn directory_mode_exclusions_ignore_directories_above_the_root() {
+        let dir = tempdir().unwrap();
+        let root = dir.path().join("node_modules").join("project");
+        fs::create_dir_all(root.join("dist")).unwrap();
+        fs::write(root.join("a.txt"), "foo\n").unwrap();
+        fs::write(root.join("dist").join("b.txt"), "foo\n").unwrap();
+
+        let report = SedTool::default()
+            .replace_in_directory("foo", "bar", &root)
+            .unwrap();
+
+        assert_eq!(report.results.len(), 1);
+        assert_eq!(fs::read_to_string(root.join("a.txt")).unwrap(), "bar\n");
+        assert_eq!(
+            fs::read_to_string(root.join("dist").join("b.txt")).unwrap(),
             "foo\n"
         );
     }
