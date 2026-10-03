@@ -55,6 +55,12 @@ pub mod rpc {
 
     // Protocol Metadata
     pub const PROTOCOL_VERSION: &str = "2024-11-05";
+
+    // JSON-RPC 2.0 error codes (https://www.jsonrpc.org/specification#error_object)
+    pub const PARSE_ERROR: i64 = -32700;
+    pub const INVALID_REQUEST: i64 = -32600;
+    pub const METHOD_NOT_FOUND: i64 = -32601;
+    pub const INVALID_PARAMS: i64 = -32602;
 }
 
 /// Field names used in JSON RPC requests and responses.
@@ -65,6 +71,8 @@ pub mod field {
     pub const PARAMS: &str = "params";
     pub const RESULT: &str = "result";
     pub const ERROR: &str = "error";
+    pub const CODE: &str = "code";
+    pub const MESSAGE: &str = "message";
     pub const CONTENT: &str = "content";
     pub const TYPE: &str = "type";
     pub const TEXT: &str = "text";

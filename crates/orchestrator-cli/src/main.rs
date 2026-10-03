@@ -142,17 +142,7 @@ async fn serve() -> Result<()> {
 
         debug!("Received: {}", line);
 
-        let request: Value = match serde_json::from_str(&line) {
-            Ok(v) => v,
-            Err(e) => {
-                error!("Parse error: {}", e);
-                continue;
-            }
-        };
-
-        let response = handle_request(&request).await;
-
-        if let Some(resp) = response {
+        if let Some(resp) = response_for_line(&line).await {
             let resp_str = serde_json::to_string(&resp)?;
             debug!("Sending: {}", resp_str);
             writeln!(stdout, "{}", resp_str)?;
@@ -163,245 +153,310 @@ async fn serve() -> Result<()> {
     Ok(())
 }
 
-/// Handle JSON-RPC request
+/// A JSON-RPC error object.
+#[derive(Debug)]
+struct RpcError {
+    code: i64,
+    message: String,
+}
+
+impl RpcError {
+    fn new(code: i64, message: impl Into<String>) -> Self {
+        Self {
+            code,
+            message: message.into(),
+        }
+    }
+}
+
+/// Answer one stdin line. Unparseable JSON gets a parse error with a null id
+/// as JSON-RPC 2.0 requires, since no id can be read from it.
+async fn response_for_line(line: &str) -> Option<Value> {
+    match serde_json::from_str::<Value>(line) {
+        Ok(request) => handle_request(&request).await,
+        Err(e) => {
+            error!("Parse error: {}", e);
+            let error = RpcError::new(rpc::PARSE_ERROR, format!("Parse error: {e}"));
+            Some(error_response(Value::Null, error))
+        }
+    }
+}
+
+/// Handle JSON-RPC request.
+///
+/// Every request that carries an id gets a reply, an error object included,
+/// so the TypeScript pool never waits for its request timeout. Notifications
+/// (no id) are not answered when they fail.
 async fn handle_request(request: &Value) -> Option<Value> {
-    let method = request.get(field::METHOD)?.as_str()?;
     let id = request.get(field::ID).cloned();
+    match dispatch(request).await {
+        Ok(result) => Some(json!({
+            "jsonrpc": rpc::VERSION,
+            field::ID: id,
+            field::RESULT: result
+        })),
+        Err(error) => {
+            debug!("Request failed: {}", error.message);
+            id.map(|id| error_response(id, error))
+        }
+    }
+}
 
-    let result = match method {
-        rpc::INITIALIZE => {
-            json!({
-                "protocolVersion": rpc::PROTOCOL_VERSION,
-                "serverInfo": {
-                    "name": "orchestrator",
-                    "version": env!("CARGO_PKG_VERSION")
-                },
-                "capabilities": { "tools": {} }
-            })
-        }
-        rpc::TOOLS_LIST => {
-            json!({
-                "tools": [
-                    {
-                        "name": tool::GREP_SEARCH,
-                        "description": "Fast regex search with timeout protection",
-                        "inputSchema": {
-                            "type": "object",
-                            "properties": {
-                                "pattern": {"type": "string", "description": "Regex pattern"},
-                                "directory": {"type": "string", "description": "Search directory"},
-                                "max_results": {"type": "number", "description": "Max results (default: 100)"},
-                                "timeout_ms": {"type": "number", "description": "Timeout in milliseconds (default: 30000)"}
-                            },
-                            "required": ["pattern"]
-                        }
-                    },
-                    {
-                        "name": tool::GLOB_SEARCH,
-                        "description": "Find files by glob pattern",
-                        "inputSchema": {
-                            "type": "object",
-                            "properties": {
-                                "pattern": {"type": "string", "description": "Glob pattern (e.g., **/*.rs)"},
-                                "directory": {"type": "string", "description": "Search directory"}
-                            },
-                            "required": ["pattern"]
-                        }
-                    },
-                    {
-                        "name": tool::MGREP,
-                        "description": "Search multiple patterns in parallel. Much faster than running grep multiple times.",
-                        "inputSchema": {
-                            "type": "object",
-                            "properties": {
-                                "patterns": {"type": "array", "items": {"type": "string"}, "description": "Array of regex patterns to search"},
-                                "directory": {"type": "string", "description": "Search directory (optional)"},
-                                "max_results_per_pattern": {"type": "number", "description": "Max results per pattern (default: 50)"},
-                                "timeout_ms": {"type": "number", "description": "Timeout in milliseconds"}
-                            },
-                            "required": ["patterns"]
-                        }
-                    },
-                    {
-                        "name": tool::SED_REPLACE,
-                        "description": "Find and replace patterns in files (sed-like)",
-                        "inputSchema": {
-                            "type": "object",
-                            "properties": {
-                                "pattern": {"type": "string", "description": "Regex pattern to find"},
-                                "replacement": {"type": "string", "description": "Replacement string"},
-                                "file": {"type": "string", "description": "Single file to modify"},
-                                "directory": {"type": "string", "description": "Directory to modify (recursive)"},
-                                "dry_run": {"type": "boolean", "description": "Preview changes without modifying (default: false)"},
-                                "backup": {"type": "boolean", "description": "Create .bak backup (default: false)"},
-                                "timeout_ms": {"type": "number", "description": "Timeout in milliseconds"}
-                            },
-                            "required": ["pattern", "replacement"]
-                        }
-                    },
-                    {
-                        "name": tool::DIFF,
-                        "description": "Compare two files or strings",
-                        "inputSchema": {
-                            "type": "object",
-                            "properties": {
-                                "file1": {"type": "string"},
-                                "file2": {"type": "string"},
-                                "content1": {"type": "string"},
-                                "content2": {"type": "string"}
-                            }
-                        }
-                    },
-                    {
-                        "name": tool::JQ,
-                        "description": "Query and manipulate JSON using jq expressions",
-                        "inputSchema": {
-                            "type": "object",
-                            "properties": {
-                                "json_input": {"type": "string", "description": "JSON string to query"},
-                                "file": {"type": "string", "description": "JSON file to query"},
-                                "expression": {"type": "string", "description": "jq expression"},
-                                "raw_output": {"type": "boolean", "description": "Return raw string output"}
-                            },
-                            "required": ["expression"]
-                        }
-                    },
-                    {
-                        "name": tool::HTTP,
-                        "description": "Make HTTP requests",
-                        "inputSchema": {
-                            "type": "object",
-                            "properties": {
-                                "url": {"type": "string", "description": "URL to request"},
-                                "method": {"type": "string", "description": "HTTP method"},
-                                "headers": {"type": "object", "description": "Request headers"},
-                                "body": {"type": "string", "description": "Request body"},
-                                "timeout_ms": {"type": "number", "description": "Timeout in milliseconds"}
-                            },
-                            "required": ["url"]
-                        }
-                    },
-                    {
-                        "name": tool::FILE_STATS,
-                        "description": "Analyze file and directory statistics",
-                        "inputSchema": {
-                            "type": "object",
-                            "properties": {
-                                "directory": {"type": "string", "description": "Directory to analyze"},
-                                "max_depth": {"type": "number", "description": "Maximum directory depth"}
-                            },
-                            "required": ["directory"]
-                        }
-                    },
-                    {
-                        "name": tool::GIT_DIFF,
-                        "description": "Show git diff of uncommitted changes",
-                        "inputSchema": {
-                            "type": "object",
-                            "properties": {
-                                "directory": {"type": "string", "description": "Repository directory"},
-                                "staged_only": {"type": "boolean", "description": "Show only staged changes"}
-                            }
-                        }
-                    },
-                    {
-                        "name": tool::GIT_STATUS,
-                        "description": "Show git repository status",
-                        "inputSchema": {
-                            "type": "object",
-                            "properties": {
-                                "directory": {"type": "string", "description": "Repository directory"}
-                            }
-                        }
-                    },
-                    {
-                        "name": tool::LSP_DIAGNOSTICS,
-                        "description": "Get LSP diagnostics (errors/warnings) for files",
-                        "inputSchema": {
-                            "type": "object",
-                            "properties": {
-                                "directory": {"type": "string", "description": "Directory to check"},
-                                "file": {"type": "string", "description": "Specific file or glob filter"},
-                                "include_warnings": {"type": "boolean", "description": "Include warnings (default: true)"}
-                            }
-                        }
-                    },
-                    {
-                        "name": tool::AST_SEARCH,
-                        "description": "Structural code search using ast-grep",
-                        "inputSchema": {
-                            "type": "object",
-                            "properties": {
-                                "pattern": {"type": "string", "description": "ast-grep pattern (e.g. 'const $X = $Y')"},
-                                "directory": {"type": "string", "description": "Directory to search"},
-                                "lang": {"type": "string", "description": "Language (typescript, javascript, rust, etc)"},
-                                "include": {"type": "string", "description": "Glob filter for files"}
-                            },
-                            "required": ["pattern"]
-                        }
-                    },
-                    {
-                        "name": tool::AST_REPLACE,
-                        "description": "Structural code replace using ast-grep",
-                        "inputSchema": {
-                            "type": "object",
-                            "properties": {
-                                "pattern": {"type": "string", "description": "ast-grep search pattern"},
-                                "rewrite": {"type": "string", "description": "ast-grep rewrite pattern"},
-                                "directory": {"type": "string", "description": "Directory to modify"},
-                                "lang": {"type": "string", "description": "Language"},
-                                "include": {"type": "string", "description": "Glob filter"}
-                            },
-                            "required": ["pattern", "rewrite"]
-                        }
-                    },
-                    {
-                        "name": tool::LIST_AGENTS,
-                        "description": "List available agents",
-                        "inputSchema": {"type": "object", "properties": {}}
-                    },
-                    {
-                        "name": tool::LIST_HOOKS,
-                        "description": "List available hooks",
-                        "inputSchema": {"type": "object", "properties": {}}
-                    }
-                ]
-            })
-        }
-        rpc::TOOLS_CALL => {
-            let params = request.get(field::PARAMS)?;
-            let tool_name = params.get("name")?.as_str()?;
-            let arguments = params.get("arguments").cloned().unwrap_or(json!({}));
-
-            match tools::execute_tool(tool_name, arguments).await {
-                Ok(result) => json!({
-                    field::CONTENT: [{
-                        field::TYPE: field::TEXT,
-                        field::TEXT: result
-                    }]
-                }),
-                Err(e) => {
-                    json!({
-                        field::CONTENT: [{
-                            field::TYPE: field::TEXT,
-                            field::TEXT: format!("Error: {}", e)
-                        }],
-                        field::IS_ERROR: true
-                    })
-                }
-            }
-        }
-        _ => {
-            debug!("Unknown method: {}", method);
-            return None;
-        }
-    };
-
-    Some(json!({
+fn error_response(id: Value, error: RpcError) -> Value {
+    json!({
         "jsonrpc": rpc::VERSION,
         field::ID: id,
-        field::RESULT: result
-    }))
+        field::ERROR: {
+            field::CODE: error.code,
+            field::MESSAGE: error.message
+        }
+    })
+}
+
+async fn dispatch(request: &Value) -> std::result::Result<Value, RpcError> {
+    let method = request
+        .get(field::METHOD)
+        .and_then(Value::as_str)
+        .ok_or_else(|| RpcError::new(rpc::INVALID_REQUEST, "Invalid request: missing method"))?;
+
+    match method {
+        rpc::INITIALIZE => Ok(initialize_result()),
+        rpc::TOOLS_LIST => Ok(tools_list_result()),
+        rpc::TOOLS_CALL => tools_call(request).await,
+        _ => Err(RpcError::new(
+            rpc::METHOD_NOT_FOUND,
+            format!("Method not found: {method}"),
+        )),
+    }
+}
+
+fn initialize_result() -> Value {
+    json!({
+        "protocolVersion": rpc::PROTOCOL_VERSION,
+        "serverInfo": {
+            "name": "orchestrator",
+            "version": env!("CARGO_PKG_VERSION")
+        },
+        "capabilities": { "tools": {} }
+    })
+}
+
+async fn tools_call(request: &Value) -> std::result::Result<Value, RpcError> {
+    let invalid_params = |message: &str| RpcError::new(rpc::INVALID_PARAMS, message);
+    let params = request
+        .get(field::PARAMS)
+        .ok_or_else(|| invalid_params("Invalid params: missing params"))?;
+    let tool_name = params
+        .get("name")
+        .and_then(Value::as_str)
+        .ok_or_else(|| invalid_params("Invalid params: missing tool name"))?;
+    let arguments = params.get("arguments").cloned().unwrap_or(json!({}));
+
+    Ok(match tools::execute_tool(tool_name, arguments).await {
+        Ok(result) => json!({
+            field::CONTENT: [{
+                field::TYPE: field::TEXT,
+                field::TEXT: result
+            }]
+        }),
+        Err(e) => json!({
+            field::CONTENT: [{
+                field::TYPE: field::TEXT,
+                field::TEXT: format!("Error: {}", e)
+            }],
+            field::IS_ERROR: true
+        }),
+    })
+}
+
+fn tools_list_result() -> Value {
+    json!({
+        "tools": [
+            {
+                "name": tool::GREP_SEARCH,
+                "description": "Fast regex search with timeout protection",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "pattern": {"type": "string", "description": "Regex pattern"},
+                        "directory": {"type": "string", "description": "Search directory"},
+                        "max_results": {"type": "number", "description": "Max results (default: 100)"},
+                        "timeout_ms": {"type": "number", "description": "Timeout in milliseconds (default: 30000)"}
+                    },
+                    "required": ["pattern"]
+                }
+            },
+            {
+                "name": tool::GLOB_SEARCH,
+                "description": "Find files by glob pattern",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "pattern": {"type": "string", "description": "Glob pattern (e.g., **/*.rs)"},
+                        "directory": {"type": "string", "description": "Search directory"}
+                    },
+                    "required": ["pattern"]
+                }
+            },
+            {
+                "name": tool::MGREP,
+                "description": "Search multiple patterns in parallel. Much faster than running grep multiple times.",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "patterns": {"type": "array", "items": {"type": "string"}, "description": "Array of regex patterns to search"},
+                        "directory": {"type": "string", "description": "Search directory (optional)"},
+                        "max_results_per_pattern": {"type": "number", "description": "Max results per pattern (default: 50)"},
+                        "timeout_ms": {"type": "number", "description": "Timeout in milliseconds"}
+                    },
+                    "required": ["patterns"]
+                }
+            },
+            {
+                "name": tool::SED_REPLACE,
+                "description": "Find and replace patterns in files (sed-like)",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "pattern": {"type": "string", "description": "Regex pattern to find"},
+                        "replacement": {"type": "string", "description": "Replacement string"},
+                        "file": {"type": "string", "description": "Single file to modify"},
+                        "directory": {"type": "string", "description": "Directory to modify (recursive)"},
+                        "dry_run": {"type": "boolean", "description": "Preview changes without modifying (default: false)"},
+                        "backup": {"type": "boolean", "description": "Create .bak backup (default: false)"},
+                        "timeout_ms": {"type": "number", "description": "Timeout in milliseconds"}
+                    },
+                    "required": ["pattern", "replacement"]
+                }
+            },
+            {
+                "name": tool::DIFF,
+                "description": "Compare two files or strings",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "file1": {"type": "string"},
+                        "file2": {"type": "string"},
+                        "content1": {"type": "string"},
+                        "content2": {"type": "string"}
+                    }
+                }
+            },
+            {
+                "name": tool::JQ,
+                "description": "Query and manipulate JSON using jq expressions",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "json_input": {"type": "string", "description": "JSON string to query"},
+                        "file": {"type": "string", "description": "JSON file to query"},
+                        "expression": {"type": "string", "description": "jq expression"},
+                        "raw_output": {"type": "boolean", "description": "Return raw string output"}
+                    },
+                    "required": ["expression"]
+                }
+            },
+            {
+                "name": tool::HTTP,
+                "description": "Make HTTP requests",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "url": {"type": "string", "description": "URL to request"},
+                        "method": {"type": "string", "description": "HTTP method"},
+                        "headers": {"type": "object", "description": "Request headers"},
+                        "body": {"type": "string", "description": "Request body"},
+                        "timeout_ms": {"type": "number", "description": "Timeout in milliseconds"}
+                    },
+                    "required": ["url"]
+                }
+            },
+            {
+                "name": tool::FILE_STATS,
+                "description": "Analyze file and directory statistics",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "directory": {"type": "string", "description": "Directory to analyze"},
+                        "max_depth": {"type": "number", "description": "Maximum directory depth"}
+                    },
+                    "required": ["directory"]
+                }
+            },
+            {
+                "name": tool::GIT_DIFF,
+                "description": "Show git diff of uncommitted changes",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "directory": {"type": "string", "description": "Repository directory"},
+                        "staged_only": {"type": "boolean", "description": "Show only staged changes"}
+                    }
+                }
+            },
+            {
+                "name": tool::GIT_STATUS,
+                "description": "Show git repository status",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "directory": {"type": "string", "description": "Repository directory"}
+                    }
+                }
+            },
+            {
+                "name": tool::LSP_DIAGNOSTICS,
+                "description": "Get LSP diagnostics (errors/warnings) for files",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "directory": {"type": "string", "description": "Directory to check"},
+                        "file": {"type": "string", "description": "Specific file or glob filter"},
+                        "include_warnings": {"type": "boolean", "description": "Include warnings (default: true)"}
+                    }
+                }
+            },
+            {
+                "name": tool::AST_SEARCH,
+                "description": "Structural code search using ast-grep",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "pattern": {"type": "string", "description": "ast-grep pattern (e.g. 'const $X = $Y')"},
+                        "directory": {"type": "string", "description": "Directory to search"},
+                        "lang": {"type": "string", "description": "Language (typescript, javascript, rust, etc)"},
+                        "include": {"type": "string", "description": "Glob filter for files"}
+                    },
+                    "required": ["pattern"]
+                }
+            },
+            {
+                "name": tool::AST_REPLACE,
+                "description": "Structural code replace using ast-grep",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "pattern": {"type": "string", "description": "ast-grep search pattern"},
+                        "rewrite": {"type": "string", "description": "ast-grep rewrite pattern"},
+                        "directory": {"type": "string", "description": "Directory to modify"},
+                        "lang": {"type": "string", "description": "Language"},
+                        "include": {"type": "string", "description": "Glob filter"}
+                    },
+                    "required": ["pattern", "rewrite"]
+                }
+            },
+            {
+                "name": tool::LIST_AGENTS,
+                "description": "List available agents",
+                "inputSchema": {"type": "object", "properties": {}}
+            },
+            {
+                "name": tool::LIST_HOOKS,
+                "description": "List available hooks",
+                "inputSchema": {"type": "object", "properties": {}}
+            }
+        ]
+    })
 }
 
 #[cfg(test)]
@@ -473,5 +528,67 @@ mod tests {
                 .unwrap()
                 .contains("Unknown tool")
         );
+    }
+
+    fn assert_rpc_error(response: &Value, id: Value, code: i64) {
+        assert_eq!(response[field::ID], id);
+        assert_eq!(response[field::ERROR][field::CODE], code);
+        assert!(response[field::ERROR][field::MESSAGE].is_string());
+        assert!(response.get(field::RESULT).is_none());
+    }
+
+    #[tokio::test]
+    async fn tools_call_without_params_gets_an_invalid_params_error() {
+        let req = json!({"jsonrpc": rpc::VERSION, field::ID: 7, field::METHOD: rpc::TOOLS_CALL});
+        let resp = handle_request(&req)
+            .await
+            .expect("a request with an id needs a reply");
+        assert_rpc_error(&resp, json!(7), rpc::INVALID_PARAMS);
+    }
+
+    #[tokio::test]
+    async fn tools_call_without_a_tool_name_gets_an_invalid_params_error() {
+        let req = json!({
+            "jsonrpc": rpc::VERSION,
+            field::ID: 8,
+            field::METHOD: rpc::TOOLS_CALL,
+            field::PARAMS: {"arguments": {}}
+        });
+        let resp = handle_request(&req)
+            .await
+            .expect("a request with an id needs a reply");
+        assert_rpc_error(&resp, json!(8), rpc::INVALID_PARAMS);
+    }
+
+    #[tokio::test]
+    async fn unknown_methods_get_a_method_not_found_error() {
+        let req = json!({"jsonrpc": rpc::VERSION, field::ID: "abc", field::METHOD: "tools/nope"});
+        let resp = handle_request(&req)
+            .await
+            .expect("a request with an id needs a reply");
+        assert_rpc_error(&resp, json!("abc"), rpc::METHOD_NOT_FOUND);
+    }
+
+    #[tokio::test]
+    async fn requests_without_a_method_get_an_invalid_request_error() {
+        let req = json!({"jsonrpc": rpc::VERSION, field::ID: 9});
+        let resp = handle_request(&req)
+            .await
+            .expect("a request with an id needs a reply");
+        assert_rpc_error(&resp, json!(9), rpc::INVALID_REQUEST);
+    }
+
+    #[tokio::test]
+    async fn notifications_never_get_error_replies() {
+        let req = json!({"jsonrpc": rpc::VERSION, field::METHOD: "tools/nope"});
+        assert!(handle_request(&req).await.is_none());
+    }
+
+    #[tokio::test]
+    async fn unparseable_lines_get_a_parse_error_reply() {
+        let resp = response_for_line("{not json")
+            .await
+            .expect("parse errors are answered");
+        assert_rpc_error(&resp, Value::Null, rpc::PARSE_ERROR);
     }
 }
