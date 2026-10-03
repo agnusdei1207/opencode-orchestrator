@@ -2,6 +2,8 @@
 
 use crate::tools::process::{CapturedText, run_with_timeout};
 use crate::{Error, Result};
+use std::fs::File;
+use std::io::{self, Read};
 use std::path::Path;
 use std::process::Command;
 use std::time::Duration;
@@ -49,14 +51,7 @@ impl JqTool {
     /// Query JSON file with jq expression. The file is read here and piped to
     /// jq, so its path never reaches the jq command line.
     pub fn query_file(&self, file_path: &Path, expression: &str) -> Result<CapturedText> {
-        let size = std::fs::metadata(file_path)?.len();
-        if size > MAX_INPUT_FILE_BYTES {
-            return Err(Error::Tool(format!(
-                "jq input file {} is {size} bytes, which exceeds the {MAX_INPUT_FILE_BYTES}-byte limit",
-                file_path.display()
-            )));
-        }
-        let content = std::fs::read_to_string(file_path)?;
+        let content = read_input_file(file_path)?;
         self.query(&content, expression)
     }
 
@@ -85,6 +80,32 @@ impl JqTool {
 const JQ_ENV_ALLOWLIST: &[&str] = &["PATH", "SYSTEMROOT"];
 /// Largest JSON file `query_file` loads into memory.
 const MAX_INPUT_FILE_BYTES: u64 = 16 * 1024 * 1024;
+
+/// Read a regular file of at most [`MAX_INPUT_FILE_BYTES`].
+///
+/// The cap counts the bytes actually read, because `metadata().len()` is 0
+/// for `/proc` files and devices such as `/dev/zero`. FIFOs and devices are
+/// refused before opening: opening a FIFO blocks until a writer appears, and
+/// this read happens before jq's timeout starts.
+fn read_input_file(path: &Path) -> Result<String> {
+    if !std::fs::metadata(path)?.file_type().is_file() {
+        return Err(Error::Tool(format!(
+            "jq input {} is not a regular file",
+            path.display()
+        )));
+    }
+    let mut bytes = Vec::new();
+    File::open(path)?
+        .take(MAX_INPUT_FILE_BYTES + 1)
+        .read_to_end(&mut bytes)?;
+    if bytes.len() as u64 > MAX_INPUT_FILE_BYTES {
+        return Err(Error::Tool(format!(
+            "jq input file {} exceeds the {MAX_INPUT_FILE_BYTES}-byte limit",
+            path.display()
+        )));
+    }
+    String::from_utf8(bytes).map_err(|err| io::Error::new(io::ErrorKind::InvalidData, err).into())
+}
 
 fn restrict_environment(cmd: &mut Command) {
     cmd.env_clear();
@@ -172,6 +193,50 @@ mod tests {
         let error = JqTool::default().query_file(&file, ".").unwrap_err();
 
         assert!(error.to_string().contains("exceeds"), "{error}");
+    }
+
+    /// `query_file` on another thread, so a blocking read fails the test
+    /// instead of hanging it.
+    #[cfg(unix)]
+    fn query_file_within(path: &Path, limit: Duration) -> Result<CapturedText> {
+        let path = path.to_path_buf();
+        let (sender, receiver) = std::sync::mpsc::channel();
+        std::thread::spawn(move || {
+            let _ = sender.send(JqTool::default().query_file(&path, "."));
+        });
+        receiver
+            .recv_timeout(limit)
+            .expect("query_file must not block on a special file")
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn fifos_are_refused_instead_of_blocking() {
+        let dir = tempfile::tempdir().unwrap();
+        let fifo = dir.path().join("input.json");
+        let created = Command::new("mkfifo").arg(&fifo).status().unwrap();
+        assert!(created.success());
+
+        let error = query_file_within(&fifo, Duration::from_secs(2)).unwrap_err();
+
+        assert!(error.to_string().contains("not a regular file"), "{error}");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn devices_that_report_zero_length_are_refused() {
+        let error = query_file_within(Path::new("/dev/zero"), Duration::from_secs(2)).unwrap_err();
+
+        assert!(error.to_string().contains("not a regular file"), "{error}");
+    }
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn zero_length_proc_files_are_read_up_to_their_real_content() {
+        // `/proc` files report a length of 0 but still have content.
+        let content = read_input_file(Path::new("/proc/self/status")).unwrap();
+
+        assert!(content.contains("Name:"), "{content}");
     }
 
     #[test]
