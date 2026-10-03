@@ -75,6 +75,22 @@ describe("Error Patterns", () => {
             expect(detectErrorType(new Error("rate limit"))).toBe("RATE_LIMIT");
             expect(detectErrorType({ message: "tool_result_missing" })).toBe("TOOL_RESULT_MISSING");
         });
+
+        it("reads the message nested in host NamedError data", () => {
+            // OpenCode session.error carries NamedError.toObject(): { name, data: { message } }.
+            expect(detectErrorType({
+                name: "APIError",
+                data: { message: "Rate limit reached for requests", statusCode: 429, isRetryable: true },
+            })).toBe("RATE_LIMIT");
+            expect(detectErrorType({
+                name: "UnknownError",
+                data: { message: "messages: tool_result_missing for tool_use id" },
+            })).toBe("TOOL_RESULT_MISSING");
+        });
+
+        it("still detects host aborts by name", () => {
+            expect(detectErrorType({ name: "MessageAbortedError", data: { message: "Aborted" } })).toBe("MESSAGE_ABORTED");
+        });
     });
 
     describe("isRetryableError", () => {
