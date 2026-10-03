@@ -43,33 +43,52 @@ async function dispatch(handler: LegacyHandler, event: LegacyEvent): Promise<voi
     }
 }
 
+interface V2Event {
+    type: string;
+    event: Record<string, unknown>;
+    data: Record<string, unknown>;
+    sessionID: string;
+    statuses: Map<string, string>;
+}
+
+type Translator = (input: V2Event) => LegacyEvent[];
+
 function translateEvents(event: unknown, statuses: Map<string, string>): LegacyEvent[] {
     if (!isRecord(event) || typeof event.type !== "string") return [];
     const data = isRecord(event.data) ? event.data : {};
-    const sessionID = readSessionID(data);
-    if (event.type === "session.execution.started") return statusEvent(statuses, sessionID, SESSION_STATUS.BUSY);
-    if (event.type === "session.execution.succeeded") return statusEvent(statuses, sessionID, SESSION_STATUS.IDLE);
-    if (event.type === SESSION_EVENTS.DELETED) statuses.delete(sessionID);
-    if (event.type === V2_EXECUTION_EVENTS.FAILED) {
-        return [
-            { type: event.type, properties: { ...data, sessionID } },
-            { type: "session.error", properties: { ...data, sessionID } },
-            ...statusEvent(statuses, sessionID, SESSION_STATUS.IDLE),
-        ];
-    }
-    if (event.type === "session.step.ended") return [messageEvent(data, sessionID, event.created)];
-    if (PART_EVENTS.has(event.type)) {
-        return [{ type: "message.part.updated", properties: { part: { ...data, sessionID } } }];
-    }
-    if (event.type === V2_EXECUTION_EVENTS.INTERRUPTED) {
-        return [
-            { type: event.type, properties: { ...data, sessionID } },
-            { type: "session.error", properties: { ...data, sessionID, error: { name: "AbortError" } } },
-            ...statusEvent(statuses, sessionID, SESSION_STATUS.IDLE),
-        ];
-    }
-    const type = EVENT_TYPES[event.type] ?? event.type;
+    const input: V2Event = { type: event.type, event, data, sessionID: readSessionID(data), statuses };
+    const translate = TRANSLATORS.get(event.type) ?? (PART_EVENTS.has(event.type) ? partEvent : passThroughEvent);
+    return translate(input);
+}
+
+function partEvent({ data, sessionID }: V2Event): LegacyEvent[] {
+    return [{ type: "message.part.updated", properties: { part: { ...data, sessionID } } }];
+}
+
+function passThroughEvent({ type: v2Type, data, sessionID }: V2Event): LegacyEvent[] {
+    const type = EVENT_TYPES[v2Type] ?? v2Type;
     return [{ type, properties: { ...data, sessionID } }];
+}
+
+function failedEvents({ type, data, sessionID, statuses }: V2Event): LegacyEvent[] {
+    return [
+        { type, properties: { ...data, sessionID } },
+        { type: "session.error", properties: { ...data, sessionID } },
+        ...statusEvent(statuses, sessionID, SESSION_STATUS.IDLE),
+    ];
+}
+
+function interruptedEvents({ type, data, sessionID, statuses }: V2Event): LegacyEvent[] {
+    return [
+        { type, properties: { ...data, sessionID } },
+        { type: "session.error", properties: { ...data, sessionID, error: { name: "AbortError" } } },
+        ...statusEvent(statuses, sessionID, SESSION_STATUS.IDLE),
+    ];
+}
+
+function deletedEvents(input: V2Event): LegacyEvent[] {
+    input.statuses.delete(input.sessionID);
+    return passThroughEvent(input);
 }
 
 function statusEvent(statuses: Map<string, string>, sessionID: string, type: string): LegacyEvent[] {
@@ -112,4 +131,14 @@ const PART_EVENTS = new Set([
     "session.reasoning.ended",
     "session.tool.success",
     "session.tool.failed",
+]);
+
+/** V2 events that need more than a renamed pass-through. */
+const TRANSLATORS = new Map<string, Translator>([
+    ["session.execution.started", ({ statuses, sessionID }) => statusEvent(statuses, sessionID, SESSION_STATUS.BUSY)],
+    ["session.execution.succeeded", ({ statuses, sessionID }) => statusEvent(statuses, sessionID, SESSION_STATUS.IDLE)],
+    [SESSION_EVENTS.DELETED, deletedEvents],
+    [V2_EXECUTION_EVENTS.FAILED, failedEvents],
+    ["session.step.ended", ({ data, sessionID, event }) => [messageEvent(data, sessionID, event.created)]],
+    [V2_EXECUTION_EVENTS.INTERRUPTED, interruptedEvents],
 ]);
