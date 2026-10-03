@@ -162,17 +162,17 @@ export class TaskLauncher {
   private async executeBackground(task: ParallelTask, preparedPrompt?: RoutedAgentPrompt): Promise<void> {
     const startedAt = task.startedAt;
     await this.concurrency.acquire(task.agent);
-    if (!isActive(task) || task.startedAt !== startedAt || this.shutdownController.signal.aborted) {
+    if (!isSameActiveRun(task, startedAt) || this.shutdownController.signal.aborted) {
       this.concurrency.release(task.agent);
       return;
     }
     task.concurrencyKey = task.agent;
     const routedPrompt = preparedPrompt ?? await buildRoutedAgentPrompt(task.agent, task.prompt);
-    if (!isActive(task) || task.startedAt !== startedAt) return;
+    if (!isSameActiveRun(task, startedAt)) return;
     if (preparedPrompt && await isSessionBusy(this.client, task.sessionID)) {
       throw new Error("Resume session became busy before dispatch");
     }
-    if (!isActive(task) || task.startedAt !== startedAt) return;
+    if (!isSameActiveRun(task, startedAt)) return;
     task.status = TASK_STATUS.RUNNING;
     this.store.set(task.id, task);
     await this.sendPrompt(task, routedPrompt, Boolean(preparedPrompt));
@@ -200,6 +200,11 @@ export class TaskLauncher {
 }
 function isActive(task: ParallelTask): boolean {
   return task.status === TASK_STATUS.PENDING || task.status === TASK_STATUS.RUNNING;
+}
+
+/** True while the task is still active and has not been restarted since `startedAt` was captured. */
+function isSameActiveRun(task: ParallelTask, startedAt: ParallelTask["startedAt"]): boolean {
+  return isActive(task) && task.startedAt === startedAt;
 }
 
 function resolveChildDepth(parentDepth = 0): number {
