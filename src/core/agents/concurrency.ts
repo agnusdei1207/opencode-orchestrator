@@ -326,7 +326,8 @@ export class ConcurrencyController {
 
         if (failures >= 2) {
             const currentLimit = this.getConcurrencyLimit(key);
-            if (currentLimit > 1) {
+            // An explicit unlimited (0) setting is the user's choice; never scale it down.
+            if (currentLimit > 1 && currentLimit !== Infinity) {
                 this.setLimit(key, currentLimit - 1);
                 this.failureCount.set(key, 0);
             }

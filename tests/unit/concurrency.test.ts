@@ -165,6 +165,16 @@ describe("ConcurrencyController", () => {
             // Count should stay 0 (not tracked for infinite)
             expect(controller.getActiveCount("unlimited")).toBe(0);
         });
+
+        it("keeps an unlimited key unlimited after repeated failures", () => {
+            controller = new ConcurrencyController({ modelConcurrency: { "unlimited": 0 } });
+
+            expect(() => {
+                controller.reportResult("unlimited", false);
+                controller.reportResult("unlimited", false);
+            }).not.toThrow();
+            expect(controller.getConcurrencyLimit("unlimited")).toBe(Infinity);
+        });
     });
 
     describe("acquisition timeout", () => {
