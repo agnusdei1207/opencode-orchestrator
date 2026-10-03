@@ -38,6 +38,7 @@ vi.mock("@opencode-ai/plugin", () => {
         array: () => ({ optional: () => ({ describe: () => mockSchema }), describe: () => mockSchema }),
         enum: () => ({ optional: () => ({ describe: () => mockSchema }), describe: () => mockSchema }),
         object: () => ({ optional: () => ({ describe: () => mockSchema }), describe: () => mockSchema }),
+        record: () => ({ optional: () => ({ describe: () => mockSchema }), describe: () => mockSchema }),
     };
     const mockTool = vi.fn((config) => config) as any;
     mockTool.schema = mockSchema;

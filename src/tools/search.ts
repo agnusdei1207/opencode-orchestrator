@@ -133,7 +133,8 @@ export const httpTool = (): ToolDefinition => tool({
     args: {
         url: tool.schema.string().describe("URL to request"),
         method: tool.schema.string().optional().describe("HTTP method (GET, POST, PUT, DELETE, PATCH, HEAD)"),
-        headers: tool.schema.object({}).optional().describe("Request headers as JSON object"),
+        // A record, not object({}): an empty object schema tells the model no keys are allowed.
+        headers: tool.schema.record(tool.schema.string(), tool.schema.string()).optional().describe("Request headers as JSON object"),
         body: tool.schema.string().optional().describe("Request body"),
         timeout_ms: tool.schema.number().optional().describe("Request timeout in milliseconds"),
     },
