@@ -3,7 +3,7 @@ resolver = "2"
 members = ["crates/orchestrator-core", "crates/orchestrator-cli"]
 
 [workspace.package]
-version = "2.0.12"
+version = "2.0.13"
 edition = "2024"
 rust-version = "1.98"
 license = "MIT"
