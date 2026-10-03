@@ -11,6 +11,7 @@
 
 import type { PluginInput } from "@opencode-ai/plugin";
 import {
+    TASK_CANCELLED_BY_USER,
     TASK_STATUS,
     type LaunchInput,
     type ResumeInput,
@@ -193,7 +194,7 @@ export class ParallelAgentManager {
         if (task.startedAt !== startedAt || !isCancellableTaskStatus(task.status)) return false;
 
         task.status = TASK_STATUS.ERROR;
-        task.error = "Cancelled by user";
+        task.error = TASK_CANCELLED_BY_USER;
         task.completedAt = new Date();
 
         if (task.concurrencyKey) {

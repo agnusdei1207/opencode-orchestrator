@@ -67,18 +67,8 @@ export class TaskCleaner {
         finishTaskConcurrency(task, this.concurrency, false);
         this.store.untrackPending(task.parentSessionID, taskId);
 
-        const toastManager = getTaskToastManager();
-        if (toastManager) {
-            toastManager.showCompletionToast({
-                id: taskId,
-                description: task.description,
-                duration: formatDuration(task.startedAt, task.completedAt),
-                status: TASK_STATUS.TIMEOUT,
-                error: task.error,
-            });
-        }
-
         // Tell the parent so it can re-delegate instead of idling forever.
+        // notifyBatch also shows the user toast, so none is shown here.
         this.store.queueNotification(task);
         this.notifyParentIfAllComplete(task.parentSessionID).catch((error) => {
             log(`Timeout notification failed for ${taskId}:`, error);

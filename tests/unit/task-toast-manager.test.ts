@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { TaskToastManager, getTaskToastManager, initTaskToastManager } from "../../src/core/notification/task-toast-manager.js";
-import { STATUS_LABEL, TASK_STATUS } from "../../src/shared/index.js";
+import { STATUS_LABEL, TASK_CANCELLED_BY_USER, TASK_STATUS } from "../../src/shared/index.js";
 
 describe("TaskToastManager", () => {
     let manager: TaskToastManager;
@@ -112,6 +112,41 @@ describe("TaskToastManager", () => {
                 }),
             })
         );
+    });
+
+    it("labels timed-out and user-cancelled tasks instead of reporting them as completed or failed", () => {
+        manager.init(mockClient, mockConcurrency);
+
+        manager.showCompletionToast({
+            id: "t3",
+            description: "Long build",
+            agent: "Worker",
+            status: STATUS_LABEL.TIMEOUT,
+            duration: "30m",
+            error: "Task exceeded time limit",
+        });
+        expect(mockClient.tui.showToast).toHaveBeenLastCalledWith(expect.objectContaining({
+            body: expect.objectContaining({ title: "Task Timed Out", variant: "error" }),
+        }));
+
+        manager.showCompletionToast({
+            id: "t4",
+            description: "Abandoned work",
+            agent: "Worker",
+            status: STATUS_LABEL.ERROR,
+            duration: "5s",
+            error: TASK_CANCELLED_BY_USER,
+        });
+        expect(mockClient.tui.showToast).toHaveBeenLastCalledWith(expect.objectContaining({
+            body: expect.objectContaining({ title: "Task Cancelled", variant: "error" }),
+        }));
+
+        manager.showAllCompleteToast("p1", [
+            { id: "t5", description: "Slow", agent: "Worker", status: STATUS_LABEL.TIMEOUT, duration: "30m" },
+        ]);
+        expect(mockClient.tui.showToast).toHaveBeenLastCalledWith(expect.objectContaining({
+            body: expect.objectContaining({ message: expect.stringContaining("0 succeeded, 1 failed") }),
+        }));
     });
 
     it("displays all complete, mission complete, and progress toasts", () => {

@@ -28,6 +28,12 @@ export const BACKGROUND_TASK = {
 } as const;
 
 /**
+ * Error text for a user cancellation. Cancelled tasks keep the ERROR status
+ * (parent agents read it as a terminal failure); this text tells them apart.
+ */
+export const TASK_CANCELLED_BY_USER = "Cancelled by user";
+
+/**
  * Parallel task constants
  */
 const PARALLEL_LABEL = "parallel";

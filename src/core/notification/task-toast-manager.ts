@@ -13,10 +13,28 @@
 
 import type { PluginInput } from "@opencode-ai/plugin";
 import type { ConcurrencyController } from "../agents/concurrency.js";
-import { STATUS_LABEL, TUI_ICONS, TUI_BLOCKS, TUI_TAGS, TUI_MESSAGES, type TaskStatus, type TrackedTask, type TaskCompletionInfo } from "../../shared/index.js";
+import { STATUS_LABEL, TASK_CANCELLED_BY_USER, TUI_ICONS, TUI_BLOCKS, TUI_TAGS, TUI_MESSAGES, type TaskStatus, type TrackedTask, type TaskCompletionInfo } from "../../shared/index.js";
 import { sanitizeToastInline, sanitizeToastMessage, sanitizeToastTitle } from "./toast-sanitizer.js";
 
 type OpencodeClient = PluginInput["client"];
+
+const FAILED_COMPLETION_STATUSES: ReadonlySet<string> = new Set([
+    STATUS_LABEL.ERROR,
+    STATUS_LABEL.FAILED,
+    STATUS_LABEL.CANCELLED,
+    STATUS_LABEL.TIMEOUT,
+]);
+
+function isFailedCompletion(info: TaskCompletionInfo): boolean {
+    return FAILED_COMPLETION_STATUSES.has(info.status);
+}
+
+function failureTitle(info: TaskCompletionInfo): string {
+    if (info.status === STATUS_LABEL.TIMEOUT) return "Task Timed Out";
+    // User cancellation keeps the ERROR status for parent agents; only the toast distinguishes it.
+    if (info.status === STATUS_LABEL.CANCELLED || info.error === TASK_CANCELLED_BY_USER) return "Task Cancelled";
+    return "Task Failed";
+}
 
 // ============================================================
 // Task Toast Manager Class
@@ -238,8 +256,8 @@ export class TaskToastManager {
         const safeDescription = sanitizeToastInline(info.description, 100) || "Untitled task";
         const safeError = info.error ? sanitizeToastMessage(info.error, 240, 4) : "";
 
-        if (info.status === STATUS_LABEL.ERROR || info.status === STATUS_LABEL.CANCELLED || info.status === STATUS_LABEL.FAILED) {
-            title = info.status === STATUS_LABEL.ERROR ? "Task Failed" : "Task Cancelled";
+        if (isFailedCompletion(info)) {
+            title = failureTitle(info);
             message = `[FAIL] "${safeDescription}" ${info.status}\n${safeError}`;
             variant = STATUS_LABEL.ERROR;
         } else {
@@ -260,7 +278,7 @@ export class TaskToastManager {
      */
     showAllCompleteToast(_parentSessionID: string, completedTasks: TaskCompletionInfo[]): void {
         const successCount = completedTasks.filter(t => t.status === STATUS_LABEL.COMPLETED).length;
-        const failCount = completedTasks.filter(t => t.status === STATUS_LABEL.ERROR || t.status === STATUS_LABEL.CANCELLED || t.status === STATUS_LABEL.FAILED).length;
+        const failCount = completedTasks.filter(isFailedCompletion).length;
 
         const taskList = completedTasks
             .map(t => `- [${t.status === STATUS_LABEL.COMPLETED ? "OK" : "FAIL"}] ${sanitizeToastInline(t.description, 80) || "Untitled task"} (${t.duration})`)

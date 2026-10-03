@@ -145,6 +145,12 @@ describe("TaskCleaner", () => {
         // The task stays readable for get_task_result until scheduleCleanup's
         // delayed deletion, rather than vanishing the moment the parent is told.
         expect(store.get(task.id)?.status).toBe(TASK_STATUS.TIMEOUT);
+        // The parent notification path owns the user toast; a timeout shows it once.
+        expect(toastMocks.showCompletionToast).toHaveBeenCalledOnce();
+        expect(toastMocks.showCompletionToast).toHaveBeenCalledWith(expect.objectContaining({
+            id: task.id,
+            status: TASK_STATUS.TIMEOUT,
+        }));
     });
 
     /**
