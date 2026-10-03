@@ -6,8 +6,7 @@ Last updated: 2026-10-03 KST
 
 Second audit pass (re-verification, tool metrics, plugin SDK comparison
 against a freshly pulled `../opencode`), then the user-approved fix batch
-1 → 2 → 3 → 5 from that report. Commits are local; push and release await
-the user's go-ahead.
+1 → 2 → 3 → 5 from that report, released as v2.0.11.
 
 ## Last completed step
 
@@ -17,7 +16,7 @@ concurrency auto-scale, `c0e6060` V2 event bridge isolation, `52c142b`
 countdown unhandled rejection, `eecda63` task pool discard, `7c320d8` Rust
 CLI integration test path.
 
-Batch 2 (local, TDD red then green, not pushed):
+Batch 2 (TDD red then green; released as v2.0.11):
 
 1. `687fb08` declined idle no longer sets sticky `lastAbortAt`; it still
    pauses the mission via `MissionLoopHandler.handleAbort`
@@ -35,10 +34,17 @@ Batch 2 (local, TDD red then green, not pushed):
 `tsc --noEmit`, `npm run build`, all 120 Vitest files / 1,057 tests,
 `npm audit --omit=dev` (0) and `npm run release:dry-run` passed.
 
+Released v2.0.11 via `npm run release:patch` (version commit `5190f01`, tag
+`v2.0.11`); preflight, including Rust checks through Docker, passed. GitHub
+CI run 37111041193, Build & Release run 37111041300 and Pages deploy
+succeeded; the GitHub Release has five platform binaries; the public npm
+registry reports `opencode-orchestrator@2.0.11` as `latest`.
+
 ## Next exact step
 
-Ask the user whether to push and release batch 2 as v2.0.11
-(`npm run release:patch`), then verify CI, Build & Release and npm `latest`.
+Pick the next batch from "Incomplete items". Recommended: Rust `http.rs`
+exfiltration fix (verify with `npm run release:dry-run`, which runs Rust
+checks in Docker), then unchecked `session.prompt` error and toast status.
 
 ## Incomplete items and why
 
