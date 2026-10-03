@@ -21,6 +21,12 @@ interface EventHandlerOptions {
     forgetSession?: (sessionID: string) => void;
 }
 
+interface SessionEventProperties {
+    sessionID?: string;
+    info?: { id?: string };
+    error?: unknown;
+}
+
 export class EventHandler {
     private readonly store: TaskStore;
     private readonly concurrency: ConcurrencyController;
@@ -44,7 +50,7 @@ export class EventHandler {
      * Handle OpenCode session events for proper resource cleanup.
      * Call this from your plugin's event hook.
      */
-    handle(event: { type: string; properties?: { sessionID?: string; info?: { id?: string }; error?: unknown } }): void {
+    handle(event: { type: string; properties?: SessionEventProperties }): void {
         const props = event.properties;
 
         if (event.type === V2_EXECUTION_EVENTS.FAILED || event.type === V2_EXECUTION_EVENTS.INTERRUPTED) {
@@ -54,29 +60,37 @@ export class EventHandler {
 
         // Handle session.idle - task might be complete
         if (event.type === SESSION_EVENTS.IDLE) {
-            const sessionID = props?.sessionID;
-            if (!sessionID) return;
-
-            const task = this.findBySession(sessionID);
-            if (!task || task.status !== TASK_STATUS.RUNNING) return;
-
-            this.handleSessionIdle(task).catch(err => {
-                log("Error handling session.idle:", err);
-            });
+            this.onSessionIdleEvent(props);
         }
 
         // Handle session.deleted - cleanup resources immediately
         if (event.type === SESSION_EVENTS.DELETED) {
-            const sessionID = readSessionID(props);
-            if (!sessionID) return;
-
-            const task = this.findBySession(sessionID);
-            if (!task) return;
-
-            this.handleSessionDeleted(task).catch(err => {
-                log("Error handling session.deleted:", err);
-            });
+            this.onSessionDeletedEvent(props);
         }
+    }
+
+    private onSessionIdleEvent(props: SessionEventProperties | undefined): void {
+        const sessionID = props?.sessionID;
+        if (!sessionID) return;
+
+        const task = this.findBySession(sessionID);
+        if (!task || task.status !== TASK_STATUS.RUNNING) return;
+
+        this.handleSessionIdle(task).catch(err => {
+            log("Error handling session.idle:", err);
+        });
+    }
+
+    private onSessionDeletedEvent(props: SessionEventProperties | undefined): void {
+        const sessionID = readSessionID(props);
+        if (!sessionID) return;
+
+        const task = this.findBySession(sessionID);
+        if (!task) return;
+
+        this.handleSessionDeleted(task).catch(err => {
+            log("Error handling session.deleted:", err);
+        });
     }
 
     private handleExecutionTerminalEvent(event: { type: string; properties?: { sessionID?: string; error?: unknown } }): void {
