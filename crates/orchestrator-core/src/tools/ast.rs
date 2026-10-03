@@ -56,14 +56,9 @@ impl AstTool {
 
     /// Search for structural patterns using ast-grep
     pub fn search(&self, pattern: &str, scope: AstScope<'_>) -> Result<Vec<AstMatch>> {
-        let AstScope {
-            directory,
-            lang,
-            include,
-        } = scope;
-        let lang = lang.unwrap_or("typescript");
+        let lang = scope.lang.unwrap_or("typescript");
 
-        let mut args = vec![
+        let args = vec![
             "-y".to_string(),
             "--package".to_string(),
             "@ast-grep/cli".to_string(),
@@ -76,13 +71,7 @@ impl AstTool {
             "--json".to_string(),
         ];
 
-        if let Some(inc) = include {
-            args.push("--globs".to_string());
-            args.push(inc.to_string());
-        }
-
-        let mut cmd = Command::new("npx");
-        cmd.args(&args).current_dir(directory);
+        let cmd = ast_grep_command(args, scope);
         let output = run_with_timeout(cmd, self.config.timeout, None)?;
 
         // ast-grep uses exit 1 for a valid search with no matches.
@@ -105,14 +94,9 @@ impl AstTool {
         rewrite: &str,
         scope: AstScope<'_>,
     ) -> Result<AstReplaceResult> {
-        let AstScope {
-            directory,
-            lang,
-            include,
-        } = scope;
-        let lang = lang.unwrap_or("typescript");
+        let lang = scope.lang.unwrap_or("typescript");
 
-        let mut args = vec![
+        let args = vec![
             "-y".to_string(),
             "--package".to_string(),
             "@ast-grep/cli".to_string(),
@@ -127,13 +111,7 @@ impl AstTool {
             "--update-all".to_string(),
         ];
 
-        if let Some(inc) = include {
-            args.push("--globs".to_string());
-            args.push(inc.to_string());
-        }
-
-        let mut cmd = Command::new("npx");
-        cmd.args(&args).current_dir(directory);
+        let cmd = ast_grep_command(args, scope);
         let output = run_with_timeout(cmd, self.config.timeout, None)?;
 
         let success = output.status.success() || output.status.code() == Some(1);
@@ -178,6 +156,19 @@ impl Default for AstTool {
     fn default() -> Self {
         Self::new(AstConfig::default())
     }
+}
+
+/// Build the `npx` invocation from `args`, appending the scope's `--globs`
+/// filter and running in the scope's directory.
+fn ast_grep_command(mut args: Vec<String>, scope: AstScope<'_>) -> Command {
+    if let Some(inc) = scope.include {
+        args.push("--globs".to_string());
+        args.push(inc.to_string());
+    }
+
+    let mut cmd = Command::new("npx");
+    cmd.args(&args).current_dir(scope.directory);
+    cmd
 }
 
 /// Result of AST replace operation
