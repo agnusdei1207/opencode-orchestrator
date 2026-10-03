@@ -25,7 +25,15 @@ interface ManagedBackgroundTask extends BackgroundTask {
     termination?: { status: BackgroundTaskStatus; message: string };
 }
 
-const TERMINATION_TIMEOUT_MS = 2_000;
+/**
+ * Budget for one termination attempt: running taskkill (Windows) and then
+ * waiting for the child's 'close'. Both share this window because the close
+ * timer starts before the signal is sent. 2s proved too tight under full test
+ * load on Windows, where spawning taskkill.exe and walking the tree can take
+ * seconds; a false "not killed" is worse than a longer wait, and a process
+ * that does close still resolves as soon as it does.
+ */
+const TERMINATION_TIMEOUT_MS = 10_000;
 
 /**
  * Kill a Windows process tree. taskkill runs asynchronously (spawnSync would
