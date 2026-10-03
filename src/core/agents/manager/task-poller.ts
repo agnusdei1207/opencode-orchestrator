@@ -42,12 +42,18 @@ function getReportedMessageCount(sessionInfo?: SessionStatusInfo): number | unde
         : undefined;
 }
 
-function hasCompletedTaskOutput(message: SessionMessage | undefined, task: ParallelTask | undefined): boolean {
-    if (!message || !task) return false;
-    const info = message.info;
+/** Finish reasons that mean the assistant turn has not produced a final answer. */
+const NON_TERMINAL_FINISH_REASONS = ["tool-calls", "unknown", "error"];
+
+function isFinishedSinceTaskStart(info: SessionMessage["info"], task: ParallelTask): boolean {
     if (info?.time?.created === undefined || info.time.created < task.startedAt.getTime()) return false;
     if (!info.time.completed || info.error || !info.finish) return false;
-    if (["tool-calls", "unknown", "error"].includes(info.finish)) return false;
+    return !NON_TERMINAL_FINISH_REASONS.includes(info.finish);
+}
+
+function hasCompletedTaskOutput(message: SessionMessage | undefined, task: ParallelTask | undefined): boolean {
+    if (!message || !task) return false;
+    if (!isFinishedSinceTaskStart(message.info, task)) return false;
     return Boolean(message.parts?.some(hasOutputPart));
 }
 
@@ -312,7 +318,7 @@ export class TaskPoller {
         const cached = this.messageCache.get(task.sessionID);
         const reportedMsgCount = getReportedMessageCount(sessionInfo);
 
-        if (cached && reportedMsgCount !== undefined && cached.count === reportedMsgCount) {
+        if (isCachedCountUnchanged(cached, reportedMsgCount)) {
             // No change, skip heavy fetch
             // But still increment stable polls if needed
             task.stablePolls = (task.stablePolls ?? 0) + 1;
@@ -387,6 +393,10 @@ export class TaskPoller {
 
         log(`[AdaptivePoll] Running: ${runningCount}, Utilization: ${Math.round(utilization * 100)}%, Interval: ${this.currentPollInterval}ms`);
     }
+}
+
+function isCachedCountUnchanged(cached: { count: number } | undefined, reportedMsgCount: number | undefined): boolean {
+    return Boolean(cached && reportedMsgCount !== undefined && cached.count === reportedMsgCount);
 }
 
 function formatError(error: unknown): string {
