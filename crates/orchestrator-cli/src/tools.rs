@@ -664,7 +664,6 @@ fn ast_search(arguments: Value) -> Result<String> {
                 "file": m.file,
                 "line": m.line,
                 "column": m.column,
-                "content": m.content,
                 "matched_text": m.matched_text
             })
         })

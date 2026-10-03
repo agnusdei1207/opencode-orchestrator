@@ -1,6 +1,6 @@
 //! AST tools - structural search and replace using ast-grep
 
-use crate::tools::process::run_with_timeout;
+use crate::tools::process::{CapturedOutput, run_with_timeout};
 use crate::{Error, Result};
 use serde::{Deserialize, Serialize};
 use std::path::Path;
@@ -13,9 +13,15 @@ pub struct AstMatch {
     pub file: String,
     pub line: u32,
     pub column: u32,
-    pub content: String,
     pub matched_text: String,
 }
+
+/// Exact ast-grep release run through npx, so a new upstream release cannot
+/// change behavior (or exit codes) underneath the tool.
+const AST_GREP_PACKAGE: &str = "@ast-grep/cli@0.45.3";
+/// `ast-grep run` exit status when nothing matched (with or without
+/// `--update-all`); 0 means matches, 2 a usage error, other codes failures.
+const NO_MATCH_EXIT_CODE: i32 = 1;
 
 /// Configuration for AST tools
 #[derive(Debug, Clone)]
@@ -61,7 +67,7 @@ impl AstTool {
         let args = vec![
             "-y".to_string(),
             "--package".to_string(),
-            "@ast-grep/cli".to_string(),
+            AST_GREP_PACKAGE.to_string(),
             "ast-grep".to_string(),
             "run".to_string(),
             "--pattern".to_string(),
@@ -74,8 +80,7 @@ impl AstTool {
         let cmd = ast_grep_command(args, scope);
         let output = run_with_timeout(cmd, self.config.timeout, None)?;
 
-        // ast-grep uses exit 1 for a valid search with no matches.
-        if !output.status.success() && output.status.code() != Some(1) {
+        if !ran_to_completion(&output) {
             return Err(Error::Tool(format!(
                 "ast-grep search failed: {}",
                 String::from_utf8_lossy(&output.stderr).trim()
@@ -99,7 +104,7 @@ impl AstTool {
         let args = vec![
             "-y".to_string(),
             "--package".to_string(),
-            "@ast-grep/cli".to_string(),
+            AST_GREP_PACKAGE.to_string(),
             "ast-grep".to_string(),
             "run".to_string(),
             "--pattern".to_string(),
@@ -114,7 +119,7 @@ impl AstTool {
         let cmd = ast_grep_command(args, scope);
         let output = run_with_timeout(cmd, self.config.timeout, None)?;
 
-        let success = output.status.success() || output.status.code() == Some(1);
+        let success = ran_to_completion(&output);
         let stdout = String::from_utf8_lossy(&output.stdout).to_string();
         let stderr = String::from_utf8_lossy(&output.stderr).to_string();
 
@@ -143,7 +148,6 @@ impl AstTool {
                 file: result.file,
                 line: result.range.start.line,
                 column: result.range.start.column,
-                content: result.text.clone(),
                 matched_text: result.text,
             });
         }
@@ -156,6 +160,15 @@ impl Default for AstTool {
     fn default() -> Self {
         Self::new(AstConfig::default())
     }
+}
+
+/// Whether ast-grep itself ran: success, or its silent "no matches" exit.
+/// npx also exits 1 when it cannot install or start ast-grep, but then it
+/// writes `npm error ...` to stderr.
+fn ran_to_completion(output: &CapturedOutput) -> bool {
+    output.status.success()
+        || (output.status.code() == Some(NO_MATCH_EXIT_CODE)
+            && output.stderr.trim_ascii().is_empty())
 }
 
 /// Build the `npx` invocation from `args`, appending the scope's `--globs`
@@ -277,9 +290,32 @@ mod tests {
         assert!(
             matches[0]
                 .matched_text
-                .contains("--package @ast-grep/cli ast-grep run")
+                .contains("--package @ast-grep/cli@0.45.3 ast-grep run")
         );
         assert!(matches[0].matched_text.contains("--globs *.ts"));
+    }
+
+    #[test]
+    #[cfg(unix)]
+    fn npx_failures_are_not_successful_replacements() {
+        let result = with_fixture("echo 'npm error notarget' >&2; exit 1", |directory| {
+            let scope = AstScope {
+                directory,
+                lang: None,
+                include: None,
+            };
+            AstTool::default().replace("fixture", "replacement", scope)
+        })
+        .unwrap();
+        assert!(!result.success);
+        assert!(result.message.contains("npm error"));
+    }
+
+    #[test]
+    #[cfg(unix)]
+    fn npx_failures_are_search_errors_that_name_the_cause() {
+        let error = search_with_fixture("echo 'npm error notarget' >&2; exit 1").unwrap_err();
+        assert!(error.to_string().contains("npm error"), "{error}");
     }
 
     #[test]
