@@ -42,6 +42,13 @@ struct SessionInfo {
     closed: bool,
 }
 
+/// Shared session table plus the event channel every connection thread reports to.
+#[derive(Debug, Clone)]
+struct ListenerContext {
+    state: SharedState,
+    tx: Sender<ListenerEvent>,
+}
+
 #[derive(Debug)]
 enum ListenerEvent {
     Connected(u64, SocketAddr),
@@ -80,13 +87,11 @@ pub fn run(args: &[String]) -> Result<()> {
     let state = Arc::new(Mutex::new(ListenerState::new()));
     let shutdown = Arc::new(AtomicBool::new(false));
     let (tx, rx) = mpsc::channel();
-    spawn_accept_loop(
-        listener,
-        config.log_dir.clone(),
-        state.clone(),
+    let context = ListenerContext {
+        state: state.clone(),
         tx,
-        shutdown.clone(),
-    );
+    };
+    spawn_accept_loop(listener, config.log_dir.clone(), context, shutdown.clone());
 
     if config.no_tui {
         run_event_printer(rx, shutdown);
@@ -227,43 +232,38 @@ fn print_shell_help() {
 fn spawn_accept_loop(
     listener: TcpListener,
     log_dir: PathBuf,
-    state: SharedState,
-    tx: Sender<ListenerEvent>,
+    context: ListenerContext,
     shutdown: Arc<AtomicBool>,
 ) {
-    thread::spawn(move || accept_loop(listener, log_dir, state, tx, shutdown));
+    thread::spawn(move || accept_loop(listener, log_dir, context, shutdown));
 }
 
 fn accept_loop(
     listener: TcpListener,
     log_dir: PathBuf,
-    state: SharedState,
-    tx: Sender<ListenerEvent>,
+    context: ListenerContext,
     shutdown: Arc<AtomicBool>,
 ) {
     while !shutdown.load(Ordering::SeqCst) {
         match listener.accept() {
-            Ok((stream, peer)) => register_stream(stream, peer, &log_dir, &state, &tx),
+            Ok((stream, peer)) => register_stream(stream, peer, &log_dir, &context),
             Err(err) if err.kind() == io::ErrorKind::WouldBlock => sleep_tick(),
-            Err(err) => emit(&tx, ListenerEvent::Error(format!("accept failed: {err}"))),
+            Err(err) => emit(
+                &context.tx,
+                ListenerEvent::Error(format!("accept failed: {err}")),
+            ),
         }
     }
 }
 
-fn register_stream(
-    stream: TcpStream,
-    peer: SocketAddr,
-    log_dir: &Path,
-    state: &SharedState,
-    tx: &Sender<ListenerEvent>,
-) {
-    match prepare_session(stream, peer, log_dir, state) {
+fn register_stream(stream: TcpStream, peer: SocketAddr, log_dir: &Path, context: &ListenerContext) {
+    match prepare_session(stream, peer, log_dir, &context.state) {
         Ok((id, reader, log_path)) => {
-            emit(tx, ListenerEvent::Connected(id, peer));
-            spawn_reader(id, reader, log_path, state.clone(), tx.clone());
+            emit(&context.tx, ListenerEvent::Connected(id, peer));
+            spawn_reader(id, reader, log_path, context.clone());
         }
         Err(err) => emit(
-            tx,
+            &context.tx,
             ListenerEvent::Error(format!("session setup failed: {err}")),
         ),
     }
@@ -286,58 +286,40 @@ fn prepare_session(
     Ok((id, stream, log_path))
 }
 
-fn spawn_reader(
-    id: u64,
-    stream: TcpStream,
-    log_path: PathBuf,
-    state: SharedState,
-    tx: Sender<ListenerEvent>,
-) {
-    thread::spawn(move || receive_loop(id, stream, log_path, state, tx));
+fn spawn_reader(id: u64, stream: TcpStream, log_path: PathBuf, context: ListenerContext) {
+    thread::spawn(move || receive_loop(id, stream, log_path, context));
 }
 
-fn receive_loop(
-    id: u64,
-    mut stream: TcpStream,
-    log_path: PathBuf,
-    state: SharedState,
-    tx: Sender<ListenerEvent>,
-) {
+fn receive_loop(id: u64, mut stream: TcpStream, log_path: PathBuf, context: ListenerContext) {
     let mut buffer = [0_u8; 4096];
     loop {
         match stream.read(&mut buffer) {
             Ok(0) => break,
-            Ok(size) => handle_input_chunk(id, &buffer[..size], &log_path, &state, &tx),
+            Ok(size) => handle_input_chunk(id, &buffer[..size], &log_path, &context),
             Err(err) if err.kind() == io::ErrorKind::WouldBlock => sleep_tick(),
             Err(err) => {
                 emit(
-                    &tx,
+                    &context.tx,
                     ListenerEvent::Error(format!("session {id} read failed: {err}")),
                 );
                 break;
             }
         }
     }
-    mark_closed(id, &state);
-    emit(&tx, ListenerEvent::Closed(id));
+    mark_closed(id, &context.state);
+    emit(&context.tx, ListenerEvent::Closed(id));
 }
 
-fn handle_input_chunk(
-    id: u64,
-    bytes: &[u8],
-    log_path: &Path,
-    state: &SharedState,
-    tx: &Sender<ListenerEvent>,
-) {
+fn handle_input_chunk(id: u64, bytes: &[u8], log_path: &Path, context: &ListenerContext) {
     if let Err(err) = append_raw_log(log_path, bytes) {
         emit(
-            tx,
+            &context.tx,
             ListenerEvent::Error(format!("session {id} log failed: {err}")),
         );
     }
     let preview = sanitize_preview(&String::from_utf8_lossy(bytes));
-    append_preview(id, &preview, state);
-    emit(tx, ListenerEvent::Output(id, preview));
+    append_preview(id, &preview, &context.state);
+    emit(&context.tx, ListenerEvent::Output(id, preview));
 }
 
 fn run_operator_loop(
