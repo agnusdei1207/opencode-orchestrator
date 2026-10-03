@@ -346,17 +346,40 @@ fn run_operator_loop(
     shutdown: Arc<AtomicBool>,
 ) -> Result<()> {
     spawn_event_renderer(rx, state.clone(), shutdown.clone());
-    let stdin = io::stdin();
+    let result = operator_input_loop(io::stdin().lock(), &state, &shutdown);
+    shutdown.store(true, Ordering::SeqCst);
+    result
+}
+
+/// Read operator commands until `quit`, end of input, or a stdin read error.
+fn operator_input_loop(
+    input: impl BufRead,
+    state: &SharedState,
+    shutdown: &Arc<AtomicBool>,
+) -> Result<()> {
     print_prompt();
-    for line in stdin.lock().lines() {
-        let command = parse_operator_command(&line?)?;
-        if handle_operator_command(command, &state, &shutdown)? {
+    for line in input.lines() {
+        if run_operator_line(&line?, state, shutdown) {
             break;
         }
         print_prompt();
     }
-    shutdown.store(true, Ordering::SeqCst);
     Ok(())
+}
+
+/// Run one operator line and report whether the loop should stop. A typo or
+/// a failed command (unknown session, no active session, ...) is printed and
+/// must not tear down the listener and every connected session.
+fn run_operator_line(line: &str, state: &SharedState, shutdown: &Arc<AtomicBool>) -> bool {
+    let outcome = parse_operator_command(line)
+        .and_then(|command| handle_operator_command(command, state, shutdown));
+    match outcome {
+        Ok(quit) => quit,
+        Err(err) => {
+            eprintln!("error: {err:#}");
+            false
+        }
+    }
 }
 
 fn spawn_event_renderer(
@@ -700,6 +723,30 @@ mod tests {
     fn run_command_requires_non_empty_text() {
         let state = Arc::new(Mutex::new(ListenerState::new()));
         assert!(run_with_sentinel(&state, "   ").is_err());
+    }
+
+    #[test]
+    fn operator_mistakes_do_not_end_the_loop() {
+        let state = Arc::new(Mutex::new(ListenerState::new()));
+        let shutdown = Arc::new(AtomicBool::new(false));
+        let input = io::Cursor::new("use abc\nuse 99\nsend hi\nclose\nrun   \nquit\n");
+
+        operator_input_loop(input, &state, &shutdown).expect("mistakes are not fatal");
+
+        assert!(
+            shutdown.load(Ordering::SeqCst),
+            "the quit command after the mistakes must still run"
+        );
+    }
+
+    #[test]
+    fn operator_loop_ends_at_end_of_input() {
+        let state = Arc::new(Mutex::new(ListenerState::new()));
+        let shutdown = Arc::new(AtomicBool::new(false));
+
+        operator_input_loop(io::Cursor::new("sessions\n"), &state, &shutdown).unwrap();
+
+        assert!(!shutdown.load(Ordering::SeqCst));
     }
 
     #[test]
