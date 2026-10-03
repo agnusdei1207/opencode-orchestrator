@@ -1,0 +1,11 @@
+# The images only need Cargo.toml, Cargo.lock and crates/; keep the build
+# context small and free of local artifacts and credentials.
+.git
+.claude
+.opencode
+node_modules
+target
+dist
+bin
+coverage
+*.log

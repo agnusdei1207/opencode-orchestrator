@@ -16,7 +16,7 @@ services:
     command: >
       sh -c "
         rustup target add x86_64-unknown-linux-gnu &&
-        cargo build --release --target x86_64-unknown-linux-gnu &&
+        cargo build --release --locked --target x86_64-unknown-linux-gnu &&
         mkdir -p bin &&
         cp target/x86_64-unknown-linux-gnu/release/orchestrator bin/orchestrator-linux-x64 &&
         echo 'Rust build complete: bin/orchestrator-linux-x64'
@@ -37,13 +37,14 @@ services:
         rustup target add aarch64-unknown-linux-gnu &&
         apt-get update -q && apt-get install -y -q gcc-aarch64-linux-gnu &&
         export CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc &&
-        cargo build --release --target aarch64-unknown-linux-gnu &&
+        cargo build --release --locked --target aarch64-unknown-linux-gnu &&
         mkdir -p bin &&
         cp target/aarch64-unknown-linux-gnu/release/orchestrator bin/orchestrator-linux-arm64 &&
         echo 'arm64 build complete: bin/orchestrator-linux-arm64'
       "
 
-  # Cross-compile the Windows release binary.
+  # Cross-compile a Windows binary for local testing. This uses the MinGW
+  # (gnu) target; published releases are built with MSVC in release.yml.
   # Usage: docker compose run --rm win-builder
   win-builder:
     build:
@@ -55,7 +56,7 @@ services:
       - target-cache:/app/target
     command: >
       sh -c "
-        cargo build --release --target x86_64-pc-windows-gnu &&
+        cargo build --release --locked --target x86_64-pc-windows-gnu &&
         mkdir -p bin &&
         cp target/x86_64-pc-windows-gnu/release/orchestrator.exe bin/orchestrator-windows-x64.exe &&
         echo 'Windows build complete: bin/orchestrator-windows-x64.exe'
