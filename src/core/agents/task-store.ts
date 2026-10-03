@@ -41,6 +41,7 @@ export class TaskStore {
     private pendingByParent: Map<string, Set<string>> = new Map();
     private notifications: Map<string, ParallelTask[]> = new Map();
     private archivedCount = 0;
+    private gcInFlight: Promise<number> | undefined;
     private readonly archiveDirectory: string;
 
     constructor(directory: string = process.cwd()) {
@@ -63,7 +64,7 @@ export class TaskStore {
 
         // Auto-GC if over limit
         if (this.tasks.size > MEMORY_LIMITS.MAX_TASKS_IN_MEMORY) {
-            this.gc();
+            void this.gc();
         }
     }
 
@@ -207,9 +208,19 @@ export class TaskStore {
 
     /**
      * Garbage collect completed tasks
-     * Archives old completed tasks to disk
+     * Archives old completed tasks to disk.
+     *
+     * Single-flight: set() fires gc() on every insert past the limit, and
+     * overlapping runs would snapshot the same tasks and archive them twice.
      */
-    async gc(): Promise<number> {
+    gc(): Promise<number> {
+        this.gcInFlight ??= this.collectGarbage().finally(() => {
+            this.gcInFlight = undefined;
+        });
+        return this.gcInFlight;
+    }
+
+    private async collectGarbage(): Promise<number> {
         const now = Date.now();
         const toRemove: GcCandidate[] = [];
         const toArchive: ParallelTask[] = [];

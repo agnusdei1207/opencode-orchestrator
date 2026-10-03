@@ -13,7 +13,7 @@ import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { TaskStore } from "../../src/core/agents/task-store";
 import { acquireParallelTask, taskPool } from "../../src/core/pool/task-pool";
-import { PATHS, TASK_STATUS, type ParallelTask } from "../../src/shared";
+import { MEMORY_LIMITS, PATHS, TASK_STATUS, type ParallelTask } from "../../src/shared";
 
 vi.mock("node:fs/promises", async importOriginal => ({
     ...await importOriginal<typeof import("node:fs/promises")>(),
@@ -225,6 +225,25 @@ describe("TaskStore", () => {
             expect(store.getBySession(current.sessionID)).toBe(current);
             const archived = JSON.parse(String(vi.mocked(fs.appendFile).mock.calls[0][1]));
             expect(archived.status).toBe(TASK_STATUS.COMPLETED);
+        });
+
+        it("runs a single garbage collection when inserts overlap an in-flight archive", async () => {
+            const completedAt = new Date(Date.now() - 3_600_000);
+            for (let i = 0; i < MEMORY_LIMITS.MAX_TASKS_IN_MEMORY; i++) {
+                store.set(`old_${i}`, createMockTask({ id: `old_${i}`, status: TASK_STATUS.COMPLETED, completedAt }));
+            }
+            let finishArchive!: () => void;
+            vi.mocked(fs.mkdir).mockImplementationOnce(() => new Promise(resolve => {
+                finishArchive = () => resolve(undefined);
+            }));
+            store.set("over_1", createMockTask({ id: "over_1" }));
+            store.set("over_2", createMockTask({ id: "over_2" }));
+            const pending = store.gc();
+            finishArchive();
+            await pending;
+
+            expect(fs.appendFile).toHaveBeenCalledTimes(1);
+            expect(store.getStats().archivedTasks).toBe(MEMORY_LIMITS.MAX_TASKS_IN_MEMORY);
         });
 
         it("archives only under the plugin project directory", async () => {
