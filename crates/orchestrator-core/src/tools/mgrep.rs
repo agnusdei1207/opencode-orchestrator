@@ -6,7 +6,7 @@ use crate::Result;
 use rayon::prelude::*;
 use regex::Regex;
 use std::collections::HashMap;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
 use walkdir::WalkDir;
 
@@ -72,8 +72,23 @@ impl MgrepTool {
             .filter_map(|p| Regex::new(p).ok().map(|r| (p.clone(), r)))
             .collect();
 
-        // Collect all files first
-        let files: Vec<_> = WalkDir::new(directory)
+        let files = self.collect_files(directory);
+
+        // Search in parallel
+        let results: HashMap<String, Vec<MgrepMatch>> = regexes
+            .par_iter()
+            .map(|compiled| {
+                let matches = self.search_pattern(compiled, &files, start);
+                (compiled.0.clone(), matches)
+            })
+            .collect();
+
+        Ok(MgrepResult { results })
+    }
+
+    /// Every included regular file whose size is known and within the limit.
+    fn collect_files(&self, directory: &Path) -> Vec<PathBuf> {
+        WalkDir::new(directory)
             .follow_links(false)
             .into_iter()
             .filter_entry(|e| self.should_include(e.path()))
@@ -85,45 +100,42 @@ impl MgrepTool {
                     .unwrap_or(false)
             })
             .map(|e| e.path().to_path_buf())
-            .collect();
+            .collect()
+    }
 
-        // Search in parallel
-        let results: HashMap<String, Vec<MgrepMatch>> = regexes
-            .par_iter()
-            .map(|(pattern, regex)| {
-                let mut matches = Vec::new();
-
-                for file_path in &files {
-                    if start.elapsed() > self.config.timeout {
-                        break;
-                    }
-                    if matches.len() >= self.config.max_results_per_pattern {
-                        break;
-                    }
-
-                    if let Ok(content) = std::fs::read_to_string(file_path) {
-                        for (line_num, line) in content.lines().enumerate() {
-                            if regex.is_match(line) {
-                                matches.push(MgrepMatch {
-                                    pattern: pattern.clone(),
-                                    file: file_path.display().to_string(),
-                                    line: line_num + 1,
-                                    content: line.to_string(),
-                                });
-
-                                if matches.len() >= self.config.max_results_per_pattern {
-                                    break;
-                                }
-                            }
-                        }
-                    }
+    /// Matching lines of one pattern, bounded by the shared deadline and the
+    /// per-pattern result limit.
+    fn search_pattern(
+        &self,
+        (pattern, regex): &(String, Regex),
+        files: &[PathBuf],
+        start: Instant,
+    ) -> Vec<MgrepMatch> {
+        let limit = self.config.max_results_per_pattern;
+        let mut matches = Vec::new();
+        for file_path in files {
+            if start.elapsed() > self.config.timeout || matches.len() >= limit {
+                break;
+            }
+            let Ok(content) = std::fs::read_to_string(file_path) else {
+                continue;
+            };
+            for (line_num, line) in content.lines().enumerate() {
+                if !regex.is_match(line) {
+                    continue;
                 }
-
-                (pattern.clone(), matches)
-            })
-            .collect();
-
-        Ok(MgrepResult { results })
+                matches.push(MgrepMatch {
+                    pattern: pattern.clone(),
+                    file: file_path.display().to_string(),
+                    line: line_num + 1,
+                    content: line.to_string(),
+                });
+                if matches.len() >= limit {
+                    break;
+                }
+            }
+        }
+        matches
     }
 
     fn should_include(&self, path: &Path) -> bool {
