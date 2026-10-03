@@ -4,109 +4,95 @@ Last updated: 2026-10-03 KST
 
 ## Current task
 
-Third fix batch: the user asked to fix every remaining audit item, then
-commit, push and cut a patch release (v2.0.12).
+Final pass requested by the user: finish every remaining audit item, the
+AGENTS.md metric refactoring and full QA, then commit, push and cut a patch
+release (v2.0.13).
 
 ## Last completed step
 
-Earlier batches: v2.0.10 (guard bypasses, multi-line /task, concurrency,
-V2 event bridge, countdown rejection, task pool, Rust CLI test path) and
-v2.0.11 (declined-idle notices, memory note pruning, error detection, V2
-`session.remove`).
+Since v2.0.12 (`5970020`): 90 commits (45 refactor, 34 fix, 5 docs, 2 build,
+2 chore, 1 ci, 1 test). Work ran in isolated git worktrees by file
+ownership (Rust / TS core / TS handlers), was cherry-picked onto main, and
+every worktree was removed afterwards.
 
-Batch 3, TS (TDD red then green unless noted):
-- `eec3fcc` continuation prompt checks `response.error`.
-- `c0968b0` timeout/cancel toasts (single toast, "Task Timed Out",
-  "Task Cancelled"; `TASK_CANCELLED_BY_USER` constant).
-- `029c566` session.deleted releases per-session state for untracked
-  sessions.
-- `2e48cec` one idle continuation per host idle transition.
-- `02a3770` secret scanner covers sk-proj/sk-ant, github_pat_, gho_/ghu_/
-  ghs_/ghr_, AKIA/ASIA, AIza, PEM private keys.
-- `f448d28` background command output capped to MAX_OUTPUT_LENGTH tail.
-- `45d9272` loop state written via atomicWrite (unique temp names).
-- `cfc23ca` http tool `headers` is a string record.
-- `f63794c` unused LIMITS constants removed; iteration comments corrected.
-- `2a8f529` `<mission_loop>` tags neutralized in embedded text.
-- `9461526` slash command tool uses `Object.hasOwn`.
-- `f7ff2f3` refactor: unread global `missionActive`/`maxIterations`/
-  `maxRetries` removed.
-- `830e8f7` memory-gate redacts secrets via shared `redactSecrets`.
-- `a9d8354` landing page no longer claims Ebbinghaus/RAG.
-- `079a57b` `@opencode-ai/plugin`/`sdk` 1.18.34; ADR-0021 corrected.
+- Metric refactoring: TS 43 -> 0 violations (complexity <= 10, <= 40 lines,
+  depth <= 3, <= 4 params; measured with a scratch ESLint config). Rust 20 ->
+  0 (clippy too_many_lines 40, cognitive_complexity 10, too_many_arguments 4).
+  An independent review of all 39 refactor commits found no behavior change.
+- Second-round fixes: src/core (single-flight gc, timeout re-fire guard,
+  toast dedupe, recovery budget, async taskkill, bounded metrics, poller cache
+  cleanup, dead code, TodoManager validation, prune timers restart after
+  re-init); Rust (jq env clearing, file_stats bounds, 16 MiB capture cap,
+  search truncation flags, root-relative filters, glob `*` per component,
+  pinned ast-grep 0.45.3, RPC log redaction and line cap, schema drift, dead
+  Rust code, shell-listener hardening, LazyLock regex, release profile, clear
+  missing-diff error).
+- A regression review of those fixes found 9 issues; all fixed: path filter
+  excluding regular files, unread truncation flags, jq cap bypass via
+  /dev/zero/FIFO, shell-listener write deadline and per-IP log cap, oversized
+  request id recovery (Rust) plus a TS pre-send size guard, shutdown budget
+  per handler (background manager gets termination + 2 s), abort
+  confirmation deadline (30 s), all-complete summary toast, V2 agent lag note.
+- Cleanup: 64 unreferenced shared constant keys and helpers, 22 unexported
+  types, one shared isRecord guard instead of 15 copies, BOMs stripped,
+  docs drift (option table, ADR index, completed plans removed), CI least
+  privilege + timeouts + --locked, Docker non-root + .dockerignore, landing
+  page SRI.
 
-Batch 3, Rust (done in an isolated worktree, cherry-picked, worktree
-removed): `9239965` http (stdin body, `--url`, `--proto`, `--head`,
-sub-second timeout, header-block parsing, unknown method error),
-`e9a0a6b` lsp filter (reject `-`, glob support), `1b5d7c9` git exit status
-and locale, `893342a` diff temp dirs/timeout/exit 2, `57aedcf` sed CRLF,
-atomic writes, directory errors, `4c85765` shell listener continues after
-operator errors, `84446bb` JSON-RPC error replies, `a47c518` Unix-only test
-gating. Docs: `216fb0e`.
-
-Verification: `tsc --noEmit`; all 122 Vitest files / 1,077 tests; madge 0
-cycles; Rust fmt, clippy -D warnings, 23 CLI + 76 core tests in Docker
-(agent run); native host QA against installed OpenCode 1.18.32 with the
-built plugin passed 17/17 (`OCO_QA_PLUGIN=dist/index.js`,
-`OCO_QA_EXECUTABLE=C:/nvm4w/nodejs/node_modules/opencode-ai/bin/opencode.exe`).
-
-Released v2.0.12 via `npm run release:patch` (version commit `5970020`, tag
-`v2.0.12`); preflight passed, including coverage thresholds and Rust fmt,
-clippy and 23 + 76 tests in Docker. GitHub CI run 37112717859, Build &
-Release run 37112717323 and Pages deploy succeeded; the GitHub Release has
-five platform binaries; npm reports `opencode-orchestrator@2.0.12` as
-`latest`.
+Verification on the final tree: tsc; build (incl. declarations); 124 Vitest
+files / 1,108 tests; coverage 91.43 % statements, 82.08 % branches; ESLint
+metrics 0; madge 0 cycles; knip 0 unused exports/types; Rust fmt, clippy
+-D warnings, 44 CLI + 106 core tests (Docker, --locked); Rust metrics 0;
+fresh Windows binary (Docker MinGW) passes the JSON-RPC bridge e2e and a
+13-check Windows tool smoke test (CRLF sed, atomic writes, http body/proto/
+HEAD, git, glob, grep, jq env isolation with jq 1.8.1, diff); native host QA
+against installed OpenCode 1.18.32 with the built plugin 17/17;
+`npm run release:dry-run` passed.
 
 ## Next exact step
 
-No audit fix is pending. Candidates: a dedicated behavior-preserving
-refactor release for the AGENTS.md metric violations, then reporter
-confirmation for #50 and #48.
+Run `npm run release:patch` for v2.0.13, then verify CI, Build & Release,
+GitHub Release assets and npm `latest`, and record the result here.
 
 ## Incomplete items and why
 
-- Not done by decision: AGENTS.md metric violations (27 complexity, 13
-  length, 3 depth). Pure refactors across ~40 functions carry regression
-  risk with no behavior goal; propose a dedicated refactor release.
-- V2 prompt hook passes `agent: ""` (V2 prompt hook has no agent field);
-  only memory-note labels are affected. Could be fed from the V2 `context`
-  hook's `agent`; skipped as low value.
-- `logger.ts` is a deliberate no-op; design decision, unchanged.
-- `rust-pool.ts` stdout buffer grows until newline but is bounded by the
-  60 s request timeout; unchanged.
-- V2 `session.remove` and Windows-only Rust paths (atomic rename,
-  `\\?\` paths) are not exercised on a real host here.
+- `logger.ts` is a deliberate no-op (TUI corruption and overhead); logged
+  catches stay silent. Changing it is a product decision.
+- V2 `session.remove` and V2 prompt-hook agent attribution are verified
+  against SDK types and mocks only; no OpenCode 2 host was available.
+- `user-prompt/*.md` are tracked scratch prompts owned by the user; left
+  untouched.
 - #50 and #48 still await reporter confirmation.
 
 ## Key decisions
 
-- Cancelled tasks keep ERROR status for parent agents; only the toast
-  distinguishes them via `TASK_CANCELLED_BY_USER`.
-- `maxIterations` stays an unreachable ceiling (documented), not enforced.
-- Rust work ran in a separate git worktree to avoid file overlap; owned
-  files were `crates/**` and Cargo manifests only.
+- Behavior-preserving refactors and fixes were kept in separate commits.
+- Metrics outputs are reported, not reset: MetricsCollector keeps running
+  aggregates so all-time averages stay exact.
+- Cancelled tasks keep ERROR status for parent agents; only toasts differ.
+- diff on Windows returns a clear "install diffutils" error rather than a
+  partial reimplementation.
 
 ## Rejected alternatives
 
-- Enforcing `maxIterations`: unreachable by design, would add dead code.
-- Switching cancel to CANCELLED status: changes the parent-agent contract
-  and many consumers for a display issue.
+- Capping metrics arrays to a window: would change reported all-time stats.
+- `[workspace.lints]` in Cargo: would add pedantic noise with no benefit.
+- Enforcing `maxIterations`: the ceiling is deliberately unreachable.
 
 ## Known risks
 
-- Rust behavior changes visible to models: git tools error outside a
-  repository, `diff` errors on missing files, `http` rejects unknown
-  methods and invalid header names, `lsp_diagnostics` rejects filters
-  starting with `-`, `sed_replace` directory mode reports `errors` and
-  `timed_out`.
-- Session recovery now runs (since v2.0.11); V2 event processing can lag
-  up to 8 s during rate-limit recovery.
-- Local `bin/orchestrator-windows-x64.exe` is stale (1.7.27, gitignored).
+- Model-visible tool changes: glob `*` no longer recurses (`**` needed);
+  git tools error outside a repo; http rejects unknown methods and bad
+  header names; lsp filters starting with `-` are rejected; jq rejects files
+  over 16 MiB and non-regular files; text tools add `truncated`.
+- Session recovery is active; V2 event processing can lag up to 8 s during
+  rate-limit recovery.
+- Background shutdown can take up to 12 s on a loaded Windows machine.
 
 ## Files to open first in the next session, in order
 
 1. `AGENTS.md`
 2. `AGENT_MEMORY.md`
 3. `docs/SYSTEM_ARCHITECTURE.md`
-4. `crates/orchestrator-core/src/tools/http.rs`
-5. `src/plugin-handlers/event-handler.ts`
+4. `src/plugin-runtime.ts`
+5. `crates/orchestrator-cli/src/tools.rs`
