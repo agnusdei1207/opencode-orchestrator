@@ -40,21 +40,8 @@ export function createChatMessageHandler(ctx: ChatMessageHandlerContext) {
 
         log("[chat-message-handler] hook triggered", { sessionID, agent: agentName, textLength: originalText.length });
         markUserMessage(sessions, sessionID);
-        // A real user message is new input; whatever loop the model was stuck
-        // in no longer applies. Orchestrator prompts are synthetic and do not count.
-        if (!isSyntheticPart(textPart)) {
-            clearCircuitState(sessionID);
-            const session = sessions.get(sessionID);
-            if (session) session.lastAbortAt = undefined;
-            handleUserMessage(sessionID);
-        }
-
-        // Remember which agent owns this session so later phases (post-tool,
-        // assistant-done) can attribute work without re-deriving it.
-        if (agentName) {
-            const session = sessions.get(sessionID);
-            if (session) session.agent = agentName;
-        }
+        if (!isSyntheticPart(textPart)) resetForUserInput(sessions, sessionID);
+        rememberSessionAgent(sessions, sessionID, agentName);
 
         // Execute Chat Hooks
         const hooks = HookRegistry.getInstance();
@@ -67,20 +54,45 @@ export function createChatMessageHandler(ctx: ChatMessageHandlerContext) {
         };
 
         const hookResult = await hooks.executeChat(hookContext, originalText);
-
-        if (hookResult.action === HOOK_ACTIONS.INTERCEPT) {
-            parts.splice(0, parts.length);
-            return;
-        }
-
-        if (hookResult.modifiedMessage) {
-            textPart.text = hookResult.modifiedMessage;
-        }
+        applyHookResult(parts, textPart, hookResult);
     };
 }
 
 type ChatMessagePart = ChatMessageOutput["parts"][number];
 type ChatTextPart = ChatMessagePart & { text: string };
+type ChatHookResult = Awaited<ReturnType<HookRegistry["executeChat"]>>;
+
+/**
+ * A real user message is new input; whatever loop the model was stuck
+ * in no longer applies. Orchestrator prompts are synthetic and do not count.
+ */
+function resetForUserInput(sessions: Map<string, PluginSessionState>, sessionID: string): void {
+    clearCircuitState(sessionID);
+    const session = sessions.get(sessionID);
+    if (session) session.lastAbortAt = undefined;
+    handleUserMessage(sessionID);
+}
+
+/**
+ * Remember which agent owns this session so later phases (post-tool,
+ * assistant-done) can attribute work without re-deriving it.
+ */
+function rememberSessionAgent(sessions: Map<string, PluginSessionState>, sessionID: string, agentName: string): void {
+    if (!agentName) return;
+    const session = sessions.get(sessionID);
+    if (session) session.agent = agentName;
+}
+
+function applyHookResult(parts: ChatMessagePart[], textPart: ChatTextPart, hookResult: ChatHookResult): void {
+    if (hookResult.action === HOOK_ACTIONS.INTERCEPT) {
+        parts.splice(0, parts.length);
+        return;
+    }
+
+    if (hookResult.modifiedMessage) {
+        textPart.text = hookResult.modifiedMessage;
+    }
+}
 
 function isTextPartWithText(part: ChatMessagePart): part is ChatTextPart {
     return part.type === PART_TYPES.TEXT && "text" in part && typeof part.text === "string" && part.text.length > 0;
