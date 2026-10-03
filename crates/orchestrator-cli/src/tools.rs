@@ -10,7 +10,7 @@ use orchestrator_core::tools::{
     mgrep::MgrepMatch, mgrep::MgrepResult, sed::SedConfig, sed::SedDirectoryReport,
 };
 
-use orchestrator_core::constants::{status, tool};
+use orchestrator_core::constants::{agent, status, tool};
 use serde::Deserialize;
 use serde_json::{Value, json};
 use std::collections::HashMap;
@@ -222,24 +222,10 @@ fn glob_search(arguments: Value) -> Result<String> {
 
 /// List all available agents (4-agent architecture)
 fn list_agents() -> Result<String> {
-    let agents = vec![
-        json!({
-            "id": "Commander",
-            "description": "Autonomous orchestrator - executes until mission complete"
-        }),
-        json!({
-            "id": "Planner",
-            "description": "Strategic planning and research specialist"
-        }),
-        json!({
-            "id": "Worker",
-            "description": "Implementation and documentation specialist"
-        }),
-        json!({
-            "id": "Reviewer",
-            "description": "Verification and context management specialist"
-        }),
-    ];
+    let agents: Vec<Value> = agent::ROLES
+        .iter()
+        .map(|(id, description)| json!({"id": id, "description": description}))
+        .collect();
 
     Ok(serde_json::to_string_pretty(&json!({"agents": agents}))?)
 }

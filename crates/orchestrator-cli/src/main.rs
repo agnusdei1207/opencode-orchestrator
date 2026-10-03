@@ -92,22 +92,9 @@ fn list_agents() -> Result<()> {
     println!();
     println!("  {:15} Role", "ID");
     println!("  {:15} {}", "─".repeat(15), "─".repeat(45));
-    println!(
-        "  {:15} Autonomous orchestrator - executes until mission complete",
-        agent::COMMANDER
-    );
-    println!(
-        "  {:15} Strategic planning and research specialist",
-        agent::PLANNER
-    );
-    println!(
-        "  {:15} Implementation and documentation specialist",
-        agent::WORKER
-    );
-    println!(
-        "  {:15} Verification and context management specialist",
-        agent::REVIEWER
-    );
+    for (id, role) in agent::ROLES {
+        println!("  {:15} {}", id, role);
+    }
     println!();
     println!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
     println!("Configure models in OpenCode under agent.<name>.model.");
@@ -361,7 +348,8 @@ fn tools_list_result() -> Value {
                     "type": "object",
                     "properties": {
                         "pattern": {"type": "string", "description": "Glob pattern (e.g., **/*.rs)"},
-                        "directory": {"type": "string", "description": "Search directory"}
+                        "directory": {"type": "string", "description": "Search directory"},
+                        "max_results": {"type": "number", "description": "Max results (default: 100, max: 1000)"}
                     },
                     "required": ["pattern"]
                 }
@@ -406,7 +394,8 @@ fn tools_list_result() -> Value {
                         "file1": {"type": "string"},
                         "file2": {"type": "string"},
                         "content1": {"type": "string"},
-                        "content2": {"type": "string"}
+                        "content2": {"type": "string"},
+                        "ignore_whitespace": {"type": "boolean", "description": "Ignore whitespace differences"}
                     }
                 }
             },
@@ -576,6 +565,47 @@ mod tests {
                 "missing tool in tools/list: {expected}"
             );
         }
+    }
+
+    #[test]
+    fn tools_list_schemas_expose_every_accepted_argument() {
+        let listed = tools_list_result();
+        let properties = |name: &str| {
+            listed["tools"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .find(|t| t["name"] == name)
+                .map(|t| t["inputSchema"]["properties"].clone())
+                .unwrap()
+        };
+
+        assert!(properties(tool::GLOB_SEARCH).get("max_results").is_some());
+        assert!(properties(tool::DIFF).get("ignore_whitespace").is_some());
+    }
+
+    #[tokio::test]
+    async fn list_agents_tool_reports_the_shared_roster() {
+        let output = tools::execute_tool(tool::LIST_AGENTS, json!({}))
+            .await
+            .unwrap();
+        let listed: Value = serde_json::from_str(&output).unwrap();
+        let ids: Vec<&str> = listed["agents"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter_map(|a| a["id"].as_str())
+            .collect();
+
+        assert_eq!(
+            ids,
+            [
+                agent::COMMANDER,
+                agent::PLANNER,
+                agent::WORKER,
+                agent::REVIEWER
+            ]
+        );
     }
 
     #[tokio::test]

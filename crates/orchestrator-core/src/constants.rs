@@ -12,6 +12,18 @@ pub mod agent {
     pub const PLANNER: &str = "Planner";
     pub const WORKER: &str = "Worker";
     pub const REVIEWER: &str = "Reviewer";
+
+    /// Every bundled agent with its one-line role, in display order. Shared
+    /// by the `agents` command and the `list_agents` tool.
+    pub const ROLES: &[(&str, &str)] = &[
+        (
+            COMMANDER,
+            "Autonomous orchestrator - executes until mission complete",
+        ),
+        (PLANNER, "Strategic planning and research specialist"),
+        (WORKER, "Implementation and documentation specialist"),
+        (REVIEWER, "Verification and context management specialist"),
+    ];
 }
 
 /// Status labels used in tool responses and system-wide state.
