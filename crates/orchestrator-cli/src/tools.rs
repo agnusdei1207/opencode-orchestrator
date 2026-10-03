@@ -488,9 +488,7 @@ async fn git_status(arguments: Value) -> Result<String> {
         .unwrap_or_else(|| std::env::current_dir().unwrap_or_default());
 
     let files = tool.status(&repo_path)?;
-    let branch = tool
-        .current_branch(&repo_path)
-        .unwrap_or_else(|_| "unknown".to_string());
+    let branch = tool.current_branch(&repo_path)?;
 
     let file_list: Vec<Value> = files
         .iter()
