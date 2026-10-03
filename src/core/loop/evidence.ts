@@ -64,15 +64,18 @@ function collectFileCandidates(args: Record<string, unknown> | undefined): strin
         const value = args[key];
         if (!Array.isArray(value)) continue;
         for (const item of value) {
-            if (typeof item === "string") {
-                candidates.push(item);
-            } else if (item && typeof item === "object") {
-                candidates.push(...collectFileCandidates(item as Record<string, unknown>));
-            }
+            candidates.push(...collectArrayItemCandidates(item));
         }
     }
 
     return candidates;
+}
+
+/** An array entry is either a path string or a nested argument object (e.g. multi_patch edits). */
+function collectArrayItemCandidates(item: unknown): string[] {
+    if (typeof item === "string") return [item];
+    if (item && typeof item === "object") return collectFileCandidates(item as Record<string, unknown>);
+    return [];
 }
 
 function recordChangedFile(sessionID: string, filePath: string): void {
@@ -101,9 +104,13 @@ export function recordToolEvidence(
             recordChangedFile(sessionID, candidate);
         }
     } else if (SHELL_TOOLS.has(name)) {
-        const command = String(args?.command ?? args?.cmd ?? "");
-        if (VERIFY_HINT.test(command)) recordVerification(sessionID);
+        recordShellEvidence(sessionID, args);
     }
+}
+
+function recordShellEvidence(sessionID: string, args: Record<string, unknown> | undefined): void {
+    const command = String(args?.command ?? args?.cmd ?? "");
+    if (VERIFY_HINT.test(command)) recordVerification(sessionID);
 }
 
 export function getUnverifiedFiles(sessionID: string): string[] {
