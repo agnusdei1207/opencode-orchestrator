@@ -5,6 +5,7 @@ members = ["crates/orchestrator-core", "crates/orchestrator-cli"]
 [workspace.package]
 version = "2.0.12"
 edition = "2024"
+rust-version = "1.98"
 license = "MIT"
 repository = "https://github.com/agnusdei1207/opencode-orchestrator"
 authors = ["agnusdei1207"]
@@ -25,3 +26,15 @@ glob = "0.3"
 
 # Text processing
 regex = "1.11"
+
+# Parallelism and test support
+rayon = "1.10"
+tempfile = "3.15"
+
+# Release builds favor runtime speed and a small binary. panic stays the
+# default (unwind): the stdio server relies on recovering a poisoned mutex
+# rather than aborting the process.
+[profile.release]
+lto = "thin"
+codegen-units = 1
+strip = true
