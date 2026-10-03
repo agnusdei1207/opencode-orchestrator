@@ -100,6 +100,77 @@ function extractResponseText(response: Record<string, unknown>): string {
     return stringifyJsonRpcPayload(response.error);
 }
 
+type FailRequest = (error: Error, kill: boolean) => void;
+
+interface StartupGate {
+    /** Runs `callback` only for the first outcome and disarms the ready timer. */
+    settle(callback: () => void): void;
+    arm(readyTimer: NodeJS.Timeout): void;
+}
+
+function createStartupGate(): StartupGate {
+    let startupSettled = false;
+    let readyTimer: NodeJS.Timeout | null = null;
+    return {
+        settle(callback: () => void): void {
+            if (startupSettled) {
+                return;
+            }
+
+            startupSettled = true;
+            if (readyTimer) {
+                clearTimeout(readyTimer);
+                readyTimer = null;
+            }
+            callback();
+        },
+        arm(timer: NodeJS.Timeout): void {
+            readyTimer = timer;
+        },
+    };
+}
+
+/** Buffers stdout and settles on the first complete line answering `requestId`. */
+function createResponseReader(
+    pooled: PooledProcess,
+    requestId: number,
+    succeed: (text: string) => void,
+): (data: Buffer) => void {
+    return (data: Buffer) => {
+        pooled.stdout += data.toString();
+
+        let newlineIndex = pooled.stdout.indexOf("\n");
+        while (newlineIndex !== -1) {
+            const line = pooled.stdout.slice(0, newlineIndex).trim();
+            pooled.stdout = pooled.stdout.slice(newlineIndex + 1);
+            newlineIndex = pooled.stdout.indexOf("\n");
+            if (!line) {
+                continue;
+            }
+
+            const response = parseJsonLine(line);
+            if (response && responseBelongsToRequest(response, requestId)) {
+                succeed(extractResponseText(response));
+                return;
+            }
+        }
+    };
+}
+
+function writeRequest(pooled: PooledProcess, request: string, fail: FailRequest): void {
+    try {
+        if (!pooled.proc.stdin) {
+            fail(new Error("Failed to write request to Rust tool process"), true);
+        } else {
+            // false means accepted with backpressure, not a failed send.
+            pooled.proc.stdin.write(request + "\n");
+        }
+    } catch (err) {
+        const error = err instanceof Error ? err : new Error(String(err));
+        fail(error, true);
+    }
+}
+
 export class RustToolPool {
     private processes: PooledProcess[] = [];
     private retiring = new Set<PooledProcess>();
@@ -218,66 +289,66 @@ export class RustToolPool {
      */
     private async createProcess(binary: string): Promise<PooledProcess> {
         return new Promise((resolve, reject) => {
-            const proc = this.spawnProcess(binary, ["serve"], {
-                stdio: ["pipe", "pipe", "pipe"],
-                detached: false
-            });
-            // Server diagnostics must never block JSON-RPC output on a full pipe.
-            proc.stderr?.resume();
+            const pooled = this.spawnPooledProcess(binary);
+            const startup = createStartupGate();
 
-            let startupSettled = false;
-            let readyTimer: NodeJS.Timeout | null = null;
-            const pooled: PooledProcess = {
-                proc,
-                busy: true,
-                destroyed: false,
-                lastUsed: Date.now(),
-                requestId: 0,
-                stdout: ""
-            };
-
-            const settleStartup = (callback: () => void): void => {
-                if (startupSettled) {
-                    return;
-                }
-
-                startupSettled = true;
-                if (readyTimer) {
-                    clearTimeout(readyTimer);
-                    readyTimer = null;
-                }
-                callback();
-            };
-
-            // Handle process death
-            proc.on("close", () => {
-                this.retiring.delete(pooled);
-                const error = new Error("Rust tool process closed before completing request");
-                settleStartup(() => reject(error));
-                pooled.pendingReject?.(error);
-                this.removeProcess(pooled, false);
-            });
-
-            proc.on("error", (err) => {
-                const error = err instanceof Error ? err : new Error(String(err));
-                settleStartup(() => reject(error));
-                pooled.pendingReject?.(error);
-                // Errors include failed signals; a spawned child still needs close.
-                if (!this.retiring.has(pooled)) this.removeProcess(pooled, proc.pid !== undefined);
-            });
-
-            proc.stdin?.on("error", (error: Error) => {
-                settleStartup(() => reject(error));
-                pooled.pendingReject?.(error);
-                this.removeProcess(pooled, true);
-            });
+            this.watchProcess(pooled, error => startup.settle(() => reject(error)));
 
             this.processes.push(pooled);
 
             // Wait a bit for the process to be ready
-            readyTimer = setTimeout(() => {
-                settleStartup(() => resolve(pooled));
-            }, this.processReadyDelay);
+            startup.arm(setTimeout(() => {
+                startup.settle(() => resolve(pooled));
+            }, this.processReadyDelay));
+        });
+    }
+
+    private spawnPooledProcess(binary: string): PooledProcess {
+        const proc = this.spawnProcess(binary, ["serve"], {
+            stdio: ["pipe", "pipe", "pipe"],
+            detached: false
+        });
+        // Server diagnostics must never block JSON-RPC output on a full pipe.
+        proc.stderr?.resume();
+
+        return {
+            proc,
+            busy: true,
+            destroyed: false,
+            lastUsed: Date.now(),
+            requestId: 0,
+            stdout: ""
+        };
+    }
+
+    /**
+     * Route process death and pipe errors to the startup promise, the in-flight
+     * request, and pool membership.
+     */
+    private watchProcess(pooled: PooledProcess, failStartup: (error: Error) => void): void {
+        const { proc } = pooled;
+
+        // Handle process death
+        proc.on("close", () => {
+            this.retiring.delete(pooled);
+            const error = new Error("Rust tool process closed before completing request");
+            failStartup(error);
+            pooled.pendingReject?.(error);
+            this.removeProcess(pooled, false);
+        });
+
+        proc.on("error", (err) => {
+            const error = err instanceof Error ? err : new Error(String(err));
+            failStartup(error);
+            pooled.pendingReject?.(error);
+            // Errors include failed signals; a spawned child still needs close.
+            if (!this.retiring.has(pooled)) this.removeProcess(pooled, proc.pid !== undefined);
+        });
+
+        proc.stdin?.on("error", (error: Error) => {
+            failStartup(error);
+            pooled.pendingReject?.(error);
+            this.removeProcess(pooled, true);
         });
     }
 
@@ -299,76 +370,54 @@ export class RustToolPool {
 
         return new Promise((resolve, reject) => {
             const requestId = ++pooled.requestId;
-            let settled = false;
-            const fail = (error: Error, kill: boolean) => {
-                if (settled) {
-                    return;
-                }
-
-                settled = true;
-                cleanup();
-                this.removeProcess(pooled, kill);
-                reject(error);
-            };
-            const succeed = (text: string) => {
-                if (settled) {
-                    return;
-                }
-
-                settled = true;
-                cleanup();
-                resolve(text);
-            };
-            const timeout = setTimeout(() => {
-                fail(new Error("Request timeout"), true);
-            }, this.requestTimeout);
-            const cleanup = () => {
-                clearTimeout(timeout);
-                pooled.pendingReject = undefined;
-                pooled.pendingCleanup = undefined;
-                pooled.proc.stdout?.removeListener("data", onData);
-            };
-
-            // Setup response handler
-            const onData = (data: Buffer) => {
-                pooled.stdout += data.toString();
-
-                let newlineIndex = pooled.stdout.indexOf("\n");
-                while (newlineIndex !== -1) {
-                    const line = pooled.stdout.slice(0, newlineIndex).trim();
-                    pooled.stdout = pooled.stdout.slice(newlineIndex + 1);
-                    newlineIndex = pooled.stdout.indexOf("\n");
-                    if (!line) {
-                        continue;
-                    }
-
-                    const response = parseJsonLine(line);
-                    if (response && responseBelongsToRequest(response, requestId)) {
-                        succeed(extractResponseText(response));
-                        return;
-                    }
-                }
-            };
-
-            pooled.pendingReject = (error: Error) => fail(error, false);
-            pooled.pendingCleanup = cleanup;
-            pooled.proc.stdout?.on("data", onData);
+            const fail = this.trackRequest(pooled, requestId, resolve, reject);
 
             // Send request
             const request = serializeToolCallRequest(buildToolCallRequest(requestId, name, args));
-
-            try {
-                if (!pooled.proc.stdin) {
-                    fail(new Error("Failed to write request to Rust tool process"), true);
-                } else {
-                    // false means accepted with backpressure, not a failed send.
-                    pooled.proc.stdin.write(request + "\n");
-                }
-            } catch (err) {
-                const error = err instanceof Error ? err : new Error(String(err));
-                fail(error, true);
-            }
+            writeRequest(pooled, request, fail);
         });
+    }
+
+    /**
+     * Arm the timeout and response reader for one request. Returns the failure
+     * path, which also evicts the process.
+     */
+    private trackRequest(
+        pooled: PooledProcess,
+        requestId: number,
+        resolve: (text: string) => void,
+        reject: (error: Error) => void,
+    ): FailRequest {
+        let settled = false;
+        const settleOnce = (): boolean => {
+            if (settled) return false;
+            settled = true;
+            cleanup();
+            return true;
+        };
+        const fail: FailRequest = (error, kill) => {
+            if (!settleOnce()) return;
+            this.removeProcess(pooled, kill);
+            reject(error);
+        };
+        const succeed = (text: string): void => {
+            if (settleOnce()) resolve(text);
+        };
+        const timeout = setTimeout(() => {
+            fail(new Error("Request timeout"), true);
+        }, this.requestTimeout);
+        const onData = createResponseReader(pooled, requestId, succeed);
+        const cleanup = (): void => {
+            clearTimeout(timeout);
+            pooled.pendingReject = undefined;
+            pooled.pendingCleanup = undefined;
+            pooled.proc.stdout?.removeListener("data", onData);
+        };
+
+        pooled.pendingReject = (error: Error) => fail(error, false);
+        pooled.pendingCleanup = cleanup;
+        pooled.proc.stdout?.on("data", onData);
+        return fail;
     }
 
     /**
