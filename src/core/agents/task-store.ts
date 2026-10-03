@@ -14,6 +14,27 @@ import { MEMORY_LIMITS, PATHS, TASK_STATUS } from "../../shared/index.js";
 import { stringPool } from "../pool/string-pool.js";
 import { taskPool } from "../pool/task-pool.js";
 
+type GcCandidate = { id: string; task: ParallelTask; startedAt: Date; status: string };
+type GcAction = "archive" | "remove" | undefined;
+
+function isErrorOrCancelled(status: string): boolean {
+    return status === TASK_STATUS.ERROR || status === TASK_STATUS.CANCELLED;
+}
+
+function classifyForGc(task: ParallelTask, now: number): GcAction {
+    // Skip running tasks
+    if (task.status === TASK_STATUS.RUNNING) return undefined;
+
+    const completedAt = task.completedAt?.getTime() ?? 0;
+    const age = now - completedAt;
+
+    // Archive tasks older than ARCHIVE_AGE_MS
+    if (age > MEMORY_LIMITS.ARCHIVE_AGE_MS && task.status === TASK_STATUS.COMPLETED) return "archive";
+    // Remove failed/cancelled tasks older than ERROR_CLEANUP_AGE_MS
+    if (age > MEMORY_LIMITS.ERROR_CLEANUP_AGE_MS && isErrorOrCancelled(task.status)) return "remove";
+    return undefined;
+}
+
 export class TaskStore {
     private tasks: Map<string, ParallelTask> = new Map();
     private taskIdsBySession: Map<string, string> = new Map();
@@ -190,25 +211,13 @@ export class TaskStore {
      */
     async gc(): Promise<number> {
         const now = Date.now();
-        const toRemove: Array<{ id: string; task: ParallelTask; startedAt: Date; status: string }> = [];
+        const toRemove: GcCandidate[] = [];
         const toArchive: ParallelTask[] = [];
 
         for (const [id, task] of this.tasks) {
-            // Skip running tasks
-            if (task.status === TASK_STATUS.RUNNING) continue;
-
-            const completedAt = task.completedAt?.getTime() ?? 0;
-            const age = now - completedAt;
-
-            // Archive tasks older than ARCHIVE_AGE_MS
-            if (age > MEMORY_LIMITS.ARCHIVE_AGE_MS && task.status === TASK_STATUS.COMPLETED) {
-                toArchive.push({ ...task });
-                toRemove.push({ id, task, startedAt: task.startedAt, status: task.status });
-            }
-            // Remove failed/cancelled tasks older than ERROR_CLEANUP_AGE_MS
-            else if (age > MEMORY_LIMITS.ERROR_CLEANUP_AGE_MS && (task.status === TASK_STATUS.ERROR || task.status === TASK_STATUS.CANCELLED)) {
-                toRemove.push({ id, task, startedAt: task.startedAt, status: task.status });
-            }
+            const action = classifyForGc(task, now);
+            if (action === "archive") toArchive.push({ ...task });
+            if (action) toRemove.push({ id, task, startedAt: task.startedAt, status: task.status });
         }
 
         // Archive to disk
@@ -216,7 +225,14 @@ export class TaskStore {
             await this.archiveTasks(toArchive);
         }
 
-        // Remove from memory and release to pool
+        return this.removeCollected(toRemove);
+    }
+
+    /**
+     * Remove from memory and release to pool, skipping any task that was
+     * replaced, restarted, or changed status while archiving was awaited.
+     */
+    private removeCollected(toRemove: GcCandidate[]): number {
         let removed = 0;
         for (const { id, task, startedAt, status } of toRemove) {
             if (this.tasks.get(id) !== task || task.startedAt !== startedAt || task.status !== status) continue;
@@ -224,7 +240,6 @@ export class TaskStore {
             taskPool.release(task);
             removed++;
         }
-
         return removed;
     }
 
