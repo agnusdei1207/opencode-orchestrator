@@ -4,7 +4,7 @@ use anyhow::Result;
 use orchestrator_core::hooks::Hook;
 use orchestrator_core::tools::{
     AstTool, DiagnosticsTool, DiffTool, FileStatsTool, GitTool, GlobTool, GrepTool, HttpTool,
-    JqTool, MgrepTool, SedTool, ast::AstConfig, diff::DiffConfig, glob::GlobConfig,
+    JqTool, MgrepTool, SedTool, ast::AstConfig, ast::AstScope, diff::DiffConfig, glob::GlobConfig,
     grep::GrepConfig, http::HttpConfig, http::HttpMethod, jq::JqConfig, lsp::Diagnostic,
     lsp::DiagnosticSeverity, lsp::DiagnosticsConfig, mgrep::MgrepConfig, mgrep::MgrepMatch,
     sed::SedConfig, sed::SedDirectoryReport,
@@ -602,12 +602,12 @@ fn ast_search(arguments: Value) -> Result<String> {
     let directory = resolve_directory(args.directory);
 
     let tool = AstTool::new(AstConfig::default());
-    let matches = tool.search(
-        &args.pattern,
-        &directory,
-        args.lang.as_deref(),
-        args.include.as_deref(),
-    )?;
+    let scope = AstScope {
+        directory: &directory,
+        lang: args.lang.as_deref(),
+        include: args.include.as_deref(),
+    };
+    let matches = tool.search(&args.pattern, scope)?;
 
     if matches.is_empty() {
         return Ok(
@@ -653,13 +653,12 @@ fn ast_replace(arguments: Value) -> Result<String> {
     let directory = resolve_directory(args.directory);
 
     let tool = AstTool::new(AstConfig::default());
-    let result = tool.replace(
-        &args.pattern,
-        &args.rewrite,
-        &directory,
-        args.lang.as_deref(),
-        args.include.as_deref(),
-    )?;
+    let scope = AstScope {
+        directory: &directory,
+        lang: args.lang.as_deref(),
+        include: args.include.as_deref(),
+    };
+    let result = tool.replace(&args.pattern, &args.rewrite, scope)?;
 
     Ok(serde_json::to_string_pretty(&json!({
         "success": result.success,

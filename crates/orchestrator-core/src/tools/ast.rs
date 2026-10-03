@@ -33,6 +33,17 @@ impl Default for AstConfig {
     }
 }
 
+/// Where and on which files an ast-grep run operates.
+#[derive(Debug, Clone, Copy)]
+pub struct AstScope<'a> {
+    /// Working directory of the ast-grep process
+    pub directory: &'a Path,
+    /// Language passed to `--lang`; defaults to `typescript`
+    pub lang: Option<&'a str>,
+    /// Glob passed to `--globs`, if any
+    pub include: Option<&'a str>,
+}
+
 /// AST tool for structural search and replace
 pub struct AstTool {
     config: AstConfig,
@@ -44,13 +55,12 @@ impl AstTool {
     }
 
     /// Search for structural patterns using ast-grep
-    pub fn search(
-        &self,
-        pattern: &str,
-        directory: &Path,
-        lang: Option<&str>,
-        include: Option<&str>,
-    ) -> Result<Vec<AstMatch>> {
+    pub fn search(&self, pattern: &str, scope: AstScope<'_>) -> Result<Vec<AstMatch>> {
+        let AstScope {
+            directory,
+            lang,
+            include,
+        } = scope;
         let lang = lang.unwrap_or("typescript");
 
         let mut args = vec![
@@ -93,10 +103,13 @@ impl AstTool {
         &self,
         pattern: &str,
         rewrite: &str,
-        directory: &Path,
-        lang: Option<&str>,
-        include: Option<&str>,
+        scope: AstScope<'_>,
     ) -> Result<AstReplaceResult> {
+        let AstScope {
+            directory,
+            lang,
+            include,
+        } = scope;
         let lang = lang.unwrap_or("typescript");
 
         let mut args = vec![
@@ -222,7 +235,12 @@ mod tests {
     #[cfg(unix)]
     fn search_with_fixture(script: &str) -> Result<Vec<AstMatch>> {
         with_fixture(script, |directory| {
-            AstTool::default().search("fixture", directory, None, Some("*.ts"))
+            let scope = AstScope {
+                directory,
+                lang: None,
+                include: Some("*.ts"),
+            };
+            AstTool::default().search("fixture", scope)
         })
     }
 
@@ -230,7 +248,12 @@ mod tests {
     #[cfg(unix)]
     fn replacement_with_no_matches_is_a_successful_noop() {
         let result = with_fixture("exit 1", |directory| {
-            AstTool::default().replace("fixture", "replacement", directory, None, None)
+            let scope = AstScope {
+                directory,
+                lang: None,
+                include: None,
+            };
+            AstTool::default().replace("fixture", "replacement", scope)
         })
         .unwrap();
         assert!(result.success);
