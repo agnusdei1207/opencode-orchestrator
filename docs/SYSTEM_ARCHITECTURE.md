@@ -126,6 +126,11 @@ Current option readers:
 | `providerConcurrency` | `src/core/agents/concurrency-config.ts` | Provider-level concurrency overrides. |
 | `modelConcurrency` | `src/core/agents/concurrency-config.ts` | Model-level concurrency overrides. |
 | `defaultConcurrency` | `src/core/agents/concurrency-config.ts` | Default fallback concurrency. |
+| `acquisitionTimeoutMs` | `src/core/agents/concurrency-config.ts` | How long a launch waits for a concurrency slot. |
+| `circuitFailureThreshold`, `circuitRecoveryTimeoutMs`, `halfOpenSuccessThreshold` | `src/core/agents/concurrency-config.ts` | Per-key circuit breaker tuning for repeated task failures. |
+| `resourcePressureMaxHeapPercent` | `src/core/agents/concurrency-config.ts` | Heap usage above which low-priority launches are refused; current launches all use normal priority, so it has no effect today. |
+| `agentTemperatures` | `src/plugin-handlers/chat-params-handler.ts`, `src/v2/setup.ts` | Per-agent temperature, applied when the model supports it. |
+| `contextMaxTokens` | `src/core/context/context-limit-resolver.ts` | Explicit context window for every model, overriding host metadata. |
 | `missionLoop.*` | `src/core/config/plugin-options.ts` | Runtime mission memory and evidence controls. |
 
 Concurrency maps and the default accept `0` for unlimited; the generated schema matches that runtime contract. Producerless work-stealing worker loops and `workStealingWorkers` have been removed. The retained admission queue controls actual task launches and resumes.

@@ -2,7 +2,7 @@
 
 Date: 2026-09-15 18:20 KST
 Status: Implemented
-Source: `docs/plans/2026-09-15-legacy-removal-and-hardening.md`
+Source: `docs/plans/2026-09-15-legacy-removal-and-hardening.md` (completed plan removed 2026-10-03)
 
 ## Context
 

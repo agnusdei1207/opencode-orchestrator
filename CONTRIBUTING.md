@@ -90,7 +90,7 @@ npm run test:e2e
 ### 1. Synchronization (CRITICAL)
 Since we use JSON-RPC for communication, **Constants must be synchronized**.
 - **Rust**: `crates/orchestrator-core/src/constants.rs`
-- **TypeScript**: `src/shared/core/constants/` and tool definitions.
+- **TypeScript**: `src/shared/core/constants.ts` and tool definitions.
 Always update both sides when adding new tools, agents, or status labels.
 
 ### 2. Tool Implementation

@@ -2,7 +2,7 @@
 
 Date: 2026-09-15 16:25 KST
 Status: Implemented
-Source: `docs/plans/2026-09-15-opencode-compatibility-refactor.md`
+Source: `docs/plans/2026-09-15-opencode-compatibility-refactor.md` (completed plan removed 2026-10-03)
 
 ## Context
 

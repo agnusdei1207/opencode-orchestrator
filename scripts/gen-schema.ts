@@ -1,6 +1,6 @@
 /**
  * Regenerate the public plugin-options JSON Schema from the Zod source of truth.
- * Run: node --experimental-strip-types scripts/gen-schema.ts
+ * Run: npm run gen:schema
  */
 import { writeFileSync } from "node:fs";
 import path from "node:path";
