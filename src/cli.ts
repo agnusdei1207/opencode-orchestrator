@@ -28,21 +28,47 @@ export function signalExitCode(signal: string): number {
     return 128 + signalNumber;
 }
 
-export function launchBundledCli(args: string[], options: LauncherOptions = {}): number {
+type Launcher = Required<LauncherOptions>;
+
+function resolveLauncher(options: LauncherOptions): Launcher {
     const reportError = options.reportError ?? console.error;
     const resolveBinary = options.resolveBinary ?? getBinaryPath;
     const exists = options.exists ?? existsSync;
     const spawn = options.spawn ?? ((command, commandArgs, spawnOptions) =>
         spawnSync(command, commandArgs, spawnOptions));
+    return { reportError, resolveBinary, exists, spawn };
+}
 
-    let binaryPath: string;
+/** Returns null after reporting when the binary cannot be resolved. */
+function resolveBinaryOrReport(launcher: Launcher): string | null {
+    const { resolveBinary, reportError } = launcher;
     try {
-        binaryPath = resolveBinary();
+        return resolveBinary();
     } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
         reportError(`orchestrator: ${message}`);
+        return null;
+    }
+}
+
+function exitCodeFromSpawn(result: SpawnResult, reportError: Launcher["reportError"]): number {
+    if (result.error) {
+        reportError(`orchestrator: Failed to launch bundled binary: ${result.error.message}`);
         return 1;
     }
+    if (result.signal) {
+        return signalExitCode(result.signal);
+    }
+    return result.status ?? 1;
+}
+
+export function launchBundledCli(args: string[], options: LauncherOptions = {}): number {
+    const launcher = resolveLauncher(options);
+    // Call the injected functions unbound, exactly as the caller supplied them.
+    const { reportError, exists, spawn } = launcher;
+
+    const binaryPath = resolveBinaryOrReport(launcher);
+    if (binaryPath === null) return 1;
 
     if (!exists(binaryPath)) {
         reportError(`orchestrator: Bundled binary not found: ${binaryPath}`);
@@ -54,14 +80,7 @@ export function launchBundledCli(args: string[], options: LauncherOptions = {}):
         shell: false,
         env: process.env,
     });
-    if (result.error) {
-        reportError(`orchestrator: Failed to launch bundled binary: ${result.error.message}`);
-        return 1;
-    }
-    if (result.signal) {
-        return signalExitCode(result.signal);
-    }
-    return result.status ?? 1;
+    return exitCodeFromSpawn(result, reportError);
 }
 
 function isDirectExecution(): boolean {
