@@ -6,6 +6,14 @@ use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
 use walkdir::WalkDir;
 
+/// `*` and `?` stay within one path component, so `*.rs` lists only the
+/// search root and `**/*.rs` is needed to recurse, as the tool describes.
+const MATCH_OPTIONS: glob::MatchOptions = glob::MatchOptions {
+    case_sensitive: true,
+    require_literal_separator: true,
+    require_literal_leading_dot: false,
+};
+
 /// Configuration for glob operations
 #[derive(Debug, Clone)]
 pub struct GlobConfig {
@@ -75,7 +83,7 @@ impl GlobTool {
 
             let path = entry.path();
             let relative = path.strip_prefix(directory).unwrap_or(path);
-            if glob_pattern.matches_path(relative) {
+            if glob_pattern.matches_path_with(relative, MATCH_OPTIONS) {
                 found.paths.push(path.to_path_buf());
             }
         }
@@ -146,6 +154,27 @@ mod tests {
         let results = GlobTool::default().find("**/*.rs", &root).unwrap().paths;
 
         assert_eq!(results, vec![root.join("a.rs")]);
+    }
+
+    #[test]
+    fn single_star_does_not_cross_directories() {
+        let dir = tempdir().unwrap();
+        let root = dir.path().join("repo");
+        fs::create_dir_all(root.join("src").join("deep")).unwrap();
+        fs::write(root.join("a.md"), "").unwrap();
+        fs::write(root.join("src").join("b.md"), "").unwrap();
+        fs::write(root.join("src").join("deep").join("c.md"), "").unwrap();
+        let tool = GlobTool::default();
+
+        let top = tool.find("*.md", &root).unwrap().paths;
+        let mut nested = tool.find("src/**/*.md", &root).unwrap().paths;
+        nested.sort();
+
+        assert_eq!(top, vec![root.join("a.md")]);
+        assert_eq!(
+            nested,
+            vec![root.join("src").join("b.md"), root.join("src/deep/c.md")]
+        );
     }
 
     #[test]
