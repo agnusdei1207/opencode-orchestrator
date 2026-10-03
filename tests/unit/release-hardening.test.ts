@@ -55,7 +55,7 @@ describe("issue #27 release hardening", () => {
 
         expect(compose).toContain("platform: linux/amd64");
         expect(compose).toContain("rustup target add x86_64-unknown-linux-gnu");
-        expect(compose).toContain("cargo build --release --target x86_64-unknown-linux-gnu");
+        expect(compose).toContain("cargo build --release --locked --target x86_64-unknown-linux-gnu");
         expect(compose).toContain(
             "cp target/x86_64-unknown-linux-gnu/release/orchestrator bin/orchestrator-linux-x64",
         );
