@@ -27,6 +27,7 @@ export class TaskCleaner {
     private cleanupTimers = new Map<string, ReturnType<typeof setTimeout>>();
     private cleaning = new Set<string>();
     private notifying = new Set<string>();
+    private timingOut = new Set<string>();
     constructor(
         private client: OpencodeClient,
         private store: TaskStore,
@@ -34,19 +35,31 @@ export class TaskCleaner {
         private sessionRegistry: SessionRegistry
     ) { }
 
+    /**
+     * PENDING tasks are not timed out here: every PENDING run is driven by
+     * TaskLauncher.executeBackground, whose only wait (concurrency acquisition)
+     * is bounded by its own timeout and ends in RUNNING or a task error.
+     */
     pruneExpiredTasks(): void {
         const now = Date.now();
-        for (const [taskId, task] of this.store.getAll().map(t => [t.id, t] as const)) {
+        for (const task of this.store.getAll()) {
             const age = now - task.startedAt.getTime();
-            if (age <= CONFIG.TASK_TTL_MS) continue;
-
-            log(`Timeout: ${taskId}`);
-            if (task.status === TASK_STATUS.RUNNING) {
-                void this.timeOutRunningTask(taskId, task);
-                continue;
-            }
+            if (age > CONFIG.TASK_TTL_MS && task.status === TASK_STATUS.RUNNING) this.startTimeout(task);
         }
         this.store.cleanEmptyNotifications();
+    }
+
+    /**
+     * Polls and launches both prune, so an abort that has not been confirmed
+     * yet would otherwise be re-fired concurrently on every pass.
+     */
+    private startTimeout(task: ParallelTask): void {
+        if (this.timingOut.has(task.id)) return;
+        log(`Timeout: ${task.id}`);
+        this.timingOut.add(task.id);
+        void this.timeOutRunningTask(task.id, task)
+            .catch(error => log(`Timeout handling failed for ${task.id}:`, error))
+            .finally(() => this.timingOut.delete(task.id));
     }
 
     /**

@@ -153,6 +153,34 @@ describe("TaskCleaner", () => {
         }));
     });
 
+    it("does not re-fire a timeout while the previous abort is still unconfirmed", async () => {
+        const abort = vi.fn();
+        let confirmAbort!: (value: { data: boolean }) => void;
+        abort.mockImplementationOnce(() => new Promise(resolve => { confirmAbort = resolve; }));
+        abort.mockResolvedValue({ data: true });
+        const client = { session: { prompt, status: vi.fn().mockResolvedValue({ data: {} }), abort } };
+        const guarded = new TaskCleaner(
+            client as unknown as ConstructorParameters<typeof TaskCleaner>[0],
+            store,
+            concurrency,
+            { release: vi.fn().mockResolvedValue(undefined) } as unknown as ConstructorParameters<typeof TaskCleaner>[3],
+        );
+        const task = createTask({ status: TASK_STATUS.RUNNING, startedAt: new Date(Date.now() - CONFIG.TASK_TTL_MS - 1) });
+        store.set(task.id, task);
+
+        guarded.pruneExpiredTasks();
+        guarded.pruneExpiredTasks();
+        expect(abort).toHaveBeenCalledTimes(1);
+
+        confirmAbort({ data: false });
+        await vi.waitFor(() => {
+            guarded.pruneExpiredTasks();
+            expect(abort).toHaveBeenCalledTimes(2);
+        });
+        await vi.waitFor(() => expect(task.status).toBe(TASK_STATUS.TIMEOUT));
+        guarded.shutdown();
+    });
+
     /**
      * Issue #38: a parent agent is very often mid-turn when its background
      * subagents finish. `noReply: true` does not make that write safe — upstream
