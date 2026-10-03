@@ -74,7 +74,8 @@ export function createSlashcommandTool(): ToolDefinition {
 
       if (!cmdName) return `Commands:\n${commandList}`;
 
-      const command = COMMANDS[cmdName];
+      // hasOwn keeps inherited keys such as `constructor` from resolving to a command.
+      const command = Object.hasOwn(COMMANDS, cmdName) ? COMMANDS[cmdName] : undefined;
       if (!command) return `Unknown command: /${cmdName}\n\n${commandList}`;
 
       return command.template.replace(/\$ARGUMENTS/g, cmdArgs || PROMPTS.CONTINUE_DEFAULT);

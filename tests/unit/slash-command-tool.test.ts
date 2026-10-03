@@ -36,6 +36,11 @@ describe("slashCommand Tool", () => {
         expect(result).toContain("- /task");
     });
 
+    it.each(["constructor", "__proto__", "toString"])("treats the object key %s as an unknown command", async (name) => {
+        const result = await (tool as any).execute({ command: name });
+        expect(result).toContain(`Unknown command: /${name.toLowerCase()}`);
+    });
+
     it("executes /task command and substitutes arguments correctly", async () => {
         const result = await (tool as any).execute({ command: "/task ship the feature" });
         expect(result).toContain("<mission>");
