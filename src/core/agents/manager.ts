@@ -40,6 +40,19 @@ import { fetchTaskResultText } from "./manager/task-result.js";
 export type { ParallelTask };
 
 type OpencodeClient = PluginInput["client"];
+
+type CancellationState = "settled" | "stale" | "proceed";
+
+/**
+ * Re-check a task after the (possibly awaited) session abort: another path may
+ * have already errored it, or it may have been restarted or finished meanwhile.
+ */
+function cancellationStateAfterAbort(task: ParallelTask, startedAt: ParallelTask["startedAt"]): CancellationState {
+    if (task.startedAt === startedAt && task.status === TASK_STATUS.ERROR) return "settled";
+    if (task.startedAt !== startedAt || !isCancellableTaskStatus(task.status)) return "stale";
+    return "proceed";
+}
+
 export class ParallelAgentManager {
     private static _instance: ParallelAgentManager | undefined;
 
@@ -190,8 +203,8 @@ export class ParallelAgentManager {
         if (!task || !isCancellableTaskStatus(task.status)) return false;
         const startedAt = task.startedAt;
         if (task.status === TASK_STATUS.RUNNING && !(await confirmSessionAbort(this.client, task.sessionID))) return false;
-        if (task.startedAt === startedAt && task.status === TASK_STATUS.ERROR) return true;
-        if (task.startedAt !== startedAt || !isCancellableTaskStatus(task.status)) return false;
+        const state = cancellationStateAfterAbort(task, startedAt);
+        if (state !== "proceed") return state === "settled";
 
         task.status = TASK_STATUS.ERROR;
         task.error = TASK_CANCELLED_BY_USER;
