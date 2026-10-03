@@ -98,6 +98,34 @@ describe("Hook System", () => {
             const result = await hook.execute(mockContext, "run_command", { command: "rm -rf /" });
             expect(result.action).toBe(HOOK_ACTIONS.BLOCK);
         });
+
+        it.each([
+            "rm -fr /",
+            "rm -Rf /",
+            "rm -rf /*",
+            "rm -r -f /",
+            "rm -rf --no-preserve-root /",
+            "sudo rm -rf /",
+            "rm -rf / && echo done",
+        ])("blocks root deletion variant %s", async (command) => {
+            const result = await hook.execute(mockContext, "run_background", { command });
+            expect(result.action).toBe(HOOK_ACTIONS.BLOCK);
+        });
+
+        it.each([
+            "rm -rf /tmp/build",
+            "rm -rf ./dist",
+            "rm -rf dist/",
+            "npm run release:clean",
+        ])("allows scoped deletion %s", async (command) => {
+            const result = await hook.execute(mockContext, "run_command", { command });
+            expect(result.action).toBe(HOOK_ACTIONS.ALLOW);
+        });
+
+        it("blocks a fork bomb written without spaces", async () => {
+            const result = await hook.execute(mockContext, "run_command", { command: ":(){:|:&};:" });
+            expect(result.action).toBe(HOOK_ACTIONS.BLOCK);
+        });
     });
 
     describe("MissionControlHook", () => {

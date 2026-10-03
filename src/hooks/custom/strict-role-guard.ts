@@ -27,7 +27,7 @@ export class StrictRoleGuardHook implements PreToolUseHook {
             const cmd = typeof args.command === "string" ? args.command : undefined;
             if (cmd) {
                 // Prevent Fork Bomb
-                if (cmd.includes(SECURITY_PATTERNS.FORK_BOMB)) {
+                if (cmd.replace(/\s+/g, "").includes(SECURITY_PATTERNS.FORK_BOMB)) {
                     return { action: HOOK_ACTIONS.BLOCK, reason: MISSION_MESSAGES.BLOCK_REASON_FORK_BOMB };
                 }
 

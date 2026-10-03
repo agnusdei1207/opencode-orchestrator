@@ -6,8 +6,11 @@
 
 export const SECURITY_PATTERNS = {
     // Dangerous Commands
-    FORK_BOMB: ":(){ :|:& };:",
-    ROOT_DELETION: /rm\s+(-r?f?\s+)*\/\s*$/, // rm -rf /
+    // Compared after whitespace removal so spacing variants cannot slip past.
+    FORK_BOMB: ":(){:|:&};:",
+    // `rm` with any flags (-rf, -fr, -Rf, --no-preserve-root) targeting `/` or `/*`,
+    // ending the command or followed by a shell separator. Scoped paths like `/tmp/x` pass.
+    ROOT_DELETION: /\brm\s+(?:-{1,2}[\w-]+\s+)*(?:--\s+)?\/\*?(?=\s*(?:$|[;&|]))/,
 
     // Secret Detection
     SECRETS: [
