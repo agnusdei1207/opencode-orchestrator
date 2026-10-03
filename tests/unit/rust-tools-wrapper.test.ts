@@ -110,6 +110,14 @@ describe("Rust Tool Wrappers", () => {
             }));
         });
 
+        it("forwards glob_search max_results to Rust", async () => {
+            await globSearchTool(testDir).execute({ pattern: "**/*.md", max_results: 250 }, {} as any);
+
+            expect(callRustTool).toHaveBeenCalledWith(TOOL_NAMES.GLOB_SEARCH, expect.objectContaining({
+                max_results: 250,
+            }));
+        });
+
         it("should call Rust mgrep", async () => {
             const args = { patterns: ["TODO", "FIXME"], max_results_per_pattern: 3 };
             await mgrepTool(testDir).execute(args, {} as any);

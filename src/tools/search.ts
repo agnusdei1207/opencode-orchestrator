@@ -11,8 +11,8 @@ export const grepSearchTool = (directory: string): ToolDefinition => tool({
     args: {
         pattern: tool.schema.string().describe("Regex pattern to search for"),
         dir: tool.schema.string().optional().describe("Directory to search (defaults to project root)"),
-        max_results: tool.schema.number().optional().describe("Max results (default: 100)"),
-        timeout_ms: tool.schema.number().optional().describe("Timeout in milliseconds (default: 30000)"),
+        max_results: tool.schema.number().optional().describe("Max results (default: 100, max: 1000)"),
+        timeout_ms: tool.schema.number().optional().describe("Timeout in milliseconds (default: 30000; 0 uses the default)"),
     },
     async execute(args) {
         return callRustTool(TOOL_NAMES.GREP_SEARCH, {
@@ -31,13 +31,15 @@ export const grepSearchTool = (directory: string): ToolDefinition => tool({
 export const globSearchTool = (directory: string): ToolDefinition => tool({
     description: "Find files matching a glob pattern. Returns list of file paths.",
     args: {
-        pattern: tool.schema.string().describe("Glob pattern (e.g., '**/*.ts', 'src/**/*.md')"),
+        pattern: tool.schema.string().describe("Glob pattern (e.g., '**/*.ts', 'src/**/*.md'); `*` stays within one directory, use `**` to recurse"),
         dir: tool.schema.string().optional().describe("Directory to search (defaults to project root)"),
+        max_results: tool.schema.number().optional().describe("Max results (default: 100, max: 1000)"),
     },
     async execute(args) {
         return callRustTool(TOOL_NAMES.GLOB_SEARCH, {
             pattern: args.pattern,
             directory: args.dir || directory,
+            max_results: args.max_results,
         });
     },
 });
@@ -51,8 +53,8 @@ export const mgrepTool = (directory: string): ToolDefinition => tool({
     args: {
         patterns: tool.schema.array(tool.schema.string()).describe("Array of regex patterns"),
         dir: tool.schema.string().optional().describe("Directory (defaults to project root)"),
-        max_results_per_pattern: tool.schema.number().optional().describe("Max results per pattern (default: 50)"),
-        timeout_ms: tool.schema.number().optional().describe("Timeout in milliseconds (default: 60000)"),
+        max_results_per_pattern: tool.schema.number().optional().describe("Max results per pattern (default: 50, max: 1000)"),
+        timeout_ms: tool.schema.number().optional().describe("Timeout in milliseconds (default: 60000; 0 uses the default)"),
     },
     async execute(args) {
         return callRustTool(TOOL_NAMES.MGREP, {
