@@ -5,8 +5,8 @@
 //! process can never block a tool call indefinitely.
 
 use crate::{Error, Result};
-use std::io::{Read, Write};
-use std::process::{Child, Command, ExitStatus, Output, Stdio};
+use std::io::{self, Read, Write};
+use std::process::{Child, Command, ExitStatus, Stdio};
 use std::sync::mpsc::{self, Receiver};
 use std::thread::{self, JoinHandle};
 use std::time::{Duration, Instant};
@@ -23,7 +23,7 @@ pub fn run_with_timeout(
     mut command: Command,
     timeout: Duration,
     stdin_data: Option<&[u8]>,
-) -> Result<Output> {
+) -> Result<CapturedOutput> {
     configure_stdio(&mut command, stdin_data.is_some());
 
     let deadline = Deadline {
@@ -55,11 +55,28 @@ pub fn run_with_timeout(
         finish_stdin(input, &mut child, deadline)?;
     }
 
-    Ok(Output {
+    Ok(CapturedOutput {
         status,
-        stdout,
-        stderr,
+        stdout: stdout.bytes,
+        stderr: stderr.bytes,
+        stdout_truncated: stdout.truncated,
+        stderr_truncated: stderr.truncated,
     })
+}
+
+/// Most bytes kept from each of a child's stdout and stderr.
+pub const MAX_CAPTURED_BYTES: u64 = 16 * 1024 * 1024;
+
+/// Exit status and captured output of a finished child process.
+#[derive(Debug)]
+pub struct CapturedOutput {
+    pub status: ExitStatus,
+    pub stdout: Vec<u8>,
+    pub stderr: Vec<u8>,
+    /// The child wrote more than [`MAX_CAPTURED_BYTES`] to stdout.
+    pub stdout_truncated: bool,
+    /// The child wrote more than [`MAX_CAPTURED_BYTES`] to stderr.
+    pub stderr_truncated: bool,
 }
 
 /// Poll interval while waiting for the child to exit.
@@ -116,20 +133,39 @@ fn spawn_stdin_writer(child: &mut Child, stdin_data: Option<&[u8]>) -> Option<St
     })
 }
 
+/// Bytes kept from one output stream.
+#[derive(Default)]
+struct Captured {
+    bytes: Vec<u8>,
+    truncated: bool,
+}
+
 /// Drain `pipe` on its own thread so a full pipe buffer never blocks the child.
-fn spawn_pipe_reader<R>(mut pipe: Option<R>) -> (JoinHandle<()>, Receiver<Vec<u8>>)
+fn spawn_pipe_reader<R>(pipe: Option<R>) -> (JoinHandle<()>, Receiver<Captured>)
 where
     R: Read + Send + 'static,
 {
     let (sender, receiver) = mpsc::channel();
     let handle = thread::spawn(move || {
-        let mut buf = Vec::new();
-        if let Some(pipe) = pipe.as_mut() {
-            let _ = pipe.read_to_end(&mut buf);
-        }
-        let _ = sender.send(buf);
+        let captured = pipe.map(read_capped).unwrap_or_default();
+        let _ = sender.send(captured);
     });
     (handle, receiver)
+}
+
+/// Keep the first [`MAX_CAPTURED_BYTES`]; anything after that is still read,
+/// so the child can finish, but discarded.
+fn read_capped<R: Read>(mut pipe: R) -> Captured {
+    let mut bytes = Vec::new();
+    let _ = pipe
+        .by_ref()
+        .take(MAX_CAPTURED_BYTES)
+        .read_to_end(&mut bytes);
+    let discarded = io::copy(&mut pipe, &mut io::sink()).unwrap_or(0);
+    Captured {
+        bytes,
+        truncated: discarded > 0,
+    }
 }
 
 fn wait_for_exit(child: &mut Child, deadline: Deadline) -> Result<ExitStatus> {
@@ -186,6 +222,29 @@ mod tests {
         let output = run_with_timeout(cmd, Duration::from_secs(5), None).unwrap();
         assert!(output.status.success());
         assert_eq!(String::from_utf8_lossy(&output.stdout).trim(), "hello");
+    }
+
+    #[test]
+    fn output_within_the_capture_limit_is_not_flagged() {
+        let mut cmd = Command::new("echo");
+        cmd.arg("hello");
+        let output = run_with_timeout(cmd, Duration::from_secs(5), None).unwrap();
+        assert!(!output.stdout_truncated);
+        assert!(!output.stderr_truncated);
+    }
+
+    #[test]
+    fn output_beyond_the_capture_limit_is_discarded_and_flagged() {
+        let mut cmd = Command::new("sh");
+        let script = format!("head -c {} /dev/zero", MAX_CAPTURED_BYTES + 1);
+        cmd.args(["-c", &script]);
+
+        let output = run_with_timeout(cmd, Duration::from_secs(20), None).unwrap();
+
+        assert!(output.status.success());
+        assert_eq!(output.stdout.len() as u64, MAX_CAPTURED_BYTES);
+        assert!(output.stdout_truncated);
+        assert!(!output.stderr_truncated);
     }
 
     #[test]

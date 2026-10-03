@@ -1,9 +1,9 @@
 //! Git operations tool
 
-use crate::tools::process::run_with_timeout;
+use crate::tools::process::{CapturedOutput, run_with_timeout};
 use crate::{Error, Result};
 use std::path::Path;
-use std::process::{Command, Output};
+use std::process::Command;
 use std::time::Duration;
 
 /// Hard ceiling for a single `git` invocation.
@@ -148,7 +148,7 @@ fn run_git(repo_path: &Path, args: &[&str]) -> Result<String> {
     Ok(String::from_utf8_lossy(&output.stdout).into_owned())
 }
 
-fn git_failure(args: &[&str], output: &Output) -> Error {
+fn git_failure(args: &[&str], output: &CapturedOutput) -> Error {
     Error::Tool(format!(
         "git {} failed ({}): {}",
         args.join(" "),
