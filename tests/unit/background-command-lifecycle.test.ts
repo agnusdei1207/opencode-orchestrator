@@ -90,6 +90,31 @@ describe("Background shell transport", () => {
         child.kill.mockReturnValue(true);
     });
 
+    it("tolerates a process error emitted after close", () => {
+        backgroundTaskManager.run({ command: "fixture" });
+        child.emit("close", 0);
+        expect(() => child.emit("error", new Error("late signal failure"))).not.toThrow();
+    });
+
+    it.each([[0, true], [1, false]])("terminates a Windows tree with async taskkill (exit %i)", async (exitCode, killed) => {
+        const platform = Object.getOwnPropertyDescriptor(process, "platform")!;
+        Object.defineProperty(process, "platform", { value: "win32" });
+        try {
+            const killer = new FakeProcess();
+            vi.mocked(spawn).mockReturnValueOnce(child as never).mockReturnValueOnce(killer as never);
+            Object.assign(child, { pid: 4321 });
+            const task = backgroundTaskManager.run({ command: "fixture" });
+            const stopping = backgroundTaskManager.kill(task.id);
+            expect(spawn).toHaveBeenLastCalledWith("taskkill", ["/PID", "4321", "/T", "/F"],
+                expect.objectContaining({ timeout: expect.any(Number) }));
+            killer.emit("close", exitCode);
+            if (killed) child.emit("close", 1);
+            expect(await stopping).toBe(killed);
+        } finally {
+            Object.defineProperty(process, "platform", platform);
+        }
+    });
+
     it.each([undefined, "subfolder"])("resolves cwd %s against the host session directory", async cwd => {
         const directory = resolve("session-project");
         await runBackgroundTool.execute({ command: "fixture", cwd }, { directory } as never);

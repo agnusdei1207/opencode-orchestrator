@@ -4,7 +4,7 @@
  * Runs shell commands in the background and tracks their output.
  */
 
-import { spawn, spawnSync } from "node:child_process";
+import { spawn } from "node:child_process";
 import { randomBytes } from "node:crypto";
 import {
     BACKGROUND_TASK,
@@ -26,6 +26,23 @@ interface ManagedBackgroundTask extends BackgroundTask {
 }
 
 const TERMINATION_TIMEOUT_MS = 2_000;
+
+/**
+ * Kill a Windows process tree. taskkill runs asynchronously (spawnSync would
+ * block the event loop for up to the termination timeout); spawn's timeout
+ * kills a hung taskkill, which then reports a non-zero close.
+ */
+function killWindowsTree(pid: number): Promise<boolean> {
+    return new Promise(resolve => {
+        const killer = spawn("taskkill", ["/PID", String(pid), "/T", "/F"], {
+            stdio: "ignore",
+            windowsHide: true,
+            timeout: TERMINATION_TIMEOUT_MS,
+        });
+        killer.once("error", () => resolve(false));
+        killer.once("close", code => resolve(code === 0));
+    });
+}
 
 // A long-running command can print without bound; keep only the recent tail,
 // which is what check_background shows anyway.
@@ -197,16 +214,12 @@ class BackgroundTaskManager {
         if (failed.length) throw new Error(`Could not terminate background tasks: ${failed.join(", ")}`);
     }
 
-    private signalTask(task: ManagedBackgroundTask): boolean {
+    private async signalTask(task: ManagedBackgroundTask): Promise<boolean> {
         try {
             const proc = task.process;
             if (!proc?.pid) return proc?.kill("SIGKILL") ?? false;
             if (process.platform !== PLATFORM.WIN32) return process.kill(-proc.pid, "SIGKILL");
-            const result = spawnSync("taskkill", ["/PID", String(proc.pid), "/T", "/F"], {
-                windowsHide: true,
-                timeout: TERMINATION_TIMEOUT_MS,
-            });
-            return result.status === 0;
+            return await killWindowsTree(proc.pid);
         } catch (error) {
             internalLog(`[BackgroundTask] Failed to signal ${task.id}`, error);
             return false;
@@ -219,7 +232,10 @@ class BackgroundTaskManager {
         if (!proc) return Promise.resolve(true);
         task.termination = { status, message };
         task.stopping = new Promise<boolean>(resolve => {
+            let settled = false;
             const finish = (closed: boolean) => {
+                if (settled) return;
+                settled = true;
                 clearTimeout(timer);
                 proc.removeListener("close", onClose);
                 if (!closed) task.termination = undefined;
@@ -228,7 +244,7 @@ class BackgroundTaskManager {
             const onClose = () => finish(true);
             const timer = setTimeout(() => finish(false), TERMINATION_TIMEOUT_MS);
             proc.once("close", onClose);
-            if (!this.signalTask(task)) finish(false);
+            void this.signalTask(task).then(signalled => { if (!signalled) finish(false); });
         }).finally(() => { task.stopping = undefined; });
         return task.stopping;
     }
@@ -245,6 +261,9 @@ class BackgroundTaskManager {
         proc.stdout?.removeAllListeners();
         proc.stderr?.removeAllListeners();
         proc.removeAllListeners();
+        // An 'error' emitted with no listener throws, and a child process can
+        // still report one (e.g. a failed signal) after it closed.
+        proc.on("error", error => internalLog(`[BackgroundTask] Late process error for ${task.id}`, error));
         proc.stdout?.unpipe();
         proc.stderr?.unpipe();
         task.process = undefined;
