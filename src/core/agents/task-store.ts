@@ -68,11 +68,19 @@ export class TaskStore {
     }
 
     delete(id: string): boolean {
+        const task = this.removeEntry(id);
+        // Callers such as notifications may still read this task, so it is
+        // dropped from the pool rather than reset for reuse.
+        if (task) taskPool.discard(task);
+        return task !== undefined;
+    }
+
+    private removeEntry(id: string): ParallelTask | undefined {
         const task = this.tasks.get(id);
-        if (task) {
-            this.taskIdsBySession.delete(task.sessionID);
-        }
-        return this.tasks.delete(id);
+        if (!task) return undefined;
+        this.taskIdsBySession.delete(task.sessionID);
+        this.tasks.delete(id);
+        return task;
     }
 
     clear(): void {
@@ -212,7 +220,7 @@ export class TaskStore {
         let removed = 0;
         for (const { id, task, startedAt, status } of toRemove) {
             if (this.tasks.get(id) !== task || task.startedAt !== startedAt || task.status !== status) continue;
-            this.delete(id);
+            this.removeEntry(id);
             taskPool.release(task);
             removed++;
         }

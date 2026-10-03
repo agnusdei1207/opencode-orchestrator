@@ -73,6 +73,19 @@ describe("Pool Subsystem", () => {
             pool.release(item);
             expect(pool.getStats().available).toBe(0); // not returned to pool
         });
+
+        it("discards an object without resetting or recycling it", () => {
+            const pool = new ObjectPool<TestItem>(() => new TestItem(), 5);
+            const item = pool.acquire();
+            item.value = 42;
+
+            pool.discard(item);
+
+            expect(pool.getStats().inUse).toBe(0);
+            expect(pool.getStats().available).toBe(0);
+            expect(item.value).toBe(42);
+            expect(item.resetCalled).toBe(false);
+        });
     });
 
     describe("StringPool", () => {

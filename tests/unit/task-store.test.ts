@@ -12,6 +12,7 @@ import { describe, it, expect, beforeEach, vi } from "vitest";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { TaskStore } from "../../src/core/agents/task-store";
+import { acquireParallelTask, taskPool } from "../../src/core/pool/task-pool";
 import { PATHS, TASK_STATUS, type ParallelTask } from "../../src/shared";
 
 vi.mock("node:fs/promises", async importOriginal => ({
@@ -61,6 +62,27 @@ describe("TaskStore", () => {
             store.delete("task_1");
 
             expect(store.get("task_1")).toBeUndefined();
+        });
+
+        it("stops tracking a pooled task once it is deleted", () => {
+            const before = taskPool.getStats().inUse;
+            const task = acquireParallelTask({
+                id: "pooled_1",
+                sessionID: "pooled_session",
+                parentSessionID: "parent_123",
+                description: "Pooled task",
+                prompt: "Pooled prompt",
+                agent: "worker",
+                depth: 1,
+            });
+            store.set(task.id, task);
+            expect(taskPool.getStats().inUse).toBe(before + 1);
+
+            store.delete(task.id);
+
+            expect(taskPool.getStats().inUse).toBe(before);
+            // Callers may still hold the object, so it must keep its data.
+            expect(task.prompt).toBe("Pooled prompt");
         });
 
         it("should get all tasks", () => {

@@ -88,6 +88,14 @@ export class ObjectPool<T extends Poolable> {
     }
 
     /**
+     * Stop tracking an object without recycling it. Use when other code may
+     * still hold the object, so resetting it for reuse would corrupt that holder.
+     */
+    discard(obj: T): void {
+        this.inUse.delete(obj);
+    }
+
+    /**
      * Get pool statistics
      */
     getStats(): {
