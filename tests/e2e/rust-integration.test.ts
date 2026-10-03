@@ -8,26 +8,21 @@
  */
 
 import { describe, it, expect, beforeAll } from "vitest";
-import { execSync } from "child_process";
+import { spawnSync } from "child_process";
 import { existsSync } from "fs";
 import { join } from "path";
+import { getBinaryPath } from "../../src/utils/binary.js";
 
 const PROJECT_ROOT = join(__dirname, "../..");
-const RUST_TARGET_DIR = join(PROJECT_ROOT, "target");
+const CLI_TIMEOUT_MS = 5000;
 
 describe("Rust Integration", () => {
     let binaryPath: string | null = null;
 
     beforeAll(() => {
-        // Find available binary
-        const releasePath = join(RUST_TARGET_DIR, "release", "orchestrator-cli");
-        const debugPath = join(RUST_TARGET_DIR, "debug", "orchestrator-cli");
-
-        if (existsSync(releasePath)) {
-            binaryPath = releasePath;
-        } else if (existsSync(debugPath)) {
-            binaryPath = debugPath;
-        }
+        // Resolve the binary exactly as the plugin runtime does.
+        const resolved = getBinaryPath();
+        binaryPath = existsSync(resolved) ? resolved : null;
     });
 
     // ========================================================================
@@ -67,12 +62,11 @@ describe("Rust Integration", () => {
                 return;
             }
 
-            const result = execSync(`${binaryPath} --help`, {
-                encoding: "utf-8",
-                timeout: 5000,
-            });
+            const result = spawnSync(binaryPath, ["--help"], { encoding: "utf-8", timeout: CLI_TIMEOUT_MS });
 
-            expect(result.toLowerCase()).toContain("orchestrator");
+            expect(result.status).toBe(0);
+            // Help goes to stderr so stdout stays reserved for JSON-RPC.
+            expect(result.stderr.toLowerCase()).toContain("orchestrator");
         });
 
         it("should execute --version if binary exists", () => {
@@ -80,12 +74,10 @@ describe("Rust Integration", () => {
                 return;
             }
 
-            const result = execSync(`${binaryPath} --version`, {
-                encoding: "utf-8",
-                timeout: 5000,
-            });
+            const result = spawnSync(binaryPath, ["--version"], { encoding: "utf-8", timeout: CLI_TIMEOUT_MS });
 
-            expect(result).toMatch(/\d+\.\d+\.\d+/);
+            expect(result.status).toBe(0);
+            expect(result.stdout).toMatch(/\d+\.\d+\.\d+/);
         });
     });
 
