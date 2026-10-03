@@ -45,22 +45,28 @@ export function resolveBinaryPath(options: BinaryPathOptions = {}): string {
     const exists = options.exists ?? existsSync;
     const binaryName = getPlatformBinaryName(os, cpu);
 
-    for (const binDir of getCandidateBinDirs(moduleDir)) {
-        const binaryPath = join(binDir, binaryName);
-        if (exists(binaryPath)) {
-            return binaryPath;
-        }
+    const binaryPath = findInBinDirs(moduleDir, binaryName, exists);
+    if (binaryPath !== null) {
+        return binaryPath;
     }
 
     const fallbackName = os === PLATFORM.WIN32 ? "orchestrator.exe" : "orchestrator";
-    for (const binDir of getCandidateBinDirs(moduleDir)) {
-        const fallbackPath = join(binDir, fallbackName);
-        if (exists(fallbackPath)) {
-            return fallbackPath;
-        }
+    const fallbackPath = findInBinDirs(moduleDir, fallbackName, exists);
+    if (fallbackPath !== null) {
+        return fallbackPath;
     }
 
     return join(getCandidateBinDirs(moduleDir)[0], binaryName);
+}
+
+function findInBinDirs(moduleDir: string, fileName: string, exists: (path: string) => boolean): string | null {
+    for (const binDir of getCandidateBinDirs(moduleDir)) {
+        const candidate = join(binDir, fileName);
+        if (exists(candidate)) {
+            return candidate;
+        }
+    }
+    return null;
 }
 
 export function getBinaryPath(): string {
