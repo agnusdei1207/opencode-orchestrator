@@ -5,8 +5,6 @@
 export const PART_TYPES = {
     TEXT: "text",
     REASONING: "reasoning",
-    TOOL_CALL: "tool_call",
-    TOOL_RESULT: "tool_result",
     /** Anthropic-style tool reference */
     TOOL: "tool",
     /** Anthropic-style tool invocation */
@@ -15,7 +13,6 @@ export const PART_TYPES = {
 
 export const PROMPTS = {
     CONTINUE: "continue",
-    CONTINUE_PREVIOUS: "continue previous work",
     CONTINUE_DEFAULT: "continue from where we left off",
 } as const;
 
@@ -24,8 +21,6 @@ export const PROMPTS = {
  */
 export const COMMAND_NAMES = {
     TASK: "task",
-    PLAN: "plan",
-    STATUS: "status",
     STOP: "stop",
     CANCEL: "cancel",
 } as const;
@@ -58,8 +53,6 @@ export const MESSAGE_ROLES = {
     ASSISTANT: "assistant",
     /** User message */
     USER: "user",
-    /** System message */
-    SYSTEM: "system",
 } as const;
 
 /**
@@ -72,5 +65,4 @@ export const MESSAGE_ROLES = {
 export const SESSION_STATUS = {
     IDLE: "idle",
     BUSY: "busy",
-    RETRY: "retry",
 } as const;

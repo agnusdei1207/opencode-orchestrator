@@ -11,9 +11,6 @@ import { TIME, LIMITS, STATUS_LABEL } from "../core/constants.js";
 export const LOOP = {
     /** Minimum time between continuation checks */
     MIN_TIME_BETWEEN_CHECKS_MS: 3 * TIME.SECOND,
-    /** Maximum iterations for mission loop */
-    DEFAULT_MAX_ITERATIONS: LIMITS.MAX_ITERATIONS,
-
 } as const;
 
 /**
@@ -25,8 +22,6 @@ export const MISSION_CONTROL = {
     DEFAULT_MAX_ITERATIONS: LIMITS.MAX_ITERATIONS,
     DEFAULT_COUNTDOWN_SECONDS: 3,
     STATE_FILE: "loop-state.json",
-    STOP_COMMAND: "/stop",
-    CANCEL_COMMAND: "/cancel",
     LOG_SOURCE: "mission-loop",
 } as const;
 

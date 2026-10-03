@@ -132,7 +132,7 @@ describe("Barrel Modules Integrity", () => {
         expect(sharedToolNames.TOOL_NAMES).toBeDefined();
 
         const sharedVerif = await import("../../src/shared/verification/index.js");
-        expect(sharedVerif.VERIFICATION_SIGNALS).toBeDefined();
+        expect(sharedVerif.CHECKLIST_CATEGORIES).toBeDefined();
 
         const sharedVerifTypes = await import("../../src/shared/verification/types.js");
         expect(sharedVerifTypes).toBeDefined();

@@ -11,14 +11,8 @@ export const OUTPUT_LABEL = {
     WARNING: "[WARNING]",
     INFO: "[INFO]",
     DONE: "[DONE]",
-    OK: "[OK]",
-    SPAWNED: "[SPAWNED]",
-    RESUME: "[RESUME]",
-    TIMEOUT: "[TIMEOUT]",
     RUNNING: "[RUNNING]",
     CANCELLED: "[CANCELLED]",
-    RESUMED_DONE: "[RESUMED & DONE]",
-    SYNC_START: "[SYNC START]",
 } as const;
 
 /**

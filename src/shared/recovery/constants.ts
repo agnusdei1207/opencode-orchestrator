@@ -11,8 +11,6 @@ import { TIME } from "../core/constants.js";
 export const RECOVERY = {
     /** Maximum recovery attempts per session */
     MAX_ATTEMPTS: 3,
-    /** Minimum time between recovery attempts */
-    MIN_INTERVAL_MS: 30 * TIME.SECOND,
     /** Base delay for retry backoff calculation */
     BASE_DELAY_MS: 1 * TIME.SECOND,
     /** Maximum retry multiplier */
@@ -25,8 +23,6 @@ export const RECOVERY = {
  */
 
 export const HISTORY = {
-    /** Recovery history max entries */
-    MAX_RECOVERY: 100,
     /** Toast history max entries */
     MAX_TOAST: 50,
     /** Progress store max entries */

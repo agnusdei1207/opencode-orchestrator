@@ -5,17 +5,6 @@ import type { ChecklistCategory } from "./types.js";
 import { PATHS } from "../core/constants.js";
 
 /**
- * Verification Signaling Constants
- * 
- * Centralized strings used to trigger specific verification behaviors
- * between the Commander and Reviewer agents.
- */
-export const VERIFICATION_SIGNALS = {
-    /** Trigger for all-encompassing system check at the end of a mission */
-    FINAL_PASS: "Full System Verification",
-} as const;
-
-/**
  * Checklist Parsing Patterns
  * 
  * Regular expressions for parsing verification checklist markdown.
@@ -85,37 +74,9 @@ const CATEGORY_LABEL = {
 } as const satisfies Record<ChecklistCategory, string>;
 
 /**
- * Category Descriptions - Detailed descriptions for each category
- */
-const CATEGORY_DESCRIPTION = {
-    [CATEGORY_ID.CODE_QUALITY]: "Lint, type check, static analysis",
-    [CATEGORY_ID.UNIT_TESTS]: "Unit tests execution",
-    [CATEGORY_ID.INTEGRATION_TESTS]: "E2E and integration tests",
-    [CATEGORY_ID.BUILD]: "Build verification",
-    [CATEGORY_ID.RUNTIME]: "Runtime verification (starts, runs)",
-    [CATEGORY_ID.INFRASTRUCTURE]: "Docker, compose, CI/CD, etc.",
-    [CATEGORY_ID.CUSTOM]: "Project-specific custom checks",
-} as const satisfies Record<ChecklistCategory, string>;
-
-/**
- * Category Icons - Visual indicators for each category
- */
-const CATEGORY_ICON = {
-    [CATEGORY_ID.CODE_QUALITY]: "🔍",
-    [CATEGORY_ID.UNIT_TESTS]: "🧪",
-    [CATEGORY_ID.INTEGRATION_TESTS]: "🔗",
-    [CATEGORY_ID.BUILD]: "🔨",
-    [CATEGORY_ID.RUNTIME]: "▶️",
-    [CATEGORY_ID.INFRASTRUCTURE]: "🏗️",
-    [CATEGORY_ID.CUSTOM]: "⚙️",
-} as const satisfies Record<ChecklistCategory, string>;
-
-/**
  * Combined category information object
  */
 export const CHECKLIST_CATEGORIES = {
     IDS: CATEGORY_ID,
     LABELS: CATEGORY_LABEL,
-    DESCRIPTIONS: CATEGORY_DESCRIPTION,
-    ICONS: CATEGORY_ICON,
 } as const;

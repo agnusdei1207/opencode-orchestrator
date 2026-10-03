@@ -21,9 +21,6 @@ export const TIME = {
 export const MEMORY_LIMITS = {
     MAX_TASKS_IN_MEMORY: 1000,
     MAX_NOTIFICATIONS_PER_PARENT: 100,
-    MAX_EVENT_HISTORY: 100,
-    MAX_TOAST_HISTORY: 50,
-    MAX_PROGRESS_HISTORY_PER_SESSION: 100,
     ARCHIVE_AGE_MS: 30 * TIME.MINUTE,
     ERROR_CLEANUP_AGE_MS: 10 * TIME.MINUTE,
 } as const;
@@ -33,15 +30,6 @@ export const MEMORY_LIMITS = {
  */
 
 export const CLI_NAME = {
-    NPX: "npx",
-    TSC: "tsc",
-    ESLINT: "eslint",
-    RG: "rg",
-    SED: "sed",
-    AST_GREP: "ast-grep",
-    GIT: "git",
-    JQ: "jq",
-    NODE: "node",
     SH: "sh",
 } as const;
 
@@ -56,10 +44,6 @@ export const CLI_NAME = {
 export const ID_PREFIX = {
     TASK: "task_",
     JOB: "job_",
-    SESSION: "ses_",
-    SYNC_ISSUE: "SYNC-",
-    UNIT_TEST: "UT-",
-    WORKER: "wrk_",
 } as const;
 
 
@@ -71,11 +55,9 @@ export const ID_PREFIX = {
 export const PATHS = {
     OPENCODE: ".opencode",
     DOCS: ".opencode/docs",
-    ARCHIVE: ".opencode/archive",
     TASK_ARCHIVE: ".opencode/archive/tasks",
     TODO: ".opencode/todo.md",
     CONTEXT: ".opencode/context.md",
-    SUMMARY: ".opencode/summary.md",
     SYNC_ISSUES: ".opencode/sync-issues.md",
     // Progress tracking
     STATUS: ".opencode/status.md",
@@ -157,42 +139,11 @@ export type TaskStatus = typeof STATUS_LABEL[keyof typeof STATUS_LABEL];
  */
 
 export const LOG_PREFIX = {
-    /** Rust Tool pool operations */
-    RUST_TOOL: "RustTool",
     RUST_POOL: "RustPool",
-
-    /** LSP diagnostics caching */
-    DIAGNOSTICS_CACHE: "DiagnosticsCache",
-
-    /** Context window monitoring */
-    CONTEXT_WINDOW_MONITOR: "context-window-monitor",
-
-    /** Memory management */
-    MEMORY_MANAGER: "MemoryManager",
-
-    /** OS notifications */
-    SESSION_NOTIFY: "session-notify",
-
-    /** Session recovery */
-    SESSION_RECOVERY: "session-recovery",
 
     /** Lifecycle management */
     SHUTDOWN_MANAGER: "ShutdownManager",
 
-    /** Agent registry */
-    AGENT_REGISTRY: "AgentRegistry",
-
-    /** Cleanup scheduler */
-    CLEANUP_SCHEDULER: "CleanupScheduler",
-
-    /** Background task management */
-    BACKGROUND_TASK_MANAGER: "BackgroundTaskManager",
-
-    /** Parallel agent management */
-    PARALLEL_AGENT_MANAGER: "ParallelAgentManager",
-
-    /** File watching */
-    FILE_WATCHER: "FileWatcher",
 } as const;
 
 /**
@@ -236,12 +187,6 @@ export const SHUTDOWN_HANDLERS = {
 
 export const MEMORY_CONSTANTS = {
     ID_PREFIX: "mem_",
-    LEVELS: {
-        SYSTEM: "system",
-        PROJECT: "project",
-        MISSION: "mission",
-        TASK: "task",
-    },
     IMPORTANCE: {
         LOW: 0.3,
         NORMAL: 0.5,
@@ -272,11 +217,9 @@ export const HOOK_NAMES = {
     METRICS_TELEMETRY: "MetricsTelemetry",
     SANITY_CHECK: "SanityCheck",
     MISSION_LOOP: "MissionLoop",
-    MISSION_CONTROL: "MissionControl",
     STRICT_ROLE_GUARD: "StrictRoleGuard",
     SECRET_SCANNER: "SecretScanner",
     RESOURCE_CONTROL: "ResourceControl",
-    SLASH_COMMAND: "SlashCommandDispatcher",
 } as const;
 
 export const TODO_CONSTANTS = {
@@ -292,8 +235,4 @@ export const TODO_CONSTANTS = {
         PROGRESS: "progress",
         FAILED: "failed",
     },
-    PREFIX: {
-        TASK: "task-",
-        FILE: "file-task-",
-    }
 } as const;

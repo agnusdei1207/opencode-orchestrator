@@ -24,8 +24,6 @@ export const BACKGROUND_TASK = {
     /** Characters of stdout/stderr retained per stream; older output is dropped. */
     MAX_OUTPUT_LENGTH: 10000,
     OUTPUT_TRUNCATION_MARKER: "[...truncated...]\n",
-    MAX_CONCURRENT: 5,
-    POLL_INTERVAL_MS: 500,
     RETRY_COOLDOWN_MS: 30 * TIME.SECOND,
 } as const;
 
@@ -38,8 +36,6 @@ export const TASK_CANCELLED_BY_USER = "Cancelled by user";
 /**
  * Parallel task constants
  */
-const PARALLEL_LABEL = "parallel";
-
 export const PARALLEL_TASK = {
     // Task lifecycle (24 hours for long tasks)
     TTL_MS: 24 * TIME.HOUR,
@@ -76,8 +72,4 @@ export const PARALLEL_TASK = {
 
     // Session naming
     SESSION_TITLE_PREFIX: "Parallel",
-
-    // Labels for output
-    LABEL: PARALLEL_LABEL,
-    GROUP_PREFIX: `${PARALLEL_LABEL}:`,
 } as const;

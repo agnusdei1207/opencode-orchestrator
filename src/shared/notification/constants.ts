@@ -15,12 +15,8 @@ export const TOAST_DURATION = {
     SHORT: 2 * TIME.SECOND,
     /** Medium: 3 seconds */
     MEDIUM: 3 * TIME.SECOND,
-    /** Default: 4 seconds */
-    DEFAULT: 4 * TIME.SECOND,
     /** Long: 5 seconds */
     LONG: 5 * TIME.SECOND,
-    /** Extended: 7 seconds */
-    EXTENDED: 7 * TIME.SECOND,
     /** Persistent: 0 (stays until dismissed) */
     PERSISTENT: 0,
 } as const;
