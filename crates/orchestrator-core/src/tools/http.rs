@@ -1,6 +1,6 @@
 //! HTTP client tool (curl-like)
 
-use crate::tools::process::run_with_timeout;
+use crate::tools::process::{CapturedOutput, run_with_timeout};
 use crate::{Error, Result};
 use std::collections::HashMap;
 use std::process::Command;
@@ -99,6 +99,8 @@ pub struct HttpResponse {
     /// commas), every other header with `", "` as RFC 9110 §5.3 permits.
     pub headers: HashMap<String, String>,
     pub body: String,
+    /// `body` stops at the capture limit; the server sent more.
+    pub truncated: bool,
 }
 
 /// HTTP client tool using curl
@@ -119,9 +121,12 @@ impl HttpTool {
         // larger backstop so a wedged curl process is still reaped.
         let hard_timeout = self.config.timeout + HARD_TIMEOUT_GRACE;
         let output = run_with_timeout(cmd, hard_timeout, stdin_data.as_deref())?;
+        Self::response_from(&output)
+    }
 
-        // curl exits non-zero on transport/protocol failures (DNS, refused
-        // connection, TLS). Surface that instead of reporting a fake 0 status.
+    /// curl exits non-zero on transport/protocol failures (DNS, refused
+    /// connection, TLS). Surface that instead of reporting a fake 0 status.
+    fn response_from(output: &CapturedOutput) -> Result<HttpResponse> {
         if !output.status.success() {
             return Err(Error::Tool(format!(
                 "curl failed: {}",
@@ -129,8 +134,10 @@ impl HttpTool {
             )));
         }
 
-        let response_text = String::from_utf8_lossy(&output.stdout);
-        Self::parse_curl_response(&response_text)
+        let captured = output.stdout_text();
+        let mut response = Self::parse_curl_response(&captured.text)?;
+        response.truncated = captured.truncated;
+        Ok(response)
     }
 
     /// Build the curl invocation plus the bytes to feed it on stdin.
@@ -195,6 +202,7 @@ impl HttpTool {
                 status_code,
                 headers,
                 body: after.to_string(),
+                truncated: false,
             });
         }
     }
@@ -318,6 +326,7 @@ fn insert_header(headers: &mut HashMap<String, String>, name: &str, value: &str)
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::tools::process::finished_with_stdout;
 
     #[test]
     fn method_strings_match_http_verbs() {
@@ -345,6 +354,17 @@ mod tests {
         let response = HttpTool::parse_curl_response(raw).unwrap();
         assert_eq!(response.status_code, 200);
         assert_eq!(response.body, "body");
+    }
+
+    #[test]
+    fn a_body_cut_at_the_capture_limit_is_flagged_as_truncated() {
+        let raw = b"HTTP/1.1 200 OK\r\n\r\npartial";
+        let complete = HttpTool::response_from(&finished_with_stdout(raw, false)).unwrap();
+        let cut = HttpTool::response_from(&finished_with_stdout(raw, true)).unwrap();
+
+        assert!(!complete.truncated);
+        assert!(cut.truncated);
+        assert_eq!(cut.body, "partial");
     }
 
     #[test]

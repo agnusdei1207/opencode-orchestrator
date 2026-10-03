@@ -22,6 +22,8 @@ const AST_GREP_PACKAGE: &str = "@ast-grep/cli@0.45.3";
 /// `ast-grep run` exit status when nothing matched (with or without
 /// `--update-all`); 0 means matches, 2 a usage error, other codes failures.
 const NO_MATCH_EXIT_CODE: i32 = 1;
+/// How errors name the ast-grep CLI.
+const AST_GREP_TOOL_NAME: &str = "ast-grep";
 
 /// Configuration for AST tools
 #[derive(Debug, Clone)]
@@ -87,7 +89,7 @@ impl AstTool {
             )));
         }
 
-        let stdout = String::from_utf8_lossy(&output.stdout);
+        let stdout = output.complete_stdout(AST_GREP_TOOL_NAME)?;
 
         self.parse_ast_grep_output(&stdout)
     }
@@ -275,6 +277,17 @@ mod tests {
     #[cfg(unix)]
     fn malformed_ast_cli_output_is_not_an_empty_search_result() {
         assert!(search_with_fixture("echo 'not JSON'").is_err());
+    }
+
+    #[test]
+    #[cfg(unix)]
+    fn ast_json_beyond_the_capture_limit_is_a_size_error_not_a_parse_error() {
+        let script = "printf '['; head -c 16777300 /dev/zero | tr '\\0' ' '";
+        let error = search_with_fixture(script).unwrap_err().to_string();
+        assert!(
+            error.contains("ast-grep output exceeded 16777216 bytes"),
+            "{error}"
+        );
     }
 
     #[test]

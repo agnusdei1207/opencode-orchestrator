@@ -5,9 +5,10 @@ use orchestrator_core::hooks::Hook;
 use orchestrator_core::tools::{
     AstTool, DiagnosticsTool, DiffTool, FileStatsTool, GitTool, GlobTool, GrepTool, HttpTool,
     JqTool, MgrepTool, SedTool, ast::AstConfig, ast::AstScope, diff::DiffConfig, glob::GlobConfig,
-    grep::GrepConfig, http::HttpConfig, http::HttpMethod, http::HttpRequest, jq::JqConfig,
-    lsp::Diagnostic, lsp::DiagnosticSeverity, lsp::DiagnosticsConfig, mgrep::MgrepConfig,
-    mgrep::MgrepMatch, mgrep::MgrepResult, sed::SedConfig, sed::SedDirectoryReport,
+    grep::GrepConfig, http::HttpConfig, http::HttpMethod, http::HttpRequest, http::HttpResponse,
+    jq::JqConfig, lsp::Diagnostic, lsp::DiagnosticSeverity, lsp::DiagnosticsConfig,
+    mgrep::MgrepConfig, mgrep::MgrepMatch, mgrep::MgrepResult, process::CapturedText,
+    sed::SedConfig, sed::SedDirectoryReport,
 };
 
 use orchestrator_core::constants::{agent, status, tool};
@@ -411,9 +412,16 @@ fn jq_query(arguments: Value) -> Result<String> {
         return Ok(json!({"error": "Provide json_input or file"}).to_string());
     };
 
-    Ok(serde_json::to_string_pretty(&json!({
-        "result": result
-    }))?)
+    Ok(serde_json::to_string_pretty(&jq_json(&result))?)
+}
+
+/// `truncated` marks output cut at the capture limit, as for every tool that
+/// returns a child process's text (see `orchestrator_core::tools::process`).
+fn jq_json(result: &CapturedText) -> Value {
+    json!({
+        "result": result.text,
+        "truncated": result.truncated
+    })
 }
 
 // ========== HTTP TOOL ==========
@@ -446,11 +454,16 @@ fn http_request(arguments: Value) -> Result<String> {
         body: args.body.as_deref(),
     })?;
 
-    Ok(serde_json::to_string_pretty(&json!({
+    Ok(serde_json::to_string_pretty(&http_json(&result))?)
+}
+
+fn http_json(result: &HttpResponse) -> Value {
+    json!({
         "status_code": result.status_code,
         "headers": result.headers,
-        "body": result.body
-    }))?)
+        "body": result.body,
+        "truncated": result.truncated
+    })
 }
 
 // ========== FILE STATS TOOL ==========
@@ -511,7 +524,8 @@ fn git_diff(arguments: Value) -> Result<String> {
         "files_changed": stats.files_changed,
         "insertions": stats.insertions,
         "deletions": stats.deletions,
-        "diff": stats.diff_output
+        "diff": stats.diff_output,
+        "truncated": stats.truncated
     }))?)
 }
 
@@ -526,10 +540,11 @@ fn git_status(arguments: Value) -> Result<String> {
     let tool = GitTool::new();
     let repo_path = resolve_directory(args.directory);
 
-    let files = tool.status(&repo_path)?;
+    let status = tool.status(&repo_path)?;
     let branch = tool.current_branch(&repo_path)?;
 
-    let file_list: Vec<Value> = files
+    let file_list: Vec<Value> = status
+        .files
         .iter()
         .map(|f| {
             json!({
@@ -542,7 +557,8 @@ fn git_status(arguments: Value) -> Result<String> {
     Ok(serde_json::to_string_pretty(&json!({
         "branch": branch,
         "files": file_list,
-        "total_changed": files.len()
+        "total_changed": status.files.len(),
+        "truncated": status.truncated
     }))?)
 }
 
@@ -858,6 +874,25 @@ mod tests {
             diagnostics_report_json(&diagnostics[..1])["status"],
             status::WARNING
         );
+    }
+
+    #[test]
+    fn text_tool_replies_flag_output_cut_at_the_capture_limit() {
+        let response = HttpResponse {
+            status_code: 200,
+            headers: HashMap::new(),
+            body: "partial".to_string(),
+            truncated: true,
+        };
+        let jq = CapturedText {
+            text: "[1,".to_string(),
+            truncated: true,
+        };
+
+        assert_eq!(http_json(&response)["truncated"], true);
+        assert_eq!(http_json(&response)["body"], "partial");
+        assert_eq!(jq_json(&jq)["truncated"], true);
+        assert_eq!(jq_json(&jq)["result"], "[1,");
     }
 
     #[test]

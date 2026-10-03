@@ -3,8 +3,21 @@
 //! Every tool that shells out to an external binary (`git`, `npx`, `curl`,
 //! `jq`, ...) routes through [`run_with_timeout`] so a hung or runaway child
 //! process can never block a tool call indefinitely.
+//!
+//! Output beyond [`MAX_CAPTURED_BYTES`] is dropped, and a tool must never pass
+//! the kept prefix off as the whole output:
+//! - tools that return the text read it through
+//!   [`CapturedOutput::stdout_text`] and carry its `truncated` flag into their
+//!   result, which the CLI reports as `"truncated": true`;
+//! - tools that parse stdout as one JSON document read it through
+//!   [`CapturedOutput::complete_stdout`], which fails with "output exceeded
+//!   N bytes" instead of a misleading parse error.
+//!
+//! `lsp_diagnostics` returns diagnostics rather than text, so it reports a cut
+//! tsc or ESLint output as a `command-failed` diagnostic with that message.
 
 use crate::{Error, Result};
+use std::borrow::Cow;
 use std::io::{self, Read, Write};
 use std::process::{Child, Command, ExitStatus, Stdio};
 use std::sync::mpsc::{self, Receiver};
@@ -77,6 +90,58 @@ pub struct CapturedOutput {
     pub stdout_truncated: bool,
     /// The child wrote more than [`MAX_CAPTURED_BYTES`] to stderr.
     pub stderr_truncated: bool,
+}
+
+/// Stdout of a text-returning tool, lossily decoded.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CapturedText {
+    pub text: String,
+    /// `text` is only the first [`MAX_CAPTURED_BYTES`] of the output.
+    pub truncated: bool,
+}
+
+impl CapturedOutput {
+    /// Stdout as text, flagged when it was cut at the capture limit.
+    pub fn stdout_text(&self) -> CapturedText {
+        CapturedText {
+            text: String::from_utf8_lossy(&self.stdout).into_owned(),
+            truncated: self.stdout_truncated,
+        }
+    }
+
+    /// Stdout that `tool` must parse as a whole, or an error when it was cut
+    /// at the capture limit.
+    pub fn complete_stdout(&self, tool: &str) -> Result<Cow<'_, str>> {
+        if self.stdout_truncated {
+            return Err(output_exceeded_error(tool));
+        }
+        Ok(String::from_utf8_lossy(&self.stdout))
+    }
+}
+
+fn output_exceeded_error(tool: &str) -> Error {
+    Error::Tool(output_exceeded_message(tool))
+}
+
+/// Why the output of `tool` cannot be trusted as complete.
+pub fn output_exceeded_message(tool: &str) -> String {
+    format!("{tool} output exceeded {MAX_CAPTURED_BYTES} bytes")
+}
+
+/// A successfully finished child that printed `stdout`.
+#[cfg(test)]
+pub(crate) fn finished_with_stdout(stdout: &[u8], stdout_truncated: bool) -> CapturedOutput {
+    #[cfg(unix)]
+    use std::os::unix::process::ExitStatusExt;
+    #[cfg(windows)]
+    use std::os::windows::process::ExitStatusExt;
+    CapturedOutput {
+        status: ExitStatus::from_raw(0),
+        stdout: stdout.to_vec(),
+        stderr: Vec::new(),
+        stdout_truncated,
+        stderr_truncated: false,
+    }
 }
 
 /// Poll interval while waiting for the child to exit.
@@ -245,6 +310,28 @@ mod tests {
         assert_eq!(output.stdout.len() as u64, MAX_CAPTURED_BYTES);
         assert!(output.stdout_truncated);
         assert!(!output.stderr_truncated);
+    }
+
+    #[test]
+    fn truncated_stdout_is_flagged_as_text_and_refused_as_a_document() {
+        let output = finished_with_stdout(b"[1, 2", true);
+
+        let text = output.stdout_text();
+        assert_eq!(text.text, "[1, 2");
+        assert!(text.truncated);
+        let error = output.complete_stdout("tool").unwrap_err().to_string();
+        assert!(
+            error.contains("tool output exceeded 16777216 bytes"),
+            "{error}"
+        );
+    }
+
+    #[test]
+    fn complete_stdout_is_returned_unchanged() {
+        let output = finished_with_stdout(b"[]", false);
+
+        assert!(!output.stdout_text().truncated);
+        assert_eq!(output.complete_stdout("tool").unwrap(), "[]");
     }
 
     #[test]

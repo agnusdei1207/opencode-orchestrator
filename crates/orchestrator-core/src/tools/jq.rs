@@ -1,6 +1,6 @@
 //! JSON Query tool (jq-like)
 
-use crate::tools::process::run_with_timeout;
+use crate::tools::process::{CapturedText, run_with_timeout};
 use crate::{Error, Result};
 use std::path::Path;
 use std::process::Command;
@@ -31,23 +31,24 @@ impl JqTool {
     }
 
     /// Query JSON string with jq expression
-    pub fn query(&self, json_input: &str, expression: &str) -> Result<String> {
+    pub fn query(&self, json_input: &str, expression: &str) -> Result<CapturedText> {
         let cmd = self.build_command(expression);
         let output = run_with_timeout(cmd, JQ_TIMEOUT, Some(json_input.as_bytes()))?;
 
-        if output.status.success() {
-            Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
-        } else {
-            Err(Error::Tool(format!(
+        if !output.status.success() {
+            return Err(Error::Tool(format!(
                 "jq error: {}",
                 String::from_utf8_lossy(&output.stderr)
-            )))
+            )));
         }
+        let mut captured = output.stdout_text();
+        captured.text = captured.text.trim().to_string();
+        Ok(captured)
     }
 
     /// Query JSON file with jq expression. The file is read here and piped to
     /// jq, so its path never reaches the jq command line.
-    pub fn query_file(&self, file_path: &Path, expression: &str) -> Result<String> {
+    pub fn query_file(&self, file_path: &Path, expression: &str) -> Result<CapturedText> {
         let size = std::fs::metadata(file_path)?.len();
         if size > MAX_INPUT_FILE_BYTES {
             return Err(Error::Tool(format!(
@@ -115,7 +116,7 @@ mod tests {
         }
         let tool = JqTool::default();
         let result = tool.query(r#"{"foo": {"bar": 42}}"#, ".foo.bar").unwrap();
-        assert_eq!(result, "42");
+        assert_eq!(result.text, "42");
     }
 
     #[test]
@@ -128,7 +129,7 @@ mod tests {
             ..JqConfig::default()
         });
         let result = tool.query(r#"{"name": "opencode"}"#, ".name").unwrap();
-        assert_eq!(result, "opencode");
+        assert_eq!(result.text, "opencode");
     }
 
     #[cfg(unix)]

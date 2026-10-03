@@ -1,6 +1,6 @@
 //! LSP Diagnostics tool - runs tsc and eslint to get errors/warnings
 
-use crate::tools::process::run_with_timeout;
+use crate::tools::process::{output_exceeded_message, run_with_timeout};
 use crate::{Error, Result};
 use regex::Regex;
 use serde::{Deserialize, Serialize};
@@ -68,6 +68,8 @@ struct CommandResult {
     stdout: String,
     stderr: String,
     success: bool,
+    /// `stdout` stops at the capture limit.
+    stdout_truncated: bool,
 }
 
 impl DiagnosticsTool {
@@ -146,7 +148,15 @@ impl DiagnosticsTool {
 
     fn build_tsc_diagnostics(&self, result: &CommandResult) -> Vec<Diagnostic> {
         let combined = format!("{}{}", result.stdout, result.stderr);
-        let diagnostics = self.parse_tsc_output(&combined);
+        let mut diagnostics = self.parse_tsc_output(&combined);
+        if result.stdout_truncated {
+            // First, so the `max_results` cut never drops the notice.
+            let notice = format!(
+                "{}; the diagnostics are incomplete",
+                output_exceeded_message("tsc")
+            );
+            diagnostics.insert(0, self.command_failure_diagnostic("typescript", &notice));
+        }
         if !result.success && diagnostics.is_empty() {
             return vec![self.command_failure_diagnostic("typescript", &combined)];
         }
@@ -231,6 +241,12 @@ impl DiagnosticsTool {
     }
 
     fn build_eslint_diagnostics(&self, result: &CommandResult) -> Vec<Diagnostic> {
+        // A JSON report cut at the capture limit never parses; name the size
+        // instead of dumping the first 500 characters of the cut report.
+        if result.stdout_truncated {
+            let message = output_exceeded_message("eslint");
+            return vec![self.command_failure_diagnostic("eslint", &message)];
+        }
         if let Some(diagnostics) = self.parse_eslint_output(&result.stdout)
             && (result.success || !diagnostics.is_empty())
         {
@@ -246,6 +262,7 @@ impl DiagnosticsTool {
             stdout: String::from_utf8_lossy(&output.stdout).to_string(),
             stderr: String::from_utf8_lossy(&output.stderr).to_string(),
             success: output.status.success(),
+            stdout_truncated: output.stdout_truncated,
         })
     }
 
@@ -426,6 +443,7 @@ mod tests {
                 stdout: stdout.to_string(),
                 stderr: String::new(),
                 success: true,
+                stdout_truncated: false,
             };
             assert!(tool.build_eslint_diagnostics(&result).is_empty());
         }
@@ -452,12 +470,59 @@ mod tests {
     }
 
     #[test]
+    fn eslint_json_cut_at_the_capture_limit_is_a_size_failure() {
+        let tool = DiagnosticsTool::default();
+        let result = CommandResult {
+            stdout: "[{\"filePath\":\"a.ts\",\"messages\":[".to_string(),
+            stderr: String::new(),
+            success: false,
+            stdout_truncated: true,
+        };
+
+        let diagnostics = tool.build_eslint_diagnostics(&result);
+
+        assert_eq!(diagnostics.len(), 1);
+        assert_eq!(diagnostics[0].code.as_deref(), Some("command-failed"));
+        assert!(
+            diagnostics[0]
+                .message
+                .contains("eslint output exceeded 16777216 bytes"),
+            "{}",
+            diagnostics[0].message
+        );
+    }
+
+    #[test]
+    fn tsc_output_cut_at_the_capture_limit_leads_with_an_incomplete_notice() {
+        let tool = DiagnosticsTool::default();
+        let result = CommandResult {
+            stdout: "a.ts(1,2): error TS2322: bad\n".repeat(200),
+            stderr: String::new(),
+            success: false,
+            stdout_truncated: true,
+        };
+
+        let diagnostics = tool.build_tsc_diagnostics(&result);
+
+        assert_eq!(diagnostics.len(), 201);
+        assert_eq!(diagnostics[0].code.as_deref(), Some("command-failed"));
+        assert!(
+            diagnostics[0]
+                .message
+                .contains("tsc output exceeded 16777216 bytes"),
+            "{}",
+            diagnostics[0].message
+        );
+    }
+
+    #[test]
     fn eslint_failure_with_non_json_output_returns_error_diagnostic() {
         let tool = DiagnosticsTool::default();
         let result = CommandResult {
             stdout: String::new(),
             stderr: "ESLint couldn't find an eslint.config.js file".to_string(),
             success: false,
+            stdout_truncated: false,
         };
 
         let diagnostics = tool.build_eslint_diagnostics(&result);
@@ -481,6 +546,7 @@ mod tests {
             stdout: String::new(),
             stderr: "TypeScript compiler crashed before diagnostics".to_string(),
             success: false,
+            stdout_truncated: false,
         };
 
         let diagnostics = tool.build_tsc_diagnostics(&result);

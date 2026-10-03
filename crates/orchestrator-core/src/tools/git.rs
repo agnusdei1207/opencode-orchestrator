@@ -1,6 +1,6 @@
 //! Git operations tool
 
-use crate::tools::process::{CapturedOutput, run_with_timeout};
+use crate::tools::process::{CapturedOutput, CapturedText, run_with_timeout};
 use crate::{Error, Result};
 use std::path::Path;
 use std::process::Command;
@@ -24,6 +24,8 @@ pub struct GitDiffStats {
     pub insertions: usize,
     pub deletions: usize,
     pub diff_output: String,
+    /// git printed more than the capture limit; the diff or the counts are partial.
+    pub truncated: bool,
 }
 
 /// Git file status
@@ -31,6 +33,14 @@ pub struct GitDiffStats {
 pub struct GitFileStatus {
     pub file: String,
     pub status: String, // M, A, D, R, C, U, ?
+}
+
+/// Changed files reported by `git status`
+#[derive(Debug, Clone)]
+pub struct GitStatus {
+    pub files: Vec<GitFileStatus>,
+    /// git printed more than the capture limit; `files` is partial.
+    pub truncated: bool,
 }
 
 /// Git tool for repository operations
@@ -48,28 +58,29 @@ impl GitTool {
         if staged_only {
             diff_args.push("--staged");
         }
-        let diff_output = run_git(repo_path, &diff_args)?;
+        let diff = run_git(repo_path, &diff_args)?;
 
         diff_args.push("--stat");
-        let stats_text = run_git(repo_path, &diff_args)?;
+        let stats = run_git(repo_path, &diff_args)?;
 
         // Parse stats from last line (e.g., "3 files changed, 10 insertions(+), 5 deletions(-)")
-        let (files_changed, insertions, deletions) = self.parse_stat_line(&stats_text);
+        let (files_changed, insertions, deletions) = self.parse_stat_line(&stats.text);
 
         Ok(GitDiffStats {
             files_changed,
             insertions,
             deletions,
-            diff_output,
+            diff_output: diff.text,
+            truncated: diff.truncated || stats.truncated,
         })
     }
 
     /// Get status of files
-    pub fn status(&self, repo_path: &Path) -> Result<Vec<GitFileStatus>> {
-        let text = run_git(repo_path, &["status", "--porcelain"])?;
+    pub fn status(&self, repo_path: &Path) -> Result<GitStatus> {
+        let output = run_git(repo_path, &["status", "--porcelain"])?;
         let mut files = Vec::new();
 
-        for line in text.lines() {
+        for line in output.text.lines() {
             if line.len() >= 3 {
                 let status = line[0..2].trim().to_string();
                 let file = line[3..].to_string();
@@ -77,7 +88,10 @@ impl GitTool {
             }
         }
 
-        Ok(files)
+        Ok(GitStatus {
+            files,
+            truncated: output.truncated,
+        })
     }
 
     /// Get current branch, or `HEAD` when HEAD is detached.
@@ -140,12 +154,12 @@ fn git_command(repo_path: &Path, args: &[&str]) -> Command {
 
 /// Run git and return its stdout, treating a non-zero exit as an error so a
 /// missing repository is never mistaken for a clean one.
-fn run_git(repo_path: &Path, args: &[&str]) -> Result<String> {
+fn run_git(repo_path: &Path, args: &[&str]) -> Result<CapturedText> {
     let output = run_with_timeout(git_command(repo_path, args), GIT_TIMEOUT, None)?;
     if !output.status.success() {
         return Err(git_failure(args, &output));
     }
-    Ok(String::from_utf8_lossy(&output.stdout).into_owned())
+    Ok(output.stdout_text())
 }
 
 fn git_failure(args: &[&str], output: &CapturedOutput) -> Error {
@@ -196,7 +210,9 @@ mod tests {
         fs::write(dir.path().join("new.txt"), "x").unwrap();
         let tool = GitTool::new();
 
-        let files = tool.status(dir.path()).unwrap();
+        let status = tool.status(dir.path()).unwrap();
+        assert!(!status.truncated);
+        let files = status.files;
         assert_eq!(files.len(), 1);
         assert_eq!(files[0].file, "new.txt");
         assert_eq!(files[0].status, "??");
