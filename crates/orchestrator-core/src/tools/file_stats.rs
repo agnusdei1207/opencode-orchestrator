@@ -2,8 +2,9 @@
 
 use crate::Result;
 use std::cmp::Reverse;
+use std::collections::HashMap;
 use std::path::Path;
-use walkdir::WalkDir;
+use walkdir::{DirEntry, WalkDir};
 
 /// File type statistics
 #[derive(Debug, Clone, Default)]
@@ -35,78 +36,17 @@ impl FileStatsTool {
 
     /// Get statistics for a directory
     pub fn analyze(&self, directory: &Path, max_depth: Option<usize>) -> Result<DirStats> {
-        let mut total_files = 0;
-        let mut total_dirs = 0;
-        let mut total_size = 0u64;
-        let mut total_lines = 0;
-        let mut file_types: std::collections::HashMap<String, FileTypeStats> =
-            std::collections::HashMap::new();
-        let mut files_with_sizes: Vec<(String, u64)> = Vec::new();
-
         let walker = if let Some(depth) = max_depth {
             WalkDir::new(directory).max_depth(depth)
         } else {
             WalkDir::new(directory)
         };
 
+        let mut totals = StatsAccumulator::default();
         for entry in walker.into_iter().filter_map(|e| e.ok()) {
-            let path = entry.path();
-
-            if path.is_dir() {
-                total_dirs += 1;
-                continue;
-            }
-
-            total_files += 1;
-
-            // File size
-            if let Ok(metadata) = entry.metadata() {
-                let size = metadata.len();
-                total_size += size;
-                files_with_sizes.push((path.display().to_string(), size));
-            }
-
-            // Line count (for text files only)
-            if let Ok(content) = std::fs::read_to_string(path) {
-                let lines = content.lines().count();
-                total_lines += lines;
-
-                // File type stats
-                let ext = path
-                    .extension()
-                    .map(|e| e.to_string_lossy().to_string())
-                    .unwrap_or_else(|| "no_extension".to_string());
-
-                let stats = file_types.entry(ext.clone()).or_insert(FileTypeStats {
-                    extension: ext,
-                    count: 0,
-                    total_size: 0,
-                    total_lines: 0,
-                });
-                stats.count += 1;
-                stats.total_lines += lines;
-                if let Ok(metadata) = entry.metadata() {
-                    stats.total_size += metadata.len();
-                }
-            }
+            totals.record(&entry);
         }
-
-        // Sort files by size and get top 10
-        files_with_sizes.sort_by_key(|entry| Reverse(entry.1));
-        let largest_files: Vec<(String, u64)> = files_with_sizes.into_iter().take(10).collect();
-
-        // Convert file_types to sorted vec
-        let mut file_types_vec: Vec<FileTypeStats> = file_types.into_values().collect();
-        file_types_vec.sort_by_key(|stats| Reverse(stats.count));
-
-        Ok(DirStats {
-            total_files,
-            total_dirs,
-            total_size,
-            total_lines,
-            file_types: file_types_vec,
-            largest_files,
-        })
+        Ok(totals.finish())
     }
 
     /// Get statistics for a single file
@@ -125,6 +65,80 @@ impl FileStatsTool {
 impl Default for FileStatsTool {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+/// Running totals of one directory walk.
+#[derive(Default)]
+struct StatsAccumulator {
+    total_files: usize,
+    total_dirs: usize,
+    total_size: u64,
+    total_lines: usize,
+    file_types: HashMap<String, FileTypeStats>,
+    files_with_sizes: Vec<(String, u64)>,
+}
+
+impl StatsAccumulator {
+    fn record(&mut self, entry: &DirEntry) {
+        let path = entry.path();
+        if path.is_dir() {
+            self.total_dirs += 1;
+            return;
+        }
+        self.total_files += 1;
+
+        if let Ok(metadata) = entry.metadata() {
+            let size = metadata.len();
+            self.total_size += size;
+            self.files_with_sizes
+                .push((path.display().to_string(), size));
+        }
+
+        // Only text files contribute line counts and file type stats.
+        if let Ok(content) = std::fs::read_to_string(path) {
+            self.record_text_file(entry, content.lines().count());
+        }
+    }
+
+    fn record_text_file(&mut self, entry: &DirEntry, lines: usize) {
+        self.total_lines += lines;
+        let ext = entry
+            .path()
+            .extension()
+            .map(|e| e.to_string_lossy().to_string())
+            .unwrap_or_else(|| "no_extension".to_string());
+
+        let stats = self.file_types.entry(ext.clone()).or_insert(FileTypeStats {
+            extension: ext,
+            count: 0,
+            total_size: 0,
+            total_lines: 0,
+        });
+        stats.count += 1;
+        stats.total_lines += lines;
+        if let Ok(metadata) = entry.metadata() {
+            stats.total_size += metadata.len();
+        }
+    }
+
+    /// Top 10 files by size and file types ordered by count.
+    fn finish(mut self) -> DirStats {
+        self.files_with_sizes.sort_by_key(|entry| Reverse(entry.1));
+        let largest_files: Vec<(String, u64)> =
+            self.files_with_sizes.into_iter().take(10).collect();
+
+        let mut file_types: Vec<FileTypeStats> = self.file_types.into_values().collect();
+        file_types.sort_by_key(|stats| Reverse(stats.count));
+
+        DirStats {
+            total_files: self.total_files,
+            total_dirs: self.total_dirs,
+            total_size: self.total_size,
+            total_lines: self.total_lines,
+            file_types,
+            largest_files,
+        }
     }
 }
 
