@@ -124,7 +124,7 @@ async fn serve() -> Result<()> {
                     limit = MAX_REQUEST_LINE_BYTES,
                     "Rejected oversized request line"
                 );
-                Some(oversized_request_response())
+                Some(oversized_request_response(&buf))
             }
             Err(e) => {
                 error!("Read error: {}", e);
@@ -142,12 +142,16 @@ async fn serve() -> Result<()> {
 const MAX_REQUEST_LINE_BYTES: u64 = 16 * 1024 * 1024;
 /// Characters of a client-supplied method name written to the debug log.
 const MAX_LOGGED_METHOD_CHARS: usize = 64;
+/// Bytes at the start of an oversized request line searched for its id; the
+/// pool serializes `id` before `params`, so it sits near the start.
+const ID_SCAN_BYTES: usize = 4096;
 
 /// One read from the request stream.
 #[derive(Debug, PartialEq, Eq)]
 enum LineRead {
     Line(String),
-    /// The line exceeded the limit; it was consumed without being buffered.
+    /// The line exceeded the limit. Only its first `limit + 1` bytes are left
+    /// in the buffer; the rest was consumed without being buffered.
     TooLong,
     Eof,
 }
@@ -176,10 +180,71 @@ fn read_request_line(
     ))
 }
 
-/// No id can be read from a request that was never buffered.
-fn oversized_request_response() -> Value {
+/// Reply to a line too long to parse. The TypeScript pool matches replies by
+/// id, so the id is recovered from the start of the line when it can be;
+/// otherwise the caller would wait out its request timeout.
+fn oversized_request_response(line_start: &[u8]) -> Value {
     let message = format!("Invalid request: line exceeds {MAX_REQUEST_LINE_BYTES} bytes");
-    error_response(Value::Null, RpcError::new(rpc::INVALID_REQUEST, message))
+    let scanned = &line_start[..line_start.len().min(ID_SCAN_BYTES)];
+    let id = top_level_id(scanned).map_or(Value::Null, Value::from);
+    error_response(id, RpcError::new(rpc::INVALID_REQUEST, message))
+}
+
+/// The numeric `id` member of the top-level object that `prefix` starts.
+/// `prefix` is the start of a JSON text, so the scan only tracks strings and
+/// nesting; an `id` inside `params` or a string never counts.
+fn top_level_id(prefix: &[u8]) -> Option<u64> {
+    let mut depth = 0_usize;
+    let mut index = 0;
+    while index < prefix.len() {
+        match prefix[index] {
+            b'"' => {
+                let end = string_end(prefix, index + 1)?;
+                let text = &prefix[index + 1..end];
+                if depth == 1
+                    && text == field::ID.as_bytes()
+                    && let Some(id) = number_after_colon(&prefix[end + 1..])
+                {
+                    return Some(id);
+                }
+                index = end;
+            }
+            b'{' | b'[' => depth += 1,
+            b'}' | b']' => depth = depth.saturating_sub(1),
+            _ => {}
+        }
+        index += 1;
+    }
+    None
+}
+
+/// Index of the quote closing the string whose contents begin at `start`.
+fn string_end(bytes: &[u8], start: usize) -> Option<usize> {
+    let mut index = start;
+    while index < bytes.len() {
+        match bytes[index] {
+            b'\\' => index += 2,
+            b'"' => return Some(index),
+            _ => index += 1,
+        }
+    }
+    None
+}
+
+/// The unsigned integer in `: <digits>` at the start of `rest`. A number that
+/// is not followed by a delimiter may continue past the scanned prefix, or be
+/// a fraction, so it is rejected rather than misread.
+fn number_after_colon(rest: &[u8]) -> Option<u64> {
+    let value = rest
+        .trim_ascii_start()
+        .strip_prefix(b":")?
+        .trim_ascii_start();
+    let digits = value.iter().take_while(|b| b.is_ascii_digit()).count();
+    let delimiter = *value.get(digits)?;
+    if digits == 0 || !(delimiter == b',' || delimiter == b'}' || delimiter.is_ascii_whitespace()) {
+        return None;
+    }
+    std::str::from_utf8(&value[..digits]).ok()?.parse().ok()
 }
 
 /// Answer one non-empty line. Only sizes are logged: requests and replies
@@ -722,10 +787,50 @@ mod tests {
     #[test]
     fn oversized_requests_get_an_invalid_request_reply() {
         assert_rpc_error(
-            &oversized_request_response(),
+            &oversized_request_response(b"not json at all"),
             Value::Null,
             rpc::INVALID_REQUEST,
         );
+    }
+
+    #[test]
+    fn oversized_requests_reply_with_the_id_read_from_the_line_start() {
+        let mut reader = io::Cursor::new(
+            br#"{"jsonrpc":"2.0", "id" : 42,"method":"tools/call","params":{"x":"0123456789"}}"#
+                .to_vec(),
+        );
+        let mut buf = Vec::new();
+
+        let read = read_request_line(&mut reader, &mut buf, 48).unwrap();
+
+        assert_eq!(read, LineRead::TooLong);
+        assert_rpc_error(
+            &oversized_request_response(&buf),
+            json!(42),
+            rpc::INVALID_REQUEST,
+        );
+    }
+
+    #[test]
+    fn oversized_request_ids_come_only_from_the_top_level_object() {
+        let late_id = format!(r#"{{"params":"{}","id":9}}"#, "x".repeat(ID_SCAN_BYTES));
+        let lines: [&[u8]; 5] = [
+            br#"{"params":{"id":7,"x":"#,
+            br#"{"method":"\"id\":5","params":"#,
+            br#"{"jsonrpc":"2.0","id":12"#,
+            br#"{"jsonrpc":"2.0","id":1.5,"#,
+            late_id.as_bytes(),
+        ];
+
+        for line in lines {
+            let response = oversized_request_response(line);
+            assert_eq!(
+                response[field::ID],
+                Value::Null,
+                "{}",
+                String::from_utf8_lossy(line)
+            );
+        }
     }
 
     #[tokio::test]
