@@ -21,8 +21,8 @@ describe("dependency compatibility", () => {
         const pluginVersion = manifest.dependencies?.["@opencode-ai/plugin"];
         const sdkVersion = manifest.dependencies?.["@opencode-ai/sdk"];
 
-        expect(pluginVersion).toBe("1.18.32");
-        expect(sdkVersion).toBe("1.18.32");
+        expect(pluginVersion).toBe("1.18.34");
+        expect(sdkVersion).toBe("1.18.34");
     });
 
     it("pins the OpenCode 2 plugin contract used by the hybrid entrypoint", () => {

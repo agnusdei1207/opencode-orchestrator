@@ -213,8 +213,8 @@ The current implementation writes these artifacts through `src/core/knowledge/mi
 Current verified release baseline:
 
 1. Node.js `>=24.15.0`
-2. `@opencode-ai/plugin` `1.18.32`
-3. `@opencode-ai/sdk` `1.18.32`
+2. `@opencode-ai/plugin` `1.18.34`
+3. `@opencode-ai/sdk` `1.18.34`
 4. `@opencode/plugin` `2.0.22` as the development-only OpenCode 2 contract
 5. GitHub Actions build matrix for Linux x64/arm64, macOS x64/arm64, and Windows x64 in `.github/workflows/release.yml`
 
