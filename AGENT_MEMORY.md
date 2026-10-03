@@ -50,10 +50,18 @@ cycles; Rust fmt, clippy -D warnings, 23 CLI + 76 core tests in Docker
 built plugin passed 17/17 (`OCO_QA_PLUGIN=dist/index.js`,
 `OCO_QA_EXECUTABLE=C:/nvm4w/nodejs/node_modules/opencode-ai/bin/opencode.exe`).
 
+Released v2.0.12 via `npm run release:patch` (version commit `5970020`, tag
+`v2.0.12`); preflight passed, including coverage thresholds and Rust fmt,
+clippy and 23 + 76 tests in Docker. GitHub CI run 37112717859, Build &
+Release run 37112717323 and Pages deploy succeeded; the GitHub Release has
+five platform binaries; npm reports `opencode-orchestrator@2.0.12` as
+`latest`.
+
 ## Next exact step
 
-Run `npm run release:patch` for v2.0.12, then verify CI, Build & Release,
-GitHub Release assets and npm `latest`, and record the result here.
+No audit fix is pending. Candidates: a dedicated behavior-preserving
+refactor release for the AGENTS.md metric violations, then reporter
+confirmation for #50 and #48.
 
 ## Incomplete items and why
 
