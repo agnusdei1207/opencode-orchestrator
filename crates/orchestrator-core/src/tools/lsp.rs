@@ -1,12 +1,15 @@
 //! LSP Diagnostics tool - runs tsc and eslint to get errors/warnings
 
-use crate::Result;
 use crate::tools::process::run_with_timeout;
+use crate::{Error, Result};
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use std::path::Path;
 use std::process::Command;
 use std::time::Duration;
+
+/// Characters that turn a file filter into a glob pattern.
+const GLOB_METACHARACTERS: &[char] = &['*', '?', '['];
 
 /// Diagnostic severity level
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
@@ -71,6 +74,7 @@ impl DiagnosticsTool {
         directory: &Path,
         file_filter: Option<&str>,
     ) -> Result<Vec<Diagnostic>> {
+        validate_file_filter(file_filter)?;
         let mut all_diagnostics = Vec::new();
 
         // Run TypeScript type checking
@@ -88,9 +92,7 @@ impl DiagnosticsTool {
             && filter != "*"
         {
             all_diagnostics.retain(|d| {
-                d.file.contains(filter)
-                    || d.file.ends_with(filter)
-                    || d.code.as_deref() == Some("command-failed")
+                matches_file_filter(filter, &d.file) || d.code.as_deref() == Some("command-failed")
             });
         }
 
@@ -331,6 +333,42 @@ fn local_node_bin(directory: &Path, name: &str) -> Option<std::path::PathBuf> {
     path.is_file().then_some(path)
 }
 
+/// The filter is handed to ESLint as a target argument; a leading `-` would be
+/// parsed as an option (`--fix`, `--output-file`, ...) instead of a path.
+fn validate_file_filter(file_filter: Option<&str>) -> Result<()> {
+    match file_filter {
+        Some(filter) if filter.starts_with('-') => Err(Error::Tool(format!(
+            "file filter must not start with '-': {filter}"
+        ))),
+        _ => Ok(()),
+    }
+}
+
+/// Whether a diagnostic's `file` is selected by the user's file filter.
+///
+/// Plain filters keep their substring semantics. Filters with glob
+/// metacharacters are matched as globs against the whole path or any trailing
+/// part of it, because tsc reports paths relative to the project while ESLint
+/// reports absolute ones.
+fn matches_file_filter(filter: &str, file: &str) -> bool {
+    if !filter.contains(GLOB_METACHARACTERS) {
+        return file.contains(filter);
+    }
+    let filter = filter.replace('\\', "/");
+    let file = file.replace('\\', "/");
+    let Ok(pattern) = glob::Pattern::new(&filter) else {
+        return file.contains(&filter);
+    };
+    if pattern.matches(&file) {
+        return true;
+    }
+    let is_absolute = filter.starts_with('/') || Path::new(&filter).is_absolute();
+    !is_absolute
+        && glob::Pattern::new(&format!("**/{filter}"))
+            .map(|suffix| suffix.matches(&file))
+            .unwrap_or(false)
+}
+
 fn has_typescript_config(directory: &Path) -> bool {
     directory.join("tsconfig.json").is_file()
 }
@@ -568,6 +606,64 @@ mod tests {
         assert_eq!(diagnostics[0].severity, DiagnosticSeverity::Error);
         assert_eq!(diagnostics[0].source.as_deref(), Some("typescript"));
         assert_eq!(diagnostics[0].code.as_deref(), Some("TS2322"));
+    }
+
+    #[test]
+    fn file_filters_that_look_like_options_are_rejected() {
+        let directory = tempdir().expect("create temp diagnostics directory");
+        let tool = DiagnosticsTool::default();
+
+        for filter in ["--fix", "-o", "--output-file=/tmp/x"] {
+            let result = tool.get_diagnostics(directory.path(), Some(filter));
+            assert!(result.is_err(), "filter {filter} must be rejected");
+        }
+    }
+
+    #[test]
+    fn glob_file_filters_match_relative_and_absolute_paths() {
+        assert!(matches_file_filter("src/**/*.ts", "src/a/b.ts"));
+        assert!(matches_file_filter("src/**/*.ts", "src/index.ts"));
+        assert!(matches_file_filter(
+            "src/**/*.ts",
+            "/work/project/src/a/b.ts"
+        ));
+        assert!(matches_file_filter(
+            "src/**/*.ts",
+            "C:\\work\\project\\src\\a\\b.ts"
+        ));
+        assert!(matches_file_filter("*.ts", "src/index.ts"));
+        assert!(!matches_file_filter("src/**/*.ts", "test/a.ts"));
+        assert!(!matches_file_filter("src/**/*.ts", "src/a/b.js"));
+    }
+
+    #[test]
+    fn plain_file_filters_keep_substring_matching() {
+        assert!(matches_file_filter(
+            "index.ts",
+            "/work/project/src/index.ts"
+        ));
+        assert!(matches_file_filter("src/", "src/index.ts"));
+        assert!(!matches_file_filter("main.ts", "src/index.ts"));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn glob_file_filter_keeps_matching_tsc_diagnostics() {
+        let directory = tempdir().expect("create temp diagnostics directory");
+        fs::write(directory.path().join("tsconfig.json"), "{}").unwrap();
+        write_local_bin(
+            directory.path(),
+            "tsc",
+            "#!/bin/sh\necho 'src/a/b.ts(1,2): error TS2322: bad type'\nexit 2\n",
+        );
+        let tool = DiagnosticsTool::default();
+
+        let diagnostics = tool
+            .get_diagnostics(directory.path(), Some("src/**/*.ts"))
+            .unwrap();
+
+        assert_eq!(diagnostics.len(), 1);
+        assert_eq!(diagnostics[0].file, "src/a/b.ts");
     }
 
     fn write_local_bin(directory: &Path, name: &str, contents: &str) {
