@@ -22,22 +22,23 @@ function truncate(value: string, maxLength: number): string {
     return `${value.slice(0, Math.max(0, maxLength - 1)).trimEnd()}…`;
 }
 
-function sanitizeInternal(value: string, options: ToastSanitizeOptions): string {
-    const stripped = stripTerminalSequences(value);
+function sanitizeSingleLine(stripped: string, maxLength: number): string {
+    const singleLine = stripped.replace(/\s+/g, " ").trim();
+    return singleLine ? truncate(singleLine, maxLength) : "";
+}
 
-    if (options.singleLine) {
-        const singleLine = stripped.replace(/\s+/g, " ").trim();
-        return singleLine ? truncate(singleLine, options.maxLength) : "";
-    }
-
-    const rawLines = stripped.split("\n");
+/**
+ * Normalize whitespace per line, collapse runs of blank lines into one, and
+ * stop once `maxLines` lines have been collected.
+ */
+function collectNormalizedLines(rawLines: string[], maxLines: number): string[] {
     const lines: string[] = [];
 
     for (const rawLine of rawLines) {
         const normalizedLine = rawLine.replace(/\t/g, "    ").replace(/[^\S\n]+/g, " ").trim();
 
         if (normalizedLine.length === 0) {
-            if (!options.singleLine && lines.length > 0 && lines[lines.length - 1] !== "") {
+            if (lines.length > 0 && lines[lines.length - 1] !== "") {
                 lines.push("");
             }
             continue;
@@ -45,12 +46,23 @@ function sanitizeInternal(value: string, options: ToastSanitizeOptions): string 
 
         lines.push(normalizedLine);
 
-        if (lines.length >= options.maxLines) {
+        if (lines.length >= maxLines) {
             break;
         }
     }
 
-    const collapsed = lines.join("\n").trim();
+    return lines;
+}
+
+function sanitizeInternal(value: string, options: ToastSanitizeOptions): string {
+    const stripped = stripTerminalSequences(value);
+
+    if (options.singleLine) {
+        return sanitizeSingleLine(stripped, options.maxLength);
+    }
+
+    const rawLines = stripped.split("\n");
+    const collapsed = collectNormalizedLines(rawLines, options.maxLines).join("\n").trim();
 
     if (!collapsed) {
         return "";
