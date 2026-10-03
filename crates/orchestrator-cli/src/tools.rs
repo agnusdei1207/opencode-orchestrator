@@ -5,9 +5,9 @@ use orchestrator_core::hooks::Hook;
 use orchestrator_core::tools::{
     AstTool, DiagnosticsTool, DiffTool, FileStatsTool, GitTool, GlobTool, GrepTool, HttpTool,
     JqTool, MgrepTool, SedTool, ast::AstConfig, ast::AstScope, diff::DiffConfig, glob::GlobConfig,
-    grep::GrepConfig, http::HttpConfig, http::HttpMethod, jq::JqConfig, lsp::Diagnostic,
-    lsp::DiagnosticSeverity, lsp::DiagnosticsConfig, mgrep::MgrepConfig, mgrep::MgrepMatch,
-    sed::SedConfig, sed::SedDirectoryReport,
+    grep::GrepConfig, http::HttpConfig, http::HttpMethod, http::HttpRequest, jq::JqConfig,
+    lsp::Diagnostic, lsp::DiagnosticSeverity, lsp::DiagnosticsConfig, mgrep::MgrepConfig,
+    mgrep::MgrepMatch, sed::SedConfig, sed::SedDirectoryReport,
 };
 
 use orchestrator_core::constants::{status, tool};
@@ -414,12 +414,12 @@ fn http_request(arguments: Value) -> Result<String> {
 
     let method: HttpMethod = args.method.as_deref().unwrap_or("GET").parse()?;
 
-    let result = tool.request(
+    let result = tool.request(HttpRequest {
         method,
-        &args.url,
-        args.headers.as_ref(),
-        args.body.as_deref(),
-    )?;
+        url: &args.url,
+        headers: args.headers.as_ref(),
+        body: args.body.as_deref(),
+    })?;
 
     Ok(serde_json::to_string_pretty(&json!({
         "status_code": result.status_code,

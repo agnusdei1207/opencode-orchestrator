@@ -81,6 +81,15 @@ impl Default for HttpConfig {
     }
 }
 
+/// A single HTTP request to send through curl
+#[derive(Debug, Clone, Copy)]
+pub struct HttpRequest<'a> {
+    pub method: HttpMethod,
+    pub url: &'a str,
+    pub headers: Option<&'a HashMap<String, String>>,
+    pub body: Option<&'a str>,
+}
+
 /// HTTP response
 #[derive(Debug, Clone)]
 pub struct HttpResponse {
@@ -103,14 +112,8 @@ impl HttpTool {
     }
 
     /// Make HTTP request
-    pub fn request(
-        &self,
-        method: HttpMethod,
-        url: &str,
-        headers: Option<&HashMap<String, String>>,
-        body: Option<&str>,
-    ) -> Result<HttpResponse> {
-        let (cmd, stdin_data) = self.build_command(method, url, headers, body)?;
+    pub fn request(&self, request: HttpRequest<'_>) -> Result<HttpResponse> {
+        let (cmd, stdin_data) = self.build_command(request)?;
 
         // curl enforces its own `--max-time`; the hard timeout is a slightly
         // larger backstop so a wedged curl process is still reaped.
@@ -135,13 +138,13 @@ impl HttpTool {
     /// Every caller-controlled value is passed as an option *value*, never as
     /// a bare positional argument, so it cannot be reinterpreted as a curl
     /// option or as an `@file` reference.
-    fn build_command(
-        &self,
-        method: HttpMethod,
-        url: &str,
-        headers: Option<&HashMap<String, String>>,
-        body: Option<&str>,
-    ) -> Result<(Command, Option<Vec<u8>>)> {
+    fn build_command(&self, request: HttpRequest<'_>) -> Result<(Command, Option<Vec<u8>>)> {
+        let HttpRequest {
+            method,
+            url,
+            headers,
+            body,
+        } = request;
         let mut cmd = Command::new("curl");
         // Silent but show errors; include response headers in the output.
         cmd.args(["-sS", "-i"]);
@@ -202,7 +205,12 @@ impl HttpTool {
         url: &str,
         headers: Option<&HashMap<String, String>>,
     ) -> Result<HttpResponse> {
-        self.request(HttpMethod::GET, url, headers, None)
+        self.request(HttpRequest {
+            method: HttpMethod::GET,
+            url,
+            headers,
+            body: None,
+        })
     }
 
     /// POST request
@@ -212,7 +220,12 @@ impl HttpTool {
         body: &str,
         headers: Option<&HashMap<String, String>>,
     ) -> Result<HttpResponse> {
-        self.request(HttpMethod::POST, url, headers, Some(body))
+        self.request(HttpRequest {
+            method: HttpMethod::POST,
+            url,
+            headers,
+            body: Some(body),
+        })
     }
 }
 
@@ -380,16 +393,30 @@ mod tests {
             .collect()
     }
 
+    fn request<'a>(
+        method: HttpMethod,
+        url: &'a str,
+        headers: Option<&'a HashMap<String, String>>,
+        body: Option<&'a str>,
+    ) -> HttpRequest<'a> {
+        HttpRequest {
+            method,
+            url,
+            headers,
+            body,
+        }
+    }
+
     #[test]
     fn body_is_sent_through_stdin_so_curl_never_reads_a_local_file() {
         let tool = HttpTool::default();
         let (command, stdin) = tool
-            .build_command(
+            .build_command(request(
                 HttpMethod::POST,
                 "https://example.test",
                 None,
                 Some("@/etc/passwd"),
-            )
+            ))
             .unwrap();
         let args = args_of(&command);
 
@@ -404,7 +431,7 @@ mod tests {
     fn url_is_passed_as_an_option_value_with_http_only_protocols() {
         let tool = HttpTool::default();
         let (command, _) = tool
-            .build_command(HttpMethod::GET, "-K/etc/curlrc", None, None)
+            .build_command(request(HttpMethod::GET, "-K/etc/curlrc", None, None))
             .unwrap();
         let args = args_of(&command);
 
@@ -420,7 +447,12 @@ mod tests {
     fn head_requests_use_the_head_flag_instead_of_a_custom_method() {
         let tool = HttpTool::default();
         let (command, _) = tool
-            .build_command(HttpMethod::HEAD, "https://example.test", None, None)
+            .build_command(request(
+                HttpMethod::HEAD,
+                "https://example.test",
+                None,
+                None,
+            ))
             .unwrap();
         let args = args_of(&command);
 
@@ -432,8 +464,13 @@ mod tests {
     fn head_requests_reject_a_body() {
         let tool = HttpTool::default();
         assert!(
-            tool.build_command(HttpMethod::HEAD, "https://example.test", None, Some("x"))
-                .is_err()
+            tool.build_command(request(
+                HttpMethod::HEAD,
+                "https://example.test",
+                None,
+                Some("x")
+            ))
+            .is_err()
         );
     }
 
@@ -443,12 +480,12 @@ mod tests {
         let mut headers = HashMap::new();
         headers.insert("@/etc/passwd".to_string(), "x".to_string());
         assert!(
-            tool.build_command(
+            tool.build_command(request(
                 HttpMethod::GET,
                 "https://example.test",
                 Some(&headers),
                 None
-            )
+            ))
             .is_err()
         );
     }
