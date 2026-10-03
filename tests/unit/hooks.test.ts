@@ -147,6 +147,13 @@ describe("Hook System", () => {
             expect(state.missionActive).toBe(true);
         });
 
+        it("activates a mission from a multi-line /task prompt", async () => {
+            const result = await hook.execute(mockContext, "/task build the API\nthen add tests");
+            expect(result.action).toBe(HOOK_ACTIONS.PROCESS);
+            expect(state.missionActive).toBe(true);
+            expect(result.modifiedMessage).toContain("then add tests");
+        });
+
         it("reactivates a locally cancelled session on the next /task", async () => {
             mockContext.sessions.set("test-session", { active: false });
             await hook.execute(mockContext, "/task new goal");
