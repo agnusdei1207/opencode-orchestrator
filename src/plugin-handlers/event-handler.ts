@@ -20,6 +20,7 @@ import { SESSION_EVENTS, MESSAGE_EVENTS, MESSAGE_ROLES, SESSION_STATUS, TASK_STA
 import type { PluginHandlerContext, PluginSessionState } from "./context.js";
 import { handleCompletedAssistantMessage } from "./assistant-done-handler.js";
 import { log } from "../core/agents/logger.js";
+import { isRecord } from "../shared/core/guards.js";
 
 export type EventHandlerContext = PluginHandlerContext;
 
@@ -300,10 +301,6 @@ function readSessionID(properties: Record<string, unknown> | undefined): string 
 
 function readString(value: unknown): string | undefined {
     return typeof value === "string" ? value : undefined;
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-    return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 function markAssistantCompleted(sessions: Map<string, PluginSessionState>, sessionID: string): void {

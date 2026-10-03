@@ -16,6 +16,7 @@ import type { MissionLoopState, MissionLoopOptions } from "../../shared/loop/typ
 import { syncMissionMemory } from "../knowledge/mission-memory.js";
 import { atomicWrite } from "../knowledge/mission-note.js";
 import { appendMissionLedgerEvent } from "./mission-ledger.js";
+import { isRecord } from "../../shared/core/guards.js";
 
 // ============================================================================
 // Constants
@@ -40,10 +41,6 @@ type MissionContinuationContext = {
 type MissionContinuationInput = string | MissionContinuationContext;
 
 const UNKNOWN_STATUS = "unknown";
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-    return typeof value === "object" && value !== null && !Array.isArray(value);
-}
 
 function isNonNegativeInteger(value: unknown): value is number {
     return typeof value === "number" && Number.isInteger(value) && value >= 0;

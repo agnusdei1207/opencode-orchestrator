@@ -8,6 +8,7 @@ import type { Config } from "@opencode-ai/plugin";
 import { AGENTS } from "../agents/definitions.js";
 import { COMMANDS } from "../tools/slashCommand.js";
 import { AGENT_NAMES } from "../shared/index.js";
+import { isRecord } from "../shared/core/guards.js";
 
 type UnknownRecord = Record<string, unknown>;
 type PermissionAction = "ask" | "allow" | "deny";
@@ -22,10 +23,6 @@ type MutableConfig = Omit<Config, "command" | "agent" | "permission" | "default_
     default_agent?: string;
     permission?: unknown;
 };
-
-function isRecord(value: unknown): value is UnknownRecord {
-    return typeof value === "object" && value !== null && !Array.isArray(value);
-}
 
 function isPermissionAction(value: unknown): value is PermissionAction {
     return value === "ask" || value === "allow" || value === "deny";

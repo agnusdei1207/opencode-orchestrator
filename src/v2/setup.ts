@@ -14,6 +14,7 @@ import { registerV2Commands } from "./command-adapter.js";
 import { registerV2Agents } from "./agent-adapter.js";
 import { ContextLimitResolver } from "../core/context/context-limit-resolver.js";
 import { parseAgentTemperatures } from "../core/config/options-schema.js";
+import { isRecord } from "../shared/core/guards.js";
 
 type Context = Plugin.Context;
 type Registration = Awaited<ReturnType<Context["tool"]["transform"]>>;
@@ -213,6 +214,3 @@ function isTextContent(value: unknown): value is { type: "text"; text: string } 
     return isRecord(value) && value.type === "text" && typeof value.text === "string";
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-    return typeof value === "object" && value !== null && !Array.isArray(value);
-}

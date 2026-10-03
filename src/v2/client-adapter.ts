@@ -2,6 +2,7 @@ import type { PluginInput } from "@opencode-ai/plugin";
 import type { Plugin } from "@opencode/plugin";
 import { AgentRegistry } from "../core/agents/agent-registry.js";
 import { SessionDeletionUnavailableError } from "../shared/errors/session-deletion-unavailable.js";
+import { isRecord } from "../shared/core/guards.js";
 
 type Context = Plugin.Context;
 type LegacyClient = PluginInput["client"];
@@ -130,10 +131,6 @@ function readNestedString(value: Record<string, unknown>, key: string, nested: s
 
 function readString(value: unknown): string | undefined {
     return typeof value === "string" ? value : undefined;
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-    return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 function wrap<T>(data: T): { data: T } {

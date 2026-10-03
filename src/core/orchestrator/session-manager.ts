@@ -13,6 +13,7 @@ import { log } from "../agents/logger.js";
  * This ensures survival across plugin reloads.
  */
 import { readLoopState } from "../loop/mission-loop.js";
+import { isRecord } from "../../shared/core/guards.js";
 
 interface ManagedSessionState {
     active: boolean;
@@ -181,10 +182,6 @@ function isManagedSessionState(value: unknown): value is ManagedSessionState {
         && isFiniteNumber(value.startTime)
         && isFiniteNumber(value.lastStepTime)
         && isTokenUsage(value.tokens);
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-    return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 function isTokenUsage(value: unknown): value is ManagedSessionState["tokens"] {

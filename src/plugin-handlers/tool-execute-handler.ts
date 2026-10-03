@@ -14,6 +14,7 @@ import { recordToolEvidence } from "../core/loop/evidence.js";
 import { formatElapsedTime, formatTimestamp } from "../utils/formatting/index.js";
 import { HookRegistry } from "../hooks/registry.js";
 import type { PluginSessionState, ToolExecuteHandlerContext } from "./context.js";
+import { isRecord } from "../shared/core/guards.js";
 
 type ToolExecuteAfterHook = NonNullable<Hooks["tool.execute.after"]>;
 export type ToolExecuteAfterInput = Parameters<ToolExecuteAfterHook>[0];
@@ -83,6 +84,3 @@ function readToolArgs(value: unknown): Record<string, unknown> {
     return isRecord(value) ? value : {};
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-    return typeof value === "object" && value !== null && !Array.isArray(value);
-}

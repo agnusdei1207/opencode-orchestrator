@@ -1,10 +1,5 @@
 import type { ConcurrencyConfig } from "./concurrency.js";
-
-type UnknownRecord = Record<string, unknown>;
-
-function isRecord(value: unknown): value is UnknownRecord {
-    return typeof value === "object" && value !== null && !Array.isArray(value);
-}
+import { isRecord } from "../../shared/core/guards.js";
 
 function readLimitMap(value: unknown): Record<string, number> | undefined {
     if (!isRecord(value)) return undefined;

@@ -87,17 +87,18 @@ async function readAssistantTurn(
 }
 
 function extractMessageParts(response: unknown): AssistantMessagePart[] {
-    if (!isRecord(response)) return [];
+    if (!isObjectValue(response)) return [];
 
     const data = response.data;
-    if (!isRecord(data) || !Array.isArray(data.parts)) return [];
+    if (!isObjectValue(data) || !Array.isArray(data.parts)) return [];
     return data.parts.filter(isMessagePart);
 }
 
 function isMessagePart(value: unknown): value is AssistantMessagePart {
-    return isRecord(value) && typeof value.type === "string";
+    return isObjectValue(value) && typeof value.type === "string";
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
+// Unlike the shared isRecord, arrays pass: response payload checks only need a non-null object.
+function isObjectValue(value: unknown): value is Record<string, unknown> {
     return typeof value === "object" && value !== null;
 }

@@ -7,6 +7,7 @@ import * as path from "node:path";
 import { randomUUID } from "node:crypto";
 import { PATHS, TODO_CONSTANTS } from "../../shared/index.js";
 import { log } from "../agents/logger.js";
+import { isRecord } from "../../shared/core/guards.js";
 
 interface TodoVersion {
     version: number;
@@ -58,10 +59,6 @@ function replaceStatusMarker(content: string, searchText: string, marker: string
         return line.replace(CHECKBOX_PATTERN, marker);
     });
     return updated ? lines.join("\n") : content;
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-    return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 function isValidVersionNumber(value: unknown): value is number {

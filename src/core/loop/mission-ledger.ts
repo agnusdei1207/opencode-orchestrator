@@ -3,6 +3,7 @@ import { join } from "node:path";
 import { randomUUID } from "node:crypto";
 import { PATHS } from "../../shared/index.js";
 import { getMissionRuntimeOptions } from "./mission-runtime-options.js";
+import { isRecord } from "../../shared/core/guards.js";
 
 type MissionLedgerEventType =
     | "mission_started"
@@ -38,10 +39,6 @@ const LEDGER_EVENT_TYPES = new Set<MissionLedgerEventType>([
     "mission_cancelled",
     "circuit_open",
 ]);
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-    return typeof value === "object" && value !== null && !Array.isArray(value);
-}
 
 function isLedgerEventType(value: unknown): value is MissionLedgerEventType {
     return typeof value === "string" && LEDGER_EVENT_TYPES.has(value as MissionLedgerEventType);

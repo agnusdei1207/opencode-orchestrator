@@ -29,6 +29,7 @@ import type { PluginInput } from "@opencode-ai/plugin";
 import { log } from "../agents/logger.js";
 import { SESSION_STATUS } from "../../shared/index.js";
 import { createPruneTimer } from "../loop/prune-timer.js";
+import { isRecord } from "../../shared/core/guards.js";
 
 type OpencodeClient = PluginInput["client"];
 
@@ -162,10 +163,6 @@ function readStatusMap(response: unknown): Record<string, unknown> | null {
 
 function readStatusType(entry: unknown): string | undefined {
     return isRecord(entry) && typeof entry.type === "string" ? entry.type : undefined;
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-    return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 export function clearSessionActivity(sessionID: string): void {

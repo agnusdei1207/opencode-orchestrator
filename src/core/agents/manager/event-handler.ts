@@ -10,6 +10,7 @@ import { log } from "../logger.js";
 import { formatDuration } from "../format.js";
 import type { ParallelTask } from "../../../shared/index.js";
 import { finishTaskConcurrency } from "./task-lifecycle.js";
+import { isRecord } from "../../../shared/core/guards.js";
 
 interface EventHandlerOptions {
     store: TaskStore;
@@ -192,10 +193,6 @@ function executionErrorMessage(type: string, error: unknown): string {
     if (type === V2_EXECUTION_EVENTS.INTERRUPTED) return "Session interrupted";
     if (isRecord(error) && typeof error.message === "string" && error.message) return error.message;
     return "Session failed";
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-    return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 function readSessionID(properties: { sessionID?: string; info?: { id?: string } } | undefined): string | undefined {

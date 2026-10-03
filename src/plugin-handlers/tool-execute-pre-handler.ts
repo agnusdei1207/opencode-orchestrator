@@ -10,6 +10,7 @@ import { HookRegistry } from "../hooks/registry.js";
 import type { ToolExecuteHandlerContext } from "./context.js";
 import { log } from "../core/agents/logger.js";
 import { HOOK_ACTIONS } from "../hooks/constants.js";
+import { isRecord } from "../shared/core/guards.js";
 
 type ToolExecuteBeforeHook = NonNullable<Hooks["tool.execute.before"]>;
 export type ToolExecuteBeforeInput = Parameters<ToolExecuteBeforeHook>[0];
@@ -61,6 +62,3 @@ function readToolArgs(value: unknown): Record<string, unknown> {
     return isRecord(value) ? value : {};
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-    return typeof value === "object" && value !== null && !Array.isArray(value);
-}

@@ -3,6 +3,7 @@ import { log } from "../core/agents/logger.js";
 import { SESSION_EVENTS } from "../shared/session/constants.js";
 import { V2_EXECUTION_EVENTS } from "../shared/session/v2-constants.js";
 import { SESSION_STATUS } from "../shared/message/constants.js";
+import { isRecord } from "../shared/core/guards.js";
 
 type Context = Plugin.Context;
 type LegacyHandler = (input: { event: LegacyEvent }) => Promise<void>;
@@ -116,10 +117,6 @@ function readSessionID(data: Record<string, unknown>): string {
     if (typeof data.sessionID === "string") return data.sessionID;
     if (isRecord(data.session) && typeof data.session.id === "string") return data.session.id;
     return "";
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-    return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 const EVENT_TYPES: Record<string, string> = {

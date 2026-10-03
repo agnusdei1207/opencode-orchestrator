@@ -5,8 +5,7 @@ import {
     type MissionRuntimeOptions,
 } from "../loop/mission-runtime-options.js";
 import { parseAgentTemperatures, parseContextMaxTokens, parseMissionLoopOptions } from "./options-schema.js";
-
-type UnknownRecord = Record<string, unknown>;
+import { isRecord } from "../../shared/core/guards.js";
 
 type MissionLoopPluginOptions = MissionRuntimeOptions;
 
@@ -33,6 +32,3 @@ function readMissionLoopOptions(value: unknown): MissionLoopPluginOptions {
     return parseMissionLoopOptions(value);
 }
 
-function isRecord(value: unknown): value is UnknownRecord {
-    return typeof value === "object" && value !== null && !Array.isArray(value);
-}
