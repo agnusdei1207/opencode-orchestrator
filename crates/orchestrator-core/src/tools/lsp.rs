@@ -6,10 +6,17 @@ use regex::Regex;
 use serde::{Deserialize, Serialize};
 use std::path::Path;
 use std::process::Command;
+use std::sync::LazyLock;
 use std::time::Duration;
 
 /// Characters that turn a file filter into a glob pattern.
 const GLOB_METACHARACTERS: &[char] = &['*', '?', '['];
+
+/// One tsc diagnostic line: `file(line,col): error TS1234: message`.
+static TSC_DIAGNOSTIC: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r"^(.+?)\((\d+),(\d+)\):\s*(error|warning)\s+(TS\d+):\s*(.+)$")
+        .expect("tsc diagnostic pattern is valid")
+});
 
 /// Diagnostic severity level
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
@@ -151,12 +158,8 @@ impl DiagnosticsTool {
     fn parse_tsc_output(&self, output: &str) -> Vec<Diagnostic> {
         let mut diagnostics = Vec::new();
 
-        // TSC format: file(line,col): error TS1234: message
-        let re =
-            Regex::new(r"^(.+?)\((\d+),(\d+)\):\s*(error|warning)\s+(TS\d+):\s*(.+)$").unwrap();
-
         for line in output.lines() {
-            if let Some(caps) = re.captures(line.trim()) {
+            if let Some(caps) = TSC_DIAGNOSTIC.captures(line.trim()) {
                 let severity = match caps.get(4).map(|m| m.as_str()) {
                     Some("error") => DiagnosticSeverity::Error,
                     Some("warning") => DiagnosticSeverity::Warning,
