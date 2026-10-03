@@ -65,11 +65,23 @@ describe("OpenCode 2 client bridge", () => {
         expect(session.prompt).toHaveBeenCalledWith(expect.objectContaining({ sessionID: "session-1", resume: true }));
     });
 
-    it("does not report session interruption as deletion", async () => {
+    it("does not report session interruption as deletion on hosts without session.remove", async () => {
         const { context, session } = createHost();
 
         await expect(createV2ClientBridge(context).client.session.delete({ path: { id: "session-1" } }))
             .rejects.toThrow("session deletion is unavailable");
+        expect(session.interrupt).not.toHaveBeenCalled();
+    });
+
+    it("deletes the session through session.remove when the host provides it", async () => {
+        const { context, session } = createHost();
+        const remove = vi.fn().mockResolvedValue(undefined);
+        Object.assign(session, { remove });
+
+        const result = await createV2ClientBridge(context).client.session.delete({ path: { id: "session-1" } });
+
+        expect(remove).toHaveBeenCalledExactlyOnceWith({ sessionID: "session-1" });
+        expect(result.data).toBe(true);
         expect(session.interrupt).not.toHaveBeenCalled();
     });
 });

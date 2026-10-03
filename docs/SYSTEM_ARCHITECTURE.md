@@ -73,7 +73,7 @@ The slash-command templates and runtime continuation/checkpoint prompts follow t
 
 The Commander prompt instructs the model to treat `[Compressed conversation section]` blocks as historical context, even when a context-pruning plugin carries them in a user-role message. A real instruction accompanying or following a summary still takes precedence. This instruction reaches OpenCode 1 through the generated agent config and OpenCode 2 through the agent transform. Orchestrator does not rewrite another plugin's message roles; the originating plugin or host owns that boundary (issue #48).
 
-OpenCode 1 calls `experimental.text.complete` after streaming a text part and before its final part update. Orchestrator blanks a text part only when its entire trimmed content is `</assistant-thinking></think>` (issue #50). Earlier `message.part.delta` events are already visible to consumers: OpenCode's append-only `run` renderer and ACP can retain the tag after the stored part is blanked. If processing stops before `text-end`, the host cleanup stores the unfinished text without calling this hook. Other plugins' text-completion hooks run sequentially over the same output, so their order can also change the final result. Reasoning parts are separate. OpenCode 2's `@opencode/plugin` 2.0.15 session hooks do not expose a text completion equivalent; this normalization is limited to the OpenCode 1 server entrypoint.
+OpenCode 1 calls `experimental.text.complete` after streaming a text part and before its final part update. Orchestrator blanks a text part only when its entire trimmed content is `</assistant-thinking></think>` (issue #50). Earlier `message.part.delta` events are already visible to consumers: OpenCode's append-only `run` renderer and ACP can retain the tag after the stored part is blanked. If processing stops before `text-end`, the host cleanup stores the unfinished text without calling this hook. Other plugins' text-completion hooks run sequentially over the same output, so their order can also change the final result. Reasoning parts are separate. OpenCode 2's `@opencode/plugin` 2.0.22 session hooks do not expose a text completion equivalent; this normalization is limited to the OpenCode 1 server entrypoint.
 
 OpenCode loads extensions. Orchestrator does not inspect or execute files in `.opencode/plugins`. Its internal `HookRegistry` is a small ordered adapter for owned callbacks: there is no dynamic metadata, topological sorting, dependency declaration, or retry configuration. Registration order in `src/hooks/index.ts` defines execution order; stop/continue errors, block/intercept outcomes, and prompt injection preserve the native handler boundaries.
 
@@ -215,7 +215,7 @@ Current verified release baseline:
 1. Node.js `>=24.15.0`
 2. `@opencode-ai/plugin` `1.18.32`
 3. `@opencode-ai/sdk` `1.18.32`
-4. `@opencode/plugin` `2.0.15` as the development-only OpenCode 2 contract
+4. `@opencode/plugin` `2.0.22` as the development-only OpenCode 2 contract
 5. GitHub Actions build matrix for Linux x64/arm64, macOS x64/arm64, and Windows x64 in `.github/workflows/release.yml`
 
 The development gate uses TypeScript `7.0.2`, Vitest `5.0.1`, and explicit

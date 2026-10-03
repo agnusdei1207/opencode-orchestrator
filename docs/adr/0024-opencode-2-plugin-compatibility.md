@@ -42,10 +42,11 @@ the SDK brings server-only native dependencies.
 ## Consequences
 
 Both hosts resolve the same package entry without duplicating domain logic.
-V2 registrations have explicit cleanup and event translation. OpenCode 2 does
-not expose session deletion to plugins, so retired delegated sessions are
-interrupted and forgotten by the local pool; the host remains responsible for
-eventual session retention cleanup.
+V2 registrations have explicit cleanup and event translation. Retired
+delegated sessions are deleted through `session.remove`, which plugins receive
+from `@opencode/plugin` 2.0.22 onward (2026-10-03). Hosts built against an older
+contract omit it at runtime; there the sessions are forgotten by the local pool
+and the host remains responsible for eventual retention cleanup.
 
 Rollback is a revert of the compatibility commit: remove `src/v2`, restore the
 bare OpenCode 1 export, remove `@opencode/plugin`, and revert the matching tests

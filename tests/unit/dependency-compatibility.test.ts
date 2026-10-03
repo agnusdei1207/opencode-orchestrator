@@ -27,7 +27,7 @@ describe("dependency compatibility", () => {
 
     it("pins the OpenCode 2 plugin contract used by the hybrid entrypoint", () => {
         const manifest = readManifest();
-        expect(manifest.devDependencies?.["@opencode/plugin"]).toBe("2.0.15");
+        expect(manifest.devDependencies?.["@opencode/plugin"]).toBe("2.0.22");
     });
 
     it("exposes the server entrypoint OpenCode resolves for npm plugins", () => {

@@ -35,8 +35,12 @@ function createSessionApi(context: Context, statuses: Map<string, string>) {
             resume: false,
         })).interrupted),
         delete: async (request: LegacyRequest) => {
-            requireSessionID(request);
-            throw new SessionDeletionUnavailableError();
+            const sessionID = requireSessionID(request);
+            // `session.remove` arrived in @opencode/plugin 2.0.22; older hosts
+            // pass a context without it even though the types declare it.
+            if (typeof context.session.remove !== "function") throw new SessionDeletionUnavailableError();
+            await context.session.remove({ sessionID });
+            return wrap(true);
         },
         messages: async (request: LegacyRequest) => wrap(mapMessages(
             await context.session.context({ sessionID: requireSessionID(request) }),
