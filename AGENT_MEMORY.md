@@ -4,109 +4,101 @@ Last updated: 2026-10-03 KST
 
 ## Current task
 
-Second audit pass (re-verification, tool metrics, plugin SDK comparison
-against a freshly pulled `../opencode`), then the user-approved fix batch
-1 → 2 → 3 → 5 from that report, released as v2.0.11.
+Third fix batch: the user asked to fix every remaining audit item, then
+commit, push and cut a patch release (v2.0.12).
 
 ## Last completed step
 
-Batch 1 (released as v2.0.10, commit `50cfa55`, tag `v2.0.10`, npm `latest`):
-`5c10197` guard bypasses, `813cf52` multi-line `/task`, `c4b5d6e` unlimited
-concurrency auto-scale, `c0e6060` V2 event bridge isolation, `52c142b`
-countdown unhandled rejection, `eecda63` task pool discard, `7c320d8` Rust
-CLI integration test path.
+Earlier batches: v2.0.10 (guard bypasses, multi-line /task, concurrency,
+V2 event bridge, countdown rejection, task pool, Rust CLI test path) and
+v2.0.11 (declined-idle notices, memory note pruning, error detection, V2
+`session.remove`).
 
-Batch 2 (TDD red then green; released as v2.0.11):
+Batch 3, TS (TDD red then green unless noted):
+- `eec3fcc` continuation prompt checks `response.error`.
+- `c0968b0` timeout/cancel toasts (single toast, "Task Timed Out",
+  "Task Cancelled"; `TASK_CANCELLED_BY_USER` constant).
+- `029c566` session.deleted releases per-session state for untracked
+  sessions.
+- `2e48cec` one idle continuation per host idle transition.
+- `02a3770` secret scanner covers sk-proj/sk-ant, github_pat_, gho_/ghu_/
+  ghs_/ghr_, AKIA/ASIA, AIza, PEM private keys.
+- `f448d28` background command output capped to MAX_OUTPUT_LENGTH tail.
+- `45d9272` loop state written via atomicWrite (unique temp names).
+- `cfc23ca` http tool `headers` is a string record.
+- `f63794c` unused LIMITS constants removed; iteration comments corrected.
+- `2a8f529` `<mission_loop>` tags neutralized in embedded text.
+- `9461526` slash command tool uses `Object.hasOwn`.
+- `f7ff2f3` refactor: unread global `missionActive`/`maxIterations`/
+  `maxRetries` removed.
+- `830e8f7` memory-gate redacts secrets via shared `redactSecrets`.
+- `a9d8354` landing page no longer claims Ebbinghaus/RAG.
+- `079a57b` `@opencode-ai/plugin`/`sdk` 1.18.34; ADR-0021 corrected.
 
-1. `687fb08` declined idle no longer sets sticky `lastAbortAt`; it still
-   pauses the mission via `MissionLoopHandler.handleAbort`
-   (`plugin-handlers/event-handler.ts`). Background notices survive.
-2. `9d94865` memory note pruning removes only unpinned notes tagged
-   `mission-memory`; pinned and user files survive a restart
-   (`core/knowledge/mission-memory.ts`, docs/SYSTEM_ARCHITECTURE.md).
-3. `05d8f15` `detectErrorType` reads `message`, `data.message` and `name`
-   together; upstream session errors are `{ name, data: { message } }`
-   (`packages/core/src/v1/session.ts:55`). Session recovery now runs.
-4. `4bf7e6c` V2 child sessions deleted via `session.remove` when present;
-   `@opencode/plugin` dev contract 2.0.15 → 2.0.22; ADR-0024, architecture
-   doc and dependency pin test updated.
+Batch 3, Rust (done in an isolated worktree, cherry-picked, worktree
+removed): `9239965` http (stdin body, `--url`, `--proto`, `--head`,
+sub-second timeout, header-block parsing, unknown method error),
+`e9a0a6b` lsp filter (reject `-`, glob support), `1b5d7c9` git exit status
+and locale, `893342a` diff temp dirs/timeout/exit 2, `57aedcf` sed CRLF,
+atomic writes, directory errors, `4c85765` shell listener continues after
+operator errors, `84446bb` JSON-RPC error replies, `a47c518` Unix-only test
+gating. Docs: `216fb0e`.
 
-`tsc --noEmit`, `npm run build`, all 120 Vitest files / 1,057 tests,
-`npm audit --omit=dev` (0) and `npm run release:dry-run` passed.
-
-Released v2.0.11 via `npm run release:patch` (version commit `5190f01`, tag
-`v2.0.11`); preflight, including Rust checks through Docker, passed. GitHub
-CI run 37111041193, Build & Release run 37111041300 and Pages deploy
-succeeded; the GitHub Release has five platform binaries; the public npm
-registry reports `opencode-orchestrator@2.0.11` as `latest`.
+Verification: `tsc --noEmit`; all 122 Vitest files / 1,077 tests; madge 0
+cycles; Rust fmt, clippy -D warnings, 23 CLI + 76 core tests in Docker
+(agent run); native host QA against installed OpenCode 1.18.32 with the
+built plugin passed 17/17 (`OCO_QA_PLUGIN=dist/index.js`,
+`OCO_QA_EXECUTABLE=C:/nvm4w/nodejs/node_modules/opencode-ai/bin/opencode.exe`).
 
 ## Next exact step
 
-Pick the next batch from "Incomplete items". Recommended: Rust `http.rs`
-exfiltration fix (verify with `npm run release:dry-run`, which runs Rust
-checks in Docker), then unchecked `session.prompt` error and toast status.
+Run `npm run release:patch` for v2.0.12, then verify CI, Build & Release,
+GitHub Release assets and npm `latest`, and record the result here.
 
 ## Incomplete items and why
 
-- Rust items not fixed: `http.rs:113-117` `-d @file` exfiltration, no `--`
-  or `--proto`; `-X HEAD` timeouts; eslint argument injection
-  (`lsp.rs:204`); git exit status ignored; `diff` temp-file race;
-  `sed_replace` CRLF loss; `shell_listener.rs:352` exits on operator typo.
-  No local cargo, but `npm run release:dry-run` runs Rust fmt, clippy and
-  tests through Docker, so Rust fixes are locally verifiable.
-- TS Medium items still open: unchecked `session.prompt` `.error`
-  (`mission-loop-handler.ts:174`); TIMEOUT toasted twice as "Completed",
-  cancel shown as "Failed" (`task-toast-manager.ts:241`,
-  `task-cleaner.ts:72`); untracked-session map leak on delete
-  (`event-handler.ts:121`); idle scheduled twice per idle (`:260`, `:278`);
-  secret scanner misses `sk-proj-`, `sk-ant-`, `github_pat_`, `AKIA`;
-  unbounded `commands/manager.ts:98-103` output; non-atomic
-  `mission-loop.ts:156`; `http` tool `headers` schema `object({})` tells
-  models headers must be empty (`tools/search.ts:136`).
-- Low: `maxIterations` never enforced; objective not escaped inside
-  `<mission_loop>` (`mission-loop.ts:319`); unused `LIMITS` constants;
-  `slashCommand.ts:77` prototype lookup; dead `state.missionActive`;
-  landing page advertises retired RAG/Ebbinghaus (`public/index.html:13-14`).
-- Metrics (ESLint, AGENTS.md limits): 27 complexity, 13 length, 3 depth
-  violations; 0 params. madge: 0 cycles. knip: 23 unused exported types.
-- `@opencode-ai/plugin`/`sdk` 1.18.34 is available (version-sync only);
-  not bumped.
-- `logger.ts` is a deliberate no-op; design decision, not changed.
+- Not done by decision: AGENTS.md metric violations (27 complexity, 13
+  length, 3 depth). Pure refactors across ~40 functions carry regression
+  risk with no behavior goal; propose a dedicated refactor release.
+- V2 prompt hook passes `agent: ""` (V2 prompt hook has no agent field);
+  only memory-note labels are affected. Could be fed from the V2 `context`
+  hook's `agent`; skipped as low value.
+- `logger.ts` is a deliberate no-op; design decision, unchanged.
+- `rust-pool.ts` stdout buffer grows until newline but is bounded by the
+  60 s request timeout; unchanged.
+- V2 `session.remove` and Windows-only Rust paths (atomic rename,
+  `\\?\` paths) are not exercised on a real host here.
 - #50 and #48 still await reporter confirmation.
 
 ## Key decisions
 
-- Declined idles pause the mission but do not mark an explicit abort.
-- Generated-note pruning keys on the `mission-memory` tag and `keep`.
-- Error text for detection joins message, data.message and name so
-  name-only types (MessageAbortedError) keep matching.
-- V2 deletion feature-detects `session.remove` at runtime.
+- Cancelled tasks keep ERROR status for parent agents; only the toast
+  distinguishes them via `TASK_CANCELLED_BY_USER`.
+- `maxIterations` stays an unreachable ceiling (documented), not enforced.
+- Rust work ran in a separate git worktree to avoid file overlap; owned
+  files were `crates/**` and Cargo manifests only.
 
 ## Rejected alternatives
 
-- Removing the declined-idle mission pause entirely: an existing test pins
-  it as deliberate abort heuristics.
-- Preferring `data.message` over `name` in detection: broke
-  `MessageAbortedError` (data.message is "Aborted"); caught by a new test.
-- V2 sub-agent tool restriction item: V1 `tools` only creates allow rules
-  (upstream `session/prompt.ts:1061`), so there was nothing to port.
+- Enforcing `maxIterations`: unreachable by design, would add dead code.
+- Switching cancel to CANCELLED status: changes the parent-agent contract
+  and many consumers for a display issue.
 
 ## Known risks
 
-- Recovery now actually runs: rate-limit recovery awaits up to 8 s
-  (1 s × 2^3). V1 hosts fire event hooks with `void`, but the V2 bridge
-  awaits handlers sequentially, so V2 event processing can lag that long.
-- Pinned generated notes are never auto-pruned and can accumulate.
-- Root-deletion guard is a safety net; quoted `"/"`, `~/`, `find / -delete`
-  pass, and `git rm -r --cached /` is a false positive.
-- `/stop` followed by more lines is now treated as a stop command.
+- Rust behavior changes visible to models: git tools error outside a
+  repository, `diff` errors on missing files, `http` rejects unknown
+  methods and invalid header names, `lsp_diagnostics` rejects filters
+  starting with `-`, `sed_replace` directory mode reports `errors` and
+  `timed_out`.
+- Session recovery now runs (since v2.0.11); V2 event processing can lag
+  up to 8 s during rate-limit recovery.
 - Local `bin/orchestrator-windows-x64.exe` is stale (1.7.27, gitignored).
 
 ## Files to open first in the next session, in order
 
 1. `AGENTS.md`
 2. `AGENT_MEMORY.md`
-3. `crates/orchestrator-core/src/tools/http.rs`
-4. `src/core/loop/mission-loop-handler.ts`
-5. `src/core/notification/task-toast-manager.ts`
-6. `src/plugin-handlers/event-handler.ts`
+3. `docs/SYSTEM_ARCHITECTURE.md`
+4. `crates/orchestrator-core/src/tools/http.rs`
+5. `src/plugin-handlers/event-handler.ts`
