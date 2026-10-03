@@ -8,15 +8,17 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::{self, Receiver, Sender};
 use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 use std::thread;
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 const DEFAULT_BIND: &str = "127.0.0.1";
 const DEFAULT_PORT: u16 = 4444;
 const MAX_BUFFER_LINES: usize = 200;
-/// Largest raw session log before further output is dropped.
+/// Largest raw log per peer IP before further output is dropped.
 const MAX_RAW_LOG_BYTES: u64 = 50 * 1024 * 1024;
 /// Pause between write retries while a session socket's send buffer is full.
 const WRITE_RETRY_BACKOFF: Duration = Duration::from_millis(10);
+/// Longest an operator write waits for a peer to drain its receive buffer.
+const WRITE_DEADLINE: Duration = Duration::from_secs(10);
 
 type SharedState = Arc<Mutex<ListenerState>>;
 
@@ -487,7 +489,7 @@ fn send_to_active(state: &SharedState, bytes: &[u8]) -> Result<()> {
 fn send_to_session(state: &SharedState, id: u64, bytes: &[u8]) -> Result<()> {
     let writer = session_writer(state, id)?;
     let mut guard = lock_recover(&writer);
-    write_all_retrying(&mut *guard, bytes, WRITE_RETRY_BACKOFF)
+    write_all_retrying(&mut *guard, bytes, WRITE_RETRY_BACKOFF, WRITE_DEADLINE)
         .with_context(|| format!("failed to write to session {id}"))
 }
 
@@ -545,6 +547,11 @@ fn mark_closed(id: u64, state: &SharedState) {
 }
 
 fn append_raw_log(path: &Path, bytes: &[u8]) -> Result<()> {
+    // Concurrent sessions from one IP share a log; checking its length and
+    // appending must not interleave, or each session could add a chunk past
+    // the cap.
+    static APPEND_LOCK: Mutex<()> = Mutex::new(());
+    let _guard = lock_recover(&APPEND_LOCK);
     append_capped_log(path, bytes, MAX_RAW_LOG_BYTES)
 }
 
@@ -571,22 +578,41 @@ fn lock_recover<T>(mutex: &Mutex<T>) -> MutexGuard<'_, T> {
 
 /// Write every byte, retrying on `WouldBlock`. The session sockets are
 /// non-blocking for the read loop, so a large operator write can briefly fill
-/// the kernel send buffer and must be resumed rather than dropped.
+/// the kernel send buffer and must be resumed rather than dropped. A peer that
+/// stops reading keeps the buffer full forever, so retries end at `deadline`
+/// and the operator gets an error instead of a wedged prompt.
 fn write_all_retrying<W: Write>(
     writer: &mut W,
     mut bytes: &[u8],
     backoff: Duration,
+    deadline: Duration,
 ) -> io::Result<()> {
+    let started = Instant::now();
     while !bytes.is_empty() {
         match writer.write(bytes) {
             Ok(0) => return Err(io::Error::from(io::ErrorKind::WriteZero)),
             Ok(written) => bytes = &bytes[written..],
-            Err(err) if err.kind() == io::ErrorKind::WouldBlock => thread::sleep(backoff),
+            Err(err) if err.kind() == io::ErrorKind::WouldBlock => {
+                if started.elapsed() >= deadline {
+                    return Err(stalled_peer_error(deadline));
+                }
+                thread::sleep(backoff);
+            }
             Err(err) if err.kind() == io::ErrorKind::Interrupted => {}
             Err(err) => return Err(err),
         }
     }
     Ok(())
+}
+
+fn stalled_peer_error(deadline: Duration) -> io::Error {
+    io::Error::new(
+        io::ErrorKind::TimedOut,
+        format!(
+            "peer stopped reading; write gave up after {}s",
+            deadline.as_secs_f32()
+        ),
+    )
 }
 
 fn print_event(event: ListenerEvent, state: &SharedState) {
@@ -696,8 +722,10 @@ fn as_line(text: &str) -> String {
     }
 }
 
+/// One log per peer IP, appended to across connections: keyed by `ip:port`,
+/// every reconnect would start a fresh file and reset the size cap.
 fn log_path_for(log_dir: &Path, peer: SocketAddr) -> PathBuf {
-    let peer_name = peer.to_string().replace([':', '.'], "_");
+    let peer_name = peer.ip().to_string().replace([':', '.'], "_");
     log_dir.join(format!("session_{peer_name}.raw.log"))
 }
 
@@ -868,14 +896,60 @@ mod tests {
             blocks_left: 3,
             written: Vec::new(),
         };
-        write_all_retrying(&mut writer, b"hi", Duration::ZERO).unwrap();
+        write_all_retrying(&mut writer, b"hi", Duration::ZERO, WRITE_DEADLINE).unwrap();
         assert_eq!(writer.written, b"hi");
+    }
+
+    #[test]
+    fn write_all_retrying_gives_up_when_the_peer_stops_reading() {
+        struct Stalled;
+        impl Write for Stalled {
+            fn write(&mut self, _: &[u8]) -> io::Result<usize> {
+                Err(io::Error::from(io::ErrorKind::WouldBlock))
+            }
+            fn flush(&mut self) -> io::Result<()> {
+                Ok(())
+            }
+        }
+
+        let (sender, receiver) = mpsc::channel();
+        thread::spawn(move || {
+            let result = write_all_retrying(
+                &mut Stalled,
+                b"hi",
+                Duration::ZERO,
+                Duration::from_millis(50),
+            );
+            let _ = sender.send(result);
+        });
+        let error = receiver
+            .recv_timeout(Duration::from_secs(5))
+            .expect("a stalled peer must not wedge the writer")
+            .unwrap_err();
+
+        assert_eq!(error.kind(), io::ErrorKind::TimedOut);
+        assert!(error.to_string().contains("stopped reading"), "{error}");
     }
 
     #[test]
     fn log_path_sanitizes_peer_name() {
         let peer: SocketAddr = "127.0.0.1:4444".parse().unwrap();
         let path = log_path_for(Path::new("logs"), peer);
-        assert_eq!(path, PathBuf::from("logs/session_127_0_0_1_4444.raw.log"));
+        assert_eq!(path, PathBuf::from("logs/session_127_0_0_1.raw.log"));
+    }
+
+    #[test]
+    fn reconnecting_from_the_same_ip_does_not_reset_the_log_cap() {
+        let dir = tempfile::tempdir().unwrap();
+        let first = log_path_for(dir.path(), "127.0.0.1:50000".parse().unwrap());
+        let second = log_path_for(dir.path(), "127.0.0.1:50001".parse().unwrap());
+        let other = log_path_for(dir.path(), "127.0.0.2:50000".parse().unwrap());
+
+        append_capped_log(&first, b"123456", 10).unwrap();
+        append_capped_log(&second, b"7890OVERFLOW", 10).unwrap();
+
+        assert_eq!(first, second);
+        assert_ne!(first, other);
+        assert_eq!(fs::read(&second).unwrap(), b"1234567890");
     }
 }
