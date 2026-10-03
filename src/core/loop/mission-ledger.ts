@@ -102,18 +102,30 @@ export function readMissionLedger(directory: string, limit = 20): MissionLedgerE
     }
 }
 
+type LedgerEventRecord = Record<string, unknown> & MissionLedgerEvent;
+
+function hasRequiredLedgerFields(value: Record<string, unknown>): boolean {
+    return typeof value.id === "string" &&
+        isLedgerEventType(value.type) &&
+        typeof value.timestamp === "string" &&
+        typeof value.sessionID === "string";
+}
+
+function hasValidOptionalLedgerFields(value: Record<string, unknown>): boolean {
+    return isOptionalInteger(value.iteration) &&
+        isOptionalString(value.objective) &&
+        isOptionalString(value.summary) &&
+        isOptionalString(value.reason);
+}
+
+function isLedgerEventRecord(value: unknown): value is LedgerEventRecord {
+    return isRecord(value) && hasRequiredLedgerFields(value) && hasValidOptionalLedgerFields(value);
+}
+
 function parseLedgerLine(line: string): MissionLedgerEvent | null {
     try {
-        const value = JSON.parse(line);
-        if (!isRecord(value)) return null;
-        if (typeof value.id !== "string") return null;
-        if (!isLedgerEventType(value.type)) return null;
-        if (typeof value.timestamp !== "string") return null;
-        if (typeof value.sessionID !== "string") return null;
-        if (!isOptionalInteger(value.iteration)) return null;
-        if (!isOptionalString(value.objective)) return null;
-        if (!isOptionalString(value.summary)) return null;
-        if (!isOptionalString(value.reason)) return null;
+        const value: unknown = JSON.parse(line);
+        if (!isLedgerEventRecord(value)) return null;
 
         const event: MissionLedgerEvent = {
             id: value.id,
