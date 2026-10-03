@@ -57,7 +57,6 @@ describe("System Transform Handler", () => {
                 ["test-session", { step: 5, active: true, startTime: Date.now() - 300000 }],
             ]) as any,
             state: {
-                missionActive: false,
                 sessions: new Map([
                     ["test-session", { enabled: true, iterations: 3, currentTask: "Building", taskRetries: new Map(), anomalyCount: 0 }],
                 ]),
@@ -155,8 +154,7 @@ describe("System Transform Handler", () => {
         expect(ensureSessionInitialized).not.toHaveBeenCalled();
     });
 
-    it("does not inject another session's mission when the in-memory flag is stale", async () => {
-        mockContext.state.missionActive = true;
+    it("does not inject another session's mission when another session owns the persisted mission", async () => {
         vi.mocked(readLoopState).mockReturnValue({
             active: true, iteration: 1, maxIterations: 10, prompt: "Other goal",
             sessionID: "other-session", startedAt: new Date().toISOString(),

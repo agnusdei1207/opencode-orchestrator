@@ -18,7 +18,6 @@ describe("Session Manager", () => {
 
     afterEach(() => {
         state.sessions.clear();
-        state.missionActive = false;
         for (const dir of tempDirs.splice(0)) {
             rmSync(dir, { recursive: true, force: true });
         }

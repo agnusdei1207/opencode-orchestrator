@@ -96,7 +96,6 @@ export function activateMissionState(sessionID: string): void {
     const stateSession = ensureGlobalState(sessionID);
     stateSession.enabled = true;
     stateSession.anomalyCount = 0;
-    state.missionActive = true;
     log(`[SessionManager] Mission Activated: ${sessionID}`);
 }
 
@@ -108,7 +107,6 @@ export function deactivateMissionState(sessionID: string): void {
     if (stateSession) {
         stateSession.enabled = false;
     }
-    state.missionActive = false;
     log(`[SessionManager] Mission Deactivated: ${sessionID}`);
 }
 

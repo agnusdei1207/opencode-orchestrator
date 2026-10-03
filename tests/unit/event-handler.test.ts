@@ -75,7 +75,6 @@ describe("createEventHandler", () => {
                 }],
             ]),
             state: {
-                missionActive: false,
                 sessions: new Map(),
             },
         };

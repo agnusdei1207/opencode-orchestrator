@@ -46,7 +46,6 @@ describe("Session Compacting Handler", () => {
                 ["test-session", { step: 5, active: true, startTime: Date.now() - 300000 }],
             ]) as any,
             state: {
-                missionActive: false,
                 sessions: new Map([
                     ["test-session", { enabled: true, iterations: 3, currentTask: "Building", taskRetries: new Map(), anomalyCount: 0 }],
                 ]),

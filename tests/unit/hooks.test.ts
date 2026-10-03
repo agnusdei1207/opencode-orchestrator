@@ -83,7 +83,6 @@ describe("Hook System", () => {
             sessions: new Map(),
         };
         state.sessions.clear();
-        state.missionActive = false;
     });
 
     describe("StrictRoleGuardHook", () => {
@@ -132,7 +131,6 @@ describe("Hook System", () => {
         const hook = new MissionControlHook();
 
         it("does not interpret ordinary user messages as mission completion", async () => {
-            state.missionActive = true;
             state.sessions.set("test-session", createSessionState());
             const missionLoop = await import("../../src/core/loop/mission-loop");
             const result = await hook.execute(mockContext, "Also check the deployment wiring before finishing");
@@ -144,13 +142,13 @@ describe("Hook System", () => {
         it("should detect /task command", async () => {
             const result = await hook.execute(mockContext, `/task "build"`);
             expect(result.action).toBe(HOOK_ACTIONS.PROCESS);
-            expect(state.missionActive).toBe(true);
+            expect(state.sessions.get("test-session")?.enabled).toBe(true);
         });
 
         it("activates a mission from a multi-line /task prompt", async () => {
             const result = await hook.execute(mockContext, "/task build the API\nthen add tests");
             expect(result.action).toBe(HOOK_ACTIONS.PROCESS);
-            expect(state.missionActive).toBe(true);
+            expect(state.sessions.get("test-session")?.enabled).toBe(true);
             expect(result.modifiedMessage).toContain("then add tests");
         });
 
@@ -164,11 +162,10 @@ describe("Hook System", () => {
             const { startMissionLoop } = await import("../../src/core/loop/mission-loop");
             vi.mocked(startMissionLoop).mockReturnValueOnce(false);
             await expect(hook.execute(mockContext, "/task new goal")).rejects.toThrow("persist");
-            expect(state.missionActive).toBe(false);
+            expect(state.sessions.get("test-session")?.enabled).not.toBe(true);
         });
 
         it("should intercept /cancel and deactivate mission state", async () => {
-            state.missionActive = true;
             state.sessions.set("test-session", createSessionState());
             mockContext.sessions.set("test-session", { active: true });
 
