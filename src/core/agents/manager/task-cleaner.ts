@@ -200,12 +200,13 @@ export class TaskCleaner {
         if (fresh.length === 0 || !toastManager) return;
         for (const task of fresh) this.toasted.add(task);
 
-        const completionInfos = fresh.map(toCompletionInfo);
-        if (allComplete && completionInfos.length > 1) {
-            toastManager.showAllCompleteToast(parentSessionID, completionInfos);
+        // The group summary covers the whole final batch, including tasks whose
+        // own toast already appeared during an earlier failed delivery.
+        if (allComplete && notifications.length > 1) {
+            toastManager.showAllCompleteToast(parentSessionID, notifications.map(toCompletionInfo));
             return;
         }
-        for (const info of completionInfos) toastManager.showCompletionToast(info);
+        for (const info of fresh.map(toCompletionInfo)) toastManager.showCompletionToast(info);
     }
 
     /**

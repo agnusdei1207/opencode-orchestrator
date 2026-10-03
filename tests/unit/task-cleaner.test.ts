@@ -113,9 +113,14 @@ it("retries failed delivery without replaying completion toasts", async () => {
     expect(prompt).toHaveBeenCalledTimes(2);
     expect(prompt.mock.calls[1][0].body.parts[0].text).toContain("first");
     expect(store.getNotifications(first.parentSessionID)).toEqual([]);
-    expect(toastMocks.showAllCompleteToast).not.toHaveBeenCalled();
-    expect(toastMocks.showCompletionToast).toHaveBeenCalledTimes(2);
-    expect(toastMocks.showCompletionToast).toHaveBeenLastCalledWith(expect.objectContaining({ id: "second" }));
+    // The final batch completes the group: one summary covering both tasks, and
+    // the already-shown completion toast for "first" is not replayed.
+    expect(toastMocks.showCompletionToast).toHaveBeenCalledOnce();
+    expect(toastMocks.showAllCompleteToast).toHaveBeenCalledOnce();
+    expect(toastMocks.showAllCompleteToast).toHaveBeenCalledWith(first.parentSessionID, [
+        expect.objectContaining({ id: "first" }),
+        expect.objectContaining({ id: "second" }),
+    ]);
 });
 
 it("acknowledges only the notification batch actually sent", async () => {
