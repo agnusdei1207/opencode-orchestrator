@@ -171,12 +171,14 @@ async function sendContinuationPrompt(
 ): Promise<void> {
     const { client, directory, sessionID, loopState } = request;
     try {
-        await client.session.prompt({
+        const response = await client.session.prompt({
             path: { id: sessionID },
             body: {
                 parts: [syntheticTextPart(prepared.text)],
             },
         });
+        // The V1 SDK reports host failures in `error` instead of throwing.
+        if (response.error) throw new Error(String(response.error));
         appendMissionLedgerEvent(directory, {
             type: "prompt_injected",
             sessionID,

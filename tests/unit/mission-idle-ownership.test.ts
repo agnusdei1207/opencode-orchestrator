@@ -159,6 +159,18 @@ describe("mission idle ownership", () => {
         expect(getCircuitState(sessionID)?.isOpen).toBe(false);
     });
 
+    it("does not record an injection the host rejected with an error response", async () => {
+        configureMissionRuntimeOptions({ ledger: true, markdownMemory: false });
+        writeFileSync(join(directory, ".opencode/todo.md"), "- [ ] Remaining");
+        prompt.mockResolvedValue({ error: { name: "BadRequestError", data: { message: "rejected" } } });
+
+        await handleMissionIdle(client, directory, sessionID);
+        await vi.advanceTimersByTimeAsync(3000);
+
+        expect(prompt).toHaveBeenCalledTimes(1);
+        expect(readMissionLedger(directory).map(event => event.type)).not.toContain("prompt_injected");
+    });
+
     it("opens the circuit for repeated text-only assistant turns", async () => {
         writeFileSync(join(directory, ".opencode/todo.md"), "- [ ] Remaining");
         for (let index = 0; index < 3; index += 1) {
