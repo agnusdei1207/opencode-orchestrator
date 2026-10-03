@@ -92,20 +92,24 @@ export class AgentRegistry {
             const customAgents = parseJsonc(content);
 
             if (typeof customAgents === "object" && customAgents !== null) {
-                for (const [name, def] of Object.entries(customAgents)) {
-                    const result = AgentDefinitionSchema.safeParse(def);
-                    if (result.success) {
-                        this.registerAgent(name, result.data);
-                    } else {
-                        log(`[AgentRegistry] Invalid custom agent definition for: ${name}. Errors: ${result.error.message}`);
-                    }
-                }
+                this.registerCustomAgents(customAgents);
             }
         } catch (error) {
             // File might not exist, ignore
             const nodeError = error as NodeJS.ErrnoException;
             if (nodeError.code !== "ENOENT") {
                 log(`[AgentRegistry] Error loading custom agents: ${error}`);
+            }
+        }
+    }
+
+    private registerCustomAgents(customAgents: object): void {
+        for (const [name, def] of Object.entries(customAgents)) {
+            const result = AgentDefinitionSchema.safeParse(def);
+            if (result.success) {
+                this.registerAgent(name, result.data);
+            } else {
+                log(`[AgentRegistry] Invalid custom agent definition for: ${name}. Errors: ${result.error.message}`);
             }
         }
     }
