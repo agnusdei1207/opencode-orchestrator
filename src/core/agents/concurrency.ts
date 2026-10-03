@@ -194,23 +194,7 @@ export class ConcurrencyController {
      * Acquire slot with priority support
      */
     async acquire(key: string, priority: TaskPriority = TaskPriority.NORMAL): Promise<void> {
-        if (this.closed) throw new Error("Concurrency controller shut down");
-        // Check circuit breaker
-        if (this.isCircuitOpen(key)) {
-            throw new Error(`Circuit breaker OPEN for ${key}. Try again later.`);
-        }
-
-        // Check resource pressure
-        const resourcePressure = this.getResourcePressureStatus();
-        if (resourcePressure.underPressure) {
-            // Only block LOW priority tasks under pressure
-            if (priority === TaskPriority.LOW) {
-                throw new Error(
-                    `Resource pressure detected (${resourcePressure.heapPercent.toFixed(1)}% heap used; ` +
-                    `limit ${resourcePressure.maxHeapPercent}%). Low priority task rejected.`
-                );
-            }
-        }
+        this.assertCanAcquire(key, priority);
 
         const limit = this.getConcurrencyLimit(key);
         if (limit === Infinity) return;
@@ -221,7 +205,31 @@ export class ConcurrencyController {
             return;
         }
 
-        // Queue with priority
+        return this.enqueue(key, priority);
+    }
+
+    private assertCanAcquire(key: string, priority: TaskPriority): void {
+        if (this.closed) throw new Error("Concurrency controller shut down");
+        // Check circuit breaker
+        if (this.isCircuitOpen(key)) {
+            throw new Error(`Circuit breaker OPEN for ${key}. Try again later.`);
+        }
+
+        // Check resource pressure
+        const resourcePressure = this.getResourcePressureStatus();
+        // Only block LOW priority tasks under pressure
+        if (resourcePressure.underPressure && priority === TaskPriority.LOW) {
+            throw new Error(
+                `Resource pressure detected (${resourcePressure.heapPercent.toFixed(1)}% heap used; ` +
+                `limit ${resourcePressure.maxHeapPercent}%). Low priority task rejected.`
+            );
+        }
+    }
+
+    /**
+     * Queue with priority
+     */
+    private enqueue(key: string, priority: TaskPriority): Promise<void> {
         return new Promise<void>((resolve, reject) => {
             const queue = this.queues.get(key) ?? [];
             const timeoutMs = this.getAcquisitionTimeoutMs();
