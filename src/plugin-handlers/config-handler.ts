@@ -65,6 +65,67 @@ function defineAgent(
     return agent;
 }
 
+function agentPrompt(name: string): string {
+    return AGENTS[name]?.systemPrompt || "";
+}
+
+/** Commander (primary) and the consolidated subagents, in registration order. */
+function orchestratorAgentDefaults(): Record<string, AgentConfig> {
+    return {
+        // Primary agent - the main orchestrator
+        [AGENT_NAMES.COMMANDER]: {
+            description: "Autonomous orchestrator - executes until mission complete",
+            mode: "primary",
+            prompt: agentPrompt(AGENT_NAMES.COMMANDER),
+            color: "#ffea98",
+        },
+        // Subagents
+        [AGENT_NAMES.PLANNER]: {
+            description: "Strategic planning and research specialist",
+            mode: "subagent",
+            hidden: true,
+            prompt: agentPrompt(AGENT_NAMES.PLANNER),
+            color: "#9B59B6",
+        },
+        [AGENT_NAMES.WORKER]: {
+            description: "Implementation and documentation specialist",
+            mode: "subagent",
+            hidden: true,
+            prompt: agentPrompt(AGENT_NAMES.WORKER),
+            color: "#E67E22",
+        },
+        [AGENT_NAMES.REVIEWER]: {
+            description: "Module-level verification specialist",
+            mode: "subagent",
+            hidden: true,
+            prompt: agentPrompt(AGENT_NAMES.REVIEWER),
+            color: "#27AE60",
+        },
+    };
+}
+
+function orchestratorCommands(): Record<string, unknown> {
+    const commands: Record<string, unknown> = {};
+    for (const [name, cmd] of Object.entries(COMMANDS)) {
+        commands[name] = {
+            description: cmd.description,
+            template: cmd.template,
+        };
+    }
+    return commands;
+}
+
+function orchestratorAgents(
+    existingAgents: Record<string, AgentConfig>,
+    globalPermission: unknown,
+): Record<string, AgentConfig> {
+    const agents: Record<string, AgentConfig> = {};
+    for (const [name, defaults] of Object.entries(orchestratorAgentDefaults())) {
+        agents[name] = defineAgent(existingAgents[name], defaults, globalPermission);
+    }
+    return agents;
+}
+
 /**
  * Create config handler for OpenCode
  */
@@ -72,59 +133,12 @@ export function createConfigHandler() {
     return async (config: Config & UnknownRecord) => {
         const mutableConfig = config as MutableConfig;
 
-        const commanderPrompt = AGENTS[AGENT_NAMES.COMMANDER]?.systemPrompt || "";
-        const plannerPrompt = AGENTS[AGENT_NAMES.PLANNER]?.systemPrompt || "";
-        const workerPrompt = AGENTS[AGENT_NAMES.WORKER]?.systemPrompt || "";
-        const reviewerPrompt = AGENTS[AGENT_NAMES.REVIEWER]?.systemPrompt || "";
-
         const existingCommands = mutableConfig.command ?? {};
         const existingAgents = mutableConfig.agent ?? {};
         const globalPermission = mutableConfig.permission;
 
-        // Register all our slash commands 
-        const orchestratorCommands: Record<string, unknown> = {};
-        for (const [name, cmd] of Object.entries(COMMANDS)) {
-            orchestratorCommands[name] = {
-                description: cmd.description,
-                template: cmd.template,
-            };
-        }
-
-        // Register Commander (primary) and consolidated subagents (4 agents)
-        const orchestratorAgents: Record<string, AgentConfig> = {
-            // Primary agent - the main orchestrator
-            [AGENT_NAMES.COMMANDER]: defineAgent(existingAgents[AGENT_NAMES.COMMANDER], {
-                description: "Autonomous orchestrator - executes until mission complete",
-                mode: "primary",
-                prompt: commanderPrompt,
-                color: "#ffea98",
-            }, globalPermission),
-            // Subagents
-            [AGENT_NAMES.PLANNER]: defineAgent(existingAgents[AGENT_NAMES.PLANNER], {
-                description: "Strategic planning and research specialist",
-                mode: "subagent",
-                hidden: true,
-                prompt: plannerPrompt,
-                color: "#9B59B6",
-            }, globalPermission),
-            [AGENT_NAMES.WORKER]: defineAgent(existingAgents[AGENT_NAMES.WORKER], {
-                description: "Implementation and documentation specialist",
-                mode: "subagent",
-                hidden: true,
-                prompt: workerPrompt,
-                color: "#E67E22",
-            }, globalPermission),
-            [AGENT_NAMES.REVIEWER]: defineAgent(existingAgents[AGENT_NAMES.REVIEWER], {
-                description: "Module-level verification specialist",
-                mode: "subagent",
-                hidden: true,
-                prompt: reviewerPrompt,
-                color: "#27AE60",
-            }, globalPermission),
-        };
-
-        mutableConfig.command = { ...orchestratorCommands, ...existingCommands };
-        mutableConfig.agent = { ...existingAgents, ...orchestratorAgents };
+        mutableConfig.command = { ...orchestratorCommands(), ...existingCommands };
+        mutableConfig.agent = { ...existingAgents, ...orchestratorAgents(existingAgents, globalPermission) };
 
         // Note: console.log removed to prevent TUI corruption
     };
