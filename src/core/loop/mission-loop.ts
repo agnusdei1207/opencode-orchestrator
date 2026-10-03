@@ -27,7 +27,7 @@ const STATE_FILE = MISSION_CONTROL.STATE_FILE;
 /** Stagnation count at which the loop stops blind retries and escalates. */
 const ESCALATION_STAGNATION_THRESHOLD = 5;
 
-/** Default max iterations before giving up */
+/** Effectively unbounded; see LIMITS.MAX_ITERATIONS for what ends a loop. */
 const DEFAULT_MAX_ITERATIONS = MISSION_CONTROL.DEFAULT_MAX_ITERATIONS;
 
 type MissionContinuationContext = {

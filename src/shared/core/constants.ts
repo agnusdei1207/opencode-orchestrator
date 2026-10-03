@@ -89,21 +89,16 @@ export const PATHS = {
  */
 
 export const LIMITS = {
-    /** Maximum mission loop iterations */
+    /**
+     * Mission loop iteration ceiling shown in prompts and toasts. Deliberately
+     * unreachable: loops end on verification, the circuit breaker, stagnation
+     * escalation or the user, not on a count.
+     */
     MAX_ITERATIONS: 1_000_000_000,
-    /** Default scan limit for file listing */
-    DEFAULT_SCAN_LIMIT: 20,
-    /** Max message history to check for conclusion */
-
-    CONCLUDE_CHECK_HISTORY: 3,
-    /** Max concurrent tasks per agent */
-    MAX_TASKS_PER_AGENT: 10,
     /** Default history/list limit for UI */
     DEFAULT_LIST_LIMIT: 20,
     /** Default progress bar width */
     DEFAULT_PROGRESS_WIDTH: 20,
-    /** Maximum time for atomic task (minutes) */
-    TASK_TIME_LIMIT_MIN: 10,
 } as const;
 
 /**
