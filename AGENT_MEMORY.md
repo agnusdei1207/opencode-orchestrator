@@ -1,119 +1,90 @@
 # Agent Memory - OCO Session
 
-Last updated: 2026-09-28 KST
+Last updated: 2026-10-03 KST
 
 ## Current task
 
-Issue #50's standalone `</assistant-thinking></think>` artifact has a
-stored-text mitigation for OpenCode 1 in patch release v2.0.9. Static flow
-analysis found that append-only streaming clients can retain already emitted
-text. The reporter's OpenCode Go / MiMo-V2.6-Flash setup still needs
-confirmation before closing the issue.
+Full-codebase audit (read-only) followed by the user-approved scope "TS bug
+fixes first": fix the verified High-severity TypeScript defects one commit
+each, then commit, push, and cut a patch release (v2.0.10).
 
 ## Last completed step
 
-Read issue #50 and screenshot, the local `../opencode` host source, the OCO
-V1/V2 plugin paths, and the SDK contracts. The local OpenCode source identifies
-as 1.18.32. OCO declares and locks `@opencode-ai/plugin` and
-`@opencode-ai/sdk` 1.18.32 plus OpenCode 2 `@opencode/plugin` 2.0.15. Local
-node_modules had stale 1.18.31 V1 packages; `npm ci --ignore-scripts` restored
-the declared versions. The installed host executable is OpenCode 1.18.31.
+Audit covered `src/**`, `crates/**`, tests, docs, CI. High items were
+re-opened and verified before fixing. Seven TDD commits (red then green):
 
-In OpenCode 1's `session/processor.ts`, text deltas are streamed to session
-parts, then `experimental.text.complete` can replace text before the final
-part update. No equivalent text completion hook exists in the inspected
-OpenCode 2 plugin contract. OCO's V1 entry now registers
-`createTextCompleteHandler`, which blanks a completed text part only when its
-trimmed content is exactly the reported closing-tag pair. Other text remains
-unchanged. The shared hook constant, handler barrel, entry-point test, native
-host QA fixture, and architecture document are synchronized.
+1. `c7f86a1` root-deletion / fork-bomb guard bypasses
+   (`security-patterns.ts`, `strict-role-guard.ts`).
+2. `f40e443` multi-line `/task` detection (`slash-command.ts`, dotAll flag).
+3. `b9d788b` unlimited (0) concurrency keys threw on auto-scale-down
+   (`concurrency.ts handleFailure`).
+4. `cfb2e00` V2 event bridge ended on the first handler throw
+   (`v2/event-bridge.ts dispatch`).
+5. `2b06b05` unhandled rejection from the countdown timer
+   (`mission-loop-handler.ts runScheduledContinuation`).
+6. `9825e57` pooled tasks never left `ObjectPool.inUse` on normal delete
+   (`ObjectPool.discard`, `TaskStore.removeEntry`).
+7. `164162e` Rust CLI integration test looked for a non-existent
+   `orchestrator-cli` binary; now uses `getBinaryPath()` and stderr for help.
 
-TDD: the entry test failed before hook registration and passed afterward. A
-second red/green cycle narrowed the behavior to an entire standalone text
-part. `npm run build`, `npx tsc --noEmit`, and all 119 Vitest files / 1,035
-tests passed. Rust fmt/clippy, all 57 Rust tests, production dependency audit,
-and package smoke test passed. Built-plugin QA against installed OpenCode
-1.18.31 passed all 17 checks, including a streamed fixture with the exact
-reported tag and a persisted assistant text part that was empty after the
-completion hook. Both local release dry run and v2.0.9 preflight passed.
-`git diff --check` passed. The sibling `../opencode` repository was read only.
-A read-only code review found no critical defect; its QA and documentation
-findings were addressed.
-
-Implementation commit `44fa6d5` and version commit `cfc1c24` were pushed
-to `origin/main` with tag `v2.0.9`. GitHub CI run 36363989484 and Build &
-Release run 36363989401 succeeded. The GitHub Release has five platform
-binaries. The public npm registry reports `opencode-orchestrator@2.0.9` and
-`latest: 2.0.9`; its tarball metadata is present.
-
-Post-release static flow analysis traced model text/reasoning events through
-the host processor, shared plugin trigger, final part update, model-history
-conversion, compaction, OpenCode `run`, ACP, and app state reducers. The host
-publishes text deltas before the completion hook. The `run` renderer and ACP
-can retain those deltas even when the final stored part is blank. Host cleanup
-also bypasses the hook if a stream ends before `text-end`. Other plugins can
-mutate the same output in load order. No direct OCO-internal hook collision
-was found; the reporter's other plugins are unknown.
+`tsc --noEmit`, `npm run build`, and all 120 Vitest files / 1,053 tests
+passed after the last commit.
 
 ## Next exact step
 
-Have the reporter test v2.0.9 with their OpenCode Go / MiMo setup. Record
-their OpenCode version, plugin list, client surface, and serialized assistant
-part type. If the tag remains visible, compare stored parts with streamed
-deltas and investigate an upstream OpenCode provider/client fix. Do not close
-#50 before this confirmation.
+Run `npm run release:patch` (version bump, preflight, push with tag), then
+confirm GitHub CI, Build & Release, and npm `latest` for 2.0.10 and record
+the result here.
 
 ## Incomplete items and why
 
-- #50 actual MiMo model behavior and reporter's OpenCode version are unknown.
-  The fixture proves the V1 hook path for the reported text shape.
-- OpenCode 2 has no corresponding text-completion hook in its inspected
-  `@opencode/plugin` 2.0.15 contract; this OCO mitigation is V1 only.
-- Append-only clients can retain already emitted tag deltas; the finalized
-  text hook cannot retract them. Actual reporter client behavior is unknown.
-- #48 remains open from the prior session pending the reporter's DCP/plugin
-  configuration and model-level behavior after v2.0.8.
+- Audit findings not fixed (user chose TS bug fixes first). Highest
+  remaining: Rust `http` tool `-d @file` local-file exfiltration and missing
+  `--`/`--proto` (`crates/orchestrator-core/src/tools/http.rs:113-117`),
+  `-X HEAD` timeouts, eslint argument injection (`lsp.rs:204`), git exit
+  status ignored, `diff` temp-file race, `sed_replace` CRLF loss,
+  `shell_listener` exits on operator typo (`:352`). Rust needs a toolchain;
+  none is installed on this machine.
+- Medium TS items: V2 `agent: ""` and empty intercepted prompts
+  (`v2/setup.ts:87-95`), untracked-session cleanup on delete
+  (`event-handler.ts:121`), duplicate idle timers, unchecked
+  `session.prompt` error (`mission-loop-handler.ts:174`), unbounded buffers
+  (`commands/manager.ts:99`, `rust-pool.ts`), TIMEOUT shown as completed in
+  toasts, non-atomic state writes, landing page still advertising retired
+  RAG/Ebbinghaus features (`public/index.html:13-14`).
+- `src/core/agents/logger.ts` is a deliberate no-op, so logged catches are
+  silent in production; changing it is a design decision, not done.
+- #50 and #48 still await reporter confirmation (see git history of this
+  file for their details).
 
 ## Key decisions
 
-- Use the OpenCode 1 text completion hook, which runs before the final part
-  update, for the narrow standalone artifact shown in #50.
-- Preserve text that merely contains the same tag or includes legitimate
-  surrounding content.
-- Leave the sibling OpenCode repository unchanged; its response pipeline and
-  SDK contract were used as evidence for the OCO fix.
-- Keep the existing unrelated `ARCHITECTURE_SURVEY_KO.tmp.md` untouched. It
-  was temporarily excluded for the clean release gate; the local exclude
-  file was restored afterward.
+- Deleted tasks are `discard`ed from pool tracking, not `release`d, because
+  notifications and toasts may still hold the object; only `gc()` recycles.
+- Unlimited concurrency keys are excluded from auto-scale-down.
 
 ## Rejected alternatives
 
-- Strip all `<think>` markup or every occurrence of the tag pair: this could
-  alter code examples and ordinary assistant output.
-- Rewrite reasoning parts through event callbacks: the event path is after
-  host storage and provides no safe V1 response mutation contract.
-- Change only the TUI display: stored session text and follow-up context
-  would still contain the artifact.
+- Audit item "V2 drops the V1 sub-agent tool restriction": rejected after
+  reading upstream `packages/opencode/src/session/prompt.ts:1061`. V1
+  `tools` entries only become `allow` rules, so V1 never denied
+  `delegate_task` to sub-agents; role separation is prompt-based by design.
+- Releasing tasks to the pool on every delete: would reset objects still
+  referenced by async continuations.
 
 ## Known risks
 
-- OpenCode `run` and ACP can retain streamed tag text after the final part is
-  blanked; other clients may show it transiently until the final update.
-- An interrupted stream can bypass `experimental.text.complete` and store
-  unfinished tag text. Another plugin can modify the shared hook output
-  before or after OCO depending on load order.
-- If the reporter's tag is in a reasoning part, this text-only hook cannot
-  affect it. The screenshot suggests a text line but has no serialized parts.
-- The implementation has no OpenCode 2 equivalent at this SDK version.
+- The new root-deletion regex blocks `rm ... /` and `/*` with any flags
+  only when the target ends the command or precedes `;`, `&`, `|`. It is a
+  safety net, not a sandbox; `rm -rf foo /` and quoting tricks still pass.
+- Local `bin/orchestrator-windows-x64.exe` reports 1.7.27 (stale, gitignored);
+  release binaries are rebuilt in CI.
 
 ## Files to open first in the next session, in order
 
 1. `AGENTS.md`
 2. `AGENT_MEMORY.md`
-3. `src/plugin-handlers/text-complete-handler.ts`
-4. `src/index.ts`
-5. `src/shared/message/constants.ts`
-6. `tests/unit/plugin-entry.test.ts`
-7. `scripts/qa-native-host.mjs`
-8. `docs/SYSTEM_ARCHITECTURE.md`
-9. `../opencode/packages/opencode/src/session/processor.ts`
+3. `crates/orchestrator-core/src/tools/http.rs`
+4. `src/v2/setup.ts`
+5. `src/plugin-handlers/event-handler.ts`
+6. `src/core/loop/mission-loop-handler.ts`
