@@ -144,6 +144,10 @@ impl SedTool {
         directory: &Path,
     ) -> Result<SedDirectoryReport> {
         let regex = Regex::new(pattern)?;
+        let substitution = Substitution {
+            regex: &regex,
+            replacement,
+        };
         let start = Instant::now();
         let mut report = SedDirectoryReport::default();
 
@@ -159,7 +163,7 @@ impl SedTool {
             }
             match entry {
                 Ok(entry) if is_replaceable_file(&entry) => {
-                    self.record_file(&regex, replacement, entry.path(), &mut report);
+                    self.record_file(substitution, entry.path(), &mut report);
                 }
                 Ok(_) => {}
                 Err(err) => report.errors.push(SedFileError {
@@ -177,12 +181,11 @@ impl SedTool {
 
     fn record_file(
         &self,
-        regex: &Regex,
-        replacement: &str,
+        substitution: Substitution<'_>,
         path: &Path,
         report: &mut SedDirectoryReport,
     ) {
-        match self.replace_with_regex(regex, replacement, path) {
+        match self.replace_with_regex(substitution.regex, substitution.replacement, path) {
             Ok(Some(result)) => report.results.push(result),
             Ok(None) => {}
             // Non-UTF-8 content is a binary file, not text this tool edits;
@@ -236,6 +239,13 @@ impl Default for SedTool {
 /// backed up again) by a later directory-wide replacement.
 fn is_replaceable_file(entry: &DirEntry) -> bool {
     entry.file_type().is_file() && entry.path().extension() != Some(OsStr::new(BACKUP_EXTENSION))
+}
+
+/// A compiled pattern and the text that replaces each of its matches.
+#[derive(Clone, Copy)]
+struct Substitution<'a> {
+    regex: &'a Regex,
+    replacement: &'a str,
 }
 
 #[derive(Default)]
