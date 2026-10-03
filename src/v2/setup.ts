@@ -105,6 +105,10 @@ function rememberContextAgent(sessions: SessionStates, request: V2ContextRequest
 async function runPromptHook(chat: ReturnType<typeof createChatMessageHandler>, input: unknown, sessions: SessionStates): Promise<void> {
     const prompt = input as { sessionID: string; prompt: { text: string } };
     const output = { parts: [{ type: "text", text: prompt.prompt.text }] };
+    // V2 prompt input carries no agent. The context hook records it, but runs after
+    // this hook, so the value lags one turn (empty on a session's first prompt,
+    // previous agent right after a switch). Readers that act after the turn,
+    // such as memory-gate on assistant done, see the updated value.
     const agent = sessions.get(prompt.sessionID)?.agent ?? "";
     await chat(
         { sessionID: prompt.sessionID, agent } as Parameters<typeof chat>[0],
