@@ -6,9 +6,9 @@
 
 use crate::{Error, Result};
 use std::io::{Read, Write};
-use std::process::{Child, Command, Output, Stdio};
-use std::sync::mpsc;
-use std::thread;
+use std::process::{Child, Command, ExitStatus, Output, Stdio};
+use std::sync::mpsc::{self, Receiver};
+use std::thread::{self, JoinHandle};
 use std::time::{Duration, Instant};
 
 /// Run `command` to completion, killing it if it runs longer than `timeout`.
@@ -24,7 +24,69 @@ pub fn run_with_timeout(
     timeout: Duration,
     stdin_data: Option<&[u8]>,
 ) -> Result<Output> {
-    command.stdin(if stdin_data.is_some() {
+    configure_stdio(&mut command, stdin_data.is_some());
+
+    let deadline = Deadline {
+        start: Instant::now(),
+        timeout,
+    };
+    let mut child = command.spawn()?;
+
+    let input_handle = spawn_stdin_writer(&mut child, stdin_data);
+    let (out_handle, rx_out) = spawn_pipe_reader(child.stdout.take());
+    let (err_handle, rx_err) = spawn_pipe_reader(child.stderr.take());
+
+    let status = wait_for_exit(&mut child, deadline)?;
+
+    let output = rx_out
+        .recv_timeout(deadline.remaining())
+        .and_then(|stdout| {
+            rx_err
+                .recv_timeout(deadline.remaining())
+                .map(|stderr| (stdout, stderr))
+        });
+    let Ok((stdout, stderr)) = output else {
+        stop_child(&mut child);
+        return Err(timeout_error(timeout));
+    };
+    let _ = out_handle.join();
+    let _ = err_handle.join();
+    if let Some(input) = input_handle {
+        finish_stdin(input, &mut child, deadline)?;
+    }
+
+    Ok(Output {
+        status,
+        stdout,
+        stderr,
+    })
+}
+
+/// Poll interval while waiting for the child to exit.
+const POLL_INTERVAL: Duration = Duration::from_millis(20);
+
+/// Start instant and budget shared by every wait of one invocation.
+#[derive(Clone, Copy)]
+struct Deadline {
+    start: Instant,
+    timeout: Duration,
+}
+
+impl Deadline {
+    fn expired(self) -> bool {
+        self.start.elapsed() >= self.timeout
+    }
+
+    fn remaining(self) -> Duration {
+        self.timeout.saturating_sub(self.start.elapsed())
+    }
+}
+
+/// Thread writing stdin plus the channel it signals once the write finished.
+type StdinWriter = (JoinHandle<()>, Receiver<()>);
+
+fn configure_stdio(command: &mut Command, has_stdin: bool) {
+    command.stdin(if has_stdin {
         Stdio::piped()
     } else {
         Stdio::null()
@@ -36,14 +98,13 @@ pub fn run_with_timeout(
         use std::os::unix::process::CommandExt;
         command.process_group(0);
     }
+}
 
-    let start = Instant::now();
-    let mut child = command.spawn()?;
-
-    // A child that exits early closes its stdin; a broken-pipe write is
-    // expected in that case and must not fail the whole call. Taking `stdin`
-    // and letting it drop at the end of this block signals EOF to the child.
-    let input_handle = stdin_data.and_then(|data| {
+/// A child that exits early closes its stdin; a broken-pipe write is
+/// expected in that case and must not fail the whole call. Taking `stdin`
+/// and letting it drop at the end of the writer thread signals EOF to the child.
+fn spawn_stdin_writer(child: &mut Child, stdin_data: Option<&[u8]>) -> Option<StdinWriter> {
+    stdin_data.and_then(|data| {
         let mut stdin = child.stdin.take()?;
         let data = data.to_vec();
         let (sender, receiver) = mpsc::channel();
@@ -52,74 +113,46 @@ pub fn run_with_timeout(
             let _ = sender.send(());
         });
         Some((handle, receiver))
-    });
-
-    let mut stdout_pipe = child.stdout.take();
-    let mut stderr_pipe = child.stderr.take();
-    let (tx_out, rx_out) = mpsc::channel();
-    let (tx_err, rx_err) = mpsc::channel();
-
-    let out_handle = thread::spawn(move || {
-        let mut buf = Vec::new();
-        if let Some(pipe) = stdout_pipe.as_mut() {
-            let _ = pipe.read_to_end(&mut buf);
-        }
-        let _ = tx_out.send(buf);
-    });
-    let err_handle = thread::spawn(move || {
-        let mut buf = Vec::new();
-        if let Some(pipe) = stderr_pipe.as_mut() {
-            let _ = pipe.read_to_end(&mut buf);
-        }
-        let _ = tx_err.send(buf);
-    });
-
-    let poll = Duration::from_millis(20);
-    let status = loop {
-        match child.try_wait()? {
-            Some(status) => break status,
-            None => {
-                if start.elapsed() >= timeout {
-                    stop_child(&mut child);
-                    return Err(timeout_error(timeout));
-                }
-                thread::sleep(poll);
-            }
-        }
-    };
-
-    let output = rx_out
-        .recv_timeout(timeout.saturating_sub(start.elapsed()))
-        .and_then(|stdout| {
-            rx_err
-                .recv_timeout(timeout.saturating_sub(start.elapsed()))
-                .map(|stderr| (stdout, stderr))
-        });
-    let (stdout, stderr) = match output {
-        Ok(output) => output,
-        Err(_) => {
-            stop_child(&mut child);
-            return Err(timeout_error(timeout));
-        }
-    };
-    let _ = out_handle.join();
-    let _ = err_handle.join();
-    if let Some((handle, receiver)) = input_handle {
-        if receiver
-            .recv_timeout(timeout.saturating_sub(start.elapsed()))
-            .is_err()
-        {
-            stop_child(&mut child);
-            return Err(timeout_error(timeout));
-        }
-        let _ = handle.join();
-    }
-
-    Ok(Output {
-        status,
-        stdout,
-        stderr,
     })
+}
+
+/// Drain `pipe` on its own thread so a full pipe buffer never blocks the child.
+fn spawn_pipe_reader<R>(mut pipe: Option<R>) -> (JoinHandle<()>, Receiver<Vec<u8>>)
+where
+    R: Read + Send + 'static,
+{
+    let (sender, receiver) = mpsc::channel();
+    let handle = thread::spawn(move || {
+        let mut buf = Vec::new();
+        if let Some(pipe) = pipe.as_mut() {
+            let _ = pipe.read_to_end(&mut buf);
+        }
+        let _ = sender.send(buf);
+    });
+    (handle, receiver)
+}
+
+fn wait_for_exit(child: &mut Child, deadline: Deadline) -> Result<ExitStatus> {
+    loop {
+        if let Some(status) = child.try_wait()? {
+            return Ok(status);
+        }
+        if deadline.expired() {
+            stop_child(child);
+            return Err(timeout_error(deadline.timeout));
+        }
+        thread::sleep(POLL_INTERVAL);
+    }
+}
+
+fn finish_stdin(input: StdinWriter, child: &mut Child, deadline: Deadline) -> Result<()> {
+    let (handle, receiver) = input;
+    if receiver.recv_timeout(deadline.remaining()).is_err() {
+        stop_child(child);
+        return Err(timeout_error(deadline.timeout));
+    }
+    let _ = handle.join();
+    Ok(())
 }
 
 fn stop_child(child: &mut Child) {
