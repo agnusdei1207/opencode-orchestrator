@@ -28,8 +28,6 @@ export const CONTEXT_THRESHOLDS = {
 export const CONTEXT_MONITOR_CONFIG = {
     /** Default max tokens for most models */
     DEFAULT_MAX_TOKENS: 200000,
-    /** Check interval in milliseconds */
-    CHECK_INTERVAL_MS: 30000,
     /** Minimum time between alerts (ms) */
     ALERT_COOLDOWN_MS: 60000,
 } as const;
@@ -41,8 +39,6 @@ export const CONTEXT_MONITOR_CONFIG = {
 interface MonitorState {
     lastAlertTime: number;
     lastAlertLevel: "info" | "warning" | "critical" | null;
-    isMonitoring: boolean;
-    intervalId?: ReturnType<typeof setInterval>;
     /** Latest host-reported usage for this session, for other consumers. */
     lastUsage?: ContextUsage;
 }
@@ -65,7 +61,6 @@ function getState(sessionID: string): MonitorState {
         state = {
             lastAlertTime: 0,
             lastAlertLevel: null,
-            isMonitoring: false,
         };
         sessionStates.set(sessionID, state);
     }
@@ -212,10 +207,6 @@ export function getContextUsage(sessionID: string): ContextUsage | undefined {
  * Cleanup session state
  */
 export function cleanupSession(sessionID: string): void {
-    const state = sessionStates.get(sessionID);
-    if (state?.intervalId) {
-        clearInterval(state.intervalId);
-    }
     sessionStates.delete(sessionID);
     log("[context-window-monitor] Session cleaned up", { sessionID });
 }
@@ -226,13 +217,11 @@ export function cleanupSession(sessionID: string): void {
 export function getMonitorStatus(sessionID: string): {
     lastAlertTime: number;
     lastAlertLevel: string | null;
-    isMonitoring: boolean;
 } | null {
     const state = sessionStates.get(sessionID);
     if (!state) return null;
     return {
         lastAlertTime: state.lastAlertTime,
         lastAlertLevel: state.lastAlertLevel,
-        isMonitoring: state.isMonitoring,
     };
 }

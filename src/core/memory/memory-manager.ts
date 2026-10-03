@@ -41,7 +41,6 @@ export interface MemoryConfig {
 
 export class MemoryManager {
     private static instance: MemoryManager;
-    private memories: Map<string, MemoryLevel> = new Map(); // id -> level mapping
     private storage: MemorySnapshot = {
         [MemoryLevel.SYSTEM]: [],
         [MemoryLevel.PROJECT]: [],
@@ -83,7 +82,6 @@ export class MemoryManager {
         };
 
         this.storage[level].push(entry);
-        this.memories.set(id, level);
 
         // Sort by importance and then timestamp
         this.storage[level].sort((a, b) => b.importance - a.importance || b.timestamp - a.timestamp);
@@ -147,7 +145,6 @@ export class MemoryManager {
             // Remove the least important/oldest entry
             const removed = this.storage[level].pop();
             if (removed) {
-                this.memories.delete(removed.id);
                 currentSize -= removed.content.length / 4;
             }
         }
@@ -157,9 +154,6 @@ export class MemoryManager {
      * Clear task memory (Short-term)
      */
     public clearTaskMemory(): void {
-        for (const entry of this.storage[MemoryLevel.TASK]) {
-            this.memories.delete(entry.id);
-        }
         this.storage[MemoryLevel.TASK] = [];
         log("[MemoryManager] Task memory cleared.");
     }
@@ -176,11 +170,5 @@ export class MemoryManager {
      */
     public import(snapshot: MemorySnapshot): void {
         this.storage = snapshot;
-        this.memories.clear();
-        for (const level of Object.values(MemoryLevel)) {
-            for (const entry of this.storage[level as MemoryLevel]) {
-                this.memories.set(entry.id, level as MemoryLevel);
-            }
-        }
     }
 }

@@ -186,10 +186,6 @@ export class ConcurrencyController {
             ?? this.config.agentConcurrency?.[key];
     }
 
-    getLimit(key: string): number {
-        return this.getConcurrencyLimit(key);
-    }
-
     /**
      * Acquire slot with priority support
      */
@@ -432,16 +428,6 @@ export class ConcurrencyController {
      */
     getCircuitState(key: string): CircuitState {
         return this.getCircuit(key).state;
-    }
-
-    /**
-     * Manually reset circuit breaker
-     */
-    resetCircuit(key: string): void {
-        const circuit = this.getCircuit(key);
-        circuit.state = CircuitState.CLOSED;
-        circuit.failureCount = 0;
-        circuit.successCount = 0;
     }
 
     async shutdown(): Promise<void> {
