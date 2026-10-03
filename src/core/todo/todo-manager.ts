@@ -27,6 +27,65 @@ interface PendingTempFiles {
     versionTmpPath?: string;
 }
 
+/** Any checkbox updateItem can rewrite; editors commonly write `[X]` as well as `[x]`. */
+const CHECKBOX_PATTERN = /\[[ xX\/\-]\]/;
+
+const STATUS_MARKERS = new Map<string, string>([
+    [TODO_CONSTANTS.STATUS.PENDING, TODO_CONSTANTS.MARKERS.PENDING],
+    [TODO_CONSTANTS.STATUS.COMPLETED, TODO_CONSTANTS.MARKERS.COMPLETED],
+    [TODO_CONSTANTS.STATUS.PROGRESS, TODO_CONSTANTS.MARKERS.PROGRESS],
+    [TODO_CONSTANTS.STATUS.FAILED, TODO_CONSTANTS.MARKERS.FAILED],
+]);
+
+function markerForStatus(status: string): string {
+    const marker = STATUS_MARKERS.get(status);
+    if (marker === undefined) {
+        throw new Error(`Unknown TODO status "${status}". Expected one of: ${[...STATUS_MARKERS.keys()].join(", ")}`);
+    }
+    return marker;
+}
+
+/** Empty or blank text is contained in every line, so it never identifies a task. */
+function isUsableSearchText(text: string): boolean {
+    return text.trim().length > 0;
+}
+
+function replaceStatusMarker(content: string, searchText: string, marker: string): string {
+    let updated = false;
+    const lines = content.split("\n").map(line => {
+        if (!line.includes(searchText) || !CHECKBOX_PATTERN.test(line)) return line;
+        updated = true;
+        return line.replace(CHECKBOX_PATTERN, marker);
+    });
+    return updated ? lines.join("\n") : content;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+    return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function isValidVersionNumber(value: unknown): value is number {
+    return typeof value === "number" && Number.isSafeInteger(value) && value >= 0;
+}
+
+/**
+ * A version file that parses but lacks a usable version would otherwise turn
+ * the next version into NaN (serialized as null); treat it as the initial
+ * version, as for a missing or unparsable file.
+ */
+function parseVersionInfo(data: string, fallback: TodoVersion): TodoVersion {
+    const parsed: unknown = JSON.parse(data);
+    if (!isRecord(parsed) || !isValidVersionNumber(parsed.version)) {
+        log(`[TodoManager] Ignoring malformed version file; using version ${fallback.version}`);
+        return fallback;
+    }
+    return {
+        version: parsed.version,
+        timestamp: typeof parsed.timestamp === "number" ? parsed.timestamp : fallback.timestamp,
+        author: typeof parsed.author === "string" ? parsed.author : fallback.author,
+    };
+}
+
 export class TodoManager {
     private static _instance: TodoManager;
     private directory: string = "";
@@ -73,7 +132,7 @@ export class TodoManager {
             if (fs.existsSync(this.versionPath)) {
                 try {
                     const data = await fs.promises.readFile(this.versionPath, "utf-8");
-                    versionInfo = JSON.parse(data);
+                    versionInfo = parseVersionInfo(data, versionInfo);
                 } catch (e) {
                     log(`[TodoManager] Failed to parse version file: ${e}`);
                 }
@@ -197,30 +256,21 @@ export class TodoManager {
         temp.versionTmpPath = undefined;
     }
 
+    /**
+     * Throws for a status outside TODO_CONSTANTS.STATUS; returns false when no
+     * task matches, including for blank search text.
+     */
     public async updateItem(searchText: string, newStatus: string, author: string = "system"): Promise<boolean> {
+        const marker = markerForStatus(newStatus);
+        if (!isUsableSearchText(searchText)) return false;
         let retries = 5;
         while (retries-- > 0) {
             const data = await this.readWithVersion();
-            const statusMap: Record<string, string> = {
-                [TODO_CONSTANTS.STATUS.PENDING]: TODO_CONSTANTS.MARKERS.PENDING,
-                [TODO_CONSTANTS.STATUS.COMPLETED]: TODO_CONSTANTS.MARKERS.COMPLETED,
-                [TODO_CONSTANTS.STATUS.PROGRESS]: TODO_CONSTANTS.MARKERS.PROGRESS,
-                [TODO_CONSTANTS.STATUS.FAILED]: TODO_CONSTANTS.MARKERS.FAILED,
-            };
-            const marker = statusMap[newStatus] || TODO_CONSTANTS.MARKERS.PENDING;
-
-            const result = await this.update(data.version.version, (content) => {
-                const lines = content.split("\n");
-                let updated = false;
-                const newLines = lines.map(line => {
-                    if (line.includes(searchText) && /\[[ x\/\-]\]/.test(line)) {
-                        updated = true;
-                        return line.replace(/\[[ x\/\-]\]/, marker);
-                    }
-                    return line;
-                });
-                return updated ? newLines.join("\n") : content;
-            }, author);
+            const result = await this.update(
+                data.version.version,
+                content => replaceStatusMarker(content, searchText, marker),
+                author,
+            );
 
             if (result.success) return true;
             if (!result.conflict) return false;
@@ -231,6 +281,7 @@ export class TodoManager {
     }
 
     public async addSubTask(parentText: string, subTaskText: string, author: string = "system"): Promise<boolean> {
+        if (!isUsableSearchText(parentText)) return false;
         let retries = 5;
         while (retries-- > 0) {
             const data = await this.readWithVersion();

@@ -2,7 +2,7 @@
  * TodoManager MVCC Tests
  */
 
-import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
+import { it, expect, beforeEach, afterEach, vi } from "vitest";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import * as os from "node:os";
@@ -10,165 +10,202 @@ import { TodoManager } from "../../src/core/todo/todo-manager";
 
 vi.mock("../../src/core/agents/logger", () => ({ log: vi.fn() }));
 
-describe("TodoManager (MVCC)", () => {
-    let testDir: string;
+let testDir: string;
 
-    beforeEach(() => {
-        vi.clearAllMocks();
-        testDir = fs.mkdtempSync(path.join(os.tmpdir(), "todo-test-"));
-        // Create initial todo file
-        fs.mkdirSync(path.join(testDir, ".opencode"), { recursive: true });
-        fs.writeFileSync(path.join(testDir, ".opencode/todo.md"), "# Initial TODO\n- [ ] Task 1");
-    });
+beforeEach(() => {
+    vi.clearAllMocks();
+    testDir = fs.mkdtempSync(path.join(os.tmpdir(), "todo-test-"));
+    // Create initial todo file
+    fs.mkdirSync(path.join(testDir, ".opencode"), { recursive: true });
+    fs.writeFileSync(path.join(testDir, ".opencode/todo.md"), "# Initial TODO\n- [ ] Task 1");
+});
 
-    afterEach(() => {
-        fs.rmSync(testDir, { recursive: true, force: true });
-    });
+afterEach(() => {
+    fs.rmSync(testDir, { recursive: true, force: true });
+});
 
-    it("should read initial version as 0 if version file missing", async () => {
+it("should read initial version as 0 if version file missing", async () => {
+    const manager = TodoManager.getInstance(testDir);
+    const data = await manager.readWithVersion();
+    expect(data.version.version).toBe(0);
+    expect(data.content).toContain("Task 1");
+});
+
+it("should update version and content on successful update", async () => {
+    const manager = TodoManager.getInstance(testDir);
+    const result = await manager.update(0, (content) => content + "\n- [ ] Task 2", "agent-1");
+
+    expect(result.success).toBe(true);
+    expect(result.currentVersion).toBe(1);
+
+    const data = await manager.readWithVersion();
+    expect(data.version.version).toBe(1);
+    expect(data.content).toContain("Task 2");
+});
+
+it("creates only the TODO parent when initializing a fresh directory", async () => {
+    const freshDir = path.join(testDir, "fresh");
+    const manager = TodoManager.getInstance(freshDir);
+    expect(fs.existsSync(path.join(freshDir, ".opencode"))).toBe(true);
+    expect(fs.existsSync(path.join(freshDir, ".opencode", "archive"))).toBe(false);
+    expect(await manager.update(0, () => "- [ ] New task", "commander")).toEqual({ success: true, currentVersion: 1 });
+    expect((await manager.readWithVersion()).content).toBe("- [ ] New task");
+});
+
+it("should fail and report conflict if version mismatch", async () => {
+    const manager = TodoManager.getInstance(testDir);
+
+    // Concurrent read
+    const data1 = await manager.readWithVersion(); // v0
+    const data2 = await manager.readWithVersion(); // v0
+
+    // Agent 1 updates first
+    await manager.update(data1.version.version, (c) => c + "\nBy Agent 1", "agent-1");
+
+    // Agent 2 attempts update with old version
+    const result2 = await manager.update(data2.version.version, (c) => c + "\nBy Agent 2", "agent-2");
+
+    expect(result2.success).toBe(false);
+    expect(result2.conflict).toBe(true);
+    expect(result2.currentVersion).toBe(1);
+});
+
+it("should support concurrent updates with retry-like logic in application", async () => {
+    const manager = TodoManager.getInstance(testDir);
+
+    // Simulation of multiple agents
+    const updateTask = async (name: string) => {
+        for (let i = 0; i < 10; i++) { // Increased retries
+            const data = await manager.readWithVersion();
+            const result = await manager.update(data.version.version, (c) => c + `\n- [ ] ${name}`, name);
+            if (result.success) return true;
+            // Wait small random time to reduce collision (jitter)
+            await new Promise(r => setTimeout(r, Math.random() * 100));
+        }
+        return false;
+    };
+
+    const results = await Promise.all([
+        updateTask("AgentA"),
+        updateTask("AgentB"),
+        updateTask("AgentC")
+    ]);
+
+    expect(results.every(r => r === true)).toBe(true);
+
+    const final = await manager.readWithVersion();
+    expect(final.version.version).toBe(3);
+    expect(final.content).toContain("AgentA");
+    expect(final.content).toContain("AgentB");
+    expect(final.content).toContain("AgentC");
+});
+
+it("should update item status via updateItem helper", async () => {
+    const manager = TodoManager.getInstance(testDir);
+    const success = await manager.updateItem("Task 1", "completed", "reviewer");
+
+    expect(success).toBe(true);
+    const data = await manager.readWithVersion();
+    expect(data.content).toContain("- [x] Task 1");
+    expect(data.version.version).toBe(1);
+});
+
+it("should not bump version for no-op updates", async () => {
+    const manager = TodoManager.getInstance(testDir);
+
+    const result = await manager.update(0, content => content, "agent-1");
+
+    expect(result).toEqual({ success: false, currentVersion: 0 });
+    const data = await manager.readWithVersion();
+    expect(data.version.version).toBe(0);
+    expect(data.content).toContain("Task 1");
+});
+
+it("should return false when updateItem does not find a matching task", async () => {
+    const manager = TodoManager.getInstance(testDir);
+
+    const success = await manager.updateItem("Missing task", "completed", "reviewer");
+
+    expect(success).toBe(false);
+    const data = await manager.readWithVersion();
+    expect(data.version.version).toBe(0);
+    expect(data.content).toContain("- [ ] Task 1");
+});
+
+it("should return false when addSubTask does not find the parent task", async () => {
+    const manager = TodoManager.getInstance(testDir);
+
+    const success = await manager.addSubTask("Missing parent", "Child task", "planner");
+
+    expect(success).toBe(false);
+    const data = await manager.readWithVersion();
+    expect(data.version.version).toBe(0);
+    expect(data.content).not.toContain("Child task");
+});
+
+it("rejects an unknown status instead of silently marking the task pending", async () => {
+    const todoPath = path.join(testDir, ".opencode/todo.md");
+    fs.writeFileSync(todoPath, "- [x] Task 1");
+    const manager = TodoManager.getInstance(testDir);
+
+    await expect(manager.updateItem("Task 1", "done", "reviewer")).rejects.toThrow(/Unknown TODO status "done"/);
+    expect(fs.readFileSync(todoPath, "utf8")).toBe("- [x] Task 1");
+});
+
+it.each(["", "   "])("does not match every line for empty search text %j", async searchText => {
+    const manager = TodoManager.getInstance(testDir);
+
+    expect(await manager.updateItem(searchText, "completed", "reviewer")).toBe(false);
+    expect(await manager.addSubTask(searchText, "Child task", "planner")).toBe(false);
+    const data = await manager.readWithVersion();
+    expect(data.version.version).toBe(0);
+    expect(data.content).toBe("# Initial TODO\n- [ ] Task 1");
+});
+
+it("updates a task whose checkbox uses an uppercase X", async () => {
+    fs.writeFileSync(path.join(testDir, ".opencode/todo.md"), "- [X] Task 1");
+    const manager = TodoManager.getInstance(testDir);
+
+    expect(await manager.updateItem("Task 1", "pending", "reviewer")).toBe(true);
+    expect((await manager.readWithVersion()).content).toBe("- [ ] Task 1");
+});
+
+it.each(['{"version":"abc"}', '{"version":null}', '{"timestamp":1}', '{"version":-2}', "[]"])(
+    "treats malformed version file %s as version 0",
+    async versionJson => {
+        fs.writeFileSync(path.join(testDir, ".opencode/todo.version.json"), versionJson);
         const manager = TodoManager.getInstance(testDir);
-        const data = await manager.readWithVersion();
-        expect(data.version.version).toBe(0);
-        expect(data.content).toContain("Task 1");
-    });
 
-    it("should update version and content on successful update", async () => {
-        const manager = TodoManager.getInstance(testDir);
-        const result = await manager.update(0, (content) => content + "\n- [ ] Task 2", "agent-1");
+        expect((await manager.readWithVersion()).version.version).toBe(0);
+        expect(await manager.update(0, content => `${content}\n- [ ] Task 2`, "agent-1"))
+            .toEqual({ success: true, currentVersion: 1 });
+    },
+);
 
-        expect(result.success).toBe(true);
-        expect(result.currentVersion).toBe(1);
+it("should not bump version or leave temp files when replacing the todo file fails", async () => {
+    const todoPath = path.join(testDir, ".opencode/todo.md");
+    fs.rmSync(todoPath);
+    fs.mkdirSync(todoPath);
+    const manager = TodoManager.getInstance(testDir);
 
-        const data = await manager.readWithVersion();
-        expect(data.version.version).toBe(1);
-        expect(data.content).toContain("Task 2");
-    });
+    await expect(
+        manager.update(0, content => `${content}\n- [ ] Should fail`, "agent-1")
+    ).rejects.toThrow();
 
-    it("creates only the TODO parent when initializing a fresh directory", async () => {
-        const freshDir = path.join(testDir, "fresh");
-        const manager = TodoManager.getInstance(freshDir);
-        expect(fs.existsSync(path.join(freshDir, ".opencode"))).toBe(true);
-        expect(fs.existsSync(path.join(freshDir, ".opencode", "archive"))).toBe(false);
-        expect(await manager.update(0, () => "- [ ] New task", "commander")).toEqual({ success: true, currentVersion: 1 });
-        expect((await manager.readWithVersion()).content).toBe("- [ ] New task");
-    });
+    const data = await manager.readWithVersion();
+    expect(data.version.version).toBe(0);
+    const opencodeEntries = fs.readdirSync(path.join(testDir, ".opencode"));
+    expect(opencodeEntries.filter(entry => entry.includes(".tmp."))).toEqual([]);
+});
 
-    it("should fail and report conflict if version mismatch", async () => {
-        const manager = TodoManager.getInstance(testDir);
-
-        // Concurrent read
-        const data1 = await manager.readWithVersion(); // v0
-        const data2 = await manager.readWithVersion(); // v0
-
-        // Agent 1 updates first
-        await manager.update(data1.version.version, (c) => c + "\nBy Agent 1", "agent-1");
-
-        // Agent 2 attempts update with old version
-        const result2 = await manager.update(data2.version.version, (c) => c + "\nBy Agent 2", "agent-2");
-
-        expect(result2.success).toBe(false);
-        expect(result2.conflict).toBe(true);
-        expect(result2.currentVersion).toBe(1);
-    });
-
-    it("should support concurrent updates with retry-like logic in application", async () => {
-        const manager = TodoManager.getInstance(testDir);
-
-        // Simulation of multiple agents
-        const updateTask = async (name: string) => {
-            for (let i = 0; i < 10; i++) { // Increased retries
-                const data = await manager.readWithVersion();
-                const result = await manager.update(data.version.version, (c) => c + `\n- [ ] ${name}`, name);
-                if (result.success) return true;
-                // Wait small random time to reduce collision (jitter)
-                await new Promise(r => setTimeout(r, Math.random() * 100));
-            }
-            return false;
-        };
-
-        const results = await Promise.all([
-            updateTask("AgentA"),
-            updateTask("AgentB"),
-            updateTask("AgentC")
-        ]);
-
-        expect(results.every(r => r === true)).toBe(true);
-
-        const final = await manager.readWithVersion();
-        expect(final.version.version).toBe(3);
-        expect(final.content).toContain("AgentA");
-        expect(final.content).toContain("AgentB");
-        expect(final.content).toContain("AgentC");
-    });
-
-    it("should update item status via updateItem helper", async () => {
-        const manager = TodoManager.getInstance(testDir);
-        const success = await manager.updateItem("Task 1", "completed", "reviewer");
-
-        expect(success).toBe(true);
-        const data = await manager.readWithVersion();
-        expect(data.content).toContain("- [x] Task 1");
-        expect(data.version.version).toBe(1);
-    });
-
-    it("should not bump version for no-op updates", async () => {
-        const manager = TodoManager.getInstance(testDir);
-
-        const result = await manager.update(0, content => content, "agent-1");
-
-        expect(result).toEqual({ success: false, currentVersion: 0 });
-        const data = await manager.readWithVersion();
-        expect(data.version.version).toBe(0);
-        expect(data.content).toContain("Task 1");
-    });
-
-    it("should return false when updateItem does not find a matching task", async () => {
-        const manager = TodoManager.getInstance(testDir);
-
-        const success = await manager.updateItem("Missing task", "completed", "reviewer");
-
-        expect(success).toBe(false);
-        const data = await manager.readWithVersion();
-        expect(data.version.version).toBe(0);
-        expect(data.content).toContain("- [ ] Task 1");
-    });
-
-    it("should return false when addSubTask does not find the parent task", async () => {
-        const manager = TodoManager.getInstance(testDir);
-
-        const success = await manager.addSubTask("Missing parent", "Child task", "planner");
-
-        expect(success).toBe(false);
-        const data = await manager.readWithVersion();
-        expect(data.version.version).toBe(0);
-        expect(data.content).not.toContain("Child task");
-    });
-
-    it("should not bump version or leave temp files when replacing the todo file fails", async () => {
-        const todoPath = path.join(testDir, ".opencode/todo.md");
-        fs.rmSync(todoPath);
-        fs.mkdirSync(todoPath);
-        const manager = TodoManager.getInstance(testDir);
-
-        await expect(
-            manager.update(0, content => `${content}\n- [ ] Should fail`, "agent-1")
-        ).rejects.toThrow();
-
-        const data = await manager.readWithVersion();
-        expect(data.version.version).toBe(0);
-        const opencodeEntries = fs.readdirSync(path.join(testDir, ".opencode"));
-        expect(opencodeEntries.filter(entry => entry.includes(".tmp."))).toEqual([]);
-    });
-
-    it("preserves existing history while updating TODO content", async () => {
-        const archiveDir = path.join(testDir, ".opencode", "archive");
-        fs.mkdirSync(archiveDir);
-        const historyPath = path.join(archiveDir, "todo_history.jsonl");
-        fs.writeFileSync(historyPath, "historical user data\n");
-        const manager = TodoManager.getInstance(testDir);
-        const result = await manager.update(0, content => `${content}\n- [ ] Still saved`, "agent-1");
-        expect(result).toEqual({ success: true, currentVersion: 1 });
-        expect((await manager.readWithVersion()).content).toContain("Still saved");
-        expect(fs.readFileSync(historyPath, "utf8")).toBe("historical user data\n");
-    });
+it("preserves existing history while updating TODO content", async () => {
+    const archiveDir = path.join(testDir, ".opencode", "archive");
+    fs.mkdirSync(archiveDir);
+    const historyPath = path.join(archiveDir, "todo_history.jsonl");
+    fs.writeFileSync(historyPath, "historical user data\n");
+    const manager = TodoManager.getInstance(testDir);
+    const result = await manager.update(0, content => `${content}\n- [ ] Still saved`, "agent-1");
+    expect(result).toEqual({ success: true, currentVersion: 1 });
+    expect((await manager.readWithVersion()).content).toContain("Still saved");
+    expect(fs.readFileSync(historyPath, "utf8")).toBe("historical user data\n");
 });
