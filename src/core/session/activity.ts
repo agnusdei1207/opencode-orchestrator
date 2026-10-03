@@ -66,6 +66,8 @@ function getState(sessionID: string): ActivityState {
     if (!state) {
         state = { busy: false, lastStatusType: SESSION_STATUS.IDLE, lastUpdatedAt: Date.now() };
         activityStates.set(sessionID, state);
+        // Re-arms pruning after shutdown when the host reinitializes the plugin.
+        pruneTimer.start();
     }
     return state;
 }

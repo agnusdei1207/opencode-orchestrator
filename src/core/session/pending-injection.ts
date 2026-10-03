@@ -63,6 +63,8 @@ function entryFor(sessionID: string): PendingEntry {
     if (!entry) {
         entry = { snapshot: [], notices: [], updatedAt: Date.now() };
         pending.set(sessionID, entry);
+        // Re-arms pruning after shutdown when the host reinitializes the plugin.
+        pruneTimer.start();
     }
     entry.updatedAt = Date.now();
     return entry;

@@ -67,6 +67,9 @@ class InMemorySessionStateStore implements SessionStateStore {
             lastAccessedAt: Date.now(),
         };
         this.sessions.set(sessionID, trackedSession);
+        // Re-arms pruning after shutdown: the mission loop handler's store is
+        // module-level and outlives a plugin dispose/reinitialize cycle.
+        this.pruneTimer.start();
         return trackedSession;
     }
 

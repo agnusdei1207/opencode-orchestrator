@@ -101,6 +101,8 @@ function getState(sessionID: string): TrackerState {
             lastAccessedAt: Date.now(),
         };
         sessionStates.set(sessionID, state);
+        // Re-arms pruning after shutdown when the host reinitializes the plugin.
+        pruneTimer.start();
     } else {
         state.lastAccessedAt = Date.now();
     }

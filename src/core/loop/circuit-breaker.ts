@@ -79,6 +79,8 @@ function getState(sessionID: string): CircuitBreakerState {
             idleTurnHistory: [],
         };
         circuitStates.set(sessionID, state);
+        // Re-arms pruning after shutdown when the host reinitializes the plugin.
+        pruneTimer.start();
     } else {
         state.lastAccessedAt = Date.now();
     }

@@ -37,6 +37,8 @@ export function armCompactionGuard(sessionID: string, timestamp: number): number
     if (!state) {
         state = { compactionEpoch: 0, lastAccessedAt: Date.now() };
         compactionStates.set(sessionID, state);
+        // Re-arms pruning after shutdown when the host reinitializes the plugin.
+        pruneTimer.start();
     }
     
     state.compactionEpoch = timestamp;
