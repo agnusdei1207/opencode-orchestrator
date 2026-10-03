@@ -301,6 +301,19 @@ describe("createEventHandler", () => {
         expect(PendingInjection.hasPendingPrompts("untracked-session")).toBe(false);
     });
 
+    it("releases per-session state for untracked sessions on delete", async () => {
+        const forgetSession = vi.spyOn(ContextLimitResolver.getInstance(), "forgetSession");
+        const handler = createEventHandler(ctx);
+
+        await handler({ event: { type: "session.deleted", properties: { sessionID: "child-session" } } });
+
+        expect(SessionRecovery.cleanupSessionRecovery).toHaveBeenCalledWith("child-session");
+        expect(ContextMonitor.cleanupSession).toHaveBeenCalledWith("child-session");
+        expect(MissionLoopHandler.cleanupSession).toHaveBeenCalledWith("child-session");
+        expect(forgetSession).toHaveBeenCalledWith("child-session");
+        expect(Toast.presets.sessionCompleted).not.toHaveBeenCalled();
+    });
+
     it("treats idle without an assistant completion after the user turn as an abort", async () => {
         vi.useFakeTimers();
         const handler = createEventHandler(ctx);

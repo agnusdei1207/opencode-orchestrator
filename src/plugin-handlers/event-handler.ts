@@ -117,6 +117,13 @@ function handleSessionDeleted(ctx: EventHandlerContext, event: PluginEvent): voi
     const sessionID = readSessionID(event.properties);
     SessionActivity.clearSessionActivity(sessionID);
     PendingInjection.clearPrompts(sessionID);
+    // Context, recovery and loop state are recorded for every session, including
+    // delegated children this map never tracks, so release them unconditionally.
+    ProgressTracker.clearSession(sessionID);
+    SessionRecovery.cleanupSessionRecovery(sessionID);
+    MissionLoopHandler.cleanupSession(sessionID);
+    ContextMonitor.cleanupSession(sessionID);
+    ContextLimitResolver.getInstance().forgetSession(sessionID);
 
     const session = sessions.get(sessionID);
     if (!session) return;
@@ -125,11 +132,6 @@ function handleSessionDeleted(ctx: EventHandlerContext, event: PluginEvent): voi
 
     sessions.delete(sessionID);
     state.sessions.delete(sessionID);
-    ProgressTracker.clearSession(sessionID);
-    SessionRecovery.cleanupSessionRecovery(sessionID);
-    MissionLoopHandler.cleanupSession(sessionID);
-    ContextMonitor.cleanupSession(sessionID);
-    ContextLimitResolver.getInstance().forgetSession(sessionID);
 
     Toast.presets.sessionCompleted(sessionID, duration);
 }
