@@ -1,6 +1,6 @@
 //! Diff tool - compare files or strings
 
-use crate::tools::process::run_with_timeout;
+use crate::tools::process::{CapturedOutput, run_with_timeout};
 use crate::{Error, Result};
 use std::io;
 use std::path::Path;
@@ -65,37 +65,7 @@ impl DiffTool {
         let cmd = self.build_command(file1, file2);
         let output =
             run_with_timeout(cmd, self.config.timeout, None).map_err(explain_missing_diff)?;
-        let has_differences = match output.status.code() {
-            Some(DIFF_EXIT_SAME) => false,
-            Some(DIFF_EXIT_DIFFERENT) => true,
-            // Exit 2 (missing file, unreadable input, bad option) or a signal.
-            _ => {
-                return Err(Error::Tool(format!(
-                    "diff failed ({}): {}",
-                    output.status,
-                    String::from_utf8_lossy(&output.stderr).trim()
-                )));
-            }
-        };
-        let diff_output = String::from_utf8_lossy(&output.stdout).to_string();
-
-        // Count additions and deletions
-        let mut additions = 0;
-        let mut deletions = 0;
-        for line in diff_output.lines() {
-            if line.starts_with('+') && !line.starts_with("+++") {
-                additions += 1;
-            } else if line.starts_with('-') && !line.starts_with("---") {
-                deletions += 1;
-            }
-        }
-
-        Ok(DiffResult {
-            has_differences,
-            diff_output,
-            additions,
-            deletions,
-        })
+        parse_diff_output(output)
     }
 
     fn build_command(&self, file1: &Path, file2: &Path) -> Command {
@@ -135,6 +105,38 @@ impl Default for DiffTool {
     fn default() -> Self {
         Self::new(DiffConfig::default())
     }
+}
+
+fn parse_diff_output(output: CapturedOutput) -> Result<DiffResult> {
+    let has_differences = match output.status.code() {
+        Some(DIFF_EXIT_SAME) => false,
+        Some(DIFF_EXIT_DIFFERENT) => true,
+        // Exit 2 (missing file, unreadable input, bad option) or a signal.
+        _ => {
+            return Err(Error::Tool(format!(
+                "diff failed ({}): {}",
+                output.status,
+                String::from_utf8_lossy(&output.stderr).trim()
+            )));
+        }
+    };
+    let diff_output = String::from_utf8_lossy(&output.stdout).to_string();
+    let mut additions = 0;
+    let mut deletions = 0;
+    for line in diff_output.lines() {
+        if line.starts_with('+') && !line.starts_with("+++") {
+            additions += 1;
+        } else if line.starts_with('-') && !line.starts_with("---") {
+            deletions += 1;
+        }
+    }
+
+    Ok(DiffResult {
+        has_differences,
+        diff_output,
+        additions,
+        deletions,
+    })
 }
 
 /// Turn the OS "program not found" error into a message that names the
