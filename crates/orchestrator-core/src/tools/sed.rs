@@ -464,6 +464,33 @@ mod tests {
     }
 
     #[test]
+    fn include_patterns_preview_nested_files_without_admitting_excluded_trees() {
+        let dir = tempdir().unwrap();
+        for name in ["src/nested/lib.rs", "src/readme.txt", "target/cache.rs"] {
+            let file = dir.path().join(name);
+            fs::create_dir_all(file.parent().unwrap()).unwrap();
+            fs::write(file, "foo\n").unwrap();
+        }
+        let tool = SedTool::new(SedConfig {
+            include_patterns: vec!["**/*.rs".to_string()],
+            dry_run: true,
+            ..SedConfig::default()
+        });
+
+        let report = tool.replace_in_directory("foo", "bar", dir.path()).unwrap();
+
+        assert_eq!(report.results.len(), 1);
+        assert!(Path::new(&report.results[0].file).ends_with("src/nested/lib.rs"));
+        assert_eq!(report.results[0].modified_lines, ["bar"]);
+        assert_eq!(
+            fs::read_to_string(dir.path().join("src/nested/lib.rs")).unwrap(),
+            "foo\n"
+        );
+        assert!(report.errors.is_empty());
+        assert!(!report.timed_out);
+    }
+
+    #[test]
     fn directory_mode_rejects_an_invalid_pattern() {
         let dir = tempdir().unwrap();
         fs::write(dir.path().join("a.txt"), "foo\n").unwrap();

@@ -193,6 +193,31 @@ mod tests {
     }
 
     #[test]
+    fn include_patterns_find_nested_files_without_admitting_excluded_trees() {
+        let dir = tempdir().unwrap();
+        for name in [
+            "src/nested/lib.rs",
+            "src/readme.txt",
+            "target/cache.rs",
+            ".cache/lib.rs",
+        ] {
+            let file = dir.path().join(name);
+            fs::create_dir_all(file.parent().unwrap()).unwrap();
+            fs::write(file, "needle\n").unwrap();
+        }
+        let tool = GrepTool::new(GrepConfig {
+            include_patterns: vec!["**/*.rs".to_string()],
+            ..GrepConfig::default()
+        });
+
+        let result = tool.search("needle", dir.path()).unwrap();
+
+        assert_eq!(result.matches.len(), 1);
+        assert!(Path::new(&result.matches[0].file).ends_with("src/nested/lib.rs"));
+        assert!(!result.timed_out);
+    }
+
+    #[test]
     fn test_grep_timeout() {
         let dir = tempdir().unwrap();
         for index in 0..20 {

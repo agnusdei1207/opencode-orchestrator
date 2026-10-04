@@ -13,7 +13,7 @@ pub(crate) struct PathFilter {
     root: PathBuf,
     include_hidden: bool,
     exclude: Vec<Pattern>,
-    /// `None` admits everything; `Some` admits only matching entries.
+    /// `None` admits every file; `Some` admits only matching files.
     include: Option<Vec<Pattern>>,
 }
 
@@ -34,7 +34,7 @@ impl PathFilter {
         self
     }
 
-    /// When `patterns` is non-empty, admit only entries matching one of them.
+    /// Inclusion applies to files so their ancestor directories remain walkable.
     pub(crate) fn include_only(mut self, patterns: &[String]) -> Self {
         self.include = (!patterns.is_empty()).then(|| compile(patterns));
         self
@@ -54,9 +54,11 @@ impl PathFilter {
         if self.is_excluded(relative, is_dir) {
             return false;
         }
-        self.include
-            .as_ref()
-            .is_none_or(|patterns| patterns.iter().any(|p| p.matches_path(relative)))
+        is_dir
+            || self
+                .include
+                .as_ref()
+                .is_none_or(|patterns| patterns.iter().any(|p| p.matches_path(relative)))
     }
 
     /// `dir/**` also excludes the directory `dir` itself, so the whole tree is
