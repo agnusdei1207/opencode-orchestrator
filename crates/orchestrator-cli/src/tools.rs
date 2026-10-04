@@ -380,7 +380,8 @@ fn diff_files(arguments: Value) -> Result<String> {
         "has_differences": result.has_differences,
         "additions": result.additions,
         "deletions": result.deletions,
-        "diff": result.diff_output
+        "diff": result.diff_output,
+        "truncated": result.truncated
     }))?)
 }
 
@@ -712,6 +713,36 @@ fn ast_replace(arguments: Value) -> Result<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[tokio::test]
+    #[cfg(unix)]
+    async fn diff_reports_complete_output_explicitly() {
+        let report = run_json(
+            tool::DIFF,
+            json!({"content1": "old\n", "content2": "new\n"}),
+        )
+        .await;
+
+        assert_eq!(report["truncated"], false);
+        assert_eq!(report["additions"], 1);
+        assert_eq!(report["deletions"], 1);
+    }
+
+    #[tokio::test]
+    #[cfg(unix)]
+    async fn diff_reports_output_cut_at_the_capture_limit() {
+        use orchestrator_core::tools::process::MAX_CAPTURED_BYTES;
+        let dir = tempfile::tempdir().unwrap();
+        let before = dir.path().join("before.txt");
+        let after = dir.path().join("after.txt");
+        std::fs::write(&before, vec![b'x'; MAX_CAPTURED_BYTES as usize + 1]).unwrap();
+        std::fs::write(&after, "").unwrap();
+
+        let report = run_json(tool::DIFF, json!({"file1": before, "file2": after})).await;
+
+        assert_eq!(report["has_differences"], true);
+        assert_eq!(report["truncated"], true);
+    }
 
     #[tokio::test]
     async fn http_rejects_unknown_methods_instead_of_sending_get() {

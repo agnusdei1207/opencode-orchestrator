@@ -48,6 +48,8 @@ pub struct DiffResult {
     pub diff_output: String,
     pub additions: usize,
     pub deletions: usize,
+    /// Output and counts cover only the captured prefix when true.
+    pub truncated: bool,
 }
 
 /// Diff tool for comparing files
@@ -120,13 +122,18 @@ fn parse_diff_output(output: CapturedOutput) -> Result<DiffResult> {
             )));
         }
     };
-    let diff_output = String::from_utf8_lossy(&output.stdout).to_string();
+    let captured = output.stdout_text();
+    let diff_output = captured.text;
     let mut additions = 0;
     let mut deletions = 0;
-    for line in diff_output.lines() {
-        if line.starts_with('+') && !line.starts_with("+++") {
+    // File headers precede the first hunk; hunk content may also begin with ++ or --.
+    for line in diff_output
+        .lines()
+        .skip_while(|line| !line.starts_with("@@ "))
+    {
+        if line.starts_with('+') {
             additions += 1;
-        } else if line.starts_with('-') && !line.starts_with("---") {
+        } else if line.starts_with('-') {
             deletions += 1;
         }
     }
@@ -136,6 +143,7 @@ fn parse_diff_output(output: CapturedOutput) -> Result<DiffResult> {
         diff_output,
         additions,
         deletions,
+        truncated: captured.truncated,
     })
 }
 
@@ -170,6 +178,18 @@ mod tests {
             assert!(res.additions > 0);
             assert!(res.deletions > 0);
         }
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn content_starting_with_header_prefixes_counts_as_changed_lines() {
+        let result = DiffTool::default()
+            .diff_strings("-- removed\n", "++ added\n")
+            .unwrap();
+
+        assert!(result.has_differences);
+        assert_eq!(result.additions, 1);
+        assert_eq!(result.deletions, 1);
     }
 
     #[cfg(unix)]
