@@ -24,18 +24,20 @@ export class TaskResumer {
     ) { }
 
     async resume(input: ResumeInput): Promise<ParallelTask> {
-        // Find existing task by session ID
         const existingTask = this.findBySession(input.sessionId);
         if (!existingTask) {
             throw new Error(`Task not found for session: ${input.sessionId}`);
         }
 
+        const startedAt = existingTask.startedAt;
         const routedPrompt = await buildRoutedAgentPrompt(existingTask.agent, input.prompt);
         if (await isSessionBusy(this.client, existingTask.sessionID) || existingTask.status === TASK_STATUS.RUNNING || existingTask.status === TASK_STATUS.PENDING) {
             throw new Error(`Cannot resume session ${existingTask.sessionID}: session is still running`);
         }
+        if (this.findBySession(input.sessionId) !== existingTask || existingTask.startedAt !== startedAt) {
+            throw new Error(`Cannot resume session ${input.sessionId}: task changed while checking activity`);
+        }
 
-        // Reset task state for new execution
         existingTask.status = TASK_STATUS.PENDING;
         existingTask.completedAt = undefined;
         existingTask.error = undefined;
@@ -49,7 +51,6 @@ export class TaskResumer {
         existingTask.startedAt = new Date();
         existingTask.stablePolls = 0;
 
-        // Track for pending notifications
         this.store.trackPending(input.parentSessionID, existingTask.id);
         log(`Resuming task ${existingTask.id} in session ${existingTask.sessionID}`);
         this.startTask(existingTask, routedPrompt);

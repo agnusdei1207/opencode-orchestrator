@@ -150,6 +150,30 @@ describe("TaskResumer", () => {
         expect(task.status).toBe(TASK_STATUS.COMPLETED);
         expect(startPolling).not.toHaveBeenCalled();
     });
+
+    it.each(["removed", "replaced", "restarted"])("rejects a task %s during the status lookup", async (change) => {
+        const task = createTask();
+        store.set(task.id, task);
+        mockClient.session.status.mockImplementationOnce(async () => {
+            if (change === "removed") store.delete(task.id);
+            if (change === "replaced") store.set(task.id, createTask());
+            if (change === "restarted") task.startedAt = new Date(task.startedAt.getTime() + 1);
+            return { data: {} };
+        });
+        const resumer = new TaskResumer(mockClient as unknown as TaskResumerClient, store,
+            id => store.getBySession(id), startPolling);
+
+        await expect(resumer.resume({
+            sessionId: task.sessionID,
+            prompt: "stale continuation",
+            parentSessionID: "parent-2",
+        })).rejects.toThrow("task changed");
+
+        expect(startPolling).not.toHaveBeenCalled();
+        expect(store.getPendingCount("parent-2")).toBe(0);
+        expect(task.status).toBe(TASK_STATUS.COMPLETED);
+        expect(task.prompt).toBe("Initial prompt");
+    });
 });
 
 function createTask(overrides: Partial<ParallelTask> = {}): ParallelTask {
