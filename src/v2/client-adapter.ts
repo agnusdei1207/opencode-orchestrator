@@ -28,6 +28,7 @@ export function createV2ClientBridge(context: Context): V2ClientBridge {
 function createSessionApi(context: Context, statuses: Map<string, string>) {
     return {
         create: async (request: LegacyRequest) => wrap(await context.session.create({
+            parentID: readString(request.body?.parentID),
             title: readString(request.body?.title),
         })),
         prompt: async (request: LegacyRequest) => prompt(context, request),

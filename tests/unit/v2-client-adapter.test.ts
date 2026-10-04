@@ -4,6 +4,7 @@ import { createV2ClientBridge } from "../../src/v2/client-adapter.js";
 
 function createHost(messages: unknown[] = []) {
     const session = {
+        create: vi.fn().mockResolvedValue({ id: "child-1" }),
         context: vi.fn().mockResolvedValue(messages),
         prompt: vi.fn().mockResolvedValue({}),
         synthetic: vi.fn().mockResolvedValue({}),
@@ -14,6 +15,27 @@ function createHost(messages: unknown[] = []) {
 }
 
 describe("OpenCode 2 client bridge", () => {
+    it("preserves the parent when creating a delegated session", async () => {
+        const { context, session } = createHost();
+
+        const result = await createV2ClientBridge(context).client.session.create({
+            body: { parentID: "parent-1", title: "Delegated child" },
+        });
+
+        expect(session.create).toHaveBeenCalledExactlyOnceWith({
+            parentID: "parent-1", title: "Delegated child",
+        });
+        expect(result.data?.id).toBe("child-1");
+    });
+
+    it("can still create a root session without a parent", async () => {
+        const { context, session } = createHost();
+
+        await createV2ClientBridge(context).client.session.create({ body: { title: "Root" } });
+
+        expect(session.create).toHaveBeenCalledExactlyOnceWith({ parentID: undefined, title: "Root" });
+    });
+
     it("preserves assistant finish when listing task messages", async () => {
         const { context } = createHost([{
             id: "message-1",
