@@ -9,7 +9,7 @@ use regex::Regex;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
-use walkdir::WalkDir;
+use walkdir::{DirEntry, WalkDir};
 
 /// Configuration for mgrep operations
 #[derive(Debug, Clone)]
@@ -54,7 +54,7 @@ pub struct MgrepResult {
     pub results: HashMap<String, Vec<MgrepMatch>>,
     /// Patterns that are not valid regexes and were not searched
     pub invalid_patterns: Vec<InvalidPattern>,
-    /// The shared deadline stopped at least one pattern early
+    /// The shared deadline stopped traversal or at least one pattern early
     pub timed_out: bool,
 }
 
@@ -85,7 +85,7 @@ impl MgrepTool {
     pub fn search(&self, patterns: &[String], directory: &Path) -> Result<MgrepResult> {
         let start = Instant::now();
         let (regexes, invalid_patterns) = compile_patterns(patterns);
-        let files = self.collect_files(directory);
+        let (files, collection_timed_out) = self.collect_files(directory, start);
 
         // Search in parallel
         let searches: Vec<(String, PatternSearch)> = regexes
@@ -96,7 +96,7 @@ impl MgrepTool {
             })
             .collect();
 
-        let timed_out = searches.iter().any(|(_, search)| search.timed_out);
+        let timed_out = collection_timed_out || searches.iter().any(|(_, search)| search.timed_out);
         let results = searches
             .into_iter()
             .map(|(pattern, search)| (pattern, search.matches))
@@ -109,22 +109,36 @@ impl MgrepTool {
     }
 
     /// Every included regular file whose size is known and within the limit.
-    fn collect_files(&self, directory: &Path) -> Vec<PathBuf> {
+    fn collect_files(&self, directory: &Path, start: Instant) -> (Vec<PathBuf>, bool) {
         let filter = PathFilter::new(directory, &self.config.exclude_patterns)
             .include_hidden(self.config.include_hidden);
-        WalkDir::new(directory)
-            .follow_links(false)
-            .into_iter()
-            .filter_entry(|e| filter.allows(e.path(), e.file_type().is_dir()))
-            .filter_map(|e| e.ok())
-            .filter(|e| e.file_type().is_file())
-            .filter(|e| {
-                e.metadata()
-                    .map(|m| m.len() <= self.config.max_file_size)
-                    .unwrap_or(false)
-            })
-            .map(|e| e.path().to_path_buf())
-            .collect()
+        let mut walker = WalkDir::new(directory).follow_links(false).into_iter();
+        let mut files = Vec::new();
+        loop {
+            if start.elapsed() >= self.config.timeout {
+                return (files, true);
+            }
+            let Some(entry) = walker.next() else {
+                return (files, false);
+            };
+            let Ok(entry) = entry else { continue };
+            if !filter.allows(entry.path(), entry.file_type().is_dir()) {
+                if entry.file_type().is_dir() {
+                    walker.skip_current_dir();
+                }
+                continue;
+            }
+            if self.is_searchable(&entry) {
+                files.push(entry.path().to_path_buf());
+            }
+        }
+    }
+
+    fn is_searchable(&self, entry: &DirEntry) -> bool {
+        entry.file_type().is_file()
+            && entry
+                .metadata()
+                .is_ok_and(|m| m.len() <= self.config.max_file_size)
     }
 
     /// Matching lines of one pattern, bounded by the shared deadline and the
@@ -222,6 +236,35 @@ mod tests {
         assert!(result.results.contains_key("let"));
         assert_eq!(result.results["const"].len(), 2);
         assert_eq!(result.results["let"].len(), 1);
+    }
+
+    #[test]
+    fn an_expired_deadline_stops_file_collection() {
+        let dir = tempdir().unwrap();
+        fs::write(dir.path().join("match.txt"), "needle\n").unwrap();
+        let tool = MgrepTool::new(MgrepConfig {
+            timeout: Duration::ZERO,
+            ..MgrepConfig::default()
+        });
+
+        let (files, timed_out) = tool.collect_files(dir.path(), Instant::now());
+        assert!(files.is_empty());
+        assert!(timed_out);
+    }
+
+    #[test]
+    fn an_expired_deadline_is_reported_before_searching_any_files() {
+        let dir = tempdir().unwrap();
+        fs::create_dir_all(dir.path().join("nested/empty")).unwrap();
+        let tool = MgrepTool::new(MgrepConfig {
+            timeout: Duration::ZERO,
+            ..MgrepConfig::default()
+        });
+
+        let result = tool.search(&["needle".to_string()], dir.path()).unwrap();
+
+        assert!(result.timed_out);
+        assert!(result.results["needle"].is_empty());
     }
 
     #[test]
