@@ -124,19 +124,7 @@ fn parse_diff_output(output: CapturedOutput) -> Result<DiffResult> {
     };
     let captured = output.stdout_text();
     let diff_output = captured.text;
-    let mut additions = 0;
-    let mut deletions = 0;
-    // File headers precede the first hunk; hunk content may also begin with ++ or --.
-    for line in diff_output
-        .lines()
-        .skip_while(|line| !line.starts_with("@@ "))
-    {
-        if line.starts_with('+') {
-            additions += 1;
-        } else if line.starts_with('-') {
-            deletions += 1;
-        }
-    }
+    let (additions, deletions) = count_hunk_lines(&diff_output);
 
     Ok(DiffResult {
         has_differences,
@@ -145,6 +133,23 @@ fn parse_diff_output(output: CapturedOutput) -> Result<DiffResult> {
         deletions,
         truncated: captured.truncated,
     })
+}
+
+fn count_hunk_lines(diff_output: &str) -> (usize, usize) {
+    let mut additions = 0;
+    let mut deletions = 0;
+    let mut in_hunk = false;
+    // Directory diffs contain multiple file sections; only hunk lines are changes.
+    for line in diff_output.lines() {
+        match line.as_bytes().first() {
+            Some(b'@') => in_hunk = line.starts_with("@@ "),
+            Some(b'+') if in_hunk => additions += 1,
+            Some(b'-') if in_hunk => deletions += 1,
+            Some(b' ') | Some(b'\\') => {}
+            _ => in_hunk = false,
+        }
+    }
+    (additions, deletions)
 }
 
 /// Turn the OS "program not found" error into a message that names the
@@ -190,6 +195,26 @@ mod tests {
         assert!(result.has_differences);
         assert_eq!(result.additions, 1);
         assert_eq!(result.deletions, 1);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn directory_diffs_do_not_count_later_file_headers() {
+        let dir = tempfile::tempdir().unwrap();
+        let before = dir.path().join("before");
+        let after = dir.path().join("after");
+        std::fs::create_dir_all(&before).unwrap();
+        std::fs::create_dir_all(&after).unwrap();
+        for name in ["a.txt", "b.txt"] {
+            std::fs::write(before.join(name), "-- removed\n").unwrap();
+            std::fs::write(after.join(name), "++ added\n").unwrap();
+        }
+
+        let result = DiffTool::default().diff_files(&before, &after).unwrap();
+
+        assert!(result.has_differences);
+        assert_eq!(result.additions, 2);
+        assert_eq!(result.deletions, 2);
     }
 
     #[cfg(unix)]
