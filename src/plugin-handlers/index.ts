@@ -8,3 +8,4 @@ export * from "./tool-execute-pre-handler.js"; // Added
 export * from "./session-compacting-handler.js";
 export * from "./system-transform-handler.js";
 export * from "./text-complete-handler.js";
+export * from "./messages-guard-handler.js";

@@ -43,6 +43,8 @@ export const PLUGIN_HOOKS = {
     EXPERIMENTAL_CHAT_SYSTEM_TRANSFORM: "experimental.chat.system.transform",
     /** Normalizes finalized assistant text */
     EXPERIMENTAL_TEXT_COMPLETE: "experimental.text.complete",
+    /** Truncates oversized message parts before the request is sent */
+    EXPERIMENTAL_CHAT_MESSAGES_TRANSFORM: "experimental.chat.messages.transform",
 } as const;
 
 /**
