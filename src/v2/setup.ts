@@ -15,6 +15,7 @@ import { registerV2Agents } from "./agent-adapter.js";
 import { ContextLimitResolver } from "../core/context/context-limit-resolver.js";
 import { parseAgentTemperatures } from "../core/config/options-schema.js";
 import { isRecord } from "../shared/core/guards.js";
+import { truncateOversizedMessageParts } from "../shared/message/message-guard.js";
 
 type Context = Plugin.Context;
 type Registration = Awaited<ReturnType<Context["tool"]["transform"]>>;
@@ -75,6 +76,7 @@ async function registerHooks(context: Context, handlerContext: PluginRuntime["ha
         () => context.session.hook("prompt", input => runPromptHook(chat, input, sessions)),
         () => context.session.hook("context", async input => {
             await runSystemHook(system, input, temperatures);
+            runMessageGuard(input);
             rememberContextAgent(sessions, input as V2ContextRequest);
         }),
         () => context.session.hook("compaction", input => runCompactionHook(compact, input)),
@@ -133,6 +135,12 @@ async function runSystemHook(system: ReturnType<typeof createSystemTransformHand
         output as Parameters<typeof system>[1],
     );
     request.system.unshift(...output.system.map(text => ({ type: "text" as const, text })));
+}
+
+/** Keep a single oversized tool result from blowing the request past the context window. */
+function runMessageGuard(input: unknown): void {
+    const request = input as { messages?: unknown };
+    truncateOversizedMessageParts(request.messages);
 }
 
 type V2ContextRequest = {

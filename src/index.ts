@@ -26,6 +26,7 @@ import {
     createSessionCompactingHandler,
     createSystemTransformHandler,
     createTextCompleteHandler,
+    createMessagesGuardHandler,
 } from "./plugin-handlers/index.js";
 
 // ============================================================================
@@ -48,6 +49,7 @@ const OrchestratorServerPlugin: Plugin = async (input, options) => {
         [PLUGIN_HOOKS.EXPERIMENTAL_SESSION_COMPACTING]: createSessionCompactingHandler(handlerContext),
         [PLUGIN_HOOKS.EXPERIMENTAL_CHAT_SYSTEM_TRANSFORM]: createSystemTransformHandler(handlerContext),
         [PLUGIN_HOOKS.EXPERIMENTAL_TEXT_COMPLETE]: createTextCompleteHandler(),
+        [PLUGIN_HOOKS.EXPERIMENTAL_CHAT_MESSAGES_TRANSFORM]: createMessagesGuardHandler(),
         dispose: () => shutdownManager.shutdown(),
     };
 };
