@@ -71,7 +71,22 @@ describe("concurrency config helpers", () => {
                 markdownMemory: true,
                 maxEvidenceEvents: 8,
             },
+            strictReview: {
+                enabled: false,
+                maxReviewRejections: 3,
+            },
         });
+    });
+
+    it("parses the opt-in strict review options and falls back for invalid values", () => {
+        expect(parseOrchestratorPluginOptions({
+            strictReview: true,
+            maxReviewRejections: 5,
+        }).strictReview).toEqual({ enabled: true, maxReviewRejections: 5 });
+        expect(parseOrchestratorPluginOptions({
+            strictReview: "yes",
+            maxReviewRejections: 0,
+        }).strictReview).toEqual({ enabled: false, maxReviewRejections: 3 });
     });
 
     it("falls back for invalid mission-loop option values", () => {

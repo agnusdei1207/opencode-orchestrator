@@ -4,7 +4,8 @@ import { extractConcurrencyConfig } from "../agents/concurrency-config.js";
 import {
     type MissionRuntimeOptions,
 } from "../loop/mission-runtime-options.js";
-import { parseAgentTemperatures, parseContextMaxTokens, parseCustomRendering, parseMissionLoopOptions } from "./options-schema.js";
+import { parseAgentTemperatures, parseContextMaxTokens, parseCustomRendering, parseMaxReviewRejections, parseMissionLoopOptions, parseStrictReview } from "./options-schema.js";
+import type { StrictReviewOptions } from "../review/strict-review.js";
 import { isRecord } from "../../shared/core/guards.js";
 
 type MissionLoopPluginOptions = MissionRuntimeOptions;
@@ -16,6 +17,7 @@ interface OrchestratorPluginOptions {
     /** Explicit context window override; undefined resolves from model metadata. */
     contextMaxTokens?: number;
     agentTemperatures: Record<string, number>;
+    strictReview: StrictReviewOptions;
 }
 
 export function parseOrchestratorPluginOptions(options?: PluginOptions): OrchestratorPluginOptions {
@@ -26,6 +28,10 @@ export function parseOrchestratorPluginOptions(options?: PluginOptions): Orchest
         missionLoop: readMissionLoopOptions(source.missionLoop),
         contextMaxTokens: parseContextMaxTokens(source.contextMaxTokens),
         agentTemperatures: parseAgentTemperatures(source.agentTemperatures),
+        strictReview: {
+            enabled: parseStrictReview(source.strictReview),
+            maxReviewRejections: parseMaxReviewRejections(source.maxReviewRejections),
+        },
     };
 }
 

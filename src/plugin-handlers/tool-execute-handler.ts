@@ -11,6 +11,7 @@ import type { Hooks } from "@opencode-ai/plugin";
 import { log } from "../core/agents/logger.js";
 import { recordToolCall } from "../core/loop/circuit-breaker.js";
 import { recordToolEvidence } from "../core/loop/evidence.js";
+import { recordToolChange } from "../core/review/strict-review.js";
 import { formatElapsedTime, formatTimestamp } from "../utils/formatting/index.js";
 import { HookRegistry } from "../hooks/registry.js";
 import type { PluginSessionState, ToolExecuteHandlerContext } from "./context.js";
@@ -30,6 +31,10 @@ export function createToolExecuteAfterHandler(ctx: ToolExecuteHandlerContext, cu
         toolInput: ToolExecuteAfterInput,
         toolOutput: ToolExecuteAfterOutput
     ) => {
+        // Strict review tracks every session (delegated children included), not
+        // only active missions, so it runs before the mission-session check.
+        recordToolChange(toolInput.sessionID, toolInput.tool, readToolArgs(toolInput.args));
+
         const session = sessions.get(toolInput.sessionID);
         if (!session?.active) return;
 

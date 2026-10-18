@@ -49,6 +49,20 @@ function ensure(sessionID: string): SessionEvidence {
     return evidence;
 }
 
+/** True when the tool is one of the file-mutating tools this module tracks. */
+export function isWriteTool(tool: string): boolean {
+    return WRITE_TOOLS.has(tool.toLowerCase());
+}
+
+/**
+ * Files a single write-tool call changed, as far as its arguments say.
+ * Returns an empty list for non-write tools and for dry runs.
+ */
+export function collectChangedFiles(tool: string, args: Record<string, unknown> | undefined): string[] {
+    if (!isWriteTool(tool)) return [];
+    return collectFileCandidates(args);
+}
+
 function collectFileCandidates(args: Record<string, unknown> | undefined): string[] {
     if (!args || args.dry_run === true || args.dryRun === true) return [];
 

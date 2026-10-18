@@ -14,6 +14,7 @@ import { ParallelAgentManager } from "../core/agents/manager.js";
 import { ensureSessionInitialized } from "../core/orchestrator/session-manager.js";
 import { readMissionScratchpadSnapshot } from "../core/knowledge/mission-memory.js";
 import { log } from "../core/agents/logger.js";
+import { strictReviewSystemAddition } from "../core/review/strict-review.js";
 
 type SystemTransformHook = NonNullable<Hooks["experimental.chat.system.transform"]>;
 export type SystemTransformInput = Parameters<SystemTransformHook>[0] & { agent?: string };
@@ -30,6 +31,11 @@ export function createSystemTransformHandler(ctx: EventHandlerContext) {
 
         // sessionID may be undefined in some opencode versions — skip safely
         if (!sessionID) return;
+
+        // Strict review instructions apply to every Commander/Reviewer session,
+        // mission or not.
+        const strictReviewPrompt = strictReviewSystemAddition(sessionID, input.agent);
+        if (strictReviewPrompt) output.system.push(strictReviewPrompt);
 
         // Only inject for orchestrated sessions
         const loopState = readLoopState(directory);

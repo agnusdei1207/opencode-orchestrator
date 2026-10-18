@@ -114,6 +114,16 @@
         "maxEvidenceEvents"
       ],
       "additionalProperties": false
+    },
+    "strictReview": {
+      "default": false,
+      "type": "boolean"
+    },
+    "maxReviewRejections": {
+      "default": 3,
+      "type": "integer",
+      "exclusiveMinimum": 0,
+      "maximum": 9007199254740991
     }
   },
   "additionalProperties": {}
