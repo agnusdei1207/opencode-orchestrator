@@ -277,6 +277,28 @@ describe("strict review gate", () => {
         expect(prompts.at(-1)).toContain("Automatic review stopped");
     });
 
+    it("hands a rejection Commander did not act on to the user instead of repeating it", async () => {
+        enable();
+        StrictReview.recordToolChange(ROOT, "edit", { filePath: "src/a.ts" }, 1_000);
+        addReview("VERDICT: REJECTED\n- src/a.ts:1 — required line missing", 2_000);
+        const { client, prompts } = createClient();
+
+        await StrictReview.handleStrictReviewIdle(client, ROOT);
+        expect(prompts.at(-1)).toContain("consecutive rejection 1");
+        expect(prompts.at(-1)).toContain("do not override the user");
+        expect(prompts.at(-1)).toContain("not from the user");
+
+        // Commander asked the user instead of editing or requesting a new review.
+        expect(await StrictReview.handleStrictReviewIdle(client, ROOT)).toBe("handled");
+        expect(prompts).toHaveLength(2);
+        expect(prompts.at(-1)).toContain("Automatic review stopped");
+        expect(prompts.at(-1)).toContain("did not act on the Reviewer's rejection");
+        expect(prompts.at(-1)).toContain("required line missing");
+
+        expect(await StrictReview.handleStrictReviewIdle(client, ROOT)).toBe("handled");
+        expect(prompts).toHaveLength(2);
+    });
+
     it("stays silent after a user abort until the user speaks again", async () => {
         enable();
         StrictReview.recordToolChange(ROOT, "edit", { filePath: "src/a.ts" });

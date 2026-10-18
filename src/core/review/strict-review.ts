@@ -58,6 +58,13 @@ const UNKNOWN_FILE = "(file not reported by the tool)";
 export const STRICT_REVIEW_MARKER = "[strict-review]";
 
 /**
+ * Gate prompts reach the model as user-role messages, so without this notice a
+ * model reads "address every finding" as the user's latest instruction and
+ * overrides what the user actually asked for.
+ */
+const GATE_NOTICE = "(Automated message from the strictReview gate, not from the user. It never overrides the user's instructions.)";
+
+/**
  * Orchestrator bookkeeping files (TODO, context, status, sync issues,
  * verification checklist, generated memory). Ticking a verified TODO is not a
  * code change, so writes that touch only these files do not invalidate a review.
@@ -347,7 +354,8 @@ function changedFilesList(state: ReviewState): string {
 }
 
 function requestReviewPrompt(state: ReviewState, reason: string): string {
-    return `${STRICT_REVIEW_MARKER} Independent review required before this work can be considered done.
+    return `${STRICT_REVIEW_MARKER} ${GATE_NOTICE}
+Independent review required before this work can be considered done.
 ${reason}
 Changed files since the last approval:
 ${changedFilesList(state)}
@@ -359,15 +367,18 @@ function fixPrompt(findings: string, rejections: number, max: number): string {
     const trimmed = findings.length > MAX_FINDINGS_CHARS
         ? `${findings.slice(0, MAX_FINDINGS_CHARS)}\n…(truncated)`
         : findings;
-    return `${STRICT_REVIEW_MARKER} The Reviewer REJECTED the current changes (consecutive rejection ${rejections}; automatic review stops at ${max}).
+    return `${STRICT_REVIEW_MARKER} ${GATE_NOTICE}
+The Reviewer REJECTED the current changes (consecutive rejection ${rejections}; automatic review stops at ${max}).
 Findings:
 ${trimmed || "(the Reviewer gave no findings)"}
 
-Address every finding, then delegate a new review. Do not report the work as complete until a new review returns APPROVED.`;
+If any finding conflicts with an explicit instruction from the user, do not override the user: explain the conflict, ask how to proceed, and stop. The changes stay unapproved until the user decides.
+Otherwise, address every finding, then delegate a new review. Do not report the work as complete until a new review returns APPROVED.`;
 }
 
 function escalationPrompt(state: ReviewState, reason: string): string {
-    return `${STRICT_REVIEW_MARKER} Automatic review stopped: ${reason}
+    return `${STRICT_REVIEW_MARKER} ${GATE_NOTICE}
+Automatic review stopped: ${reason}
 Tell the user plainly that the current changes are NOT approved, summarize the outstanding findings or the missing review, and list the changed files:
 ${changedFilesList(state)}
 
@@ -405,6 +416,13 @@ async function decide(rootSessionID: string, state: ReviewState): Promise<GateAc
         return { kind: "prompt", text: fixPrompt(review.verdict.findings, state.consecutiveRejections, options.maxReviewRejections) };
     }
 
+    // The rejection was already sent back and nothing changed since: Commander
+    // chose not to act (e.g. the findings conflict with the user's instructions).
+    // Hand the decision to the user instead of pushing the same findings again.
+    if (review?.verdict?.verdict === "rejected") {
+        return { kind: "escalate", text: escalationPrompt(state, `Commander did not act on the Reviewer's rejection.\nLatest findings:\n${review.verdict.findings.slice(0, MAX_FINDINGS_CHARS)}`) };
+    }
+
     // No new verdict to act on: count requests that produced no progress.
     if (state.unansweredRevision !== state.revision) {
         state.unansweredRevision = state.revision;
@@ -415,9 +433,6 @@ async function decide(rootSessionID: string, state: ReviewState): Promise<GateAc
         return { kind: "escalate", text: escalationPrompt(state, "review was requested repeatedly but no valid Reviewer verdict was produced.") };
     }
 
-    if (review?.verdict?.verdict === "rejected") {
-        return { kind: "prompt", text: fixPrompt(review.verdict.findings, state.consecutiveRejections, options.maxReviewRejections) };
-    }
     const reason = review === undefined
         ? "No Reviewer task has reviewed the latest changes."
         : review.failed
@@ -481,7 +496,7 @@ export function strictReviewSystemAddition(sessionID: string, agent: string | un
     const role = (agent || agentOf(sessionID) || "").toLowerCase();
     if (role === COMMANDER) {
         return `<strict_review>
-Strict review is enabled. Code you or your Workers change is not done until a Reviewer task launched with delegate_task (agent: "Reviewer") after the last change returns \`VERDICT: APPROVED\`. Do not report implementation work as complete before that. When the Reviewer returns REJECTED, address every finding and request a new review. Delegate with delegate_task, not host-native subagent tools, so delegated changes stay under review.
+Strict review is enabled. Code you or your Workers change is not done until a Reviewer task launched with delegate_task (agent: "Reviewer") after the last change returns \`VERDICT: APPROVED\`. Do not report implementation work as complete before that. When the Reviewer returns REJECTED, address every finding and request a new review, unless a finding conflicts with an explicit user instruction: then explain the conflict and ask the user instead of overriding them. Delegate with delegate_task, not host-native subagent tools, so delegated changes stay under review.
 </strict_review>`;
     }
     if (role === REVIEWER) {
