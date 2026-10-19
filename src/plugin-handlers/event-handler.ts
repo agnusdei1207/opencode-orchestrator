@@ -16,6 +16,7 @@ import * as ContextMonitor from "../core/context/index.js";
 import { ContextLimitResolver } from "../core/context/context-limit-resolver.js";
 import * as SessionActivity from "../core/session/activity.js";
 import * as PendingInjection from "../core/session/pending-injection.js";
+import * as StrictReview from "../core/review/strict-review.js";
 import { SESSION_EVENTS, MESSAGE_EVENTS, MESSAGE_ROLES, SESSION_STATUS, TASK_STATUS } from "../shared/index.js";
 import type { PluginHandlerContext, PluginSessionState } from "./context.js";
 import { handleCompletedAssistantMessage } from "./assistant-done-handler.js";
@@ -123,6 +124,7 @@ function handleSessionDeleted(ctx: EventHandlerContext, event: PluginEvent): voi
     ProgressTracker.clearSession(sessionID);
     SessionRecovery.cleanupSessionRecovery(sessionID);
     MissionLoopHandler.cleanupSession(sessionID);
+    StrictReview.cleanupSession(sessionID);
     ContextMonitor.cleanupSession(sessionID);
     ContextLimitResolver.getInstance().forgetSession(sessionID);
 
@@ -150,6 +152,7 @@ async function handleSessionError(ctx: EventHandlerContext, event: PluginEvent):
     if (sessionID) {
         MissionLoopHandler.handleAbort(sessionID);
         if (isRecord(error) && (error.name === "MessageAbortedError" || error.name === "AbortError")) {
+            StrictReview.handleAbort(sessionID);
             markAbort(ctx.sessions, sessionID);
             PendingInjection.clearPrompts(sessionID);
             return;
@@ -349,7 +352,7 @@ function scheduleIdleContinuation(ctx: EventHandlerContext, sessionID: string): 
     // already holding something for one. A session can receive a queued notice
     // (its background task finished) without ever having been initialised here,
     // and skipping it would strand that notice until the TTL sweep discarded it.
-    if (!sessions.has(sessionID) && !PendingInjection.hasPendingPrompts(sessionID)) return;
+    if (!sessions.has(sessionID) && !PendingInjection.hasPendingPrompts(sessionID) && !StrictReview.isTracking(sessionID)) return;
 
     // The host publishes both session.status(idle) and session.idle for one
     // transition; collapse them into a single delayed run per session.
@@ -393,6 +396,12 @@ async function runIdleContinuation(ctx: EventHandlerContext, sessionID: string):
     // A flush starts a new turn, so mission continuation waits for the next
     // idle rather than piling on top of it.
     if (await PendingInjection.flushPrompts(client, sessionID)) {
+        return;
+    }
+
+    // Strict review runs before the mission loop: while changes are unreviewed
+    // it owns the idle, so a mission can never complete without an approval.
+    if (await StrictReview.handleStrictReviewIdle(client, sessionID) === "handled") {
         return;
     }
 

@@ -16,6 +16,7 @@ import { ContextLimitResolver } from "../core/context/context-limit-resolver.js"
 import { parseAgentTemperatures, parseCustomRendering } from "../core/config/options-schema.js";
 import { isRecord } from "../shared/core/guards.js";
 import { truncateOversizedMessageParts } from "../shared/message/message-guard.js";
+import { rememberSessionAgent as rememberStrictReviewAgent } from "../core/review/strict-review.js";
 
 type Context = Plugin.Context;
 type Registration = Awaited<ReturnType<Context["tool"]["transform"]>>;
@@ -102,6 +103,8 @@ function rememberContextAgent(sessions: SessionStates, request: V2ContextRequest
     const session = sessions.get(request.sessionID);
     const agent = (request.agent || "").toLowerCase();
     if (session && agent) session.agent = agent;
+    // Strict review also needs the agent of sessions that are not missions.
+    rememberStrictReviewAgent(request.sessionID, agent);
 }
 
 async function runPromptHook(chat: ReturnType<typeof createChatMessageHandler>, input: unknown, sessions: SessionStates): Promise<void> {

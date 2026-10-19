@@ -11,6 +11,7 @@ import { shutdownRustToolPool } from "./tools/rust-pool.js";
 import { SHUTDOWN_HANDLERS } from "./shared/index.js";
 import { parseOrchestratorPluginOptions } from "./core/config/plugin-options.js";
 import { configureMissionRuntimeOptions } from "./core/loop/mission-runtime-options.js";
+import { configureStrictReview } from "./core/review/strict-review.js";
 import { shutdownCircuitBreaker } from "./core/loop/circuit-breaker.js";
 import { shutdownCompactionGuard } from "./core/loop/compaction-guard.js";
 import { shutdownSessionActivity } from "./core/session/activity.js";
@@ -61,6 +62,7 @@ function createShutdownManager(
 function configureRuntime(input: PluginInput, options?: PluginOptions) {
     const orchestratorOptions = parseOrchestratorPluginOptions(options);
     configureMissionRuntimeOptions(orchestratorOptions.missionLoop);
+    configureStrictReview(orchestratorOptions.strictReview);
     ContextLimitResolver.getInstance().configure({
         client: input.client,
         overrideMaxTokens: orchestratorOptions.contextMaxTokens,

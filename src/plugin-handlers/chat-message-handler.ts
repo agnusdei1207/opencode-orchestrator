@@ -14,6 +14,7 @@ import { HookRegistry } from "../hooks/registry.js";
 import { HOOK_ACTIONS } from "../hooks/constants.js";
 import { clearCircuitState } from "../core/loop/circuit-breaker.js";
 import { handleUserMessage } from "../core/loop/mission-loop-handler.js";
+import * as StrictReview from "../core/review/strict-review.js";
 import type { ChatMessageHandlerContext, PluginSessionState } from "./context.js";
 
 type ChatMessageHook = NonNullable<Hooks["chat.message"]>;
@@ -41,7 +42,11 @@ export function createChatMessageHandler(ctx: ChatMessageHandlerContext) {
         log("[chat-message-handler] hook triggered", { sessionID, agent: agentName, textLength: originalText.length });
         markUserMessage(sessions, sessionID);
         if (!isSyntheticPart(textPart)) resetForUserInput(sessions, sessionID);
+        if (!isSyntheticPart(textPart) && !StrictReview.isStrictReviewPrompt(originalText)) {
+            StrictReview.handleUserMessage(sessionID);
+        }
         rememberSessionAgent(sessions, sessionID, agentName);
+        StrictReview.rememberSessionAgent(sessionID, agentName);
 
         // Execute Chat Hooks
         const hooks = HookRegistry.getInstance();

@@ -65,6 +65,23 @@ See the [options schema](opencode-orchestrator.schema.json) for all settings. Re
 
 If commands are missing, check `opencode plugin list` on OpenCode 2 or `opencode debug config` on OpenCode 1.
 
+### Strict review (opt-in)
+
+Set `strictReview` to `true` when Commander must not be the one deciding that its own code changes are done. After any session in which Commander or its Workers changed files, the session cannot finish until a Reviewer task started after the last change ends with `VERDICT: APPROVED`. A `VERDICT: REJECTED` sends the findings back to Commander, and any later edit requires a new review. The Reviewer is told to reach its verdict from its own inspection and to treat Commander's description of the changes, or any verdict Commander suggests, as claims to verify. If a finding conflicts with something you explicitly asked for, Commander asks you instead of overriding you, and the changes stay unapproved until you decide. It works with or without `/task`.
+
+```jsonc
+{
+  "plugins": [
+    {
+      "package": "opencode-orchestrator",
+      "options": { "strictReview": true, "maxReviewRejections": 3 }
+    }
+  ]
+}
+```
+
+In this mode the Reviewer is read-only, Commander delegates through `delegate_task` instead of host-native subagent tools, and after `maxReviewRejections` consecutive rejections (default `3`) Orchestrator stops the automatic loop and asks Commander to report the unapproved state to you. Ticking verified items in the `.opencode` TODO or checklist does not count as a code change. Files changed only through shell commands are not detected. The default is `false`, which leaves behavior unchanged.
+
 ### OpenChamber and other WebUIs
 
 Since 2.0.15, set `customRendering` to `false` to disable Orchestrator's display changes. This removes the timestamp/step/duration footer from tool results and preserves completed assistant text without the OpenCode 1 standalone thinking-tag cleanup. The default is `true` for existing installations.

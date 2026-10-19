@@ -11,6 +11,7 @@ import type { ToolExecuteHandlerContext } from "./context.js";
 import { log } from "../core/agents/logger.js";
 import { HOOK_ACTIONS } from "../hooks/constants.js";
 import { isRecord } from "../shared/core/guards.js";
+import { checkToolAllowed } from "../core/review/strict-review.js";
 
 type ToolExecuteBeforeHook = NonNullable<Hooks["tool.execute.before"]>;
 export type ToolExecuteBeforeInput = Parameters<ToolExecuteBeforeHook>[0];
@@ -24,6 +25,12 @@ export function createToolExecuteBeforeHandler(ctx: ToolExecuteHandlerContext) {
         toolInput: ToolExecuteBeforeInput,
         toolOutput: ToolExecuteBeforeOutput,
     ) => {
+        const strictReviewBlock = checkToolAllowed(toolInput.sessionID, toolInput.tool, readToolArgs(toolOutput.args));
+        if (strictReviewBlock) {
+            log(`[PreToolHandler] Blocked tool ${toolInput.tool} in session ${toolInput.sessionID}: ${strictReviewBlock}`);
+            throw new Error(`🚫 Action Blocked: ${strictReviewBlock}`);
+        }
+
         const session = sessions.get(toolInput.sessionID);
         if (!session?.active) return;
         const toolArguments = readToolArgs(toolOutput.args);

@@ -30,6 +30,8 @@ const MissionLoopOptionsSchema = z
 const ConcurrencyMap = z.record(z.string(), z.number().int().nonnegative());
 const Temperature = z.number().finite().min(0).max(2);
 const CustomRendering = z.boolean().catch(true).default(true);
+const StrictReview = z.boolean().catch(false).default(false);
+const MaxReviewRejections = z.number().int().positive().catch(3).default(3);
 
 /** Full plugin-tuple options object — used to generate the public JSON Schema. */
 export const OrchestratorOptionsSchema = z
@@ -51,6 +53,13 @@ export const OrchestratorOptionsSchema = z
          */
         contextMaxTokens: z.number().int().positive().optional(),
         missionLoop: MissionLoopOptionsSchema.optional(),
+        /**
+         * Opt-in: a Commander session that changed files cannot finish until a
+         * Reviewer task started after the last change returns VERDICT: APPROVED.
+         */
+        strictReview: StrictReview.optional(),
+        /** Consecutive Reviewer rejections before strict review stops and asks the user. */
+        maxReviewRejections: MaxReviewRejections.optional(),
     })
     .passthrough();
 
@@ -62,6 +71,14 @@ export function parseContextMaxTokens(value: unknown): number | undefined {
 
 export function parseCustomRendering(value: unknown): boolean {
     return CustomRendering.parse(value);
+}
+
+export function parseStrictReview(value: unknown): boolean {
+    return StrictReview.parse(value);
+}
+
+export function parseMaxReviewRejections(value: unknown): number {
+    return MaxReviewRejections.parse(value);
 }
 
 export function parseAgentTemperatures(value: unknown): Record<string, number> {
