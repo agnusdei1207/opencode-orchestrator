@@ -283,7 +283,9 @@ export function parseReviewVerdict(text: string): { verdict: ReviewVerdict; find
     while ((match = pattern.exec(text)) !== null) last = match;
     if (!last) return undefined;
     const verdict = last[1].toUpperCase() === "APPROVED" ? "approved" : "rejected";
-    const findings = text.slice(last.index + last[0].length).trim();
+    // Reviewers often write the findings first and close with the verdict line.
+    const after = text.slice(last.index + last[0].length).trim();
+    const findings = after || text.slice(0, last.index).trim().slice(-MAX_FINDINGS_CHARS);
     return { verdict, findings };
 }
 

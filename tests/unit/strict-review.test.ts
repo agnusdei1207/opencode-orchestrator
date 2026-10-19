@@ -383,6 +383,12 @@ describe("strict review gate", () => {
     });
 
     describe("parseReviewVerdict", () => {
+        it("uses the text before the verdict line as findings when nothing follows it", () => {
+            const parsed = StrictReview.parseReviewVerdict("## Findings\n- resultado.md:3 — required line missing\n\nVERDICT: REJECTED\n");
+            expect(parsed?.verdict).toBe("rejected");
+            expect(parsed?.findings).toContain("resultado.md:3 — required line missing");
+        });
+
         it("uses the last verdict line and returns the findings after it", () => {
             expect(StrictReview.parseReviewVerdict("VERDICT: APPROVED\nlater...\nVERDICT: REJECTED\n- a.ts:1 — x")).toEqual({
                 verdict: "rejected",
