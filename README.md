@@ -67,7 +67,7 @@ If commands are missing, check `opencode plugin list` on OpenCode 2 or `opencode
 
 ### Strict review (opt-in)
 
-Set `strictReview` to `true` when Commander must not be the one deciding that its own code changes are done. After any session in which Commander or its Workers changed files, the session cannot finish until a Reviewer task started after the last change ends with `VERDICT: APPROVED`. A `VERDICT: REJECTED` sends the findings back to Commander, and any later edit requires a new review. If a finding conflicts with something you explicitly asked for, Commander asks you instead of overriding you, and the changes stay unapproved until you decide. It works with or without `/task`.
+Set `strictReview` to `true` when Commander must not be the one deciding that its own code changes are done. After any session in which Commander or its Workers changed files, the session cannot finish until a Reviewer task started after the last change ends with `VERDICT: APPROVED`. A `VERDICT: REJECTED` sends the findings back to Commander, and any later edit requires a new review. The Reviewer is told to reach its verdict from its own inspection and to treat Commander's description of the changes, or any verdict Commander suggests, as claims to verify. If a finding conflicts with something you explicitly asked for, Commander asks you instead of overriding you, and the changes stay unapproved until you decide. It works with or without `/task`.
 
 ```jsonc
 {
