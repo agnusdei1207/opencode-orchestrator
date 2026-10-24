@@ -1,6 +1,13 @@
 import { describe, expect, it } from "vitest";
 
 describe("native host QA isolation contract", () => {
+    it.each(["<orchestrator_mission_loop>state", [{ type: "text", text: "<orchestrator_mission_loop>state" }]])("uses the actual user request when mission context follows it: %j", async content => {
+        const { fixtureUserMessage } = await import("../../scripts/qa-native-host.mjs");
+        const user = { role: "user", content: "QA_HOLD" };
+        expect(fixtureUserMessage([user, { role: "user", content }])).toBe(user);
+        expect(fixtureUserMessage([{ role: "assistant", content: "reply" }])).toBeUndefined();
+    });
+
     it("excludes inherited credentials and redirects every host storage directory", async () => {
         const { isolatedEnvironment } = await import("../../scripts/qa-native-host.mjs");
         const env = isolatedEnvironment("C:/temporary/qa", {

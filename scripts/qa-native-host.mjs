@@ -74,7 +74,7 @@ function reply(response, body, delta) {
 
 function fixtureDelta(body) {
     const messages = body.messages ?? [];
-    const last = messages.findLast((message) => message.role === "user");
+    const last = fixtureUserMessage(messages);
     const text = JSON.stringify(last?.content ?? "");
     const lastIndex = messages.lastIndexOf(last);
     const completed = messages.slice(lastIndex + 1).some((message) => message.role === "tool");
@@ -101,6 +101,15 @@ function fixtureDelta(body) {
     return { content: "QA fixture completed." };
 }
 
+export function fixtureUserMessage(messages) {
+    return messages.findLast(message => {
+        if (message.role !== "user") return false;
+        const text = typeof message.content === "string" ? message.content
+            : (message.content ?? []).filter(part => part.type === "text").map(part => part.text).join("\n");
+        return !text.startsWith("<orchestrator_mission_loop>");
+    });
+}
+
 async function startFixture() {
     const state = { requests: 0, held: 0, bodies: [] };
     const server = createServer(async (request, response) => {
@@ -115,7 +124,7 @@ async function startFixture() {
             const body = JSON.parse(text);
             state.requests++;
             state.bodies.push(body);
-            if (JSON.stringify(body.messages?.at(-1)).includes("QA_HOLD")) { state.held++; return; }
+            if (JSON.stringify(fixtureUserMessage(body.messages ?? []))?.includes("QA_HOLD")) { state.held++; return; }
             reply(response, body, fixtureDelta(body));
         } catch { response.writeHead(400); response.end(); }
     });
@@ -324,12 +333,14 @@ async function missionCommandCheck(context, report) {
     await check(report, "pluginMissionCommand", async () => {
         const session = (await context.client.session.create({ body: { title: "Mission command QA" } })).data;
         const statePath = path.join(context.cwd, ".opencode", "loop-state.json");
+        const before = context.fixture.state.bodies.length;
         await context.client.session.command({ path: { id: session.id },
             body: { command: "task", arguments: "QA mission objective", model: "fixture/qa", agent: "Commander" } });
         const state = JSON.parse(await readFile(statePath, "utf8"));
         assert.equal(state.sessionID, session.id);
         assert.equal(state.active, true);
         assert.equal(state.objective, "QA mission objective");
+        await assertMissionContextPlacement(context, session.id, before);
         const heldBefore = context.fixture.state.held;
         const pending = prompt(context.client, session.id, "QA_HOLD").catch(() => undefined);
         await waitFor(() => context.fixture.state.held > heldBefore, "prior mission in flight");
@@ -347,6 +358,18 @@ async function missionCommandCheck(context, report) {
         });
         assert.ok(!stopped?.active, "Stop must persist before another continuation can run");
     });
+}
+
+async function assertMissionContextPlacement(context, sessionID, before) {
+    const body = context.fixture.state.bodies.slice(before).find(body =>
+        JSON.stringify(body.messages?.at(-1)?.content).includes("<orchestrator_mission_loop>"));
+    assert.ok(body, "Mission context must reach the model at the conversation tail");
+    const system = body.messages.filter(message => message.role === "system");
+    assert.ok(system.every(message => !JSON.stringify(message).includes("<orchestrator_mission_loop>")));
+    assert.match(JSON.stringify(body.messages.at(-1).content), /Steps executed:/);
+    const stored = (await context.client.session.messages({ path: { id: sessionID } })).data;
+    assert.ok(stored.every(message => !JSON.stringify(message.parts).includes("<orchestrator_mission_loop>")),
+        "Request-only context must not be persisted in session history");
 }
 
 function assertCompressedContextRequest(context, lastUserText, fromIndex) {
