@@ -25,17 +25,24 @@ Starting main was clean at f88f00a, matching origin/main; npm latest was 2.0.15.
 - Release audit found four existing high findings: Zod <4.6.6 and TOML <=5.0.0
   via the pinned V1 plugin's Effect dependency. Latest V1 plugin 1.19.4 still
   pins these; downgrading the public contract is rejected.
-- Docker Rust 1.98.1 checks are running (exec session 92068).
+- Docker Rust 1.98.1 formatting, Clippy and tests passed (session 92068).
+- Issue fix committed as 179a071. Root Zod/TOML overrides and lockfile refresh
+  pass the repository production audit (zero findings) without changing host API
+  pins. Full tests after dependency changes passed: 128 files / 1,152 tests.
+- Actual packed consumer auditing showed that root overrides do not propagate.
+  Tried and rejected a published shrinkwrap: consumer still installed upstream
+  fixed dependencies. Removed that migration, its script/test edits and added
+  consumer audit gate. CONTRIBUTING explicitly records the consumer limitation.
 
 ## Next exact step
 
-Commit verified issue #57 changes, then resolve the dependency release blocker
-in a separate commit. Preserve tested SDK/plugin contracts. Re-run audit and
-packed consumer checks before preparing and publishing patch 2.0.16.
+Commit the separate root dependency security updates. Run release:patch with
+Cargo absent from the child PATH so the preflight uses verified Rust 1.98.1
+Docker checks. Monitor publication and verify npm 2.0.16 before closing #57.
 
 ## Incomplete items and why
 
-- Dependency gate, Rust result, full release preflight, version/tag/push, hosted
+- Full release preflight, version/tag/push, hosted
   release, public npm verification, issue response/closure and final memory.
 - User mentioned another error without text; an async question requests it.
 - Live provider billing/cache-hit rate has not been measured. Tests establish
@@ -59,7 +66,9 @@ packed consumer checks before preparing and publishing patch 2.0.16.
 - Other host/plugin changes and provider policies can affect caching.
 - Local host is OpenCode 2.1.4; existing native QA script targets V1.
 - Root-only overrides do not propagate to npm consumers. Verify actual packed
-  consumers before declaring dependency findings resolved.
+  consumers before declaring dependency findings resolved. Upstream transitive
+  security advisories remain for consumers and are documented in CONTRIBUTING;
+  do not claim the published dependency tree has zero advisories.
 
 ## Files to open first in the next session, in order
 

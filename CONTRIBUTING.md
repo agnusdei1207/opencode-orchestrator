@@ -107,6 +107,13 @@ their own terminal; the JSON-RPC stdout channel may not.
 
 ## 📦 Release Process
 
+The root manifest overrides Zod and TOML to patched releases so the checkout's
+production audit passes while retaining the tested OpenCode API versions.
+npm overrides apply only at the installing project's root. Package consumers
+must manage their own transitive overrides until the OpenCode 1 plugin updates
+its fixed Zod/Effect dependencies; this package's overrides do not remove those
+upstream advisories from a consumer's dependency tree.
+
 ```bash
 npm run release:patch   # Bug fixes
 npm run release:minor   # New features / Agent upgrades
