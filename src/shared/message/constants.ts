@@ -39,8 +39,6 @@ export const PLUGIN_HOOKS = {
     TOOL_EXECUTE_AFTER: "tool.execute.after",
     /** Preserves custom compaction context */
     EXPERIMENTAL_SESSION_COMPACTING: "experimental.session.compacting",
-    /** Injects dynamic system prompt additions */
-    EXPERIMENTAL_CHAT_SYSTEM_TRANSFORM: "experimental.chat.system.transform",
     /** Normalizes finalized assistant text */
     EXPERIMENTAL_TEXT_COMPLETE: "experimental.text.complete",
     /** Truncates oversized message parts before the request is sent */

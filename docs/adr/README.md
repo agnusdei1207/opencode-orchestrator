@@ -63,3 +63,4 @@ What followed, including verification evidence and known limits.
 | [0022](0022-opencode-1-18-plugin-boundary.md) | 2026-09-15 16:25 | OpenCode 1.18 plugin boundary and runtime separation | Implemented |
 | [0023](0023-remove-unreachable-runtime-plumbing.md) | 2026-09-15 18:20 | Remove unreachable runtime plumbing | Implemented |
 | [0024](0024-opencode-2-plugin-compatibility.md) | 2026-09-20 | OpenCode 2 plugin compatibility | Implemented |
+| [0025](0025-mission-context-prefix-caching.md) | 2026-10-24 21:50 | Mission context after the conversation prefix | Implemented |

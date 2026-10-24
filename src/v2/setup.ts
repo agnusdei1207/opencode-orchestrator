@@ -5,7 +5,7 @@ import { createChatMessageHandler } from "../plugin-handlers/chat-message-handle
 import { createToolExecuteBeforeHandler } from "../plugin-handlers/tool-execute-pre-handler.js";
 import { createToolExecuteAfterHandler } from "../plugin-handlers/tool-execute-handler.js";
 import { createSessionCompactingHandler } from "../plugin-handlers/session-compacting-handler.js";
-import { createSystemTransformHandler } from "../plugin-handlers/system-transform-handler.js";
+import { createMissionContextBuilder } from "../plugin-handlers/mission-context.js";
 import { createEventHandler } from "../plugin-handlers/event-handler.js";
 import { createV2ClientBridge } from "./client-adapter.js";
 import { startV2EventBridge } from "./event-bridge.js";
@@ -70,12 +70,13 @@ async function registerHooks(context: Context, handlerContext: PluginRuntime["ha
     const before = createToolExecuteBeforeHandler(handlerContext);
     const after = createToolExecuteAfterHandler(handlerContext, parseCustomRendering(context.options.customRendering));
     const compact = createSessionCompactingHandler(handlerContext);
-    const system = createSystemTransformHandler(handlerContext);
+    const missionContext = createV2MissionContextHandler(handlerContext);
     const { sessions } = handlerContext;
     const hooks = [
         () => context.session.hook("prompt", input => runPromptHook(chat, input, sessions)),
         () => context.session.hook("context", async input => {
-            await runSystemHook(system, input, temperatures);
+            runContextOptions(input, temperatures);
+            missionContext(input);
             runMessageGuard(input);
             rememberContextAgent(sessions, input as V2ContextRequest);
         }),
@@ -119,7 +120,7 @@ async function runPromptHook(chat: ReturnType<typeof createChatMessageHandler>, 
     prompt.prompt.text = output.parts[0]?.text ?? "";
 }
 
-async function runSystemHook(system: ReturnType<typeof createSystemTransformHandler>, input: unknown, temperatures: Readonly<Record<string, number>>): Promise<void> {
+function runContextOptions(input: unknown, temperatures: Readonly<Record<string, number>>): void {
     const request = input as V2ContextRequest;
     const temperature = Object.hasOwn(temperatures, request.agent) ? temperatures[request.agent] : undefined;
     if (temperature !== undefined) request.options.temperature = temperature;
@@ -129,12 +130,23 @@ async function runSystemHook(system: ReturnType<typeof createSystemTransformHand
         request.model.id,
         undefined,
     );
-    const output = { system: [] as string[] };
-    await system(
-        { sessionID: request.sessionID, agent: request.agent } as unknown as Parameters<typeof system>[0],
-        output as Parameters<typeof system>[1],
-    );
-    request.system.unshift(...output.system.map(text => ({ type: "text" as const, text })));
+}
+
+function createV2MissionContextHandler(ctx: PluginRuntime["handlerContext"]) {
+    const buildContext = createMissionContextBuilder(ctx);
+    const injected = new WeakSet<object>();
+    return (input: unknown): void => {
+        const request = input as V2ContextRequest;
+        if (!Array.isArray(request.messages)) return;
+        const previous = request.messages.at(-1);
+        if (previous && injected.has(previous)) request.messages.pop();
+        if (request.messages.length === 0) return;
+        const text = buildContext(request.sessionID);
+        if (!text) return;
+        const message = { role: "user" as const, content: [{ type: "text" as const, text }] };
+        injected.add(message);
+        request.messages.push(message);
+    };
 }
 
 /** Keep a single oversized tool result from blowing the request past the context window. */
@@ -148,6 +160,7 @@ type V2ContextRequest = {
     agent: string;
     model: { providerID: string; id: string };
     system: Array<{ type: "text"; text: string }>;
+    messages?: import("@opencode/ai").Message[];
     options: { temperature?: number };
 };
 

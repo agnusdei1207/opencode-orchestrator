@@ -1,13 +1,4 @@
-/**
- * System Transform Handler
- * 
- * Hook: experimental.chat.system.transform
- * 
- * Adds current mission context to the host-owned agent instructions.
- */
-
-import type { Hooks } from "@opencode-ai/plugin";
-import type { EventHandlerContext } from "./event-handler.js";
+import type { PluginHandlerContext } from "./context.js";
 import { readLoopState } from "../core/loop/mission-loop.js";
 import { PATHS, STATUS_LABEL } from "../shared/index.js";
 import { ParallelAgentManager } from "../core/agents/manager.js";
@@ -15,55 +6,38 @@ import { ensureSessionInitialized } from "../core/orchestrator/session-manager.j
 import { readMissionScratchpadSnapshot } from "../core/knowledge/mission-memory.js";
 import { log } from "../core/agents/logger.js";
 
-type SystemTransformHook = NonNullable<Hooks["experimental.chat.system.transform"]>;
-export type SystemTransformInput = Parameters<SystemTransformHook>[0] & { agent?: string };
-export type SystemTransformOutput = Parameters<SystemTransformHook>[1];
-
-/**
- * Create system transform handler for dynamic prompt injection
- */
-export function createSystemTransformHandler(ctx: EventHandlerContext) {
+/** Dynamic state belongs after conversation history so it cannot invalidate its prefix. */
+export function createMissionContextBuilder(ctx: Pick<PluginHandlerContext, "directory" | "sessions">) {
     const { directory, sessions } = ctx;
 
-    return async (input: SystemTransformInput, output: SystemTransformOutput): Promise<void> => {
-        const { sessionID } = input;
-
-        // sessionID may be undefined in some opencode versions — skip safely
-        if (!sessionID) return;
-
-        // Only inject for orchestrated sessions
+    return (sessionID: string | undefined): string | undefined => {
+        if (!sessionID) return undefined;
         const loopState = readLoopState(directory);
         if (loopState?.active !== true || loopState.sessionID !== sessionID) {
-            return;
+            return undefined;
         }
         const session = ensureSessionInitialized(sessions, sessionID, directory);
 
-        // 1. Mission loop context
-        const systemAdditions = missionLoopAdditions(loopState, directory);
+        const additions = missionLoopAdditions(loopState, directory);
 
-        // 2. Active session context
         if (session?.active) {
-            systemAdditions.push(buildActiveSessionPrompt(session.step));
+            additions.push(buildActiveSessionPrompt(session.step));
         }
 
-        // 3. Background task awareness
         const backgroundPrompt = buildBackgroundTasksAddition(sessionID);
         if (backgroundPrompt) {
-            systemAdditions.push(backgroundPrompt);
+            additions.push(backgroundPrompt);
         }
 
-        // Inject additions
-        if (systemAdditions.length > 0) {
-            output.system.unshift(...systemAdditions); // unshift to put core instructions first
-        }
+        return additions.join("\n\n");
     };
 }
 
 function missionLoopAdditions(
-    loopState: Parameters<typeof buildMissionLoopSystemPrompt>[0],
+    loopState: Parameters<typeof buildMissionLoopPrompt>[0],
     directory: string,
 ): string[] {
-    const additions = [buildMissionLoopSystemPrompt(loopState)];
+    const additions = [buildMissionLoopPrompt(loopState)];
     const scratchpadPrompt = buildMissionScratchpadPrompt(directory);
     if (scratchpadPrompt) {
         additions.push(scratchpadPrompt);
@@ -82,7 +56,7 @@ function buildBackgroundTasksAddition(sessionID: string): string | null {
             return buildBackgroundTasksPrompt(runningCount, pendingCount);
         }
     } catch (error) {
-        log(`[system-transform] Failed to inspect background tasks for ${sessionID}: ${error}`);
+        log(`[mission-context] Failed to inspect background tasks for ${sessionID}: ${error}`);
     }
     return null;
 }
@@ -96,15 +70,12 @@ function buildMissionScratchpadPrompt(directory: string): string | null {
 ${snapshot}
 </mission_scratchpad>`;
     } catch (error) {
-        log(`[system-transform] Failed to read optional mission scratchpad: ${error}`);
+        log(`[mission-context] Failed to read optional mission scratchpad: ${error}`);
         return null;
     }
 }
 
-/**
- * Build mission loop system prompt
- */
-function buildMissionLoopSystemPrompt(loopState: {
+function buildMissionLoopPrompt(loopState: {
     iteration: number;
     maxIterations: number;
     objective?: string;
@@ -132,9 +103,6 @@ Do not stop for routine permission or preference checks. Execute autonomously, a
 </orchestrator_mission_loop>`;
 }
 
-/**
- * Build active session prompt
- */
 function buildActiveSessionPrompt(stepCount: number): string {
     return `<orchestrator_session>
 📊 Orchestrator Session Active
@@ -144,9 +112,6 @@ function buildActiveSessionPrompt(stepCount: number): string {
 </orchestrator_session>`;
 }
 
-/**
- * Build background tasks prompt
- */
 function buildBackgroundTasksPrompt(running: number, pending: number): string {
     return `<orchestrator_background_tasks>
 ⚡ Background Tasks Status:

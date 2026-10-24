@@ -44,6 +44,8 @@ Select **Commander** in OpenCode and send a request, or start a continuing missi
 Ordinary questions and small edits can be handled directly. Roles are used when they help; they are not a required pipeline.
 Replacing a mission stops its previous session and delegated work before the new goal starts. Existing project TODO and checklist files remain available for the new mission to reconcile.
 
+Mission updates (steps, progress, verification, background tasks, and scratchpad) are sent as a request-only user message after the conversation. Orchestrator preserves the host's system instructions and existing conversation prefix so changing mission state does not invalidate them for provider prompt caching. Cache usage still depends on the provider, model, host, and other plugins; no fixed hit rate is guaranteed.
+
 ## Configuration
 
 The default installation needs no extra options. On OpenCode 2, set options in `opencode.jsonc` using the package object:

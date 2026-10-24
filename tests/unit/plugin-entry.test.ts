@@ -63,7 +63,7 @@ describe("OrchestratorPlugin Entry Point", () => {
         expect(typeof pluginInstance[PLUGIN_HOOKS.TOOL_EXECUTE_BEFORE]).toBe("function");
         expect(typeof pluginInstance[PLUGIN_HOOKS.TOOL_EXECUTE_AFTER]).toBe("function");
         expect(typeof pluginInstance[PLUGIN_HOOKS.EXPERIMENTAL_SESSION_COMPACTING]).toBe("function");
-        expect(typeof pluginInstance[PLUGIN_HOOKS.EXPERIMENTAL_CHAT_SYSTEM_TRANSFORM]).toBe("function");
+        expect(pluginInstance["experimental.chat.system.transform"]).toBeUndefined();
         expect(typeof pluginInstance["experimental.text.complete"]).toBe("function");
         expect(typeof pluginInstance.dispose).toBe("function");
 

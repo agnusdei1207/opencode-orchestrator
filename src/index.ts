@@ -24,7 +24,7 @@ import {
     createChatMessageHandler,
     createToolExecuteAfterHandler,
     createSessionCompactingHandler,
-    createSystemTransformHandler,
+    createMissionMessagesHandler,
     createTextCompleteHandler,
     createMessagesGuardHandler,
 } from "./plugin-handlers/index.js";
@@ -37,6 +37,8 @@ const OrchestratorServerPlugin: Plugin = async (input, options) => {
     const pluginOptions = parseOrchestratorPluginOptions(options);
     const runtime = initializePluginRuntime(input, options);
     const { directory, handlerContext, asyncAgentTools, shutdownManager } = runtime;
+    const missionMessages = createMissionMessagesHandler(handlerContext);
+    const messageGuard = createMessagesGuardHandler();
 
     return {
         tool: registerAllTools(directory, asyncAgentTools),
@@ -48,9 +50,11 @@ const OrchestratorServerPlugin: Plugin = async (input, options) => {
         [PLUGIN_HOOKS.TOOL_EXECUTE_BEFORE]: createToolExecuteBeforeHandler(handlerContext),
         [PLUGIN_HOOKS.TOOL_EXECUTE_AFTER]: createToolExecuteAfterHandler(handlerContext, pluginOptions.customRendering),
         [PLUGIN_HOOKS.EXPERIMENTAL_SESSION_COMPACTING]: createSessionCompactingHandler(handlerContext),
-        [PLUGIN_HOOKS.EXPERIMENTAL_CHAT_SYSTEM_TRANSFORM]: createSystemTransformHandler(handlerContext),
         [PLUGIN_HOOKS.EXPERIMENTAL_TEXT_COMPLETE]: createTextCompleteHandler(pluginOptions.customRendering),
-        [PLUGIN_HOOKS.EXPERIMENTAL_CHAT_MESSAGES_TRANSFORM]: createMessagesGuardHandler(),
+        [PLUGIN_HOOKS.EXPERIMENTAL_CHAT_MESSAGES_TRANSFORM]: async (input, output) => {
+            await missionMessages(input, output);
+            await messageGuard(input, output);
+        },
         dispose: () => shutdownManager.shutdown(),
     };
 };

@@ -1,6 +1,6 @@
 # System Architecture
 
-Date: 2026-10-11 (custom rendering opt-out and outgoing message guard reviewed)
+Date: 2026-10-24 (mission context placement and both host boundaries reviewed)
 
 This document describes the current architecture that is directly verifiable from the repository source. It intentionally avoids speculative performance claims.
 
@@ -17,7 +17,7 @@ This document describes the current architecture that is directly verifiable fro
 | Event hook | `src/plugin-handlers/event-handler.ts` | Bridges OpenCode session/message events into mission continuation, recovery, and cleanup paths. |
 | Chat hook | `src/plugin-handlers/chat-message-handler.ts` | Tracks user activity and routes slash-command text through the local hook registry. |
 | Text completion hook | `src/plugin-handlers/text-complete-handler.ts` | Blanks a known standalone MiMo thinking closer in finalized OpenCode 1 text parts (issue #50). |
-| Messages transform hook | `src/plugin-handlers/messages-guard-handler.ts` | Caps oversized outgoing message content before OpenCode 1 constructs the model request (PR #53). |
+| Messages transform hook | `src/plugin-handlers/mission-messages-handler.ts`, `messages-guard-handler.ts` | Appends request-only mission context, then caps oversized outgoing message content before OpenCode 1 constructs the model request (issues #57 and PR #53). |
 | Command hook | `src/plugin-handlers/command-execute-handler.ts` | Starts an owned `/task` mission after OpenCode expands its command template; preserves user command overrides. |
 
 ## 2. Runtime Shape
@@ -66,7 +66,7 @@ The plugin does not force a model. Model routing follows OpenCode inheritance:
 
 Native `build`/`plan` modes and the configured `default_agent` remain unchanged. If no default is configured, OpenCode chooses it. Commander is available for explicit selection. Worker completion no longer automatically launches Reviewer; review is requested deliberately when needed.
 
-Agent instructions come from host configuration. The system-transform hook adds current mission context without injecting another complete Commander prompt.
+Agent instructions come from host configuration. Orchestrator does not register a system-transform hook. `src/plugin-handlers/mission-context.ts` builds the current mission, scratchpad, step count, and background-task context only for the active persisted mission's owner. OpenCode 1's messages-transform hook appends it as a synthetic user message; OpenCode 2's context hook appends a user-role model message after existing messages. Both edit the outgoing request only, without calling a prompt API or persisting extra turns. Repeated transforms of the same request replace their own trailing addition, including removing it after cancellation. The host's system blocks, metadata and conversation prefix remain in place. See [ADR-0025](adr/0025-mission-context-prefix-caching.md).
 
 Prompt definitions are now four short role presets using `src/agents/prompts/common.ts` and the shared philosophy. The old fragment registry, compact/verbose profile machinery, compulsory phases, and hyper-parallel instructions are removed.
 
@@ -221,7 +221,7 @@ The generated markdown scratchpad and `.canvas` graph are the main Builder-deriv
 
 The current implementation writes these artifacts through `src/core/knowledge/mission-memory.ts` and `mission-episode.ts`. Both use `mission-note.ts` for frontmatter parsing, metadata reads, escaping, and temporary-file replacement. The episode writer does not depend on the mission projection orchestrator. Because `MemoryManager` is in-memory only, a resync after a plugin restart sees no expected notes; pruning therefore removes only unpinned notes tagged `mission-memory`, and never `keep: true` notes or user-written files that share the `project-`/`mission-`/`task-` prefix. Existing parser and type exports remain available through `mission-memory.ts`; the unused knowledge barrel was removed.
 
-`src/plugin-handlers/system-transform-handler.ts` injects the compact scratchpad directly. Automatic knowledge-note indexing and RAG prompt injection were retired by [ADR-0019](adr/0019-retire-knowledge-rag-subsystem.md); lifecycle fields retained in note files do not imply an active decay or retrieval engine. The parser deliberately retains its existing limited frontmatter syntax rather than providing general YAML decoding.
+`src/plugin-handlers/mission-context.ts` includes the compact scratchpad in the request-only context message at the conversation tail. Automatic knowledge-note indexing and RAG prompt injection were retired by [ADR-0019](adr/0019-retire-knowledge-rag-subsystem.md); lifecycle fields retained in note files do not imply an active decay or retrieval engine. The parser deliberately retains its existing limited frontmatter syntax rather than providing general YAML decoding.
 
 ## 9. Release and Platform Baseline
 
