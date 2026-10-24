@@ -6,7 +6,7 @@
   [![npm](https://img.shields.io/npm/v/opencode-orchestrator.svg)](https://www.npmjs.com/package/opencode-orchestrator)
 
   <!-- VERSION:START -->
-  **Version:** `2.0.15`
+  **Version:** `2.0.16`
   <!-- VERSION:END -->
 </div>
 
