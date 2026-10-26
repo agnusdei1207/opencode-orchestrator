@@ -48,9 +48,12 @@ repository.
 The published package no longer contains `scripts/tail-log.mjs`. The
 plugin's tools, hooks and default export are unchanged.
 
-Behavior changes found during the audit were left out of this refactor:
+The audit also found these defects. Fixing them changes behavior, so they are
+left for separate changes:
 
 - `show_metrics` still prints agent latency, success rate and sub-task
   count, which production never records, so they read empty or 0.
 - `session.deleted` does not clear `core/loop/progress-tracker` state; its
   10-minute prune releases it.
+- `SanityCheckHook.clearSession` has no caller, so the hook keeps one
+  cooldown timestamp per session for the process lifetime.
