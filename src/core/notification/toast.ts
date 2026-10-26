@@ -5,7 +5,7 @@
  */
 
 // Re-export core functions
-export { show, dismiss, getHistory, clear, initToastClient } from "./toast-core.js";
+export { show, initToastClient } from "./toast-core.js";
 
 // Re-export presets
 export * as presets from "./presets.js";

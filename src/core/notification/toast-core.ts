@@ -6,7 +6,6 @@
 import type { ToastMessage, ToastOptions } from "../../shared/index.js";
 import type { PluginInput } from "@opencode-ai/plugin";
 import type { TuiShowToastData } from "@opencode-ai/sdk";
-import { HISTORY, LIMITS } from "../../shared/index.js";
 import { sanitizeToastMessage, sanitizeToastTitle } from "./toast-sanitizer.js";
 
 type OpencodeClient = PluginInput["client"];
@@ -20,68 +19,34 @@ const TUI_TOAST_MAX_TIMEOUT_MS = 10000;
 let tuiClient: OpencodeClient | null = null;
 
 /**
- * Initialize the toast system with the OpenCode client
+ * Initialize the toast system with the OpenCode client.
+ * Returns a cleanup function that detaches the client when the host is disposed.
  */
-// Initialize the toast system with the OpenCode client
-// Returns a cleanup function to detach and purge any in-memory state
 export function initToastClient(client: OpencodeClient): () => void {
     tuiClient = client;
-    // Cleanup function to avoid leaks when the host/application is disposed
-    const cleanup = () => {
-        // detach client and clear in-memory state
+    return () => {
         tuiClient = null;
-        // purge toasts/history and listeners to prevent leaks
-        toasts.length = 0;
-        handlers.length = 0;
     };
-    return cleanup;
 }
 
-// Toast history
-const toasts: ToastMessage[] = [];
-
-// Notification handlers
-const handlers: Array<(toast: ToastMessage) => void> = [];
-
 /**
- * Show a toast notification (both in TUI and internal storage)
+ * Show a sanitized toast notification in the OpenCode TUI, when one is attached.
  */
 export function show(options: ToastOptions): ToastMessage {
-    const title = sanitizeToastTitle(options.title);
-    const message = sanitizeToastMessage(options.message);
     const toast: ToastMessage = {
         id: `toast_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
-        title,
-        message,
+        title: sanitizeToastTitle(options.title),
+        message: sanitizeToastMessage(options.message),
         variant: options.variant || "info",
         timestamp: new Date(),
         duration: options.duration ?? 5000,
-        dismissed: false,
     };
 
-    toasts.push(toast);
-    if (toasts.length > HISTORY.MAX_TOAST) {
-        toasts.shift();
-    }
-
-    notifyHandlers(toast);
-
-    // Show in OpenCode TUI if available
     if (tuiClient) {
         showInTui(tuiClient, toast);
     }
 
     return toast;
-}
-
-function notifyHandlers(toast: ToastMessage): void {
-    for (const handler of handlers) {
-        try {
-            handler(toast);
-        } catch (error) {
-            // Ignore handler errors
-        }
-    }
 }
 
 function showInTui(client: OpencodeClient, toast: ToastMessage): void {
@@ -117,28 +82,4 @@ function showInTui(client: OpencodeClient, toast: ToastMessage): void {
     } catch {
         // Silently ignore errors in the toast pipeline
     }
-}
-
-/**
- * Dismiss a toast
- */
-export function dismiss(toastId: string): void {
-    const toast = toasts.find(t => t.id === toastId);
-    if (toast) {
-        toast.dismissed = true;
-    }
-}
-
-/**
- * Get toast history
- */
-export function getHistory(limit: number = LIMITS.DEFAULT_LIST_LIMIT): ToastMessage[] {
-    return toasts.slice(-limit);
-}
-
-/**
- * Clear all toasts
- */
-export function clear(): void {
-    toasts.length = 0;
 }

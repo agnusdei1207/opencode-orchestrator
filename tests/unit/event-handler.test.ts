@@ -30,9 +30,6 @@ vi.mock("../../src/core/notification/toast", () => ({
         taskFailed: vi.fn(),
     },
 }));
-vi.mock("../../src/core/progress/tracker", () => ({
-    clearSession: vi.fn(),
-}));
 vi.mock("../../src/core/recovery/session-recovery", () => ({
     cleanupSessionRecovery: vi.fn(),
     handleSessionError: vi.fn(),

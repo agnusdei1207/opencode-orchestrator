@@ -3,16 +3,6 @@
  */
 
 /**
- * Todo status values
- */
-export type TodoStatus = "pending" | "in_progress" | "completed" | "cancelled";
-
-/**
- * Todo priority values
- */
-export type TodoPriority = "high" | "medium" | "low";
-
-/**
  * Mission Loop Interfaces
  */
 
@@ -52,18 +42,4 @@ export interface MissionLoopOptions {
     countdownSeconds?: number;
     /** Expected prior mission; permits replacement only if its identity still matches. */
     replaceExisting?: Pick<MissionLoopState, "sessionID" | "startedAt" | "prompt">;
-}
-
-/**
- * Todo item
- */
-
-export interface Todo {
-    id: string;
-    content: string;
-    status: TodoStatus;
-    priority: TodoPriority;
-    parentId?: string;
-    createdAt: Date;
-    completedAt?: Date;
 }

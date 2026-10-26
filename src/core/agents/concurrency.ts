@@ -137,10 +137,6 @@ export class ConcurrencyController {
         this.config = normalizeConfig(config);
     }
 
-    getConfig(): ConcurrencyConfig {
-        return this.config;
-    }
-
     setLimit(key: string, limit: number): void {
         this.limits.set(key, assertValidLimit(`limit for ${key}`, limit));
     }

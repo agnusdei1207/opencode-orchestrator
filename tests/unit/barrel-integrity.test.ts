@@ -4,29 +4,11 @@ describe("Barrel Modules Integrity", () => {
     it("verifies src/core/notification/toast.ts re-exports", async () => {
         const mod = await import("../../src/core/notification/toast.js");
         expect(typeof mod.show).toBe("function");
-        expect(typeof mod.dismiss).toBe("function");
-        expect(typeof mod.getHistory).toBe("function");
-        expect(typeof mod.clear).toBe("function");
         expect(typeof mod.initToastClient).toBe("function");
         expect(typeof mod.TaskToastManager).toBe("function");
         expect(typeof mod.getTaskToastManager).toBe("function");
         expect(typeof mod.initTaskToastManager).toBe("function");
         expect(typeof mod.presets).toBe("object");
-    });
-
-    it("verifies src/core/progress/tracker.ts re-exports", async () => {
-        const mod = await import("../../src/core/progress/tracker.js");
-        expect(typeof mod.startSession).toBe("function");
-        expect(typeof mod.getSessionStart).toBe("function");
-        expect(typeof mod.recordSnapshot).toBe("function");
-        expect(typeof mod.getLatest).toBe("function");
-        expect(typeof mod.getHistory).toBe("function");
-        expect(typeof mod.clearSession).toBe("function");
-        expect(typeof mod.formatElapsed).toBe("function");
-        expect(typeof mod.formatProgressBar).toBe("function");
-        expect(typeof mod.formatSnapshot).toBe("function");
-        expect(typeof mod.calculateRate).toBe("function");
-        expect(typeof mod.estimateRemaining).toBe("function");
     });
 
     it("verifies other index re-export modules", async () => {
@@ -49,7 +31,7 @@ describe("Barrel Modules Integrity", () => {
         expect(typeof formatting.formatElapsedTime).toBe("function");
 
         const parsing = await import("../../src/utils/parsing/index.js");
-        expect(typeof parsing.safeJsonParse).toBe("function");
+        expect(typeof parsing.detectSlashCommand).toBe("function");
 
         const sanity = await import("../../src/utils/sanity/index.js");
         expect(typeof sanity.checkOutputSanity).toBe("function");

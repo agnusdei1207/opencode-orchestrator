@@ -4,8 +4,6 @@
 
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
-    clear,
-    getHistory,
     initToastClient,
     show,
 } from "../../src/core/notification/toast-core";
@@ -26,7 +24,6 @@ describe("toast-core", () => {
     afterEach(() => {
         cleanup?.();
         cleanup = undefined;
-        clear();
     });
 
     it("sends a typed toast payload with an AbortSignal to the TUI client", async () => {
@@ -56,7 +53,7 @@ describe("toast-core", () => {
         expect(payload.signal).toBeInstanceOf(AbortSignal);
     });
 
-    it("cleanup detaches the TUI client and clears toast history", () => {
+    it("cleanup detaches the TUI client", () => {
         const showToast = vi.fn((payload: unknown) => Promise.resolve(payload));
         const client = {
             tui: { showToast },
@@ -64,13 +61,12 @@ describe("toast-core", () => {
         cleanup = initToastClient(client);
 
         show({ title: "First", message: "Toast" });
-        expect(getHistory()).toHaveLength(1);
 
         cleanup();
         cleanup = undefined;
-        show({ title: "Second", message: "Toast" });
+        const detached = show({ title: "Second", message: "Toast" });
 
         expect(showToast).toHaveBeenCalledTimes(1);
-        expect(getHistory()).toHaveLength(1);
+        expect(detached.title).toBe("Second");
     });
 });

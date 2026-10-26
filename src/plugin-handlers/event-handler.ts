@@ -8,7 +8,6 @@
 
 import { ParallelAgentManager } from "../core/agents/manager.js";
 import * as Toast from "../core/notification/toast.js";
-import * as ProgressTracker from "../core/progress/tracker.js";
 import * as SessionRecovery from "../core/recovery/session-recovery.js";
 import * as MissionLoopHandler from "../core/loop/mission-loop-handler.js";
 import { isLoopActive } from "../core/loop/mission-loop.js";
@@ -120,7 +119,6 @@ function handleSessionDeleted(ctx: EventHandlerContext, event: PluginEvent): voi
     PendingInjection.clearPrompts(sessionID);
     // Context, recovery and loop state are recorded for every session, including
     // delegated children this map never tracks, so release them unconditionally.
-    ProgressTracker.clearSession(sessionID);
     SessionRecovery.cleanupSessionRecovery(sessionID);
     MissionLoopHandler.cleanupSession(sessionID);
     ContextMonitor.cleanupSession(sessionID);

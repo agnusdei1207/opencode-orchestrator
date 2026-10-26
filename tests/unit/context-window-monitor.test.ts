@@ -9,7 +9,6 @@ import {
     formatUsage,
     cleanupSession,
     checkContextWindow,
-    getContextInjection,
     getContextUsage,
     getMonitorStatus,
     CONTEXT_THRESHOLDS,
@@ -74,23 +73,6 @@ describe("formatUsage", () => {
     it("should round values", () => {
         const result = formatUsage(0.756, 151234, 200000);
         expect(result).toBe("76% (151k/200k tokens)");
-    });
-});
-
-describe("getContextInjection", () => {
-    it("returns null for low usage", () => {
-        expect(getContextInjection(50000, 200000)).toBeNull();
-    });
-
-    it("returns info, warning, and critical prompt injections", () => {
-        const info = getContextInjection(150000, 200000); // 75%
-        expect(info).toContain("plenty of headroom");
-
-        const warn = getContextInjection(180000, 200000); // 90%
-        expect(warn).toContain("Context is getting full");
-
-        const crit = getContextInjection(195000, 200000); // 97.5%
-        expect(crit).toContain("CRITICAL: Context near limit");
     });
 });
 

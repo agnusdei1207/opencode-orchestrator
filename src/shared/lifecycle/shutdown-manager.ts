@@ -72,13 +72,6 @@ export class ShutdownManager {
 
         this.log(`[${LOG_PREFIX.SHUTDOWN_MANAGER}] Shutdown complete`);
     }
-
-    /**
-     * Check if shutdown is in progress
-     */
-    isShutdown(): boolean {
-        return this.isShuttingDown;
-    }
 }
 
 async function runWithCleanupTimeout(fn: CleanupFunction, timeoutMs: number): Promise<void> {

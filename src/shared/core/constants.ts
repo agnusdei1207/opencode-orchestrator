@@ -77,10 +77,6 @@ export const LIMITS = {
      * escalation or the user, not on a count.
      */
     MAX_ITERATIONS: 1_000_000_000,
-    /** Default history/list limit for UI */
-    DEFAULT_LIST_LIMIT: 20,
-    /** Default progress bar width */
-    DEFAULT_PROGRESS_WIDTH: 20,
 } as const;
 
 /**

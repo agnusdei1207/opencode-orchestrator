@@ -4,7 +4,6 @@ import { PROMPTS, COMMAND_NAMES } from "../../shared/index.js";
 import { ParallelAgentManager } from "../../core/agents/manager.js";
 import { isSessionBusy } from "../../core/session/activity.js";
 import { HOOK_ACTIONS, HOOK_NAMES } from "../constants.js";
-import * as ProgressTracker from "../../core/progress/tracker.js";
 import { detectSlashCommand } from "../../utils/parsing/index.js";
 import { COMMANDS } from "../../tools/slashCommand.js";
 import {
@@ -65,7 +64,6 @@ async function activateTaskMission(ctx: HookContext, args: string): Promise<void
     ensureSessionInitialized(sessions, sessionID, directory).active = true;
     activateMissionState(sessionID);
     handleUserMessage(sessionID);
-    ProgressTracker.startSession(sessionID);
 }
 
 async function prepareReplacement(ctx: HookContext, ownerID: string): Promise<void> {
@@ -87,7 +85,6 @@ function deactivateOwnedSession(ctx: HookContext, sessionID: string): void {
     handleAbort(sessionID);
     clearPrompts(sessionID);
     deactivateMissionState(sessionID);
-    ProgressTracker.clearSession(sessionID);
     const session = ctx.sessions.get(sessionID);
     if (typeof session !== "object" || session === null) return;
     const managed = session as Record<string, unknown>;

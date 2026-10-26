@@ -165,36 +165,6 @@ export function checkContextWindow(
 }
 
 /**
- * Get injection prompt for context-aware agents
- * This reminds agents about context status when usage is high
- */
-export function getContextInjection(
-    usedTokens: number,
-    maxTokens: number = CONTEXT_MONITOR_CONFIG.DEFAULT_MAX_TOKENS
-): string | null {
-    const usage = calculateUsage(usedTokens, maxTokens);
-    const level = getAlertLevel(usage);
-
-    if (!level) return null;
-
-    const usageStr = formatUsage(usage, usedTokens, maxTokens);
-
-    if (level === "info") {
-        return `[SYSTEM NOTE - Context Window: ${usageStr}] You have plenty of headroom. No need to rush or be overly concise. Focus on quality.`;
-    }
-
-    if (level === "warning") {
-        return `[SYSTEM NOTE - Context Window: ${usageStr}] Context is getting full. Consider: (1) Completing current task, (2) Being more concise, (3) Requesting session compaction if needed.`;
-    }
-
-    if (level === "critical") {
-        return `[SYSTEM NOTE - Context Window: ${usageStr}] CRITICAL: Context near limit. Complete current work immediately. Session may need compaction.`;
-    }
-
-    return null;
-}
-
-/**
  * The most recent host-reported measurement for a session, if one has been
  * seen. Preferred over any character-count estimate: it is what the model
  * actually consumed.

@@ -30,7 +30,6 @@ export interface ToastMessage {
     variant: ToastVariant;
     timestamp: Date;
     duration: number;
-    dismissed: boolean;
 }
 
 
