@@ -4,7 +4,7 @@
  * process, where these modules stay cached. Pruning must resume on next use.
  */
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { getCircuitState, recordToolCall, shutdownCircuitBreaker } from "../../src/core/loop/circuit-breaker";
+import { getCircuitState, recordAssistantTurn, shutdownCircuitBreaker } from "../../src/core/loop/circuit-breaker";
 import { armCompactionGuard, getCompactionState, shutdownCompactionGuard } from "../../src/core/loop/compaction-guard";
 import { shutdownProgressTracker, trackProgress } from "../../src/core/loop/progress-tracker";
 import { createSessionStateStore } from "../../src/core/loop/session-state-store";
@@ -34,7 +34,7 @@ afterEach(() => {
 const cases: Array<[string, () => void, () => boolean]> = [
     ["circuit breaker", () => {
         shutdownCircuitBreaker();
-        recordToolCall(SESSION_ID, "read");
+        recordAssistantTurn(SESSION_ID, "Working on it", 0);
     }, () => getCircuitState(SESSION_ID) !== undefined],
     ["compaction guard", () => {
         shutdownCompactionGuard();

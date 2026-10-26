@@ -1,13 +1,19 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import {
     isCircuitOpen,
-    detectRepetitiveToolUse,
-    shouldTripCircuit,
-    recordToolCall,
+    detectRepetitiveOutput,
+    tripOutputCircuit,
+    recordAssistantTurn,
     clearCircuitState,
     getCircuitState,
     shutdownCircuitBreaker,
 } from "../../../src/core/loop/circuit-breaker";
+
+const REPEATED = "I will compress the context now.";
+
+function recordIdleTurns(sessionID: string, text: string, count: number): void {
+    for (let i = 0; i < count; i++) recordAssistantTurn(sessionID, text, 0);
+}
 
 describe("CircuitBreaker", () => {
     const TEST_SESSION = "test-session-circuit";
@@ -29,105 +35,66 @@ describe("CircuitBreaker", () => {
     });
 
     it("isCircuitOpen returns false when circuit is closed", () => {
-        recordToolCall(TEST_SESSION, "read");
+        recordAssistantTurn(TEST_SESSION, REPEATED, 0);
         expect(isCircuitOpen(TEST_SESSION)).toBe(false);
     });
 
-    it("detectRepetitiveToolUse returns null when history is empty", () => {
-        expect(detectRepetitiveToolUse(TEST_SESSION)).toBeNull();
+    it("detectRepetitiveOutput returns false when history is empty or short", () => {
+        expect(detectRepetitiveOutput(TEST_SESSION)).toBe(false);
+        recordIdleTurns(TEST_SESSION, REPEATED, 2);
+        expect(detectRepetitiveOutput(TEST_SESSION)).toBe(false);
     });
 
-    it("detectRepetitiveToolUse returns null when history is short", () => {
-        recordToolCall(TEST_SESSION, "read");
-        recordToolCall(TEST_SESSION, "read");
-        expect(detectRepetitiveToolUse(TEST_SESSION)).toBeNull();
-    });
-
-    it("detectRepetitiveToolUse returns null for diverse tools", () => {
+    it("detectRepetitiveOutput returns false for diverse answers", () => {
         for (let i = 0; i < 10; i++) {
-            recordToolCall(TEST_SESSION, `tool-${i % 3}`);
+            recordAssistantTurn(TEST_SESSION, `answer ${i % 3}`, 0);
         }
-        expect(detectRepetitiveToolUse(TEST_SESSION)).toBeNull();
+        expect(detectRepetitiveOutput(TEST_SESSION)).toBe(false);
     });
 
-    it("detectRepetitiveToolUse returns tool name for 3+ consecutive same", () => {
-        recordToolCall(TEST_SESSION, "read");
-        recordToolCall(TEST_SESSION, "read");
-        expect(detectRepetitiveToolUse(TEST_SESSION)).toBeNull();
-        
-        recordToolCall(TEST_SESSION, "read");
-        expect(detectRepetitiveToolUse(TEST_SESSION)).toBe("read");
+    it("detectRepetitiveOutput returns false if the pattern is broken", () => {
+        recordIdleTurns(TEST_SESSION, REPEATED, 8);
+        recordAssistantTurn(TEST_SESSION, "a different answer", 0);
+        expect(detectRepetitiveOutput(TEST_SESSION)).toBe(false);
     });
 
-    it("detectRepetitiveToolUse returns null if pattern is broken", () => {
-        for (let i = 0; i < 8; i++) {
-            recordToolCall(TEST_SESSION, "read");
-        }
-        recordToolCall(TEST_SESSION, "edit");
-        recordToolCall(TEST_SESSION, "edit");
-        recordToolCall(TEST_SESSION, "grep");
-        recordToolCall(TEST_SESSION, "bash");
-        expect(detectRepetitiveToolUse(TEST_SESSION)).toBeNull();
+    it("never opens for turns that call tools, however repetitive", () => {
+        for (let i = 0; i < 5; i++) recordAssistantTurn(TEST_SESSION, REPEATED, 1);
+        expect(tripOutputCircuit(TEST_SESSION)).toBe(false);
+        expect(isCircuitOpen(TEST_SESSION)).toBe(false);
     });
 
-    it("shouldTripCircuit returns false when no repetitive use", () => {
-        recordToolCall(TEST_SESSION, "read");
-        recordToolCall(TEST_SESSION, "read");
-        expect(shouldTripCircuit(TEST_SESSION)).toBe(false);
-    });
-
-    it("shouldTripCircuit returns true when repetitive use detected", () => {
-        recordToolCall(TEST_SESSION, "read");
-        recordToolCall(TEST_SESSION, "read");
-        recordToolCall(TEST_SESSION, "read");
-        expect(shouldTripCircuit(TEST_SESSION)).toBe(true);
-    });
-
-    it("shouldTripCircuit returns false after circuit is open", () => {
-        recordToolCall(TEST_SESSION, "read");
-        recordToolCall(TEST_SESSION, "read");
-        recordToolCall(TEST_SESSION, "read");
-        shouldTripCircuit(TEST_SESSION);
-        expect(shouldTripCircuit(TEST_SESSION)).toBe(false);
-    });
-
-    it("isCircuitOpen returns true after circuit trips", () => {
-        recordToolCall(TEST_SESSION, "read");
-        recordToolCall(TEST_SESSION, "read");
-        recordToolCall(TEST_SESSION, "read");
-        shouldTripCircuit(TEST_SESSION);
-        expect(isCircuitOpen(TEST_SESSION)).toBe(true);
-    });
-
-    it("isCircuitOpen returns true until reset timeout", () => {
-        recordToolCall(TEST_SESSION, "read");
-        recordToolCall(TEST_SESSION, "read");
-        recordToolCall(TEST_SESSION, "read");
-        shouldTripCircuit(TEST_SESSION);
-        
+    it("tripOutputCircuit opens once for repeated output", () => {
+        recordIdleTurns(TEST_SESSION, REPEATED, 3);
+        expect(tripOutputCircuit(TEST_SESSION)).toBe(true);
+        expect(tripOutputCircuit(TEST_SESSION)).toBe(false);
         expect(isCircuitOpen(TEST_SESSION)).toBe(true);
         expect(getCircuitState(TEST_SESSION)?.isOpen).toBe(true);
     });
 
-    it("recordToolCall respects HISTORY_SIZE", () => {
-        for (let i = 0; i < 15; i++) {
-            recordToolCall(TEST_SESSION, `tool-${i}`);
-        }
-        const state = getCircuitState(TEST_SESSION);
-        expect(state?.toolCallHistory.length).toBeLessThanOrEqual(10);
+    it("tripOutputCircuit returns false for a non-existent session", () => {
+        expect(tripOutputCircuit(TEST_SESSION)).toBe(false);
     });
 
-    it("recordToolCall updates lastAccessedAt", () => {
+    it("recordAssistantTurn respects HISTORY_SIZE", () => {
+        for (let i = 0; i < 15; i++) {
+            recordAssistantTurn(TEST_SESSION, `answer ${i}`, 0);
+        }
+        const state = getCircuitState(TEST_SESSION);
+        expect(state?.idleTurnHistory.length).toBeLessThanOrEqual(10);
+    });
+
+    it("recordAssistantTurn updates lastAccessedAt", () => {
         const before = getCircuitState(TEST_SESSION);
-        
-        recordToolCall(TEST_SESSION, "read");
-        
+
+        recordAssistantTurn(TEST_SESSION, REPEATED, 0);
+
         const after = getCircuitState(TEST_SESSION);
         expect(after?.lastAccessedAt).toBeGreaterThanOrEqual(before?.lastAccessedAt ?? 0);
     });
 
     it("clearCircuitState removes session state", () => {
-        recordToolCall(TEST_SESSION, "read");
+        recordAssistantTurn(TEST_SESSION, REPEATED, 0);
         expect(getCircuitState(TEST_SESSION)).toBeDefined();
 
         clearCircuitState(TEST_SESSION);
@@ -143,33 +110,29 @@ describe("CircuitBreaker", () => {
     });
 
     it("getCircuitState returns correct state shape", () => {
-        recordToolCall(TEST_SESSION, "read");
+        recordAssistantTurn(TEST_SESSION, REPEATED, 0);
         const state = getCircuitState(TEST_SESSION);
-        
+
         expect(state).toHaveProperty("lastAccessedAt");
         expect(state).toHaveProperty("lastTrippedAt");
         expect(state).toHaveProperty("isOpen");
-        expect(state).toHaveProperty("toolCallHistory");
+        expect(state).toHaveProperty("idleTurnHistory");
         expect(state?.isOpen).toBe(false);
     });
 
     it("multiple sessions are isolated", () => {
-        for (let i = 0; i < 5; i++) {
-            recordToolCall(TEST_SESSION, "read");
-        }
-        for (let i = 0; i < 5; i++) {
-            recordToolCall(TEST_SESSION_2, "edit");
-        }
-        
-        const state1 = getCircuitState(TEST_SESSION);
-        const state2 = getCircuitState(TEST_SESSION_2);
-        
-        expect(state1?.toolCallHistory).not.toEqual(state2?.toolCallHistory);
+        recordIdleTurns(TEST_SESSION, REPEATED, 3);
+        recordIdleTurns(TEST_SESSION_2, "another answer", 3);
+
+        expect(tripOutputCircuit(TEST_SESSION)).toBe(true);
+        expect(isCircuitOpen(TEST_SESSION_2)).toBe(false);
+        expect(getCircuitState(TEST_SESSION)?.idleTurnHistory)
+            .not.toEqual(getCircuitState(TEST_SESSION_2)?.idleTurnHistory);
     });
 
     it("shutdownCircuitBreaker clears all state", () => {
-        recordToolCall(TEST_SESSION, "read");
-        recordToolCall(TEST_SESSION_2, "edit");
+        recordAssistantTurn(TEST_SESSION, REPEATED, 0);
+        recordAssistantTurn(TEST_SESSION_2, "another answer", 0);
 
         shutdownCircuitBreaker();
 

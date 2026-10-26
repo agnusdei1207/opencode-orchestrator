@@ -2,10 +2,6 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createToolExecuteAfterHandler } from "../../src/plugin-handlers/tool-execute-handler";
 import { HookRegistry } from "../../src/hooks/registry";
 import {
-    clearCircuitState,
-    getCircuitState,
-} from "../../src/core/loop/circuit-breaker";
-import {
     clearEvidence,
     getUnverifiedFiles,
 } from "../../src/core/loop/evidence";
@@ -20,13 +16,11 @@ vi.mock("../../src/core/agents/logger", () => ({ log: vi.fn() }));
 describe("createToolExecuteAfterHandler", () => {
     beforeEach(() => {
         vi.restoreAllMocks();
-        clearCircuitState("session-1");
         clearEvidence("session-1");
     });
 
-    it("records tool calls and evidence before running post-tool hooks", async () => {
+    it("records evidence before running post-tool hooks", async () => {
         const executePostTool = vi.fn().mockImplementation(async () => {
-            expect(getCircuitState("session-1")?.toolCallHistory).toEqual(["write"]);
             expect(getUnverifiedFiles("session-1")).toEqual(["src/a.ts"]);
         });
         vi.spyOn(HookRegistry, "getInstance").mockReturnValue({
@@ -50,7 +44,7 @@ describe("createToolExecuteAfterHandler", () => {
         expect(output.output).toContain("Step 1");
     });
 
-    it("keeps tool call and evidence records when a post-tool hook throws", async () => {
+    it("keeps evidence records when a post-tool hook throws", async () => {
         vi.spyOn(HookRegistry, "getInstance").mockReturnValue({
             executePostTool: vi.fn().mockRejectedValue(new Error("post hook failed")),
         } as unknown as HookRegistry);
@@ -60,7 +54,6 @@ describe("createToolExecuteAfterHandler", () => {
             createToolOutput(),
         )).rejects.toThrow("post hook failed");
 
-        expect(getCircuitState("session-1")?.toolCallHistory).toEqual(["write"]);
         expect(getUnverifiedFiles("session-1")).toEqual(["src/a.ts"]);
     });
 
@@ -74,7 +67,6 @@ describe("createToolExecuteAfterHandler", () => {
         await createToolExecuteAfterHandler(context, false)(createToolInput(), output);
         expect(output.output).toBe("redacted by post-tool hook");
         expect(context.sessions.get("session-1")?.step).toBe(1);
-        expect(getCircuitState("session-1")?.toolCallHistory).toEqual(["write"]);
         expect(getUnverifiedFiles("session-1")).toEqual(["src/a.ts"]);
         expect(executePostTool).toHaveBeenCalledOnce();
     });

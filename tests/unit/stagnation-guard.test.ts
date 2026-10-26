@@ -15,9 +15,8 @@ import {
     getCircuitState,
     isCircuitOpen,
     recordAssistantTurn,
-    recordToolCall,
-    shouldTripCircuit,
     shutdownCircuitBreaker,
+    tripOutputCircuit,
 } from "../../src/core/loop/circuit-breaker";
 import { handleCompletedAssistantMessage } from "../../src/plugin-handlers/assistant-done-handler";
 import { createChatMessageHandler } from "../../src/plugin-handlers/chat-message-handler";
@@ -53,13 +52,12 @@ describe("circuit breaker: repeated output", () => {
         recordAssistantTurn(SESSION, REMINDER, 0);
         recordAssistantTurn(SESSION, REMINDER.replace(/\n/g, "  \n "), 0);
         expect(detectRepetitiveOutput(SESSION)).toBe(false);
-        expect(shouldTripCircuit(SESSION)).toBe(false);
+        expect(tripOutputCircuit(SESSION)).toBe(false);
 
         recordAssistantTurn(SESSION, `  ${REMINDER}  `, 0);
         expect(detectRepetitiveOutput(SESSION)).toBe(true);
-        expect(shouldTripCircuit(SESSION)).toBe(true);
+        expect(tripOutputCircuit(SESSION)).toBe(true);
         expect(isCircuitOpen(SESSION)).toBe(true);
-        expect(getCircuitState(SESSION)?.openedBy).toBe("output");
     });
 
     it("treats a turn that called a tool as progress", () => {
@@ -70,7 +68,7 @@ describe("circuit breaker: repeated output", () => {
         recordAssistantTurn(SESSION, REMINDER, 0);
 
         expect(detectRepetitiveOutput(SESSION)).toBe(false);
-        expect(shouldTripCircuit(SESSION)).toBe(false);
+        expect(tripOutputCircuit(SESSION)).toBe(false);
     });
 
     it("does not trip on three different answers", () => {
@@ -78,7 +76,7 @@ describe("circuit breaker: repeated output", () => {
         recordAssistantTurn(SESSION, "two", 0);
         recordAssistantTurn(SESSION, "three", 0);
 
-        expect(shouldTripCircuit(SESSION)).toBe(false);
+        expect(tripOutputCircuit(SESSION)).toBe(false);
     });
 
     it("ignores empty turns so aborted/rate-limited turns never open the output circuit", () => {
@@ -89,13 +87,13 @@ describe("circuit breaker: repeated output", () => {
         recordAssistantTurn(SESSION, "", 0);
 
         expect(detectRepetitiveOutput(SESSION)).toBe(false);
-        expect(shouldTripCircuit(SESSION)).toBe(false);
+        expect(tripOutputCircuit(SESSION)).toBe(false);
     });
 
-    it("stays open much longer than a tool-loop trip", () => {
+    it("stays open for ten minutes so the user can intervene", () => {
         vi.useFakeTimers();
         for (let i = 0; i < 3; i++) recordAssistantTurn(SESSION, REMINDER, 0);
-        expect(shouldTripCircuit(SESSION)).toBe(true);
+        expect(tripOutputCircuit(SESSION)).toBe(true);
 
         vi.advanceTimersByTime(31_000);
         expect(isCircuitOpen(SESSION)).toBe(true);
@@ -103,16 +101,6 @@ describe("circuit breaker: repeated output", () => {
         vi.advanceTimersByTime(10 * 60_000);
         expect(isCircuitOpen(SESSION)).toBe(false);
         expect(getCircuitState(SESSION)?.idleTurnHistory).toEqual([]);
-    });
-
-    it("keeps the short reset for a tool-repetition trip", () => {
-        vi.useFakeTimers();
-        for (let i = 0; i < 3; i++) recordToolCall(SESSION, "read");
-        expect(shouldTripCircuit(SESSION)).toBe(true);
-        expect(getCircuitState(SESSION)?.openedBy).toBe("tool");
-
-        vi.advanceTimersByTime(31_000);
-        expect(isCircuitOpen(SESSION)).toBe(false);
     });
 });
 
@@ -166,7 +154,7 @@ describe("a real user message resets the guard", () => {
 
     function tripped() {
         for (let i = 0; i < 3; i++) recordAssistantTurn(SESSION, REMINDER, 0);
-        expect(shouldTripCircuit(SESSION)).toBe(true);
+        expect(tripOutputCircuit(SESSION)).toBe(true);
     }
 
     it("clears the circuit for a message the user typed", async () => {

@@ -1,28 +1,22 @@
 /**
  * Circuit Breaker - Loop Detection and Prevention
  *
- * Detects repetitive patterns and trips the circuit to prevent
- * infinite loops. Two signals feed it:
+ * Trips the circuit when three consecutive completed assistant turns made no
+ * tool call and said the same thing (issue #39). A model that keeps echoing a
+ * system reminder instead of acting is not making progress, and every idle
+ * re-prompt from the continuation loops would only make it echo again.
  *
- * - Tool call history: the same tool called three times in a row.
- * - Assistant turn history: three consecutive completed turns with no tool
- *   call and the same text (issue #39). A model that keeps echoing a system
- *   reminder instead of acting is not making progress, and every idle
- *   re-prompt from the continuation loops would only make it echo again.
+ * Tool repetition is deliberately not a signal: a normal turn may end in
+ * three same-named tool calls (a legitimate `read,read,read`).
  */
 
 import { log } from "../agents/logger.js";
 import { createPruneTimer } from "./prune-timer.js";
 
-type CircuitTripCause = "tool" | "output";
-
 interface CircuitBreakerState {
     lastAccessedAt: number;
     lastTrippedAt: number;
     isOpen: boolean;
-    /** What opened the circuit; decides how long it stays open. */
-    openedBy?: CircuitTripCause;
-    toolCallHistory: string[];
     /** Digests of recent no-tool completed turns (equality is all we need). */
     idleTurnHistory: string[];
 }
@@ -43,14 +37,8 @@ function digest(text: string): string {
 const REPETITION_THRESHOLD = 3;
 const HISTORY_SIZE = 10;
 const CIRCUIT_TTL_MS = 10 * 60 * 1000;
-/**
- * A tool loop usually clears itself once the model is left alone briefly. A
- * model that repeats the same answer needs the user, so the pause is long.
- */
-const CIRCUIT_RESET_TIMEOUT_MS: Record<CircuitTripCause, number> = {
-    tool: 30 * 1000,
-    output: 10 * 60 * 1000,
-};
+/** A model that repeats the same answer needs the user, so the pause is long. */
+const CIRCUIT_RESET_TIMEOUT_MS = 10 * 60 * 1000;
 const PRUNE_INTERVAL_MS = 2 * 60 * 1000;
 
 const circuitStates = new Map<string, CircuitBreakerState>();
@@ -75,7 +63,6 @@ function getState(sessionID: string): CircuitBreakerState {
             lastAccessedAt: Date.now(),
             lastTrippedAt: 0,
             isOpen: false,
-            toolCallHistory: [],
             idleTurnHistory: [],
         };
         circuitStates.set(sessionID, state);
@@ -101,9 +88,8 @@ function lastEntriesIdentical(history: string[]): boolean {
     return recent.every((entry) => entry === recent[0]);
 }
 
-function openCircuit(state: CircuitBreakerState, cause: CircuitTripCause): void {
+function openCircuit(state: CircuitBreakerState): void {
     state.isOpen = true;
-    state.openedBy = cause;
     state.lastTrippedAt = Date.now();
 }
 
@@ -115,11 +101,8 @@ export function isCircuitOpen(sessionID: string): boolean {
 
     if (state.isOpen) {
         const now = Date.now();
-        const resetAfter = CIRCUIT_RESET_TIMEOUT_MS[state.openedBy ?? "tool"];
-        if (now - state.lastTrippedAt > resetAfter) {
+        if (now - state.lastTrippedAt > CIRCUIT_RESET_TIMEOUT_MS) {
             state.isOpen = false;
-            state.openedBy = undefined;
-            state.toolCallHistory = [];
             state.idleTurnHistory = [];
             log(`[circuit-breaker] Circuit HALF-OPEN (auto-reset)`, { sessionID });
             return false;
@@ -130,65 +113,26 @@ export function isCircuitOpen(sessionID: string): boolean {
     return false;
 }
 
-export function detectRepetitiveToolUse(sessionID: string): string | null {
-    const state = circuitStates.get(sessionID);
-    if (!state || !lastEntriesIdentical(state.toolCallHistory)) {
-        return null;
-    }
-
-    return state.toolCallHistory[state.toolCallHistory.length - 1];
-}
-
 /** True when the last three completed turns made no tool call and said the same thing. */
 export function detectRepetitiveOutput(sessionID: string): boolean {
     const state = circuitStates.get(sessionID);
     return state !== undefined && lastEntriesIdentical(state.idleTurnHistory);
 }
 
-export function shouldTripCircuit(sessionID: string): boolean {
-    const state = circuitStates.get(sessionID);
-    if (!state) return false;
-
-    if (state.isOpen) return false;
-
-    const repetitiveTool = detectRepetitiveToolUse(sessionID);
-    if (repetitiveTool) {
-        openCircuit(state, "tool");
-        log(`[circuit-breaker] Circuit OPENED: repetitive tool detected: ${repetitiveTool}`, { sessionID });
-        return true;
-    }
-
-    if (detectRepetitiveOutput(sessionID)) {
-        openCircuit(state, "output");
-        log(`[circuit-breaker] Circuit OPENED: model repeated the same output without acting`, { sessionID });
-        return true;
-    }
-
-    return false;
-}
-
 /**
- * Trip the circuit ONLY for repeated identical output, never for tool
- * repetition. Returns true if this call opened it. Used by the todo/mission
- * continuation guard, which must not pause a session just because a normal
- * turn happened to end in three same-named tool calls (issue #39 vs a
- * legitimate `read,read,read`).
+ * Trip the circuit for repeated identical output. Returns true if this call
+ * opened it. Used by the mission continuation guard.
  */
 export function tripOutputCircuit(sessionID: string): boolean {
     const state = circuitStates.get(sessionID);
     if (!state || state.isOpen) return false;
 
     if (detectRepetitiveOutput(sessionID)) {
-        openCircuit(state, "output");
+        openCircuit(state);
         log(`[circuit-breaker] Circuit OPENED: model repeated the same output without acting`, { sessionID });
         return true;
     }
     return false;
-}
-
-export function recordToolCall(sessionID: string, toolName: string): void {
-    const state = getState(sessionID);
-    pushBounded(state.toolCallHistory, toolName);
 }
 
 /**

@@ -9,7 +9,6 @@
 
 import type { Hooks } from "@opencode-ai/plugin";
 import { log } from "../core/agents/logger.js";
-import { recordToolCall } from "../core/loop/circuit-breaker.js";
 import { recordToolEvidence } from "../core/loop/evidence.js";
 import { formatElapsedTime, formatTimestamp } from "../utils/formatting/index.js";
 import { HookRegistry } from "../hooks/registry.js";
@@ -35,7 +34,6 @@ export function createToolExecuteAfterHandler(ctx: ToolExecuteHandlerContext, cu
 
         const { stepDuration, totalElapsed } = advanceSessionStep(session);
         const toolArguments = readToolArgs(toolInput.args);
-        recordToolCall(toolInput.sessionID, toolInput.tool);
         recordToolEvidence(toolInput.sessionID, toolInput.tool, toolArguments);
 
         await hooks.executePostTool(
