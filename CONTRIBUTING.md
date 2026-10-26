@@ -51,7 +51,6 @@ npm run build:all
 | `npm run test:all` | Run TypeScript build and Vitest suite |
 | `npm run release:dry-run` | Run local release preflight and an isolated packed-install smoke |
 | `npm run release:patch` | Bump and verify the version, then push `main` and its exact tag for hosted publishing |
-| `npm run log` | Follow orchestrator logs with the cross-platform Node helper |
 
 ---
 

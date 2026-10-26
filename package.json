@@ -39,7 +39,6 @@
   },
   "files": [
     "dist",
-    "scripts/tail-log.mjs",
     "bin",
     "README.md",
     "LICENSE",
@@ -70,8 +69,7 @@
     "release:major": "node scripts/release-version.mjs major && npm run release:preflight && npm run release:push",
     "release:dry-run": "node scripts/release-preflight.mjs --allow-dirty --skip-branch --skip-version-check",
     "release:push": "node scripts/release-push.mjs",
-    "release:clean": "shx rm -rf dist bin && docker compose down -v",
-    "log": "node scripts/tail-log.mjs"
+    "release:clean": "shx rm -rf dist bin && docker compose down -v"
   },
   "engines": {
     "node": ">=24.15.0"

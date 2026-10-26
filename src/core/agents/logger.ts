@@ -1,11 +1,10 @@
 /**
- * Debug logger for parallel agent
- * 
- * DISABLED: File logging removed to eliminate I/O overhead.
- * All log calls are now no-ops for maximum performance.
+ * Diagnostic logging seam.
+ *
+ * Intentionally a no-op: writing to stdout/stderr corrupts the OpenCode TUI and
+ * file logging added I/O on every hook, so both were removed. Call sites are
+ * kept so instrumentation can be re-enabled in one place while debugging.
  */
-
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 export function log(..._args: unknown[]): void {
-    // No-op: Logging disabled for performance
+    // No-op by design; see the module comment.
 }

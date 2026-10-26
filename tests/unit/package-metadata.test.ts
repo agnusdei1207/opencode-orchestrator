@@ -78,11 +78,4 @@ describe("package metadata", () => {
 
         expect(metadata.bin).toEqual({ orchestrator: "dist/cli.js" });
     });
-
-    it("tails the development log through the cross-platform Node helper", () => {
-        const metadata = readPackageMetadata();
-
-        expect(metadata.scripts?.log).toBe("node scripts/tail-log.mjs");
-        expect(metadata.files).toContain("scripts/tail-log.mjs");
-    });
 });
