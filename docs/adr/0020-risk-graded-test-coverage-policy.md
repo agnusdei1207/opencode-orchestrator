@@ -4,7 +4,7 @@ Date: 2026-09-04 07:39 KST
 Status: Implemented
 Source: owner question "does the test code correspond 100%?" (2026-09-04) after a
 policy adopted from the dev-methodology test-strategy
-canon (`test-strategy.md`, sections "무엇을 테스트하는가" and "커버리지"), which
+canon (`test-strategy.md`, sections "What to test" and "Coverage"), which
 this repository applies.
 
 ## Context

@@ -133,7 +133,7 @@ describe("Prompt Consistency Guards", () => {
             const duplicated = [...counts.entries()].filter(([, n]) => n > 1);
             expect(
                 duplicated,
-                `${name}: duplicated section tags: ${duplicated.map(([t, n]) => `${t}횞${n}`).join(", ")}`,
+                `${name}: duplicated section tags: ${duplicated.map(([t, n]) => `${t}x${n}`).join(", ")}`,
             ).toEqual([]);
         }
     });
