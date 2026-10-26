@@ -205,8 +205,6 @@ struct AstGrepMatch {
 #[derive(Deserialize)]
 struct AstGrepRange {
     start: AstGrepPosition,
-    #[allow(dead_code)]
-    end: AstGrepPosition,
 }
 
 #[derive(Deserialize)]
