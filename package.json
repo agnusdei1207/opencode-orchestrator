@@ -1,7 +1,7 @@
 {
   "name": "opencode-orchestrator",
   "description": "Mission continuity for OpenCode: an OpenCode 2 plugin that keeps a task and its unfinished work connected across turns until it is verified.",
-  "version": "2.0.20",
+  "version": "2.0.21",
   "author": "agnusdei1207",
   "license": "MIT",
   "repository": {
