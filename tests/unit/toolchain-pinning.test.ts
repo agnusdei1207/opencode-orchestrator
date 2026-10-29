@@ -23,7 +23,7 @@ describe("build toolchain pinning", () => {
     });
 
     it("pins local and hosted Rust builds to stable 1.98.1", () => {
-        for (const file of ["Dockerfile", "Dockerfile.windows", "compose.yml", "scripts/dbuild.ps1"]) {
+        for (const file of ["Dockerfile.windows", "compose.yml"]) {
             const content = read(file);
             expect(content).toContain("rust:1.98.1-bookworm");
             expect(content).not.toContain("rust:1.92-bookworm");

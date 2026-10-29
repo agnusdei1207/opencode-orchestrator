@@ -1,8 +1,4 @@
 services:
-  build:
-    build: .
-    image: orchestrator:latest
-
   # Build the Linux x64 release binary when Cargo is unavailable on the host.
   # Usage: docker compose run --rm dev
   dev:
