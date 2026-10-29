@@ -15,6 +15,7 @@ import { ConcurrencyController } from "../../src/core/agents/concurrency";
 import { TASK_STATUS } from "../../src/shared";
 import { log } from "../../src/core/agents/logger";
 
+import { buildRoutedAgentPrompt } from "../../src/core/agents/manager/prompt-routing";
 vi.mock("../../src/core/agents/logger", () => ({
     log: vi.fn(),
 }));
@@ -41,6 +42,7 @@ function createTaskLauncher(
         sessionRegistry,
         onTaskError,
         startPolling,
+        routePrompt: (agent, prompt) => buildRoutedAgentPrompt("/tmp/task-launcher-project", agent, prompt),
     });
 }
 

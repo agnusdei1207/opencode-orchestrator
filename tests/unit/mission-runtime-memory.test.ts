@@ -45,6 +45,23 @@ describe("mission runtime memory", () => {
         fs.rmSync(testDir, { recursive: true, force: true });
     });
 
+    // One OpenCode process can serve projects whose plugin options differ.
+    it("applies each project's own mission options", () => {
+        const otherDir = path.join(tmpdir(), `mission-runtime-other-${Date.now()}-${Math.random()}`);
+        fs.mkdirSync(otherDir, { recursive: true });
+        try {
+            configureMissionRuntimeOptions({ ledger: false }, otherDir);
+            configureMissionRuntimeOptions({ ledger: true }, testDir);
+            const event = { type: "mission_started" as const, sessionID, iteration: 1, objective: "Scoped options" };
+
+            expect(appendMissionLedgerEvent(testDir, event)).not.toBeNull();
+            expect(appendMissionLedgerEvent(otherDir, event)).toBeNull();
+            expect(fs.existsSync(getMissionLedgerPath(otherDir))).toBe(false);
+        } finally {
+            fs.rmSync(otherDir, { recursive: true, force: true });
+        }
+    });
+
     it("writes a mission ledger, scratchpad, and canvas when a mission starts", () => {
         const started = startMissionLoop(testDir, sessionID, "Build graphical mission memory");
 
@@ -166,7 +183,7 @@ describe("mission runtime memory", () => {
     });
 
     it("syncs memory notes from MemoryManager and cleans obsolete notes", () => {
-        const memoryManager = MemoryManager.getInstance();
+        const memoryManager = MemoryManager.getInstance(testDir);
         const originalEntries = structuredClone(memoryManager.export());
         try {
             memoryManager.import({

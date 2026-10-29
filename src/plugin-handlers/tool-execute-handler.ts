@@ -23,7 +23,7 @@ export type ToolExecuteAfterOutput = Parameters<ToolExecuteAfterHook>[1];
  * Create tool.execute.after handler
  */
 export function createToolExecuteAfterHandler(ctx: ToolExecuteHandlerContext, customRendering = true) {
-    const { sessions, directory } = ctx;
+    const { sessions, directory, contextLimits } = ctx;
     const hooks = HookRegistry.getInstance();
     return async (
         toolInput: ToolExecuteAfterInput,
@@ -41,7 +41,8 @@ export function createToolExecuteAfterHandler(ctx: ToolExecuteHandlerContext, cu
                 sessionID: toolInput.sessionID,
                 agent: session.agent,
                 directory,
-                sessions
+                sessions,
+                contextLimits,
             },
             toolInput.tool,
             toolArguments,

@@ -5,17 +5,12 @@ import { join } from "node:path";
 import { createCommandExecuteBeforeHandler } from "../../src/plugin-handlers/command-execute-handler";
 import { readLoopState } from "../../src/core/loop/mission-loop";
 import { COMMANDS } from "../../src/tools/slashCommand";
-import type { ToolExecuteHandlerContext } from "../../src/plugin-handlers/context";
+import type { CommandHandlerContext } from "../../src/plugin-handlers/context";
 import { configureMissionRuntimeOptions } from "../../src/core/loop/mission-runtime-options";
 import { cleanupSession } from "../../src/core/loop/mission-loop-handler";
-import { ParallelAgentManager } from "../../src/core/agents/manager";
-
-vi.mock("../../src/core/agents/manager", () => ({
-    ParallelAgentManager: { getInstance: vi.fn() },
-}));
 
 describe("native mission command", () => {
-    let ctx: ToolExecuteHandlerContext;
+    let ctx: CommandHandlerContext;
     const status = vi.fn();
     const abort = vi.fn();
     const cancelTasksForParent = vi.fn();
@@ -24,11 +19,11 @@ describe("native mission command", () => {
         status.mockResolvedValue({ data: {} });
         abort.mockResolvedValue({ data: true });
         cancelTasksForParent.mockResolvedValue(true);
-        vi.mocked(ParallelAgentManager.getInstance).mockReturnValue({ cancelTasksForParent } as never);
         ctx = {
             client: { session: { status, abort } } as never,
             directory: mkdtempSync(join(tmpdir(), "native-mission-command-")),
             sessions: new Map(),
+            agents: { cancelTasksForParent } as never,
         };
         configureMissionRuntimeOptions({ ledger: false, markdownMemory: false });
     });
@@ -120,7 +115,7 @@ describe("native mission command", () => {
         await run({ command: "task", arguments: "Old goal", sessionID: "native-root" }, {
             parts: [{ type: "text", text: COMMANDS.task.template.replace(/\$ARGUMENTS/g, "Old goal") }],
         } as never);
-        const withoutClient = { ...ctx, client: undefined } as unknown as ToolExecuteHandlerContext;
+        const withoutClient = { ...ctx, client: undefined } as unknown as CommandHandlerContext;
         await expect(createCommandExecuteBeforeHandler(withoutClient)(
             { command: "task", arguments: "New goal", sessionID: "new-root" },
             { parts: [{ type: "text", text: COMMANDS.task.template.replace(/\$ARGUMENTS/g, "New goal") }] } as never,

@@ -6,13 +6,11 @@
  * - message.updated
  */
 
-import { ParallelAgentManager } from "../core/agents/manager.js";
 import * as Toast from "../core/notification/toast.js";
 import * as SessionRecovery from "../core/recovery/session-recovery.js";
 import * as MissionLoopHandler from "../core/loop/mission-loop-handler.js";
 import { isLoopActive } from "../core/loop/mission-loop.js";
 import * as ContextMonitor from "../core/context/index.js";
-import { ContextLimitResolver } from "../core/context/context-limit-resolver.js";
 import * as SessionActivity from "../core/session/activity.js";
 import * as PendingInjection from "../core/session/pending-injection.js";
 import { SESSION_EVENTS, MESSAGE_EVENTS, MESSAGE_ROLES, SESSION_STATUS, TASK_STATUS } from "../shared/index.js";
@@ -62,7 +60,7 @@ export function createEventHandler(ctx: EventHandlerContext) {
     return async (input: EventInput) => {
         const { event } = input;
 
-        notifyParallelAgentManager(event);
+        notifyParallelAgentManager(ctx, event);
         await handlePluginEvent(ctx, event);
     };
 }
@@ -98,10 +96,9 @@ async function handlePluginEvent(ctx: EventHandlerContext, event: PluginEvent): 
     }
 }
 
-function notifyParallelAgentManager(event: PluginEvent): void {
+function notifyParallelAgentManager(ctx: EventHandlerContext, event: PluginEvent): void {
     try {
-        const manager = ParallelAgentManager.getInstance();
-        manager.handleEvent(event as { type: string; properties?: { sessionID?: string; info?: { id?: string }; error?: unknown } });
+        ctx.agents.handleEvent(event as { type: string; properties?: { sessionID?: string; info?: { id?: string }; error?: unknown } });
     } catch (error) {
         log(`[event-handler] Parallel agent manager could not handle ${event.type}: ${error}`);
     }
@@ -122,7 +119,7 @@ function handleSessionDeleted(ctx: EventHandlerContext, event: PluginEvent): voi
     SessionRecovery.cleanupSessionRecovery(sessionID);
     MissionLoopHandler.cleanupSession(sessionID);
     ContextMonitor.cleanupSession(sessionID);
-    ContextLimitResolver.getInstance().forgetSession(sessionID);
+    ctx.contextLimits.forgetSession(sessionID);
 
     const session = sessions.get(sessionID);
     if (!session) return;
@@ -155,7 +152,7 @@ async function handleSessionError(ctx: EventHandlerContext, event: PluginEvent):
     }
 
     if (sessionID && error) {
-        if (isFailedChildTask(sessionID)) return;
+        if (isFailedChildTask(ctx, sessionID)) return;
         const recovered = await SessionRecovery.handleSessionError(
             ctx.client, sessionID, error, event.properties
         );
@@ -165,9 +162,9 @@ async function handleSessionError(ctx: EventHandlerContext, event: PluginEvent):
     Toast.presets.taskFailed("session", String(error).slice(0, ERROR_PREVIEW_LENGTH));
 }
 
-function isFailedChildTask(sessionID: string): boolean {
+function isFailedChildTask(ctx: EventHandlerContext, sessionID: string): boolean {
     try {
-        return ParallelAgentManager.getInstance().getTaskBySession(sessionID)?.status === TASK_STATUS.ERROR;
+        return ctx.agents.getTaskBySession(sessionID)?.status === TASK_STATUS.ERROR;
     } catch {
         return false;
     }
@@ -182,7 +179,7 @@ async function handleMessageUpdated(ctx: EventHandlerContext, event: PluginEvent
     // Context monitoring is advisory (it drives a toast). Resolving the model's
     // window can hit the server, so run it off the completion path rather than
     // making every token-bearing message wait on it.
-    void checkContextUsage(sessionID, messageInfo).catch((error) => {
+    void checkContextUsage(ctx, sessionID, messageInfo).catch((error) => {
         log(`[event-handler] context usage check failed for ${sessionID}: ${error}`);
     });
 
@@ -214,11 +211,11 @@ function readMessageUpdatedInfo(properties: Record<string, unknown> | undefined)
     return isRecord(info) ? info as MessageUpdatedInfo : undefined;
 }
 
-async function checkContextUsage(sessionID: string, messageInfo: MessageUpdatedInfo): Promise<void> {
+async function checkContextUsage(ctx: EventHandlerContext, sessionID: string, messageInfo: MessageUpdatedInfo): Promise<void> {
     const totalTokens = readTotalTokens(messageInfo);
     if (totalTokens <= 0) return;
 
-    const maxTokens = await ContextLimitResolver.getInstance().resolve(
+    const maxTokens = await ctx.contextLimits.resolve(
         messageInfo.providerID,
         messageInfo.modelID,
     );
@@ -372,7 +369,7 @@ function scheduledIdleSessions(ctx: EventHandlerContext): Set<string> {
 }
 
 async function runIdleContinuation(ctx: EventHandlerContext, sessionID: string): Promise<void> {
-    const { client, directory, sessions } = ctx;
+    const { client, directory, sessions, agents } = ctx;
     const session = sessions.get(sessionID);
 
     // A deliberate stop means the user does not want any of this delivered.
@@ -402,7 +399,7 @@ async function runIdleContinuation(ctx: EventHandlerContext, sessionID: string):
     }
 
     if (isLoopActive(directory, sessionID)) {
-        await MissionLoopHandler.handleMissionIdle(client, directory, sessionID, sessionID);
+        await MissionLoopHandler.handleMissionIdle({ client, directory, tasks: agents }, sessionID, sessionID);
         return;
     }
 

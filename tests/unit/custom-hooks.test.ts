@@ -21,7 +21,7 @@ describe("Custom Hooks Suite", () => {
             const postResult = await hook.execute(ctx, "grep_search", { query: "foo" }, { output: "result text of tool" });
             expect(postResult).toEqual({});
 
-            const stats = MetricsCollector.getInstance().getStats();
+            const stats = MetricsCollector.getInstance("/tmp").getStats();
             expect(stats.avgToolLatency["grep_search"]).toBeDefined();
             expect(stats.tokenUsage).toBeGreaterThan(0);
         });
@@ -33,7 +33,7 @@ describe("Custom Hooks Suite", () => {
             const result = await hook.execute(ctx, "Finished mission output text");
             expect(result.action).toBe(HOOK_ACTIONS.CONTINUE);
 
-            const stats = MetricsCollector.getInstance().getStats();
+            const stats = MetricsCollector.getInstance("/tmp").getStats();
             expect(stats.tokenUsage).toBeGreaterThan(0);
         });
     });

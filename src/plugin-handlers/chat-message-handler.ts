@@ -50,7 +50,8 @@ export function createChatMessageHandler(ctx: ChatMessageHandlerContext) {
             agent: agentName || undefined,
             client: ctx.client,
             directory,
-            sessions: sessions as Map<string, unknown>
+            sessions: sessions as Map<string, unknown>,
+            agents: ctx.agents,
         };
 
         const hookResult = await hooks.executeChat(hookContext, originalText);

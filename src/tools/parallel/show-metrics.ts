@@ -11,8 +11,9 @@ import { OUTPUT_LABEL } from "../../shared/index.js";
 export const createShowMetricsTool = () => tool({
     description: "Display a performance dashboard for the current mission, showing tool/agent latency and token usage.",
     args: {},
-    async execute() {
-        const stats = MetricsCollector.getInstance().getStats();
+    async execute(_args, context) {
+        // OpenCode passes the directory of the session that called the tool.
+        const stats = MetricsCollector.getInstance(context.directory).getStats();
 
         let output = `${OUTPUT_LABEL.INFO} **Performance Dashboard**\n\n`;
 

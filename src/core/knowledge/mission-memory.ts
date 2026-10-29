@@ -85,7 +85,7 @@ interface MemoryNoteContext {
 }
 
 export function syncMissionMemory(directory: string, state: MissionLoopState): boolean {
-    const options = getMissionRuntimeOptions();
+    const options = getMissionRuntimeOptions(directory);
     if (!options.markdownMemory) return false;
 
     const events = readMissionLedger(
@@ -166,7 +166,7 @@ function syncMissionMemoryNotes(directory: string, state: MissionLoopState): voi
     const notesDir = getMissionMemoryNotesDirPath(directory);
     const expectedFiles = new Set<string>();
 
-    for (const entry of selectMissionMemoryEntries(state)) {
+    for (const entry of selectMissionMemoryEntries(directory, state)) {
         const fileName = buildMemoryNoteFileName(entry);
         expectedFiles.add(fileName);
         const notePath = join(notesDir, fileName);
@@ -230,8 +230,8 @@ function textNode(id: string, text: string, x: number, y: number): CanvasNode {
     return { id, type: "text", text, x, y, width: 360, height: 180 };
 }
 
-function selectMissionMemoryEntries(state: MissionLoopState): MemoryEntry[] {
-    const snapshot = MemoryManager.getInstance().export();
+function selectMissionMemoryEntries(directory: string, state: MissionLoopState): MemoryEntry[] {
+    const snapshot = MemoryManager.getInstance(directory).export();
     const query = `${state.objective ?? ""} ${state.prompt}`.trim();
     const selected: MemoryEntry[] = [];
 

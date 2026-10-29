@@ -17,9 +17,6 @@ const toastMocks = vi.hoisted(() => ({
     showAllCompleteToast: vi.fn(),
 }));
 
-vi.mock("../../src/core/notification/task-toast-manager.js", () => ({
-    getTaskToastManager: vi.fn(() => toastMocks),
-}));
 
 let store: TaskStore;
 let prompt: ReturnType<typeof vi.fn>;
@@ -35,6 +32,7 @@ beforeEach(() => {
         store,
         concurrency,
         { release: vi.fn().mockResolvedValue(undefined) } as unknown as ConstructorParameters<typeof TaskCleaner>[3],
+        toastMocks as unknown as ConstructorParameters<typeof TaskCleaner>[4],
     );
     vi.clearAllMocks();
 });
@@ -188,6 +186,7 @@ it("does not re-fire a timeout while the previous abort is still unconfirmed", a
         store,
         concurrency,
         { release: vi.fn().mockResolvedValue(undefined) } as unknown as ConstructorParameters<typeof TaskCleaner>[3],
+        toastMocks as unknown as ConstructorParameters<typeof TaskCleaner>[4],
     );
     const task = createTask({ status: TASK_STATUS.RUNNING, startedAt: new Date(Date.now() - CONFIG.TASK_TTL_MS - 1) });
     store.set(task.id, task);
@@ -217,6 +216,7 @@ it("retries the timeout after an abort request that never settles", async () => 
             store,
             concurrency,
             { release: vi.fn().mockResolvedValue(undefined) } as unknown as ConstructorParameters<typeof TaskCleaner>[3],
+            toastMocks as unknown as ConstructorParameters<typeof TaskCleaner>[4],
         );
         const task = createTask({ status: TASK_STATUS.RUNNING, startedAt: new Date(Date.now() - CONFIG.TASK_TTL_MS - 1) });
         store.set(task.id, task);
@@ -257,6 +257,7 @@ function cleanerWithStatus(busy: boolean) {
             store,
             concurrency,
             { release: vi.fn().mockResolvedValue(undefined) } as unknown as ConstructorParameters<typeof TaskCleaner>[3],
+            toastMocks as unknown as ConstructorParameters<typeof TaskCleaner>[4],
         ),
     };
 }

@@ -30,8 +30,8 @@ import { EventHandler } from "./manager/event-handler.js";
 import { SessionRegistry } from "./session-registry.js";
 import { MemoryLevel, MemoryManager } from "../memory/memory-manager.js";
 import { CORE_PHILOSOPHY } from "../../agents/prompts/shared/philosophy.js";
-import { AgentRegistry } from "./agent-registry.js";
-import { TodoManager } from "../todo/todo-manager.js";
+import { TaskToastManager } from "../notification/task-toast-manager.js";
+import { buildRoutedAgentPrompt } from "./manager/prompt-routing.js";
 import type { ConcurrencyConfig } from "./concurrency.js";
 import { finishTaskConcurrency, confirmSessionAbort } from "./manager/task-lifecycle.js";
 import { fetchTaskResultText } from "./manager/task-result.js";
@@ -52,13 +52,18 @@ function cancellationStateAfterAbort(task: ParallelTask, startedAt: ParallelTask
     return "proceed";
 }
 
+/**
+ * One manager per plugin instance. OpenCode loads a separate plugin instance for
+ * every directory it serves in the same process and disposes each one on its
+ * own, so this must never be a process-wide singleton.
+ */
 export class ParallelAgentManager {
-    private static _instance: ParallelAgentManager | undefined;
-
     private store: TaskStore;
     private client: OpencodeClient;
     private concurrency: ConcurrencyController;
     private sessionRegistry: SessionRegistry;
+    private readonly directory: string;
+    private readonly toasts = new TaskToastManager();
 
     // Composed components
     private launcher: TaskLauncher;
@@ -67,13 +72,15 @@ export class ParallelAgentManager {
     private cleaner: TaskCleaner;
     private eventHandler: EventHandler;
 
-    private constructor(client: OpencodeClient, directory: string, concurrencyConfig?: ConcurrencyConfig) {
+    constructor(client: OpencodeClient, directory: string, concurrencyConfig?: ConcurrencyConfig) {
         this.client = client;
+        this.directory = directory;
         this.store = new TaskStore(directory);
         this.concurrency = new ConcurrencyController(concurrencyConfig);
+        this.toasts.init(client, this.concurrency);
         this.initializeProjectServices(directory);
-        this.sessionRegistry = SessionRegistry.getInstance(client, directory);
-        this.cleaner = new TaskCleaner(client, this.store, this.concurrency, this.sessionRegistry);
+        this.sessionRegistry = new SessionRegistry(client, directory);
+        this.cleaner = new TaskCleaner(client, this.store, this.concurrency, this.sessionRegistry, this.toasts);
         this.poller = this.createPoller();
         this.launcher = this.createLauncher();
         this.resumer = new TaskResumer(
@@ -84,16 +91,22 @@ export class ParallelAgentManager {
                 this.cleaner.cancelCleanup(task.id);
                 this.launcher.startTask(task, prompt);
             },
+            (agent, prompt) => buildRoutedAgentPrompt(directory, agent, prompt),
         );
         this.eventHandler = this.createEventHandler();
     }
 
     private initializeProjectServices(directory: string): void {
-        const memory = MemoryManager.getInstance();
-        memory.add(MemoryLevel.SYSTEM, CORE_PHILOSOPHY, 1.0);
-        memory.add(MemoryLevel.PROJECT, `Working directory: ${directory}`, 0.9);
-        AgentRegistry.getInstance().setDirectory(directory);
-        TodoManager.getInstance().setDirectory(directory);
+        const memory = MemoryManager.getInstance(directory);
+        const workingDirectory = `Working directory: ${directory}`;
+        const known = memory.export();
+        // A reloaded instance for the same project reuses its memory.
+        if (!known[MemoryLevel.SYSTEM].some(entry => entry.content === CORE_PHILOSOPHY)) {
+            memory.add(MemoryLevel.SYSTEM, CORE_PHILOSOPHY, 1.0);
+        }
+        if (!known[MemoryLevel.PROJECT].some(entry => entry.content === workingDirectory)) {
+            memory.add(MemoryLevel.PROJECT, workingDirectory, 0.9);
+        }
     }
 
     private createPoller(): TaskPoller {
@@ -115,6 +128,8 @@ export class ParallelAgentManager {
             sessionRegistry: this.sessionRegistry,
             onTaskError: (taskId, error) => this.handleTaskError(taskId, error),
             startPolling: () => this.poller.start(),
+            routePrompt: (agent, prompt) => buildRoutedAgentPrompt(this.directory, agent, prompt),
+            toasts: this.toasts,
         });
     }
 
@@ -128,24 +143,6 @@ export class ParallelAgentManager {
             validateSessionHasOutput: sessionID => this.poller.validateSessionHasOutput(sessionID),
             forgetSession: sessionID => this.sessionRegistry.forget(sessionID),
         });
-    }
-
-    static getInstance(
-        client?: OpencodeClient,
-        directory?: string,
-        concurrencyConfig?: ConcurrencyConfig,
-    ): ParallelAgentManager {
-        if (!ParallelAgentManager._instance) {
-            if (!client || !directory) {
-                throw new Error("ParallelAgentManager requires client and directory on first call");
-            }
-            ParallelAgentManager._instance = new ParallelAgentManager(client, directory, concurrencyConfig);
-        }
-        return ParallelAgentManager._instance;
-    }
-
-    static _resetForTesting(): void {
-        ParallelAgentManager._instance = undefined;
     }
 
     // ========================================================================
@@ -251,16 +248,12 @@ export class ParallelAgentManager {
         return this.store.getPendingCount(parentSessionID);
     }
 
-    getConcurrency(): ConcurrencyController {
-        return this.concurrency;
-    }
-
     cleanup(): void {
         this.launcher.shutdown();
         this.poller.stop();
         this.cleaner.shutdown();
         this.store.clear();
-        MemoryManager.getInstance().clearTaskMemory();
+        MemoryManager.getInstance(this.directory).clearTaskMemory();
     }
 
     /**
@@ -271,11 +264,7 @@ export class ParallelAgentManager {
             this.cleanup();
             await this.concurrency.shutdown();
         } finally {
-            try {
-                await this.sessionRegistry.shutdown();
-            } finally {
-                if (ParallelAgentManager._instance === this) ParallelAgentManager._instance = undefined;
-            }
+            await this.sessionRegistry.shutdown();
         }
     }
 

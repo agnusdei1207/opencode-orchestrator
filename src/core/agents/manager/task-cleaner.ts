@@ -14,7 +14,7 @@ import { CONFIG } from "../config.js";
 import { log } from "../logger.js";
 import { SessionRegistry } from "../session-registry.js";
 import { buildAgentTaskCompletionMessage, buildAgentTaskProgressMessage, formatDuration } from "../format.js";
-import { getTaskToastManager } from "../../notification/task-toast-manager.js";
+import type { TaskToastManager } from "../../notification/task-toast-manager.js";
 import type { TaskCompletionInfo, ParallelTask } from "../../../shared/index.js";
 import { finishTaskConcurrency, confirmSessionAbort } from "./task-lifecycle.js";
 import { syntheticTextPart } from "../../session/injection.js";
@@ -43,7 +43,8 @@ export class TaskCleaner {
         private client: OpencodeClient,
         private store: TaskStore,
         private concurrency: ConcurrencyController,
-        private sessionRegistry: SessionRegistry
+        private sessionRegistry: SessionRegistry,
+        private toasts?: TaskToastManager,
     ) { }
 
     /**
@@ -196,7 +197,7 @@ export class TaskCleaner {
      */
     private showCompletionToasts(parentSessionID: string, notifications: ParallelTask[], allComplete: boolean): void {
         const fresh = notifications.filter(task => !this.toasted.has(task));
-        const toastManager = getTaskToastManager();
+        const toastManager = this.toasts;
         if (fresh.length === 0 || !toastManager) return;
         for (const task of fresh) this.toasted.add(task);
 

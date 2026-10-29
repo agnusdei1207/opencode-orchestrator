@@ -12,13 +12,13 @@ import {
 import { ConcurrencyController } from "../concurrency.js";
 import { TaskStore } from "../task-store.js";
 import { presets } from "../../notification/toast.js";
-import { getTaskToastManager } from "../../notification/task-toast-manager.js";
+import type { TaskToastManager } from "../../notification/task-toast-manager.js";
 import type { LaunchInput, ParallelTask } from "../../../shared/index.js";
 
 import { SessionRegistry } from "../session-registry.js";
 import { log } from "../logger.js";
 import { acquireParallelTask } from "../../pool/task-pool.js";
-import { buildRoutedAgentPrompt, type RoutedAgentPrompt } from "./prompt-routing.js";
+import type { RoutedAgentPrompt } from "./prompt-routing.js";
 import { syntheticTextPart } from "../../session/injection.js";
 import { isSessionBusy } from "../../session/activity.js";
 
@@ -35,6 +35,10 @@ interface TaskLauncherOptions {
   sessionRegistry: SessionRegistry;
   onTaskError: (taskId: string, error: unknown) => void | Promise<void>;
   startPolling: () => void;
+  /** Builds the delegated prompt from this project's agents and memory. */
+  routePrompt: (agent: string, prompt: string) => Promise<RoutedAgentPrompt>;
+  /** Task toasts of the owning manager; omitted when no TUI is attached. */
+  toasts?: TaskToastManager;
 }
 
 export class TaskLauncher {
@@ -45,6 +49,8 @@ export class TaskLauncher {
   private readonly sessionRegistry: SessionRegistry;
   private readonly onTaskError: TaskLauncherOptions["onTaskError"];
   private readonly startPolling: () => void;
+  private readonly routePrompt: TaskLauncherOptions["routePrompt"];
+  private readonly toasts?: TaskToastManager;
 
   constructor(options: TaskLauncherOptions) {
     this.client = options.client;
@@ -53,6 +59,8 @@ export class TaskLauncher {
     this.sessionRegistry = options.sessionRegistry;
     this.onTaskError = options.onTaskError;
     this.startPolling = options.startPolling;
+    this.routePrompt = options.routePrompt;
+    this.toasts = options.toasts;
   }
 
   /**
@@ -143,7 +151,7 @@ export class TaskLauncher {
 
 
     // Registry in Toast & UI
-    const toastManager = getTaskToastManager();
+    const toastManager = this.toasts;
     if (toastManager) {
       toastManager.addTask({
         id: taskId,
@@ -167,7 +175,7 @@ export class TaskLauncher {
       return;
     }
     task.concurrencyKey = task.agent;
-    const routedPrompt = preparedPrompt ?? await buildRoutedAgentPrompt(task.agent, task.prompt);
+    const routedPrompt = preparedPrompt ?? await this.routePrompt(task.agent, task.prompt);
     if (!isSameActiveRun(task, startedAt)) return;
     if (preparedPrompt && await isSessionBusy(this.client, task.sessionID)) {
       throw new Error("Resume session became busy before dispatch");

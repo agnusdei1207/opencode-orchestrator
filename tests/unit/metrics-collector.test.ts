@@ -6,7 +6,7 @@ beforeEach(() => {
 });
 
 it("records agent and tool latency, token usage, lines, and task success", () => {
-    const collector = MetricsCollector.getInstance();
+    const collector = MetricsCollector.getInstance("/tmp/metrics-project");
 
     collector.recordAgentExecution("worker", 100);
     collector.recordAgentExecution("worker", 200);
@@ -33,7 +33,7 @@ it("records agent and tool latency, token usage, lines, and task success", () =>
 });
 
 it("keeps memory bounded while reporting exact all-time stats", () => {
-    const collector = MetricsCollector.getInstance();
+    const collector = MetricsCollector.getInstance("/tmp/metrics-project");
     const samples = 10_000;
     for (let i = 1; i <= samples; i++) {
         collector.recordAgentExecution("worker", i);
@@ -50,7 +50,7 @@ it("keeps memory bounded while reporting exact all-time stats", () => {
 });
 
 it("handles empty stats safely", () => {
-    const collector = MetricsCollector.getInstance();
+    const collector = MetricsCollector.getInstance("/tmp/metrics-project");
     const stats = collector.getStats();
 
     expect(stats.totalTasks).toBe(0);
@@ -68,3 +68,11 @@ function countStoredValues(value: unknown): number {
     }
     return 0;
 }
+
+// One OpenCode process can serve several projects at once.
+it("keeps each project's metrics separate", () => {
+    MetricsCollector.getInstance("/tmp/metrics-project").recordTaskResult("task-1", true);
+
+    expect(MetricsCollector.getInstance("/tmp/metrics-project").getStats().totalTasks).toBe(1);
+    expect(MetricsCollector.getInstance("/tmp/metrics-other-project").getStats().totalTasks).toBe(0);
+});

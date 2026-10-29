@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { TaskToastManager, getTaskToastManager, initTaskToastManager } from "../../src/core/notification/task-toast-manager.js";
+import { TaskToastManager } from "../../src/core/notification/task-toast-manager.js";
 import { STATUS_LABEL, TASK_CANCELLED_BY_USER, TASK_STATUS } from "../../src/shared/index.js";
 
 describe("TaskToastManager", () => {
@@ -203,11 +203,5 @@ describe("TaskToastManager", () => {
 
         manager.clear();
         expect(manager.getStats().total).toBe(0);
-    });
-
-    it("initializes global singleton instance", () => {
-        const inst = initTaskToastManager(mockClient, mockConcurrency);
-        expect(inst).toBeDefined();
-        expect(getTaskToastManager()).toBe(inst);
     });
 });

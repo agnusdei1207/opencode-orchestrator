@@ -15,18 +15,29 @@ type ToastShowPayload = Omit<TuiShowToastData, "url"> & { signal?: AbortSignal }
 const TUI_TOAST_MIN_TIMEOUT_MS = 2000;
 const TUI_TOAST_MAX_TIMEOUT_MS = 10000;
 
-// Store the OpenCode client for TUI access
-let tuiClient: OpencodeClient | null = null;
+// Clients of the live plugin instances, newest last. One OpenCode process can
+// serve several directories and disposes each instance on its own, so a toast
+// must go through a client whose instance is still alive.
+const tuiClients: OpencodeClient[] = [];
 
 /**
- * Initialize the toast system with the OpenCode client.
- * Returns a cleanup function that detaches the client when the host is disposed.
+ * Attach an instance's OpenCode client to the toast system.
+ * Returns a cleanup function that detaches only that client when its instance is disposed.
  */
 export function initToastClient(client: OpencodeClient): () => void {
-    tuiClient = client;
+    const entry = client;
+    tuiClients.push(entry);
+    let detached = false;
     return () => {
-        tuiClient = null;
+        if (detached) return;
+        detached = true;
+        const index = tuiClients.lastIndexOf(entry);
+        if (index !== -1) tuiClients.splice(index, 1);
     };
+}
+
+function currentTuiClient(): OpencodeClient | null {
+    return tuiClients.at(-1) ?? null;
 }
 
 /**
@@ -42,6 +53,7 @@ export function show(options: ToastOptions): ToastMessage {
         duration: options.duration ?? 5000,
     };
 
+    const tuiClient = currentTuiClient();
     if (tuiClient) {
         showInTui(tuiClient, toast);
     }

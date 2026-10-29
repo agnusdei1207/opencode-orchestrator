@@ -24,11 +24,6 @@ import { HookRegistry } from "../../src/hooks/registry";
 import { HOOK_ACTIONS } from "../../src/hooks/constants";
 
 vi.mock("../../src/core/agents/logger", () => ({ log: vi.fn() }));
-vi.mock("../../src/core/agents/manager", () => ({
-    ParallelAgentManager: {
-        getInstance: vi.fn(() => ({ getTasksByParent: () => [] })),
-    },
-}));
 vi.mock("../../src/core/notification/toast", () => ({
     show: vi.fn(),
 }));

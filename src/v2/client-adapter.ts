@@ -61,7 +61,7 @@ async function prompt(context: Context, request: LegacyRequest): Promise<{ data:
     const sessionID = requireSessionID(request);
     const agent = readString(request.body?.agent);
     if (agent) await context.session.switchAgent({ sessionID, agent });
-    const text = await addAgentRole(readPromptText(request.body), agent);
+    const text = await addAgentRole(context.location.directory, readPromptText(request.body), agent);
     const synthetic = readSynthetic(request.body);
     const resume = request.body?.noReply !== true;
     if (synthetic) {
@@ -70,9 +70,9 @@ async function prompt(context: Context, request: LegacyRequest): Promise<{ data:
     return wrap(await context.session.prompt({ sessionID, text, resume }));
 }
 
-async function addAgentRole(text: string, agent: string | undefined): Promise<string> {
+async function addAgentRole(directory: string, text: string, agent: string | undefined): Promise<string> {
     if (!agent) return text;
-    const registry = AgentRegistry.getInstance();
+    const registry = AgentRegistry.getInstance(directory);
     await registry.ready();
     const definition = registry.getAgent(agent);
     if (!definition) return text;

@@ -11,8 +11,4 @@ export { show, initToastClient } from "./toast-core.js";
 export * as presets from "./presets.js";
 
 // Re-export task toast manager
-export {
-    TaskToastManager,
-    getTaskToastManager,
-    initTaskToastManager,
-} from "./task-toast-manager.js";
+export { TaskToastManager } from "./task-toast-manager.js";

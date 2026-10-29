@@ -9,15 +9,16 @@ export interface RoutedAgentPrompt {
 }
 
 export async function buildRoutedAgentPrompt(
+  directory: string,
   agent: string,
   prompt: string,
 ): Promise<RoutedAgentPrompt> {
-  const agentRegistry = AgentRegistry.getInstance();
+  const agentRegistry = AgentRegistry.getInstance(directory);
   await agentRegistry.ready();
 
   const wireAgent = resolveWireAgent(agent);
   const routedPrompt = buildRolePrompt(agent, prompt, wireAgent, agentRegistry);
-  const memory = MemoryManager.getInstance().getContext(routedPrompt);
+  const memory = MemoryManager.getInstance(directory).getContext(routedPrompt);
   const text = memory ? `${memory}\n\n${routedPrompt}` : routedPrompt;
 
   return {

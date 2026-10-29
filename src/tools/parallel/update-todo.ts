@@ -16,8 +16,9 @@ export const createUpdateTodoTool = (): ToolDefinition => tool({
         status: tool.schema.enum(Object.values(TODO_CONSTANTS.STATUS)).optional().describe("New status (for 'update' action)"),
         subtask: tool.schema.string().optional().describe("Description of the new sub-task (for 'add' action)"),
     },
-    async execute(args) {
-        const manager = TodoManager.getInstance();
+    async execute(args, context) {
+        // OpenCode passes the directory of the session that called the tool.
+        const manager = TodoManager.getInstance(context.directory);
 
         if (args.action === "update") {
             if (!args.status) return `${OUTPUT_LABEL.ERROR} 'status' is required for update action.`;

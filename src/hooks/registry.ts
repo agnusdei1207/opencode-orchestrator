@@ -1,6 +1,8 @@
 import { log } from "../core/agents/logger.js";
 import { HOOK_ACTIONS } from "./constants.js";
 import type { PluginInput } from "@opencode-ai/plugin";
+import type { ParallelAgentManager } from "../core/agents/manager.js";
+import type { ContextLimitResolver } from "../core/context/context-limit-resolver.js";
 
 export interface HookContext {
     sessionID: string;
@@ -8,6 +10,10 @@ export interface HookContext {
     directory: string;
     sessions: Map<string, unknown>;
     client?: PluginInput["client"];
+    /** Delegated-task manager of the plugin instance that raised this hook. */
+    agents?: Pick<ParallelAgentManager, "cancelTasksForParent">;
+    /** Context windows of the plugin instance that raised this hook. */
+    contextLimits?: Pick<ContextLimitResolver, "resolveForSession">;
 }
 
 type ErrorHandling = "continue" | "stop";

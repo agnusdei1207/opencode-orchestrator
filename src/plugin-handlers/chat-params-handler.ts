@@ -9,13 +9,16 @@
  */
 
 import type { Hooks } from "@opencode-ai/plugin";
-import { ContextLimitResolver } from "../core/context/context-limit-resolver.js";
+import type { ContextLimitResolver } from "../core/context/context-limit-resolver.js";
 
 type ChatParamsHook = NonNullable<Hooks["chat.params"]>;
 type ChatParamsInput = Parameters<ChatParamsHook>[0];
 type ChatParamsOutput = Parameters<ChatParamsHook>[1];
 
-export function createChatParamsHandler(temperatures: Readonly<Record<string, number>> = {}) {
+export function createChatParamsHandler(
+    contextLimits: Pick<ContextLimitResolver, "rememberModel">,
+    temperatures: Readonly<Record<string, number>> = {},
+) {
     return async (input: ChatParamsInput, output: ChatParamsOutput): Promise<void> => {
         const model = input.model;
         if (!model) return;
@@ -25,7 +28,7 @@ export function createChatParamsHandler(temperatures: Readonly<Record<string, nu
             output.temperature = temperature;
         }
 
-        ContextLimitResolver.getInstance().rememberModel(
+        contextLimits.rememberModel(
             input.sessionID,
             model.providerID,
             model.id,

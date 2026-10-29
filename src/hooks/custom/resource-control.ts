@@ -22,7 +22,7 @@ import {
     calculateUsage,
     getContextUsage,
 } from "../../core/context/context-window-monitor.js";
-import { ContextLimitResolver } from "../../core/context/context-limit-resolver.js";
+import { CONTEXT_MONITOR_CONFIG } from "../../core/context/context-window-monitor.js";
 
 // Refactored Imports
 import { updateSessionTokens } from "../../core/orchestrator/session-manager.js";
@@ -83,7 +83,7 @@ export class ResourceControlHook implements PostToolUseHook, AssistantDoneHook {
     }
 
     private async checkMemoryHealth(ctx: HookContext, session: unknown): Promise<HookResult> {
-        const measured = measureContext(ctx.sessionID, session);
+        const measured = measureContext(ctx, session);
         if (!measured) return { action: HOOK_ACTIONS.CONTINUE };
 
         const usage = calculateUsage(measured.usedTokens, measured.maxTokens);
@@ -121,14 +121,15 @@ export class ResourceControlHook implements PostToolUseHook, AssistantDoneHook {
  * has reported real usage; it accumulates every tool payload ever seen and
  * overstates live context on long sessions.
  */
-function measureContext(sessionID: string, session: unknown): { usedTokens: number; maxTokens: number } | undefined {
+function measureContext(ctx: HookContext, session: unknown): { usedTokens: number; maxTokens: number } | undefined {
+    const { sessionID } = ctx;
     const reported = getContextUsage(sessionID);
     if (reported) return reported;
 
     if (!hasTokenUsage(session)) return undefined;
     return {
         usedTokens: session.tokens.totalInput + session.tokens.totalOutput,
-        maxTokens: ContextLimitResolver.getInstance().resolveForSession(sessionID),
+        maxTokens: ctx.contextLimits?.resolveForSession(sessionID) ?? CONTEXT_MONITOR_CONFIG.DEFAULT_MAX_TOKENS,
     };
 }
 

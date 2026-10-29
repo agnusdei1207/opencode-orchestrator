@@ -1,14 +1,13 @@
 import type { PluginHandlerContext } from "./context.js";
 import { readLoopState } from "../core/loop/mission-loop.js";
 import { PATHS, STATUS_LABEL } from "../shared/index.js";
-import { ParallelAgentManager } from "../core/agents/manager.js";
 import { ensureSessionInitialized } from "../core/orchestrator/session-manager.js";
 import { readMissionScratchpadSnapshot } from "../core/knowledge/mission-memory.js";
 import { log } from "../core/agents/logger.js";
 
 /** Dynamic state belongs after conversation history so it cannot invalidate its prefix. */
-export function createMissionContextBuilder(ctx: Pick<PluginHandlerContext, "directory" | "sessions">) {
-    const { directory, sessions } = ctx;
+export function createMissionContextBuilder(ctx: Pick<PluginHandlerContext, "directory" | "sessions" | "agents">) {
+    const { directory, sessions, agents } = ctx;
 
     return (sessionID: string | undefined): string | undefined => {
         if (!sessionID) return undefined;
@@ -24,7 +23,7 @@ export function createMissionContextBuilder(ctx: Pick<PluginHandlerContext, "dir
             additions.push(buildActiveSessionPrompt(session.step));
         }
 
-        const backgroundPrompt = buildBackgroundTasksAddition(sessionID);
+        const backgroundPrompt = buildBackgroundTasksAddition(agents, sessionID);
         if (backgroundPrompt) {
             additions.push(backgroundPrompt);
         }
@@ -45,10 +44,12 @@ function missionLoopAdditions(
     return additions;
 }
 
-function buildBackgroundTasksAddition(sessionID: string): string | null {
+function buildBackgroundTasksAddition(
+    agents: Pick<PluginHandlerContext["agents"], "getTasksByParent">,
+    sessionID: string,
+): string | null {
     try {
-        const manager = ParallelAgentManager.getInstance();
-        const tasks = manager.getTasksByParent(sessionID);
+        const tasks = agents.getTasksByParent(sessionID);
         const runningCount = tasks.filter(t => t.status === STATUS_LABEL.RUNNING).length;
         const pendingCount = tasks.filter(t => t.status === STATUS_LABEL.PENDING).length;
 

@@ -6,8 +6,6 @@ describe("Barrel Modules Integrity", () => {
         expect(typeof mod.show).toBe("function");
         expect(typeof mod.initToastClient).toBe("function");
         expect(typeof mod.TaskToastManager).toBe("function");
-        expect(typeof mod.getTaskToastManager).toBe("function");
-        expect(typeof mod.initTaskToastManager).toBe("function");
         expect(typeof mod.presets).toBe("object");
     });
 

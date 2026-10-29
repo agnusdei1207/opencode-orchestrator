@@ -20,7 +20,6 @@ import { HOOK_NAMES } from "../../shared/index.js";
 export class MetricsHook implements PreToolUseHook, PostToolUseHook, AssistantDoneHook {
     name = HOOK_NAMES.METRICS_TELEMETRY;
     private startTimes: Map<string, number> = new Map();
-    private metrics = MetricsCollector.getInstance();
 
     async execute(
         context: HookContext,
@@ -53,18 +52,18 @@ export class MetricsHook implements PreToolUseHook, PostToolUseHook, AssistantDo
             const startTime = this.startTimes.get(`tool_${toolOrText}_${context.sessionID}`);
             if (startTime) {
                 const duration = Date.now() - startTime;
-                this.metrics.recordToolExecution(toolOrText, duration);
+                MetricsCollector.getInstance(context.directory).recordToolExecution(toolOrText, duration);
                 this.startTimes.delete(`tool_${toolOrText}_${context.sessionID}`);
             }
 
             // Simple token estimation from output (rough)
-            this.metrics.recordTokenUsage(output.output.length / 4);
+            MetricsCollector.getInstance(context.directory).recordTokenUsage(output.output.length / 4);
             return {};
         }
         // Assistant Done
         else {
             // Text completion record (could be more sophisticated)
-            this.metrics.recordTokenUsage(toolOrText.length / 4);
+            MetricsCollector.getInstance(context.directory).recordTokenUsage(toolOrText.length / 4);
             return { action: HOOK_ACTIONS.CONTINUE };
         }
     }

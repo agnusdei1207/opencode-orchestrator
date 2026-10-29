@@ -53,7 +53,6 @@ function isUsableLimit(value: unknown): value is number {
 }
 
 export class ContextLimitResolver {
-    private static instance: ContextLimitResolver;
 
     private client?: OpencodeClient;
     private overrideMaxTokens?: number;
@@ -62,13 +61,6 @@ export class ContextLimitResolver {
     /** Session → `provider/model` it last prompted with. */
     private readonly modelBySession = new Map<string, string>();
     private listingPromise: Promise<ProviderListing> | null = null;
-
-    static getInstance(): ContextLimitResolver {
-        if (!ContextLimitResolver.instance) {
-            ContextLimitResolver.instance = new ContextLimitResolver();
-        }
-        return ContextLimitResolver.instance;
-    }
 
     configure(config: ContextLimitResolverConfig): void {
         this.client = config.client;

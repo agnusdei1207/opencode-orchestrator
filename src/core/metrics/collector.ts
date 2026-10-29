@@ -6,6 +6,8 @@
  * constant per agent/tool key no matter how long the process runs.
  */
 
+import { resolve } from "node:path";
+
 interface PerformanceStats {
     avgAgentLatency: Record<string, number>;
     avgToolLatency: Record<string, number>;
@@ -35,8 +37,12 @@ function averageLatencies(totals: Map<string, LatencyTotal>): Record<string, num
     return averages;
 }
 
+/**
+ * One collector per project directory, so a process serving several projects
+ * reports each project's own dashboard.
+ */
 export class MetricsCollector {
-    private static instance: MetricsCollector;
+    private static readonly instances = new Map<string, MetricsCollector>();
 
     private agentLatencies: Map<string, LatencyTotal> = new Map();
     private toolLatencies: Map<string, LatencyTotal> = new Map();
@@ -47,15 +53,18 @@ export class MetricsCollector {
 
     private constructor() { }
 
-    public static getInstance(): MetricsCollector {
-        if (!MetricsCollector.instance) {
-            MetricsCollector.instance = new MetricsCollector();
+    public static getInstance(directory: string): MetricsCollector {
+        const key = resolve(directory);
+        let collector = MetricsCollector.instances.get(key);
+        if (!collector) {
+            collector = new MetricsCollector();
+            MetricsCollector.instances.set(key, collector);
         }
-        return MetricsCollector.instance;
+        return collector;
     }
 
     public static _resetForTesting(): void {
-        MetricsCollector.instance = new MetricsCollector();
+        MetricsCollector.instances.clear();
     }
 
     public recordAgentExecution(agent: string, duration: number): void {

@@ -11,11 +11,11 @@ import { getCircuitState, recordAssistantTurn } from "../../src/core/loop/circui
 import type { PluginInput } from "@opencode-ai/plugin";
 
 const tasks = vi.hoisted(() => ({ read: vi.fn((): Array<{ status: string }> => []) }));
+const taskSource = { getTasksByParent: () => tasks.read() } as never;
 vi.mock("node:fs", async (importOriginal) => {
     const actual = await importOriginal<typeof import("node:fs")>();
     return { ...actual, unlinkSync: vi.fn(actual.unlinkSync) };
 });
-vi.mock("../../src/core/agents/manager", () => ({ ParallelAgentManager: { getInstance: () => ({ getTasksByParent: tasks.read }) } }));
 vi.mock("../../src/core/agents/logger", () => ({ log: vi.fn() }));
 vi.mock("../../src/core/notification/os-notify/notifier", () => ({ sendNotification: vi.fn() }));
 vi.mock("../../src/core/notification/os-notify/sound-player", () => ({ playSound: vi.fn() }));
@@ -50,7 +50,7 @@ describe("mission idle ownership", () => {
     it.each(["pending", "running"])("does not complete while delegated work is %s", async (taskStatus) => {
         tasks.read.mockReturnValue([{ status: taskStatus }]);
         writeFileSync(join(directory, ".opencode/todo.md"), "- [x] Parent checked item");
-        await handleMissionIdle(client, directory, sessionID);
+        await handleMissionIdle({ client, directory, tasks: taskSource }, sessionID);
         expect(readLoopState(directory)?.active).toBe(true);
         expect(prompt).not.toHaveBeenCalled();
     });
@@ -74,20 +74,20 @@ describe("mission idle ownership", () => {
     it("does not infer task completion when the task manager is unavailable", async () => {
         tasks.read.mockImplementation(() => { throw new Error("unavailable"); });
         writeFileSync(join(directory, ".opencode/todo.md"), "- [x] Parent checked item");
-        await handleMissionIdle(client, directory, sessionID);
+        await handleMissionIdle({ client, directory, tasks: taskSource }, sessionID);
         expect(readLoopState(directory)?.active).toBe(true);
     });
 
     it("does not complete after abort even when verification passes", async () => {
         writeFileSync(join(directory, ".opencode/todo.md"), "- [x] Done");
         handleAbort(sessionID);
-        await handleMissionIdle(client, directory, sessionID);
+        await handleMissionIdle({ client, directory, tasks: taskSource }, sessionID);
         expect(readLoopState(directory)?.active).toBe(true);
     });
 
     it("does not inject a captured mission after cancellation during countdown", async () => {
         writeFileSync(join(directory, ".opencode/todo.md"), "- [ ] Remaining");
-        await handleMissionIdle(client, directory, sessionID);
+        await handleMissionIdle({ client, directory, tasks: taskSource }, sessionID);
         cancelMissionLoop(directory, sessionID);
         await vi.advanceTimersByTimeAsync(3000);
         expect(prompt).not.toHaveBeenCalled();
@@ -96,7 +96,7 @@ describe("mission idle ownership", () => {
 
     it("does not clear a replacement mission from an old countdown", async () => {
         writeFileSync(join(directory, ".opencode/todo.md"), "- [ ] Remaining");
-        await handleMissionIdle(client, directory, sessionID);
+        await handleMissionIdle({ client, directory, tasks: taskSource }, sessionID);
         cancelMissionLoop(directory, sessionID);
         startMissionLoop(directory, "new-owner", "New objective");
         writeFileSync(join(directory, ".opencode/todo.md"), "- [x] Done");
@@ -107,7 +107,7 @@ describe("mission idle ownership", () => {
 
     it("does not inject an old countdown after an authorized replacement", async () => {
         writeFileSync(join(directory, ".opencode/todo.md"), "- [ ] Remaining");
-        await handleMissionIdle(client, directory, sessionID);
+        await handleMissionIdle({ client, directory, tasks: taskSource }, sessionID);
         const expected = readLoopState(directory)!;
         startMissionLoop(directory, "new-owner", "Replacement objective", { replaceExisting: expected });
         await vi.advanceTimersByTimeAsync(3000);
@@ -117,7 +117,7 @@ describe("mission idle ownership", () => {
 
     it("rechecks abort after awaiting the final host status", async () => {
         writeFileSync(join(directory, ".opencode/todo.md"), "- [ ] Remaining");
-        await handleMissionIdle(client, directory, sessionID);
+        await handleMissionIdle({ client, directory, tasks: taskSource }, sessionID);
         status.mockImplementation(async () => { handleAbort(sessionID); return { data: {} }; });
         await vi.advanceTimersByTimeAsync(3000);
         expect(prompt).not.toHaveBeenCalled();
@@ -126,7 +126,7 @@ describe("mission idle ownership", () => {
     it("keeps mission state when the host cannot establish idle for completion", async () => {
         writeFileSync(join(directory, ".opencode/todo.md"), "- [x] Done");
         status.mockRejectedValue(new Error("status unavailable"));
-        await handleMissionIdle(client, directory, sessionID);
+        await handleMissionIdle({ client, directory, tasks: taskSource }, sessionID);
         expect(readLoopState(directory)?.active).toBe(true);
     });
 
@@ -134,7 +134,7 @@ describe("mission idle ownership", () => {
         writeFileSync(join(directory, ".opencode/todo.md"), "- [ ] Remaining");
         const { shutdownMissionLoopHandler } = await import("../../src/core/loop/mission-loop-handler");
         const toastClient = { ...client, tui: { showToast: async () => { shutdownMissionLoopHandler(); return {}; } } } as unknown as PluginInput["client"];
-        await handleMissionIdle(toastClient, directory, sessionID);
+        await handleMissionIdle({ client: toastClient, directory, tasks: taskSource }, sessionID);
         await vi.advanceTimersByTimeAsync(3000);
         expect(prompt).not.toHaveBeenCalled();
     });
@@ -143,7 +143,7 @@ describe("mission idle ownership", () => {
         configureMissionRuntimeOptions({ ledger: true, markdownMemory: false });
         writeFileSync(join(directory, ".opencode/todo.md"), "- [x] Done");
         vi.mocked(unlinkSync).mockImplementationOnce(() => { throw new Error("disk denied"); });
-        await handleMissionIdle(client, directory, sessionID);
+        await handleMissionIdle({ client, directory, tasks: taskSource }, sessionID);
         expect(readLoopState(directory)?.active).toBe(true);
         expect(readMissionLedger(directory).some(event => event.type === "mission_completed")).toBe(false);
     });
@@ -152,7 +152,7 @@ describe("mission idle ownership", () => {
         writeFileSync(join(directory, ".opencode/todo.md"), "- [ ] Remaining");
         for (let index = 0; index < 3; index += 1) recordAssistantTurn(sessionID, "Reading files", 1);
 
-        await handleMissionIdle(client, directory, sessionID);
+        await handleMissionIdle({ client, directory, tasks: taskSource }, sessionID);
         await vi.advanceTimersByTimeAsync(3000);
 
         expect(prompt).toHaveBeenCalledTimes(1);
@@ -164,7 +164,7 @@ describe("mission idle ownership", () => {
         writeFileSync(join(directory, ".opencode/todo.md"), "- [ ] Remaining");
         prompt.mockResolvedValue({ error: { name: "BadRequestError", data: { message: "rejected" } } });
 
-        await handleMissionIdle(client, directory, sessionID);
+        await handleMissionIdle({ client, directory, tasks: taskSource }, sessionID);
         await vi.advanceTimersByTimeAsync(3000);
 
         expect(prompt).toHaveBeenCalledTimes(1);
@@ -177,7 +177,7 @@ describe("mission idle ownership", () => {
             recordAssistantTurn(sessionID, "I cannot make progress", 0);
         }
 
-        await handleMissionIdle(client, directory, sessionID);
+        await handleMissionIdle({ client, directory, tasks: taskSource }, sessionID);
         await vi.advanceTimersByTimeAsync(3000);
 
         expect(prompt).not.toHaveBeenCalled();

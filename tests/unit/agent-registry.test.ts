@@ -22,7 +22,7 @@ describe("AgentRegistry", () => {
     });
 
     it("initializes with built-in agents", () => {
-        const registry = AgentRegistry.getInstance();
+        const registry = AgentRegistry.getInstance(testDir);
         const agents = registry.listAgents();
         expect(agents).toContain("Commander");
         expect(agents).toContain("Planner");
@@ -36,7 +36,7 @@ describe("AgentRegistry", () => {
     });
 
     it("registers new agents dynamically", () => {
-        const registry = AgentRegistry.getInstance();
+        const registry = AgentRegistry.getInstance(testDir);
         registry.registerAgent("CustomAuditor", {
             id: "custom_auditor",
             description: "Custom audit agent",
@@ -74,8 +74,7 @@ describe("AgentRegistry", () => {
 
         writeFileSync(path.join(opencodeDir, "agents.json"), jsoncContent, "utf8");
 
-        const registry = AgentRegistry.getInstance();
-        registry.setDirectory(testDir);
+        const registry = AgentRegistry.getInstance(testDir);
         await registry.ready();
 
         expect(registry.listAgents()).toContain("Tester");
@@ -86,10 +85,30 @@ describe("AgentRegistry", () => {
     });
 
     it("handles missing .opencode/agents.json gracefully", async () => {
-        const registry = AgentRegistry.getInstance();
-        registry.setDirectory(testDir);
+        const registry = AgentRegistry.getInstance(testDir);
         await registry.ready();
 
         expect(registry.listAgents()).toContain("Commander");
+    });
+
+    // One OpenCode process can serve several projects at once.
+    it("keeps each project's custom agents to that project", async () => {
+        const otherDir = mkdtempSync(path.join(tmpdir(), "oco-agents-other-"));
+        try {
+            mkdirSync(path.join(testDir, ".opencode"), { recursive: true });
+            writeFileSync(path.join(testDir, ".opencode", "agents.json"), JSON.stringify({
+                Tester: { id: "tester", description: "Project A tester", systemPrompt: "A", canWrite: true, canBash: true },
+            }), "utf8");
+
+            const projectA = AgentRegistry.getInstance(testDir);
+            const projectB = AgentRegistry.getInstance(otherDir);
+            await Promise.all([projectA.ready(), projectB.ready()]);
+
+            expect(projectA.getAgent("Tester")?.description).toBe("Project A tester");
+            expect(projectB.getAgent("Tester")).toBeUndefined();
+            expect(AgentRegistry.getInstance(testDir)).toBe(projectA);
+        } finally {
+            rmSync(otherDir, { recursive: true, force: true });
+        }
     });
 });

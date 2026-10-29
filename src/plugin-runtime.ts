@@ -27,6 +27,32 @@ export interface PluginRuntime {
     shutdownManager: ShutdownManager;
 }
 
+/**
+ * OpenCode serves several directories from one process and loads a separate
+ * plugin instance for each, disposing an instance when its directory goes idle.
+ * Module-level services are shared by every instance, so they may only be torn
+ * down when the last live instance is disposed.
+ */
+let liveInstances = 0;
+// Budget for registerProcessShutdownHandlers: the background task manager has
+// its own timeout and the other seven handlers use the default 5s each.
+const DEFAULT_BUDGET_PROCESS_HANDLERS = 7;
+const PROCESS_SHUTDOWN_TIMEOUT_MS = BACKGROUND_SHUTDOWN_TIMEOUT_MS + DEFAULT_BUDGET_PROCESS_HANDLERS * 5_000;
+
+function acquireProcessServices(): () => Promise<void> {
+    liveInstances++;
+    let released = false;
+    return async () => {
+        if (released) return;
+        released = true;
+        liveInstances--;
+        if (liveInstances > 0) return;
+        const processShutdown = new ShutdownManager();
+        registerProcessShutdownHandlers(processShutdown);
+        await processShutdown.shutdown();
+    };
+}
+
 function registerProcessShutdownHandlers(shutdownManager: ShutdownManager): void {
     shutdownManager.register(SHUTDOWN_HANDLERS.RUST_TOOL_POOL, shutdownRustToolPool, 15);
     shutdownManager.register(
@@ -46,6 +72,7 @@ function registerProcessShutdownHandlers(shutdownManager: ShutdownManager): void
 function createShutdownManager(
     cleanupScheduler: CleanupScheduler,
     parallelAgentManager: ParallelAgentManager,
+    releaseProcessServices: () => Promise<void>,
 ): ShutdownManager {
     const shutdownManager = new ShutdownManager();
     shutdownManager.register(SHUTDOWN_HANDLERS.CLEANUP_SCHEDULER, () => cleanupScheduler.stop(), 10);
@@ -54,42 +81,66 @@ function createShutdownManager(
         () => parallelAgentManager.shutdown().catch(() => {}),
         30,
     );
-    registerProcessShutdownHandlers(shutdownManager);
+    shutdownManager.register(
+        SHUTDOWN_HANDLERS.PROCESS_SERVICES,
+        releaseProcessServices,
+        40,
+        PROCESS_SHUTDOWN_TIMEOUT_MS,
+    );
     return shutdownManager;
 }
 
 function configureRuntime(input: PluginInput, options?: PluginOptions) {
     const orchestratorOptions = parseOrchestratorPluginOptions(options);
-    configureMissionRuntimeOptions(orchestratorOptions.missionLoop);
-    ContextLimitResolver.getInstance().configure({
+    configureMissionRuntimeOptions(orchestratorOptions.missionLoop, input.directory);
+    const contextLimits = new ContextLimitResolver();
+    contextLimits.configure({
         client: input.client,
         overrideMaxTokens: orchestratorOptions.contextMaxTokens,
     });
     initializeHooks();
-    Toast.initToastClient(input.client);
-    return orchestratorOptions;
+    const detachToastClient = Toast.initToastClient(input.client);
+    return { orchestratorOptions, contextLimits, detachToastClient };
 }
 
 export function initializePluginRuntime(
     input: PluginInput,
     options?: PluginOptions,
 ): PluginRuntime {
-    const optionsConfig = configureRuntime(input, options);
-    const taskToastManager = Toast.initTaskToastManager(input.client);
-    const parallelAgentManager = ParallelAgentManager.getInstance(
-        input.client,
-        input.directory,
-        optionsConfig.concurrency,
-    );
-    taskToastManager.setConcurrencyController(parallelAgentManager.getConcurrency());
-
-    const cleanupScheduler = new CleanupScheduler(input.directory);
-    cleanupScheduler.start();
+    const { orchestratorOptions: optionsConfig, contextLimits, detachToastClient } = configureRuntime(input, options);
+    const releaseProcessServices = acquireProcessServices();
+    let parallelAgentManager: ParallelAgentManager | undefined;
+    let cleanupScheduler: CleanupScheduler;
+    try {
+        parallelAgentManager = new ParallelAgentManager(
+            input.client,
+            input.directory,
+            optionsConfig.concurrency,
+        );
+        cleanupScheduler = new CleanupScheduler(input.directory);
+        cleanupScheduler.start();
+    } catch (error) {
+        // Nothing owns this instance yet, so release what it already holds.
+        detachToastClient();
+        void parallelAgentManager?.shutdown().catch(() => {});
+        void releaseProcessServices().catch(() => {});
+        throw error;
+    }
     const sessions = new Map<string, PluginSessionState>();
     return {
         directory: input.directory,
         asyncAgentTools: createAsyncAgentTools(parallelAgentManager),
-        handlerContext: { client: input.client, directory: input.directory, sessions, state },
-        shutdownManager: createShutdownManager(cleanupScheduler, parallelAgentManager),
+        handlerContext: {
+            client: input.client,
+            directory: input.directory,
+            sessions,
+            state,
+            agents: parallelAgentManager,
+            contextLimits,
+        },
+        shutdownManager: createShutdownManager(cleanupScheduler, parallelAgentManager, () => {
+            detachToastClient();
+            return releaseProcessServices();
+        }),
     };
 }

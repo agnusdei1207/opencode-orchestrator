@@ -31,9 +31,7 @@ describe("SessionRegistry deletion guards", () => {
         vi.useFakeTimers();
         resetSessionActivity();
         client = createClient();
-        // @ts-expect-error reset the singleton between tests
-        SessionRegistry._instance = null;
-        registry = SessionRegistry.getInstance(client as never, "/tmp/test-registry");
+        registry = new SessionRegistry(client as never, "/tmp/test-registry");
     });
 
     afterEach(() => {

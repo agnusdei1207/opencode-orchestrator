@@ -21,7 +21,7 @@ import type { MissionLoopState } from "../../shared/loop/types.js";
 import { STAGNATION_INTERVENTION } from "../../shared/constants/system-messages.js";
 import { LOOP, TOAST_DURATION, STATUS_LABEL, TOAST_VARIANTS, MISSION_CONTROL, type ToastVariant, type VerificationResult } from "../../shared/index.js";
 import { isSessionRecovering } from "../recovery/session-recovery.js";
-import { ParallelAgentManager } from "../agents/manager.js";
+import type { ParallelAgentManager } from "../agents/manager.js";
 import { sendNotification } from "../notification/os-notify/notifier.js";
 import { playSound } from "../notification/os-notify/sound-player.js";
 import { detectPlatform, getDefaultSoundPath } from "../notification/os-notify/platform.js";
@@ -45,9 +45,19 @@ type OpencodeClient = PluginInput["client"];
 
 const sessionStateStore = createSessionStateStore();
 
+/** Delegated tasks of the plugin instance that serves this directory. */
+export type BackgroundTaskSource = Pick<ParallelAgentManager, "getTasksByParent">;
+
+export interface MissionIdleContext {
+    client: OpencodeClient;
+    directory: string;
+    tasks: BackgroundTaskSource;
+}
+
 interface ContinuationInjectionRequest {
     client: OpencodeClient;
     directory: string;
+    tasks: BackgroundTaskSource;
     sessionID: string;
     loopState: MissionLoopState;
     scheduledAt: number;
@@ -85,10 +95,9 @@ async function showToastSafely(client: OpencodeClient, request: ToastRequest): P
     }
 }
 
-function hasRunningBackgroundTasks(parentSessionID: string): boolean {
+function hasRunningBackgroundTasks(source: BackgroundTaskSource, parentSessionID: string): boolean {
     try {
-        const manager = ParallelAgentManager.getInstance();
-        const tasks = manager.getTasksByParent(parentSessionID);
+        const tasks = source.getTasksByParent(parentSessionID);
         return tasks.some(t => t.status === STATUS_LABEL.RUNNING || t.status === STATUS_LABEL.PENDING);
     } catch (err) {
         log("[mission-loop-handler] Failed to check background tasks", { sessionID: parentSessionID, error: err });
@@ -128,7 +137,7 @@ function canBeginInjection(
 ): state is SessionState {
     const { sessionID, scheduledAt } = request;
     if (!state || state.isAborting || state.countdownStartedAt !== scheduledAt) return false;
-    if (hasRunningBackgroundTasks(sessionID)) return false;
+    if (hasRunningBackgroundTasks(request.tasks, sessionID)) return false;
     if (isSessionRecovering(sessionID)) return false;
     if (isCircuitOpen(sessionID)) {
         log(`[mission-loop-handler] Skipped: circuit breaker open`, { sessionID });
@@ -146,7 +155,7 @@ function isInjectionCurrent(request: ContinuationInjectionRequest, state: Sessio
     const { directory, sessionID, loopState, scheduledAt } = request;
     if (state.isAborting || state.countdownStartedAt !== scheduledAt) return false;
     if (!isCurrentMission(directory, loopState)) return false;
-    return isCompactionSafe(sessionID, scheduledAt) && !hasRunningBackgroundTasks(sessionID);
+    return isCompactionSafe(sessionID, scheduledAt) && !hasRunningBackgroundTasks(request.tasks, sessionID);
 }
 
 function prepareContinuationPrompt(
@@ -267,6 +276,7 @@ async function sendMissionCompleteNotification(loopState: MissionLoopState): Pro
 }
 
 function beginIdleCheck(
+    tasks: BackgroundTaskSource,
     sessionID: string,
     mainSessionID: string | undefined,
     now: number,
@@ -281,7 +291,7 @@ function beginIdleCheck(
     sessionStateStore.cancelCountdown(sessionID);
     if (mainSessionID && sessionID !== mainSessionID) return undefined;
     if (isSessionRecovering(sessionID)) return undefined;
-    if (hasRunningBackgroundTasks(sessionID)) return undefined;
+    if (hasRunningBackgroundTasks(tasks, sessionID)) return undefined;
     if (isKnownBusy(sessionID)) return undefined;
     return state;
 }
@@ -398,8 +408,7 @@ async function runScheduledContinuation(
 }
 
 async function scheduleContinuation(
-    client: OpencodeClient,
-    directory: string,
+    { client, directory, tasks }: MissionIdleContext,
     state: SessionState,
     prepared: PreparedContinuation,
 ): Promise<void> {
@@ -417,6 +426,7 @@ async function scheduleContinuation(
     const request: ContinuationInjectionRequest = {
         client,
         directory,
+        tasks,
         sessionID: loopState.sessionID,
         loopState,
         scheduledAt,
@@ -429,18 +439,18 @@ async function scheduleContinuation(
 }
 
 export async function handleMissionIdle(
-    client: OpencodeClient,
-    directory: string,
+    context: MissionIdleContext,
     sessionID: string,
     mainSessionID?: string
 ): Promise<void> {
-    const state = beginIdleCheck(sessionID, mainSessionID, Date.now());
+    const { client, directory, tasks } = context;
+    const state = beginIdleCheck(tasks, sessionID, mainSessionID, Date.now());
     if (!state) return;
     const loopState = readOwnedMission(directory, sessionID);
     if (!loopState) return;
     if (await isSessionBusy(client, sessionID)) return;
     if (!isIdleCheckCurrent(state, directory, loopState)) return;
-    if (hasRunningBackgroundTasks(sessionID)) return;
+    if (hasRunningBackgroundTasks(tasks, sessionID)) return;
 
     const verification = verifyMissionCompletion(directory);
     if (verification.passed) {
@@ -457,7 +467,7 @@ export async function handleMissionIdle(
 
     const prepared = prepareContinuation(directory, sessionID, verification);
     if (!prepared) return;
-    await scheduleContinuation(client, directory, state, prepared);
+    await scheduleContinuation(context, state, prepared);
 }
 
 export function handleUserMessage(sessionID: string): void {

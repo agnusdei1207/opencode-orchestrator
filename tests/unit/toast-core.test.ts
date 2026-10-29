@@ -69,4 +69,21 @@ describe("toast-core", () => {
         expect(showToast).toHaveBeenCalledTimes(1);
         expect(detached.title).toBe("Second");
     });
+
+    // One OpenCode process disposes each directory's plugin instance on its own.
+    it("keeps toasting through a live instance after another instance detaches", () => {
+        const liveToast = vi.fn((payload: unknown) => Promise.resolve(payload));
+        const idleToast = vi.fn((payload: unknown) => Promise.resolve(payload));
+        const detachLive = initToastClient({ tui: { showToast: liveToast } } as unknown as Parameters<typeof initToastClient>[0]);
+        const detachIdle = initToastClient({ tui: { showToast: idleToast } } as unknown as Parameters<typeof initToastClient>[0]);
+        try {
+            detachIdle();
+            show({ title: "After dispose", message: "Toast" });
+
+            expect(idleToast).not.toHaveBeenCalled();
+            expect(liveToast).toHaveBeenCalledTimes(1);
+        } finally {
+            detachLive();
+        }
+    });
 });

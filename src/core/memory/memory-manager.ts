@@ -1,3 +1,4 @@
+import * as path from "node:path";
 import { log } from "../agents/logger.js";
 import { MEMORY_CONSTANTS } from "../../shared/index.js";
 
@@ -39,8 +40,13 @@ interface MemoryConfig {
     enableRelevanceFiltering: boolean;
 }
 
+/**
+ * One memory per project directory. Task memory holds tool output that is
+ * injected into delegated prompts, so a process serving several projects must
+ * never let one project's memory reach another's agents.
+ */
 export class MemoryManager {
-    private static instance: MemoryManager;
+    private static readonly instances = new Map<string, MemoryManager>();
     private storage: MemorySnapshot = {
         [MemoryLevel.SYSTEM]: [],
         [MemoryLevel.PROJECT]: [],
@@ -60,11 +66,18 @@ export class MemoryManager {
 
     private constructor() { }
 
-    public static getInstance(): MemoryManager {
-        if (!MemoryManager.instance) {
-            MemoryManager.instance = new MemoryManager();
+    public static getInstance(directory: string): MemoryManager {
+        const key = path.resolve(directory);
+        let memory = MemoryManager.instances.get(key);
+        if (!memory) {
+            memory = new MemoryManager();
+            MemoryManager.instances.set(key, memory);
         }
-        return MemoryManager.instance;
+        return memory;
+    }
+
+    public static _resetForTesting(): void {
+        MemoryManager.instances.clear();
     }
 
     /**

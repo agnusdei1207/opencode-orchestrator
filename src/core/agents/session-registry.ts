@@ -49,35 +49,20 @@ function shortID(sessionID: string): string {
     return `${sessionID.slice(0, 8)}...`;
 }
 
+/** Owned by one ParallelAgentManager, so it lives and dies with its plugin instance. */
 export class SessionRegistry {
-    private static _instance: SessionRegistry | undefined;
-
     private sessionsById = new Map<string, TrackedSession>();
     private deleteTimers = new Map<string, NodeJS.Timeout>();
     private healthCheckInterval: NodeJS.Timeout | null = null;
     private config: SessionRegistryConfig;
 
-    private constructor(
+    constructor(
         private client: PluginInput["client"],
         private directory: string,
         config: Partial<SessionRegistryConfig> = {},
     ) {
         this.config = normalizeConfig(config);
         this.startHealthCheck();
-    }
-
-    static getInstance(
-        client?: PluginInput["client"],
-        directory?: string,
-        config?: Partial<SessionRegistryConfig>,
-    ): SessionRegistry {
-        if (!SessionRegistry._instance) {
-            if (!client || !directory) {
-                throw new Error("SessionRegistry requires client and directory on first call");
-            }
-            SessionRegistry._instance = new SessionRegistry(client, directory, config);
-        }
-        return SessionRegistry._instance;
     }
 
     async acquire(agentName: string, parentSessionID: string, description: string): Promise<TrackedSession> {
@@ -152,7 +137,6 @@ export class SessionRegistry {
             await Promise.all(deletions);
         } finally {
             this.sessionsById.clear();
-            if (SessionRegistry._instance === this) SessionRegistry._instance = undefined;
         }
     }
 

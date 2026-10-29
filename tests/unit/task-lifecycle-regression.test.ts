@@ -10,9 +10,7 @@ import { ConcurrencyController } from "../../src/core/agents/concurrency";
 import { CONFIG } from "../../src/core/agents/config";
 import { TASK_STATUS, type ParallelTask } from "../../src/shared";
 
-vi.mock("../../src/core/agents/manager/prompt-routing", () => ({
-    buildRoutedAgentPrompt: vi.fn(async (_agent, text) => ({ wireAgent: "Worker", text, tools: {} })),
-}));
+const routePrompt = vi.fn(async (_agent: string, text: string) => ({ wireAgent: "Worker", text, tools: {} }));
 vi.mock("../../src/core/agents/logger", () => ({ log: vi.fn() }));
 
 function deferred<T>() {
@@ -29,7 +27,7 @@ function createTaskLauncher(
     onTaskError: any,
     startPolling: any,
 ): TaskLauncher {
-    return new TaskLauncher({ client, store, concurrency, sessionRegistry, onTaskError, startPolling });
+    return new TaskLauncher({ client, store, concurrency, sessionRegistry, onTaskError, startPolling, routePrompt });
 }
 
 function createTaskPoller(
@@ -268,7 +266,7 @@ describe("task lifecycle across execution boundaries", () => {
         const blocker = await launch();
         await vi.advanceTimersByTimeAsync(0);
         const resumer = new TaskResumer(client as never, store, id => store.getBySession(id),
-            (resumed, prompt) => { cleaner.cancelCleanup(resumed.id); launcher.startTask(resumed, prompt); });
+            (resumed, prompt) => { cleaner.cancelCleanup(resumed.id); launcher.startTask(resumed, prompt); }, routePrompt);
         Object.assign(manager, { resumer });
         const run = await manager.resume({ sessionId: task.sessionID, prompt: "follow up", parentSessionID: "parent" });
         expect(run.status).toBe(TASK_STATUS.PENDING);

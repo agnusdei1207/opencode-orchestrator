@@ -33,8 +33,7 @@ describe("ContextLimitResolver", () => {
     let resolver: ContextLimitResolver;
 
     beforeEach(() => {
-        resolver = ContextLimitResolver.getInstance();
-        resolver.reset();
+        resolver = new ContextLimitResolver();
     });
 
     it("returns the explicit override regardless of model metadata", async () => {
@@ -120,12 +119,14 @@ describe("ContextLimitResolver", () => {
 });
 
 describe("chat.params handler", () => {
+    let resolver: ContextLimitResolver;
+
     beforeEach(() => {
-        ContextLimitResolver.getInstance().reset();
+        resolver = new ContextLimitResolver();
     });
 
     it("remembers the model window the host resolved for the session", async () => {
-        const handler = createChatParamsHandler();
+        const handler = createChatParamsHandler(resolver);
 
         await handler(
             {
@@ -136,13 +137,12 @@ describe("chat.params handler", () => {
             {} as never,
         );
 
-        const resolver = ContextLimitResolver.getInstance();
         expect(resolver.resolveForSession("ses-1")).toBe(1_000_000);
         await expect(resolver.resolve("zai", "glm-5.3")).resolves.toBe(1_000_000);
     });
 
     it("tolerates a hook call without a model", async () => {
-        await expect(createChatParamsHandler()({ sessionID: "ses-1" } as never, {} as never)).resolves.toBeUndefined();
+        await expect(createChatParamsHandler(resolver)({ sessionID: "ses-1" } as never, {} as never)).resolves.toBeUndefined();
     });
 });
 

@@ -15,7 +15,6 @@ import {
     type SessionCompactingOutput,
 } from "../../src/plugin-handlers/session-compacting-handler";
 import type { EventHandlerContext } from "../../src/plugin-handlers/event-handler";
-import { ParallelAgentManager } from "../../src/core/agents/manager";
 import { log } from "../../src/core/agents/logger";
 import { clearCompactionState, getCompactionState } from "../../src/core/loop/compaction-guard";
 
@@ -24,19 +23,12 @@ vi.mock("../../src/core/loop/mission-loop", () => ({
     readLoopState: vi.fn(),
 }));
 
-vi.mock("../../src/core/agents/manager", () => ({
-    ParallelAgentManager: {
-        getInstance: vi.fn(() => ({
-            getTasksByParent: vi.fn(() => []),
-        })),
-    },
-}));
-
 vi.mock("../../src/core/agents/logger", () => ({ log: vi.fn() }));
 
 describe("Session Compacting Handler", () => {
     let mockContext: EventHandlerContext;
     let handler: ReturnType<typeof createSessionCompactingHandler>;
+    const agents = { getTasksByParent: vi.fn((): unknown[] => []) };
 
     beforeEach(() => {
         mockContext = {
@@ -50,7 +42,9 @@ describe("Session Compacting Handler", () => {
                     ["test-session", { enabled: true, iterations: 3, currentTask: "Building", taskRetries: new Map(), anomalyCount: 0 }],
                 ]),
             },
+            agents: agents as never,
         };
+        agents.getTasksByParent.mockReset().mockReturnValue([]);
 
         handler = createSessionCompactingHandler(mockContext);
     });
@@ -130,13 +124,10 @@ describe("Session Compacting Handler", () => {
     });
 
     it("should inject background tasks context when tasks are running", async () => {
-        const { ParallelAgentManager } = await import("../../src/core/agents/manager");
-        vi.mocked(ParallelAgentManager.getInstance).mockReturnValue({
-            getTasksByParent: vi.fn(() => [
-                { id: "t1", sessionID: "s1", description: "Build UI", agent: "worker", status: "running" },
-                { id: "t2", sessionID: "s2", description: "Write tests", agent: "worker", status: "running" },
-            ]),
-        } as any);
+        agents.getTasksByParent.mockReturnValue([
+            { id: "t1", sessionID: "s1", description: "Build UI", agent: "worker", status: "running" },
+            { id: "t2", sessionID: "s2", description: "Write tests", agent: "worker", status: "running" },
+        ]);
 
         const input: SessionCompactingInput = { sessionID: "test-session" };
         const output: SessionCompactingOutput = { context: [] };
@@ -151,9 +142,7 @@ describe("Session Compacting Handler", () => {
     });
 
     it("preserves pending delegated work across compaction", async () => {
-        vi.mocked(ParallelAgentManager.getInstance).mockReturnValue({
-            getTasksByParent: () => [{ id: "queued-1", sessionID: "child-1", description: "Queued check", agent: "reviewer", status: "pending" }],
-        } as never);
+        agents.getTasksByParent.mockReturnValue([{ id: "queued-1", sessionID: "child-1", description: "Queued check", agent: "reviewer", status: "pending" }]);
         const output: SessionCompactingOutput = { context: [] };
         await handler({ sessionID: "test-session" }, output);
         expect(output.context.join("\n")).toContain("queued-1 session=child-1 agent=reviewer status=pending");
@@ -167,11 +156,7 @@ describe("Session Compacting Handler", () => {
         const { readLoopState } = await import("../../src/core/loop/mission-loop");
         vi.mocked(readLoopState).mockReturnValue(null);
 
-        // Reset ParallelAgentManager to return empty tasks
-        const { ParallelAgentManager } = await import("../../src/core/agents/manager");
-        vi.mocked(ParallelAgentManager.getInstance).mockReturnValue({
-            getTasksByParent: vi.fn(() => []),
-        } as any);
+        agents.getTasksByParent.mockReturnValue([]);
 
         const handler = createSessionCompactingHandler(mockContext);
 
@@ -184,7 +169,7 @@ describe("Session Compacting Handler", () => {
     });
 
     it("should log background task lookup failures without aborting compaction", async () => {
-        vi.mocked(ParallelAgentManager.getInstance).mockImplementationOnce(() => {
+        agents.getTasksByParent.mockImplementationOnce(() => {
             throw new Error("manager unavailable");
         });
 

@@ -24,33 +24,35 @@ const AgentDefinitionSchema = z.object({
     canBash: z.boolean(), // Required per interface
 });
 
+/**
+ * One registry per project directory: custom agents come from that project's
+ * .opencode/agents.json, and one OpenCode process can serve several projects.
+ */
 export class AgentRegistry {
-    private static instance: AgentRegistry;
+    private static readonly instances = new Map<string, AgentRegistry>();
     private agents: Map<string, AgentDefinition> = new Map();
-    private directory: string = "";
-    private loadPromise: Promise<void> = Promise.resolve();
+    private readonly loadPromise: Promise<void>;
 
-    private constructor() {
+    private constructor(private readonly directory: string) {
         // Load built-in agents
         for (const [name, def] of Object.entries(BUILTIN_AGENTS)) {
             this.agents.set(name, def);
         }
+        this.loadPromise = this.loadCustomAgents();
     }
 
-    public static getInstance(): AgentRegistry {
-        if (!AgentRegistry.instance) {
-            AgentRegistry.instance = new AgentRegistry();
+    public static getInstance(directory: string): AgentRegistry {
+        const key = path.resolve(directory);
+        let registry = AgentRegistry.instances.get(key);
+        if (!registry) {
+            registry = new AgentRegistry(key);
+            AgentRegistry.instances.set(key, registry);
         }
-        return AgentRegistry.instance;
+        return registry;
     }
 
     public static _resetForTesting(): void {
-        AgentRegistry.instance = new AgentRegistry();
-    }
-
-    public setDirectory(dir: string): void {
-        this.directory = dir;
-        this.loadPromise = this.loadCustomAgents();
+        AgentRegistry.instances.clear();
     }
 
     public async ready(): Promise<void> {

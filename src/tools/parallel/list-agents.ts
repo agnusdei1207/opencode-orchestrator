@@ -11,8 +11,9 @@ import { OUTPUT_LABEL } from "../../shared/index.js";
 export const createListAgentsTool = () => tool({
     description: "List all available agents for delegation, including built-in and custom templates.",
     args: {},
-    async execute() {
-        const registry = AgentRegistry.getInstance();
+    async execute(_args, context) {
+        // OpenCode passes the directory of the session that called the tool.
+        const registry = AgentRegistry.getInstance(context.directory);
         await registry.ready();
         const agentNames = registry.listAgents();
 

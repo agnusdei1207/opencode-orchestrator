@@ -6,9 +6,11 @@ import { AGENT_NAMES, TOOL_NAMES } from "../../src/shared";
 
 vi.mock("../../src/core/agents/logger", () => ({ log: vi.fn() }));
 
+const projectDir = "/tmp/prompt-routing-project";
+
 describe("buildRoutedAgentPrompt", () => {
     beforeEach(() => {
-        MemoryManager.getInstance().import({
+        MemoryManager.getInstance(projectDir).import({
             [MemoryLevel.SYSTEM]: [],
             [MemoryLevel.PROJECT]: [],
             [MemoryLevel.MISSION]: [],
@@ -18,6 +20,7 @@ describe("buildRoutedAgentPrompt", () => {
 
     it("keeps built-in agents on their own OpenCode agent route", async () => {
         const routed = await buildRoutedAgentPrompt(
+            projectDir,
             AGENT_NAMES.WORKER,
             "Implement the assigned file",
         );
@@ -33,7 +36,7 @@ describe("buildRoutedAgentPrompt", () => {
 
     it("routes custom agents through Commander while preserving the custom role prompt", async () => {
         const customAgent = "CustomPromptRoutingAgent";
-        AgentRegistry.getInstance().registerAgent(customAgent, {
+        AgentRegistry.getInstance(projectDir).registerAgent(customAgent, {
             id: customAgent,
             description: "Custom routing specialist",
             systemPrompt: "CUSTOM ROUTING SYSTEM",
@@ -41,7 +44,7 @@ describe("buildRoutedAgentPrompt", () => {
             canBash: false,
         });
 
-        const routed = await buildRoutedAgentPrompt(customAgent, "Continue route audit");
+        const routed = await buildRoutedAgentPrompt(projectDir, customAgent, "Continue route audit");
 
         expect(routed.wireAgent).toBe(AGENT_NAMES.COMMANDER);
         expect(routed.text).toContain("### AGENT ROLE: CustomPromptRoutingAgent");
@@ -59,13 +62,14 @@ describe("buildRoutedAgentPrompt", () => {
     });
 
     it("prepends relevant memory context before a compact built-in task prompt", async () => {
-        MemoryManager.getInstance().add(
+        MemoryManager.getInstance(projectDir).add(
             MemoryLevel.PROJECT,
             "Implement route audit with prompt routing evidence",
             1,
         );
 
         const routed = await buildRoutedAgentPrompt(
+            projectDir,
             AGENT_NAMES.REVIEWER,
             "Check prompt routing evidence",
         );
@@ -74,5 +78,15 @@ describe("buildRoutedAgentPrompt", () => {
         expect(routed.text.indexOf("### PROJECT MEMORY"))
             .toBeLessThan(routed.text.indexOf("Check prompt routing evidence"));
         expect(routed.text).not.toContain("### AGENT ROLE:");
+    });
+
+    // One OpenCode process can serve several projects at once.
+    it("never injects another project's memory into a delegated prompt", async () => {
+        const otherProject = "/tmp/prompt-routing-other-project";
+        MemoryManager.getInstance(otherProject).add(MemoryLevel.TASK, "Other project secret route audit evidence", 1);
+
+        const routed = await buildRoutedAgentPrompt(projectDir, AGENT_NAMES.REVIEWER, "Check route audit evidence");
+
+        expect(routed.text).not.toContain("Other project secret");
     });
 });

@@ -11,18 +11,9 @@ import * as Toast from "../../src/core/notification/toast";
 import * as SessionActivity from "../../src/core/session/activity";
 import * as PendingInjection from "../../src/core/session/pending-injection";
 import { log } from "../../src/core/agents/logger";
-import { ParallelAgentManager } from "../../src/core/agents/manager";
 import { TASK_STATUS } from "../../src/shared";
 import type { EventHandlerContext } from "../../src/plugin-handlers/event-handler";
 
-vi.mock("../../src/core/agents/manager", () => ({
-    ParallelAgentManager: {
-        getInstance: vi.fn(() => ({
-            handleEvent: vi.fn(),
-            getTaskBySession: vi.fn(),
-        })),
-    },
-}));
 vi.mock("../../src/core/notification/toast", () => ({
     presets: {
         missionStarted: vi.fn(),
@@ -74,6 +65,11 @@ describe("createEventHandler", () => {
             state: {
                 sessions: new Map(),
             },
+            agents: {
+                handleEvent: vi.fn(),
+                getTaskBySession: vi.fn(),
+            } as unknown as EventHandlerContext["agents"],
+            contextLimits: new ContextLimitResolver(),
         };
         vi.clearAllMocks();
         vi.mocked(MissionLoop.isLoopActive).mockReturnValue(false);
@@ -119,9 +115,7 @@ describe("createEventHandler", () => {
             handleEvent: vi.fn(),
             getTaskBySession: vi.fn().mockReturnValue({ status: TASK_STATUS.ERROR }),
         };
-        vi.mocked(ParallelAgentManager.getInstance)
-            .mockReturnValueOnce(manager as never)
-            .mockReturnValueOnce(manager as never);
+        ctx.agents = manager as unknown as EventHandlerContext["agents"];
 
         await createEventHandler(ctx)({ event: {
             type: "session.error",
@@ -161,9 +155,7 @@ describe("createEventHandler", () => {
     });
 
     it("measures context against the model's own window and counts cached tokens (issue #40)", async () => {
-        const resolver = ContextLimitResolver.getInstance();
-        resolver.reset();
-        resolver.rememberModel("session-1", "zai", "glm-5.3", 1_000_000);
+        ctx.contextLimits.rememberModel("session-1", "zai", "glm-5.3", 1_000_000);
         const handler = createEventHandler(ctx);
 
         await handler({
@@ -183,7 +175,6 @@ describe("createEventHandler", () => {
         });
 
         expect(ContextMonitor.checkContextWindow).toHaveBeenCalledWith("session-1", 470, 1_000_000);
-        resolver.reset();
     });
 
     it("records host writes as session activity for lifecycle decisions (issue #41)", async () => {
@@ -298,7 +289,7 @@ describe("createEventHandler", () => {
     });
 
     it("releases per-session state for untracked sessions on delete", async () => {
-        const forgetSession = vi.spyOn(ContextLimitResolver.getInstance(), "forgetSession");
+        const forgetSession = vi.spyOn(ctx.contextLimits, "forgetSession");
         const handler = createEventHandler(ctx);
 
         await handler({ event: { type: "session.deleted", properties: { sessionID: "child-session" } } });
@@ -388,8 +379,7 @@ describe("createEventHandler", () => {
         await vi.advanceTimersByTimeAsync(500);
 
         expect(MissionLoopHandler.handleMissionIdle).toHaveBeenCalledWith(
-            ctx.client,
-            ctx.directory,
+            { client: ctx.client, directory: ctx.directory, tasks: ctx.agents },
             "session-1",
             "session-1",
         );

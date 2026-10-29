@@ -57,7 +57,7 @@ export function getMissionLedgerPath(directory: string): string {
 }
 
 export function appendMissionLedgerEvent(directory: string, input: MissionLedgerInput): MissionLedgerEvent | null {
-    if (!getMissionRuntimeOptions().ledger) return null;
+    if (!getMissionRuntimeOptions(directory).ledger) return null;
 
     const event: MissionLedgerEvent = {
         id: randomUUID(),
@@ -81,7 +81,7 @@ export function appendMissionLedgerEvent(directory: string, input: MissionLedger
 }
 
 export function readMissionLedger(directory: string, limit = 20): MissionLedgerEvent[] {
-    const options = getMissionRuntimeOptions();
+    const options = getMissionRuntimeOptions(directory);
     if (!options.ledger) return [];
 
     const ledgerPath = getMissionLedgerPath(directory);

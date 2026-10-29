@@ -39,14 +39,22 @@ const OrchestratorServerPlugin: Plugin = async (input, options) => {
     const { directory, handlerContext, asyncAgentTools, shutdownManager } = runtime;
     const missionMessages = createMissionMessagesHandler(handlerContext);
     const messageGuard = createMessagesGuardHandler();
+    let tools: ReturnType<typeof registerAllTools>;
+    try {
+        tools = registerAllTools(directory, asyncAgentTools);
+    } catch (error) {
+        // The host never receives `dispose` for a plugin that failed to load.
+        await shutdownManager.shutdown();
+        throw error;
+    }
 
     return {
-        tool: registerAllTools(directory, asyncAgentTools),
+        tool: tools,
         config: createConfigHandler(),
         event: createEventHandler(handlerContext),
         [PLUGIN_HOOKS.CHAT_MESSAGE]: createChatMessageHandler(handlerContext),
         "command.execute.before": createCommandExecuteBeforeHandler(handlerContext),
-        [PLUGIN_HOOKS.CHAT_PARAMS]: createChatParamsHandler(pluginOptions.agentTemperatures),
+        [PLUGIN_HOOKS.CHAT_PARAMS]: createChatParamsHandler(handlerContext.contextLimits, pluginOptions.agentTemperatures),
         [PLUGIN_HOOKS.TOOL_EXECUTE_BEFORE]: createToolExecuteBeforeHandler(handlerContext),
         [PLUGIN_HOOKS.TOOL_EXECUTE_AFTER]: createToolExecuteAfterHandler(handlerContext, pluginOptions.customRendering),
         [PLUGIN_HOOKS.EXPERIMENTAL_SESSION_COMPACTING]: createSessionCompactingHandler(handlerContext),

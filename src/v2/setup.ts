@@ -12,7 +12,6 @@ import { startV2EventBridge } from "./event-bridge.js";
 import { registerV2Tools } from "./tool-adapter.js";
 import { registerV2Commands } from "./command-adapter.js";
 import { registerV2Agents } from "./agent-adapter.js";
-import { ContextLimitResolver } from "../core/context/context-limit-resolver.js";
 import { parseAgentTemperatures, parseCustomRendering } from "../core/config/options-schema.js";
 import { isRecord } from "../shared/core/guards.js";
 import { truncateOversizedMessageParts } from "../shared/message/message-guard.js";
@@ -75,7 +74,7 @@ async function registerHooks(context: Context, handlerContext: PluginRuntime["ha
     const hooks = [
         () => context.session.hook("prompt", input => runPromptHook(chat, input, sessions)),
         () => context.session.hook("context", async input => {
-            runContextOptions(input, temperatures);
+            runContextOptions(input, temperatures, handlerContext.contextLimits);
             missionContext(input);
             runMessageGuard(input);
             rememberContextAgent(sessions, input as V2ContextRequest);
@@ -120,11 +119,15 @@ async function runPromptHook(chat: ReturnType<typeof createChatMessageHandler>, 
     prompt.prompt.text = output.parts[0]?.text ?? "";
 }
 
-function runContextOptions(input: unknown, temperatures: Readonly<Record<string, number>>): void {
+function runContextOptions(
+    input: unknown,
+    temperatures: Readonly<Record<string, number>>,
+    contextLimits: PluginRuntime["handlerContext"]["contextLimits"],
+): void {
     const request = input as V2ContextRequest;
     const temperature = Object.hasOwn(temperatures, request.agent) ? temperatures[request.agent] : undefined;
     if (temperature !== undefined) request.options.temperature = temperature;
-    ContextLimitResolver.getInstance().rememberModel(
+    contextLimits.rememberModel(
         request.sessionID,
         request.model.providerID,
         request.model.id,

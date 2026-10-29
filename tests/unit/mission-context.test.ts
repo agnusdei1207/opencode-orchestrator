@@ -4,7 +4,6 @@ import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createMissionContextBuilder } from "../../src/plugin-handlers/mission-context.js";
 import { startMissionLoop, writeLoopState, readLoopState } from "../../src/core/loop/mission-loop.js";
-import { ParallelAgentManager } from "../../src/core/agents/manager.js";
 import type { PluginSessionState } from "../../src/plugin-handlers/context.js";
 import { log } from "../../src/core/agents/logger.js";
 
@@ -14,12 +13,13 @@ describe("mission context builder", () => {
     let directory: string;
     let sessions: Map<string, PluginSessionState>;
     let build: ReturnType<typeof createMissionContextBuilder>;
+    const agents = { getTasksByParent: vi.fn((): Array<{ status: string }> => []) };
 
     beforeEach(() => {
         directory = mkdtempSync(path.join(tmpdir(), "oco-mission-context-"));
         sessions = new Map();
-        build = createMissionContextBuilder({ directory, sessions });
-        vi.spyOn(ParallelAgentManager, "getInstance").mockReturnValue({ getTasksByParent: () => [] } as never);
+        agents.getTasksByParent.mockReset().mockReturnValue([]);
+        build = createMissionContextBuilder({ directory, sessions, agents: agents as never });
     });
     afterEach(() => {
         vi.restoreAllMocks();
@@ -52,9 +52,7 @@ describe("mission context builder", () => {
 
     it("reports pending and running tasks but excludes completed tasks", () => {
         startMissionLoop(directory, "owner", "Build");
-        vi.mocked(ParallelAgentManager.getInstance).mockReturnValue({
-            getTasksByParent: () => [{ status: "running" }, { status: "pending" }, { status: "completed" }],
-        } as never);
+        agents.getTasksByParent.mockReturnValue([{ status: "running" }, { status: "pending" }, { status: "completed" }]);
         expect(build("owner")).toContain("Running: 1\n- Pending: 1");
     });
 
@@ -70,7 +68,7 @@ describe("mission context builder", () => {
 
     it("continues when background task inspection fails", () => {
         startMissionLoop(directory, "owner", "Build");
-        vi.mocked(ParallelAgentManager.getInstance).mockImplementation(() => { throw new Error("unavailable"); });
+        agents.getTasksByParent.mockImplementation(() => { throw new Error("unavailable"); });
         expect(build("owner")).toContain("MISSION LOOP ACTIVE");
         expect(log).toHaveBeenCalledWith(expect.stringContaining("Failed to inspect background tasks for owner"));
     });

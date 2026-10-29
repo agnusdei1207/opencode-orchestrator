@@ -1,4 +1,3 @@
-vi.mock("../../src/core/agents/manager", () => ({ ParallelAgentManager: { getInstance: () => ({ getTasksByParent: () => [] }) } }));
 
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import * as fs from "fs";
@@ -30,6 +29,8 @@ import { handleMissionIdle, cleanupSession } from "../../src/core/loop/mission-l
 import { startMissionLoop, readLoopState } from "../../src/core/loop/mission-loop";
 import { armCompactionGuard } from "../../src/core/loop/compaction-guard";
 import { CHECKLIST } from "../../src/shared";
+
+const noTasks = { getTasksByParent: () => [] };
 
 describe("Mission Loop Persistence E2E", () => {
     let testDir: string;
@@ -68,7 +69,7 @@ describe("Mission Loop Persistence E2E", () => {
         } as any;
 
         // 3. Trigger idle event at max iterations (iteration 1 >= max 1)
-        await handleMissionIdle(mockClient, testDir, testSessionID);
+        await handleMissionIdle({ client: mockClient, directory: testDir, tasks: noTasks }, testSessionID);
 
         // Advance timers to trigger injectContinuation
         vi.runAllTimers();
@@ -104,14 +105,14 @@ describe("Mission Loop Persistence E2E", () => {
             }
         } as any;
 
-        await handleMissionIdle(mockClient, testDir, testSessionID);
+        await handleMissionIdle({ client: mockClient, directory: testDir, tasks: noTasks }, testSessionID);
         armCompactionGuard(testSessionID, Date.now() + 1);
 
         await vi.runAllTimersAsync();
         expect(mockClient.session.prompt).not.toHaveBeenCalled();
 
         await vi.advanceTimersByTimeAsync(3100);
-        await handleMissionIdle(mockClient, testDir, testSessionID);
+        await handleMissionIdle({ client: mockClient, directory: testDir, tasks: noTasks }, testSessionID);
         await vi.runAllTimersAsync();
 
         expect(mockClient.session.prompt).toHaveBeenCalledTimes(1);
@@ -140,7 +141,7 @@ describe("Mission Loop Persistence E2E", () => {
             }
         } as any;
 
-        await handleMissionIdle(mockClient, testDir, testSessionID);
+        await handleMissionIdle({ client: mockClient, directory: testDir, tasks: noTasks }, testSessionID);
         const state = readLoopState(testDir);
 
         expect(state?.lastProgress).toContain("Checklist: 1/2");
@@ -179,7 +180,7 @@ describe("Mission Loop Persistence E2E", () => {
         }
 
         // 4. Trigger idle event
-        await handleMissionIdle(mockClient, testDir, testSessionID);
+        await handleMissionIdle({ client: mockClient, directory: testDir, tasks: noTasks }, testSessionID);
 
         // 5. Verify that it CLEARED loop state because verification passed
         const state = readLoopState(testDir);

@@ -120,22 +120,16 @@ describe("OpenCode 2 plugin setup", () => {
         } as unknown as Plugin.Context;
         const { createV2ClientBridge } = await import("../../src/v2/client-adapter.js");
         const { registerV2Commands } = await import("../../src/v2/command-adapter.js");
-        const { ParallelAgentManager } = await import("../../src/core/agents/manager.js");
         const bridge = createV2ClientBridge(context);
-        const manager = vi.spyOn(ParallelAgentManager, "getInstance").mockReturnValue({
-            cancelTasksForParent: vi.fn().mockResolvedValue(true),
-        } as never);
-        try {
-            await registerV2Commands(context, { client: bridge.client, directory, sessions: new Map() } as never);
-            const task = commands.find(command => command.name === "task")!;
-            await task.execute({ sessionID: "old-root", prompt: { text: "Old mission" } });
-            bridge.statuses.set("old-root", "busy");
-            await task.execute({ sessionID: "new-root", prompt: { text: "New mission" } });
-            expect(session.interrupt).toHaveBeenCalledWith({ sessionID: "old-root", resume: false });
-            expect(session.synthetic).toHaveBeenLastCalledWith(expect.objectContaining({ sessionID: "new-root" }));
-        } finally {
-            manager.mockRestore();
-        }
+        const agents = { cancelTasksForParent: vi.fn().mockResolvedValue(true) };
+        await registerV2Commands(context, { client: bridge.client, directory, sessions: new Map(), agents } as never);
+        const task = commands.find(command => command.name === "task")!;
+        await task.execute({ sessionID: "old-root", prompt: { text: "Old mission" } });
+        bridge.statuses.set("old-root", "busy");
+        await task.execute({ sessionID: "new-root", prompt: { text: "New mission" } });
+        expect(session.interrupt).toHaveBeenCalledWith({ sessionID: "old-root", resume: false });
+        expect(agents.cancelTasksForParent).toHaveBeenCalledWith("old-root");
+        expect(session.synthetic).toHaveBeenLastCalledWith(expect.objectContaining({ sessionID: "new-root" }));
     });
 
     it("applies configured temperature in the V2 generation context", async () => {

@@ -10,7 +10,7 @@ import {
 } from "../../../shared/index.js";
 import { TaskStore } from "../task-store.js";
 import { log } from "../logger.js";
-import { buildRoutedAgentPrompt, type RoutedAgentPrompt } from "./prompt-routing.js";
+import type { RoutedAgentPrompt } from "./prompt-routing.js";
 import { isSessionBusy } from "../../session/activity.js";
 
 type OpencodeClient = PluginInput["client"];
@@ -21,6 +21,7 @@ export class TaskResumer {
         private store: TaskStore,
         private findBySession: (sessionID: string) => ParallelTask | undefined,
         private startTask: (task: ParallelTask, prompt: RoutedAgentPrompt) => void,
+        private routePrompt: (agent: string, prompt: string) => Promise<RoutedAgentPrompt>,
     ) { }
 
     async resume(input: ResumeInput): Promise<ParallelTask> {
@@ -30,7 +31,7 @@ export class TaskResumer {
         }
 
         const startedAt = existingTask.startedAt;
-        const routedPrompt = await buildRoutedAgentPrompt(existingTask.agent, input.prompt);
+        const routedPrompt = await this.routePrompt(existingTask.agent, input.prompt);
         if (await isSessionBusy(this.client, existingTask.sessionID) || existingTask.status === TASK_STATUS.RUNNING || existingTask.status === TASK_STATUS.PENDING) {
             throw new Error(`Cannot resume session ${existingTask.sessionID}: session is still running`);
         }

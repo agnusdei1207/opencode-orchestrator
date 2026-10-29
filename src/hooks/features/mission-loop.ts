@@ -1,7 +1,6 @@
 import type { ChatMessageHook, ChatMessageResult, HookContext } from "../registry.js";
 import { startMissionLoop, cancelMissionLoop, readLoopState } from "../../core/loop/mission-loop.js";
 import { PROMPTS, COMMAND_NAMES } from "../../shared/index.js";
-import { ParallelAgentManager } from "../../core/agents/manager.js";
 import { isSessionBusy } from "../../core/session/activity.js";
 import { HOOK_ACTIONS, HOOK_NAMES } from "../constants.js";
 import { detectSlashCommand } from "../../utils/parsing/index.js";
@@ -68,6 +67,7 @@ async function activateTaskMission(ctx: HookContext, args: string): Promise<void
 
 async function prepareReplacement(ctx: HookContext, ownerID: string): Promise<void> {
     if (!ctx.client) throw new Error("Cannot replace the active mission without a session client");
+    if (!ctx.agents) throw new Error("Cannot replace the active mission without its task manager");
     if (await isSessionBusy(ctx.client, ownerID)) {
         const response = await ctx.client.session.abort({ path: { id: ownerID } });
         if (response.error || response.data !== true) {
@@ -75,8 +75,7 @@ async function prepareReplacement(ctx: HookContext, ownerID: string): Promise<vo
         }
     }
     handleAbort(ownerID);
-    const manager = ParallelAgentManager.getInstance();
-    if (!(await manager.cancelTasksForParent(ownerID))) {
+    if (!(await ctx.agents.cancelTasksForParent(ownerID))) {
         throw new Error(`Could not cancel all delegated tasks for ${ownerID}; mission unchanged`);
     }
 }

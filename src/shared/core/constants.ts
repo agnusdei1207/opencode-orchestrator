@@ -162,6 +162,9 @@ export const SHUTDOWN_HANDLERS = {
     /** ParallelAgentManager - Manages parallel agent task execution */
     PARALLEL_AGENT_MANAGER: "ParallelAgentManager",
 
+    /** Process-wide services shared by every plugin instance; released by the last one */
+    PROCESS_SERVICES: "ProcessServices",
+
     /** CircuitBreaker - Prune timer + per-session breaker state */
     CIRCUIT_BREAKER: "CircuitBreaker",
 

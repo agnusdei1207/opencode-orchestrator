@@ -11,7 +11,8 @@ function createHost(messages: unknown[] = []) {
         switchAgent: vi.fn().mockResolvedValue(undefined),
         interrupt: vi.fn().mockResolvedValue({ interrupted: true }),
     };
-    return { context: { session } as unknown as Plugin.Context, session };
+    const location = { directory: "/tmp/v2-client-project", project: { directory: "/tmp/v2-client-project" } };
+    return { context: { session, location } as unknown as Plugin.Context, session };
 }
 
 describe("OpenCode 2 client bridge", () => {

@@ -83,26 +83,33 @@ function parseVersionInfo(data: string, fallback: TodoVersion): TodoVersion {
     };
 }
 
+/**
+ * One manager per project directory. A single OpenCode process can serve several
+ * directories at once, so a shared instance would write one project's TODO into
+ * another, and its update mutex must only serialize writes to the same file.
+ */
 export class TodoManager {
-    private static _instance: TodoManager;
+    private static readonly instances = new Map<string, TodoManager>();
     private directory: string = "";
     private todoPath: string = "";
     private versionPath: string = "";
     private updateMutex: Promise<void> = Promise.resolve();
 
-    private constructor() { }
-
-    public static getInstance(directory?: string): TodoManager {
-        if (!TodoManager._instance) {
-            TodoManager._instance = new TodoManager();
-        }
-        if (directory) {
-            TodoManager._instance.setDirectory(directory);
-        }
-        return TodoManager._instance;
+    private constructor(directory: string) {
+        this.setDirectory(directory);
     }
 
-    public setDirectory(dir: string): void {
+    public static getInstance(directory: string): TodoManager {
+        const key = path.resolve(directory);
+        let manager = TodoManager.instances.get(key);
+        if (!manager) {
+            manager = new TodoManager(key);
+            TodoManager.instances.set(key, manager);
+        }
+        return manager;
+    }
+
+    private setDirectory(dir: string): void {
         this.directory = dir;
         this.todoPath = path.join(this.directory, PATHS.TODO);
         this.versionPath = path.join(this.directory, ".opencode/todo.version.json");

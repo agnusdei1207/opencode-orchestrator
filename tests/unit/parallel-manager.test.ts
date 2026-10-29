@@ -539,7 +539,6 @@ describe("ParallelAgentManager Features", () => {
         let mockClient: any;
 
         beforeEach(() => {
-            ParallelAgentManager._resetForTesting();
             mockClient = {
                 session: {
                     create: vi.fn().mockResolvedValue({ data: { id: "sess-1" } }),
@@ -550,12 +549,11 @@ describe("ParallelAgentManager Features", () => {
                     messages: vi.fn().mockResolvedValue({ data: [] }),
                 },
             };
-            manager = ParallelAgentManager.getInstance(mockClient, "/tmp/pam-test");
+            manager = new ParallelAgentManager(mockClient, "/tmp/pam-test");
         });
 
         afterEach(async () => {
             await manager.shutdown();
-            ParallelAgentManager._resetForTesting();
         });
 
         it("completes a Worker task without launching an automatic Reviewer", async () => {
@@ -582,7 +580,6 @@ describe("ParallelAgentManager Features", () => {
             // Concurrency operations
             manager.setConcurrencyLimit("worker", 4);
             manager.configureConcurrency({ maxTotal: 10, defaultLimit: 2 });
-            expect(manager.getConcurrency()).toBeDefined();
 
             // Task store accessors
             const dummy = createMockTask({ id: "t_facade", parentSessionID: "p_facade", sessionID: "s_facade" });

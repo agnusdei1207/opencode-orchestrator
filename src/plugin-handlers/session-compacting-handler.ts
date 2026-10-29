@@ -11,7 +11,6 @@ import { readLoopState } from "../core/loop/mission-loop.js";
 import type { MissionLoopState } from "../shared/loop/types.js";
 import type { Hooks } from "@opencode-ai/plugin";
 import type { EventHandlerContext } from "./event-handler.js";
-import { ParallelAgentManager } from "../core/agents/manager.js";
 import { STATUS_LABEL } from "../shared/index.js";
 import { log } from "../core/agents/logger.js";
 
@@ -23,7 +22,7 @@ export type SessionCompactingOutput = Parameters<SessionCompactingHook>[1];
  * Create session compacting handler that preserves mission context
  */
 export function createSessionCompactingHandler(ctx: EventHandlerContext) {
-    const { directory, sessions, state } = ctx;
+    const { directory, sessions, state, agents } = ctx;
 
     return async (input: SessionCompactingInput, output: SessionCompactingOutput): Promise<void> => {
         const { sessionID } = input;
@@ -53,8 +52,7 @@ export function createSessionCompactingHandler(ctx: EventHandlerContext) {
 
         // 4. Active background tasks context
         try {
-            const manager = ParallelAgentManager.getInstance();
-            const tasks = manager.getTasksByParent(sessionID);
+            const tasks = agents.getTasksByParent(sessionID);
             const activeTasks = tasks.filter(t => t.status === STATUS_LABEL.RUNNING || t.status === STATUS_LABEL.PENDING);
 
             if (activeTasks.length > 0) {

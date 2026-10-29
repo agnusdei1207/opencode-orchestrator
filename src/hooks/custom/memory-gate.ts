@@ -18,7 +18,6 @@ import { redactSecrets } from "./secret-scanner.js";
 
 export class MemoryGateHook implements PostToolUseHook, AssistantDoneHook {
     name = HOOK_NAMES.MEMORY_GATE;
-    private memoryManager = MemoryManager.getInstance();
 
     async execute(
         _context: HookContext,
@@ -50,7 +49,7 @@ export class MemoryGateHook implements PostToolUseHook, AssistantDoneHook {
      * Post-Tool: Capture tool outputs to TASK memory
      */
     private async handlePostTool(
-        _context: HookContext,
+        context: HookContext,
         tool: string,
         input: ToolInput | undefined,
         output: ToolOutput
@@ -70,7 +69,7 @@ export class MemoryGateHook implements PostToolUseHook, AssistantDoneHook {
         const memoryText = redactSecrets(`Tool [${tool}] result for input ${JSON.stringify(input)}: ${content}`);
 
         // Add to Task memory (Short-term)
-        this.memoryManager.add(MemoryLevel.TASK, memoryText, MEMORY_CONSTANTS.IMPORTANCE.LOW);
+        MemoryManager.getInstance(context.directory).add(MemoryLevel.TASK, memoryText, MEMORY_CONSTANTS.IMPORTANCE.LOW);
 
         return {};
     }
@@ -89,7 +88,7 @@ export class MemoryGateHook implements PostToolUseHook, AssistantDoneHook {
             const summary = finalText.length > 500 ? finalText.substring(0, 500) + "..." : finalText;
 
             const agent = context.agent ?? "unknown";
-            this.memoryManager.add(MemoryLevel.MISSION, `Agent [${agent}] turn summary: ${summary}`, importance);
+            MemoryManager.getInstance(context.directory).add(MemoryLevel.MISSION, `Agent [${agent}] turn summary: ${summary}`, importance);
         }
 
         return { action: HOOK_ACTIONS.CONTINUE };

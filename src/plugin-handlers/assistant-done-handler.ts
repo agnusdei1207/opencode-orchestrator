@@ -28,7 +28,7 @@ export async function handleCompletedAssistantMessage(
     sessionID: string,
     messageID: string,
 ): Promise<void> {
-    const { client, directory, sessions } = ctx;
+    const { client, directory, sessions, contextLimits } = ctx;
     const hooks = HookRegistry.getInstance();
     const session = sessions.get(sessionID);
 
@@ -42,7 +42,7 @@ export async function handleCompletedAssistantMessage(
     recordAssistantTurn(sessionID, turn.text, turn.toolCallCount);
 
     const result = await hooks.executeDone(
-        { sessionID, agent: session.agent, directory, sessions },
+        { sessionID, agent: session.agent, directory, sessions, contextLimits },
         turn.text,
     );
 

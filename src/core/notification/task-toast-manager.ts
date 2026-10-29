@@ -75,13 +75,6 @@ export class TaskToastManager {
     }
 
     /**
-     * Set concurrency controller (can be set after init)
-     */
-    setConcurrencyController(concurrency: ConcurrencyController): void {
-        this.concurrency = concurrency;
-    }
-
-    /**
      * Add a new task and show consolidated toast
      */
     addTask(task: {
@@ -348,25 +341,3 @@ ${TUI_MESSAGES.MISSION_COMPLETE_SUBTITLE}
 // Singleton Instance
 // ============================================================
 
-let instance: TaskToastManager | null = null;
-
-/**
- * Get the global TaskToastManager instance
- */
-export function getTaskToastManager(): TaskToastManager | null {
-    return instance;
-}
-
-/**
- * Initialize the global TaskToastManager
- */
-export function initTaskToastManager(
-    client: OpencodeClient,
-    concurrency?: ConcurrencyController
-): TaskToastManager {
-    if (!instance) {
-        instance = new TaskToastManager();
-    }
-    instance.init(client, concurrency);
-    return instance;
-}

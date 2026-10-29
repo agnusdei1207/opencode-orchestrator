@@ -7,6 +7,7 @@ import { CleanupScheduler } from "../../src/core/cleanup/cleanup-scheduler.js";
 import { ParallelAgentManager } from "../../src/core/agents/manager.js";
 import { SessionRegistry } from "../../src/core/agents/session-registry.js";
 import { setupV2 } from "../../src/v2/setup.js";
+import { backgroundTaskManager } from "../../src/core/commands/manager.js";
 
 type Registration = { dispose: ReturnType<typeof vi.fn> };
 
@@ -68,6 +69,21 @@ describe("OpenCode 2 registration lifecycle", () => {
         expect(stop).toHaveBeenCalledOnce();
     });
 
+    it("rolls back the instance's shared resources when runtime setup throws", async () => {
+        const failing = fixture();
+        vi.spyOn(CleanupScheduler.prototype, "start").mockImplementationOnce(() => {
+            throw new Error("scheduler failed");
+        });
+        const managerShutdown = vi.spyOn(ParallelAgentManager.prototype, "shutdown");
+        const processShutdown = vi.spyOn(backgroundTaskManager, "shutdown").mockResolvedValue(undefined);
+
+        await expect(setupV2(failing.context)).rejects.toThrow("scheduler failed");
+
+        expect(managerShutdown).toHaveBeenCalledOnce();
+        // The failed instance was the only one, so the shared services were released.
+        await vi.waitFor(() => expect(processShutdown).toHaveBeenCalledOnce());
+    });
+
     it("waits for all hook registrations and releases successful ones after a hook failure", async () => {
         const { context, host, disposals, stop } = fixture();
         host.session.hook.mockImplementation((name: string) => {
@@ -122,19 +138,39 @@ describe("OpenCode 2 registration lifecycle", () => {
         expect(stop).toHaveBeenCalledOnce();
     });
 
-    it("creates fresh agent resources after a plugin reload", async () => {
-        const { context } = fixture();
-        const firstCleanup = await setupV2(context);
-        const firstManager = ParallelAgentManager.getInstance();
-        const firstRegistry = SessionRegistry.getInstance();
+    // OpenCode serves several directories from one process with one plugin
+    // instance each, and disposes an instance when its directory goes idle.
+    it("keeps a live instance working after another directory's instance is disposed", async () => {
+        const idle = fixture();
+        const live = fixture();
+        const commands: Array<{ name: string; execute: (input: unknown) => Promise<void> }> = [];
+        const synthetic = vi.fn().mockResolvedValue(undefined);
+        Object.assign(live.host.session, { synthetic, interrupt: vi.fn().mockResolvedValue({ interrupted: true }) });
+        live.host.command.transform = vi.fn(async (edit: (editor: { add: (command: typeof commands[number]) => void }) => void) => {
+            edit({ add: command => commands.push(command) });
+            return { dispose: vi.fn() };
+        }) as never;
+        const managerShutdown = vi.spyOn(ParallelAgentManager.prototype, "shutdown");
+        const registryShutdown = vi.spyOn(SessionRegistry.prototype, "shutdown");
+        const processShutdown = vi.spyOn(backgroundTaskManager, "shutdown").mockResolvedValue(undefined);
 
-        await firstCleanup();
-        const secondCleanup = await setupV2(context);
-        try {
-            expect(ParallelAgentManager.getInstance()).not.toBe(firstManager);
-            expect(SessionRegistry.getInstance()).not.toBe(firstRegistry);
-        } finally {
-            await secondCleanup();
-        }
+        const disposeIdle = await setupV2(idle.context);
+        const disposeLive = await setupV2(live.context);
+        await disposeIdle();
+
+        expect(managerShutdown).toHaveBeenCalledOnce();
+        expect(registryShutdown).toHaveBeenCalledOnce();
+        expect(processShutdown).not.toHaveBeenCalled();
+
+        const task = commands.find(command => command.name === "task")!;
+        await task.execute({ sessionID: "old-root", prompt: { text: "Old mission" } });
+        // Replacing the mission cancels the old owner's delegated tasks through this instance's manager.
+        await expect(task.execute({ sessionID: "new-root", prompt: { text: "New mission" } })).resolves.toBeUndefined();
+        expect(synthetic).toHaveBeenLastCalledWith(expect.objectContaining({ sessionID: "new-root" }));
+
+        await disposeLive();
+        expect(managerShutdown).toHaveBeenCalledTimes(2);
+        expect(managerShutdown.mock.contexts[0]).not.toBe(managerShutdown.mock.contexts[1]);
+        expect(processShutdown).toHaveBeenCalledOnce();
     });
 });

@@ -3,11 +3,15 @@ import { TaskResumer } from "../../src/core/agents/manager/task-resumer";
 import { TaskStore } from "../../src/core/agents/task-store";
 import { AgentRegistry } from "../../src/core/agents/agent-registry";
 import { MemoryLevel, MemoryManager } from "../../src/core/memory/memory-manager";
+import { buildRoutedAgentPrompt } from "../../src/core/agents/manager/prompt-routing";
 import { AGENT_NAMES, TASK_STATUS, TOOL_NAMES, type ParallelTask } from "../../src/shared";
 
 vi.mock("../../src/core/agents/logger", () => ({ log: vi.fn() }));
 
 type TaskResumerClient = ConstructorParameters<typeof TaskResumer>[0];
+
+const projectDir = "/tmp/task-resumer-project";
+const routePrompt = (agent: string, prompt: string) => buildRoutedAgentPrompt(projectDir, agent, prompt);
 
 describe("TaskResumer", () => {
     let store: TaskStore;
@@ -28,7 +32,7 @@ describe("TaskResumer", () => {
             },
         };
         startPolling = vi.fn();
-        MemoryManager.getInstance().import({
+        MemoryManager.getInstance(projectDir).import({
             [MemoryLevel.SYSTEM]: [],
             [MemoryLevel.PROJECT]: [],
             [MemoryLevel.MISSION]: [],
@@ -42,7 +46,7 @@ describe("TaskResumer", () => {
 
     it("routes custom-agent resumes through Commander with the custom role prompt and task tools", async () => {
         const customAgent = "CustomResumeAgent";
-        AgentRegistry.getInstance().registerAgent(customAgent, {
+        AgentRegistry.getInstance(projectDir).registerAgent(customAgent, {
             id: customAgent,
             description: "Custom resume specialist",
             systemPrompt: "CUSTOM RESUME SYSTEM",
@@ -56,6 +60,7 @@ describe("TaskResumer", () => {
             store,
             (sessionID) => sessionID === task.sessionID ? task : undefined,
             startPolling,
+            routePrompt,
         );
 
         const result = await resumer.resume({
@@ -83,6 +88,7 @@ describe("TaskResumer", () => {
             store,
             (sessionID) => sessionID === task.sessionID ? task : undefined,
             startPolling,
+            routePrompt,
         );
 
         await expect(resumer.resume({
@@ -101,7 +107,7 @@ describe("TaskResumer", () => {
         store.set(task.id, task);
         const begin = vi.fn();
         const resumer = new TaskResumer(mockClient as unknown as TaskResumerClient, store,
-            id => store.getBySession(id), begin);
+            id => store.getBySession(id), begin, routePrompt);
         const previousStart = task.startedAt;
         await resumer.resume({ sessionId: task.sessionID, prompt: "new work", parentSessionID: "parent-2" });
         expect(task.status).toBe(TASK_STATUS.PENDING);
@@ -124,7 +130,7 @@ describe("TaskResumer", () => {
         let markRoutingStarted!: () => void;
         const routingGate = new Promise<void>((resolve) => { releaseRouting = resolve; });
         const routingStarted = new Promise<void>((resolve) => { markRoutingStarted = resolve; });
-        vi.spyOn(AgentRegistry.getInstance(), "ready").mockImplementationOnce(() => {
+        vi.spyOn(AgentRegistry.getInstance(projectDir), "ready").mockImplementationOnce(() => {
             markRoutingStarted();
             return routingGate;
         });
@@ -134,6 +140,7 @@ describe("TaskResumer", () => {
             store,
             (sessionID) => sessionID === task.sessionID ? task : undefined,
             startPolling,
+            routePrompt,
         );
         const resume = resumer.resume({
             sessionId: task.sessionID,
@@ -161,7 +168,7 @@ describe("TaskResumer", () => {
             return { data: {} };
         });
         const resumer = new TaskResumer(mockClient as unknown as TaskResumerClient, store,
-            id => store.getBySession(id), startPolling);
+            id => store.getBySession(id), startPolling, routePrompt);
 
         await expect(resumer.resume({
             sessionId: task.sessionID,

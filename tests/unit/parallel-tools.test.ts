@@ -9,6 +9,9 @@ import { createAsyncAgentTools } from "../../src/tools/parallel/index.js";
 import { AgentRegistry } from "../../src/core/agents/agent-registry.js";
 import { MetricsCollector } from "../../src/core/metrics/collector.js";
 import { TodoManager } from "../../src/core/todo/todo-manager.js";
+import { mkdtempSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { TASK_STATUS, STATUS_LABEL, OUTPUT_LABEL, PARALLEL_PARAMS } from "../../src/shared/index.js";
 
 describe("Parallel Tools Suite", () => {
@@ -184,19 +187,19 @@ describe("Parallel Tools Suite", () => {
     describe("list_agents", () => {
         it("lists available agents", async () => {
             const tool = createListAgentsTool();
-            const result = await (tool as any).execute();
+            const result = await (tool as any).execute({}, { directory: "/tmp/list-agents-project" });
             expect(result).toContain("Available Agents:");
             expect(result).toContain("Commander");
             expect(result).toContain("Worker");
         });
 
         it("handles empty registry gracefully", async () => {
-            const registry = AgentRegistry.getInstance();
+            const registry = AgentRegistry.getInstance("/tmp/list-agents-project");
             const originalList = registry.listAgents;
             registry.listAgents = () => [];
 
             const tool = createListAgentsTool();
-            const result = await (tool as any).execute();
+            const result = await (tool as any).execute({}, { directory: "/tmp/list-agents-project" });
             expect(result).toContain("No agents registered");
 
             registry.listAgents = originalList;
@@ -205,14 +208,14 @@ describe("Parallel Tools Suite", () => {
 
     describe("show_metrics", () => {
         it("displays performance metrics table", async () => {
-            const collector = MetricsCollector.getInstance();
+            const collector = MetricsCollector.getInstance("/tmp/metrics-project");
             collector.recordToolExecution("grep_search", 150);
             collector.recordAgentExecution("worker", 2500);
             collector.recordTokenUsage(1200);
             collector.recordTaskResult("task-1", true);
 
             const tool = createShowMetricsTool();
-            const result = await (tool as any).execute();
+            const result = await (tool as any).execute({}, { directory: "/tmp/metrics-project" });
 
             expect(result).toContain("Performance Dashboard");
             expect(result).toContain("grep_search");
@@ -224,30 +227,32 @@ describe("Parallel Tools Suite", () => {
     });
 
     describe("update_todo", () => {
+        const toolContext = { directory: mkdtempSync(join(tmpdir(), "update-todo-")) };
+
         it("requires status for update action", async () => {
             const tool = createUpdateTodoTool();
-            const result = await (tool as any).execute({ action: "update", task: "Build feature" });
+            const result = await (tool as any).execute({ action: "update", task: "Build feature" }, toolContext);
             expect(result).toContain(OUTPUT_LABEL.ERROR);
             expect(result).toContain("'status' is required");
         });
 
         it("updates status of existing task", async () => {
-            const manager = TodoManager.getInstance();
+            const manager = TodoManager.getInstance(toolContext.directory);
             const spy = vi.spyOn(manager, "updateItem").mockResolvedValue(true);
 
             const tool = createUpdateTodoTool();
-            const result = await (tool as any).execute({ action: "update", task: "Build feature", status: "completed" });
+            const result = await (tool as any).execute({ action: "update", task: "Build feature", status: "completed" }, toolContext);
             expect(result).toContain(OUTPUT_LABEL.DONE);
             expect(result).toContain("Updated task status");
             spy.mockRestore();
         });
 
         it("reports error when update task is not found", async () => {
-            const manager = TodoManager.getInstance();
+            const manager = TodoManager.getInstance(toolContext.directory);
             const spy = vi.spyOn(manager, "updateItem").mockResolvedValue(false);
 
             const tool = createUpdateTodoTool();
-            const result = await (tool as any).execute({ action: "update", task: "Nonexistent", status: "completed" });
+            const result = await (tool as any).execute({ action: "update", task: "Nonexistent", status: "completed" }, toolContext);
             expect(result).toContain(OUTPUT_LABEL.ERROR);
             expect(result).toContain("Task not found");
             spy.mockRestore();
@@ -255,28 +260,28 @@ describe("Parallel Tools Suite", () => {
 
         it("requires subtask for add action", async () => {
             const tool = createUpdateTodoTool();
-            const result = await (tool as any).execute({ action: "add", task: "Parent" });
+            const result = await (tool as any).execute({ action: "add", task: "Parent" }, toolContext);
             expect(result).toContain(OUTPUT_LABEL.ERROR);
             expect(result).toContain("'subtask' is required");
         });
 
         it("adds subtask under parent task", async () => {
-            const manager = TodoManager.getInstance();
+            const manager = TodoManager.getInstance(toolContext.directory);
             const spy = vi.spyOn(manager, "addSubTask").mockResolvedValue(true);
 
             const tool = createUpdateTodoTool();
-            const result = await (tool as any).execute({ action: "add", task: "Parent", subtask: "Child subtask" });
+            const result = await (tool as any).execute({ action: "add", task: "Parent", subtask: "Child subtask" }, toolContext);
             expect(result).toContain(OUTPUT_LABEL.DONE);
             expect(result).toContain("Added sub-task");
             spy.mockRestore();
         });
 
         it("reports error when parent task is not found for add", async () => {
-            const manager = TodoManager.getInstance();
+            const manager = TodoManager.getInstance(toolContext.directory);
             const spy = vi.spyOn(manager, "addSubTask").mockResolvedValue(false);
 
             const tool = createUpdateTodoTool();
-            const result = await (tool as any).execute({ action: "add", task: "Parent", subtask: "Child subtask" });
+            const result = await (tool as any).execute({ action: "add", task: "Parent", subtask: "Child subtask" }, toolContext);
             expect(result).toContain(OUTPUT_LABEL.ERROR);
             expect(result).toContain("Parent task not found");
             spy.mockRestore();

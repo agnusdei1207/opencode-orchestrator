@@ -2,12 +2,12 @@ import type { Hooks } from "@opencode-ai/plugin";
 import { MissionControlHook } from "../hooks/features/mission-loop.js";
 import { COMMANDS } from "../tools/slashCommand.js";
 import { COMMAND_NAMES } from "../shared/index.js";
-import type { ToolExecuteHandlerContext } from "./context.js";
+import type { CommandHandlerContext } from "./context.js";
 
 type CommandExecuteBeforeHook = NonNullable<Hooks["command.execute.before"]>;
 
 // Native commands arrive after template expansion, so chat.message cannot see /task.
-export function createCommandExecuteBeforeHandler(ctx: ToolExecuteHandlerContext): CommandExecuteBeforeHook {
+export function createCommandExecuteBeforeHandler(ctx: CommandHandlerContext): CommandExecuteBeforeHook {
     const missionCommand = new MissionControlHook();
     return async (input, output) => {
         if (!Object.hasOwn(COMMANDS, input.command)) return;

@@ -26,9 +26,6 @@ import { queuePrompts, hasPendingPrompts } from "../../src/core/session/pending-
 vi.mock("../../src/core/agents/logger", () => ({ log: vi.fn() }));
 vi.mock("../../src/core/notification/toast", () => ({
     show: vi.fn(),
-    getTaskToastManager: vi.fn().mockReturnValue({
-        showMissionCompleteToast: vi.fn(),
-    })
 }));
 vi.mock("../../src/tools/slashCommand", () => ({
     COMMANDS: { task: { description: "Mock", template: "Mock: $ARGUMENTS" } }
@@ -228,9 +225,9 @@ describe("Hook System", () => {
         });
 
         it("measures the character estimate against the model's own window (issue #40)", async () => {
-            const resolver = ContextLimitResolver.getInstance();
-            resolver.reset();
+            const resolver = new ContextLimitResolver();
             resolver.rememberModel("test-session", "zai", "glm-5.3", 1_000_000);
+            mockContext.contextLimits = resolver;
             mockContext.sessions.set("test-session", {
                 tokens: { totalInput: 180000, totalOutput: 0, estimatedCost: 0 },
             });
@@ -238,7 +235,7 @@ describe("Hook System", () => {
             const doneResult = await hook.execute(mockContext, "final response");
 
             expect(doneResult.action).toBe(HOOK_ACTIONS.CONTINUE);
-            resolver.reset();
+            mockContext.contextLimits = undefined;
         });
 
         it("prefers the host-reported token usage over the character estimate", async () => {

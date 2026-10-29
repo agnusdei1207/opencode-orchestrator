@@ -40,9 +40,8 @@ function ctx(agent?: string): HookContext {
 
 describe("Plumbing / Wiring Guards", () => {
     beforeEach(() => {
-        // Reset the memory singleton so each test reads only its own writes.
-        // @ts-expect-error - test-only reset of the singleton
-        MemoryManager.instance = undefined;
+        // Reset project memory so each test reads only its own writes.
+        MemoryManager._resetForTesting();
     });
 
     // ---- 4a: agent flows into recorded memory --------------------------------
@@ -51,7 +50,7 @@ describe("Plumbing / Wiring Guards", () => {
         const hook = new MemoryGateHook();
         await hook.execute(ctx("commander"), "Mission DONE: shipped the feature");
 
-        const mission = MemoryManager.getInstance().export()[MemoryLevel.MISSION];
+        const mission = MemoryManager.getInstance("/tmp").export()[MemoryLevel.MISSION];
         const summary = mission.map((m) => m.content).join("\n");
         expect(summary).toContain("commander");
         expect(summary, "agent name leaked as the literal string 'undefined'").not.toContain(
@@ -69,7 +68,7 @@ describe("Plumbing / Wiring Guards", () => {
             { title: "http", output: "{\"login\":\"octocat\"}", metadata: {} },
         );
 
-        const task = MemoryManager.getInstance().export()[MemoryLevel.TASK];
+        const task = MemoryManager.getInstance("/tmp").export()[MemoryLevel.TASK];
         const recorded = task.map((m) => m.content).join("\n");
         expect(recorded).toContain("api.github.com");
         expect(recorded).not.toContain(token);
@@ -79,7 +78,7 @@ describe("Plumbing / Wiring Guards", () => {
         const hook = new MemoryGateHook();
         await hook.execute(ctx(undefined), "Task DONE with SUCCESS");
 
-        const mission = MemoryManager.getInstance().export()[MemoryLevel.MISSION];
+        const mission = MemoryManager.getInstance("/tmp").export()[MemoryLevel.MISSION];
         const summary = mission.map((m) => m.content).join("\n");
         expect(summary).not.toContain("[undefined]");
     });
