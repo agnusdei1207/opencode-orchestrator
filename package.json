@@ -49,8 +49,6 @@
     "docker:rust-dist": "docker compose run --rm dev && docker compose run --rm rust-arm64",
     "docker:test": "docker compose run --rm test",
     "docker:clean": "docker compose down -v",
-    "sync:landing": "node scripts/sync-landing.mjs",
-    "prebuild": "node scripts/sync-landing.mjs",
     "build": "node scripts/build.mjs",
     "gen:schema": "esbuild scripts/gen-schema.ts --bundle --platform=node --format=esm --outfile=node_modules/.cache/gen-schema.mjs && node node_modules/.cache/gen-schema.mjs",
     "build:all": "npm run build && npm run docker:rust-dist",
