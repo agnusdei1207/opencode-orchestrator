@@ -232,7 +232,7 @@ jobs:
             echo "${PACKAGE_NAME}@${PACKAGE_VERSION} is already published to npm. Skipping."
             exit 0
           fi
-          npm publish --access public
+          npm publish --access public --ignore-scripts
         env:
           NODE_AUTH_TOKEN: ${{ env.NPM_TOKEN }}
 
