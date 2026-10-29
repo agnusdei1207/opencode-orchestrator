@@ -37,4 +37,27 @@ describe("OpenCode 2 tool adapter", () => {
         controller.abort();
         expect(receivedSignal?.aborted).toBe(true);
     });
+
+    // OpenCode 2 hides tools without `codemode: false` inside the code-mode
+    // catalog, so a direct call such as update_todo fails with "No tool named".
+    it("registers every tool as a direct tool, like OpenCode's built-in tools", async () => {
+        const added: Array<{ name: string; options?: { codemode?: boolean } }> = [];
+        const tool = { description: "Direct tool", args: {}, execute: vi.fn() } as unknown as ToolDefinition;
+        const context = {
+            location: { directory: "C:/project", project: { directory: "C:/project" } },
+            tool: {
+                transform: vi.fn(async (callback: (editor: { add: (tool: typeof added[number]) => void }) => void) => {
+                    callback({ add: definition => { added.push(definition); } });
+                    return { dispose: async () => {} };
+                }),
+            },
+        } as unknown as Plugin.Context;
+
+        await registerV2Tools(context, { update_todo: tool, delegate_task: tool });
+
+        expect(added.map(definition => [definition.name, definition.options?.codemode])).toEqual([
+            ["update_todo", false],
+            ["delegate_task", false],
+        ]);
+    });
 });

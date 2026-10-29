@@ -12,6 +12,10 @@ export async function registerV2Tools(
         for (const [name, definition] of Object.entries(tools)) {
             editor.add({
                 name,
+                // Without this, OpenCode 2 puts the tool in the code-mode catalog
+                // behind `execute`, and a direct call fails with "No tool named".
+                // OpenCode's own built-in tools register the same way.
+                options: { codemode: false },
                 description: definition.description,
                 input: z.toJSONSchema(z.object(definition.args)),
                 execute: async (input, toolContext) => {
