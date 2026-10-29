@@ -1,7 +1,7 @@
 # ADR-0001: Second-Brain Knowledge-Graph RAG
 
 Date: 2026-06-01 00:26 KST
-Status: Implemented
+Status: Superseded by ADR-0019
 Source: `docs/histories/2026/05/31/PLAN_SecondBrainOrchestration_2026-05-31.md` (removed 2026-09-03; history in git)
 
 ## Context

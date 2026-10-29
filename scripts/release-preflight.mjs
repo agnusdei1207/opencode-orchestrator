@@ -1,55 +1,6 @@
-import { spawnSync } from "node:child_process";
-import { readFileSync } from "node:fs";
-import path from "node:path";
-import { fileURLToPath } from "node:url";
+import { commandIsAvailable, readPackageJson, run, runNpm } from "./lib.mjs";
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-const repoRoot = path.resolve(__dirname, "..");
 const args = new Set(process.argv.slice(2));
-
-const npmCliPath = process.env.npm_execpath
-  ?? path.join(path.dirname(process.execPath), "node_modules", "npm", "bin", "npm-cli.js");
-const npmCommand = process.platform === "win32" ? process.execPath : "npm";
-const npmCommandPrefix = process.platform === "win32" ? [npmCliPath] : [];
-
-function run(command, commandArgs, options = {}) {
-  const result = spawnSync(command, commandArgs, {
-    cwd: repoRoot,
-    encoding: "utf8",
-    stdio: options.capture ? "pipe" : "inherit",
-    shell: false,
-  });
-
-  if (result.error) {
-    throw result.error;
-  }
-
-  if (result.status !== 0 && !options.allowFailure) {
-    const detail = result.signal ? `signal ${result.signal}` : `exit code ${result.status}`;
-    throw new Error(`${command} ${commandArgs.join(" ")} failed with ${detail}`);
-  }
-
-  return result;
-}
-
-function runNpm(commandArgs, options = {}) {
-  return run(npmCommand, [...npmCommandPrefix, ...commandArgs], options);
-}
-
-function readPackageJson() {
-  return JSON.parse(readFileSync(path.join(repoRoot, "package.json"), "utf8"));
-}
-
-function commandIsAvailable(command, commandArgs) {
-  const result = spawnSync(command, commandArgs, {
-    cwd: repoRoot,
-    encoding: "utf8",
-    stdio: "pipe",
-    shell: false,
-  });
-  return !result.error && result.status === 0;
-}
 
 function runRustQualityChecks() {
   const cargoCommands = [

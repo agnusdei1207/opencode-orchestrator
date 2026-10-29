@@ -1,7 +1,6 @@
-import { spawnSync } from "node:child_process";
 import { readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
+import { commandIsAvailable, readPackageJson, repoRoot, run, runNpm } from "./lib.mjs";
 
 const bump = process.argv[2];
 const allowedBumps = new Set(["patch", "minor", "major"]);
@@ -10,49 +9,11 @@ if (!allowedBumps.has(bump)) {
   throw new Error("Usage: node scripts/release-version.mjs <patch|minor|major>");
 }
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-const repoRoot = path.resolve(__dirname, "..");
-const npmCliPath = process.env.npm_execpath
-  ?? path.join(path.dirname(process.execPath), "node_modules", "npm", "bin", "npm-cli.js");
-const npmCommand = process.platform === "win32" ? process.execPath : "npm";
-const npmArgsPrefix = process.platform === "win32" ? [npmCliPath] : [];
-
-function run(command, commandArgs, options = {}) {
-  const result = spawnSync(command, commandArgs, {
-    cwd: repoRoot,
-    encoding: "utf8",
-    stdio: options.capture ? "pipe" : "inherit",
-    shell: false,
-  });
-
-  if (result.error) {
-    throw result.error;
-  }
-
-  if (result.status !== 0 && !options.allowFailure) {
-    const detail = result.signal ? `signal ${result.signal}` : `exit code ${result.status}`;
-    throw new Error(`${command} ${commandArgs.join(" ")} failed with ${detail}`);
-  }
-
-  return result;
-}
-
 function assertCleanWorktree() {
   const result = run("git", ["status", "--porcelain"], { capture: true });
   if (result.stdout.trim()) {
     throw new Error("Release version bump requires a clean git worktree.");
   }
-}
-
-function commandIsAvailable(command, commandArgs) {
-  const probe = spawnSync(command, commandArgs, {
-    cwd: repoRoot,
-    encoding: "utf8",
-    stdio: "pipe",
-    shell: false,
-  });
-  return !probe.error && probe.status === 0;
 }
 
 // Sync workspace member versions without touching the dependency graph.
@@ -72,13 +33,12 @@ function patchCargoLock(nextVersion) {
 }
 
 function readVersion() {
-  const packageJson = JSON.parse(readFileSync(path.join(repoRoot, "package.json"), "utf8"));
-  return String(packageJson.version);
+  return String(readPackageJson().version);
 }
 
 assertCleanWorktree();
-run(npmCommand, [...npmArgsPrefix, "version", bump, "--no-git-tag-version", "--ignore-scripts"]);
-run(npmCommand, [...npmArgsPrefix, "run", "sync:readme-version"]);
+runNpm(["version", bump, "--no-git-tag-version", "--ignore-scripts"]);
+runNpm(["run", "sync:readme-version"]);
 
 const version = readVersion();
 

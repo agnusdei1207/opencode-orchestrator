@@ -1,7 +1,6 @@
 {
   "name": "opencode-orchestrator",
-  "displayName": "OpenCode Orchestrator",
-  "description": "Multi-agent mission control for OpenCode with Commander, Planner, Worker, and Reviewer workflows.",
+  "description": "Mission continuity for OpenCode: an OpenCode 2 plugin that keeps a task and its unfinished work connected across turns until it is verified.",
   "version": "2.0.20",
   "author": "agnusdei1207",
   "license": "MIT",
@@ -18,10 +17,8 @@
     "ai",
     "agent",
     "orchestrator",
-    "multi-agent",
     "llm",
-    "plugin",
-    "code-generation"
+    "plugin"
   ],
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -50,13 +47,14 @@
     "docker:test": "docker compose run --rm test",
     "docker:clean": "docker compose down -v",
     "build": "node scripts/build.mjs",
+    "typecheck:test": "tsc -p tsconfig.test.json",
     "gen:schema": "esbuild scripts/gen-schema.ts --bundle --platform=node --format=esm --outfile=node_modules/.cache/gen-schema.mjs && node node_modules/.cache/gen-schema.mjs",
     "build:all": "npm run build && npm run docker:rust-dist",
     "test": "vitest run --reporter=verbose",
     "test:coverage": "vitest run --coverage",
     "test:unit": "vitest run tests/unit --reporter=verbose",
     "test:e2e": "vitest run tests/e2e --reporter=verbose",
-    "test:all": "npm run build && vitest run --reporter=verbose && echo '=== ALL TESTS PASSED ==='",
+    "test:all": "npm run build && npm test",
     "prepublishOnly": "npm run build",
     "sync:readme-version": "node scripts/sync-readme-version.mjs",
     "release:preflight": "node scripts/release-preflight.mjs",
@@ -68,10 +66,9 @@
     "release:clean": "node -e \"for (const dir of ['dist', 'bin']) require('node:fs').rmSync(dir, { recursive: true, force: true })\" && docker compose down -v"
   },
   "engines": {
-    "node": ">=24.15.0"
+    "node": ">=24"
   },
   "dependencies": {
-    "jsonc-parser": "^3.3.1",
     "zod": "^4.6.7"
   },
   "overrides": {

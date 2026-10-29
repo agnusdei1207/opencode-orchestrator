@@ -3,7 +3,7 @@
 Date: 2026-09-03 22:31 KST
 Status: Implemented
 Source: investigation session 2026-09-03 (no prior plan existed)
-Report: `docs/histories/2026/09/03/REPORT_WindowsConfigPathMigration_2026-09-03.md`
+Report: `docs/histories/2026/09/03/REPORT_WindowsConfigPathMigration_2026-09-03.md` (removed; history in git)
 
 ## Context
 

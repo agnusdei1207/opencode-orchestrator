@@ -1,7 +1,7 @@
 # ADR-0021: A Minimal Mission Plugin for OpenCode
 
 Date: 2026-09-14 17:41 KST
-Status: Accepted — incremental implementation in progress
+Status: Accepted — Stage 3 and Stage 5 exit targets met by ADR-0029; Stages 1 and 4 open
 Source: User-requested comparison, intent, and reduction plan; updated to prioritize removing existing code over adding subsystems.
 
 ## Intent: our identity
@@ -189,11 +189,11 @@ Exit target: at most one custom tool, no custom execution engine, no plugin-owne
 
 No percentage speedup, token savings, quality score, or lossless-host-storage guarantee is claimed. Preserve the existing coverage thresholds (statements 85%, branches 72%, functions 88%, lines 85%); retain meaningful behavior tests as implementations shrink. For changed plugin wiring, typecheck/unit tests alone are insufficient: run the isolated host contract. Do not run Rust builds when no Rust boundary changes; use the repository's container workflow if that boundary is changed.
 
-The earlier memory refactor passed build, typecheck, 120 test files / 1,116 tests and coverage. Those results are a baseline, not validation of the target architecture. Current implementation evidence is recorded in `docs/reviews/2026-09-14-minimal-plugin.md`.
+The earlier memory refactor passed build, typecheck, 120 test files / 1,116 tests and coverage. Those results are a baseline, not validation of the target architecture. Implementation evidence was recorded in `docs/reviews/2026-09-14-minimal-plugin.md` (removed; history in git).
 
 ## Source map and decision boundaries
 
-- Orchestrator: [tool registry](../../src/tools/registry.ts), [parallel tools](../../src/tools/parallel/index.ts), [manager](../../src/core/agents/manager.ts), [config handler](../../src/plugin-handlers/config-handler.ts), [compaction handler](../../src/plugin-handlers/session-compacting-handler.ts). Deleted prompt-only tool and TODO service remain inspectable in Git history.
+- Orchestrator: [tool registry](../../src/tools/registry.ts), [agent registration](../../src/host/agent-adapter.ts) (replaced `src/plugin-handlers/config-handler.ts` when the OpenCode 1 path was removed), [compaction handler](../../src/plugin-handlers/session-compacting-handler.ts). The parallel tools (`src/tools/parallel/`), the task manager (`src/core/agents/manager.ts`), the config handler, the deleted prompt-only tool and the TODO service remain inspectable in Git history.
 - OpenCode public contracts, consulted 2026-09-14: [plugins](https://opencode.ai/docs/plugins/), [SDK](https://opencode.ai/docs/sdk/), [agents](https://opencode.ai/docs/agents/), [tools](https://opencode.ai/docs/tools/), [commands](https://opencode.ai/docs/commands/). Cross-check the deployed package types and run `scripts/qa-native-host.mjs`; preview documentation, internal services, and sibling source do not establish release support.
 - Pentesting: `docs/intents/00-project.md`; `docs/ARCHITECTURE.md`; `src/coordinator/engine.rs:449`; `src/brief/store.rs:215`; `src/runtime/worker.rs:696`; `src/tools/builtin.rs:311`. Its source and later intents take precedence over older five-tool/flat-team descriptions.
 - Existing decisions: [ADR-0003](0003-graphical-markdown-mission-memory.md), [ADR-0016](0016-session-lifecycle-context-limits.md), [ADR-0019](0019-retire-knowledge-rag-subsystem.md). Preserve their history; mark affected decisions superseded only as changes ship.

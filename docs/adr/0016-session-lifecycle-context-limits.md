@@ -3,7 +3,7 @@
 Date: 2026-09-02 18:00 KST
 Status: Implemented
 Source: `docs/histories/2026/09/02/PLAN_SessionLifecycleAndContextLimits_2026-09-02.md` (removed 2026-09-03; history in git)
-Report: `docs/histories/2026/09/02/REPORT_SessionLifecycleAndContextLimits_2026-09-02.md`
+Report: `docs/histories/2026/09/02/REPORT_SessionLifecycleAndContextLimits_2026-09-02.md` (removed; history in git)
 
 ## Context
 

@@ -1,0 +1,4 @@
+{
+  "$schema": "https://unpkg.com/knip@6.43.0/schema.json",
+  "ignore": ["public/**"]
+}

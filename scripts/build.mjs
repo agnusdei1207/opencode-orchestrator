@@ -1,15 +1,20 @@
-import { rm } from "node:fs/promises";
+import { rm, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { spawn } from "node:child_process";
-import { fileURLToPath } from "node:url";
 import { createRequire } from "node:module";
 import { build } from "esbuild";
+import { repoRoot, run } from "./lib.mjs";
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-const repoRoot = path.resolve(__dirname, "..");
 const distDir = path.join(repoRoot, "dist");
 const require = createRequire(import.meta.url);
+
+// OpenCode loads the default export and nothing else, so the published types
+// describe only that object instead of shipping every internal module's .d.ts.
+const PUBLIC_TYPES = `declare const plugin: {
+  id: string;
+  setup: (context: unknown) => Promise<() => Promise<void>>;
+};
+export default plugin;
+`;
 
 // Resolve the TypeScript compiler entry from the installed package instead of a
 // hardcoded node_modules path, so the build keeps working under hoisted or
@@ -19,50 +24,25 @@ function resolveTscBin() {
   return path.join(path.dirname(pkgJsonPath), "bin", "tsc");
 }
 
-function run(command, args) {
-  return new Promise((resolve, reject) => {
-    const child = spawn(command, args, {
-      cwd: repoRoot,
-      stdio: "inherit",
-      shell: false,
-    });
-
-    child.on("error", reject);
-    child.on("exit", (code, signal) => {
-      if (code === 0) {
-        resolve();
-        return;
-      }
-
-      const detail = signal ? `signal ${signal}` : `exit code ${code}`;
-      reject(new Error(`${command} ${args.join(" ")} failed with ${detail}`));
-    });
-  });
-}
-
-async function bundle(entryPoint, outfile, options = {}) {
+async function bundle(entryPoint, outfile) {
   await build({
     entryPoints: [path.join(repoRoot, entryPoint)],
     bundle: true,
     outfile: path.join(repoRoot, outfile),
     platform: "node",
     format: "esm",
-    sourcemap: true,
-    // Keep node_modules dependencies (jsonc-parser, zod) as
-    // real runtime imports instead of inlining them. jsonc-parser's UMD entry
-    // uses internal relative requires like "./impl/format" that resolve fine
-    // from within node_modules but break once esbuild inlines the wrapper
-    // into dist/ without copying the files those requires point to. All of
-    // these packages are declared "dependencies", so npm/Bun install them
-    // into node_modules for every consumer anyway.
+    sourcemap: false,
+    // Keep node_modules dependencies (zod) as real runtime imports. They are
+    // declared "dependencies", so npm installs them for every consumer, and
+    // inlining a package can break its internal relative requires.
     packages: "external",
-    ...options,
   });
 }
+
+run(process.execPath, [resolveTscBin(), "--noEmit"]);
 
 await rm(distDir, { recursive: true, force: true });
 
 await bundle("src/index.ts", "dist/index.js");
 await bundle("src/cli.ts", "dist/cli.js");
-
-await run(process.execPath, [resolveTscBin(), "--emitDeclarationOnly"]);
+await writeFile(path.join(distDir, "index.d.ts"), PUBLIC_TYPES);

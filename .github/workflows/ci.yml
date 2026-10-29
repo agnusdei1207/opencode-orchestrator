@@ -38,8 +38,13 @@ jobs:
       - name: Build
         run: npm run build
 
-      - name: Test
-        run: npm test
+      # Type-checks src/ and tests/ together (tsconfig.test.json).
+      - name: Typecheck tests
+        run: npm run typecheck:test
+
+      # Same coverage thresholds as release QA (vitest.config.ts).
+      - name: Test with coverage
+        run: npm run test:coverage
 
   rust:
     name: Rust (fmt + clippy + tests)

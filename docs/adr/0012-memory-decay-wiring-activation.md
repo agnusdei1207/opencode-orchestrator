@@ -1,7 +1,7 @@
 # ADR-0012: Memory Decay Wiring Activation
 
 Date: 2026-06-24 23:50 KST
-Status: Implemented
+Status: Superseded by ADR-0019
 Source: `docs/histories/2026/06/21/PLAN_MemoryDecayWiringActivation_2026-06-21.md` (removed 2026-09-03; history in git)
 
 ## Context

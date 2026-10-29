@@ -1,7 +1,7 @@
 # ADR-0002: Knowledge RAG Runtime Wiring and SDK Alignment
 
 Date: 2026-06-01 23:33 KST
-Status: Implemented
+Status: Superseded by ADR-0019
 Source: `docs/histories/2026/06/01/PLAN_KnowledgeRAGRuntimeAndSDKAlignment_2026-06-01.md` (removed 2026-09-03; history in git)
 
 ## Context

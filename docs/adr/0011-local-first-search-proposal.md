@@ -1,9 +1,9 @@
 # ADR-0011: Local-First Search Proposal and Ebbinghaus Memory OS
 
 Date: 2026-06-24 23:50 KST
-Status: Implemented
+Status: Superseded by ADR-0019
 Source: `docs/histories/2026/06/19/LOCAL_SEARCH_ENHANCEMENT_PROPOSAL.md` (removed 2026-09-03; history in git)
-Report: `docs/histories/2026/06/19/LOCAL_SEARCH_ENHANCEMENT_COMPLETION_REPORT.md`
+Report: `docs/histories/2026/06/19/LOCAL_SEARCH_ENHANCEMENT_COMPLETION_REPORT.md` (removed; history in git)
 
 ## Context
 

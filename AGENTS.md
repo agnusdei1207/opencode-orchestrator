@@ -1,6 +1,6 @@
 # AGENTS.md
 
-Last updated: 2026-09-03 22:52 KST
+Last updated: 2026-10-29 07:38 KST
 
 ## Purpose
 This file defines the mandatory operating rules for all agent work in this repository.

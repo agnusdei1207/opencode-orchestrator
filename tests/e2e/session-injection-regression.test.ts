@@ -21,6 +21,8 @@ import { pathToFileURL } from "node:url";
 import { MISSION_CONTROL } from "../../src/shared/loop/constants";
 
 const DIST_ENTRY = join(process.cwd(), "dist", "index.js");
+// These suites run the built bundle; without a build they are reported as skipped.
+const HAS_BUILD = existsSync(DIST_ENTRY);
 const SESSION = "ses_e2e_injection";
 const STEP_COUNT = 4;
 
@@ -143,15 +145,12 @@ async function bootPlugin({ workspace, isBusy, sent, messages }: FakeHostOptions
     };
 }
 
-describe("session injection regression (issues #35, #37, #38)", () => {
+describe.skipIf(!HAS_BUILD)("session injection regression (issues #35, #37, #38)", () => {
     const sent: SentPrompt[] = [];
     let hostBusy = false;
     let host: Awaited<ReturnType<typeof bootPlugin>> | undefined;
 
     beforeAll(async () => {
-        // Requires a build; dist-integrity.test.ts covers the bundle's presence.
-        if (!existsSync(DIST_ENTRY)) return;
-
         const workspace = seedMissionWorkspace();
         const created = Date.now();
         host = await bootPlugin({
@@ -202,7 +201,6 @@ describe("session injection regression (issues #35, #37, #38)", () => {
     });
 
     it("still delivers the continuation once the session goes idle", () => {
-        if (!existsSync(DIST_ENTRY)) return;
         // The guard must hold prompts back, not silently kill the mission loop.
         expect(sent.filter(entry => !entry.busyAtSendTime).length).toBeGreaterThan(0);
         expect(sent.some(entry => entry.text.includes("<mission_loop"))).toBe(true);
@@ -229,13 +227,11 @@ describe("session injection regression (issues #35, #37, #38)", () => {
  * would interrupt a run that is already recovering on its own — and v1.7.11
  * did exactly that.
  */
-describe("recovery never interrupts an in-flight run (issue #38)", () => {
+describe.skipIf(!HAS_BUILD)("recovery never interrupts an in-flight run (issue #38)", () => {
     const sent: SentPrompt[] = [];
     let host: Awaited<ReturnType<typeof bootPlugin>> | undefined;
 
     beforeAll(async () => {
-        if (!existsSync(DIST_ENTRY)) return;
-
         const workspace = seedMissionWorkspace();
         // Stays busy for the whole scenario: the runtime is still executing.
         host = await bootPlugin({ workspace, isBusy: () => true, sent, messages: () => [] });

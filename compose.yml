@@ -58,7 +58,8 @@ services:
         echo 'Windows build complete: bin/orchestrator-windows-x64.exe'
       "
 
-  # Run Rust unit tests.
+  # Run Rust tests with the same flags as CI and release preflight.
+  # Usage: docker compose run --rm test
   test:
     image: rust:1.98.1-bookworm
     working_dir: /app
@@ -66,7 +67,7 @@ services:
       - .:/app
       - cargo-cache:/usr/local/cargo/registry
       - target-cache:/app/target
-    command: cargo test
+    command: cargo test --locked --workspace --all-targets
 
 volumes:
   cargo-cache:

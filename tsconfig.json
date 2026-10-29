@@ -4,8 +4,7 @@
         "module": "ESNext",
         "moduleResolution": "bundler",
         "types": ["node"],
-        "declaration": true,
-        "outDir": "./dist",
+        "noEmit": true,
         "rootDir": "./src",
         "strict": true,
         "noUnusedLocals": true,
@@ -15,11 +14,5 @@
     },
     "include": [
         "src/**/*"
-    ],
-    "exclude": [
-        "node_modules",
-        "dist",
-        "crates",
-        "target"
     ]
 }

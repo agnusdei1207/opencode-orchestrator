@@ -1,7 +1,7 @@
 # ADR-0009: Local Search and Memory-Decay Roadmap (Proposals 1-12)
 
 Date: 2026-06-19 18:10 KST
-Status: Partially implemented
+Status: Superseded by ADR-0019
 Source: `docs/histories/2026/06/19/PLAN_LocalSearchAndMemoryDecayEnhancement_2026-06-19.md` (removed 2026-09-03; history in git)
 
 ## Context

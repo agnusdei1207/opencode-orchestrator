@@ -1,6 +1,6 @@
 # ADR-0028: OpenCode 2 Only and a Minimal Core
 
-Date: 2026-10-29
+Date: 2026-10-29 15:39 KST
 Status: Implemented
 
 ## Context

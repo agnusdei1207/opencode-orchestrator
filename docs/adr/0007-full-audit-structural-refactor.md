@@ -3,7 +3,7 @@
 Date: 2026-06-19 10:05 KST
 Status: Implemented
 Source: `docs/histories/2026/06/19/PLAN_FullAuditAndStructuralRefactor_2026-06-19.md` (removed 2026-09-03; history in git)
-Report: `docs/histories/2026/06/19/REPORT_FullAuditAndStructuralRefactor_2026-06-19.md`
+Report: `docs/histories/2026/06/19/REPORT_FullAuditAndStructuralRefactor_2026-06-19.md` (removed; history in git)
 
 ## Context
 

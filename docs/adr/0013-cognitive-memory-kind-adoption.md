@@ -1,7 +1,7 @@
 # ADR-0013: Cognitive Memory-Kind Adoption Grades
 
 Date: 2026-07-01 17:40 KST
-Status: Implemented
+Status: Superseded by ADR-0019
 Source: `docs/histories/2026/07/01/PLAN_CognitiveMemoryKindAndEpisodicAdoption_2026-07-01.md` (removed 2026-09-03; history in git)
 
 ## Context

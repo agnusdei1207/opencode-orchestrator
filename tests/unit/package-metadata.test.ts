@@ -1,81 +1,42 @@
+import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
+import path from "node:path";
 import { describe, expect, it } from "vitest";
 
-interface PackageMetadata {
-    description?: string;
+const repoRoot = path.resolve(__dirname, "../..");
+
+interface PackageManifest {
     version?: string;
-    homepage?: string;
-    bin?: Record<string, string>;
-    scripts?: Record<string, string>;
-    files?: string[];
-    bugs?: {
-        url?: string;
-    };
+    dependencies?: Record<string, string>;
 }
 
-function readCargoWorkspaceLicense(): string {
-    const cargoToml = readFileSync(resolve(process.cwd(), "Cargo.toml"), "utf8");
-    const workspacePackage = cargoToml.match(/\[workspace\.package\]([\s\S]*?)(?:\n\[|$)/);
-    const licenseMatch = workspacePackage?.[1].match(/license\s*=\s*"([^"]+)"/);
-    if (!licenseMatch) throw new Error("Cargo.toml is missing the workspace package license.");
-    return licenseMatch[1];
-}
-
-function readPackageMetadata(): PackageMetadata {
-    return JSON.parse(readFileSync(resolve(process.cwd(), "package.json"), "utf8")) as PackageMetadata;
+function readManifest(): PackageManifest {
+    return JSON.parse(readFileSync(path.join(repoRoot, "package.json"), "utf8")) as PackageManifest;
 }
 
 function readCargoWorkspaceVersion(): string {
-    const cargoToml = readFileSync(resolve(process.cwd(), "Cargo.toml"), "utf8");
+    const cargoToml = readFileSync(path.join(repoRoot, "Cargo.toml"), "utf8");
     const workspacePackage = cargoToml.match(/\[workspace\.package\]([\s\S]*?)(?:\n\[|$)/);
-    if (!workspacePackage) {
-        throw new Error("Cargo.toml is missing the [workspace.package] section.");
-    }
-    const versionMatch = workspacePackage[1].match(/version\s*=\s*"([^"]+)"/);
-    if (!versionMatch) {
-        throw new Error("Cargo.toml [workspace.package] is missing a version field.");
-    }
+    const versionMatch = workspacePackage?.[1].match(/version\s*=\s*"([^"]+)"/);
+    if (!versionMatch) throw new Error("Cargo.toml [workspace.package] is missing a version field.");
     return versionMatch[1];
 }
 
 describe("package metadata", () => {
-    it("describes the actual four-agent architecture", () => {
-        const metadata = readPackageMetadata();
-
-        expect(metadata.description).toContain("Commander");
-        expect(metadata.description).toContain("Planner");
-        expect(metadata.description).toContain("Worker");
-        expect(metadata.description).toContain("Reviewer");
-        expect(metadata.description).not.toContain("Coder");
-    });
-
-    it("routes public support links to GitHub issues", () => {
-        const metadata = readPackageMetadata();
-        const issueURL = "https://github.com/agnusdei1207/opencode-orchestrator/issues";
-
-        expect(metadata.homepage).toBe("https://agnusdei1207.github.io/opencode-orchestrator/");
-        expect(metadata.bugs?.url).toBe(issueURL);
-    });
-
+    // The CLI launcher downloads the release binary for the npm version, so the
+    // Rust binary must report the same version.
     it("keeps the Cargo workspace version in sync with the npm package version", () => {
-        const metadata = readPackageMetadata();
-        const cargoVersion = readCargoWorkspaceVersion();
-
-        expect(metadata.version).toBeDefined();
-        expect(cargoVersion).toBe(metadata.version);
+        expect(readCargoWorkspaceVersion()).toBe(readManifest().version);
     });
 
-    it("uses the repository MIT license for npm and Cargo packages", () => {
-        const metadata = JSON.parse(readFileSync(resolve(process.cwd(), "package.json"), "utf8")) as { license?: string };
-        expect(readFileSync(resolve(process.cwd(), "LICENSE"), "utf8")).toContain("MIT License");
-        expect(metadata.license).toBe("MIT");
-        expect(readCargoWorkspaceLicense()).toBe("MIT");
+    // Release binaries are built from the tag; tracked copies go stale.
+    it("does not track built binaries under bin/", () => {
+        const tracked = execFileSync("git", ["ls-files", "bin"], { cwd: repoRoot, encoding: "utf8" }).trim();
+        expect(tracked).toBe("");
     });
 
-    it("exposes the documented orchestrator CLI through the built launcher", () => {
-        const metadata = readPackageMetadata();
-
-        expect(metadata.bin).toEqual({ orchestrator: "dist/cli.js" });
+    // End users install only "dependencies"; anything else must be bundled or dev-only.
+    it("declares zod as the only runtime dependency", () => {
+        expect(Object.keys(readManifest().dependencies ?? {})).toEqual(["zod"]);
     });
 });
