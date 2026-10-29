@@ -380,6 +380,17 @@ No open issues. All 10 agents finished.
                 expect(result.passed).toBe(false);
                 expect(result.errors.join("\n")).toContain("Verification checklist contains no valid items");
             });
+
+            it.each(["[/]", "[-]"])("counts a %s checklist item as incomplete", marker => {
+                writeFileSync(join(opencodeDir, "todo.md"), "- [x] Done");
+                writeFileSync(join(opencodeDir, "verification-checklist.md"), `- [x] Build passed\n- ${marker} Tests pass`);
+
+                const result = verifyMissionCompletion(testDir);
+
+                expect(result.checklistComplete).toBe(false);
+                expect(result.checklistProgress).toBe("1/2");
+                expect(result.passed).toBe(false);
+            });
         });
     });
 

@@ -1,10 +1,9 @@
 /**
- * Verification Checklist Module
- * 
- * Provides a structured checklist system for mission completion verification.
- * 
- * The LLM creates and checks items in .opencode/verification-checklist.md
- * The hook system verifies all items are checked before allowing CONCLUDE.
+ * Mission completion verification.
+ *
+ * A mission is complete only when the TODO, the optional verification
+ * checklist in .opencode/verification-checklist.md, and the sync-issues file
+ * all pass.
  */
 
 import { existsSync, readFileSync } from "node:fs";
@@ -43,27 +42,14 @@ const CHECKLIST_READ_ERROR_PREFIX = "Failed to read verification checklist";
 function parseChecklistLine(line: string, currentCategory: ChecklistCategory): ChecklistItem | null {
     const trimmedLine = line.trim();
 
-    // Try parsing with ID format: - [ ] **ID**: Description
     const idMatch = trimmedLine.match(CHECKLIST_PATTERNS.ITEM_WITH_ID);
     if (idMatch) {
-        return {
-            id: idMatch[2].toLowerCase().replace(/\s+/g, '-'),
-            category: currentCategory,
-            description: idMatch[3],
-            completed: idMatch[1].toLowerCase() === 'x',
-        };
+        return { category: currentCategory, description: idMatch[3], completed: idMatch[1].toLowerCase() === 'x' };
     }
 
-    // Try parsing simple format: - [ ] Description
     const simpleMatch = trimmedLine.match(CHECKLIST_PATTERNS.SIMPLE_ITEM);
     if (simpleMatch) {
-        const desc = simpleMatch[2];
-        return {
-            id: desc.toLowerCase().replace(/\s+/g, '-').substring(0, 30),
-            category: currentCategory,
-            description: desc,
-            completed: simpleMatch[1].toLowerCase() === 'x',
-        };
+        return { category: currentCategory, description: simpleMatch[2], completed: simpleMatch[1].toLowerCase() === 'x' };
     }
 
     return null;
