@@ -51,14 +51,13 @@ function isUsableSearchText(text: string): boolean {
     return text.trim().length > 0;
 }
 
+/** Change the marker of the first checkbox line containing the text; addSubTask also targets the first match. */
 function replaceStatusMarker(content: string, searchText: string, marker: string): string {
-    let updated = false;
-    const lines = content.split("\n").map(line => {
-        if (!line.includes(searchText) || !CHECKBOX_PATTERN.test(line)) return line;
-        updated = true;
-        return line.replace(CHECKBOX_PATTERN, marker);
-    });
-    return updated ? lines.join("\n") : content;
+    const lines = content.split("\n");
+    const index = lines.findIndex(line => line.includes(searchText) && CHECKBOX_PATTERN.test(line));
+    if (index === -1) return content;
+    lines[index] = lines[index].replace(CHECKBOX_PATTERN, marker);
+    return lines.join("\n");
 }
 
 function isValidVersionNumber(value: unknown): value is number {

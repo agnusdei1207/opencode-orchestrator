@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import type { PluginInput } from "@opencode-ai/plugin";
+import type { HostClient } from "../../src/host/client";
 import { startMissionLoop } from "../../src/core/loop/mission-loop";
 import { handleMissionIdle, cleanupSession } from "../../src/core/loop/mission-loop-handler";
 import { resetSessionActivity } from "../../src/core/session/activity";
@@ -27,7 +27,7 @@ vi.mock("../../src/core/notification/os-notify/sound-player", () => ({ playSound
 describe("scheduled mission continuation", () => {
     const sessionID = "scheduled-owner";
     let directory: string;
-    let client: PluginInput["client"];
+    let client: HostClient;
 
     beforeEach(() => {
         vi.useFakeTimers();
@@ -39,11 +39,9 @@ describe("scheduled mission continuation", () => {
         directory = mkdtempSync(join(tmpdir(), "mission-scheduled-"));
         startMissionLoop(directory, sessionID, "Finish the requested scope");
         client = {
-            session: {
-                prompt: vi.fn().mockResolvedValue({ data: {} }),
-                status: vi.fn().mockResolvedValue({ data: {} }),
-            },
-        } as unknown as PluginInput["client"];
+            prompt: vi.fn().mockResolvedValue(undefined),
+            statuses: vi.fn(() => new Map<string, string>()),
+        } as unknown as HostClient;
     });
     afterEach(() => {
         cleanupSession(sessionID);
@@ -68,6 +66,7 @@ describe("scheduled mission continuation", () => {
         }
 
         expect(unhandled).not.toHaveBeenCalled();
+        expect(client.prompt).not.toHaveBeenCalled();
         expect(logger.log).toHaveBeenCalledWith(
             expect.stringContaining("Scheduled continuation failed"),
             expect.objectContaining({ sessionID }),

@@ -4,8 +4,7 @@
  * Consolidates all tool definitions for cleaner plugin initialization
  */
 
-import type { ToolDefinition } from "@opencode-ai/plugin";
-import { createSlashcommandTool } from "./slashCommand.js";
+import type { ToolDefinition } from "../host/tool.js";
 import {
     grepSearchTool,
     globSearchTool,
@@ -85,15 +84,6 @@ function registerLspTools(directory: string): Record<string, ToolDefinition> {
     };
 }
 
-/**
- * Register core orchestrator tools
- */
-function registerCoreTools(): Record<string, ToolDefinition> {
-    return {
-        [TOOL_NAMES.SLASHCOMMAND]: createSlashcommandTool(),
-    };
-}
-
 function assertNoToolConflicts(
     registeredTools: Record<string, ToolDefinition>,
     candidateTools: Record<string, ToolDefinition>,
@@ -117,7 +107,6 @@ export function registerAllTools(
     asyncAgentTools: Record<string, ToolDefinition>
 ): Record<string, ToolDefinition> {
     const baseTools = {
-        ...registerCoreTools(),
         ...registerSearchTools(directory),
         ...registerGitTools(directory),
         ...registerBackgroundTools(),

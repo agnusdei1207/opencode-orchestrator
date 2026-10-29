@@ -1,45 +1,19 @@
 /**
- * Progress Tracker - Snapshot-based Progress Tracking
- * 
- * Implements content-hash-based progress detection to identify when
- * agents are truly making progress vs just cycling without completion.
+ * Progress Tracker - counts mission checks that made no progress.
+ *
+ * Progress means the number of remaining verification items went down. A check
+ * only counts as stagnant after a continuation was injected, so the model had
+ * a chance to act. The count drives the stagnation intervention (at
+ * DEFAULT_STAGNATION_THRESHOLD) and the escalation in the continuation prompt.
  */
 
-import { log } from "../agents/logger.js";
 import { createPruneTimer } from "./prune-timer.js";
-
-export interface NormalizedTodo {
-    id: string | null;
-    content: string;
-    priority: string;
-    status: string;
-}
-
-interface ProgressUpdateResult {
-    hasProgressed: boolean;
-    stagnationCount: number;
-    previousIncompleteCount?: number;
-    progressSource: "none" | "count" | "snapshot";
-    recoveredFromStagnation?: boolean;
-}
 
 interface TrackerState {
     stagnationCount: number;
     lastIncompleteCount?: number;
-    lastSnapshot?: string;
     awaitingPostInjectionProgressCheck: boolean;
-    countCompleted?: number;
     lastAccessedAt: number;
-}
-
-type ProgressSource = ProgressUpdateResult["progressSource"];
-
-interface ProgressObservation {
-    previousIncompleteCount?: number;
-    currentSnapshot?: string;
-    currentCompletedCount?: number;
-    hasProgressed: boolean;
-    progressSource: ProgressSource;
 }
 
 export const DEFAULT_STAGNATION_THRESHOLD = 3;
@@ -54,206 +28,43 @@ const pruneTimer = createPruneTimer({
     prune: () => {
         const now = Date.now();
         for (const [sessionID, state] of sessionStates.entries()) {
-            if (now - (state.lastAccessedAt ?? 0) > TRACKER_TTL_MS) {
-                sessionStates.delete(sessionID);
-                log(`[progress-tracker] Pruned stale state`, { sessionID });
-            }
+            if (now - state.lastAccessedAt > TRACKER_TTL_MS) sessionStates.delete(sessionID);
         }
-    }
+    },
 });
-
-export function hashTodos(todos: NormalizedTodo[]): string {
-    const normalized = todos
-        .map((todo) => ({
-            id: todo.id ?? null,
-            content: todo.content,
-            priority: todo.priority,
-            status: todo.status,
-        }))
-        .sort((left, right) => {
-            const leftId = left.id ?? "\uffff";
-            const rightId = right.id ?? "\uffff";
-            if (leftId !== rightId) {
-                return leftId.localeCompare(rightId);
-            }
-            if (left.content !== right.content) {
-                return left.content.localeCompare(right.content);
-            }
-            if (left.priority !== right.priority) {
-                return left.priority.localeCompare(right.priority);
-            }
-            return left.status.localeCompare(right.status);
-        });
-
-    return JSON.stringify(normalized);
-}
-
-function countCompleted(todos: NormalizedTodo[]): number {
-    return todos.filter((todo) => todo.status === "completed").length;
-}
 
 function getState(sessionID: string): TrackerState {
     let state = sessionStates.get(sessionID);
     if (!state) {
-        state = {
-            stagnationCount: 0,
-            awaitingPostInjectionProgressCheck: false,
-            lastAccessedAt: Date.now(),
-        };
+        state = { stagnationCount: 0, awaitingPostInjectionProgressCheck: false, lastAccessedAt: Date.now() };
         sessionStates.set(sessionID, state);
         // Re-arms pruning after shutdown when the host reinitializes the plugin.
         pruneTimer.start();
-    } else {
-        state.lastAccessedAt = Date.now();
     }
+    state.lastAccessedAt = Date.now();
     return state;
 }
 
-export function resetProgress(sessionID: string): void {
-    const state = sessionStates.get(sessionID);
-    if (!state) return;
+/** Record the remaining item count and return the current stagnation count. */
+export function trackProgress(sessionID: string, incompleteCount: number): number {
+    const state = getState(sessionID);
+    const previous = state.lastIncompleteCount;
+    state.lastIncompleteCount = incompleteCount;
+    if (previous === undefined || incompleteCount < previous) {
+        state.stagnationCount = 0;
+        state.awaitingPostInjectionProgressCheck = false;
+    } else if (state.awaitingPostInjectionProgressCheck) {
+        state.stagnationCount += 1;
+    }
+    return state.stagnationCount;
+}
 
-    state.stagnationCount = 0;
-    state.lastIncompleteCount = undefined;
-    state.lastSnapshot = undefined;
-    state.countCompleted = undefined;
-    state.awaitingPostInjectionProgressCheck = false;
+export function markInjectionPerformed(sessionID: string): void {
+    getState(sessionID).awaitingPostInjectionProgressCheck = true;
 }
 
 export function clearSession(sessionID: string): void {
     sessionStates.delete(sessionID);
-}
-
-function observeProgress(
-    state: TrackerState,
-    incompleteCount: number,
-    todos?: NormalizedTodo[],
-): ProgressObservation {
-    const previousIncompleteCount = state.lastIncompleteCount;
-    const currentSnapshot = todos ? hashTodos(todos) : undefined;
-    const currentCompletedCount = todos ? countCompleted(todos) : undefined;
-    const snapshotChanged = currentSnapshot !== undefined
-        && state.lastSnapshot !== undefined
-        && currentSnapshot !== state.lastSnapshot;
-
-    if (incompleteCount < (previousIncompleteCount ?? Infinity)) {
-        return {
-            previousIncompleteCount,
-            currentSnapshot,
-            currentCompletedCount,
-            hasProgressed: true,
-            progressSource: "count",
-        };
-    }
-    return {
-        previousIncompleteCount,
-        currentSnapshot,
-        currentCompletedCount,
-        hasProgressed: snapshotChanged,
-        progressSource: snapshotChanged ? "snapshot" : "none",
-    };
-}
-
-function storeObservation(
-    state: TrackerState,
-    incompleteCount: number,
-    observation: ProgressObservation,
-): void {
-    state.lastIncompleteCount = incompleteCount;
-    if (observation.currentSnapshot) state.lastSnapshot = observation.currentSnapshot;
-    if (observation.currentCompletedCount !== undefined) {
-        state.countCompleted = observation.currentCompletedCount;
-    }
-}
-
-function baseResult(
-    state: TrackerState,
-    observation: ProgressObservation,
-): ProgressUpdateResult {
-    return {
-        hasProgressed: false,
-        stagnationCount: state.stagnationCount,
-        previousIncompleteCount: observation.previousIncompleteCount,
-        progressSource: "none",
-    };
-}
-
-function recordProgress(
-    sessionID: string,
-    state: TrackerState,
-    incompleteCount: number,
-    observation: ProgressObservation,
-): ProgressUpdateResult {
-    const recoveredFromStagnation = state.stagnationCount >= DEFAULT_STAGNATION_THRESHOLD;
-    state.stagnationCount = 0;
-    state.awaitingPostInjectionProgressCheck = false;
-    log(`[progress-tracker] Progress detected: ${observation.progressSource}`, {
-        sessionID,
-        previousIncompleteCount: observation.previousIncompleteCount,
-        incompleteCount,
-        stagnationCount: state.stagnationCount,
-        recoveredFromStagnation,
-    });
-    return {
-        hasProgressed: true,
-        stagnationCount: state.stagnationCount,
-        previousIncompleteCount: observation.previousIncompleteCount,
-        progressSource: observation.progressSource,
-        recoveredFromStagnation,
-    };
-}
-
-function recordStagnation(
-    sessionID: string,
-    state: TrackerState,
-    incompleteCount: number,
-    observation: ProgressObservation,
-): ProgressUpdateResult {
-    state.stagnationCount += 1;
-    log(`[progress-tracker] Stagnation detected`, {
-        sessionID,
-        incompleteCount,
-        previousIncompleteCount: observation.previousIncompleteCount,
-        stagnationCount: state.stagnationCount,
-        threshold: DEFAULT_STAGNATION_THRESHOLD,
-    });
-    return baseResult(state, observation);
-}
-
-export function trackProgress(
-    sessionID: string,
-    incompleteCount: number,
-    todos?: NormalizedTodo[]
-): ProgressUpdateResult {
-    const state = getState(sessionID);
-    const observation = observeProgress(state, incompleteCount, todos);
-    storeObservation(state, incompleteCount, observation);
-
-    if (observation.previousIncompleteCount === undefined) {
-        state.stagnationCount = 0;
-        return baseResult(state, observation);
-    }
-    if (observation.hasProgressed) {
-        return recordProgress(sessionID, state, incompleteCount, observation);
-    }
-    if (!state.awaitingPostInjectionProgressCheck) return baseResult(state, observation);
-    return recordStagnation(sessionID, state, incompleteCount, observation);
-}
-
-export function markInjectionPerformed(sessionID: string): void {
-    const state = getState(sessionID);
-    state.awaitingPostInjectionProgressCheck = true;
-}
-
-export function isStagnant(sessionID: string, threshold: number = DEFAULT_STAGNATION_THRESHOLD): boolean {
-    const state = sessionStates.get(sessionID);
-    if (!state) return false;
-    return state.stagnationCount >= threshold;
-}
-
-export function getStagnationCount(sessionID: string): number {
-    const state = sessionStates.get(sessionID);
-    return state?.stagnationCount ?? 0;
 }
 
 /** Stop the prune timer and drop all state, for plugin shutdown. */

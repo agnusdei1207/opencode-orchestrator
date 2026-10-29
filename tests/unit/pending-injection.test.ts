@@ -12,20 +12,18 @@ import { resetSessionActivity } from "../../src/core/session/activity";
 
 const SESSION = "ses_pending";
 
-function client(options: { busy?: boolean; failPrompt?: boolean } = {}) {
+function client(options: { busy?: boolean; failPrompt?: boolean; onStatuses?: () => void } = {}) {
     const prompt = vi.fn(async () => {
         if (options.failPrompt) throw new Error("transport failure");
-        return {};
     });
     return {
         prompt,
         client: {
-            session: {
-                prompt,
-                status: vi.fn(async () => ({
-                    data: options.busy ? { [SESSION]: { type: "busy" } } : {},
-                })),
-            },
+            prompt,
+            statuses: vi.fn(() => {
+                options.onStatuses?.();
+                return new Map(options.busy ? [[SESSION, "busy"]] : []);
+            }),
         } as never,
     };
 }
@@ -71,62 +69,46 @@ describe("deferred prompt injection (issue #38)", () => {
     });
 
     describe("flushPrompts", () => {
-        it("does not send a queue cleared while session status is pending", async () => {
+        it("does not send a queue cleared while the busy check is pending", async () => {
             queuePrompts(SESSION, ["continue"]);
-            let resolveStatus!: (value: { data: object }) => void;
-            const api = { session: {
-                status: vi.fn(() => new Promise(resolve => { resolveStatus = resolve; })),
-                prompt: vi.fn().mockResolvedValue({ data: {} }),
-            } };
-            const flush = flushPrompts(api as never, SESSION);
+            const { client: api, prompt } = client();
+            const flush = flushPrompts(api, SESSION);
             clearPrompts(SESSION);
-            resolveStatus({ data: {} });
             await expect(flush).resolves.toBe(false);
-            expect(api.session.prompt).not.toHaveBeenCalled();
+            expect(prompt).not.toHaveBeenCalled();
         });
 
         it("does not send a snapshot replaced while checking session status", async () => {
             queuePrompts(SESSION, ["old state"]);
-            const api = { session: {
-                status: vi.fn(async () => { queuePrompts(SESSION, ["new state"]); return { data: {} }; }),
-                prompt: vi.fn().mockResolvedValue({ data: {} }),
-            } };
-            await expect(flushPrompts(api as never, SESSION)).resolves.toBe(false);
-            expect(api.session.prompt).not.toHaveBeenCalled();
+            const { client: api, prompt } = client({ onStatuses: () => queuePrompts(SESSION, ["new state"]) });
+            await expect(flushPrompts(api, SESSION)).resolves.toBe(false);
+            expect(prompt).not.toHaveBeenCalled();
             expect(peekPrompts(SESSION)).toEqual(["new state"]);
         });
-        it.each(["reject", "error"])("retains one-shot notices after %s while discarding stale snapshots", async (failure) => {
+
+        it("retains one-shot notices after a rejected send while discarding stale snapshots", async () => {
             queueNotice(SESSION, "task done");
             queuePrompts(SESSION, ["old snapshot"]);
-            const { client: api, prompt } = client({ failPrompt: failure === "reject" });
-            if (failure === "error") prompt.mockResolvedValueOnce({ error: "offline" });
+            const { client: api } = client({ failPrompt: true });
             await expect(flushPrompts(api, SESSION)).resolves.toBe(false);
             expect(peekPrompts(SESSION)).toEqual(["task done"]);
         });
 
         it("preserves notices arriving during the busy check", async () => {
             queueNotice(SESSION, "first");
-            const api = { session: {
-                status: vi.fn(async () => { queueNotice(SESSION, "second"); return { data: {} }; }),
-                prompt: vi.fn().mockResolvedValue({ data: {} }),
-            } };
-            await flushPrompts(api as never, SESSION);
+            const { client: api, prompt } = client({ onStatuses: () => queueNotice(SESSION, "second") });
+            await flushPrompts(api, SESSION);
+            expect(prompt).toHaveBeenCalledWith({ sessionID: SESSION, text: "first", synthetic: true });
             expect(peekPrompts(SESSION)).toEqual(["second"]);
         });
+
         it("sends the queue as one synthetic message when idle", async () => {
             queuePrompts(SESSION, ["first", "second"]);
             const { client: api, prompt } = client();
 
             await expect(flushPrompts(api, SESSION)).resolves.toBe(true);
-            expect(prompt).toHaveBeenCalledWith({
-                path: { id: SESSION },
-                body: {
-                    parts: [
-                        { type: "text", text: "first", synthetic: true },
-                        { type: "text", text: "second", synthetic: true },
-                    ],
-                },
-            });
+            expect(prompt).toHaveBeenCalledTimes(1);
+            expect(prompt).toHaveBeenCalledWith({ sessionID: SESSION, text: "first\n\nsecond", synthetic: true });
             expect(hasPendingPrompts(SESSION)).toBe(false);
         });
 

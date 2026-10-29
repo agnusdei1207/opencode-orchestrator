@@ -28,17 +28,13 @@ describe("handleCompletedAssistantMessage", () => {
     it("runs done hooks on a completed assistant message and de-duplicates by message ID", async () => {
         executeDone.mockResolvedValue({ action: "inject", prompts: ["Continue mission"] });
 
-        const message = vi.fn().mockResolvedValue({
-            data: {
-                parts: [
-                    { type: "text", text: "Done" },
-                    { type: "reasoning", text: "Verified" },
-                ],
-            },
-        });
-        const prompt = vi.fn().mockResolvedValue({});
+        const messages = vi.fn().mockResolvedValue([
+            { id: "message-0", role: "assistant", text: "Older", toolCallCount: 0 },
+            { id: "message-1", role: "assistant", text: "Done\nVerified", toolCallCount: 1 },
+        ]);
+        const prompt = vi.fn().mockResolvedValue(undefined);
         const ctx = {
-            client: { session: { message, prompt } },
+            client: { messages, prompt },
             directory: "/tmp/test",
             sessions: new Map([
                 ["session-1", {
@@ -47,7 +43,7 @@ describe("handleCompletedAssistantMessage", () => {
                     timestamp: 0,
                     startTime: 0,
                     lastStepTime: 0,
-                    tokens: { totalInput: 0, totalOutput: 0, estimatedCost: 0 },
+                    tokens: { totalInput: 0, totalOutput: 0 },
                 }],
             ]),
         } as any;
@@ -55,7 +51,7 @@ describe("handleCompletedAssistantMessage", () => {
         await handleCompletedAssistantMessage(ctx, "session-1", "message-1");
         await handleCompletedAssistantMessage(ctx, "session-1", "message-1");
 
-        expect(message).toHaveBeenCalledTimes(1);
+        expect(messages).toHaveBeenCalledExactlyOnceWith("session-1");
         expect(executeDone).toHaveBeenCalledWith(
             expect.objectContaining({ sessionID: "session-1", directory: "/tmp/test" }),
             "Done\nVerified",
@@ -96,10 +92,8 @@ describe("handleCompletedAssistantMessage", () => {
 function contextFor(sessionID: string) {
     return {
         client: {
-            session: {
-                message: vi.fn().mockResolvedValue({ data: { parts: [{ type: "text", text: "Done" }] } }),
-                prompt: vi.fn().mockResolvedValue({}),
-            },
+            messages: vi.fn().mockResolvedValue([{ id: "message-1", role: "assistant", text: "Done", toolCallCount: 0 }]),
+            prompt: vi.fn().mockResolvedValue(undefined),
         },
         directory: "/tmp/test",
         sessions: new Map([
@@ -109,7 +103,7 @@ function contextFor(sessionID: string) {
                 timestamp: 0,
                 startTime: 0,
                 lastStepTime: 0,
-                tokens: { totalInput: 0, totalOutput: 0, estimatedCost: 0 },
+                tokens: { totalInput: 0, totalOutput: 0 },
             }],
         ]),
     } as any;

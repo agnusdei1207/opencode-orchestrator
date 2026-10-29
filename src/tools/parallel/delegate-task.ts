@@ -1,18 +1,15 @@
-import { tool, type ToolDefinition } from "@opencode-ai/plugin";
+import { tool, type ToolDefinition } from "../../host/tool.js";
 import type { ParallelAgentManager } from "../../core/agents/manager.js";
-import { presets } from "../../core/notification/toast.js";
 import { PARALLEL_TASK, TASK_STATUS, type ParallelTask } from "../../shared/index.js";
+import { AgentRegistry } from "../../core/agents/agent-registry.js";
 import { DELEGATE_TASK_ARGS, DELEGATE_TASK_DESCRIPTION } from "./delegate-task-metadata.js";
 
-type DelegateMode = "normal" | "race" | "fractal";
 interface DelegateArgs {
     agent: string;
     description: string;
     prompt: string;
     background: boolean;
     resume?: string;
-    mode?: DelegateMode;
-    groupID?: string;
 }
 
 function readString(args: Record<string, unknown>, key: string, optional = false): string | undefined {
@@ -24,15 +21,10 @@ function readString(args: Record<string, unknown>, key: string, optional = false
 
 function readArgs(args: Record<string, unknown>): DelegateArgs {
     if (typeof args.background !== "boolean") throw new Error("'background' parameter is REQUIRED and must be a boolean");
-    const mode = readString(args, "mode", true);
-    if (mode !== undefined && mode !== "normal" && mode !== "race" && mode !== "fractal") {
-        throw new Error("'mode' must be one of: normal, race, fractal");
-    }
     return {
         agent: readString(args, "agent")!, description: readString(args, "description")!,
         prompt: readString(args, "prompt")!, background: args.background,
-        resume: readString(args, "resume", true), mode,
-        groupID: readString(args, "groupID", true),
+        resume: readString(args, "resume", true),
     };
 }
 
@@ -136,22 +128,29 @@ async function waitForTask(manager: ParallelAgentManager, task: ParallelTask, si
     return `[TIMEOUT] Waiting for task completion\n${identity(task)}\nUse get_task_result or resume later.`;
 }
 
-async function dispatch(manager: ParallelAgentManager, args: DelegateArgs, parentSessionID: string, depth: number): Promise<ParallelTask | null> {
+async function dispatch(manager: ParallelAgentManager, args: DelegateArgs, parentSessionID: string, depth: number): Promise<ParallelTask> {
     if (args.resume) return manager.resume({ sessionId: args.resume, prompt: args.prompt, parentSessionID });
-    const result = await manager.launch({
+    return manager.launch({
         agent: args.agent, description: args.description, prompt: args.prompt,
-        parentSessionID, depth, mode: args.mode, groupID: args.groupID,
+        parentSessionID, depth,
     });
-    return Array.isArray(result) ? result[0] ?? null : result ?? null;
+}
+
+/** Agent names are exact (e.g. "Worker"); an unknown one must not silently run as Commander. */
+async function assertKnownAgent(directory: string, agent: string): Promise<void> {
+    const registry = AgentRegistry.getInstance(directory);
+    await registry.ready();
+    if (registry.getAgent(agent)) return;
+    throw new Error(`Unknown agent "${agent}". Available: ${registry.listAgents().join(", ")}`);
 }
 
 interface DelegationContext {
     sessionID: string;
+    directory: string;
     abort?: AbortSignal;
 }
 
 function announceBackground(task: ParallelTask, args: DelegateArgs): string {
-    if (!args.resume) presets.taskStarted(task.id, args.agent);
     return `[${args.resume ? "RESUME" : "SPAWNED"}] ${identity(task)}`;
 }
 
@@ -161,8 +160,8 @@ async function runDelegation(
     context: DelegationContext,
     depth: number,
 ): Promise<string> {
+    if (!args.resume) await assertKnownAgent(context.directory, args.agent);
     const task = await dispatch(manager, args, context.sessionID, depth);
-    if (!task) return `[ERROR] Failed to launch task: ${args.description}`;
     if (args.background) return announceBackground(task, args);
     const result = await waitForTask(manager, task, context.abort);
     return args.resume ? result.replace(/^\[DONE\]/, "[RESUMED & DONE]") : result;

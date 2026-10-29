@@ -62,21 +62,6 @@ describe("Mission Loop Lifecycle E2E", () => {
             expect(state?.prompt).toBe(prompt);
             expect(state?.objective).toBe(prompt);
         });
-
-        it("should set default max iterations", () => {
-            startMissionLoop(testDir, testSessionID, "Test task");
-
-            const state = readLoopState(testDir);
-            expect(state?.maxIterations).toBe(MISSION_CONTROL.DEFAULT_MAX_ITERATIONS);
-            expect(state?.maxIterations).toBe(1_000_000_000);
-        });
-
-        it("should allow custom max iterations", () => {
-            startMissionLoop(testDir, testSessionID, "Test task", { maxIterations: 50 });
-
-            const state = readLoopState(testDir);
-            expect(state?.maxIterations).toBe(50);
-        });
     });
 
     // ========================================================================
@@ -130,7 +115,6 @@ describe("Mission Loop Lifecycle E2E", () => {
             fs.writeFileSync(statePath, JSON.stringify({
                 active: true,
                 iteration: "not-a-number",
-                maxIterations: 5,
                 prompt: "Broken state",
                 sessionID: testSessionID,
                 startedAt: new Date().toISOString(),
@@ -147,7 +131,6 @@ describe("Mission Loop Lifecycle E2E", () => {
 
     describe("mission loop constants", () => {
         it("should have all required constants", () => {
-            expect(MISSION_CONTROL.DEFAULT_MAX_ITERATIONS).toBeGreaterThan(0);
             expect(MISSION_CONTROL.DEFAULT_COUNTDOWN_SECONDS).toBeGreaterThan(0);
         });
     });
@@ -179,7 +162,8 @@ describe("Mission Loop Lifecycle E2E", () => {
             const state = readLoopState(testDir);
             if (state) {
                 const prompt = generateMissionContinuationPrompt(state);
-                expect(prompt).toContain("3"); // iteration 3
+                expect(prompt).toContain('<mission_loop iteration="3">');
+                expect(prompt).not.toMatch(/iteration="3\//);
             }
         });
 
@@ -188,14 +172,13 @@ describe("Mission Loop Lifecycle E2E", () => {
             const state = readLoopState(testDir);
 
             if (state) {
-                state.lastProgress = "2/5";
                 state.lastVerificationSummary = "TODO incomplete: 3 remaining";
                 state.lastContinuationReason = "stagnation_intervention";
                 state.stagnationCount = 2;
                 const prompt = generateMissionContinuationPrompt(state);
 
                 expect(prompt).toContain("Implement observability");
-                expect(prompt).toContain("progress: 2/5");
+                expect(prompt).not.toContain("- progress:");
                 expect(prompt).toContain("verification: TODO incomplete: 3 remaining");
                 expect(prompt).toContain("continuation reason: stagnation_intervention");
                 expect(prompt).toContain("stagnation: 2 unchanged check(s)");

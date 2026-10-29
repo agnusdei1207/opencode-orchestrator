@@ -10,14 +10,13 @@
  * actually goes idle, instead of landing in the middle of ongoing work.
  */
 
-import { PART_TYPES } from "../shared/index.js";
 import { queuePrompts } from "../core/session/pending-injection.js";
 import { recordAssistantTurn } from "../core/loop/circuit-breaker.js";
 import { HookRegistry } from "../hooks/registry.js";
 import { log } from "../core/agents/logger.js";
-import type { AssistantDoneHandlerContext, OpencodeClient } from "./context.js";
+import type { AssistantDoneHandlerContext } from "./context.js";
+import type { HostClient } from "../host/client.js";
 
-type AssistantMessagePart = { type: string; text?: string };
 type AssistantTurn = { text: string; toolCallCount: number };
 
 /**
@@ -64,41 +63,15 @@ export async function handleCompletedAssistantMessage(
 }
 
 async function readAssistantTurn(
-    client: OpencodeClient,
+    client: HostClient,
     sessionID: string,
     messageID: string,
 ): Promise<AssistantTurn> {
     try {
-        const response = await client.session.message({
-            path: { id: sessionID, messageID },
-        });
-        const parts = extractMessageParts(response);
-
-        const text = parts
-            .filter(part => part.type === PART_TYPES.TEXT || part.type === PART_TYPES.REASONING)
-            .map(part => part.text ?? "")
-            .join("\n");
-        const toolCallCount = parts.filter(part => part.type === PART_TYPES.TOOL).length;
-        return { text, toolCallCount };
+        const message = (await client.messages(sessionID)).find(entry => entry.id === messageID);
+        return { text: message?.text ?? "", toolCallCount: message?.toolCallCount ?? 0 };
     } catch (error) {
         log("[assistant-done-handler] Failed to read assistant message", { sessionID, messageID, error });
         return { text: "", toolCallCount: 0 };
     }
-}
-
-function extractMessageParts(response: unknown): AssistantMessagePart[] {
-    if (!isObjectValue(response)) return [];
-
-    const data = response.data;
-    if (!isObjectValue(data) || !Array.isArray(data.parts)) return [];
-    return data.parts.filter(isMessagePart);
-}
-
-function isMessagePart(value: unknown): value is AssistantMessagePart {
-    return isObjectValue(value) && typeof value.type === "string";
-}
-
-// Unlike the shared isRecord, arrays pass: response payload checks only need a non-null object.
-function isObjectValue(value: unknown): value is Record<string, unknown> {
-    return typeof value === "object" && value !== null;
 }

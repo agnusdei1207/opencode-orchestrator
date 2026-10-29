@@ -7,7 +7,6 @@
  * - Auto-applying mission mode for Commander
  */
 
-import type { Hooks } from "@opencode-ai/plugin";
 import { log } from "../core/agents/logger.js";
 import { PART_TYPES } from "../shared/index.js";
 import { HookRegistry } from "../hooks/registry.js";
@@ -16,9 +15,14 @@ import { clearCircuitState } from "../core/loop/circuit-breaker.js";
 import { handleUserMessage } from "../core/loop/mission-loop-handler.js";
 import type { ChatMessageHandlerContext, PluginSessionState } from "./context.js";
 
-type ChatMessageHook = NonNullable<Hooks["chat.message"]>;
-type ChatMessageInput = Parameters<ChatMessageHook>[0];
-type ChatMessageOutput = Parameters<ChatMessageHook>[1];
+interface ChatMessageInput {
+    sessionID: string;
+    agent?: string;
+}
+
+interface ChatMessageOutput {
+    parts: Array<{ type: string; text?: string; synthetic?: boolean }>;
+}
 
 /**
  * Create chat.message handler

@@ -1,4 +1,4 @@
-import { appendFileSync, existsSync, mkdirSync, readFileSync } from "node:fs";
+import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { randomUUID } from "node:crypto";
 import { PATHS } from "../../shared/index.js";
@@ -30,6 +30,8 @@ type MissionLedgerInput = Omit<MissionLedgerEvent, "id" | "timestamp"> & {
 };
 
 const LEDGER_FILE = "mission-ledger.jsonl";
+/** Events kept on disk; readers need at most `maxEvidenceEvents` (default 20). */
+const LEDGER_RETAINED_EVENTS = 100;
 const LEDGER_EVENT_TYPES = new Set<MissionLedgerEventType>([
     "mission_started",
     "verification_failed",
@@ -74,10 +76,21 @@ export function appendMissionLedgerEvent(directory: string, input: MissionLedger
         const ledgerPath = getMissionLedgerPath(directory);
         mkdirSync(join(directory, PATHS.OPENCODE), { recursive: true });
         appendFileSync(ledgerPath, `${JSON.stringify(event)}\n`, "utf8");
+        trimLedger(ledgerPath);
         return event;
     } catch {
         return null;
     }
+}
+
+/**
+ * Keep the ledger bounded. Readers use at most `maxEvidenceEvents` lines, so
+ * only a short trail beyond that is retained.
+ */
+function trimLedger(ledgerPath: string): void {
+    const lines = readFileSync(ledgerPath, "utf8").split(/\r?\n/).filter(Boolean);
+    if (lines.length <= LEDGER_RETAINED_EVENTS) return;
+    writeFileSync(ledgerPath, `${lines.slice(-LEDGER_RETAINED_EVENTS).join("\n")}\n`, "utf8");
 }
 
 export function readMissionLedger(directory: string, limit = 20): MissionLedgerEvent[] {

@@ -9,20 +9,24 @@
 
 import { readLoopState } from "../core/loop/mission-loop.js";
 import type { MissionLoopState } from "../shared/loop/types.js";
-import type { Hooks } from "@opencode-ai/plugin";
 import type { EventHandlerContext } from "./event-handler.js";
 import { STATUS_LABEL } from "../shared/index.js";
 import { log } from "../core/agents/logger.js";
 
-type SessionCompactingHook = NonNullable<Hooks["experimental.session.compacting"]>;
-export type SessionCompactingInput = Parameters<SessionCompactingHook>[0];
-export type SessionCompactingOutput = Parameters<SessionCompactingHook>[1];
+export interface SessionCompactingInput {
+    sessionID: string;
+}
+
+export interface SessionCompactingOutput {
+    /** Text the host adds to the compaction request. */
+    context: string[];
+}
 
 /**
  * Create session compacting handler that preserves mission context
  */
 export function createSessionCompactingHandler(ctx: EventHandlerContext) {
-    const { directory, sessions, state, agents } = ctx;
+    const { directory, sessions, agents } = ctx;
 
     return async (input: SessionCompactingInput, output: SessionCompactingOutput): Promise<void> => {
         const { sessionID } = input;
@@ -44,13 +48,7 @@ export function createSessionCompactingHandler(ctx: EventHandlerContext) {
             contextItems.push(buildSessionContext(session));
         }
 
-        // 3. Orchestrator state context (check if session is in orchestrator's sessions map)
-        const orchestratorSession = state.sessions.get(sessionID);
-        if (orchestratorSession?.enabled) {
-            contextItems.push(buildOrchestratorContext(orchestratorSession, sessionID));
-        }
-
-        // 4. Active background tasks context
+        // 3. Active background tasks context
         try {
             const tasks = agents.getTasksByParent(sessionID);
             const activeTasks = tasks.filter(t => t.status === STATUS_LABEL.RUNNING || t.status === STATUS_LABEL.PENDING);
@@ -76,9 +74,8 @@ export function createSessionCompactingHandler(ctx: EventHandlerContext) {
 function buildMissionContext(loopState: MissionLoopState): string {
     return `<mission_context>
 ACTIVE MISSION LOOP:
-- Status: Active (Iteration ${loopState.iteration}/${loopState.maxIterations})
+- Status: Active (Iteration ${loopState.iteration})
 - Objective: ${loopState.objective ?? "Continue the active mission"}
-- Last Progress: ${loopState.lastProgress ?? "unknown"}
 - Last Verification: ${loopState.lastVerificationSummary ?? "unknown"}
 - Started: ${loopState.startedAt}
 - Original Task: ${loopState.prompt.slice(0, 500)}${loopState.prompt.length > 500 ? "..." : ""}
@@ -101,22 +98,6 @@ SESSION PROGRESS:
 - Duration: ${minutes} minutes
 - Status: ${session.active ? "Active" : "Completing"}
 </session_context>`;
-}
-
-/**
- * Build orchestrator state context string
- */
-function buildOrchestratorContext(
-    sessionState: { enabled: boolean; iterations: number; currentTask: string },
-    sessionID: string
-): string {
-    return `<orchestrator_context>
-ORCHESTRATOR STATE:
-- Session: ${sessionID.slice(0, 12)}...
-- Iterations: ${sessionState.iterations}
-- Current Task: ${sessionState.currentTask || "Processing"}
-- Continue autonomous execution after compaction
-</orchestrator_context>`;
 }
 
 /**

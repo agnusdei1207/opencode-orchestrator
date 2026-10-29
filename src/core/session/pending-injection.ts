@@ -23,13 +23,10 @@
  *   background tasks finished". These accumulate and must never be dropped.
  */
 
-import type { PluginInput } from "@opencode-ai/plugin";
+import type { HostClient } from "../../host/client.js";
 import { log } from "../agents/logger.js";
 import { isSessionBusy } from "./activity.js";
-import { syntheticTextParts } from "./injection.js";
 import { createPruneTimer } from "../loop/prune-timer.js";
-
-type OpencodeClient = PluginInput["client"];
 
 interface PendingEntry {
     /** Latest mission-state snapshot; replaced wholesale. */
@@ -143,7 +140,7 @@ export function resetPendingInjections(): void {
  * Acknowledge only the captured batch after acceptance. Failed sends retain
  * one-shot notices; stale mission snapshots are refreshed by their producer.
  */
-export async function flushPrompts(client: OpencodeClient, sessionID: string): Promise<boolean> {
+export async function flushPrompts(client: HostClient, sessionID: string): Promise<boolean> {
     const entry = pending.get(sessionID);
     if (!entry || flushing.has(sessionID)) return false;
     const notices = [...entry.notices];
@@ -154,11 +151,7 @@ export async function flushPrompts(client: OpencodeClient, sessionID: string): P
     try {
         if (await isSessionBusy(client, sessionID)) return false;
         if (pending.get(sessionID) !== entry || entry.snapshot !== snapshot) return false;
-        const response = await client.session.prompt({
-            path: { id: sessionID },
-            body: { parts: syntheticTextParts(prompts) },
-        });
-        if (response.error) throw new Error(String(response.error));
+        await client.prompt({ sessionID, text: prompts.join("\n\n"), synthetic: true });
         acknowledgeEntry(sessionID, entry, notices, snapshot);
         log("[pending-injection] Flushed queued prompts", { sessionID, count: prompts.length });
         return true;

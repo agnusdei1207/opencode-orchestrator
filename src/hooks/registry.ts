@@ -1,6 +1,6 @@
 import { log } from "../core/agents/logger.js";
 import { HOOK_ACTIONS } from "./constants.js";
-import type { PluginInput } from "@opencode-ai/plugin";
+import type { HostClient } from "../host/client.js";
 import type { ParallelAgentManager } from "../core/agents/manager.js";
 import type { ContextLimitResolver } from "../core/context/context-limit-resolver.js";
 
@@ -9,9 +9,11 @@ export interface HookContext {
     agent?: string;
     directory: string;
     sessions: Map<string, unknown>;
-    client?: PluginInput["client"];
+    client?: HostClient;
     /** Delegated-task manager of the plugin instance that raised this hook. */
     agents?: Pick<ParallelAgentManager, "cancelTasksForParent">;
+    /** Tool call being handled, for tool hooks. */
+    callID?: string;
     /** Context windows of the plugin instance that raised this hook. */
     contextLimits?: Pick<ContextLimitResolver, "resolveForSession">;
 }
@@ -20,7 +22,6 @@ type ErrorHandling = "continue" | "stop";
 
 export type HookResult =
     | { action: typeof HOOK_ACTIONS.CONTINUE }
-    | { action: typeof HOOK_ACTIONS.STOP; reason?: string }
     | { action: typeof HOOK_ACTIONS.INJECT; prompts: string[] };
 
 export type ToolInput = Record<string, unknown>;
@@ -32,8 +33,7 @@ export interface ToolOutput {
 }
 
 export type PreToolResult = {
-    action: typeof HOOK_ACTIONS.ALLOW | typeof HOOK_ACTIONS.BLOCK | typeof HOOK_ACTIONS.MODIFY;
-    modifiedArgs?: ToolInput;
+    action: typeof HOOK_ACTIONS.ALLOW | typeof HOOK_ACTIONS.BLOCK;
     reason?: string;
 };
 
@@ -122,15 +122,12 @@ export class HookRegistry {
             try {
                 const result = await hook.execute(ctx, tool, args);
                 if (result.action === HOOK_ACTIONS.BLOCK) return result;
-                if (result.action === HOOK_ACTIONS.MODIFY && result.modifiedArgs) {
-                    args = result.modifiedArgs;
-                }
             } catch (e) {
                 log(`[HookRegistry] Error in PreTool hook ${hook.name}`, e);
                 if (errorHandling === "stop") throw e;
             }
         }
-        return { action: HOOK_ACTIONS.ALLOW, modifiedArgs: args };
+        return { action: HOOK_ACTIONS.ALLOW };
     }
 
     async executePostTool(ctx: HookContext, tool: string, input: ToolInput, output: ToolOutput) {
@@ -170,24 +167,22 @@ export class HookRegistry {
         return { action: HOOK_ACTIONS.PROCESS, modifiedMessage: currentMessage };
     }
 
+    /**
+     * Every done hook runs, so observers such as memory capture and metrics
+     * still record a turn on which an earlier hook asks for an injection. The
+     * first injection wins.
+     */
     async executeDone(ctx: HookContext, finalText: string): Promise<HookResult> {
+        let injection: HookResult | undefined;
         for (const { hook, errorHandling } of this.doneHooks) {
             try {
                 const result = await hook.execute(ctx, finalText);
-
-                if (result.action === HOOK_ACTIONS.STOP) {
-                    return result;
-                }
-
-                if (result.action === HOOK_ACTIONS.INJECT) {
-                    return result;
-                }
+                if (result.action === HOOK_ACTIONS.INJECT) injection ??= result;
             } catch (e) {
                 log(`[HookRegistry] Error in Done hook ${hook.name}`, e);
                 if (errorHandling === "stop") throw e;
             }
         }
-
-        return { action: HOOK_ACTIONS.CONTINUE };
+        return injection ?? { action: HOOK_ACTIONS.CONTINUE };
     }
 }

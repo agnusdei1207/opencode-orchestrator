@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import type { Plugin } from "@opencode/plugin";
 import { describe, expect, it, vi } from "vitest";
-import { setupV2 } from "../../src/v2/setup.js";
+import { setupPlugin } from "../../src/host/plugin.js";
 
 vi.mock("../../src/plugin-handlers/tool-execute-handler.js", () => ({
     createToolExecuteAfterHandler: () => async (_input: unknown, output: { output: string }) => {
@@ -36,7 +36,7 @@ describe("OpenCode 2 tool hook", () => {
     it("appends post-tool text without serializing the result wrapper", async () => {
         const directory = mkdtempSync(path.join(tmpdir(), "oco-v2-tool-hook-"));
         const { context, hooks } = createHost(directory);
-        const cleanup = await setupV2(context);
+        const cleanup = await setupPlugin(context);
         try {
             const result = { content: "ok" };
             await hooks.get("execute.after")?.({
@@ -52,7 +52,7 @@ describe("OpenCode 2 tool hook", () => {
     it("preserves file content when a post-tool hook adds text", async () => {
         const directory = mkdtempSync(path.join(tmpdir(), "oco-v2-tool-hook-"));
         const { context, hooks } = createHost(directory);
-        const cleanup = await setupV2(context);
+        const cleanup = await setupPlugin(context);
         try {
             const result = { content: [
                 { type: "text", text: "ok" },

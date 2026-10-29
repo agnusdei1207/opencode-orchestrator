@@ -12,14 +12,17 @@ beforeEach(() => {
 afterEach(() => vi.restoreAllMocks());
 
 describe("Ordered hook execution", () => {
-    it("passes modified arguments to later pre-tool hooks and preserves them in the result", async () => {
-        registry.registerPreTool({ name: "rewrite", execute: async () => ({ action: HOOK_ACTIONS.MODIFY, modifiedArgs: { path: "safe" } }) });
-        registry.registerPreTool({ name: "check", execute: async (_ctx, _tool, args) => {
-            expect(args).toEqual({ path: "safe" });
-            return { action: HOOK_ACTIONS.ALLOW };
-        } });
+    it("passes the original arguments to every pre-tool hook and returns a plain allow", async () => {
+        const seen: unknown[] = [];
+        for (const name of ["first", "second"]) {
+            registry.registerPreTool({ name, execute: async (_ctx, _tool, args) => {
+                seen.push(args);
+                return { action: HOOK_ACTIONS.ALLOW };
+            } });
+        }
         expect(await registry.executePreTool(context, "read", { path: "original" }))
-            .toEqual({ action: HOOK_ACTIONS.ALLOW, modifiedArgs: { path: "safe" } });
+            .toEqual({ action: HOOK_ACTIONS.ALLOW });
+        expect(seen).toEqual([{ path: "original" }, { path: "original" }]);
     });
 
     it("returns a block reason without executing subsequent hooks", async () => {
@@ -64,19 +67,23 @@ describe("Ordered hook execution", () => {
         expect(laterRan).toBe(false);
     });
 
-    it.each<HookResult>([
-        { action: HOOK_ACTIONS.STOP, reason: "complete" },
-        { action: HOOK_ACTIONS.INJECT, prompts: ["first", "second"] },
-    ])("returns the first done intervention unchanged: $action", async (intervention) => {
-        let laterRan = false;
-        registry.registerDone({ name: "observe", execute: async () => ({ action: HOOK_ACTIONS.CONTINUE }) });
-        registry.registerDone({ name: "intervene", execute: async () => intervention });
+    it("runs every done hook and returns the first injection unchanged", async () => {
+        const ran: string[] = [];
+        const first: HookResult = { action: HOOK_ACTIONS.INJECT, prompts: ["first", "second"] };
+        registry.registerDone({ name: "observe", execute: async () => { ran.push("observe"); return { action: HOOK_ACTIONS.CONTINUE }; } });
+        registry.registerDone({ name: "intervene", execute: async () => { ran.push("intervene"); return first; } });
         registry.registerDone({ name: "later", execute: async () => {
-            laterRan = true;
+            ran.push("later");
             return { action: HOOK_ACTIONS.INJECT, prompts: ["must not merge"] };
         } });
-        expect(await registry.executeDone(context, "done")).toEqual(intervention);
-        expect(laterRan).toBe(false);
+        registry.registerDone({ name: "observer-after", execute: async () => { ran.push("observer-after"); return { action: HOOK_ACTIONS.CONTINUE }; } });
+        expect(await registry.executeDone(context, "done")).toEqual(first);
+        expect(ran).toEqual(["observe", "intervene", "later", "observer-after"]);
+    });
+
+    it("returns continue when no done hook injects", async () => {
+        registry.registerDone({ name: "observe", execute: async () => ({ action: HOOK_ACTIONS.CONTINUE }) });
+        expect(await registry.executeDone(context, "done")).toEqual({ action: HOOK_ACTIONS.CONTINUE });
     });
 
     it.each(["continue", "stop"] as const)("uses %s error handling across every hook entry point", async (errorHandling) => {
@@ -133,7 +140,7 @@ describe("Owned hook wiring", () => {
         await hooks.executePreTool(context, "read", {});
         expect(calls.splice(0)).toEqual(["guard", "metrics"]);
         await hooks.executePostTool(context, "read", {}, { title: "read", output: "safe", metadata: {} });
-        expect(calls.splice(0)).toEqual(["secret", "resource", "memory", "metrics"]);
+        expect(calls.splice(0)).toEqual(["secret", "resource", "metrics"]);
         await hooks.executeChat(context, "hello");
         expect(calls.splice(0)).toEqual(["mission"]);
         expect(await hooks.executeDone(context, "done")).toEqual({ action: HOOK_ACTIONS.CONTINUE });

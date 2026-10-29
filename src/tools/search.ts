@@ -1,4 +1,4 @@
-import { tool, type ToolDefinition } from "@opencode-ai/plugin";
+import { tool, type ToolDefinition } from "../host/tool.js";
 import { TOOL_NAMES } from "../shared/index.js";
 import { callRustTool } from "./rust.js";
 

@@ -25,7 +25,6 @@ afterEach(async () => {
         await backgroundTaskManager.kill(id);
     }
     createdTaskIds.length = 0;
-    backgroundTaskManager.clearCompleted();
 });
 
 function start(command: string, label?: string) {

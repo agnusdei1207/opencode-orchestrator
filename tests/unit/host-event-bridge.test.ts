@@ -1,6 +1,6 @@
 import type { Plugin } from "@opencode/plugin";
 import { describe, expect, it, vi } from "vitest";
-import { startV2EventBridge } from "../../src/v2/event-bridge.js";
+import { startEventBridge } from "../../src/host/event-bridge.js";
 
 const OWN_LOCATION = { directory: "/tmp/event-bridge-project", project: { directory: "/tmp/event-bridge-project" } };
 
@@ -19,7 +19,7 @@ describe("OpenCode 2 event bridge", () => {
             } },
         } as unknown as Plugin.Context;
 
-        const stop = startV2EventBridge(context, handler, new Map());
+        const stop = startEventBridge(context, handler, new Map());
         await vi.waitFor(() => expect(handler).toHaveBeenCalledTimes(2));
         stop();
 
@@ -38,7 +38,7 @@ describe("OpenCode 2 event bridge", () => {
             } },
         } as unknown as Plugin.Context;
 
-        const stop = startV2EventBridge(context, handler, new Map());
+        const stop = startEventBridge(context, handler, new Map());
         await vi.waitFor(() => expect(handler).toHaveBeenCalledTimes(1));
         stop();
 
@@ -57,7 +57,7 @@ describe("OpenCode 2 event bridge", () => {
         }));
         const context = { location: OWN_LOCATION, event: { subscribe } } as unknown as Plugin.Context;
 
-        const stop = startV2EventBridge(context, vi.fn(), new Map());
+        const stop = startEventBridge(context, vi.fn(), new Map());
         stop();
 
         expect(subscribe).toHaveBeenCalledWith({ signal: expect.any(AbortSignal) });
@@ -76,7 +76,7 @@ describe("OpenCode 2 event bridge", () => {
             } },
         } as unknown as Plugin.Context;
 
-        const stop = startV2EventBridge(context, handler, new Map());
+        const stop = startEventBridge(context, handler, new Map());
 
         await vi.waitFor(() => expect(handler).toHaveBeenCalledWith({
             event: expect.objectContaining({ properties: expect.objectContaining({ sessionID: "session-2" }) }),
@@ -97,7 +97,7 @@ describe("OpenCode 2 event bridge", () => {
                 } },
             } as unknown as Plugin.Context;
 
-            const stop = startV2EventBridge(context, handler, statuses);
+            const stop = startEventBridge(context, handler, statuses);
             await vi.waitFor(() => expect(handler).toHaveBeenCalledWith(expect.objectContaining({
                 event: expect.objectContaining({ type: "session.error" }),
             })));
@@ -123,7 +123,7 @@ describe("OpenCode 2 event bridge", () => {
                 } },
             } as unknown as Plugin.Context;
 
-            const stop = startV2EventBridge(context, handler, statuses);
+            const stop = startEventBridge(context, handler, statuses);
             await vi.waitFor(() => expect(handler).toHaveBeenCalledTimes(2));
 
             expect(statuses.has("session-1")).toBe(false);

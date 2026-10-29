@@ -1,10 +1,9 @@
 /**
  * Session Compacting Handler Tests
  * 
- * Tests the experimental.session.compacting hook handler:
+ * Tests the compaction hook handler:
  * - Mission loop context preservation
  * - Session progress context
- * - Orchestrator state context
  * - Background tasks context
  */
 
@@ -16,7 +15,6 @@ import {
 } from "../../src/plugin-handlers/session-compacting-handler";
 import type { EventHandlerContext } from "../../src/plugin-handlers/event-handler";
 import { log } from "../../src/core/agents/logger";
-import { clearCompactionState, getCompactionState } from "../../src/core/loop/compaction-guard";
 
 // Mock dependencies
 vi.mock("../../src/core/loop/mission-loop", () => ({
@@ -37,12 +35,8 @@ describe("Session Compacting Handler", () => {
             sessions: new Map([
                 ["test-session", { step: 5, active: true, startTime: Date.now() - 300000 }],
             ]) as any,
-            state: {
-                sessions: new Map([
-                    ["test-session", { enabled: true, iterations: 3, currentTask: "Building", taskRetries: new Map(), anomalyCount: 0 }],
-                ]),
-            },
             agents: agents as never,
+            contextLimits: {} as never,
         };
         agents.getTasksByParent.mockReset().mockReturnValue([]);
 
@@ -54,13 +48,11 @@ describe("Session Compacting Handler", () => {
         expect(typeof handler).toBe("function");
     });
 
-    it("does not record completed compaction while preparing its context", async () => {
-        clearCompactionState("test-session");
-        const output: SessionCompactingOutput = { context: ["host context"], prompt: "host prompt" };
+    it("appends to the host's own compaction context", async () => {
+        const output: SessionCompactingOutput = { context: ["host context"] };
         await handler({ sessionID: "test-session" }, output);
-        expect(getCompactionState("test-session")).toBeUndefined();
         expect(output.context[0]).toBe("host context");
-        expect(output.prompt).toBe("host prompt");
+        expect(output.context.length).toBeGreaterThan(1);
     });
 
     it("should inject session context when session exists", async () => {
@@ -73,14 +65,13 @@ describe("Session Compacting Handler", () => {
         expect(output.context.some(c => c.includes("SESSION PROGRESS"))).toBe(true);
     });
 
-    it("should inject orchestrator context when session is enabled", async () => {
-        const input: SessionCompactingInput = { sessionID: "test-session" };
+    it("does not inject the removed orchestrator state block", async () => {
         const output: SessionCompactingOutput = { context: [] };
 
-        await handler(input, output);
+        await handler({ sessionID: "test-session" }, output);
 
-        expect(output.context.some(c => c.includes("ORCHESTRATOR STATE"))).toBe(true);
-        expect(output.context.some(c => c.includes("Iterations: 3"))).toBe(true);
+        expect(output.context.join("\n")).not.toContain("orchestrator_context");
+        expect(output.context.join("\n")).not.toContain("ORCHESTRATOR STATE");
     });
 
     it("should inject mission context when loop is active", async () => {
@@ -88,7 +79,6 @@ describe("Session Compacting Handler", () => {
         vi.mocked(readLoopState).mockReturnValue({
             active: true,
             iteration: 2,
-            maxIterations: 10,
             prompt: "Build the feature",
             sessionID: "test-session",
             startedAt: new Date().toISOString(),
@@ -100,7 +90,9 @@ describe("Session Compacting Handler", () => {
         await handler(input, output);
 
         expect(output.context.some(c => c.includes("ACTIVE MISSION LOOP"))).toBe(true);
-        expect(output.context.some(c => c.includes("Iteration 2/10"))).toBe(true);
+        const mission = output.context.find(c => c.includes("ACTIVE MISSION LOOP"));
+        expect(mission).toContain("Status: Active (Iteration 2)");
+        expect(mission).not.toContain("Last Progress");
         expect(output.context.join("\n")).toContain("parent status: completed");
     });
 
@@ -109,7 +101,6 @@ describe("Session Compacting Handler", () => {
         vi.mocked(readLoopState).mockReturnValue({
             active: true,
             iteration: 1,
-            maxIterations: 10,
             prompt: "Other task",
             sessionID: "other-session",
             startedAt: new Date().toISOString(),
@@ -151,7 +142,6 @@ describe("Session Compacting Handler", () => {
     it("should not modify output when no relevant context exists", async () => {
         // Clear all context sources
         mockContext.sessions.clear();
-        mockContext.state.sessions.clear();
 
         const { readLoopState } = await import("../../src/core/loop/mission-loop");
         vi.mocked(readLoopState).mockReturnValue(null);

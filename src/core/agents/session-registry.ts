@@ -1,6 +1,6 @@
 /** Tracks child sessions until the host can safely delete them. */
 
-import type { PluginInput } from "@opencode-ai/plugin";
+import type { HostClient } from "../../host/client.js";
 import { PARALLEL_TASK } from "../../shared/index.js";
 import { log } from "./logger.js";
 import { withTimeout } from "../async/with-timeout.js";
@@ -57,8 +57,7 @@ export class SessionRegistry {
     private config: SessionRegistryConfig;
 
     constructor(
-        private client: PluginInput["client"],
-        private directory: string,
+        private client: HostClient,
         config: Partial<SessionRegistryConfig> = {},
     ) {
         this.config = normalizeConfig(config);
@@ -67,21 +66,17 @@ export class SessionRegistry {
 
     async acquire(agentName: string, parentSessionID: string, description: string): Promise<TrackedSession> {
         log(`[SessionRegistry] Creating new session for ${agentName}`);
-        const result = await withTimeout(
-            this.client.session.create({
-                body: {
-                    parentID: parentSessionID,
-                    title: `${PARALLEL_TASK.SESSION_TITLE_PREFIX}: ${description}`,
-                },
-                query: { directory: this.directory },
+        // The child inherits the parent's location, so no directory is passed.
+        const id = await withTimeout(
+            this.client.createSession({
+                parentID: parentSessionID,
+                title: `${PARALLEL_TASK.SESSION_TITLE_PREFIX}: ${description}`,
             }),
             60_000,
             "Session creation timed out after 60s",
         );
-        if (result.error || !result.data?.id) {
-            throw new Error(`Session creation failed: ${result.error || "No ID"}`);
-        }
-        const session: TrackedSession = { id: result.data.id, inUse: true, lastUsedAt: new Date() };
+        if (!id) throw new Error("Session creation failed: the host returned no session ID");
+        const session: TrackedSession = { id, inUse: true, lastUsedAt: new Date() };
         this.sessionsById.set(session.id, session);
         return session;
     }
@@ -196,11 +191,7 @@ export class SessionRegistry {
     private async deleteSessionNow(sessionID: string): Promise<boolean> {
         this.cancelDeferredDelete(sessionID);
         try {
-            const response = await this.client.session.delete({ path: { id: sessionID } });
-            if (response.error || response.data !== true) {
-                log(`[SessionRegistry] Host did not confirm deletion ${shortID(sessionID)}`, response.error ?? response.data);
-                return false;
-            }
+            await this.client.removeSession(sessionID);
         } catch (error) {
             if (error instanceof SessionDeletionUnavailableError) {
                 log(`[SessionRegistry] Host plugin cannot delete ${shortID(sessionID)}; leaving it to the host`);

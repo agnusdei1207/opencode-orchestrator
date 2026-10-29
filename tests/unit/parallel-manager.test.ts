@@ -4,22 +4,11 @@
  * Tests for:
  * - Session event handling (session.deleted, session.idle)
  * - Double-release prevention
- * - Stability detection
- * - Progress tracking
+ * - Completion detection
  * - Task lifecycle
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
-
-// Mock the dependencies
-vi.mock("../../src/core/agents/config", () => ({
-    CONFIG: {
-        TASK_TTL_MS: 30 * 60 * 1000,
-        CLEANUP_DELAY_MS: 5 * 60 * 1000,
-        MIN_STABILITY_MS: 1000,  // Short for testing
-        POLL_INTERVAL_MS: 500,
-    },
-}));
 
 vi.mock("../../src/core/agents/logger", () => ({
     log: vi.fn(),
@@ -34,6 +23,11 @@ import {
     ParallelAgentManager,
 } from "../../src/core/agents/manager";
 import { AGENT_NAMES, TASK_STATUS, type ParallelTask } from "../../src/shared";
+import type { HostMessage } from "../../src/host/client";
+
+function assistant(overrides: Partial<HostMessage>): HostMessage {
+    return { id: "msg", role: "assistant", text: "", toolCallCount: 0, ...overrides };
+}
 
 // Create mock task for testing
 function createMockTask(overrides: Partial<ParallelTask> = {}): ParallelTask {
@@ -113,7 +107,7 @@ describe("ParallelAgentManager Features", () => {
         it("does not treat message fetch failures as confirmed assistant output", async () => {
             const task = createMockTask();
             const poller = createTaskPoller(
-                { session: { messages: vi.fn().mockRejectedValue(new Error("messages unavailable")) } } as never,
+                { messages: vi.fn().mockRejectedValue(new Error("messages unavailable")) } as never,
                 store,
                 concurrency,
                 vi.fn().mockResolvedValue(undefined),
@@ -124,21 +118,15 @@ describe("ParallelAgentManager Features", () => {
             const hasOutput = await poller.validateSessionHasOutput(task.sessionID, task);
 
             expect(hasOutput).toBe(false);
-            expect(task.hasStartedOutputting).not.toBe(true);
         });
 
-        it("treats assistant tool_use parts as valid output", async () => {
+        it("treats assistant tool calls as valid output", async () => {
             const task = createMockTask();
             const poller = createTaskPoller(
                 {
-                    session: {
-                        messages: vi.fn().mockResolvedValue({
-                            data: [{
-                                info: { role: "assistant", finish: "stop", time: { created: Date.now(), completed: Date.now() } },
-                                parts: [{ type: "tool_use", name: "grep" }],
-                            }],
-                        }),
-                    },
+                    messages: vi.fn().mockResolvedValue([
+                        assistant({ finish: "stop", created: Date.now(), completed: Date.now(), toolCallCount: 1 }),
+                    ]),
                 } as never,
                 store,
                 concurrency,
@@ -150,7 +138,38 @@ describe("ParallelAgentManager Features", () => {
             const hasOutput = await poller.validateSessionHasOutput(task.sessionID, task);
 
             expect(hasOutput).toBe(true);
-            expect(task.hasStartedOutputting).toBe(true);
+        });
+
+        it("does not treat an empty or unfinished turn as output", async () => {
+            const task = createMockTask();
+            const messages = vi.fn();
+            const poller = createTaskPoller(
+                { messages } as never,
+                store,
+                concurrency,
+                vi.fn().mockResolvedValue(undefined),
+                vi.fn(),
+                vi.fn(),
+            );
+            const now = Date.now();
+
+            messages.mockResolvedValueOnce([assistant({ finish: "stop", created: now, completed: now })]);
+            expect(await poller.validateSessionHasOutput(task.sessionID, task)).toBe(false);
+
+            messages.mockResolvedValueOnce([assistant({ finish: "tool-calls", created: now, completed: now, toolCallCount: 1 })]);
+            expect(await poller.validateSessionHasOutput(task.sessionID, task)).toBe(false);
+
+            messages.mockResolvedValueOnce([assistant({ finish: "stop", created: now, text: "draft" })]);
+            expect(await poller.validateSessionHasOutput(task.sessionID, task)).toBe(false);
+
+            messages.mockResolvedValueOnce([assistant({ finish: "stop", created: now, completed: now, text: "x", error: { message: "boom" } })]);
+            expect(await poller.validateSessionHasOutput(task.sessionID, task)).toBe(false);
+
+            messages.mockResolvedValueOnce([
+                assistant({ finish: "stop", created: now, completed: now, text: "answer" }),
+                { id: "u", role: "user", text: "follow-up", toolCallCount: 0, created: now },
+            ]);
+            expect(await poller.validateSessionHasOutput(task.sessionID, task)).toBe(true);
         });
 
         it("reuses one session status snapshot when polling multiple running tasks", async () => {
@@ -159,15 +178,11 @@ describe("ParallelAgentManager Features", () => {
             store.set(taskA.id, taskA);
             store.set(taskB.id, taskB);
 
-            const status = vi.fn().mockResolvedValue({
-                data: {
-                    "session-a": { type: "busy", messageCount: 1 },
-                    "session-b": { type: "busy", messageCount: 2 },
-                },
-            });
-            const messages = vi.fn().mockResolvedValue({ data: [] });
+            // Idle sessions are absent from the status map
+            const statuses = vi.fn(() => new Map<string, string>());
+            const messages = vi.fn().mockResolvedValue([]);
             const poller = createTaskPoller(
-                { session: { status, messages } } as never,
+                { statuses, messages } as never,
                 store,
                 concurrency,
                 vi.fn().mockResolvedValue(undefined),
@@ -177,103 +192,10 @@ describe("ParallelAgentManager Features", () => {
 
             await poller.poll();
 
-            expect(status).toHaveBeenCalledTimes(1);
+            expect(statuses).toHaveBeenCalledTimes(1);
             expect(messages).toHaveBeenCalledTimes(2);
-        });
-
-        it("fetches messages when status omits messageCount", async () => {
-            const task = createMockTask({ id: "task-missing-count", sessionID: "session-missing-count" });
-            store.set(task.id, task);
-
-            const status = vi.fn().mockResolvedValue({
-                data: {
-                    "session-missing-count": { type: "busy" },
-                },
-            });
-            const messages = vi.fn().mockResolvedValue({ data: [] });
-            const poller = createTaskPoller(
-                { session: { status, messages } } as never,
-                store,
-                concurrency,
-                vi.fn().mockResolvedValue(undefined),
-                vi.fn(),
-                vi.fn(),
-            );
-
-            await poller.poll();
-            await poller.poll();
-
-            expect(status).toHaveBeenCalledTimes(2);
-            expect(messages).toHaveBeenCalledTimes(2);
-            expect(task.stablePolls).toBe(1);
-        });
-
-        it("fails running tasks after repeated session status failures", async () => {
-            const task = createMockTask({ id: "task-status-fail", sessionID: "session-status-fail" });
-            await concurrency.acquire("builder");
-            store.set(task.id, task);
-            store.trackPending(task.parentSessionID, task.id);
-
-            const notifyParent = vi.fn().mockResolvedValue(undefined);
-            const scheduleCleanup = vi.fn();
-            const status = vi.fn().mockRejectedValue(new Error("status unavailable"));
-            const poller = createTaskPoller(
-                { session: { status, abort: vi.fn().mockResolvedValue({ data: true }) } } as never,
-                store,
-                concurrency,
-                notifyParent,
-                scheduleCleanup,
-                vi.fn(),
-            );
-
-            await poller.poll();
-            await poller.poll();
-            await poller.poll();
-
-            expect(task.status).toBe(TASK_STATUS.ERROR);
-            expect(task.error).toContain("Session status polling failed 3 consecutive times");
-            expect(concurrency.getActiveCount("builder")).toBe(0);
-            expect(store.hasPending(task.parentSessionID)).toBe(false);
-            expect(scheduleCleanup).toHaveBeenCalledWith(task.id);
-            expect(notifyParent).toHaveBeenCalledWith(task.parentSessionID);
-        });
-
-        it("fails a task after repeated progress polling errors", async () => {
-            const task = createMockTask({ id: "task-progress-fail", sessionID: "session-progress-fail" });
-            await concurrency.acquire("builder");
-            store.set(task.id, task);
-            store.trackPending(task.parentSessionID, task.id);
-
-            const notifyParent = vi.fn().mockResolvedValue(undefined);
-            const scheduleCleanup = vi.fn();
-            const status = vi.fn().mockResolvedValue({
-                data: {
-                    "session-progress-fail": { type: "busy" },
-                },
-            });
-            const messages = vi.fn().mockResolvedValue({ error: "messages unavailable" });
-            const poller = createTaskPoller(
-                { session: { status, messages, abort: vi.fn().mockResolvedValue({ data: true }) } } as never,
-                store,
-                concurrency,
-                notifyParent,
-                scheduleCleanup,
-                vi.fn(),
-            );
-
-            await poller.poll();
-            expect(task.status).toBe(TASK_STATUS.RUNNING);
-            expect(task.pollFailureCount).toBe(1);
-
-            await poller.poll();
-            await poller.poll();
-
-            expect(task.status).toBe(TASK_STATUS.ERROR);
-            expect(task.error).toContain("Task polling failed 3 consecutive times");
-            expect(concurrency.getActiveCount("builder")).toBe(0);
-            expect(store.hasPending(task.parentSessionID)).toBe(false);
-            expect(scheduleCleanup).toHaveBeenCalledWith(task.id);
-            expect(notifyParent).toHaveBeenCalledWith(task.parentSessionID);
+            expect(taskA.status).toBe(TASK_STATUS.RUNNING);
+            expect(taskB.status).toBe(TASK_STATUS.RUNNING);
         });
 
         it("completes tasks while notifying the parent and releasing concurrency", async () => {
@@ -284,7 +206,7 @@ describe("ParallelAgentManager Features", () => {
             const notifyParent = vi.fn().mockResolvedValue(undefined);
             const scheduleCleanup = vi.fn();
             const poller = createTaskPoller(
-                { session: {} } as never,
+                {} as never,
                 store,
                 concurrency,
                 notifyParent,
@@ -297,7 +219,7 @@ describe("ParallelAgentManager Features", () => {
             expect(task.status).toBe(TASK_STATUS.COMPLETED);
             expect(task.completedAt).toBeInstanceOf(Date);
             expect(concurrency.getActiveCount("builder")).toBe(0);
-            expect(store.hasPending(task.parentSessionID)).toBe(false);
+            expect(store.getPendingCount(task.parentSessionID)).toBe(0);
             expect(store.getNotifications(task.parentSessionID)).toEqual([task]);
             expect(notifyParent).toHaveBeenCalledWith(task.parentSessionID);
             expect(scheduleCleanup).toHaveBeenCalledWith(task.id);
@@ -307,7 +229,7 @@ describe("ParallelAgentManager Features", () => {
     describe("poller timer lifecycle", () => {
         it("starts and stops the scheduled poll timer", () => {
             const poller = createTaskPoller(
-                { session: { status: vi.fn().mockResolvedValue({ data: {} }) } } as never,
+                { statuses: vi.fn(() => new Map()) } as never,
                 store,
                 concurrency,
                 vi.fn().mockResolvedValue(undefined),
@@ -360,7 +282,7 @@ describe("ParallelAgentManager Features", () => {
             // regular cleanup delay, like every other failed task.
             expect(store.get(task.id)?.status).toBe("error");
             expect(scheduleCleanup).toHaveBeenCalledWith(task.id);
-            expect(store.hasPending(task.parentSessionID)).toBe(false);
+            expect(store.getPendingCount(task.parentSessionID)).toBe(0);
             expect(forgetSession).not.toHaveBeenCalledWith("stale-session");
 
             // Issue #41: a task that died with its session must still reach its
@@ -449,50 +371,6 @@ describe("ParallelAgentManager Features", () => {
     });
 
     // ========================================================================
-    // Stability Detection
-    // ========================================================================
-
-    // ========================================================================
-    // Progress Tracking
-    // ========================================================================
-
-    describe("progress tracking", () => {
-        it("should track tool calls and last tool", () => {
-            const task = createMockTask();
-
-            task.progress = {
-                toolCalls: 5,
-                lastTool: "write_file",
-                lastMessage: "Creating file...",
-                lastUpdate: new Date(),
-            };
-
-            expect(task.progress.toolCalls).toBe(5);
-            expect(task.progress.lastTool).toBe("write_file");
-            expect(task.progress.lastMessage).toBe("Creating file...");
-        });
-
-        it("should update progress on each poll", () => {
-            const task = createMockTask();
-
-            // Simulate first poll
-            task.progress = {
-                toolCalls: 1,
-                lastTool: "read_file",
-                lastUpdate: new Date(),
-            };
-
-            // Simulate second poll with more activity
-            task.progress.toolCalls = 3;
-            task.progress.lastTool = "write_file";
-            task.progress.lastUpdate = new Date();
-
-            expect(task.progress.toolCalls).toBe(3);
-            expect(task.progress.lastTool).toBe("write_file");
-        });
-    });
-
-    // ========================================================================
     // Task Lifecycle
     // ========================================================================
 
@@ -525,12 +403,12 @@ describe("ParallelAgentManager Features", () => {
             // Track pending
             store.set(task.id, task);
             store.trackPending(task.parentSessionID, task.id);
-            expect(store.hasPending(task.parentSessionID)).toBe(true);
+            expect(store.getPendingCount(task.parentSessionID)).toBe(1);
 
             // Complete and untrack
             task.status = TASK_STATUS.COMPLETED;
             store.untrackPending(task.parentSessionID, task.id);
-            expect(store.hasPending(task.parentSessionID)).toBe(false);
+            expect(store.getPendingCount(task.parentSessionID)).toBe(0);
         });
     });
 
@@ -540,14 +418,13 @@ describe("ParallelAgentManager Features", () => {
 
         beforeEach(() => {
             mockClient = {
-                session: {
-                    create: vi.fn().mockResolvedValue({ data: { id: "sess-1" } }),
-                    prompt: vi.fn().mockResolvedValue({ data: {} }),
-                    abort: vi.fn().mockResolvedValue({ data: true }),
-                    status: vi.fn().mockResolvedValue({ data: {} }),
-                    delete: vi.fn().mockResolvedValue({}),
-                    messages: vi.fn().mockResolvedValue({ data: [] }),
-                },
+                createSession: vi.fn().mockResolvedValue("sess-1"),
+                prompt: vi.fn().mockResolvedValue(undefined),
+                interrupt: vi.fn().mockResolvedValue(true),
+                statuses: vi.fn(() => new Map()),
+                removeSession: vi.fn().mockResolvedValue(undefined),
+                messages: vi.fn().mockResolvedValue([]),
+                modelContextLimit: vi.fn().mockResolvedValue(undefined),
             };
             manager = new ParallelAgentManager(mockClient, "/tmp/pam-test");
         });
@@ -567,19 +444,18 @@ describe("ParallelAgentManager Features", () => {
             expect(task.status).toBe(TASK_STATUS.COMPLETED);
             expect(manager.getPendingCount(task.parentSessionID)).toBe(0);
             expect(manager.getAllTasks()).toEqual([task]);
-            expect(mockClient.session.create).not.toHaveBeenCalled();
-            expect(mockClient.session.prompt).toHaveBeenCalledWith(expect.objectContaining({
-                path: { id: task.parentSessionID },
+            expect(mockClient.createSession).not.toHaveBeenCalled();
+            expect(mockClient.prompt).toHaveBeenCalledTimes(1);
+            expect(mockClient.prompt).toHaveBeenCalledWith(expect.objectContaining({
+                sessionID: task.parentSessionID,
+                synthetic: true,
+                reply: true,
             }));
         });
 
         it("manages tasks, concurrency, results, and events", async () => {
             expect(manager.getAllTasks()).toEqual([]);
             expect(manager.getRunningTasks()).toEqual([]);
-
-            // Concurrency operations
-            manager.setConcurrencyLimit("worker", 4);
-            manager.configureConcurrency({ maxTotal: 10, defaultLimit: 2 });
 
             // Task store accessors
             const dummy = createMockTask({ id: "t_facade", parentSessionID: "p_facade", sessionID: "s_facade" });
@@ -595,7 +471,9 @@ describe("ParallelAgentManager Features", () => {
             // Cancel task
             const cancelled = await manager.cancelTask("t_facade");
             expect(cancelled).toBe(true);
+            expect(mockClient.interrupt).toHaveBeenCalledWith("s_facade");
             expect(dummy.status).toBe(TASK_STATUS.ERROR);
+            expect(manager.getPendingCount("p_facade")).toBe(0);
 
             // Results
             const result = await manager.getResult("t_facade");

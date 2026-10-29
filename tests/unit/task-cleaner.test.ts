@@ -1,10 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { TaskCleaner } from "../../src/core/agents/manager/task-cleaner";
-import { SESSION_ABORT_TIMEOUT_MS } from "../../src/core/agents/manager/task-lifecycle";
 import { TaskStore } from "../../src/core/agents/task-store";
 import { ConcurrencyController } from "../../src/core/agents/concurrency";
-import { CONFIG } from "../../src/core/agents/config";
-import { TASK_STATUS, type ParallelTask } from "../../src/shared";
+import { PARALLEL_TASK, TASK_STATUS, type ParallelTask } from "../../src/shared";
 import {
     peekPrompts,
     hasPendingPrompts,
@@ -12,32 +10,40 @@ import {
 } from "../../src/core/session/pending-injection";
 import { resetSessionActivity } from "../../src/core/session/activity";
 
-const toastMocks = vi.hoisted(() => ({
-    showCompletionToast: vi.fn(),
-    showAllCompleteToast: vi.fn(),
-}));
+/** Upper bound task-lifecycle waits for a host interrupt confirmation. */
+const SESSION_ABORT_TIMEOUT_MS = 30_000;
 
+type CleanerClient = ConstructorParameters<typeof TaskCleaner>[0];
+type CleanerRegistry = ConstructorParameters<typeof TaskCleaner>[3];
 
 let store: TaskStore;
 let prompt: ReturnType<typeof vi.fn>;
 let concurrency: ConcurrencyController;
 let cleaner: TaskCleaner;
 
+function createClient(overrides: Record<string, unknown> = {}) {
+    return {
+        prompt,
+        statuses: vi.fn(() => new Map<string, string>()),
+        interrupt: vi.fn().mockResolvedValue(true),
+        ...overrides,
+    } as unknown as CleanerClient;
+}
+
+function createRegistry() {
+    return { release: vi.fn().mockResolvedValue(undefined) } as unknown as CleanerRegistry;
+}
+
 beforeEach(() => {
     store = new TaskStore();
-    prompt = vi.fn().mockResolvedValue({ data: {} });
+    prompt = vi.fn().mockResolvedValue(undefined);
     concurrency = new ConcurrencyController();
-    cleaner = new TaskCleaner(
-        { session: { prompt, status: vi.fn().mockResolvedValue({ data: {} }), abort: vi.fn().mockResolvedValue({ data: true }) } } as unknown as ConstructorParameters<typeof TaskCleaner>[0],
-        store,
-        concurrency,
-        { release: vi.fn().mockResolvedValue(undefined) } as unknown as ConstructorParameters<typeof TaskCleaner>[3],
-        toastMocks as unknown as ConstructorParameters<typeof TaskCleaner>[4],
-    );
-    vi.clearAllMocks();
+    cleaner = new TaskCleaner(createClient(), store, concurrency, createRegistry());
+    resetPendingInjections();
+    resetSessionActivity();
 });
 
-it("keeps rich task details in the user toast while sending compact completion prompt to the parent agent", async () => {
+it("sends a compact completion prompt to the parent agent", async () => {
     const task = createTask({
         description: "Sensitive implementation details that should stay out of agent notification",
         status: TASK_STATUS.COMPLETED,
@@ -46,29 +52,19 @@ it("keeps rich task details in the user toast while sending compact completion p
 
     await cleaner.notifyParentIfAllComplete(task.parentSessionID);
 
-    expect(toastMocks.showCompletionToast).toHaveBeenCalledWith(expect.objectContaining({
-        id: task.id,
-        description: task.description,
-        status: TASK_STATUS.COMPLETED,
-    }));
     expect(prompt).toHaveBeenCalledWith({
-        path: { id: task.parentSessionID },
-        body: {
-            noReply: false,
-            parts: [{
-                type: "text",
-                synthetic: true,
-                text: `[BACKGROUND COMPLETE]\nresults=${task.id}:${task.agent}:done\nnext=get_task_result`,
-            }],
-        },
+        sessionID: task.parentSessionID,
+        text: `[BACKGROUND COMPLETE]\nresults=${task.id}:${task.agent}:done\nnext=get_task_result`,
+        synthetic: true,
+        reply: true,
     });
-    const text = prompt.mock.calls[0][0].body.parts[0].text;
+    const text = prompt.mock.calls[0][0].text;
     expect(text).toContain("next=get_task_result");
     expect(text).not.toContain(task.description);
     expect(store.getNotifications(task.parentSessionID)).toEqual([]);
 });
 
-it("uses noReply and task ids only for partial progress notifications", async () => {
+it("does not start a turn and sends task ids only for partial progress notifications", async () => {
     const task = createTask({ id: "task_done" });
     store.trackPending(task.parentSessionID, "task_still_running");
     store.queueNotification(task);
@@ -76,49 +72,36 @@ it("uses noReply and task ids only for partial progress notifications", async ()
     await cleaner.notifyParentIfAllComplete(task.parentSessionID);
 
     expect(prompt).toHaveBeenCalledWith({
-        path: { id: task.parentSessionID },
-        body: {
-            noReply: true,
-            parts: [{
-                type: "text",
-                synthetic: true,
-                text: "[BACKGROUND UPDATE] completed=1 pending=1\nids=task_done",
-            }],
-        },
+        sessionID: task.parentSessionID,
+        text: "[BACKGROUND UPDATE] completed=1 pending=1\nids=task_done",
+        synthetic: true,
+        reply: false,
     });
 });
 
-it.each(["reject", "error"])("retains notifications when delivery returns %s", async (failure) => {
+it("retains notifications when delivery fails", async () => {
     const task = createTask();
     store.queueNotification(task);
-    if (failure === "reject") prompt.mockRejectedValueOnce(new Error("offline"));
-    else prompt.mockResolvedValueOnce({ error: "offline" });
+    prompt.mockRejectedValueOnce(new Error("offline"));
     await cleaner.notifyParentIfAllComplete(task.parentSessionID);
     expect(store.getNotifications(task.parentSessionID)).toEqual([task]);
 });
 
-it("retries failed delivery without replaying completion toasts", async () => {
+it("retries failed delivery together with later notices", async () => {
     const first = createTask({ id: "first" });
     const second = createTask({ id: "second" });
     store.queueNotification(first);
     prompt.mockRejectedValueOnce(new Error("offline"));
     await cleaner.notifyParentIfAllComplete(first.parentSessionID);
-    expect(toastMocks.showCompletionToast).toHaveBeenCalledOnce();
 
     store.queueNotification(second);
     await cleaner.notifyParentIfAllComplete(first.parentSessionID);
 
     expect(prompt).toHaveBeenCalledTimes(2);
-    expect(prompt.mock.calls[1][0].body.parts[0].text).toContain("first");
+    const text = prompt.mock.calls[1][0].text as string;
+    expect(text).toContain("first");
+    expect(text).toContain("second");
     expect(store.getNotifications(first.parentSessionID)).toEqual([]);
-    // The final batch completes the group: one summary covering both tasks, and
-    // the already-shown completion toast for "first" is not replayed.
-    expect(toastMocks.showCompletionToast).toHaveBeenCalledOnce();
-    expect(toastMocks.showAllCompleteToast).toHaveBeenCalledOnce();
-    expect(toastMocks.showAllCompleteToast).toHaveBeenCalledWith(first.parentSessionID, [
-        expect.objectContaining({ id: "first" }),
-        expect.objectContaining({ id: "second" }),
-    ]);
 });
 
 it("acknowledges only the notification batch actually sent", async () => {
@@ -127,20 +110,21 @@ it("acknowledges only the notification batch actually sent", async () => {
     store.queueNotification(first);
     prompt.mockImplementationOnce(async () => {
         store.queueNotification(second);
-        return { data: {} };
     });
     await cleaner.notifyParentIfAllComplete(first.parentSessionID);
     expect(prompt).toHaveBeenCalledTimes(2);
-    expect(prompt.mock.calls[1][0].body.parts[0].text).toContain("second");
+    expect(prompt.mock.calls[1][0].text).toContain("second");
     expect(store.getNotifications(first.parentSessionID)).toEqual([]);
 });
 
 it("reports timed-out running tasks as failed and clears their concurrency slot", async () => {
+    concurrency = new ConcurrencyController({ defaultConcurrency: 1 });
+    cleaner = new TaskCleaner(createClient(), store, concurrency, createRegistry());
     await concurrency.acquire("builder");
-    const reportResult = vi.spyOn(concurrency, "reportResult");
     const task = createTask({
         status: TASK_STATUS.RUNNING,
-        startedAt: new Date(Date.now() - CONFIG.TASK_TTL_MS - 1),
+        startedAt: new Date(Date.now() - PARALLEL_TASK.TTL_MS - 1),
+        completedAt: undefined,
         concurrencyKey: "builder",
     });
     store.set(task.id, task);
@@ -151,54 +135,42 @@ it("reports timed-out running tasks as failed and clears their concurrency slot"
 
     expect(concurrency.getActiveCount("builder")).toBe(0);
     expect(task.concurrencyKey).toBeUndefined();
-    expect(reportResult).toHaveBeenCalledWith("builder", false);
-    expect(task.status).toBe(TASK_STATUS.TIMEOUT);
-    expect(store.hasPending(task.parentSessionID)).toBe(false);
+    expect(task.error).toBe("Task exceeded time limit");
+    expect(store.getPendingCount(task.parentSessionID)).toBe(0);
 
     // Issue #41: the parent must learn the task timed out, or it waits on
     // a result that never arrives.
     await vi.waitFor(() => {
         expect(prompt).toHaveBeenCalledTimes(1);
     });
-    const text = prompt.mock.calls[0][0].body.parts[0].text as string;
+    const text = prompt.mock.calls[0][0].text as string;
     expect(text).toContain(task.id);
     expect(text.toLowerCase()).toContain("timeout");
 
     // The task stays readable for get_task_result until scheduleCleanup's
     // delayed deletion, rather than vanishing the moment the parent is told.
     expect(store.get(task.id)?.status).toBe(TASK_STATUS.TIMEOUT);
-    // The parent notification path owns the user toast; a timeout shows it once.
-    expect(toastMocks.showCompletionToast).toHaveBeenCalledOnce();
-    expect(toastMocks.showCompletionToast).toHaveBeenCalledWith(expect.objectContaining({
-        id: task.id,
-        status: TASK_STATUS.TIMEOUT,
-    }));
+    cleaner.shutdown();
 });
 
 it("does not re-fire a timeout while the previous abort is still unconfirmed", async () => {
-    const abort = vi.fn();
-    let confirmAbort!: (value: { data: boolean }) => void;
-    abort.mockImplementationOnce(() => new Promise(resolve => { confirmAbort = resolve; }));
-    abort.mockResolvedValue({ data: true });
-    const client = { session: { prompt, status: vi.fn().mockResolvedValue({ data: {} }), abort } };
-    const guarded = new TaskCleaner(
-        client as unknown as ConstructorParameters<typeof TaskCleaner>[0],
-        store,
-        concurrency,
-        { release: vi.fn().mockResolvedValue(undefined) } as unknown as ConstructorParameters<typeof TaskCleaner>[3],
-        toastMocks as unknown as ConstructorParameters<typeof TaskCleaner>[4],
-    );
-    const task = createTask({ status: TASK_STATUS.RUNNING, startedAt: new Date(Date.now() - CONFIG.TASK_TTL_MS - 1) });
+    const interrupt = vi.fn();
+    let confirmAbort!: (value: boolean) => void;
+    interrupt.mockImplementationOnce(() => new Promise(resolve => { confirmAbort = resolve; }));
+    interrupt.mockResolvedValue(true);
+    const guarded = new TaskCleaner(createClient({ interrupt }), store, concurrency, createRegistry());
+    const task = createTask({ status: TASK_STATUS.RUNNING, startedAt: new Date(Date.now() - PARALLEL_TASK.TTL_MS - 1) });
     store.set(task.id, task);
 
     guarded.pruneExpiredTasks();
     guarded.pruneExpiredTasks();
-    expect(abort).toHaveBeenCalledTimes(1);
+    expect(interrupt).toHaveBeenCalledTimes(1);
+    expect(interrupt).toHaveBeenCalledWith(task.sessionID);
 
-    confirmAbort({ data: false });
+    confirmAbort(false);
     await vi.waitFor(() => {
         guarded.pruneExpiredTasks();
-        expect(abort).toHaveBeenCalledTimes(2);
+        expect(interrupt).toHaveBeenCalledTimes(2);
     });
     await vi.waitFor(() => expect(task.status).toBe(TASK_STATUS.TIMEOUT));
     guarded.shutdown();
@@ -207,18 +179,11 @@ it("does not re-fire a timeout while the previous abort is still unconfirmed", a
 it("retries the timeout after an abort request that never settles", async () => {
     vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
     try {
-        const abort = vi.fn();
-        abort.mockImplementationOnce(() => new Promise(() => {}));
-        abort.mockResolvedValue({ data: true });
-        const client = { session: { prompt, status: vi.fn().mockResolvedValue({ data: {} }), abort } };
-        const guarded = new TaskCleaner(
-            client as unknown as ConstructorParameters<typeof TaskCleaner>[0],
-            store,
-            concurrency,
-            { release: vi.fn().mockResolvedValue(undefined) } as unknown as ConstructorParameters<typeof TaskCleaner>[3],
-            toastMocks as unknown as ConstructorParameters<typeof TaskCleaner>[4],
-        );
-        const task = createTask({ status: TASK_STATUS.RUNNING, startedAt: new Date(Date.now() - CONFIG.TASK_TTL_MS - 1) });
+        const interrupt = vi.fn();
+        interrupt.mockImplementationOnce(() => new Promise(() => {}));
+        interrupt.mockResolvedValue(true);
+        const guarded = new TaskCleaner(createClient({ interrupt }), store, concurrency, createRegistry());
+        const task = createTask({ status: TASK_STATUS.RUNNING, startedAt: new Date(Date.now() - PARALLEL_TASK.TTL_MS - 1) });
         store.set(task.id, task);
 
         guarded.pruneExpiredTasks();
@@ -226,7 +191,7 @@ it("retries the timeout after an abort request that never settles", async () => 
         guarded.pruneExpiredTasks();
         await vi.advanceTimersByTimeAsync(0);
 
-        expect(abort).toHaveBeenCalledTimes(2);
+        expect(interrupt).toHaveBeenCalledTimes(2);
         await vi.waitFor(() => expect(task.status).toBe(TASK_STATUS.TIMEOUT));
         guarded.shutdown();
     } finally {
@@ -234,40 +199,65 @@ it("retries the timeout after an abort request that never settles", async () => 
     }
 });
 
+it("releases the session and deletes a finished task after the cleanup delay", async () => {
+    vi.useFakeTimers();
+    try {
+        const registry = createRegistry();
+        const delayed = new TaskCleaner(createClient(), store, concurrency, registry);
+        const task = createTask();
+        store.set(task.id, task);
+
+        delayed.scheduleCleanup(task.id);
+        await vi.advanceTimersByTimeAsync(PARALLEL_TASK.CLEANUP_DELAY_MS - 1);
+        expect(store.get(task.id)).toBe(task);
+
+        await vi.advanceTimersByTimeAsync(1);
+        expect(registry.release).toHaveBeenCalledWith(task.sessionID);
+        expect(store.get(task.id)).toBeUndefined();
+    } finally {
+        vi.useRealTimers();
+    }
+});
+
+it("does not clean up a task that was resumed before the delay expired", async () => {
+    vi.useFakeTimers();
+    try {
+        const registry = createRegistry();
+        const delayed = new TaskCleaner(createClient(), store, concurrency, registry);
+        const task = createTask();
+        store.set(task.id, task);
+
+        delayed.scheduleCleanup(task.id);
+        task.status = TASK_STATUS.RUNNING;
+        task.startedAt = new Date();
+        await vi.advanceTimersByTimeAsync(PARALLEL_TASK.CLEANUP_DELAY_MS);
+
+        expect(registry.release).not.toHaveBeenCalled();
+        expect(store.get(task.id)).toBe(task);
+    } finally {
+        vi.useRealTimers();
+    }
+});
+
 /**
  * Issue #38: a parent agent is very often mid-turn when its background
- * subagents finish. `noReply: true` does not make that write safe — upstream
- * persists the user message and only skips starting a new run, so the text
- * still lands inside the turn the model is executing.
+ * subagents finish. A no-reply write is not safe either — the host still
+ * persists the message, so the text lands inside the turn the model is
+ * executing.
  */
 function cleanerWithStatus(busy: boolean) {
-    const send = vi.fn().mockResolvedValue({ data: {} });
-    const client = {
-        session: {
-            prompt: send,
-            status: vi.fn().mockResolvedValue({
-                data: busy ? { "parent-session": { type: "busy" } } : {},
-            }),
-        },
-    };
+    const send = vi.fn().mockResolvedValue(undefined);
+    const client = createClient({
+        prompt: send,
+        statuses: vi.fn(() => new Map(busy ? [["parent-session", "busy"]] : [])),
+    });
     return {
         send,
-        cleaner: new TaskCleaner(
-            client as unknown as ConstructorParameters<typeof TaskCleaner>[0],
-            store,
-            concurrency,
-            { release: vi.fn().mockResolvedValue(undefined) } as unknown as ConstructorParameters<typeof TaskCleaner>[3],
-            toastMocks as unknown as ConstructorParameters<typeof TaskCleaner>[4],
-        ),
+        cleaner: new TaskCleaner(client, store, concurrency, createRegistry()),
     };
 }
 
 describe("busy parent", () => {
-    beforeEach(() => {
-        resetPendingInjections();
-        resetSessionActivity();
-    });
-
     it("queues the notification instead of interrupting a working parent", async () => {
         const task = createTask();
         store.queueNotification(task);
@@ -281,6 +271,7 @@ describe("busy parent", () => {
         expect(peekPrompts("parent-session")).toEqual([
             `[BACKGROUND COMPLETE]\nresults=${task.id}:${task.agent}:done\nnext=get_task_result`,
         ]);
+        expect(store.getNotifications(task.parentSessionID)).toEqual([]);
     });
 
     it("notifies immediately when the parent is idle", async () => {
@@ -307,7 +298,6 @@ function createTask(overrides: Partial<ParallelTask> = {}): ParallelTask {
         startedAt: new Date(Date.now() - 1000),
         completedAt: new Date(),
         depth: 1,
-        reset: vi.fn(),
         ...overrides,
     };
 }

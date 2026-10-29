@@ -10,7 +10,7 @@ type CommandEditor = Parameters<Parameters<Context["command"]["transform"]>[0]>[
 type CommandDefinition = Parameters<CommandEditor["add"]>[0];
 type CommandInvocation = Parameters<CommandDefinition["execute"]>[0];
 
-export async function registerV2Commands(
+export async function registerCommands(
     context: Context,
     handlerContext: PluginHandlerContext,
 ): Promise<Registration> {

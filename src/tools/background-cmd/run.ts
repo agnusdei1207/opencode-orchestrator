@@ -2,7 +2,7 @@
  * run_background Tool - Start a background command
  */
 
-import { tool, type ToolDefinition } from "@opencode-ai/plugin";
+import { tool, type ToolDefinition } from "../../host/tool.js";
 import { resolve } from "node:path";
 import { backgroundTaskManager } from "../../core/commands/index.js";
 import { BACKGROUND_TASK } from "../../shared/index.js";

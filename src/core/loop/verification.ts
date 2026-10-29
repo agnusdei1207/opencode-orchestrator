@@ -222,7 +222,9 @@ interface TodoCompletionStats {
     total: number;
 }
 
-const TODO_CHECKBOX_PATTERN = /^\s*[-*]\s*\[([xX\s])\]/;
+// `[x]` is done; `[ ]`, `[/]` (in progress) and `[-]` (failed) are not.
+// update_todo writes all four markers.
+const TODO_CHECKBOX_PATTERN = /^\s*[-*]\s*\[([xX\s/-])\]/;
 
 const TODO_STATUS_PATTERN = /\bstatus:\s*([a-zA-Z_-]+)/i;
 

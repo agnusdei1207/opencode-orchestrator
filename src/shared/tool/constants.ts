@@ -25,8 +25,6 @@ export const PARALLEL_PARAMS = {
     BACKGROUND: "background",
     DESCRIPTION: "description",
     RESUME: "resume",
-    MODE: "mode",
-    GROUP_ID: "groupID",
     TASK_ID: "taskId",
     STATUS: "status",
 } as const;

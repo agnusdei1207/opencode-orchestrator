@@ -5,8 +5,7 @@
  */
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { getCircuitState, recordAssistantTurn, shutdownCircuitBreaker } from "../../src/core/loop/circuit-breaker";
-import { armCompactionGuard, getCompactionState, shutdownCompactionGuard } from "../../src/core/loop/compaction-guard";
-import { shutdownProgressTracker, trackProgress } from "../../src/core/loop/progress-tracker";
+import { markInjectionPerformed, shutdownProgressTracker, trackProgress } from "../../src/core/loop/progress-tracker";
 import { createSessionStateStore } from "../../src/core/loop/session-state-store";
 import { isKnownBusy, recordSessionStatus, shutdownSessionActivity } from "../../src/core/session/activity";
 import { hasPendingPrompts, queueNotice, shutdownPendingInjections } from "../../src/core/session/pending-injection";
@@ -24,7 +23,6 @@ beforeEach(() => {
 afterEach(() => {
     // Drop intervals created under fake timers so no module keeps a fake handle.
     shutdownCircuitBreaker();
-    shutdownCompactionGuard();
     shutdownProgressTracker();
     shutdownSessionActivity();
     shutdownPendingInjections();
@@ -36,14 +34,15 @@ const cases: Array<[string, () => void, () => boolean]> = [
         shutdownCircuitBreaker();
         recordAssistantTurn(SESSION_ID, "Working on it", 0);
     }, () => getCircuitState(SESSION_ID) !== undefined],
-    ["compaction guard", () => {
-        shutdownCompactionGuard();
-        armCompactionGuard(SESSION_ID, Date.now());
-    }, () => getCompactionState(SESSION_ID) !== undefined],
     ["progress tracker", () => {
         shutdownProgressTracker();
         trackProgress(SESSION_ID, 3);
-    }, () => trackProgress(SESSION_ID, 3).previousIncompleteCount !== undefined],
+    }, () => {
+        // A retained session remembers the previous count, so an injected
+        // cycle without progress counts as stagnant; a pruned one starts at 0.
+        markInjectionPerformed(SESSION_ID);
+        return trackProgress(SESSION_ID, 3) > 0;
+    }],
     ["session activity", () => {
         shutdownSessionActivity();
         recordSessionStatus(SESSION_ID, "busy");

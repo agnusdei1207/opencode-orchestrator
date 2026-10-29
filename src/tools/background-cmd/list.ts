@@ -2,7 +2,7 @@
  * list_background Tool - List all background tasks
  */
 
-import { tool, type ToolDefinition } from "@opencode-ai/plugin";
+import { tool, type ToolDefinition } from "../../host/tool.js";
 import { backgroundTaskManager } from "../../core/commands/index.js";
 import type { BackgroundTask } from "../../shared/index.js";
 import { BACKGROUND_STATUS, FILTER_STATUS } from "../../shared/index.js";

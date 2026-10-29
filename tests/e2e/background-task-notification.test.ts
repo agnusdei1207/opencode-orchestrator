@@ -5,19 +5,16 @@
  * about it. The parent is very often mid-turn at that moment — spawning work and
  * continuing to think is the whole point of a background task.
  *
- * `noReply: true` does not make that write safe. Upstream `SessionPrompt.prompt`
- * persists the user message and only then decides whether to start a run
- * (`if (input.noReply === true) return message`), so the text still lands inside
- * the turn the model is executing.
+ * A no-reply write does not make that safe: the host still persists the
+ * message, so the text lands inside the turn the model is executing.
  *
- * This drives the real path through the built bundle: launch a background task
- * with the `delegate_task` tool, let its session go idle, and watch what reaches
- * the parent. It lives in its own file because ParallelAgentManager is a
- * singleton — sharing a module registry with another suite would hand it a
- * different client than the one under test.
+ * This drives the real path through the built bundle and a fake OpenCode 2
+ * plugin context: launch a background task with the `delegate_task` tool, let
+ * its session finish, and watch what reaches the parent while the parent is
+ * still working and after it goes idle.
  */
 
-import { describe, it, expect, beforeAll } from "vitest";
+import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { mkdirSync, rmSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
@@ -26,107 +23,161 @@ import { pathToFileURL } from "node:url";
 const DIST_ENTRY = join(process.cwd(), "dist", "index.js");
 const PARENT = "ses_parent_bg";
 const CHILD = "ses_child_bg";
-/** CONFIG.MIN_STABILITY_MS is 2s; a task younger than that is not "done" yet. */
+/** PARALLEL_TASK.MIN_STABILITY_MS is 2s; a task younger than that is not "done" yet. */
 const STABILITY_WAIT_MS = 2_600;
+/** One PARALLEL_TASK.POLL_INTERVAL_MS (2s) plus margin for the poller to see the idle child. */
+const POLL_WAIT_MS = 2_600;
 
 interface SentPrompt {
     sessionID: string;
     busyAtSendTime: boolean;
     text: string;
-    synthetic?: boolean;
+    synthetic: boolean;
 }
+
+type ToolEntry = {
+    name: string;
+    execute: (input: unknown, context: { sessionID: string; messageID: string; agent: string; signal: AbortSignal }) => Promise<{ content: string }>;
+};
 
 function settle(ms: number): Promise<void> {
     return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+/** Minimal push-based event stream standing in for `context.event.subscribe`. */
+function createEventStream() {
+    const queue: unknown[] = [];
+    let wake: (() => void) | undefined;
+    return {
+        push(event: unknown) {
+            queue.push(event);
+            wake?.();
+        },
+        async *subscribe({ signal }: { signal?: AbortSignal } = {}) {
+            while (!signal?.aborted) {
+                if (queue.length === 0) {
+                    await new Promise<void>(resolve => {
+                        wake = resolve;
+                        signal?.addEventListener("abort", () => resolve(), { once: true });
+                    });
+                    wake = undefined;
+                    continue;
+                }
+                yield queue.shift();
+            }
+        },
+    };
 }
 
 describe("background task notification never interrupts a working parent (issue #38)", () => {
     const sent: SentPrompt[] = [];
     let parentBusy = false;
     let launched = false;
+    let launchResult = "";
+    let dispose: (() => Promise<void>) | undefined;
+    let workspace = "";
 
     beforeAll(async () => {
         if (!existsSync(DIST_ENTRY)) return;
 
-        const workspace = join(tmpdir(), `oco-e2e-bgnotify-${process.pid}`);
+        workspace = join(tmpdir(), `oco-e2e-bgnotify-${process.pid}`);
         rmSync(workspace, { recursive: true, force: true });
         mkdirSync(join(workspace, ".opencode"), { recursive: true });
 
-        const client = {
-            session: {
-                create: async () => ({ data: { id: CHILD } }),
-                delete: async () => ({ data: true }),
-                prompt: async ({ path, body }: any) => {
-                    sent.push({
-                        sessionID: path.id,
-                        busyAtSendTime: path.id === PARENT ? parentBusy : false,
-                        text: body.parts?.[0]?.text ?? "",
-                        synthetic: body.parts?.[0]?.synthetic,
-                    });
-                    return { data: {} };
+        const events = createEventStream();
+        const tools = new Map<string, ToolEntry>();
+        const sessionHooks = new Map<string, (input: unknown) => Promise<void>>();
+        const registration = () => Promise.resolve({ dispose: async () => undefined });
+        const record = (sessionID: string, text: string, synthetic: boolean) => {
+            sent.push({
+                sessionID,
+                busyAtSendTime: sessionID === PARENT ? parentBusy : false,
+                text,
+                synthetic,
+            });
+        };
+
+        const context = {
+            location: { directory: workspace, project: { directory: workspace } },
+            options: {},
+            agent: { list: async () => [], transform: () => registration() },
+            command: { transform: () => registration() },
+            model: { list: async () => ({ data: [] }) },
+            event: { subscribe: (options: { signal?: AbortSignal }) => events.subscribe(options) },
+            tool: {
+                hook: () => registration(),
+                transform: (edit: (editor: { add: (entry: ToolEntry) => void }) => void) => {
+                    edit({ add: entry => tools.set(entry.name, entry) });
+                    return registration();
                 },
-                // Only the parent is ever reported busy; the child has finished.
-                status: async () => ({ data: parentBusy ? { [PARENT]: { type: "busy" } } : {} }),
-                // The subagent produced real output, so its idle counts as done.
-                messages: async () => ({
-                    data: [{
-                        info: { role: "assistant", finish: "stop", time: { created: Date.now(), completed: Date.now() } },
-                        parts: [{ type: "text", text: "Implemented the change and ran the tests." }],
-                    }],
-                }),
-                message: async () => ({
-                    data: { parts: [{ type: "text", text: "Implemented the change and ran the tests." }] },
-                }),
-                todo: async () => ({ data: [] }),
-                get: async () => ({ data: { id: PARENT } }),
             },
-            tui: { showToast: async () => ({ data: true }) },
-            app: { log: async () => ({ data: true }) },
+            session: {
+                hook: (name: string, handler: (input: unknown) => Promise<void>) => {
+                    sessionHooks.set(name, handler);
+                    return registration();
+                },
+                create: async () => ({ id: CHILD }),
+                remove: async () => undefined,
+                switchAgent: async () => undefined,
+                interrupt: async () => ({ interrupted: true }),
+                prompt: async ({ sessionID, text }: { sessionID: string; text: string }) => record(sessionID, text, false),
+                synthetic: async ({ sessionID, text }: { sessionID: string; text: string }) => record(sessionID, text, true),
+                // The subagent produced real output, so its idle counts as done.
+                context: async () => [{
+                    id: "msg_child_done",
+                    type: "assistant",
+                    time: { created: Date.now(), completed: Date.now() },
+                    finish: "stop",
+                    content: [{ type: "text", text: "Implemented the change and ran the tests." }],
+                }],
+            },
         };
 
         const { default: plugin } = await import(pathToFileURL(DIST_ENTRY).href);
-        const hooks = await plugin.server({ directory: workspace, client, worktree: workspace, $: () => {} }, {});
-        const fire = (event: unknown) => hooks.event?.({ event });
+        dispose = await plugin.setup(context);
 
-        await fire({ type: "session.created", properties: { info: { id: PARENT } } });
-        await hooks["chat.message"]?.(
-            { sessionID: PARENT },
-            { message: { sessionID: PARENT, role: "user" }, parts: [{ type: "text", text: "build the feature" }] },
-        );
+        await sessionHooks.get("prompt")?.({ sessionID: PARENT, prompt: { text: "build the feature" } });
 
-        const delegate = hooks.tool?.delegate_task;
+        const delegate = tools.get("delegate_task");
         if (!delegate) return;
 
-        await delegate.execute(
+        const result = await delegate.execute(
             {
-                agent: "worker",
+                agent: "Worker",
                 description: "background unit",
                 prompt: "implement the change",
                 background: true,
             },
-            { sessionID: PARENT, agent: "commander" },
+            { sessionID: PARENT, messageID: "msg_parent", agent: "Commander", signal: new AbortController().signal },
         );
-        launched = true;
+        launchResult = result.content;
+        launched = result.content.includes("[SPAWNED]");
 
-        // The parent keeps working while its background task runs — the exact
-        // situation the old code interrupted.
+        // Both sessions are working: the child on its task, the parent on its
+        // own turn — the exact situation the old code interrupted.
         parentBusy = true;
+        events.push({ type: "session.execution.started", data: { sessionID: CHILD } });
+        events.push({ type: "session.execution.started", data: { sessionID: PARENT } });
         await settle(STABILITY_WAIT_MS);
 
-        // The subagent finishes.
-        await fire({ type: "session.idle", properties: { sessionID: CHILD } });
-        await settle(600);
+        // The subagent finishes; the poller notices on its next pass.
+        events.push({ type: "session.execution.succeeded", data: { sessionID: CHILD } });
+        await settle(POLL_WAIT_MS);
 
         // The parent's own turn finally ends. The deferred notice must arrive
         // now — holding it back must not mean losing it.
         parentBusy = false;
-        await fire({ type: "session.status", properties: { sessionID: PARENT, status: { type: "idle" } } });
-        await fire({ type: "session.idle", properties: { sessionID: PARENT } });
-        await settle(1200);
+        events.push({ type: "session.execution.succeeded", data: { sessionID: PARENT } });
+        await settle(1_200);
     }, 60_000);
 
+    afterAll(async () => {
+        await dispose?.();
+        if (workspace) rmSync(workspace, { recursive: true, force: true });
+    });
+
     it("launches the background task through the real tool", () => {
-        expect(launched, "delegate_task did not run — the rest of this suite proves nothing").toBe(true);
+        expect(launched, `delegate_task did not run — the rest of this suite proves nothing: ${launchResult}`).toBe(true);
     });
 
     it("sends nothing to the parent while it is still working", () => {
@@ -143,7 +194,7 @@ describe("background task notification never interrupts a working parent (issue 
 
         expect(delivered.length, "the background-task notice was dropped, not deferred")
             .toBeGreaterThan(0);
-        expect(delivered.some(entry => entry.text.includes("BACKGROUND")), 
+        expect(delivered.some(entry => entry.text.includes("BACKGROUND")),
             `no task notice among: ${JSON.stringify(delivered.map(e => e.text.slice(0, 60)))}`).toBe(true);
     });
 

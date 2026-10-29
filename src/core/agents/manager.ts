@@ -9,7 +9,7 @@
  * This is the main facade that composes the specialized components.
  */
 
-import type { PluginInput } from "@opencode-ai/plugin";
+import type { HostClient } from "../../host/client.js";
 import {
     TASK_CANCELLED_BY_USER,
     TASK_STATUS,
@@ -22,7 +22,7 @@ import { TaskStore } from "./task-store.js";
 import { log } from "./logger.js";
 
 // Import components
-import { TaskLauncher, type LaunchResult } from "./manager/task-launcher.js";
+import { TaskLauncher } from "./manager/task-launcher.js";
 import { TaskResumer } from "./manager/task-resumer.js";
 import { TaskPoller } from "./manager/task-poller.js";
 import { TaskCleaner } from "./manager/task-cleaner.js";
@@ -30,15 +30,10 @@ import { EventHandler } from "./manager/event-handler.js";
 import { SessionRegistry } from "./session-registry.js";
 import { MemoryLevel, MemoryManager } from "../memory/memory-manager.js";
 import { CORE_PHILOSOPHY } from "../../agents/prompts/shared/philosophy.js";
-import { TaskToastManager } from "../notification/task-toast-manager.js";
 import { buildRoutedAgentPrompt } from "./manager/prompt-routing.js";
-import type { ConcurrencyConfig } from "./concurrency.js";
+import type { ConcurrencyConfig } from "../config/options.js";
 import { finishTaskConcurrency, confirmSessionAbort } from "./manager/task-lifecycle.js";
 import { fetchTaskResultText } from "./manager/task-result.js";
-
-// Re-export
-
-type OpencodeClient = PluginInput["client"];
 
 type CancellationState = "settled" | "stale" | "proceed";
 
@@ -59,11 +54,10 @@ function cancellationStateAfterAbort(task: ParallelTask, startedAt: ParallelTask
  */
 export class ParallelAgentManager {
     private store: TaskStore;
-    private client: OpencodeClient;
+    private client: HostClient;
     private concurrency: ConcurrencyController;
     private sessionRegistry: SessionRegistry;
     private readonly directory: string;
-    private readonly toasts = new TaskToastManager();
 
     // Composed components
     private launcher: TaskLauncher;
@@ -72,15 +66,14 @@ export class ParallelAgentManager {
     private cleaner: TaskCleaner;
     private eventHandler: EventHandler;
 
-    constructor(client: OpencodeClient, directory: string, concurrencyConfig?: ConcurrencyConfig) {
+    constructor(client: HostClient, directory: string, concurrencyConfig?: ConcurrencyConfig) {
         this.client = client;
         this.directory = directory;
-        this.store = new TaskStore(directory);
+        this.store = new TaskStore();
         this.concurrency = new ConcurrencyController(concurrencyConfig);
-        this.toasts.init(client, this.concurrency);
         this.initializeProjectServices(directory);
-        this.sessionRegistry = new SessionRegistry(client, directory);
-        this.cleaner = new TaskCleaner(client, this.store, this.concurrency, this.sessionRegistry, this.toasts);
+        this.sessionRegistry = new SessionRegistry(client);
+        this.cleaner = new TaskCleaner(client, this.store, this.concurrency, this.sessionRegistry);
         this.poller = this.createPoller();
         this.launcher = this.createLauncher();
         this.resumer = new TaskResumer(
@@ -129,7 +122,6 @@ export class ParallelAgentManager {
             onTaskError: (taskId, error) => this.handleTaskError(taskId, error),
             startPolling: () => this.poller.start(),
             routePrompt: (agent, prompt) => buildRoutedAgentPrompt(this.directory, agent, prompt),
-            toasts: this.toasts,
         });
     }
 
@@ -149,9 +141,9 @@ export class ParallelAgentManager {
     // Public API
     // ========================================================================
 
-    async launch(inputs: LaunchInput | LaunchInput[]): Promise<LaunchResult> {
+    async launch(input: LaunchInput): Promise<ParallelTask> {
         this.cleaner.pruneExpiredTasks();
-        return this.launcher.launch(inputs);
+        return this.launcher.launch(input);
     }
 
     async resume(input: ResumeInput): Promise<ParallelTask> {
@@ -206,9 +198,7 @@ export class ParallelAgentManager {
         task.error = TASK_CANCELLED_BY_USER;
         task.completedAt = new Date();
 
-        if (task.concurrencyKey) {
-            finishTaskConcurrency(task, this.concurrency, false);
-        }
+        finishTaskConcurrency(task, this.concurrency);
         this.store.untrackPending(task.parentSessionID, taskId);
 
         // A busy session must be aborted before scheduled cleanup releases it
@@ -234,14 +224,6 @@ export class ParallelAgentManager {
         if (task.startedAt !== startedAt || this.store.get(taskId) !== task) return null;
         task.result = text;
         return text;
-    }
-
-    setConcurrencyLimit(agentType: string, limit: number): void {
-        this.concurrency.setLimit(agentType, limit);
-    }
-
-    configureConcurrency(config: ConcurrencyConfig): void {
-        this.concurrency.configure(config);
     }
 
     getPendingCount(parentSessionID: string): number {
@@ -301,7 +283,7 @@ export class ParallelAgentManager {
         task.error = error instanceof Error ? error.message : String(error);
         task.completedAt = new Date();
 
-        finishTaskConcurrency(task, this.concurrency, false);
+        finishTaskConcurrency(task, this.concurrency);
         this.store.untrackPending(task.parentSessionID, taskId);
         this.store.queueNotification(task);
         await this.cleaner.notifyParentIfAllComplete(task.parentSessionID);

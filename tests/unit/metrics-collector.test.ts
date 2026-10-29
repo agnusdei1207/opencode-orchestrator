@@ -5,57 +5,39 @@ beforeEach(() => {
     MetricsCollector._resetForTesting();
 });
 
-it("records agent and tool latency, token usage, lines, and task success", () => {
+it("records tool latency and token usage", () => {
     const collector = MetricsCollector.getInstance("/tmp/metrics-project");
-
-    collector.recordAgentExecution("worker", 100);
-    collector.recordAgentExecution("worker", 200);
-    collector.recordAgentExecution("planner", 300);
 
     collector.recordToolExecution("grep", 50);
     collector.recordToolExecution("grep", 150);
+    collector.recordToolExecution("read", 30);
 
     collector.recordTokenUsage(500);
-    collector.recordLinesProduced(100);
-
-    collector.recordTaskResult("t1", true);
-    collector.recordTaskResult("t2", false);
+    collector.recordTokenUsage(250);
 
     const stats = collector.getStats();
 
-    expect(stats.avgAgentLatency["worker"]).toBe(150);
-    expect(stats.avgAgentLatency["planner"]).toBe(300);
-    expect(stats.avgToolLatency["grep"]).toBe(100);
-    expect(stats.tokenUsage).toBe(500);
-    expect(stats.efficiency).toBe(5); // 500 / 100
-    expect(stats.totalTasks).toBe(2);
-    expect(stats.successRate).toBe(0.5);
+    expect(stats.avgToolLatency).toEqual({ grep: 100, read: 30 });
+    expect(stats.tokenUsage).toBe(750);
 });
 
 it("keeps memory bounded while reporting exact all-time stats", () => {
     const collector = MetricsCollector.getInstance("/tmp/metrics-project");
     const samples = 10_000;
     for (let i = 1; i <= samples; i++) {
-        collector.recordAgentExecution("worker", i);
         collector.recordToolExecution("grep", i);
-        collector.recordTaskResult(`t${i}`, i % 4 !== 0);
     }
 
     expect(countStoredValues(collector)).toBeLessThan(100);
     const stats = collector.getStats();
-    expect(stats.avgAgentLatency["worker"]).toBe(Math.round((samples + 1) / 2));
     expect(stats.avgToolLatency["grep"]).toBe(Math.round((samples + 1) / 2));
-    expect(stats.totalTasks).toBe(samples);
-    expect(stats.successRate).toBe(0.75);
 });
 
 it("handles empty stats safely", () => {
     const collector = MetricsCollector.getInstance("/tmp/metrics-project");
     const stats = collector.getStats();
 
-    expect(stats.totalTasks).toBe(0);
-    expect(stats.successRate).toBe(0);
-    expect(stats.efficiency).toBe(0);
+    expect(stats.avgToolLatency).toEqual({});
     expect(stats.tokenUsage).toBe(0);
 });
 
@@ -71,8 +53,8 @@ function countStoredValues(value: unknown): number {
 
 // One OpenCode process can serve several projects at once.
 it("keeps each project's metrics separate", () => {
-    MetricsCollector.getInstance("/tmp/metrics-project").recordTaskResult("task-1", true);
+    MetricsCollector.getInstance("/tmp/metrics-project").recordTokenUsage(42);
 
-    expect(MetricsCollector.getInstance("/tmp/metrics-project").getStats().totalTasks).toBe(1);
-    expect(MetricsCollector.getInstance("/tmp/metrics-other-project").getStats().totalTasks).toBe(0);
+    expect(MetricsCollector.getInstance("/tmp/metrics-project").getStats().tokenUsage).toBe(42);
+    expect(MetricsCollector.getInstance("/tmp/metrics-other-project").getStats().tokenUsage).toBe(0);
 });

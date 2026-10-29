@@ -2,7 +2,7 @@
  * get_task_result Tool
  */
 
-import { tool, type ToolDefinition } from "@opencode-ai/plugin";
+import { tool, type ToolDefinition } from "../../host/tool.js";
 import { ParallelAgentManager } from "../../core/agents/index.js";
 import { formatDuration } from "../../core/agents/format.js";
 import { STATUS_LABEL, OUTPUT_LABEL, PARALLEL_PARAMS, type ParallelTask } from "../../shared/index.js";

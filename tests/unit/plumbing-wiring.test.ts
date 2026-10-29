@@ -58,22 +58,6 @@ describe("Plumbing / Wiring Guards", () => {
         );
     });
 
-    it("redacts credentials from tool arguments before they enter task memory", async () => {
-        const hook = new MemoryGateHook();
-        const token = "ghp_abcdefghijklmnopqrstuvwxyz0123456789";
-        await hook.execute(
-            ctx("worker"),
-            "http",
-            { url: "https://api.github.com/user", headers: { Authorization: `Bearer ${token}` } },
-            { title: "http", output: "{\"login\":\"octocat\"}", metadata: {} },
-        );
-
-        const task = MemoryManager.getInstance("/tmp").export()[MemoryLevel.TASK];
-        const recorded = task.map((m) => m.content).join("\n");
-        expect(recorded).toContain("api.github.com");
-        expect(recorded).not.toContain(token);
-    });
-
     it("degrades to a readable placeholder when agent is genuinely unknown", async () => {
         const hook = new MemoryGateHook();
         await hook.execute(ctx(undefined), "Task DONE with SUCCESS");
@@ -149,27 +133,32 @@ describe("Plumbing / Wiring Guards", () => {
 
     // ---- 5a: every session injection is flagged synthetic (issue #37) --------
 
-    it("never injects a prompt into a user-facing session as a plain text part", () => {
-        // A bare { type: "text", text } part renders in the TUI as if the user
-        // typed it. Orchestrator-authored prompts must go through
-        // syntheticTextPart/syntheticTextParts so OpenCode can hide them while
-        // still passing them to the model.
+    it("never injects a prompt into a user-facing session as plain user input", () => {
+        // A non-synthetic prompt renders in the TUI as if the user typed it.
+        // Orchestrator-authored prompts must be sent with `synthetic: true` so
+        // OpenCode can hide them while still passing them to the model.
         const injectionSites = [
             "core/loop/mission-loop-handler.ts",
             "core/recovery/session-recovery.ts",
             "core/agents/manager/task-cleaner.ts",
-            "core/agents/manager/task-launcher.ts",
             "core/session/pending-injection.ts",
         ];
 
         for (const rel of injectionSites) {
             const src = readFileSync(SRC(rel), "utf8");
-            expect(src, rel + ": injects a session prompt without the synthetic helper").toMatch(
-                /syntheticTextParts?\(/,
-            );
-            expect(src, rel + ": still builds a raw text part for session.prompt").not.toMatch(
-                /parts:\s*\[\s*\{\s*type:\s*PART_TYPES\.TEXT/,
-            );
+            const calls = src.match(/client\.prompt\(\{[^}]*\}/g) ?? [];
+            expect(calls.length, rel + ": no host prompt call found; is the scan working?").toBeGreaterThan(0);
+            for (const call of calls) {
+                expect(call, rel + ": injects a session prompt without synthetic: true").toMatch(/synthetic:\s*true/);
+            }
+        }
+
+        // Every other host prompt call states its synthetic flag explicitly.
+        for (const rel of globSourceFiles().filter(file => file !== "host/client.ts")) {
+            const src = readFileSync(SRC(rel), "utf8");
+            for (const call of src.match(/client\.prompt\(\{[^}]*\}/g) ?? []) {
+                expect(call, rel + ": host prompt call without an explicit synthetic flag").toMatch(/synthetic:/);
+            }
         }
     });
 
@@ -201,7 +190,7 @@ describe("Plumbing / Wiring Guards", () => {
         const doneHandler = readFileSync(SRC("plugin-handlers/assistant-done-handler.ts"), "utf8");
         expect(doneHandler, "done-hook prompts are not queued").toMatch(/queuePrompts\(/);
         expect(doneHandler, "done-handler still prompts the session directly").not.toMatch(
-            /client\.session\.prompt\(/,
+            /client\.prompt\(/,
         );
 
         const eventHandler = readFileSync(SRC("plugin-handlers/event-handler.ts"), "utf8");
@@ -214,7 +203,7 @@ describe("Plumbing / Wiring Guards", () => {
     });
 
     it("guards every write to a user-facing session with a busy check", () => {
-        // Enumerated from `grep -rn "session.prompt("` so a new injection site
+        // Enumerated from `grep -rn "client.prompt("` so a new injection site
         // cannot be added without either a guard or a deliberate exemption.
         // `noReply: true` does NOT make a write safe: upstream still persists
         // the user message and only skips starting a new run.

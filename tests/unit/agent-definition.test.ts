@@ -44,8 +44,6 @@ describe("Agent Definitions", () => {
                 expect(agent.id, `Missing id for ${name}`).toBeDefined();
                 expect(agent.description, `Missing description for ${name}`).toBeDefined();
                 expect(agent.systemPrompt, `Missing systemPrompt for ${name}`).toBeDefined();
-                expect(typeof agent.canWrite, `Missing canWrite for ${name}`).toBe("boolean");
-                expect(typeof agent.canBash, `Missing canBash for ${name}`).toBe("boolean");
             }
         });
 
@@ -70,11 +68,6 @@ describe("Agent Definitions", () => {
     describe("Commander agent", () => {
         it("should be the main orchestrator", () => {
             expect(commander.id).toBe(AGENT_NAMES.COMMANDER);
-        });
-
-        it("should have write and bash capabilities", () => {
-            expect(commander.canWrite).toBe(true);
-            expect(commander.canBash).toBe(true);
         });
 
         it("should include core philosophy in system prompt", () => {
@@ -123,11 +116,6 @@ describe("Agent Definitions", () => {
 
         it("should have implementation role", () => {
             expect(worker.id).toBe(AGENT_NAMES.WORKER);
-        });
-
-        it("should have write and bash capabilities", () => {
-            expect(worker.canWrite).toBe(true);
-            expect(worker.canBash).toBe(true);
         });
 
         it("should require a failing regression before implementation", () => {

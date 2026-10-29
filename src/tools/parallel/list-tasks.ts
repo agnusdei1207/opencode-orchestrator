@@ -2,7 +2,7 @@
  * list_tasks Tool
  */
 
-import { tool, type ToolDefinition } from "@opencode-ai/plugin";
+import { tool, type ToolDefinition } from "../../host/tool.js";
 import { ParallelAgentManager } from "../../core/agents/index.js";
 import { STATUS_LABEL, TASK_STATUS, PARALLEL_PARAMS, LOOP_LABELS, type ParallelTask } from "../../shared/index.js";
 

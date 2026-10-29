@@ -1,10 +1,11 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from "vitest";
+import type { RoutedAgentPrompt } from "../../src/core/agents/manager/prompt-routing";
 import { TaskResumer } from "../../src/core/agents/manager/task-resumer";
 import { TaskStore } from "../../src/core/agents/task-store";
 import { AgentRegistry } from "../../src/core/agents/agent-registry";
 import { MemoryLevel, MemoryManager } from "../../src/core/memory/memory-manager";
 import { buildRoutedAgentPrompt } from "../../src/core/agents/manager/prompt-routing";
-import { AGENT_NAMES, TASK_STATUS, TOOL_NAMES, type ParallelTask } from "../../src/shared";
+import { AGENT_NAMES, TASK_STATUS, type ParallelTask } from "../../src/shared";
 
 vi.mock("../../src/core/agents/logger", () => ({ log: vi.fn() }));
 
@@ -16,20 +17,16 @@ const routePrompt = (agent: string, prompt: string) => buildRoutedAgentPrompt(pr
 describe("TaskResumer", () => {
     let store: TaskStore;
     let mockClient: {
-        session: {
-            prompt: ReturnType<typeof vi.fn>;
-            status: ReturnType<typeof vi.fn>;
-        };
+        prompt: ReturnType<typeof vi.fn>;
+        statuses: ReturnType<typeof vi.fn>;
     };
-    let startPolling: ReturnType<typeof vi.fn>;
+    let startPolling: Mock<(task: ParallelTask, prompt: RoutedAgentPrompt) => void>;
 
     beforeEach(() => {
         store = new TaskStore();
         mockClient = {
-            session: {
-                prompt: vi.fn().mockResolvedValue({}),
-                status: vi.fn().mockResolvedValue({ data: {} }),
-            },
+            prompt: vi.fn().mockResolvedValue(undefined),
+            statuses: vi.fn(() => new Map<string, string>()),
         };
         startPolling = vi.fn();
         MemoryManager.getInstance(projectDir).import({
@@ -44,14 +41,12 @@ describe("TaskResumer", () => {
         vi.restoreAllMocks();
     });
 
-    it("routes custom-agent resumes through Commander with the custom role prompt and task tools", async () => {
+    it("routes custom-agent resumes through Commander with the custom role prompt", async () => {
         const customAgent = "CustomResumeAgent";
         AgentRegistry.getInstance(projectDir).registerAgent(customAgent, {
             id: customAgent,
             description: "Custom resume specialist",
             systemPrompt: "CUSTOM RESUME SYSTEM",
-            canWrite: true,
-            canBash: true,
         });
 
         const task = createTask({ agent: customAgent });
@@ -72,17 +67,14 @@ describe("TaskResumer", () => {
         expect(result).toBe(task);
         expect(startPolling).toHaveBeenCalledWith(task, expect.objectContaining({
             wireAgent: AGENT_NAMES.COMMANDER,
-            tools: expect.objectContaining({ [TOOL_NAMES.DELEGATE_TASK]: true }),
             text: expect.stringContaining("CUSTOM RESUME SYSTEM"),
         }));
         expect(startPolling.mock.calls[0][1].text).toContain("Continue custom work");
-        expect(mockClient.session.prompt).not.toHaveBeenCalled();
+        expect(mockClient.prompt).not.toHaveBeenCalled();
     });
     it("refuses to resume a session that is still running", async () => {
         const task = createTask({ status: TASK_STATUS.COMPLETED });
-        mockClient.session.status.mockResolvedValue({
-            data: { [task.sessionID]: { type: "busy" } },
-        });
+        mockClient.statuses.mockReturnValue(new Map([[task.sessionID, "busy"]]));
         const resumer = new TaskResumer(
             mockClient as unknown as TaskResumerClient,
             store,
@@ -97,13 +89,17 @@ describe("TaskResumer", () => {
             parentSessionID: "parent-2",
         })).rejects.toThrow("still running");
 
-        expect(mockClient.session.prompt).not.toHaveBeenCalled();
+        expect(mockClient.prompt).not.toHaveBeenCalled();
         expect(task.status).toBe(TASK_STATUS.COMPLETED);
         expect(startPolling).not.toHaveBeenCalled();
     });
 
     it("queues a fresh run through the shared launcher and resets old output", async () => {
-        const task = createTask({ hasStartedOutputting: true, lastMsgCount: 9, pollFailureCount: 2 });
+        const task = createTask({
+            completedAt: new Date(),
+            error: "old error",
+            result: "old result",
+        });
         store.set(task.id, task);
         const begin = vi.fn();
         const resumer = new TaskResumer(mockClient as unknown as TaskResumerClient, store,
@@ -113,18 +109,20 @@ describe("TaskResumer", () => {
         expect(task.status).toBe(TASK_STATUS.PENDING);
         expect(task.prompt).toBe("new work");
         expect(task.startedAt).not.toBe(previousStart);
-        expect(task.hasStartedOutputting).toBeUndefined();
-        expect(task.lastMsgCount).toBeUndefined();
+        expect(task.parentSessionID).toBe("parent-2");
+        expect(task.completedAt).toBeUndefined();
+        expect(task.error).toBeUndefined();
+        expect(task.result).toBeUndefined();
+        expect(store.getPendingCount("parent-2")).toBe(1);
         expect(begin).toHaveBeenCalledWith(task, expect.objectContaining({ text: expect.stringContaining("new work") }));
-        expect(mockClient.session.prompt).not.toHaveBeenCalled();
+        expect(mockClient.prompt).not.toHaveBeenCalled();
     });
 
     it("rechecks activity after prompt routing before writing to the session", async () => {
         const task = createTask({ status: TASK_STATUS.COMPLETED });
         let busy = false;
-        mockClient.session.status.mockImplementation(async () => ({
-            data: busy ? { [task.sessionID]: { type: "busy" } } : {},
-        }));
+        mockClient.statuses.mockImplementation(() =>
+            new Map(busy ? [[task.sessionID, "busy"]] : []));
 
         let releaseRouting!: () => void;
         let markRoutingStarted!: () => void;
@@ -153,7 +151,7 @@ describe("TaskResumer", () => {
         releaseRouting();
 
         await expect(resume).rejects.toThrow("still running");
-        expect(mockClient.session.prompt).not.toHaveBeenCalled();
+        expect(mockClient.prompt).not.toHaveBeenCalled();
         expect(task.status).toBe(TASK_STATUS.COMPLETED);
         expect(startPolling).not.toHaveBeenCalled();
     });
@@ -161,11 +159,11 @@ describe("TaskResumer", () => {
     it.each(["removed", "replaced", "restarted"])("rejects a task %s during the status lookup", async (change) => {
         const task = createTask();
         store.set(task.id, task);
-        mockClient.session.status.mockImplementationOnce(async () => {
+        mockClient.statuses.mockImplementationOnce(() => {
             if (change === "removed") store.delete(task.id);
             if (change === "replaced") store.set(task.id, createTask());
             if (change === "restarted") task.startedAt = new Date(task.startedAt.getTime() + 1);
-            return { data: {} };
+            return new Map<string, string>();
         });
         const resumer = new TaskResumer(mockClient as unknown as TaskResumerClient, store,
             id => store.getBySession(id), startPolling, routePrompt);
@@ -194,7 +192,6 @@ function createTask(overrides: Partial<ParallelTask> = {}): ParallelTask {
         status: TASK_STATUS.COMPLETED,
         startedAt: new Date(),
         depth: 1,
-        reset: vi.fn(),
         ...overrides,
     };
 }

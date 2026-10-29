@@ -16,17 +16,17 @@ describe("createToolExecuteBeforeHandler", () => {
         (HookRegistry as unknown as { instance?: HookRegistry }).instance = undefined;
     });
 
-    it.each([{ command: "npm test" }, {}])("routes real registry replacements to the host and removes stale keys: %j", async (modifiedArgs) => {
+    it("passes the call to the registry and leaves allowed arguments untouched", async () => {
         let observed: unknown;
         HookRegistry.getInstance().registerPreTool({
-            name: "replace-arguments",
+            name: "observe",
             execute: async (context, tool, args) => {
-                observed = { sessionID: context.sessionID, directory: context.directory, tool, args: { ...args } };
-                return { action: HOOK_ACTIONS.MODIFY, modifiedArgs };
+                observed = { sessionID: context.sessionID, callID: context.callID, directory: context.directory, tool, args: { ...args } };
+                return { action: HOOK_ACTIONS.ALLOW };
             },
         });
         const input: ToolExecuteBeforeInput = {
-            tool: "run_command",
+            tool: "bash",
             sessionID: "session-1",
             callID: "call-1",
         };
@@ -36,14 +36,29 @@ describe("createToolExecuteBeforeHandler", () => {
 
         await createToolExecuteBeforeHandler(createContext())(input, output);
 
-        expect(output.args).toEqual(modifiedArgs);
+        expect(output.args).toEqual({ command: "original", unsafeFlag: true });
         expect(observed).toEqual({
             sessionID: "session-1",
+            callID: "call-1",
             directory: "/tmp/project",
-            tool: "run_command",
+            tool: "bash",
             args: { command: "original", unsafeFlag: true },
         });
     });
+
+    it("blocks a fork bomb through the owned role guard", async () => {
+        const { StrictRoleGuardHook } = await import("../../src/hooks/custom/strict-role-guard");
+        HookRegistry.getInstance().registerPreTool(new StrictRoleGuardHook(), "stop");
+
+        await expect(createToolExecuteBeforeHandler(createContext())({
+            tool: "bash",
+            sessionID: "session-1",
+            callID: "call-1",
+        }, {
+            args: { command: ":(){ :|:& };:" },
+        })).rejects.toThrow(/Action Blocked/);
+    });
+
     it("throws when a pre-tool hook blocks the call", async () => {
         vi.spyOn(HookRegistry, "getInstance").mockReturnValue({
             executePreTool: vi.fn().mockResolvedValue({
@@ -53,7 +68,7 @@ describe("createToolExecuteBeforeHandler", () => {
         } as unknown as HookRegistry);
 
         await expect(createToolExecuteBeforeHandler(createContext())({
-            tool: "run_command",
+            tool: "bash",
             sessionID: "session-1",
             callID: "call-1",
         }, {
@@ -68,10 +83,11 @@ describe("createToolExecuteBeforeHandler", () => {
         } as unknown as HookRegistry);
 
         await createToolExecuteBeforeHandler({
+            client: {} as never,
             directory: "/tmp/project",
             sessions: new Map(),
         })({
-            tool: "run_command",
+            tool: "bash",
             sessionID: "missing-session",
             callID: "call-1",
         }, {
@@ -84,6 +100,7 @@ describe("createToolExecuteBeforeHandler", () => {
 
 function createContext(): ToolExecuteHandlerContext {
     return {
+        client: {} as never,
         directory: "/tmp/project",
         sessions: new Map([
             ["session-1", {
@@ -95,7 +112,6 @@ function createContext(): ToolExecuteHandlerContext {
                 tokens: {
                     totalInput: 0,
                     totalOutput: 0,
-                    estimatedCost: 0,
                 },
             }],
         ]),

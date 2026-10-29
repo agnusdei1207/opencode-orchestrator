@@ -13,6 +13,4 @@ Delegation and independent review are optional. Use Planner (research and planni
         WORKING_DISCIPLINE,
         MISSION_CONTRACT,
     ].join("\n\n"),
-    canWrite: true,
-    canBash: true,
 };

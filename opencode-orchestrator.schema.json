@@ -3,21 +3,11 @@
   "type": "object",
   "properties": {
     "customRendering": {
-      "default": true,
+      "description": "Append a timestamp/step/duration footer to tool results. Default true.",
       "type": "boolean"
     },
-    "agentConcurrency": {
-      "type": "object",
-      "propertyNames": {
-        "type": "string"
-      },
-      "additionalProperties": {
-        "type": "integer",
-        "minimum": 0,
-        "maximum": 9007199254740991
-      }
-    },
     "agentTemperatures": {
+      "description": "Sampling temperature per agent, keyed by exact agent name such as \"Worker\".",
       "type": "object",
       "propertyNames": {
         "type": "string"
@@ -28,18 +18,8 @@
         "maximum": 2
       }
     },
-    "providerConcurrency": {
-      "type": "object",
-      "propertyNames": {
-        "type": "string"
-      },
-      "additionalProperties": {
-        "type": "integer",
-        "minimum": 0,
-        "maximum": 9007199254740991
-      }
-    },
-    "modelConcurrency": {
+    "agentConcurrency": {
+      "description": "Concurrent delegated tasks per agent, keyed by exact agent name. 0 means unlimited.",
       "type": "object",
       "propertyNames": {
         "type": "string"
@@ -51,41 +31,25 @@
       }
     },
     "defaultConcurrency": {
+      "description": "Concurrent delegated tasks for agents without their own limit. Default 10; 0 means unlimited.",
       "type": "integer",
       "minimum": 0,
       "maximum": 9007199254740991
     },
     "acquisitionTimeoutMs": {
+      "description": "How long a delegated task may wait for a free slot, in milliseconds. Default 300000.",
       "type": "integer",
       "exclusiveMinimum": 0,
       "maximum": 9007199254740991
-    },
-    "circuitFailureThreshold": {
-      "type": "integer",
-      "exclusiveMinimum": 0,
-      "maximum": 9007199254740991
-    },
-    "circuitRecoveryTimeoutMs": {
-      "type": "integer",
-      "exclusiveMinimum": 0,
-      "maximum": 9007199254740991
-    },
-    "halfOpenSuccessThreshold": {
-      "type": "integer",
-      "exclusiveMinimum": 0,
-      "maximum": 9007199254740991
-    },
-    "resourcePressureMaxHeapPercent": {
-      "type": "number",
-      "exclusiveMinimum": 0,
-      "maximum": 100
     },
     "contextMaxTokens": {
+      "description": "Context window to assume for every model. Unset uses the limit the host reports.",
       "type": "integer",
       "exclusiveMinimum": 0,
       "maximum": 9007199254740991
     },
     "missionLoop": {
+      "description": "Mission ledger and markdown memory settings.",
       "default": {
         "ledger": true,
         "markdownMemory": true,

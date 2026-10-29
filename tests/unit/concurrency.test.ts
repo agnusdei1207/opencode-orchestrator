@@ -1,21 +1,18 @@
 /**
  * Concurrency Controller Tests
- * 
+ *
  * Tests for:
  * - Basic acquire/release
- * - Queue behavior when at limit
- * - Model/Provider/Agent specific limits
+ * - FIFO queue behavior when at limit
+ * - Agent-specific and default limits
  * - Infinite concurrency (limit = 0)
- * - getConcurrencyInfo helper
+ * - Acquisition timeout
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
-import {
-    CircuitState,
-    ConcurrencyController,
-    TaskPriority,
-    type ConcurrencyConfig,
-} from "../../src/core/agents/concurrency";
+import { ConcurrencyController } from "../../src/core/agents/concurrency";
+import type { ConcurrencyConfig } from "../../src/core/config/options";
+import { PARALLEL_TASK } from "../../src/shared";
 
 describe("ConcurrencyController", () => {
     let controller: ConcurrencyController;
@@ -28,13 +25,9 @@ describe("ConcurrencyController", () => {
         vi.useRealTimers();
     });
 
-    // ========================================================================
-    // Basic Acquire/Release
-    // ========================================================================
-
     describe("basic acquire/release", () => {
         it("rejects queued admissions on shutdown without starting them", async () => {
-            controller.setLimit("agent-a", 1);
+            controller = new ConcurrencyController({ agentConcurrency: { "agent-a": 1 } });
             await controller.acquire("agent-a");
             const queued = controller.acquire("agent-a");
             const rejected = expect(queued).rejects.toThrow("shut down");
@@ -44,6 +37,7 @@ describe("ConcurrencyController", () => {
             expect(controller.getQueueLength("agent-a")).toBe(0);
             await expect(controller.acquire("agent-a")).rejects.toThrow("shut down");
         });
+
         it("should acquire when under limit", async () => {
             await controller.acquire("agent-a");
             expect(controller.getActiveCount("agent-a")).toBe(1);
@@ -56,7 +50,7 @@ describe("ConcurrencyController", () => {
         });
 
         it("should queue when at limit", async () => {
-            controller.setLimit("agent-a", 1);
+            controller = new ConcurrencyController({ agentConcurrency: { "agent-a": 1 } });
 
             await controller.acquire("agent-a");
 
@@ -65,42 +59,46 @@ describe("ConcurrencyController", () => {
                 resolved = true;
             });
 
-            // Should be queued
+            await Promise.resolve();
             expect(resolved).toBe(false);
             expect(controller.getQueueLength("agent-a")).toBe(1);
 
-            // Release should trigger queued
+            // Release hands the slot to the queued waiter
             controller.release("agent-a");
             await promise;
             expect(resolved).toBe(true);
+            expect(controller.getActiveCount("agent-a")).toBe(1);
+            expect(controller.getQueueLength("agent-a")).toBe(0);
+        });
+
+        it("admits queued waiters in arrival order", async () => {
+            controller = new ConcurrencyController({ defaultConcurrency: 1 });
+            await controller.acquire("agent-a");
+
+            const order: number[] = [];
+            const first = controller.acquire("agent-a").then(() => order.push(1));
+            const second = controller.acquire("agent-a").then(() => order.push(2));
+
+            controller.release("agent-a");
+            await first;
+            controller.release("agent-a");
+            await second;
+
+            expect(order).toEqual([1, 2]);
+        });
+
+        it("keeps limits independent per key", async () => {
+            controller = new ConcurrencyController({ defaultConcurrency: 1 });
+            await controller.acquire("agent-a");
+            await controller.acquire("agent-b");
+
+            expect(controller.getActiveCount("agent-a")).toBe(1);
+            expect(controller.getActiveCount("agent-b")).toBe(1);
+            expect(controller.getQueueLength("agent-a")).toBe(0);
         });
     });
 
-    // ========================================================================
-    // Model/Provider/Agent Concurrency Limits
-    // ========================================================================
-
-    describe("hierarchical concurrency limits", () => {
-        it("should use model-specific limit", () => {
-            const config: ConcurrencyConfig = {
-                modelConcurrency: { "anthropic/claude-3-5-sonnet": 2 },
-                defaultConcurrency: 5,
-            };
-            controller = new ConcurrencyController(config);
-
-            expect(controller.getConcurrencyLimit("anthropic/claude-3-5-sonnet")).toBe(2);
-        });
-
-        it("should use provider-specific limit when no model limit", () => {
-            const config: ConcurrencyConfig = {
-                providerConcurrency: { "anthropic": 3 },
-                defaultConcurrency: 5,
-            };
-            controller = new ConcurrencyController(config);
-
-            expect(controller.getConcurrencyLimit("anthropic/claude-3-opus")).toBe(3);
-        });
-
+    describe("concurrency limits", () => {
         it("should use agent-specific limit", () => {
             const config: ConcurrencyConfig = {
                 agentConcurrency: { "builder": 4 },
@@ -112,68 +110,40 @@ describe("ConcurrencyController", () => {
         });
 
         it("should use default when no specific limit", () => {
-            const config: ConcurrencyConfig = {
-                defaultConcurrency: 7,
-            };
-            controller = new ConcurrencyController(config);
+            controller = new ConcurrencyController({ defaultConcurrency: 7 });
 
             expect(controller.getConcurrencyLimit("unknown")).toBe(7);
         });
 
-        it("should return Infinity when limit is 0 (unlimited)", () => {
-            const config: ConcurrencyConfig = {
-                modelConcurrency: { "fast-model": 0 },
-            };
-            controller = new ConcurrencyController(config);
-
-            expect(controller.getConcurrencyLimit("fast-model")).toBe(Infinity);
+        it("falls back to the built-in default without config", () => {
+            expect(controller.getConcurrencyLimit("unknown")).toBe(PARALLEL_TASK.DEFAULT_CONCURRENCY);
         });
 
-        it("should return Infinity when explicit limit is 0", () => {
-            controller.setLimit("agent-a", 0);
+        it("should return Infinity when an agent limit is 0 (unlimited)", () => {
+            controller = new ConcurrencyController({ agentConcurrency: { "fast": 0 }, defaultConcurrency: 2 });
+
+            expect(controller.getConcurrencyLimit("fast")).toBe(Infinity);
+            expect(controller.getConcurrencyLimit("other")).toBe(2);
+        });
+
+        it("should return Infinity when the default limit is 0", () => {
+            controller = new ConcurrencyController({ defaultConcurrency: 0 });
 
             expect(controller.getConcurrencyLimit("agent-a")).toBe(Infinity);
         });
-
-        it("should reject invalid explicit limits", () => {
-            expect(() => controller.setLimit("agent-a", -1)).toThrow("non-negative integer");
-            expect(() => controller.setLimit("agent-a", 1.5)).toThrow("non-negative integer");
-        });
-
-        it("should reject invalid configured limits", () => {
-            expect(() => new ConcurrencyController({ defaultConcurrency: -1 })).toThrow("non-negative integer");
-            expect(() => new ConcurrencyController({ agentConcurrency: { worker: 2.5 } })).toThrow("non-negative integer");
-        });
     });
-
-    // ========================================================================
-    // Infinite Concurrency
-    // ========================================================================
 
     describe("infinite concurrency", () => {
         it("should not queue when limit is Infinity", async () => {
-            const config: ConcurrencyConfig = {
-                modelConcurrency: { "unlimited": 0 },
-            };
-            controller = new ConcurrencyController(config);
+            controller = new ConcurrencyController({ agentConcurrency: { "unlimited": 0 } });
 
-            // Should all resolve immediately
             await controller.acquire("unlimited");
             await controller.acquire("unlimited");
             await controller.acquire("unlimited");
 
-            // Count should stay 0 (not tracked for infinite)
+            // Count stays 0 (not tracked for infinite)
             expect(controller.getActiveCount("unlimited")).toBe(0);
-        });
-
-        it("keeps an unlimited key unlimited after repeated failures", () => {
-            controller = new ConcurrencyController({ modelConcurrency: { "unlimited": 0 } });
-
-            expect(() => {
-                controller.reportResult("unlimited", false);
-                controller.reportResult("unlimited", false);
-            }).not.toThrow();
-            expect(controller.getConcurrencyLimit("unlimited")).toBe(Infinity);
+            expect(controller.getQueueLength("unlimited")).toBe(0);
         });
     });
 
@@ -192,140 +162,8 @@ describe("ConcurrencyController", () => {
 
             await queuedExpectation;
             expect(controller.getQueueLength("agent-a")).toBe(0);
-        });
-
-        it("should reject invalid acquisition timeout values", () => {
-            expect(() => new ConcurrencyController({ acquisitionTimeoutMs: 0 })).toThrow("positive integer");
-            expect(() => new ConcurrencyController({ acquisitionTimeoutMs: 1.5 })).toThrow("positive integer");
-        });
-    });
-
-    describe("circuit breaker configuration", () => {
-        it("should open the circuit at the configured failure threshold", () => {
-            controller = new ConcurrencyController({ circuitFailureThreshold: 2 });
-
-            controller.reportResult("agent-a", false);
-            expect(controller.getCircuitState("agent-a")).toBe(CircuitState.CLOSED);
-
-            controller.reportResult("agent-a", false);
-            expect(controller.getCircuitState("agent-a")).toBe(CircuitState.OPEN);
-        });
-
-        it("should close half-open circuits after the configured success threshold", async () => {
-            vi.useFakeTimers();
-            controller = new ConcurrencyController({
-                circuitFailureThreshold: 1,
-                circuitRecoveryTimeoutMs: 10,
-                halfOpenSuccessThreshold: 1,
-            });
-
-            controller.reportResult("agent-a", false);
-            await vi.advanceTimersByTimeAsync(11);
-            await controller.acquire("agent-a");
-
-            expect(controller.getCircuitState("agent-a")).toBe(CircuitState.HALF_OPEN);
-
-            controller.reportResult("agent-a", true);
-
-            expect(controller.getCircuitState("agent-a")).toBe(CircuitState.CLOSED);
-        });
-
-        it("should reject invalid circuit and resource pressure config", () => {
-            expect(() => new ConcurrencyController({ circuitFailureThreshold: 0 })).toThrow("positive integer");
-            expect(() => new ConcurrencyController({ circuitRecoveryTimeoutMs: 0 })).toThrow("positive integer");
-            expect(() => new ConcurrencyController({ halfOpenSuccessThreshold: 0 })).toThrow("positive integer");
-            expect(() => new ConcurrencyController({ resourcePressureMaxHeapPercent: 101 })).toThrow("percentage");
-        });
-    });
-
-    describe("resource pressure", () => {
-        it("should expose pressure metrics and include them in low-priority rejection", async () => {
-            const memorySpy = vi.spyOn(process, "memoryUsage").mockReturnValue({
-                rss: 100,
-                heapTotal: 100,
-                heapUsed: 91,
-                external: 0,
-                arrayBuffers: 0,
-            });
-            controller = new ConcurrencyController({ resourcePressureMaxHeapPercent: 90 });
-
-            const pressure = controller.getResourcePressureStatus();
-
-            expect(pressure).toMatchObject({
-                underPressure: true,
-                heapUsed: 91,
-                heapTotal: 100,
-                heapPercent: 91,
-                maxHeapPercent: 90,
-            });
-            await expect(controller.acquire("agent-low", TaskPriority.LOW))
-                .rejects.toThrow("91.0% heap used");
-            await expect(controller.acquire("agent-normal", TaskPriority.NORMAL))
-                .resolves.toBeUndefined();
-
-            memorySpy.mockRestore();
-        });
-    });
-
-    // ========================================================================
-    // Concurrency Info Helper
-    // ========================================================================
-
-    // ========================================================================
-    // Auto-scaling (reportResult)
-    // ========================================================================
-
-    describe("auto-scaling", () => {
-        it("should increase limit after 3 consecutive successes", () => {
-            controller.setLimit("agent-a", 2);
-            expect(controller.getConcurrencyLimit("agent-a")).toBe(2);
-
-            // 2 successes - no change yet
-            for (let i = 0; i < 2; i++) {
-                controller.reportResult("agent-a", true);
-            }
-            expect(controller.getConcurrencyLimit("agent-a")).toBe(2);
-
-            // 3rd success - should increase to 3
-            controller.reportResult("agent-a", true);
-            expect(controller.getConcurrencyLimit("agent-a")).toBe(3);
-        });
-
-        it("should decrease limit after 2 failures", () => {
-            controller.setLimit("agent-a", 5);
-
-            // 1 failure - no change yet
-            controller.reportResult("agent-a", false);
-            expect(controller.getConcurrencyLimit("agent-a")).toBe(5);
-
-            // 2nd failure - should decrease to 4
-            controller.reportResult("agent-a", false);
-            expect(controller.getConcurrencyLimit("agent-a")).toBe(4);
-        });
-
-        it("should not decrease below 1", () => {
-            controller.setLimit("agent-a", 1);
-
-            controller.reportResult("agent-a", false);
-            controller.reportResult("agent-a", false);
-
-            expect(controller.getConcurrencyLimit("agent-a")).toBe(1);
-        });
-
-        it("should reset success streak on failure", () => {
-            controller.setLimit("agent-a", 2);
-
-            // 2 successes - no change
-            controller.reportResult("agent-a", true);
-            controller.reportResult("agent-a", true);
-            expect(controller.getConcurrencyLimit("agent-a")).toBe(2);
-
-            // 1 failure
-            controller.reportResult("agent-a", false);
-
-            // 1 more success (should be 1st after reset)
-            controller.reportResult("agent-a", true);
-            expect(controller.getConcurrencyLimit("agent-a")).toBe(2);
+            // The timed-out waiter must not hold a slot
+            expect(controller.getActiveCount("agent-a")).toBe(1);
         });
     });
 });

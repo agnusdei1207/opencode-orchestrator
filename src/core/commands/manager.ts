@@ -71,6 +71,9 @@ function appendBounded(current: string, chunk: string): string {
     return BACKGROUND_TASK.OUTPUT_TRUNCATION_MARKER + body;
 }
 
+/** Finished jobs stay readable by check_background for this long, then are dropped. */
+const FINISHED_JOB_RETENTION_MS = 30 * 60 * 1000;
+
 class BackgroundTaskManager {
     private static _instance: BackgroundTaskManager;
     private tasks: Map<string, ManagedBackgroundTask> = new Map();
@@ -97,6 +100,7 @@ class BackgroundTaskManager {
     }
 
     run(options: RunBackgroundOptions): BackgroundTask {
+        this.pruneFinished();
         const task = this.createTask(options);
         this.tasks.set(task.id, task);
         this.debug(task.id, `Starting: ${task.command}`);
@@ -151,6 +155,8 @@ class BackgroundTaskManager {
             task.errorOutput += `\nProcess error: ${error.message}`;
         });
         task.timeoutHandle = setTimeout(() => void this.handleTaskTimeout(task), task.timeout);
+        // A pending job timeout must not keep the host process alive.
+        task.timeoutHandle.unref?.();
     }
 
     private finishTaskProcess(task: ManagedBackgroundTask, code: number | null): void {
@@ -185,15 +191,10 @@ class BackgroundTaskManager {
         return this.getAll().filter(t => t.status === status);
     }
 
-    clearCompleted(): number {
-        let count = 0;
+    private pruneFinished(now: number = Date.now()): void {
         for (const [id, task] of this.tasks) {
-            if (task.status !== STATUS_LABEL.RUNNING && task.status !== STATUS_LABEL.PENDING) {
-                this.tasks.delete(id);
-                count++;
-            }
+            if (task.endTime !== undefined && now - task.endTime > FINISHED_JOB_RETENTION_MS) this.tasks.delete(id);
         }
-        return count;
     }
 
     async kill(taskId: string): Promise<boolean> {

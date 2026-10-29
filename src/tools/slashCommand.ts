@@ -1,5 +1,4 @@
-import { tool, type ToolDefinition } from "@opencode-ai/plugin";
-import { AGENT_NAMES, PROMPTS } from "../shared/index.js";
+import { AGENT_NAMES } from "../shared/index.js";
 
 const MISSION_MODE_TEMPLATE = `<mission>
 <task>
@@ -54,31 +53,3 @@ These are optional presets. Distinguish questions, reviews, planning, and implem
     template: `Cancel the active mission loop immediately and confirm the cancellation briefly.`,
   },
 };
-
-export function createSlashcommandTool(): ToolDefinition {
-  const commandList = Object.entries(COMMANDS)
-    .map(([name, cmd]) => {
-      const hint = cmd.argumentHint ? ` ${cmd.argumentHint}` : "";
-      return `- /${name}${hint}: ${cmd.description}`;
-    })
-    .join("\n");
-
-  return tool({
-    description: `Available commands:\n${commandList}`,
-    args: {
-      command: tool.schema.string().describe("Command name (without slash)"),
-    },
-    async execute(args) {
-      const cmdName = (args.command || "").replace(/^\//, "").split(/\s+/)[0].toLowerCase();
-      const cmdArgs = (args.command || "").replace(/^\/?\S+\s*/, "");
-
-      if (!cmdName) return `Commands:\n${commandList}`;
-
-      // hasOwn keeps inherited keys such as `constructor` from resolving to a command.
-      const command = Object.hasOwn(COMMANDS, cmdName) ? COMMANDS[cmdName] : undefined;
-      if (!command) return `Unknown command: /${cmdName}\n\n${commandList}`;
-
-      return command.template.replace(/\$ARGUMENTS/g, cmdArgs || PROMPTS.CONTINUE_DEFAULT);
-    },
-  });
-}

@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { AgentRegistry } from "../../src/core/agents/agent-registry";
 import { buildRoutedAgentPrompt } from "../../src/core/agents/manager/prompt-routing";
 import { MemoryLevel, MemoryManager } from "../../src/core/memory/memory-manager";
-import { AGENT_NAMES, TOOL_NAMES } from "../../src/shared";
+import { AGENT_NAMES } from "../../src/shared";
 
 vi.mock("../../src/core/agents/logger", () => ({ log: vi.fn() }));
 
@@ -28,10 +28,7 @@ describe("buildRoutedAgentPrompt", () => {
         expect(routed.wireAgent).toBe(AGENT_NAMES.WORKER);
         expect(routed.text).toBe("Implement the assigned file");
         expect(routed.text).not.toContain("### AGENT ROLE:");
-        expect(routed.tools).toEqual({
-            [TOOL_NAMES.SKILL]: true,
-            [TOOL_NAMES.RUN_COMMAND]: true,
-        });
+        expect(routed).not.toHaveProperty("tools");
     });
 
     it("routes custom agents through Commander while preserving the custom role prompt", async () => {
@@ -40,8 +37,6 @@ describe("buildRoutedAgentPrompt", () => {
             id: customAgent,
             description: "Custom routing specialist",
             systemPrompt: "CUSTOM ROUTING SYSTEM",
-            canWrite: true,
-            canBash: false,
         });
 
         const routed = await buildRoutedAgentPrompt(projectDir, customAgent, "Continue route audit");
@@ -51,14 +46,15 @@ describe("buildRoutedAgentPrompt", () => {
         expect(routed.text).toContain("Custom routing specialist");
         expect(routed.text).toContain("CUSTOM ROUTING SYSTEM");
         expect(routed.text).toContain("Continue route audit");
-        expect(routed.tools).toEqual(expect.objectContaining({
-            [TOOL_NAMES.DELEGATE_TASK]: true,
-            [TOOL_NAMES.GET_TASK_RESULT]: true,
-            [TOOL_NAMES.LIST_TASKS]: true,
-            [TOOL_NAMES.CANCEL_TASK]: true,
-            [TOOL_NAMES.SKILL]: true,
-            [TOOL_NAMES.RUN_COMMAND]: true,
-        }));
+        expect(routed.text.indexOf("### AGENT ROLE:"))
+            .toBeLessThan(routed.text.indexOf("Continue route audit"));
+    });
+
+    it("passes unknown agents through unchanged on the Commander route", async () => {
+        const routed = await buildRoutedAgentPrompt(projectDir, "NoSuchAgent", "Plain prompt");
+
+        expect(routed.wireAgent).toBe(AGENT_NAMES.COMMANDER);
+        expect(routed.text).toBe("Plain prompt");
     });
 
     it("prepends relevant memory context before a compact built-in task prompt", async () => {

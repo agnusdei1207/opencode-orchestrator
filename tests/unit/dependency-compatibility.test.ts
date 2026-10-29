@@ -16,23 +16,14 @@ function readManifest(): PackageManifest {
 }
 
 describe("dependency compatibility", () => {
-    it("pins OpenCode SDK and plugin to the same tested release", () => {
-        const manifest = readManifest();
-        const pluginVersion = manifest.dependencies?.["@opencode-ai/plugin"];
-        const sdkVersion = manifest.dependencies?.["@opencode-ai/sdk"];
-
-        expect(pluginVersion).toBe("1.18.34");
-        expect(sdkVersion).toBe("1.18.34");
-    });
-
-    it("pins the OpenCode 2 plugin contract used by the hybrid entrypoint", () => {
+    it("pins the OpenCode 2 plugin contract used by the entrypoint", () => {
         const manifest = readManifest();
         expect(manifest.devDependencies?.["@opencode/plugin"]).toBe("2.0.22");
     });
 
-    it("exposes the server entrypoint OpenCode resolves for npm plugins", () => {
+    it("exposes only the root package entrypoint OpenCode 2 resolves", () => {
         const manifest = readManifest();
-        expect(manifest.exports?.["./server"]).toBe("./dist/index.js");
+        expect(Object.keys(manifest.exports ?? {})).toEqual(["."]);
     });
 
     it("requires the Node.js release supported by the OpenCode dependency graph", () => {

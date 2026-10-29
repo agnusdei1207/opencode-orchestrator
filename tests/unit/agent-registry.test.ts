@@ -32,7 +32,7 @@ describe("AgentRegistry", () => {
         const commander = registry.getAgent("Commander");
         expect(commander).toBeDefined();
         expect(commander?.id).toBe("Commander");
-        expect(commander?.canWrite).toBe(true);
+        expect(commander?.systemPrompt.length).toBeGreaterThan(0);
     });
 
     it("registers new agents dynamically", () => {
@@ -41,8 +41,6 @@ describe("AgentRegistry", () => {
             id: "custom_auditor",
             description: "Custom audit agent",
             systemPrompt: "You are an auditor",
-            canWrite: false,
-            canBash: false,
         });
 
         expect(registry.listAgents()).toContain("CustomAuditor");
@@ -61,6 +59,7 @@ describe("AgentRegistry", () => {
                 "id": "tester",
                 "description": "Automated test specialist",
                 "systemPrompt": "Run and maintain tests",
+                // Legacy capability flags are ignored
                 "canWrite": true,
                 "canBash": true, // trailing comma here
             },
@@ -82,6 +81,11 @@ describe("AgentRegistry", () => {
         const tester = registry.getAgent("Tester");
         expect(tester?.id).toBe("tester");
         expect(tester?.description).toBe("Automated test specialist");
+        expect(tester).toEqual({
+            id: "tester",
+            description: "Automated test specialist",
+            systemPrompt: "Run and maintain tests",
+        });
     });
 
     it("handles missing .opencode/agents.json gracefully", async () => {
@@ -97,7 +101,7 @@ describe("AgentRegistry", () => {
         try {
             mkdirSync(path.join(testDir, ".opencode"), { recursive: true });
             writeFileSync(path.join(testDir, ".opencode", "agents.json"), JSON.stringify({
-                Tester: { id: "tester", description: "Project A tester", systemPrompt: "A", canWrite: true, canBash: true },
+                Tester: { id: "tester", description: "Project A tester", systemPrompt: "A" },
             }), "utf8");
 
             const projectA = AgentRegistry.getInstance(testDir);

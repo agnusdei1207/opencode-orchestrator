@@ -66,22 +66,6 @@ describe("message guard host compatibility", () => {
         expect(content[2].result?.value).toContain("truncated by message guard");
     });
 
-    it("guards the real OpenCode 1 server registration", async () => {
-        const directory = mkdtempSync(path.join(tmpdir(), "oco-guard-v1-"));
-        const instance = await OrchestratorPlugin.server({ directory, client: {} } as Parameters<typeof OrchestratorPlugin.server>[0], {});
-        try {
-            const state = { status: "completed", output: oversized };
-            const output = { messages: [{ info: {}, parts: [{ type: "tool", state }] }] };
-            const hook = instance["experimental.chat.messages.transform"];
-            expect(hook).toBeTypeOf("function");
-            await hook!({}, output as Parameters<NonNullable<typeof hook>>[1]);
-            expect(state.output).toContain("truncated by message guard");
-        } finally {
-            await instance.dispose?.();
-            rmSync(directory, { recursive: true, force: true });
-        }
-    });
-
     it("guards the real V2 context registration", async () => {
         const directory = mkdtempSync(path.join(tmpdir(), "oco-guard-"));
         const hooks = new Map<string, (input: unknown) => Promise<void>>();

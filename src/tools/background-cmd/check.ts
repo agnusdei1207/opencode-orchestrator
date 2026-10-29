@@ -2,7 +2,7 @@
  * check_background Tool - Check background task status
  */
 
-import { tool, type ToolDefinition } from "@opencode-ai/plugin";
+import { tool, type ToolDefinition } from "../../host/tool.js";
 import { backgroundTaskManager } from "../../core/commands/index.js";
 import { BACKGROUND_TASK, STATUS_LABEL, type BackgroundTask } from "../../shared/index.js";
 

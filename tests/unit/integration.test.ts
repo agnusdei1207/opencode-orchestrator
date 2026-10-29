@@ -56,7 +56,7 @@ describe("Integration Tests", () => {
             store.trackPending(task.parentSessionID, task.id);
 
             expect(store.get(task.id)).toBeDefined();
-            expect(store.hasPending(task.parentSessionID)).toBe(true);
+            expect(store.getPendingCount(task.parentSessionID)).toBe(1);
             expect(concurrency.getActiveCount("builder")).toBe(1);
 
             // 2. Task completes
@@ -73,7 +73,7 @@ describe("Integration Tests", () => {
 
             expect(task.status).toBe(TASK_STATUS.COMPLETED);
             expect(concurrency.getActiveCount("builder")).toBe(0);
-            expect(store.hasPending(task.parentSessionID)).toBe(false);
+            expect(store.getPendingCount(task.parentSessionID)).toBe(0);
             expect(store.getNotifications(task.parentSessionID)).toHaveLength(1);
 
             // 3. Cleanup
@@ -188,7 +188,7 @@ describe("Integration Tests", () => {
 
             expect(store.get(task.id)).toBeUndefined();
             expect(concurrency.getActiveCount("builder")).toBe(0);
-            expect(store.hasPending(task.parentSessionID)).toBe(false);
+            expect(store.getPendingCount(task.parentSessionID)).toBe(0);
         });
     });
 

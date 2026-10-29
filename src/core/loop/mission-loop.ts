@@ -28,9 +28,6 @@ const STATE_FILE = MISSION_CONTROL.STATE_FILE;
 /** Stagnation count at which the loop stops blind retries and escalates. */
 const ESCALATION_STAGNATION_THRESHOLD = 5;
 
-/** Effectively unbounded; see LIMITS.MAX_ITERATIONS for what ends a loop. */
-const DEFAULT_MAX_ITERATIONS = MISSION_CONTROL.DEFAULT_MAX_ITERATIONS;
-
 type MissionContinuationContext = {
     verificationSummary?: string;
     continuationReason?: string;
@@ -38,16 +35,12 @@ type MissionContinuationContext = {
     unverifiedFiles?: string[];
 };
 
-type MissionContinuationInput = string | MissionContinuationContext;
+type MissionContinuationInput = MissionContinuationContext;
 
 const UNKNOWN_STATUS = "unknown";
 
 function isNonNegativeInteger(value: unknown): value is number {
     return typeof value === "number" && Number.isInteger(value) && value >= 0;
-}
-
-function isPositiveInteger(value: unknown): value is number {
-    return typeof value === "number" && Number.isInteger(value) && value > 0;
 }
 
 function isOptionalString(value: unknown): value is string | undefined {
@@ -61,13 +54,10 @@ function isOptionalNonNegativeInteger(value: unknown): value is number | undefin
 const STATE_FIELD_VALIDATORS = [
     ["active", (value: unknown) => typeof value === "boolean"],
     ["iteration", isNonNegativeInteger],
-    ["maxIterations", isPositiveInteger],
     ["prompt", (value: unknown) => typeof value === "string"],
     ["objective", isOptionalString],
     ["sessionID", (value: unknown) => typeof value === "string"],
     ["startedAt", (value: unknown) => typeof value === "string"],
-    ["lastActivity", isOptionalString],
-    ["lastProgress", isOptionalString],
     ["stagnationCount", isOptionalNonNegativeInteger],
     ["lastVerificationSummary", isOptionalString],
     ["lastContinuationReason", isOptionalString],
@@ -76,8 +66,6 @@ const STATE_FIELD_VALIDATORS = [
 
 const OPTIONAL_STATE_FIELDS = [
     "objective",
-    "lastActivity",
-    "lastProgress",
     "stagnationCount",
     "lastVerificationSummary",
     "lastContinuationReason",
@@ -96,7 +84,6 @@ function parseLoopState(value: unknown): MissionLoopState | null {
     return {
         active: value.active as boolean,
         iteration: value.iteration as number,
-        maxIterations: value.maxIterations as number,
         prompt: value.prompt as string,
         sessionID: value.sessionID as string,
         startedAt: value.startedAt as string,
@@ -182,7 +169,6 @@ export function incrementIteration(directory: string): MissionLoopState | null {
     if (!state) return null;
 
     state.iteration += 1;
-    state.lastActivity = new Date().toISOString();
 
     if (writeLoopState(directory, state)) {
         return state;
@@ -213,10 +199,7 @@ function recordStartedMission(directory: string, state: MissionLoopState, previo
         summary: "Mission loop started",
     });
     syncMissionMemory(directory, state);
-    log(`[${MISSION_CONTROL.LOG_SOURCE}] Loop started`, {
-        sessionID: state.sessionID,
-        maxIterations: state.maxIterations,
-    });
+    log(`[${MISSION_CONTROL.LOG_SOURCE}] Loop started`, { sessionID: state.sessionID });
 }
 
 // ============================================================================
@@ -236,7 +219,6 @@ export function startMissionLoop(
     const state: MissionLoopState = {
         active: true,
         iteration: 1,
-        maxIterations: options.maxIterations ?? DEFAULT_MAX_ITERATIONS,
         prompt,
         objective: deriveObjective(prompt),
         sessionID,
@@ -325,14 +307,13 @@ export function generateMissionContinuationPrompt(state: MissionLoopState, input
 
     let prompt = `${CONTINUE_INSTRUCTION}
 
-<mission_loop iteration="${state.iteration}" max="${state.maxIterations}">
+<mission_loop iteration="${state.iteration}">
 MISSION NOT COMPLETE
 
 Objective:
 ${context.objective}
 
 Runtime status:
-- progress: ${context.progress}
 - verification: ${context.verification}
 - stagnation: ${context.stagnation}
 - continuation reason: ${context.reason}
@@ -378,7 +359,6 @@ function normalizeContinuationContext(
     const stagnationCount = state.stagnationCount ?? 0;
     return {
         objective: neutralizeLoopTags(state.objective || deriveObjective(state.prompt)),
-        progress: neutralizeLoopTags(state.lastProgress ?? UNKNOWN_STATUS),
         verification: neutralizeLoopTags(verificationSummary ?? state.lastVerificationSummary ?? UNKNOWN_STATUS),
         reason: neutralizeLoopTags(continuationReason ?? state.lastContinuationReason ?? "verification_failed"),
         stagnation: stagnationCount > 0 ? `${stagnationCount} unchanged check(s)` : "not detected",
@@ -387,11 +367,7 @@ function normalizeContinuationContext(
     };
 }
 
-/** A bare string input carries only the verification summary. */
 function readContinuationInput(input?: MissionContinuationInput): MissionContinuationContext & { unverifiedFiles: string[] } {
-    if (typeof input === "string") {
-        return { verificationSummary: input, continuationReason: undefined, unverifiedFiles: [] };
-    }
     return {
         verificationSummary: input?.verificationSummary,
         continuationReason: input?.continuationReason,

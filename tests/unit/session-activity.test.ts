@@ -10,22 +10,17 @@ import {
     getLastActivityAt,
 } from "../../src/core/session/activity";
 
-type StatusMap = Record<string, { type: string }>;
-
 /**
- * Minimal stand-in for the pieces of the OpenCode client this module touches.
- * `session.status()` mirrors `GET /session/status`, which upstream populates
- * only with sessions that are NOT idle.
+ * Minimal HostClient stand-in. `statuses()` mirrors the event-tracked map,
+ * which holds only sessions that are NOT idle.
  */
-function clientWithStatus(statuses: StatusMap | undefined, options: { throws?: boolean; missing?: boolean } = {}) {
-    const session: Record<string, unknown> = {};
-    if (!options.missing) {
-        session.status = async () => {
-            if (options.throws) throw new Error("transport failure");
-            return { data: statuses };
-        };
-    }
-    return { session } as never;
+function clientWithStatus(statuses: Record<string, string>, onRead?: () => void) {
+    return {
+        statuses: () => {
+            onRead?.();
+            return new Map(Object.entries(statuses));
+        },
+    } as never;
 }
 
 const SESSION = "ses_activity";
@@ -61,18 +56,14 @@ describe("session activity tracker (issue #38)", () => {
     });
 
     describe("isSessionBusy", () => {
-        it.each([false, true])("does not infer idle after status failure (cached idle=%s)", async (cachedIdle) => {
-            if (cachedIdle) recordSessionStatus(SESSION, "idle");
-            await expect(isSessionBusy(clientWithStatus(undefined, { throws: true }), SESSION)).resolves.toBe(true);
-        });
-        it("reports busy when the server lists the session as busy", async () => {
-            const client = clientWithStatus({ [SESSION]: { type: "busy" } });
+        it("reports busy when the host lists the session as busy", async () => {
+            const client = clientWithStatus({ [SESSION]: "busy" });
 
             await expect(isSessionBusy(client, SESSION)).resolves.toBe(true);
         });
 
         it("reports busy while the provider is retrying", async () => {
-            const client = clientWithStatus({ [SESSION]: { type: "retry" } });
+            const client = clientWithStatus({ [SESSION]: "retry" });
 
             await expect(isSessionBusy(client, SESSION)).resolves.toBe(true);
         });
@@ -80,12 +71,12 @@ describe("session activity tracker (issue #38)", () => {
         it("reports idle when the session is absent from the status map", async () => {
             // Upstream deletes a session from the map the moment it goes idle,
             // so absence is a positive signal, not missing information.
-            const client = clientWithStatus({ other: { type: "busy" } });
+            const client = clientWithStatus({ other: "busy" });
 
             await expect(isSessionBusy(client, SESSION)).resolves.toBe(false);
         });
 
-        it("refreshes the cached flag from the server answer", async () => {
+        it("refreshes the cached flag from the host status map", async () => {
             recordSessionStatus(SESSION, "busy");
             const client = clientWithStatus({});
 
@@ -93,42 +84,9 @@ describe("session activity tracker (issue #38)", () => {
             expect(isKnownBusy(SESSION)).toBe(false);
         });
 
-        it("falls back to the event-derived flag when the request fails", async () => {
-            recordSessionStatus(SESSION, "busy");
-            const client = clientWithStatus(undefined, { throws: true });
-
-            await expect(isSessionBusy(client, SESSION)).resolves.toBe(true);
-        });
-
-        it("falls back to the event-derived flag when the SDK returns a structured error", async () => {
-            recordSessionStatus(SESSION, "busy");
-            const client = {
-                session: {
-                    status: async () => ({
-                        data: undefined,
-                        error: { message: "status unavailable" },
-                        request: new Request("http://localhost/session/status"),
-                        response: new Response(null, { status: 503 }),
-                    }),
-                },
-            } as never;
-
-            await expect(isSessionBusy(client, SESSION)).resolves.toBe(true);
-            expect(isKnownBusy(SESSION)).toBe(true);
-        });
-
-        it("holds injection when the endpoint is unavailable", async () => {
-            const client = clientWithStatus(undefined, { missing: true });
-
-            await expect(isSessionBusy(client, SESSION)).resolves.toBe(true);
-
-            recordSessionStatus(SESSION, "busy");
-            await expect(isSessionBusy(client, SESSION)).resolves.toBe(true);
-        });
-
-        it("treats an empty session id as idle without calling the server", async () => {
+        it("treats an empty session id as idle without reading host status", async () => {
             let called = false;
-            const client = { session: { status: async () => { called = true; return { data: {} }; } } } as never;
+            const client = clientWithStatus({}, () => { called = true; });
 
             await expect(isSessionBusy(client, "")).resolves.toBe(false);
             expect(called).toBe(false);
@@ -181,7 +139,7 @@ describe("session activity timestamps (issue #41)", () => {
     });
 
     it("does not count our own status polls as host activity", async () => {
-        const client = clientWithStatus({ [SESSION]: { type: "busy" } });
+        const client = clientWithStatus({ [SESSION]: "busy" });
         await isSessionBusy(client, SESSION);
         expect(isKnownBusy(SESSION)).toBe(true);
         expect(getLastActivityAt(SESSION)).toBeUndefined();

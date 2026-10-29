@@ -42,18 +42,19 @@ export class MetricsHook implements PreToolUseHook, PostToolUseHook, AssistantDo
         input?: ToolInput,
         output?: ToolOutput
     ): Promise<PreToolResult | PostToolResult | HookResult> {
+        // Keyed by call ID so parallel calls of one tool keep their own start time.
+        const key = `${context.sessionID}:${context.callID ?? toolOrText}`;
         // Pre-Tool
         if (!output && input) {
-            this.startTimes.set(`tool_${toolOrText}_${context.sessionID}`, Date.now());
+            this.startTimes.set(key, Date.now());
             return { action: HOOK_ACTIONS.ALLOW };
         }
         // Post-Tool
         else if (output) {
-            const startTime = this.startTimes.get(`tool_${toolOrText}_${context.sessionID}`);
+            const startTime = this.startTimes.get(key);
+            this.startTimes.delete(key);
             if (startTime) {
-                const duration = Date.now() - startTime;
-                MetricsCollector.getInstance(context.directory).recordToolExecution(toolOrText, duration);
-                this.startTimes.delete(`tool_${toolOrText}_${context.sessionID}`);
+                MetricsCollector.getInstance(context.directory).recordToolExecution(toolOrText, Date.now() - startTime);
             }
 
             // Simple token estimation from output (rough)

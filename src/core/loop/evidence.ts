@@ -31,7 +31,7 @@ const WRITE_TOOLS = new Set([
 ]);
 
 /** Shell-like tools whose command we inspect for verification intent. */
-const SHELL_TOOLS = new Set(["bash", "shell", "run_command", "run_background"]);
+const SHELL_TOOLS = new Set(["bash", "run_background"]);
 
 /** A command counts as verification when it runs tests/build/lint/typecheck. */
 const VERIFY_HINT =

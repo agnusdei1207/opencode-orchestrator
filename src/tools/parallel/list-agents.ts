@@ -4,7 +4,7 @@
  * Lists all available agents, including built-in and custom templates.
  */
 
-import { tool } from "@opencode-ai/plugin";
+import { tool } from "../../host/tool.js";
 import { AgentRegistry } from "../../core/agents/agent-registry.js";
 import { OUTPUT_LABEL } from "../../shared/index.js";
 

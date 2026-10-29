@@ -118,20 +118,20 @@ describe.skipIf(!existsSync(path.join(distDir, "index.js")))("dist bundle integr
         expect(unresolved, `${bundlePath} dynamically requires files that do not ship: ${unresolved.join(", ")}`).toEqual([]);
     });
 
-    it("dist/index.js loads and exposes the plugin entrypoint", async () => {
+    it("dist/index.js loads and exposes only the OpenCode 2 plugin entrypoint", async () => {
         const mod = await import(pathToFileURL(path.join(distDir, "index.js")).href);
 
+        expect(Object.keys(mod)).toEqual(["default"]);
+        expect(Object.keys(mod.default).sort()).toEqual(["id", "setup"]);
         expect(mod.default.id).toBe("opencode-orchestrator");
-        expect(typeof mod.default.server).toBe("function");
         expect(typeof mod.default.setup).toBe("function");
     }, DIST_ENTRYPOINT_LOAD_TIMEOUT_MS);
 
-    it("resolves the explicit OpenCode server package export", async () => {
-        const serverEntry = import.meta.resolve("opencode-orchestrator/server");
-        const mod = await import(serverEntry);
+    it("resolves the package root export to the bundled entrypoint", async () => {
+        const rootEntry = import.meta.resolve("opencode-orchestrator");
+        const mod = await import(rootEntry);
 
-        expect(serverEntry.replaceAll("\\", "/")).toContain("/dist/index.js");
-        expect(typeof mod.default.server).toBe("function");
+        expect(rootEntry.replaceAll("\\", "/")).toContain("/dist/index.js");
         expect(typeof mod.default.setup).toBe("function");
     }, DIST_ENTRYPOINT_LOAD_TIMEOUT_MS);
 });

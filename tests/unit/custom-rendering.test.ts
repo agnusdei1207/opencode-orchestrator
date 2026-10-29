@@ -6,36 +6,9 @@ import { describe, expect, it } from "vitest";
 import OrchestratorPlugin from "../../src/index.js";
 
 const SESSION_ID = "rendering-session";
-const THINKING_CLOSER = "  </assistant-thinking></think>\n";
 const CASES = [false, true, undefined];
 
 describe("custom rendering option at host boundaries (issue #52)", () => {
-    it.each(CASES)("honors %s in OpenCode 1 tool and text hooks", async customRendering => {
-        const directory = mkdtempSync(path.join(tmpdir(), "oco-render-v1-"));
-        const instance = await OrchestratorPlugin.server(
-            { directory, client: {} } as Parameters<typeof OrchestratorPlugin.server>[0], { customRendering },
-        );
-        const chat = instance["chat.message"]!;
-        try {
-            await chat({ sessionID: SESSION_ID, agent: "Commander" }, {
-                message: {}, parts: [{ type: "text", text: "/task Verify rendering" }],
-            } as Parameters<typeof chat>[1]);
-            const output = { title: "fixture", output: '{"ok":true}', metadata: { fixture: true } };
-            await instance["tool.execute.after"]!({ sessionID: SESSION_ID, tool: "fixture", callID: "call-1", args: {} }, output);
-            expect(output.output.startsWith('{"ok":true}')).toBe(true);
-            expect(output.output.includes("Step 2")).toBe(customRendering !== false);
-            if (customRendering === false) expect(output.output).toBe('{"ok":true}');
-            expect(output.metadata).toEqual({ fixture: true });
-            const text = { text: THINKING_CLOSER };
-            await instance["experimental.text.complete"]!({ sessionID: SESSION_ID, messageID: "m1", partID: "p1" }, text);
-            expect(text.text).toBe(customRendering === false ? THINKING_CLOSER : "");
-        } finally {
-            await chat({ sessionID: SESSION_ID }, { message: {}, parts: [{ type: "text", text: "/stop" }] } as Parameters<typeof chat>[1]);
-            await instance.dispose?.();
-            rmSync(directory, { recursive: true, force: true });
-        }
-    });
-
     it.each(CASES)("honors %s in OpenCode 2 without losing file content", async customRendering => {
         const directory = mkdtempSync(path.join(tmpdir(), "oco-render-v2-"));
         const { context, hooks } = createV2Host(directory, customRendering);

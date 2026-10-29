@@ -25,13 +25,10 @@
  * automatic injection until the host can confirm an idle session.
  */
 
-import type { PluginInput } from "@opencode-ai/plugin";
+import type { HostClient } from "../../host/client.js";
 import { log } from "../agents/logger.js";
 import { SESSION_STATUS } from "../../shared/index.js";
 import { createPruneTimer } from "../loop/prune-timer.js";
-import { isRecord } from "../../shared/core/guards.js";
-
-type OpencodeClient = PluginInput["client"];
 
 interface ActivityState {
     busy: boolean;
@@ -116,53 +113,14 @@ export function isKnownBusy(sessionID: string): boolean {
 }
 
 /**
- * Authoritative busy check. A failed status read is not evidence of idle.
+ * Authoritative busy check against the host's event-tracked status map. A
+ * session absent from the map is idle: only non-idle sessions are recorded.
  */
-export async function isSessionBusy(client: OpencodeClient, sessionID: string): Promise<boolean> {
+export async function isSessionBusy(client: HostClient, sessionID: string): Promise<boolean> {
     if (!sessionID) return false;
-
-    const remote = await readRemoteStatus(client, sessionID);
-    if (remote === null) return true;
-
-    applyStatus(sessionID, remote);
-    return remote !== SESSION_STATUS.IDLE;
-}
-
-/**
- * Read this session's status from the server map. Returns `null` when the
- * status could not be determined, and `"idle"` when the session is absent —
- * upstream removes idle sessions from the map entirely.
- */
-async function readRemoteStatus(client: OpencodeClient, sessionID: string): Promise<string | null> {
-    // `session.status` is part of the typed plugin client, so this call is
-    // checked against the SDK rather than cast past it. The runtime guard stays
-    // because a plugin can be loaded by an older host than it was built for.
-    if (typeof client.session?.status !== "function") return null;
-
-    try {
-        const statuses = readStatusMap(await client.session.status());
-        if (!statuses) return null;
-
-        const entry = statuses[sessionID];
-        if (entry === undefined) return SESSION_STATUS.IDLE;
-        return readStatusType(entry) ?? SESSION_STATUS.BUSY;
-    } catch (error) {
-        log("[session-activity] Failed to read session status", { sessionID, error });
-        return null;
-    }
-}
-
-function readStatusMap(response: unknown): Record<string, unknown> | null {
-    if (!isRecord(response)) return null;
-    if ("data" in response) {
-        return isRecord(response.data) ? response.data : null;
-    }
-    if ("error" in response) return null;
-    return response;
-}
-
-function readStatusType(entry: unknown): string | undefined {
-    return isRecord(entry) && typeof entry.type === "string" ? entry.type : undefined;
+    const status = client.statuses().get(sessionID) ?? SESSION_STATUS.IDLE;
+    applyStatus(sessionID, status);
+    return status !== SESSION_STATUS.IDLE;
 }
 
 export function clearSessionActivity(sessionID: string): void {

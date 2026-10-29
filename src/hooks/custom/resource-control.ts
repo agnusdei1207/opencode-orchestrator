@@ -18,11 +18,11 @@ import type {
 import { log } from "../../core/agents/logger.js";
 import { HOOK_ACTIONS, HOOK_NAMES } from "../constants.js";
 import {
+    CONTEXT_MONITOR_CONFIG,
     CONTEXT_THRESHOLDS,
     calculateUsage,
     getContextUsage,
 } from "../../core/context/context-window-monitor.js";
-import { CONTEXT_MONITOR_CONFIG } from "../../core/context/context-window-monitor.js";
 
 // Refactored Imports
 import { updateSessionTokens } from "../../core/orchestrator/session-manager.js";

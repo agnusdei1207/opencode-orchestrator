@@ -32,7 +32,6 @@ export function initializeHooks() {
 
     registry.registerPostTool(secretScanner, "stop");
     registry.registerPostTool(resourceControl);
-    registry.registerPostTool(memoryGate);
     registry.registerPostTool(metricsHook);
 
     registry.registerDone(sanityCheck);

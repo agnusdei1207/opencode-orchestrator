@@ -4,7 +4,7 @@
  */
 import { writeFileSync } from "node:fs";
 import path from "node:path";
-import { orchestratorOptionsJsonSchema } from "../src/core/config/options-schema.ts";
+import { orchestratorOptionsJsonSchema } from "../src/core/config/options.ts";
 
 const repoRoot = process.cwd();
 const target = path.join(repoRoot, "opencode-orchestrator.schema.json");

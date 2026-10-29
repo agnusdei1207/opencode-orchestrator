@@ -3,7 +3,7 @@ import { createDelegateTaskTool } from "../../src/tools/parallel/delegate-task.j
 import type { ParallelAgentManager } from "../../src/core/agents/manager.js";
 import type { ParallelTask } from "../../src/shared/index.js";
 
-vi.mock("../../src/core/notification/toast.js", () => ({ presets: { taskStarted: vi.fn() } }));
+const directory = "/tmp/delegate-task-test-project";
 
 const args = { agent: "Worker", description: "Scoped work", prompt: "Implement and verify", background: true };
 function setup(status: ParallelTask["status"] = "running") {
@@ -18,7 +18,7 @@ function setup(status: ParallelTask["status"] = "running") {
     };
     const tool = createDelegateTaskTool(manager as unknown as ParallelAgentManager);
     const run = (overrides = {}, signal?: AbortSignal) => tool.execute(
-        { ...args, ...overrides }, { sessionID: "parent", abort: signal } as never,
+        { ...args, ...overrides }, { sessionID: "parent", directory, abort: signal } as never,
     );
     return { task, manager, run };
 }
@@ -35,11 +35,11 @@ describe("delegate_task manager boundary", () => {
         expect(manager.resume).not.toHaveBeenCalled();
     });
 
-    it("launches a scoped background task with parent and mode metadata", async () => {
+    it("launches a scoped background task with parent metadata", async () => {
         const { manager, run } = setup();
-        const result = await run({ mode: "race", groupID: "group" });
+        const result = await run();
         expect(manager.launch).toHaveBeenCalledWith({ agent: args.agent, description: args.description, prompt: args.prompt,
-            parentSessionID: "parent", mode: "race", groupID: "group", depth: 0 });
+            parentSessionID: "parent", depth: 0 });
         expect(result).toContain("[SPAWNED]");
         expect(result).toContain("child");
     });
@@ -48,6 +48,14 @@ describe("delegate_task manager boundary", () => {
         const { manager, run } = setup();
         expect(await run({ resume: "child" })).toContain("[RESUME]");
         expect(manager.resume).toHaveBeenCalledWith({ sessionId: "child", prompt: args.prompt, parentSessionID: "parent" });
+        expect(manager.launch).not.toHaveBeenCalled();
+    });
+
+    it("rejects an unknown agent instead of running it as Commander", async () => {
+        const { manager, run } = setup();
+        const result = await run({ agent: "worker" });
+        expect(result).toContain('[ERROR] Failed: Unknown agent "worker". Available: ');
+        expect(result).toContain("Worker");
         expect(manager.launch).not.toHaveBeenCalled();
     });
 
@@ -60,7 +68,7 @@ describe("delegate_task manager boundary", () => {
 
     it.each([
         { background: undefined }, { agent: "" }, { description: "" }, { prompt: "" },
-        { background: "true" }, { resume: "" }, { mode: "unknown" }, { groupID: "" },
+        { background: "true" }, { resume: "" },
     ])("rejects invalid arguments before creating work: %j", async (overrides) => {
         const { manager, run } = setup();
         expect(await run(overrides)).toContain("[ERROR]");
@@ -74,13 +82,11 @@ describe("delegate_task manager boundary", () => {
         expect(await run({ background })).toContain("[ERROR] Failed: launch unavailable");
     });
 
-    it("handles empty batch and missing resume without creating substitute work", async () => {
+    it("handles a missing resume session without creating substitute work", async () => {
         const { manager, run } = setup();
-        manager.launch.mockResolvedValue([]);
-        expect(await run()).toContain("[ERROR] Failed to launch task");
         manager.resume.mockRejectedValue(new Error("missing session"));
         expect(await run({ resume: "missing" })).toContain("[ERROR] Resume failed: missing session");
-        expect(manager.launch).toHaveBeenCalledTimes(1);
+        expect(manager.launch).not.toHaveBeenCalled();
     });
 
     it("waits for manager completion through queued and running states", async () => {

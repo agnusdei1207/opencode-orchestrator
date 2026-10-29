@@ -26,26 +26,6 @@ export const COMMAND_NAMES = {
 } as const;
 
 /**
- * Plugin Hook Constants (OpenCode plugin hook names from @opencode-ai/plugin).
- */
-export const PLUGIN_HOOKS = {
-    /** Intercepts user messages before sending to LLM */
-    CHAT_MESSAGE: "chat.message",
-    /** Runs before every LLM call with the resolved model */
-    CHAT_PARAMS: "chat.params",
-    /** Runs before any tool call */
-    TOOL_EXECUTE_BEFORE: "tool.execute.before",
-    /** Runs after any tool call completes */
-    TOOL_EXECUTE_AFTER: "tool.execute.after",
-    /** Preserves custom compaction context */
-    EXPERIMENTAL_SESSION_COMPACTING: "experimental.session.compacting",
-    /** Normalizes finalized assistant text */
-    EXPERIMENTAL_TEXT_COMPLETE: "experimental.text.complete",
-    /** Truncates oversized message parts before the request is sent */
-    EXPERIMENTAL_CHAT_MESSAGES_TRANSFORM: "experimental.chat.messages.transform",
-} as const;
-
-/**
  * Message Role Constants (OpenCode message roles).
  */
 export const MESSAGE_ROLES = {

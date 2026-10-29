@@ -7,7 +7,6 @@
  * - Progress display
  */
 
-import type { Hooks } from "@opencode-ai/plugin";
 import { log } from "../core/agents/logger.js";
 import { recordToolEvidence } from "../core/loop/evidence.js";
 import { formatElapsedTime, formatTimestamp } from "../utils/formatting/index.js";
@@ -15,9 +14,18 @@ import { HookRegistry } from "../hooks/registry.js";
 import type { PluginSessionState, ToolExecuteHandlerContext } from "./context.js";
 import { isRecord } from "../shared/core/guards.js";
 
-type ToolExecuteAfterHook = NonNullable<Hooks["tool.execute.after"]>;
-export type ToolExecuteAfterInput = Parameters<ToolExecuteAfterHook>[0];
-export type ToolExecuteAfterOutput = Parameters<ToolExecuteAfterHook>[1];
+export interface ToolExecuteAfterInput {
+    sessionID: string;
+    tool: string;
+    callID: string;
+    args: unknown;
+}
+
+export interface ToolExecuteAfterOutput {
+    title: string;
+    output: string;
+    metadata: Record<string, unknown>;
+}
 
 /**
  * Create tool.execute.after handler
@@ -39,6 +47,7 @@ export function createToolExecuteAfterHandler(ctx: ToolExecuteHandlerContext, cu
         await hooks.executePostTool(
             {
                 sessionID: toolInput.sessionID,
+                callID: toolInput.callID,
                 agent: session.agent,
                 directory,
                 sessions,
@@ -72,7 +81,7 @@ function advanceSessionStep(session: PluginSessionState): { stepDuration: string
     session.lastStepTime = now;
 
     if (!session.tokens) {
-        session.tokens = { totalInput: 0, totalOutput: 0, estimatedCost: 0 };
+        session.tokens = { totalInput: 0, totalOutput: 0 };
     }
     return { stepDuration, totalElapsed };
 }

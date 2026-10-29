@@ -17,16 +17,11 @@ import { SanityCheckHook } from "../../src/hooks/features/sanity-check";
 import { SecretScannerHook } from "../../src/hooks/custom/secret-scanner";
 
 import { HOOK_ACTIONS } from "../../src/hooks/constants";
-import { state } from "../../src/core/orchestrator/state";
 import type { HookContext } from "../../src/hooks/registry";
-import type { SessionState } from "../../src/core/orchestrator/state";
 import { queuePrompts, hasPendingPrompts } from "../../src/core/session/pending-injection";
 
 // Mock dependencies
 vi.mock("../../src/core/agents/logger", () => ({ log: vi.fn() }));
-vi.mock("../../src/core/notification/toast", () => ({
-    show: vi.fn(),
-}));
 vi.mock("../../src/tools/slashCommand", () => ({
     COMMANDS: { task: { description: "Mock", template: "Mock: $ARGUMENTS" } }
 }));
@@ -54,15 +49,6 @@ vi.mock("../../src/core/loop/verification", () => ({
     }),
     buildVerificationSummary: vi.fn().mockReturnValue("[Verification ✅ PASSED]")
 }));
-vi.mock("../../src/core/orchestrator/session-manager", async () => {
-    const actual = await vi.importActual<typeof import("../../src/core/orchestrator/session-manager")>(
-        "../../src/core/orchestrator/session-manager"
-    );
-    return {
-        ...actual,
-        deactivateMissionState: vi.fn(actual.deactivateMissionState),
-    };
-});
 vi.mock("../../src/utils/sanity/index", () => ({
     checkOutputSanity: vi.fn().mockReturnValue({ isHealthy: true }),
     RECOVERY_PROMPT: "Recover",
@@ -79,19 +65,18 @@ describe("Hook System", () => {
             directory: "/tmp/test",
             sessions: new Map(),
         };
-        state.sessions.clear();
     });
 
     describe("StrictRoleGuardHook", () => {
         const hook = new StrictRoleGuardHook();
 
         it("should allow safe commands", async () => {
-            const result = await hook.execute(mockContext, "run_command", { command: "ls -la" });
+            const result = await hook.execute(mockContext, "bash", { command: "ls -la" });
             expect(result.action).toBe(HOOK_ACTIONS.ALLOW);
         });
 
         it("should block root deletion 'rm -rf /'", async () => {
-            const result = await hook.execute(mockContext, "run_command", { command: "rm -rf /" });
+            const result = await hook.execute(mockContext, "bash", { command: "rm -rf /" });
             expect(result.action).toBe(HOOK_ACTIONS.BLOCK);
         });
 
@@ -114,12 +99,27 @@ describe("Hook System", () => {
             "rm -rf dist/",
             "npm run release:clean",
         ])("allows scoped deletion %s", async (command) => {
-            const result = await hook.execute(mockContext, "run_command", { command });
+            const result = await hook.execute(mockContext, "bash", { command });
+            expect(result.action).toBe(HOOK_ACTIONS.ALLOW);
+        });
+
+        it("blocks a fork bomb sent to the bash tool", async () => {
+            const result = await hook.execute(mockContext, "bash", { command: ":(){ :|:& };:" });
+            expect(result).toEqual({ action: HOOK_ACTIONS.BLOCK, reason: expect.stringMatching(/fork/i) });
+        });
+
+        it("blocks a fork bomb sent to run_background", async () => {
+            const result = await hook.execute(mockContext, "run_background", { command: ":(){ :|:& };:" });
+            expect(result.action).toBe(HOOK_ACTIONS.BLOCK);
+        });
+
+        it("does not inspect tools that do not run shell commands", async () => {
+            const result = await hook.execute(mockContext, "read", { command: "rm -rf /" });
             expect(result.action).toBe(HOOK_ACTIONS.ALLOW);
         });
 
         it("blocks a fork bomb written without spaces", async () => {
-            const result = await hook.execute(mockContext, "run_command", { command: ":(){:|:&};:" });
+            const result = await hook.execute(mockContext, "bash", { command: ":(){:|:&};:" });
             expect(result.action).toBe(HOOK_ACTIONS.BLOCK);
         });
     });
@@ -128,7 +128,6 @@ describe("Hook System", () => {
         const hook = new MissionControlHook();
 
         it("does not interpret ordinary user messages as mission completion", async () => {
-            state.sessions.set("test-session", createSessionState());
             const missionLoop = await import("../../src/core/loop/mission-loop");
             const result = await hook.execute(mockContext, "Also check the deployment wiring before finishing");
             expect(result).toEqual({ action: HOOK_ACTIONS.PROCESS });
@@ -139,13 +138,15 @@ describe("Hook System", () => {
         it("should detect /task command", async () => {
             const result = await hook.execute(mockContext, `/task "build"`);
             expect(result.action).toBe(HOOK_ACTIONS.PROCESS);
-            expect(state.sessions.get("test-session")?.enabled).toBe(true);
+            const { startMissionLoop } = await import("../../src/core/loop/mission-loop");
+            expect(startMissionLoop).toHaveBeenCalledWith("/tmp/test", "test-session", "\"build\"", expect.anything());
+            expect((mockContext.sessions.get("test-session") as { active: boolean }).active).toBe(true);
         });
 
         it("activates a mission from a multi-line /task prompt", async () => {
             const result = await hook.execute(mockContext, "/task build the API\nthen add tests");
             expect(result.action).toBe(HOOK_ACTIONS.PROCESS);
-            expect(state.sessions.get("test-session")?.enabled).toBe(true);
+            expect((mockContext.sessions.get("test-session") as { active: boolean }).active).toBe(true);
             expect(result.modifiedMessage).toContain("then add tests");
         });
 
@@ -159,21 +160,20 @@ describe("Hook System", () => {
             const { startMissionLoop } = await import("../../src/core/loop/mission-loop");
             vi.mocked(startMissionLoop).mockReturnValueOnce(false);
             await expect(hook.execute(mockContext, "/task new goal")).rejects.toThrow("persist");
-            expect(state.sessions.get("test-session")?.enabled).not.toBe(true);
+            expect(mockContext.sessions.has("test-session")).toBe(false);
         });
 
         it("should intercept /cancel and deactivate mission state", async () => {
-            state.sessions.set("test-session", createSessionState());
             mockContext.sessions.set("test-session", { active: true });
+            queuePrompts("test-session", ["Continue the old turn"]);
 
             const { cancelMissionLoop } = await import("../../src/core/loop/mission-loop");
-            const { deactivateMissionState } = await import("../../src/core/orchestrator/session-manager");
 
             const result = await hook.execute(mockContext, "/cancel");
 
             expect(result.action).toBe(HOOK_ACTIONS.INTERCEPT);
             expect(cancelMissionLoop).toHaveBeenCalledWith("/tmp/test", "test-session");
-            expect(deactivateMissionState).toHaveBeenCalledWith("test-session");
+            expect(hasPendingPrompts("test-session")).toBe(false);
             const session = mockContext.sessions.get("test-session") as { active: boolean };
             expect(session.active).toBe(false);
         });
@@ -294,7 +294,7 @@ describe("Hook System", () => {
     });
 
     describe("SanityCheckHook", () => {
-        async function mockedSanity(severity: string) {
+        async function mockedSanity(severity: "critical" | "warning") {
             const { checkOutputSanity } = await import("../../src/utils/sanity/index");
             vi.mocked(checkOutputSanity).mockReturnValue({ isHealthy: false, reason: "Loop", severity });
         }
@@ -349,14 +349,3 @@ describe("Hook System", () => {
         });
     });
 });
-
-function createSessionState(overrides: Partial<SessionState> = {}): SessionState {
-    return {
-        enabled: true,
-        iterations: 0,
-        taskRetries: new Map(),
-        currentTask: "",
-        anomalyCount: 0,
-        ...overrides,
-    };
-}

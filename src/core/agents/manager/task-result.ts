@@ -1,46 +1,26 @@
-import type { PluginInput } from "@opencode-ai/plugin";
-import { MESSAGE_ROLES, PART_TYPES } from "../../../shared/index.js";
+import type { HostClient, HostMessage } from "../../../host/client.js";
 
-type OpencodeClient = PluginInput["client"];
-type ResultPart = { type?: string; text?: string };
-type ResultMessage = { info?: { role?: string; error?: unknown; time?: { created?: number; completed?: number } }; parts?: ResultPart[] };
-
+/** Text of the task's latest assistant reply, from messages created since `startedAt`. */
 export async function fetchTaskResultText(
-    client: OpencodeClient,
+    client: HostClient,
     sessionID: string,
     startedAt?: Date,
 ): Promise<string> {
-    const result = await client.session.messages({ path: { id: sessionID } });
-    if (result.error) throw new Error(formatError(result.error));
-    const messages = (result.data ?? []) as ResultMessage[];
-    const current = startedAt ? messagesCreatedSince(messages, startedAt) : messages;
-    const latest = current.filter(message => message.info?.role === MESSAGE_ROLES.ASSISTANT).at(-1);
+    const messages = await client.messages(sessionID);
+    const current = startedAt
+        ? messages.filter(message => message.created !== undefined && message.created >= startedAt.getTime())
+        : messages;
+    const latest = current.filter(message => message.role === "assistant").at(-1);
     assertLatestResultAvailable(latest, startedAt);
-    return extractTaskResultText(current);
+    return latest ? latest.text : "(No response)";
 }
 
-function messagesCreatedSince(messages: ResultMessage[], startedAt: Date): ResultMessage[] {
-    return messages.filter(message =>
-        message.info?.time?.created !== undefined && message.info.time.created >= startedAt.getTime()
-    );
-}
-
-function assertLatestResultAvailable(latest: ResultMessage | undefined, startedAt: Date | undefined): void {
-    if (latest?.info?.error) throw new Error(formatError(latest.info.error));
-    if (startedAt && !latest?.info?.time?.completed) throw new Error("Current task result is not available");
-}
-
-export function extractTaskResultText(messages: ResultMessage[]): string {
-    const lastMsg = messages.filter(m => m.info?.role === MESSAGE_ROLES.ASSISTANT).reverse()[0];
-    if (!lastMsg) return "(No response)";
-
-    return lastMsg.parts
-        ?.filter(p => p.type === PART_TYPES.TEXT || p.type === PART_TYPES.REASONING)
-        .map(p => p.text ?? "")
-        .filter(Boolean)
-        .join("\n") ?? "";
+function assertLatestResultAvailable(latest: HostMessage | undefined, startedAt: Date | undefined): void {
+    if (latest?.error) throw new Error(formatError(latest.error));
+    if (startedAt && !latest?.completed) throw new Error("Current task result is not available");
 }
 
 function formatError(error: unknown): string {
-    return error instanceof Error ? error.message : String(error);
+    if (error instanceof Error) return error.message;
+    return typeof error === "string" ? error : JSON.stringify(error);
 }

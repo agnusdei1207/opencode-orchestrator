@@ -4,7 +4,7 @@
  * Performs incremental updates to .opencode/todo.md
  */
 
-import { tool, type ToolDefinition } from "@opencode-ai/plugin";
+import { tool, type ToolDefinition } from "../../host/tool.js";
 import { TodoManager } from "../../core/todo/todo-manager.js";
 import { OUTPUT_LABEL, TODO_CONSTANTS } from "../../shared/index.js";
 

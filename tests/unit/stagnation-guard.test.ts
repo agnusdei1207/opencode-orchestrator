@@ -24,9 +24,6 @@ import { HookRegistry } from "../../src/hooks/registry";
 import { HOOK_ACTIONS } from "../../src/hooks/constants";
 
 vi.mock("../../src/core/agents/logger", () => ({ log: vi.fn() }));
-vi.mock("../../src/core/notification/toast", () => ({
-    show: vi.fn(),
-}));
 
 const SESSION = "ses_stagnation";
 const REMINDER = "<dcp-system-reminder>\nCRITICAL WARNING: MAX CONTEXT LIMIT REACHED\n</dcp-system-reminder>";
@@ -113,26 +110,41 @@ describe("assistant-done handler feeds the guard", () => {
         clearCircuitState(SESSION);
     });
 
-    function contextWith(parts: Array<{ type: string; text?: string }>) {
+    /** A host client whose session history holds the given assistant messages. */
+    function contextWith(messages: Array<{ id: string; text: string; toolCallCount: number }>) {
         return {
-            client: { session: { message: vi.fn().mockResolvedValue({ data: { parts } }) } },
+            client: {
+                messages: vi.fn().mockResolvedValue(messages.map(message => ({ role: "assistant", ...message }))),
+            },
             directory: "/tmp/test",
             sessions: new Map([[SESSION, {
                 active: true, step: 0, timestamp: 0, startTime: 0, lastStepTime: 0,
-                tokens: { totalInput: 0, totalOutput: 0, estimatedCost: 0 },
+                tokens: { totalInput: 0, totalOutput: 0 },
             }]]),
         } as never;
     }
 
-    it("records text-only turns and counts tool parts as progress", async () => {
-        const echo = contextWith([{ type: "text", text: REMINDER }]);
+    it("records text-only turns and counts tool calls as progress", async () => {
+        const echo = contextWith([
+            { id: "m1", text: REMINDER, toolCallCount: 0 },
+            { id: "m2", text: REMINDER, toolCallCount: 0 },
+        ]);
         await handleCompletedAssistantMessage(echo, SESSION, "m1");
         await handleCompletedAssistantMessage(echo, SESSION, "m2");
         expect(getCircuitState(SESSION)?.idleTurnHistory).toHaveLength(2);
 
-        const acted = contextWith([{ type: "text", text: REMINDER }, { type: "tool" }]);
+        const acted = contextWith([{ id: "m3", text: REMINDER, toolCallCount: 1 }]);
         await handleCompletedAssistantMessage(acted, SESSION, "m3");
         expect(getCircuitState(SESSION)?.idleTurnHistory).toEqual([]);
+    });
+
+    it("reads the completed message by its ID", async () => {
+        const context = contextWith([
+            { id: "older", text: "older text", toolCallCount: 0 },
+            { id: "m1", text: REMINDER, toolCallCount: 0 },
+        ]);
+        await handleCompletedAssistantMessage(context, SESSION, "m1");
+        expect(executeDone).toHaveBeenCalledWith(expect.objectContaining({ sessionID: SESSION }), REMINDER);
     });
 });
 
@@ -154,7 +166,7 @@ describe("a real user message resets the guard", () => {
 
     it("clears the circuit for a message the user typed", async () => {
         tripped();
-        const handler = createChatMessageHandler({ client: {} as never, directory: "/tmp/test", sessions: new Map() });
+        const handler = createChatMessageHandler({ client: {} as never, directory: "/tmp/test", sessions: new Map(), agents: {} as never });
 
         await handler({ sessionID: SESSION } as never, { parts: [{ type: "text", text: "try compress again" }] } as never);
 
@@ -163,7 +175,7 @@ describe("a real user message resets the guard", () => {
 
     it("leaves the circuit open for the orchestrator's own synthetic prompts", async () => {
         tripped();
-        const handler = createChatMessageHandler({ client: {} as never, directory: "/tmp/test", sessions: new Map() });
+        const handler = createChatMessageHandler({ client: {} as never, directory: "/tmp/test", sessions: new Map(), agents: {} as never });
 
         await handler(
             { sessionID: SESSION } as never,

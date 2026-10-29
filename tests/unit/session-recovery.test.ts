@@ -7,23 +7,20 @@ import {
 } from "../../src/core/recovery/session-recovery";
 import { BACKGROUND_TASK, detectErrorType, ERROR_TYPE, RECOVERY } from "../../src/shared";
 import * as SessionActivity from "../../src/core/session/activity";
+import { clearPrompts, peekPrompts } from "../../src/core/session/pending-injection";
 
 vi.mock("../../src/core/agents/logger", () => ({ log: vi.fn() }));
 
 const touchedSessions: string[] = [];
 let mockClient: {
-    session: {
-        prompt: ReturnType<typeof vi.fn>;
-        status: ReturnType<typeof vi.fn>;
-    };
+    prompt: ReturnType<typeof vi.fn>;
+    statuses: ReturnType<typeof vi.fn>;
 };
 
 beforeEach(() => {
     mockClient = {
-        session: {
-            prompt: vi.fn().mockResolvedValue({ data: {} }),
-            status: vi.fn().mockResolvedValue({ data: {} }),
-        },
+        prompt: vi.fn().mockResolvedValue(undefined),
+        statuses: vi.fn(() => new Map()),
     };
 });
 
@@ -42,7 +39,7 @@ it("detects recovery-supported error types using the shared detector", () => {
     expect(detectErrorType("random error message")).toBeNull();
 });
 
-it("injects a compact tool-crash recovery prompt through the OpenCode session API", async () => {
+it("injects a compact tool-crash recovery prompt through the host client", async () => {
     const sessionID = "session-recovery-tool";
     touchedSessions.push(sessionID);
 
@@ -53,15 +50,10 @@ it("injects a compact tool-crash recovery prompt through the OpenCode session AP
     );
 
     expect(recovered).toBe(true);
-    expect(mockClient.session.prompt).toHaveBeenCalledWith({
-        path: { id: sessionID },
-        body: {
-            parts: [{
-                type: "text",
-                synthetic: true,
-                text: expect.stringContaining('<recovery type="tool_crash">'),
-            }],
-        },
+    expect(mockClient.prompt).toHaveBeenCalledWith({
+        sessionID,
+        synthetic: true,
+        text: expect.stringContaining('<recovery type="tool_crash">'),
     });
     expect(isSessionRecovering(sessionID)).toBe(false);
 });
@@ -77,15 +69,10 @@ it("injects thinking block recovery prompt for thinking errors", async () => {
     );
 
     expect(recovered).toBe(true);
-    expect(mockClient.session.prompt).toHaveBeenCalledWith({
-        path: { id: sessionID },
-        body: {
-            parts: [{
-                type: "text",
-                synthetic: true,
-                text: expect.stringContaining('<recovery type="thinking_block">'),
-            }],
-        },
+    expect(mockClient.prompt).toHaveBeenCalledWith({
+        sessionID,
+        synthetic: true,
+        text: expect.stringContaining('<recovery type="thinking_block">'),
     });
 });
 
@@ -103,26 +90,25 @@ it("queues recovery notice when session is currently busy", async () => {
 
     expect(recovered).toBe(true);
     // Prompt was not immediately dispatched
-    expect(mockClient.session.prompt).not.toHaveBeenCalled();
+    expect(mockClient.prompt).not.toHaveBeenCalled();
+    expect(peekPrompts(sessionID)).toEqual([expect.stringContaining('<recovery type="tool_crash">')]);
 
     busySpy.mockRestore();
+    clearPrompts(sessionID);
 });
 
-it("handles rate limit errors by waiting without prompt injection", async () => {
-    vi.useFakeTimers();
+it("does not recover rate limit errors, which the host retries itself", async () => {
     const sessionID = "session-recovery-rate-limit";
     touchedSessions.push(sessionID);
 
-    const recovery = handleSessionError(
+    const recovered = await handleSessionError(
         mockClient as unknown as Parameters<typeof handleSessionError>[0],
         sessionID,
         new Error("429 rate limit exceeded"),
     );
-    await vi.advanceTimersByTimeAsync(RECOVERY.BASE_DELAY_MS * 2);
-    const recovered = await recovery;
 
-    expect(recovered).toBe(true);
-    expect(mockClient.session.prompt).not.toHaveBeenCalled();
+    expect(recovered).toBe(false);
+    expect(mockClient.prompt).not.toHaveBeenCalled();
 });
 
 it("returns false without recovery for user aborted messages", async () => {
@@ -136,7 +122,7 @@ it("returns false without recovery for user aborted messages", async () => {
     );
 
     expect(recovered).toBe(false);
-    expect(mockClient.session.prompt).not.toHaveBeenCalled();
+    expect(mockClient.prompt).not.toHaveBeenCalled();
 });
 
 it("returns false without recovery for context overflow", async () => {
@@ -163,7 +149,7 @@ it("does not inject a recovery prompt for unknown errors", async () => {
     );
 
     expect(recovered).toBe(false);
-    expect(mockClient.session.prompt).not.toHaveBeenCalled();
+    expect(mockClient.prompt).not.toHaveBeenCalled();
 });
 
 it("does not let an unknown error start the cooldown for a recoverable one", async () => {

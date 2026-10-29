@@ -13,7 +13,8 @@ vi.mock("../../src/core/agents/logger", () => ({
     log: vi.fn(),
 }));
 
-import { ConcurrencyController, type ConcurrencyConfig } from "../../src/core/agents/concurrency";
+import { ConcurrencyController } from "../../src/core/agents/concurrency";
+import type { ConcurrencyConfig } from "../../src/core/config/options";
 import { TaskStore } from "../../src/core/agents/task-store";
 import { TASK_STATUS, type ParallelTask } from "../../src/shared";
 
@@ -86,7 +87,7 @@ describe("Full System E2E", () => {
             }
 
             // === Phase 3: Verify ===
-            expect(store.hasPending("orchestrator_session")).toBe(false);
+            expect(store.getPendingCount("orchestrator_session")).toBe(0);
             expect(store.getNotifications("orchestrator_session")).toHaveLength(2);
             expect(concurrency.getActiveCount("builder")).toBe(0);
         });
@@ -169,27 +170,6 @@ describe("Full System E2E", () => {
             expect(store.get(deletedTask.id)).toBeUndefined();
             expect(concurrency.getActiveCount("builder")).toBe(2);
             expect(store.getPendingCount("orchestrator_session")).toBe(2);
-        });
-
-        it("should handle session.idle event with stability check", async () => {
-            const store = new TaskStore();
-            const task = createParallelTask({
-                startedAt: new Date(Date.now() - 15000),
-                stablePolls: 3,
-            });
-            store.set(task.id, task);
-
-            const MIN_STABILITY_MS = 10000;
-            const elapsed = Date.now() - task.startedAt.getTime();
-            const isStable = (task.stablePolls ?? 0) >= 3;
-            const meetsMinTime = elapsed >= MIN_STABILITY_MS;
-
-            if (isStable && meetsMinTime) {
-                task.status = TASK_STATUS.COMPLETED;
-                task.completedAt = new Date();
-            }
-
-            expect(task.status).toBe(TASK_STATUS.COMPLETED);
         });
     });
 

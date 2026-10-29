@@ -10,7 +10,7 @@ type Context = Plugin.Context;
 type LegacyHandler = (input: { event: LegacyEvent }) => Promise<void>;
 type LegacyEvent = { type: string; properties: Record<string, unknown> };
 
-export function startV2EventBridge(
+export function startEventBridge(
     context: Context,
     handler: LegacyHandler,
     statuses: Map<string, string>,

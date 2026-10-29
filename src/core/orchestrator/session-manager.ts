@@ -1,4 +1,3 @@
-import { state, type SessionState } from "./state.js";
 import { log } from "../agents/logger.js";
 
 /**
@@ -28,7 +27,6 @@ interface ManagedSessionState {
     tokens: {
         totalInput: number;
         totalOutput: number;
-        estimatedCost: number;
     };
 }
 
@@ -71,52 +69,7 @@ export function ensureSessionInitialized(
 }
 
 /**
- * Ensures a global mission state exists for a specific session.
- */
-function ensureGlobalState(sessionID: string): SessionState {
-    const stateSession = state.sessions.get(sessionID);
-
-    if (!stateSession) {
-        const newState: SessionState = {
-            enabled: true,
-            iterations: 0,
-            taskRetries: new Map(),
-            currentTask: "",
-            anomalyCount: 0,
-        };
-        state.sessions.set(sessionID, newState);
-        return newState;
-    }
-    return stateSession;
-}
-
-/**
- * Activates the global mission state for a specific session.
- */
-export function activateMissionState(sessionID: string): void {
-    const stateSession = ensureGlobalState(sessionID);
-    stateSession.enabled = true;
-    stateSession.anomalyCount = 0;
-    log(`[SessionManager] Mission Activated: ${sessionID}`);
-}
-
-/**
- * Deactivates mission state (e.g., on cancellation or error).
- */
-export function deactivateMissionState(sessionID: string): void {
-    const stateSession = state.sessions.get(sessionID);
-    if (stateSession) {
-        stateSession.enabled = false;
-    }
-    log(`[SessionManager] Mission Deactivated: ${sessionID}`);
-}
-
-// Cost Estimations (USD)
-const COST_PER_1K_INPUT = 0.003;
-const COST_PER_1K_OUTPUT = 0.015;
-
-/**
- * Updates token usage and estimated cost for a session.
+ * Updates the estimated token usage for a session.
  */
 export function updateSessionTokens(
     sessions: Map<string, unknown>,
@@ -127,7 +80,7 @@ export function updateSessionTokens(
     const session = ensureSessionInitialized(sessions, sessionID);
 
     if (!session.tokens) {
-        session.tokens = { totalInput: 0, totalOutput: 0, estimatedCost: 0 };
+        session.tokens = { totalInput: 0, totalOutput: 0 };
     }
 
     // Heuristic: ~4 chars per token
@@ -136,11 +89,6 @@ export function updateSessionTokens(
 
     session.tokens.totalInput += inputTokens;
     session.tokens.totalOutput += outputTokens;
-
-    const cost = (session.tokens.totalInput / 1000 * COST_PER_1K_INPUT) +
-        (session.tokens.totalOutput / 1000 * COST_PER_1K_OUTPUT);
-
-    session.tokens.estimatedCost = Number(cost.toFixed(4));
 }
 
 function createManagedSession(): ManagedSessionState {
@@ -155,7 +103,7 @@ function createManagedSession(): ManagedSessionState {
         lastUserMessageAt: undefined,
         lastAssistantCompletedAt: undefined,
         lastAbortAt: undefined,
-        tokens: { totalInput: 0, totalOutput: 0, estimatedCost: 0 },
+        tokens: { totalInput: 0, totalOutput: 0 },
     };
 }
 
@@ -167,7 +115,7 @@ function normalizeManagedSession(session: Record<string, unknown>): ManagedSessi
     if (!isFiniteNumber(session.startTime)) session.startTime = now;
     if (!isFiniteNumber(session.lastStepTime)) session.lastStepTime = now;
     if (!isTokenUsage(session.tokens)) {
-        session.tokens = { totalInput: 0, totalOutput: 0, estimatedCost: 0 };
+        session.tokens = { totalInput: 0, totalOutput: 0 };
     }
     if (isManagedSessionState(session)) return session;
 
@@ -186,9 +134,7 @@ function isManagedSessionState(value: unknown): value is ManagedSessionState {
 
 function isTokenUsage(value: unknown): value is ManagedSessionState["tokens"] {
     if (!isRecord(value)) return false;
-    return isFiniteNumber(value.totalInput)
-        && isFiniteNumber(value.totalOutput)
-        && isFiniteNumber(value.estimatedCost);
+    return isFiniteNumber(value.totalInput) && isFiniteNumber(value.totalOutput);
 }
 
 function isFiniteNumber(value: unknown): value is number {
@@ -198,13 +144,3 @@ function isFiniteNumber(value: unknown): value is number {
 /**
  * Anomaly Management
  */
-export function recordAnomaly(sessionID: string): number {
-    const session = ensureGlobalState(sessionID);
-    session.anomalyCount = (session.anomalyCount || 0) + 1;
-    return session.anomalyCount;
-}
-
-export function resetAnomaly(sessionID: string): void {
-    const session = ensureGlobalState(sessionID);
-    session.anomalyCount = 0;
-}

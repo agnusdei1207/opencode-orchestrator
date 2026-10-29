@@ -3,10 +3,9 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import type { Plugin } from "@opencode/plugin";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { CleanupScheduler } from "../../src/core/cleanup/cleanup-scheduler.js";
 import { ParallelAgentManager } from "../../src/core/agents/manager.js";
 import { SessionRegistry } from "../../src/core/agents/session-registry.js";
-import { setupV2 } from "../../src/v2/setup.js";
+import { setupPlugin } from "../../src/host/plugin.js";
 import { backgroundTaskManager } from "../../src/core/commands/manager.js";
 
 type Registration = { dispose: ReturnType<typeof vi.fn> };
@@ -55,31 +54,32 @@ describe("OpenCode 2 registration lifecycle", () => {
             disposals.push(dispose);
             return Promise.resolve({ dispose });
         };
-        return { ...createHost(directory, register), disposals, stop: vi.spyOn(CleanupScheduler.prototype, "stop") };
+        return { ...createHost(directory, register), disposals, stop: vi.spyOn(ParallelAgentManager.prototype, "shutdown") };
     }
 
     it("releases registered hooks and runtime when agent registration fails", async () => {
         const { context, host, disposals, stop } = fixture();
         host.agent.transform.mockRejectedValueOnce(new Error("agent registration failed"));
 
-        await expect(setupV2(context)).rejects.toThrow("agent registration failed");
+        await expect(setupPlugin(context)).rejects.toThrow("agent registration failed");
 
         expect(disposals).toHaveLength(5);
         for (const dispose of disposals) expect(dispose).toHaveBeenCalledOnce();
         expect(stop).toHaveBeenCalledOnce();
     });
 
-    it("rolls back the instance's shared resources when runtime setup throws", async () => {
+    it("releases the instance's shared resources when runtime setup throws", async () => {
         const failing = fixture();
-        vi.spyOn(CleanupScheduler.prototype, "start").mockImplementationOnce(() => {
-            throw new Error("scheduler failed");
-        });
-        const managerShutdown = vi.spyOn(ParallelAgentManager.prototype, "shutdown");
+        vi.spyOn(ParallelAgentManager.prototype as unknown as { initializeProjectServices: () => void }, "initializeProjectServices")
+            .mockImplementationOnce(() => {
+                throw new Error("manager setup failed");
+            });
         const processShutdown = vi.spyOn(backgroundTaskManager, "shutdown").mockResolvedValue(undefined);
 
-        await expect(setupV2(failing.context)).rejects.toThrow("scheduler failed");
+        await expect(setupPlugin(failing.context)).rejects.toThrow("manager setup failed");
 
-        expect(managerShutdown).toHaveBeenCalledOnce();
+        // Nothing was registered with the host before the runtime failed.
+        expect(failing.disposals).toHaveLength(0);
         // The failed instance was the only one, so the shared services were released.
         await vi.waitFor(() => expect(processShutdown).toHaveBeenCalledOnce());
     });
@@ -93,7 +93,7 @@ describe("OpenCode 2 registration lifecycle", () => {
             return Promise.resolve({ dispose });
         });
 
-        await expect(setupV2(context)).rejects.toThrow("context hook failed");
+        await expect(setupPlugin(context)).rejects.toThrow("context hook failed");
 
         expect(disposals).toHaveLength(4);
         for (const dispose of disposals) expect(dispose).toHaveBeenCalledOnce();
@@ -109,7 +109,7 @@ describe("OpenCode 2 registration lifecycle", () => {
             return Promise.resolve({ dispose });
         });
 
-        await expect(setupV2(context)).rejects.toThrow("synchronous hook failure");
+        await expect(setupPlugin(context)).rejects.toThrow("synchronous hook failure");
 
         expect(disposals).toHaveLength(4);
         for (const dispose of disposals) expect(dispose).toHaveBeenCalledOnce();
@@ -118,7 +118,7 @@ describe("OpenCode 2 registration lifecycle", () => {
 
     it("shuts down runtime after a registration disposer fails", async () => {
         const { context, disposals, stop } = fixture();
-        const cleanup = await setupV2(context);
+        const cleanup = await setupPlugin(context);
         disposals[0].mockRejectedValueOnce(new Error("dispose failed"));
 
         await expect(cleanup()).rejects.toThrow("dispose failed");
@@ -129,7 +129,7 @@ describe("OpenCode 2 registration lifecycle", () => {
 
     it("shuts down runtime when a registration disposer throws synchronously", async () => {
         const { context, disposals, stop } = fixture();
-        const cleanup = await setupV2(context);
+        const cleanup = await setupPlugin(context);
         disposals[0].mockImplementationOnce(() => { throw new Error("synchronous dispose failure"); });
 
         await expect(cleanup()).rejects.toThrow("synchronous dispose failure");
@@ -154,8 +154,8 @@ describe("OpenCode 2 registration lifecycle", () => {
         const registryShutdown = vi.spyOn(SessionRegistry.prototype, "shutdown");
         const processShutdown = vi.spyOn(backgroundTaskManager, "shutdown").mockResolvedValue(undefined);
 
-        const disposeIdle = await setupV2(idle.context);
-        const disposeLive = await setupV2(live.context);
+        const disposeIdle = await setupPlugin(idle.context);
+        const disposeLive = await setupPlugin(live.context);
         await disposeIdle();
 
         expect(managerShutdown).toHaveBeenCalledOnce();

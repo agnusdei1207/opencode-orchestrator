@@ -11,8 +11,6 @@ export interface MissionLoopState {
     active: boolean;
     /** Current iteration number */
     iteration: number;
-    /** Maximum allowed iterations */
-    maxIterations: number;
     /** Original task prompt */
     prompt: string;
     /** Compact objective title shown in continuation prompts */
@@ -21,10 +19,6 @@ export interface MissionLoopState {
     sessionID: string;
     /** When loop started */
     startedAt: string;
-    /** Last activity timestamp */
-    lastActivity?: string;
-    /** Last known progress string (e.g., "3/10") */
-    lastProgress?: string;
     /** Number of iterations without progress */
     stagnationCount?: number;
     /** Last verification summary observed before continuation */
@@ -36,10 +30,6 @@ export interface MissionLoopState {
 }
 
 export interface MissionLoopOptions {
-    /** Maximum iterations before stopping (default: 1,000,000,000) */
-    maxIterations?: number;
-    /** Countdown seconds before auto-continue (default: 3) */
-    countdownSeconds?: number;
     /** Expected prior mission; permits replacement only if its identity still matches. */
     replaceExisting?: Pick<MissionLoopState, "sessionID" | "startedAt" | "prompt">;
 }

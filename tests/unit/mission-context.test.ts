@@ -29,7 +29,7 @@ describe("mission context builder", () => {
     it("includes mission rules, objective, memory and rehydrated step count", () => {
         startMissionLoop(directory, "owner", "Build the feature");
         const text = build("owner");
-        expect(text).toContain("MISSION LOOP ACTIVE: Iteration 1/");
+        expect(text).toContain("MISSION LOOP ACTIVE: Iteration 1\n");
         expect(text).toContain("Build the feature");
         expect(text).toContain("parent status: completed");
         expect(text).toContain("If .opencode/verification-checklist.md exists");
@@ -38,15 +38,14 @@ describe("mission context builder", () => {
         expect(sessions.get("owner")?.step).toBe(1);
     });
 
-    it("reads fresh step, iteration, progress and verification on every request", () => {
+    it("reads fresh step, iteration and verification on every request", () => {
         startMissionLoop(directory, "owner", "Build");
         build("owner");
         sessions.get("owner")!.step = 42;
-        writeLoopState(directory, { ...readLoopState(directory)!, iteration: 8, lastProgress: "2/3", lastVerificationSummary: "tests passed" });
+        writeLoopState(directory, { ...readLoopState(directory)!, iteration: 8, lastVerificationSummary: "tests passed" });
         const text = build("owner");
         expect(text).toContain("Steps executed: 42");
-        expect(text).toContain("Iteration 8/");
-        expect(text).toContain("Last progress: 2/3");
+        expect(text).toContain("MISSION LOOP ACTIVE: Iteration 8\n");
         expect(text).toContain("Last verification: tests passed");
     });
 

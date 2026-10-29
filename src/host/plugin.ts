@@ -7,53 +7,52 @@ import { createToolExecuteAfterHandler } from "../plugin-handlers/tool-execute-h
 import { createSessionCompactingHandler } from "../plugin-handlers/session-compacting-handler.js";
 import { createMissionContextBuilder } from "../plugin-handlers/mission-context.js";
 import { createEventHandler } from "../plugin-handlers/event-handler.js";
-import { createV2ClientBridge } from "./client-adapter.js";
-import { startV2EventBridge } from "./event-bridge.js";
-import { registerV2Tools } from "./tool-adapter.js";
-import { registerV2Commands } from "./command-adapter.js";
-import { registerV2Agents } from "./agent-adapter.js";
-import { parseAgentTemperatures, parseCustomRendering } from "../core/config/options-schema.js";
+import { createHostClient } from "./client.js";
+import { startEventBridge } from "./event-bridge.js";
+import { registerTools } from "./tool-adapter.js";
+import { registerCommands } from "./command-adapter.js";
+import { registerAgents } from "./agent-adapter.js";
 import { isRecord } from "../shared/core/guards.js";
 import { truncateOversizedMessageParts } from "../shared/message/message-guard.js";
 
 type Context = Plugin.Context;
 type Registration = Awaited<ReturnType<Context["tool"]["transform"]>>;
 
-export async function setupV2(contextInput: unknown): Promise<() => Promise<void>> {
+export async function setupPlugin(contextInput: unknown): Promise<() => Promise<void>> {
     const context = contextInput as Context;
-    const bridge = createV2ClientBridge(context);
-    const runtime = initializePluginRuntime({
-        client: bridge.client,
-        directory: context.location.directory,
-    } as unknown as Parameters<typeof initializePluginRuntime>[0], context.options);
+    const bridge = createHostClient(context);
+    const runtime = initializePluginRuntime(
+        { client: bridge.client, directory: context.location.directory },
+        context.options,
+    );
     const { handlerContext } = runtime;
     const registrations: Registration[] = [];
     let stopEvents: (() => void) | undefined;
     try {
-        await registerHooks(context, handlerContext, parseAgentTemperatures(context.options.agentTemperatures), registrations);
-        registrations.push(await registerV2Agents(context));
-        registrations.push(await registerV2Tools(
+        await registerHooks(context, runtime, registrations);
+        registrations.push(await registerAgents(context));
+        registrations.push(await registerTools(
             context,
             registerAllTools(runtime.directory, runtime.asyncAgentTools),
         ));
-        registrations.push(await registerV2Commands(context, handlerContext));
-        stopEvents = startV2EventBridge(
+        registrations.push(await registerCommands(context, handlerContext));
+        stopEvents = startEventBridge(
             context,
             createEventHandler(handlerContext),
             bridge.statuses,
         );
     } catch (error) {
         try {
-            await disposeV2(registrations, stopEvents, runtime.shutdownManager);
+            await disposePlugin(registrations, stopEvents, runtime.shutdownManager);
         } catch (cleanupError) {
-            throw new AggregateError([error, cleanupError], "OpenCode 2 setup and cleanup failed");
+            throw new AggregateError([error, cleanupError], "Plugin setup and cleanup failed");
         }
         throw error;
     }
-    return () => disposeV2(registrations, stopEvents, runtime.shutdownManager);
+    return () => disposePlugin(registrations, stopEvents, runtime.shutdownManager);
 }
 
-async function disposeV2(registrations: Registration[], stopEvents: (() => void) | undefined, shutdownManager: PluginRuntime["shutdownManager"]): Promise<void> {
+async function disposePlugin(registrations: Registration[], stopEvents: (() => void) | undefined, shutdownManager: PluginRuntime["shutdownManager"]): Promise<void> {
     stopEvents?.();
     const results = await Promise.allSettled(registrations.map(registration =>
         Promise.resolve().then(() => registration.dispose()),
@@ -61,15 +60,17 @@ async function disposeV2(registrations: Registration[], stopEvents: (() => void)
     await shutdownManager.shutdown();
     const failures = results.filter((result): result is PromiseRejectedResult => result.status === "rejected");
     if (failures.length === 1) throw failures[0].reason;
-    if (failures.length > 1) throw new AggregateError(failures.map(failure => failure.reason), "OpenCode 2 registration cleanup failed");
+    if (failures.length > 1) throw new AggregateError(failures.map(failure => failure.reason), "Plugin registration cleanup failed");
 }
 
-async function registerHooks(context: Context, handlerContext: PluginRuntime["handlerContext"], temperatures: Readonly<Record<string, number>>, registrations: Registration[]): Promise<void> {
+async function registerHooks(context: Context, runtime: PluginRuntime, registrations: Registration[]): Promise<void> {
+    const { handlerContext } = runtime;
+    const temperatures = runtime.options.agentTemperatures;
     const chat = createChatMessageHandler(handlerContext);
     const before = createToolExecuteBeforeHandler(handlerContext);
-    const after = createToolExecuteAfterHandler(handlerContext, parseCustomRendering(context.options.customRendering));
+    const after = createToolExecuteAfterHandler(handlerContext, runtime.options.customRendering);
     const compact = createSessionCompactingHandler(handlerContext);
-    const missionContext = createV2MissionContextHandler(handlerContext);
+    const missionContext = createMissionContextHandler(handlerContext);
     const { sessions } = handlerContext;
     const hooks = [
         () => context.session.hook("prompt", input => runPromptHook(chat, input, sessions)),
@@ -77,7 +78,7 @@ async function registerHooks(context: Context, handlerContext: PluginRuntime["ha
             runContextOptions(input, temperatures, handlerContext.contextLimits);
             missionContext(input);
             runMessageGuard(input);
-            rememberContextAgent(sessions, input as V2ContextRequest);
+            rememberContextAgent(sessions, input as ContextRequest);
         }),
         () => context.session.hook("compaction", input => runCompactionHook(compact, input)),
         () => context.tool.hook("execute.before", input => runBeforeToolHook(before, input)),
@@ -98,7 +99,7 @@ type SessionStates = PluginRuntime["handlerContext"]["sessions"];
  * The latest one is kept on the existing session state (which the session's
  * lifecycle already bounds) so prompt hooks and tool hooks can attribute work.
  */
-function rememberContextAgent(sessions: SessionStates, request: V2ContextRequest): void {
+function rememberContextAgent(sessions: SessionStates, request: ContextRequest): void {
     const session = sessions.get(request.sessionID);
     const agent = (request.agent || "").toLowerCase();
     if (session && agent) session.agent = agent;
@@ -112,10 +113,7 @@ async function runPromptHook(chat: ReturnType<typeof createChatMessageHandler>, 
     // previous agent right after a switch). Readers that act after the turn,
     // such as memory-gate on assistant done, see the updated value.
     const agent = sessions.get(prompt.sessionID)?.agent ?? "";
-    await chat(
-        { sessionID: prompt.sessionID, agent } as Parameters<typeof chat>[0],
-        output as unknown as Parameters<typeof chat>[1],
-    );
+    await chat({ sessionID: prompt.sessionID, agent }, output);
     prompt.prompt.text = output.parts[0]?.text ?? "";
 }
 
@@ -124,7 +122,7 @@ function runContextOptions(
     temperatures: Readonly<Record<string, number>>,
     contextLimits: PluginRuntime["handlerContext"]["contextLimits"],
 ): void {
-    const request = input as V2ContextRequest;
+    const request = input as ContextRequest;
     const temperature = Object.hasOwn(temperatures, request.agent) ? temperatures[request.agent] : undefined;
     if (temperature !== undefined) request.options.temperature = temperature;
     contextLimits.rememberModel(
@@ -135,11 +133,11 @@ function runContextOptions(
     );
 }
 
-function createV2MissionContextHandler(ctx: PluginRuntime["handlerContext"]) {
+function createMissionContextHandler(ctx: PluginRuntime["handlerContext"]) {
     const buildContext = createMissionContextBuilder(ctx);
     const injected = new WeakSet<object>();
     return (input: unknown): void => {
-        const request = input as V2ContextRequest;
+        const request = input as ContextRequest;
         if (!Array.isArray(request.messages)) return;
         const previous = request.messages.at(-1);
         if (previous && injected.has(previous)) request.messages.pop();
@@ -158,32 +156,26 @@ function runMessageGuard(input: unknown): void {
     truncateOversizedMessageParts(request.messages);
 }
 
-type V2ContextRequest = {
+type ContextRequest = {
     sessionID: string;
     agent: string;
     model: { providerID: string; id: string };
     system: Array<{ type: "text"; text: string }>;
-    messages?: import("@opencode/ai").Message[];
+    messages?: unknown[];
     options: { temperature?: number };
 };
 
 async function runCompactionHook(compact: ReturnType<typeof createSessionCompactingHandler>, input: unknown): Promise<void> {
     const request = input as { sessionID: string; system: Array<{ type: "text"; text: string }> };
     const output = { context: [] as string[] };
-    await compact(
-        { sessionID: request.sessionID } as Parameters<typeof compact>[0],
-        output as Parameters<typeof compact>[1],
-    );
+    await compact({ sessionID: request.sessionID }, output);
     request.system.push(...output.context.map(text => ({ type: "text" as const, text })));
 }
 
 async function runBeforeToolHook(before: ReturnType<typeof createToolExecuteBeforeHandler>, input: unknown): Promise<void> {
     const request = input as { sessionID: string; tool: string; id: string; input: unknown };
     const output = { args: isRecord(request.input) ? request.input : {} };
-    await before(
-        { sessionID: request.sessionID, tool: request.tool, callID: request.id } as Parameters<typeof before>[0],
-        output as Parameters<typeof before>[1],
-    );
+    await before({ sessionID: request.sessionID, tool: request.tool, callID: request.id }, output);
     request.input = output.args;
 }
 
@@ -191,10 +183,7 @@ async function runAfterToolHook(after: ReturnType<typeof createToolExecuteAfterH
     const request = input as { sessionID: string; tool: string; id: string; input: unknown; status: string; result?: { content?: unknown }; error?: unknown };
     const original = readResult(request);
     const output = { title: request.tool, output: original, metadata: {} };
-    await after(
-        { sessionID: request.sessionID, tool: request.tool, callID: request.id, args: request.input } as Parameters<typeof after>[0],
-        output as Parameters<typeof after>[1],
-    );
+    await after({ sessionID: request.sessionID, tool: request.tool, callID: request.id, args: request.input }, output);
     if (request.status === "completed" && request.result) {
         writeResultContent(request.result, original, output.output);
     }

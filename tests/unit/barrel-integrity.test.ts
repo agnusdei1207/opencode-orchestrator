@@ -1,14 +1,6 @@
 import { describe, it, expect } from "vitest";
 
 describe("Barrel Modules Integrity", () => {
-    it("verifies src/core/notification/toast.ts re-exports", async () => {
-        const mod = await import("../../src/core/notification/toast.js");
-        expect(typeof mod.show).toBe("function");
-        expect(typeof mod.initToastClient).toBe("function");
-        expect(typeof mod.TaskToastManager).toBe("function");
-        expect(typeof mod.presets).toBe("object");
-    });
-
     it("verifies other index re-export modules", async () => {
         const commands = await import("../../src/core/commands/index.js");
         expect(typeof commands.backgroundTaskManager).toBe("object");
@@ -16,14 +8,8 @@ describe("Barrel Modules Integrity", () => {
         const context = await import("../../src/core/context/index.js");
         expect(typeof context.checkContextWindow).toBe("function");
 
-        const orchestrator = await import("../../src/core/orchestrator/index.js");
-        expect(typeof orchestrator.state).toBe("object");
-
         const agents = await import("../../src/core/agents/index.js");
         expect(typeof agents.ParallelAgentManager).toBe("function");
-
-        const pluginHandlers = await import("../../src/plugin-handlers/index.js");
-        expect(typeof pluginHandlers.createChatMessageHandler).toBe("function");
 
         const formatting = await import("../../src/utils/formatting/index.js");
         expect(typeof formatting.formatElapsedTime).toBe("function");
@@ -51,9 +37,6 @@ describe("Barrel Modules Integrity", () => {
         const sharedCore = await import("../../src/shared/core/index.js");
         expect(sharedCore).toBeDefined();
 
-        const sharedCorePoolable = await import("../../src/shared/core/poolable.js");
-        expect(sharedCorePoolable).toBeDefined();
-
         const sharedErrors = await import("../../src/shared/errors/index.js");
         expect(typeof sharedErrors.detectErrorType).toBe("function");
 
@@ -71,12 +54,6 @@ describe("Barrel Modules Integrity", () => {
 
         const sharedMessage = await import("../../src/shared/message/index.js");
         expect(sharedMessage.PART_TYPES).toBeDefined();
-
-        const sharedNotif = await import("../../src/shared/notification/index.js");
-        expect(sharedNotif.TOAST_DURATION).toBeDefined();
-
-        const sharedNotifTypes = await import("../../src/shared/notification/types.js");
-        expect(sharedNotifTypes).toBeDefined();
 
         const sharedOsNotif = await import("../../src/shared/notification/os-notify/index.js");
         expect(sharedOsNotif.NOTIFICATION_COMMAND_KEYS).toBeDefined();

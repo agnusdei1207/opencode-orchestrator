@@ -67,14 +67,6 @@ export function loadNoteMetadata(filePath: string): FrontmatterData | null {
     }
 }
 
-export function stringMeta(value: unknown): string | undefined {
-    return typeof value === "string" && value.trim() ? value : undefined;
-}
-
-export function numberMeta(value: unknown): number | undefined {
-    return typeof value === "number" && Number.isFinite(value) ? value : undefined;
-}
-
 /**
  * Replace a file via a sibling temp file and rename, so readers never see a
  * torn write. The temp name is unique per call because several OpenCode

@@ -79,7 +79,7 @@ describe("Multi-Agent Coordination E2E", () => {
             concurrency.release(plannerTask.concurrencyKey!);
             store.untrackPending(mainSession, plannerTask.id);
 
-            expect(store.hasPending(mainSession)).toBe(false);
+            expect(store.getPendingCount(mainSession)).toBe(0);
         });
 
         it("should limit Commander to single instance", async () => {
@@ -163,7 +163,7 @@ describe("Multi-Agent Coordination E2E", () => {
             concurrency.release(reviewer.concurrencyKey!);
             store.untrackPending(mainSession, reviewer.id);
 
-            expect(store.hasPending(mainSession)).toBe(false);
+            expect(store.getPendingCount(mainSession)).toBe(0);
         });
 
         it("should handle parallel Worker-Reviewer pairs", async () => {

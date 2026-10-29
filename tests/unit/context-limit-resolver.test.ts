@@ -3,110 +3,111 @@
  *
  * The context-window monitor used to measure every model against a hardcoded
  * 200k window. The resolver replaces that with: explicit override → model
- * metadata reported by the host → legacy default.
+ * limit reported by the host → legacy default.
  */
 
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { ContextLimitResolver } from "../../src/core/context/context-limit-resolver";
 import { CONTEXT_MONITOR_CONFIG } from "../../src/core/context/context-window-monitor";
-import { parseOrchestratorPluginOptions } from "../../src/core/config/plugin-options";
-import { createChatParamsHandler } from "../../src/plugin-handlers/chat-params-handler";
+import { parseOrchestratorOptions } from "../../src/core/config/options";
 
 vi.mock("../../src/core/agents/logger", () => ({ log: vi.fn() }));
 
 const DEFAULT_LIMIT = CONTEXT_MONITOR_CONFIG.DEFAULT_MAX_TOKENS;
 
-/** Mirrors `GET /provider`: providers come back as an array under `all`. */
-function createClient(models: Record<string, { limit?: { context?: number } }>, shouldFail = false) {
-    return {
-        provider: {
-            list: vi.fn().mockImplementation(() =>
-                shouldFail
-                    ? Promise.reject(new Error("server unavailable"))
-                    : Promise.resolve({ data: { all: [{ id: "zai", models }], default: {}, connected: [] } }),
-            ),
-        },
-    };
+/** Mirrors HostClient.modelContextLimit over a fixed model table. */
+function createLookup(models: Record<string, number | undefined>, shouldFail = false) {
+    return vi.fn(async (providerID: string, modelID: string) => {
+        if (shouldFail) throw new Error("server unavailable");
+        return models[`${providerID}/${modelID}`];
+    });
 }
 
 describe("ContextLimitResolver", () => {
-    let resolver: ContextLimitResolver;
-
-    beforeEach(() => {
-        resolver = new ContextLimitResolver();
-    });
-
     it("returns the explicit override regardless of model metadata", async () => {
-        resolver.configure({ client: createClient({ "glm-5.3": { limit: { context: 1_000_000 } } }) as never, overrideMaxTokens: 500_000 });
+        const lookup = createLookup({ "zai/glm-5.3": 1_000_000 });
+        const resolver = new ContextLimitResolver({ lookup, overrideMaxTokens: 500_000 });
         resolver.rememberModel("ses", "zai", "glm-5.3", 1_000_000);
 
         await expect(resolver.resolve("zai", "glm-5.3")).resolves.toBe(500_000);
         expect(resolver.resolveForSession("ses")).toBe(500_000);
+        expect(lookup).not.toHaveBeenCalled();
     });
 
-    it("uses the limit a hook reported without touching the server", async () => {
-        const client = createClient({});
-        resolver.configure({ client: client as never });
+    it("ignores an unusable override", async () => {
+        const resolver = new ContextLimitResolver({ lookup: createLookup({ "zai/glm-5.3": 1_000_000 }), overrideMaxTokens: 0 });
+        await expect(resolver.resolve("zai", "glm-5.3")).resolves.toBe(1_000_000);
+    });
+
+    it("uses a limit the caller reported without asking the host", async () => {
+        const lookup = createLookup({});
+        const resolver = new ContextLimitResolver({ lookup });
         resolver.rememberModel("ses", "zai", "glm-5.3", 1_000_000);
 
         await expect(resolver.resolve("zai", "glm-5.3")).resolves.toBe(1_000_000);
         expect(resolver.resolveForSession("ses")).toBe(1_000_000);
-        expect(client.provider.list).not.toHaveBeenCalled();
+        expect(lookup).not.toHaveBeenCalled();
     });
 
-    it("reads the limit from the provider listing when no hook has reported it", async () => {
-        resolver.configure({ client: createClient({ "glm-5.3": { limit: { context: 1_000_000 } } }) as never });
+    it("asks the host for the limit when none has been reported", async () => {
+        const lookup = createLookup({ "zai/glm-5.3": 1_000_000 });
+        const resolver = new ContextLimitResolver({ lookup });
+
         await expect(resolver.resolve("zai", "glm-5.3")).resolves.toBe(1_000_000);
+        expect(lookup).toHaveBeenCalledExactlyOnceWith("zai", "glm-5.3");
     });
 
-    it("falls back to the default when metadata is missing, malformed, or the lookup fails", async () => {
-        resolver.configure({ client: createClient({ "glm-5.3": {} }) as never });
-        await expect(resolver.resolve("zai", "glm-5.3")).resolves.toBe(DEFAULT_LIMIT);
-
-        resolver.reset();
-        resolver.configure({ client: createClient({ "glm-5.3": { limit: { context: 0 } } }) as never });
-        await expect(resolver.resolve("zai", "glm-5.3")).resolves.toBe(DEFAULT_LIMIT);
-
-        resolver.reset();
-        resolver.configure({ client: createClient({}, true) as never });
-        await expect(resolver.resolve("zai", "glm-5.3")).resolves.toBe(DEFAULT_LIMIT);
+    it("falls back to the default when the limit is missing, unusable, or the lookup fails", async () => {
+        await expect(new ContextLimitResolver({ lookup: createLookup({}) }).resolve("zai", "glm-5.3"))
+            .resolves.toBe(DEFAULT_LIMIT);
+        await expect(new ContextLimitResolver({ lookup: createLookup({ "zai/glm-5.3": 0 }) }).resolve("zai", "glm-5.3"))
+            .resolves.toBe(DEFAULT_LIMIT);
+        await expect(new ContextLimitResolver({ lookup: createLookup({}, true) }).resolve("zai", "glm-5.3"))
+            .resolves.toBe(DEFAULT_LIMIT);
     });
 
-    it("falls back to the default without a client, model ids, or a known session", async () => {
+    it("falls back to the default without a lookup, model ids, or a known session", async () => {
+        const resolver = new ContextLimitResolver();
         await expect(resolver.resolve()).resolves.toBe(DEFAULT_LIMIT);
         await expect(resolver.resolve("zai", "glm-5.3")).resolves.toBe(DEFAULT_LIMIT);
         expect(resolver.resolveForSession("unknown")).toBe(DEFAULT_LIMIT);
     });
 
-    it("fetches the provider listing once and shares it across models and callers", async () => {
-        const client = createClient({
-            "glm-5.3": { limit: { context: 1_000_000 } },
-            "glm-5.3-flash": { limit: { context: 200_000 } },
-        });
-        resolver.configure({ client: client as never });
+    it("caches a resolved limit per model", async () => {
+        const lookup = createLookup({ "zai/glm-5.3": 1_000_000, "zai/glm-5.3-flash": 200_000 });
+        const resolver = new ContextLimitResolver({ lookup });
 
-        const [a, b, c] = await Promise.all([
-            resolver.resolve("zai", "glm-5.3"),
-            resolver.resolve("zai", "glm-5.3-flash"),
-            resolver.resolve("zai", "glm-5.3"),
-        ]);
-        expect([a, b, c]).toEqual([1_000_000, 200_000, 1_000_000]);
-        expect(client.provider.list).toHaveBeenCalledTimes(1);
+        await expect(resolver.resolve("zai", "glm-5.3")).resolves.toBe(1_000_000);
+        await expect(resolver.resolve("zai", "glm-5.3-flash")).resolves.toBe(200_000);
+        await expect(resolver.resolve("zai", "glm-5.3")).resolves.toBe(1_000_000);
+        expect(lookup).toHaveBeenCalledTimes(2);
     });
 
-    it("retries the listing after a failed fetch instead of pinning the default", async () => {
-        const list = vi.fn()
+    it("retries the lookup after a failure instead of pinning the default", async () => {
+        const lookup = vi.fn()
             .mockRejectedValueOnce(new Error("boot"))
-            .mockResolvedValue({ data: { all: [{ id: "zai", models: { "glm-5.3": { limit: { context: 1_000_000 } } } }] } });
-        resolver.configure({ client: { provider: { list } } as never });
+            .mockResolvedValue(1_000_000);
+        const resolver = new ContextLimitResolver({ lookup });
 
         await expect(resolver.resolve("zai", "glm-5.3")).resolves.toBe(DEFAULT_LIMIT);
         await expect(resolver.resolve("zai", "glm-5.3")).resolves.toBe(1_000_000);
-        expect(list).toHaveBeenCalledTimes(2);
+        expect(lookup).toHaveBeenCalledTimes(2);
     });
 
-    it("ignores an unusable hook limit but still maps the session to its model", async () => {
-        resolver.configure({ client: createClient({ "glm-5.3": { limit: { context: 1_000_000 } } }) as never });
+    it("gives up on a hung lookup after its timeout", async () => {
+        vi.useFakeTimers();
+        try {
+            const resolver = new ContextLimitResolver({ lookup: () => new Promise<number>(() => {}) });
+            const pending = resolver.resolve("zai", "glm-5.3");
+            await vi.advanceTimersByTimeAsync(5_000);
+            await expect(pending).resolves.toBe(DEFAULT_LIMIT);
+        } finally {
+            vi.useRealTimers();
+        }
+    });
+
+    it("ignores an unusable reported limit but still maps the session to its model", async () => {
+        const resolver = new ContextLimitResolver({ lookup: createLookup({ "zai/glm-5.3": 1_000_000 }) });
         resolver.rememberModel("ses", "zai", "glm-5.3", undefined);
 
         expect(resolver.resolveForSession("ses")).toBe(DEFAULT_LIMIT);
@@ -116,45 +117,23 @@ describe("ContextLimitResolver", () => {
         resolver.forgetSession("ses");
         expect(resolver.resolveForSession("ses")).toBe(DEFAULT_LIMIT);
     });
-});
 
-describe("chat.params handler", () => {
-    let resolver: ContextLimitResolver;
-
-    beforeEach(() => {
-        resolver = new ContextLimitResolver();
-    });
-
-    it("remembers the model window the host resolved for the session", async () => {
-        const handler = createChatParamsHandler(resolver);
-
-        await handler(
-            {
-                sessionID: "ses-1",
-                agent: "commander",
-                model: { id: "glm-5.3", providerID: "zai", limit: { context: 1_000_000, output: 65_536 } },
-            } as never,
-            {} as never,
-        );
-
-        expect(resolver.resolveForSession("ses-1")).toBe(1_000_000);
-        await expect(resolver.resolve("zai", "glm-5.3")).resolves.toBe(1_000_000);
-    });
-
-    it("tolerates a hook call without a model", async () => {
-        await expect(createChatParamsHandler(resolver)({ sessionID: "ses-1" } as never, {} as never)).resolves.toBeUndefined();
+    it("ignores remembered models without provider or model ids", () => {
+        const resolver = new ContextLimitResolver();
+        resolver.rememberModel("ses", "", "glm-5.3", 1_000_000);
+        expect(resolver.resolveForSession("ses")).toBe(DEFAULT_LIMIT);
     });
 });
 
-describe("parseOrchestratorPluginOptions contextMaxTokens", () => {
+describe("parseOrchestratorOptions contextMaxTokens", () => {
     it("accepts a positive integer override", () => {
-        expect(parseOrchestratorPluginOptions({ contextMaxTokens: 1_000_000 }).contextMaxTokens).toBe(1_000_000);
+        expect(parseOrchestratorOptions({ contextMaxTokens: 1_000_000 }).contextMaxTokens).toBe(1_000_000);
     });
 
     it("omits the override for missing or invalid values", () => {
-        expect(parseOrchestratorPluginOptions({}).contextMaxTokens).toBeUndefined();
-        expect(parseOrchestratorPluginOptions({ contextMaxTokens: -5 }).contextMaxTokens).toBeUndefined();
-        expect(parseOrchestratorPluginOptions({ contextMaxTokens: 2.5 }).contextMaxTokens).toBeUndefined();
-        expect(parseOrchestratorPluginOptions({ contextMaxTokens: "big" }).contextMaxTokens).toBeUndefined();
+        expect(parseOrchestratorOptions({}).contextMaxTokens).toBeUndefined();
+        expect(parseOrchestratorOptions({ contextMaxTokens: -5 }).contextMaxTokens).toBeUndefined();
+        expect(parseOrchestratorOptions({ contextMaxTokens: 2.5 }).contextMaxTokens).toBeUndefined();
+        expect(parseOrchestratorOptions({ contextMaxTokens: "big" }).contextMaxTokens).toBeUndefined();
     });
 });

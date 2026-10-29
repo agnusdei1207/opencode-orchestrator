@@ -5,11 +5,7 @@ import { isSessionBusy } from "../../core/session/activity.js";
 import { HOOK_ACTIONS, HOOK_NAMES } from "../constants.js";
 import { detectSlashCommand } from "../../utils/parsing/index.js";
 import { COMMANDS } from "../../tools/slashCommand.js";
-import {
-    ensureSessionInitialized,
-    activateMissionState,
-    deactivateMissionState,
-} from "../../core/orchestrator/session-manager.js";
+import { ensureSessionInitialized } from "../../core/orchestrator/session-manager.js";
 import { handleAbort, handleUserMessage } from "../../core/loop/mission-loop-handler.js";
 import { clearPrompts } from "../../core/session/pending-injection.js";
 
@@ -61,7 +57,6 @@ async function activateTaskMission(ctx: HookContext, args: string): Promise<void
         deactivateOwnedSession(ctx, replacedOwner);
     }
     ensureSessionInitialized(sessions, sessionID, directory).active = true;
-    activateMissionState(sessionID);
     handleUserMessage(sessionID);
 }
 
@@ -69,8 +64,7 @@ async function prepareReplacement(ctx: HookContext, ownerID: string): Promise<vo
     if (!ctx.client) throw new Error("Cannot replace the active mission without a session client");
     if (!ctx.agents) throw new Error("Cannot replace the active mission without its task manager");
     if (await isSessionBusy(ctx.client, ownerID)) {
-        const response = await ctx.client.session.abort({ path: { id: ownerID } });
-        if (response.error || response.data !== true) {
+        if (!(await ctx.client.interrupt(ownerID))) {
             throw new Error(`Could not abort the active session ${ownerID}; mission unchanged`);
         }
     }
@@ -83,7 +77,6 @@ async function prepareReplacement(ctx: HookContext, ownerID: string): Promise<vo
 function deactivateOwnedSession(ctx: HookContext, sessionID: string): void {
     handleAbort(sessionID);
     clearPrompts(sessionID);
-    deactivateMissionState(sessionID);
     const session = ctx.sessions.get(sessionID);
     if (typeof session !== "object" || session === null) return;
     const managed = session as Record<string, unknown>;

@@ -7,20 +7,12 @@ import { ContextLimitResolver } from "../../src/core/context/context-limit-resol
 import { CONTEXT_MONITOR_CONFIG } from "../../src/core/context/context-window-monitor";
 import * as MissionLoopHandler from "../../src/core/loop/mission-loop-handler";
 import * as MissionLoop from "../../src/core/loop/mission-loop";
-import * as Toast from "../../src/core/notification/toast";
 import * as SessionActivity from "../../src/core/session/activity";
 import * as PendingInjection from "../../src/core/session/pending-injection";
 import { log } from "../../src/core/agents/logger";
 import { TASK_STATUS } from "../../src/shared";
 import type { EventHandlerContext } from "../../src/plugin-handlers/event-handler";
 
-vi.mock("../../src/core/notification/toast", () => ({
-    presets: {
-        missionStarted: vi.fn(),
-        sessionCompleted: vi.fn(),
-        taskFailed: vi.fn(),
-    },
-}));
 vi.mock("../../src/core/recovery/session-recovery", () => ({
     cleanupSessionRecovery: vi.fn(),
     handleSessionError: vi.fn(),
@@ -31,6 +23,7 @@ vi.mock("../../src/core/loop/mission-loop-handler", () => ({
     cleanupSession: vi.fn(),
     handleAbort: vi.fn(),
     handleUserMessage: vi.fn(),
+    handleSessionBusy: vi.fn(),
     handleMissionIdle: vi.fn().mockResolvedValue(undefined),
 }));
 vi.mock("../../src/core/loop/mission-loop", () => ({
@@ -59,12 +52,9 @@ describe("createEventHandler", () => {
                     timestamp: 0,
                     startTime: Date.now(),
                     lastStepTime: 0,
-                    tokens: { totalInput: 0, totalOutput: 0, estimatedCost: 0 },
+                    tokens: { totalInput: 0, totalOutput: 0 },
                 }],
             ]),
-            state: {
-                sessions: new Map(),
-            },
             agents: {
                 handleEvent: vi.fn(),
                 getTaskBySession: vi.fn(),
@@ -90,8 +80,8 @@ describe("createEventHandler", () => {
 
     it("keeps an explicit abort effective across a late completed-message event and repeated idles", async () => {
         vi.useFakeTimers();
-        const prompt = vi.fn().mockResolvedValue({ data: {} });
-        ctx.client = { session: { prompt, status: async () => ({ data: {} }) } } as never;
+        const prompt = vi.fn().mockResolvedValue(undefined);
+        ctx.client = { prompt, statuses: () => new Map() } as never;
         const session = ctx.sessions.get("session-1")!;
         session.lastAssistantCompletedAt = Date.now() - 100;
         PendingInjection.queuePrompts("session-1", ["Continue unfinished mission"]);
@@ -197,19 +187,8 @@ describe("createEventHandler", () => {
         expect(SessionActivity.getLastActivityAt("session-10")).toBeGreaterThan(0);
     });
 
-    it("reads SDK session ids from info.id for created and deleted events", async () => {
+    it("reads session ids from info.id for deleted events", async () => {
         const handler = createEventHandler(ctx);
-
-        await handler({
-            event: {
-                type: "session.created",
-                properties: {
-                    info: {
-                        id: "session-created",
-                    },
-                },
-            },
-        });
 
         await handler({
             event: {
@@ -222,27 +201,14 @@ describe("createEventHandler", () => {
             },
         });
 
-        expect(Toast.presets.missionStarted).toHaveBeenCalledWith("Session session-crea...");
         expect(ctx.sessions.has("session-1")).toBe(false);
         expect(SessionRecovery.cleanupSessionRecovery).toHaveBeenCalledWith("session-1");
         expect(MissionLoopHandler.cleanupSession).toHaveBeenCalledWith("session-1");
         expect(ContextMonitor.cleanupSession).toHaveBeenCalledWith("session-1");
     });
 
-    it("prefers direct SDK sessionID over nested info.id for session lifecycle events", async () => {
+    it("prefers a direct sessionID over nested info.id for session lifecycle events", async () => {
         const handler = createEventHandler(ctx);
-
-        await handler({
-            event: {
-                type: "session.created",
-                properties: {
-                    sessionID: "session-direct",
-                    info: {
-                        id: "session-nested",
-                    },
-                },
-            },
-        });
 
         ctx.sessions.set("session-direct", {
             active: true,
@@ -250,7 +216,7 @@ describe("createEventHandler", () => {
             timestamp: 0,
             startTime: Date.now(),
             lastStepTime: 0,
-            tokens: { totalInput: 0, totalOutput: 0, estimatedCost: 0 },
+            tokens: { totalInput: 0, totalOutput: 0 },
         });
 
         await handler({
@@ -265,7 +231,6 @@ describe("createEventHandler", () => {
             },
         });
 
-        expect(Toast.presets.missionStarted).toHaveBeenCalledWith("Session session-dire...");
         expect(ctx.sessions.has("session-direct")).toBe(false);
         expect(ctx.sessions.has("session-nested")).toBe(false);
         expect(SessionRecovery.cleanupSessionRecovery).toHaveBeenCalledWith("session-direct");
@@ -298,7 +263,6 @@ describe("createEventHandler", () => {
         expect(ContextMonitor.cleanupSession).toHaveBeenCalledWith("child-session");
         expect(MissionLoopHandler.cleanupSession).toHaveBeenCalledWith("child-session");
         expect(forgetSession).toHaveBeenCalledWith("child-session");
-        expect(Toast.presets.sessionCompleted).not.toHaveBeenCalled();
     });
 
     it("treats idle without an assistant completion after the user turn as an abort", async () => {
@@ -321,8 +285,8 @@ describe("createEventHandler", () => {
 
     it("still delivers a later background notice after an idle it declined", async () => {
         vi.useFakeTimers();
-        const prompt = vi.fn().mockResolvedValue({ data: {} });
-        ctx.client = { session: { prompt, status: async () => ({ data: {} }) } } as never;
+        const prompt = vi.fn().mockResolvedValue(undefined);
+        ctx.client = { prompt, statuses: () => new Map() } as never;
         const session = ctx.sessions.get("session-1")!;
         session.lastUserMessageAt = Date.now();
         const handler = createEventHandler(ctx);
@@ -335,8 +299,23 @@ describe("createEventHandler", () => {
         await handler({ event: { type: "session.idle", properties: { sessionID: "session-1" } } });
         await vi.advanceTimersByTimeAsync(500);
 
-        expect(prompt).toHaveBeenCalledOnce();
+        expect(prompt).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({
+            sessionID: "session-1", synthetic: true, text: expect.stringContaining("Background task finished"),
+        }));
         expect(PendingInjection.hasPendingPrompts("session-1")).toBe(false);
+    });
+
+    it("marks a session busy on a non-idle status without scheduling continuation", async () => {
+        vi.useFakeTimers();
+        vi.mocked(MissionLoop.isLoopActive).mockReturnValue(true);
+        const handler = createEventHandler(ctx);
+
+        await handler({ event: { type: "session.status", properties: { sessionID: "session-1", status: { type: "busy" } } } });
+        await vi.advanceTimersByTimeAsync(500);
+
+        expect(SessionActivity.isKnownBusy("session-1")).toBe(true);
+        expect(MissionLoopHandler.handleSessionBusy).toHaveBeenCalledExactlyOnceWith("session-1");
+        expect(MissionLoopHandler.handleMissionIdle).not.toHaveBeenCalled();
     });
 
     it("does not continue a session that does not own the project mission", async () => {

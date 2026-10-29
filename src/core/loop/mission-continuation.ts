@@ -2,8 +2,9 @@ import type { MissionLoopState } from "../../shared/loop/types.js";
 import type { VerificationResult } from "../../shared/verification/types.js";
 
 interface ContinuationMetadata {
-    progress: string;
     verificationSummary: string;
+    /** Consecutive checks without progress after an injection. */
+    stagnationCount: number;
     stagnant: boolean;
     scheduledAt: number;
 }
@@ -30,8 +31,7 @@ export function applyContinuationMetadata(
 ): MissionLoopState {
     return {
         ...state,
-        lastProgress: metadata.progress,
-        stagnationCount: metadata.stagnant ? (state.stagnationCount ?? 0) + 1 : 0,
+        stagnationCount: metadata.stagnationCount,
         lastVerificationSummary: metadata.verificationSummary,
         lastContinuationReason: metadata.stagnant
             ? "stagnation_intervention"

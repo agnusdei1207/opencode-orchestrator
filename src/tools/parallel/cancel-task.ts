@@ -2,7 +2,7 @@
  * cancel_task Tool
  */
 
-import { tool, type ToolDefinition } from "@opencode-ai/plugin";
+import { tool, type ToolDefinition } from "../../host/tool.js";
 import { ParallelAgentManager } from "../../core/agents/index.js";
 import { OUTPUT_LABEL } from "../../shared/index.js";
 

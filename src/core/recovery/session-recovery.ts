@@ -6,22 +6,19 @@
  * Recovered error types:
  * - tool_result_missing: Tool crashed, inject error message
  * - thinking_block_order / thinking_disabled: Thinking block issue
- * - rate_limit: API rate limiting, back off and retry
  *
- * Other detected types (context_overflow, message_aborted, network, auth)
+ * Other detected types (rate_limit, which the host retries itself,
+ * context_overflow, message_aborted, network, auth)
  * count against the cooldown and attempt budget but are not recovered here;
  * undetected errors touch no recovery state.
  */
 
-import type { PluginInput } from "@opencode-ai/plugin";
+import type { HostClient } from "../../host/client.js";
 import { BACKGROUND_TASK, RECOVERY, detectErrorType, ERROR_TYPE } from "../../shared/index.js";
 import { log } from "../agents/logger.js";
-import { presets } from "../notification/toast.js";
-import { syntheticTextPart } from "../session/injection.js";
 import { isSessionBusy } from "../session/activity.js";
 import { queueNotice } from "../session/pending-injection.js";
 
-type OpencodeClient = PluginInput["client"];
 type RecoveryErrorType = NonNullable<ReturnType<typeof detectErrorType>>;
 
 interface RecoveryState {
@@ -32,11 +29,10 @@ interface RecoveryState {
 
 interface PromptRecovery {
     prompt: string;
-    toastMessage: string;
 }
 
 interface RecoveryExecution {
-    client: OpencodeClient;
+    client: HostClient;
     sessionID: string;
     errorType: RecoveryErrorType;
     state: RecoveryState;
@@ -91,32 +87,21 @@ There was a temporary processing issue. Please continue from where you left off.
 function promptRecoveryFor(errorType: RecoveryErrorType): PromptRecovery | null {
     switch (errorType) {
         case ERROR_TYPE.TOOL_RESULT_MISSING:
-            return { prompt: TOOL_CRASH_RECOVERY_PROMPT, toastMessage: "Tool Crash Recovery" };
+            return { prompt: TOOL_CRASH_RECOVERY_PROMPT };
         case ERROR_TYPE.THINKING_BLOCK_ORDER:
         case ERROR_TYPE.THINKING_DISABLED:
-            return { prompt: THINKING_RECOVERY_PROMPT, toastMessage: "Thinking Block Recovery" };
+            return { prompt: THINKING_RECOVERY_PROMPT };
         default:
             return null;
     }
 }
 
-async function recoverRateLimit(state: RecoveryState): Promise<boolean> {
-    presets.warningRateLimited();
-    const delay = RECOVERY.BASE_DELAY_MS * Math.pow(2, state.errorCount);
-    log("[session-recovery] Rate limit, waiting", { delay });
-    await new Promise(resolve => setTimeout(resolve, delay));
-    return true;
-}
-
 function injectRecoveryPrompt(
-    client: OpencodeClient,
+    client: HostClient,
     sessionID: string,
     prompt: string,
 ): void {
-    void client.session.prompt({
-        path: { id: sessionID },
-        body: { parts: [syntheticTextPart(prompt)] },
-    }).catch(injectionError => {
+    void client.prompt({ sessionID, text: prompt, synthetic: true }).catch((injectionError: unknown) => {
         log("[session-recovery] Failed to inject recovery prompt", {
             sessionID,
             error: injectionError,
@@ -125,14 +110,13 @@ function injectRecoveryPrompt(
 }
 
 async function recoverWithPrompt(
-    client: OpencodeClient,
+    client: HostClient,
     sessionID: string,
     errorType: RecoveryErrorType,
     recovery: PromptRecovery,
 ): Promise<boolean> {
     if (await isSessionBusy(client, sessionID)) {
         queueNotice(sessionID, recovery.prompt);
-        presets.errorRecovery(recovery.toastMessage);
         log("[session-recovery] Session still working; queued recovery prompt for the next idle", {
             sessionID,
             errorType,
@@ -140,20 +124,16 @@ async function recoverWithPrompt(
         return true;
     }
 
-    presets.errorRecovery(recovery.toastMessage);
     injectRecoveryPrompt(client, sessionID, recovery.prompt);
     log("[session-recovery] Recovery prompt injected (async)", { sessionID, errorType });
     return true;
 }
 
 async function executeRecovery(execution: RecoveryExecution): Promise<boolean> {
-    const { client, sessionID, errorType, state } = execution;
+    const { client, sessionID, errorType } = execution;
     const promptRecovery = promptRecoveryFor(errorType);
     if (promptRecovery) return recoverWithPrompt(client, sessionID, errorType, promptRecovery);
-    if (errorType === ERROR_TYPE.RATE_LIMIT) return recoverRateLimit(state);
-    if (errorType === ERROR_TYPE.MESSAGE_ABORTED) {
-        log("[session-recovery] Message aborted by user, not recovering", { sessionID });
-    }
+    // Rate limits are retried by the host itself; nothing is injected for them.
     return false;
 }
 
@@ -184,7 +164,6 @@ function prepareSessionRecovery(sessionID: string, error: unknown): PreparedReco
     log("[session-recovery] Detected error type", { sessionID, errorType, errorCount: state.errorCount });
     if (state.errorCount > RECOVERY.MAX_ATTEMPTS) {
         log("[session-recovery] Max recovery attempts exceeded", { sessionID });
-        presets.warningMaxRetries();
         return undefined;
     }
     return { state, errorType };
@@ -194,10 +173,9 @@ function prepareSessionRecovery(sessionID: string, error: unknown): PreparedReco
  * Handle session error event and attempt recovery
  */
 export async function handleSessionError(
-    client: OpencodeClient,
+    client: HostClient,
     sessionID: string,
     error: unknown,
-    _properties?: Record<string, unknown>
 ): Promise<boolean> {
     const prepared = prepareSessionRecovery(sessionID, error);
     if (!prepared) return false;

@@ -17,7 +17,8 @@ export const TOOL_NAMES = {
     LIST_BACKGROUND: "list_background",
     KILL_BACKGROUND: "kill_background",
     // Command tools
-    RUN_COMMAND: "run_command",
+    /** OpenCode's native shell tool. */
+    BASH: "bash",
     // Search tools
     GREP_SEARCH: "grep_search",
     GLOB_SEARCH: "glob_search",
@@ -41,6 +42,5 @@ export const TOOL_NAMES = {
     AST_SEARCH: "ast_search",
     AST_REPLACE: "ast_replace",
     // Other tools
-    SLASHCOMMAND: "slashcommand",
     SKILL: "skill",
 } as const;

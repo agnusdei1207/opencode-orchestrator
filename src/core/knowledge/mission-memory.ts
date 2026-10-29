@@ -5,25 +5,7 @@ import type { MissionLoopState } from "../../shared/loop/types.js";
 import { readMissionLedger, type MissionLedgerEvent } from "../loop/mission-ledger.js";
 import { getMissionRuntimeOptions } from "../loop/mission-runtime-options.js";
 import { MemoryLevel, MemoryManager, type MemoryEntry } from "../memory/memory-manager.js";
-import { syncMissionEpisodeMemory } from "./mission-episode.js";
-
-import { atomicWrite, escapeYaml, loadNoteMetadata, numberMeta, stringMeta, type FrontmatterData } from "./mission-note.js";
-
-// Existing consumers import the parser and type through this module.
-export { parseFrontmatter } from "./mission-note.js";
-
-function horizonForLevel(level: string): string {
-    switch (level) {
-        case "system":
-        case "project":
-            return "strategic";
-        case "task":
-            return "closure";
-        case "mission":
-        default:
-            return "execution";
-    }
-}
+import { atomicWrite, escapeYaml, loadNoteMetadata, type FrontmatterData } from "./mission-note.js";
 
 interface CanvasNode {
     id: string;
@@ -52,11 +34,7 @@ const MAX_CANVAS_EVENTS = 3;
 const MAX_SCRATCHPAD_EVENTS = 6;
 const MAX_MEMORY_NOTES = 8;
 const MAX_MEMORY_BODY_CHARS = 900;
-/**
- * Generated memory notes are pinned (`keep: true`, exempt from decay/archival)
- * only at or above this importance. Below it, notes carry decay metadata and
- * participate in the Ebbinghaus model so unused memory fades as designed.
- */
+/** Generated memory notes at or above this importance are pinned (`keep: true`) and never pruned. */
 const PIN_IMPORTANCE_THRESHOLD = 0.9;
 const SCRATCHPAD_SNAPSHOT_CHARS = 1600;
 const MISSION_MEMORY_LEVELS: readonly MemoryLevel[] = [
@@ -64,25 +42,6 @@ const MISSION_MEMORY_LEVELS: readonly MemoryLevel[] = [
     MemoryLevel.MISSION,
     MemoryLevel.TASK,
 ];
-
-interface MemoryNoteLifecycle {
-    ingestionTime: string;
-    lastAccessed: string;
-    accessCount: number;
-    accessEma?: number;
-    memoryLayer: string;
-    tombstone: boolean;
-    validTo?: string;
-    supersedes?: unknown[];
-}
-
-interface MemoryNoteContext {
-    state: MissionLoopState;
-    entry: MemoryEntry;
-    recordedAt: string;
-    now: string;
-    lifecycle: MemoryNoteLifecycle;
-}
 
 export function syncMissionMemory(directory: string, state: MissionLoopState): boolean {
     const options = getMissionRuntimeOptions(directory);
@@ -96,7 +55,6 @@ export function syncMissionMemory(directory: string, state: MissionLoopState): b
         writeScratchpad(directory, state, events);
         writeCanvas(directory, state, events);
         syncMissionMemoryNotes(directory, state);
-        syncMissionEpisodeMemory(getMissionMemoryNotesDirPath(directory), state, events);
         return true;
     } catch {
         return false;
@@ -138,12 +96,7 @@ function writeScratchpad(directory: string, state: MissionLoopState, events: Mis
         `- Objective: ${state.objective ?? state.prompt}`,
         `- Session: ${state.sessionID}`,
         `- Status: ${state.active ? "active" : "inactive"}`,
-        `- Iteration: ${state.iteration}/${state.maxIterations}`,
-        "",
-        "## Runtime State",
-        `- Last progress: ${state.lastProgress ?? "unknown"}`,
-        `- Last verification: ${state.lastVerificationSummary ?? "unknown"}`,
-        `- Last continuation reason: ${state.lastContinuationReason ?? "unknown"}`,
+        `- Iteration: ${state.iteration}`,
         "",
         "## Recent Evidence",
         ...formatEventLines(events),
@@ -170,11 +123,7 @@ function syncMissionMemoryNotes(directory: string, state: MissionLoopState): voi
         const fileName = buildMemoryNoteFileName(entry);
         expectedFiles.add(fileName);
         const notePath = join(notesDir, fileName);
-        // Preserve any accumulated lifecycle state already on disk so a resync
-        // refreshes content/importance without wiping decay age, reinforcement,
-        // or maintenance tier decisions.
-        const existing = loadNoteMetadata(notePath);
-        atomicWrite(notePath, buildMemoryNoteContent(state, entry, existing));
+        atomicWrite(notePath, buildMemoryNoteContent(state, entry));
     }
 
     if (!existsSync(notesDir)) return;
@@ -204,7 +153,7 @@ function isPrunableGeneratedNote(metadata: FrontmatterData | null): boolean {
 function buildCanvasNodes(state: MissionLoopState, events: MissionLedgerEvent[]): CanvasNode[] {
     const nodes: CanvasNode[] = [
         textNode("objective", `Objective\n${state.objective ?? state.prompt}`, 0, 0),
-        textNode("runtime", `Runtime\nIteration ${state.iteration}/${state.maxIterations}\nProgress ${state.lastProgress ?? "unknown"}`, 420, 0),
+        textNode("runtime", `Runtime\nIteration ${state.iteration}`, 420, 0),
         textNode("verification", `Verification\n${state.lastVerificationSummary ?? "unknown"}`, 840, 0),
     ];
 
@@ -280,93 +229,21 @@ function buildMemoryNoteFileName(entry: MemoryEntry): string {
     return `${entry.level}-${sanitizeFilePart(entry.id)}.md`;
 }
 
-function buildMemoryNoteContent(
-    state: MissionLoopState,
-    entry: MemoryEntry,
-    existing?: FrontmatterData | null,
-): string {
+function buildMemoryNoteContent(state: MissionLoopState, entry: MemoryEntry): string {
     const recordedAt = new Date(entry.timestamp).toISOString();
-    const now = new Date().toISOString();
-    const lifecycle = resolveMemoryNoteLifecycle(existing, now);
-    const frontmatter = buildMemoryNoteFrontmatter({ state, entry, recordedAt, now, lifecycle });
-    return [...frontmatter, ...buildMemoryNoteBody(state, entry, recordedAt)].join("\n");
-}
-
-function resolveMemoryNoteLifecycle(
-    existing: FrontmatterData | null | undefined,
-    now: string,
-): MemoryNoteLifecycle {
-    // Lifecycle state belongs to the note (its long-term memory), not to the
-    // volatile MemoryManager projection. Preserve it across resyncs; fall back
-    // to fresh values only when the note is first created.
-    const meta: FrontmatterData = existing ?? {};
-    return {
-        ingestionTime: stringMeta(meta.ingestion_time) ?? now,
-        lastAccessed: stringMeta(meta.last_accessed) ?? now,
-        accessCount: numberMeta(meta.access_count) ?? 1,
-        accessEma: numberMeta(meta.access_ema),
-        memoryLayer: stringMeta(meta.memory_layer) ?? "warm",
-        tombstone: meta.tombstone === true,
-        validTo: stringMeta(meta.valid_to),
-        supersedes: Array.isArray(meta.supersedes) ? meta.supersedes : undefined,
-    };
-}
-
-function buildMemoryNoteFrontmatter(context: MemoryNoteContext): string[] {
-    const { state, entry, recordedAt, now, lifecycle } = context;
-    const profile = decayProfileForLevel(entry.level);
-    const frontmatter: string[] = [
+    const frontmatter = [
         "---",
         `tags: [${MEMORY_NOTE_TAG}, orchestrator, ${entry.level}]`,
         `title: "${escapeYaml(`${entry.level} memory ${entry.id}`)}"`,
-    ];
-    // Pin only high-value memory; everything else decays via the Ebbinghaus model.
-    if (entry.importance >= PIN_IMPORTANCE_THRESHOLD) {
-        frontmatter.push("keep: true");
-    }
-    frontmatter.push(
+        ...(entry.importance >= PIN_IMPORTANCE_THRESHOLD ? ["keep: true"] : []),
         `level: "${entry.level}"`,
-        `horizon: "${horizonForLevel(entry.level)}"`,
         `importance: ${entry.importance.toFixed(3)}`,
         `session: "${escapeYaml(state.sessionID)}"`,
         `recorded_at: "${recordedAt}"`,
-        `event_time: "${recordedAt}"`,
-        `ingestion_time: "${lifecycle.ingestionTime}"`,
-        `record_updated_at: "${now}"`,
-        `last_accessed: "${lifecycle.lastAccessed}"`,
-        `access_count: ${lifecycle.accessCount}`,
-    );
-    appendMemoryLifecycleFields(frontmatter, lifecycle, profile);
-    frontmatter.push(
-        "confidence: 1",
         `objective: "${escapeYaml(state.objective ?? state.prompt)}"`,
         "---",
-    );
-    return frontmatter;
-}
-
-function appendMemoryLifecycleFields(
-    frontmatter: string[],
-    lifecycle: MemoryNoteLifecycle,
-    profile: ReturnType<typeof decayProfileForLevel>,
-): void {
-    if (lifecycle.accessEma !== undefined) {
-        frontmatter.push(`access_ema: ${lifecycle.accessEma}`);
-    }
-    frontmatter.push(
-        `memory_kind: "${profile.kind}"`,
-        `decay_lambda: ${profile.lambda}`,
-        `memory_layer: "${lifecycle.memoryLayer}"`,
-    );
-    if (lifecycle.tombstone) {
-        frontmatter.push("tombstone: true");
-    }
-    if (lifecycle.validTo) {
-        frontmatter.push(`valid_to: "${lifecycle.validTo}"`);
-    }
-    if (lifecycle.supersedes && lifecycle.supersedes.length > 0) {
-        frontmatter.push(`supersedes: [${lifecycle.supersedes.map(item => String(item)).join(", ")}]`);
-    }
+    ];
+    return [...frontmatter, ...buildMemoryNoteBody(state, entry, recordedAt)].join("\n");
 }
 
 function buildMemoryNoteBody(state: MissionLoopState, entry: MemoryEntry, recordedAt: string): string[] {
@@ -384,24 +261,6 @@ function buildMemoryNoteBody(state: MissionLoopState, entry: MemoryEntry, record
         body,
         "",
     ];
-}
-
-/**
- * Map a memory level to the cognitive memory-kind axis and an explicit per-day
- * decay rate. The explicit lambda preserves the shipped level-specific decay
- * behavior while `memory_kind` now carries the Tulving-style kind.
- */
-function decayProfileForLevel(level: MemoryLevel): { kind: string; lambda: number } {
-    switch (level) {
-        case MemoryLevel.PROJECT:
-            return { kind: "semantic", lambda: 0.006 };
-        case MemoryLevel.MISSION:
-            return { kind: "procedural", lambda: 0.02 };
-        case MemoryLevel.TASK:
-            return { kind: "episodic", lambda: 0.07 };
-        default:
-            return { kind: "semantic", lambda: 0.03 };
-    }
 }
 
 function formatEventLines(events: MissionLedgerEvent[]): string[] {

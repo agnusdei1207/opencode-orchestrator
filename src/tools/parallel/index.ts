@@ -2,7 +2,7 @@
  * Parallel Task Tools
  */
 
-import type { ToolDefinition } from "@opencode-ai/plugin";
+import type { ToolDefinition } from "../../host/tool.js";
 import { ParallelAgentManager } from "../../core/agents/index.js";
 import { createDelegateTaskTool } from "./delegate-task.js";
 import { createGetTaskResultTool } from "./get-task-result.js";

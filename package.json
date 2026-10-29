@@ -34,8 +34,7 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js",
       "default": "./dist/index.js"
-    },
-    "./server": "./dist/index.js"
+    }
   },
   "files": [
     "dist",
@@ -75,14 +74,11 @@
     "node": ">=24.15.0"
   },
   "dependencies": {
-    "@opencode-ai/plugin": "1.18.34",
-    "@opencode-ai/sdk": "1.18.34",
     "jsonc-parser": "^3.3.1",
     "zod": "^4.6.7"
   },
   "overrides": {
-    "zod": "$zod",
-    "toml": "5.0.1"
+    "zod": "$zod"
   },
   "devDependencies": {
     "@opencode/plugin": "2.0.22",

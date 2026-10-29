@@ -22,8 +22,8 @@ export class StrictRoleGuardHook implements PreToolUseHook {
     name = HOOK_NAMES.STRICT_ROLE_GUARD;
 
     async execute(_ctx: HookContext, tool: string, args: ToolInput): Promise<PreToolResult> {
-        // Applies to both foreground and background command execution.
-        if (tool === TOOL_NAMES.RUN_COMMAND || tool === TOOL_NAMES.RUN_BACKGROUND) {
+        // Applies to the native shell tool and to background commands.
+        if (tool === TOOL_NAMES.BASH || tool === TOOL_NAMES.RUN_BACKGROUND) {
             const cmd = typeof args.command === "string" ? args.command : undefined;
             if (cmd) {
                 // Prevent Fork Bomb

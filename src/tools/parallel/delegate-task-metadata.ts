@@ -1,4 +1,4 @@
-import { tool } from "@opencode-ai/plugin";
+import { tool } from "../../host/tool.js";
 import {
     PARALLEL_PARAMS,
     PROMPT_TAGS,
@@ -22,7 +22,7 @@ ${PROMPT_TAGS.RESUME.open}
 ${PROMPT_TAGS.RESUME.close}
 
 ${PROMPT_TAGS.SAFETY.open}
-- Max 10 tasks per agent type (configurable)
+- Up to 10 concurrent tasks per agent by default (agentConcurrency/defaultConcurrency options); further tasks wait for a slot
 - Cancellation is reported only after the host confirms it. Inspect failures before retrying work that may have side effects.
 - Use \`${TOOL_NAMES.LIST_AGENTS}\` to see all available agents (including custom ones).
 ${PROMPT_TAGS.SAFETY.close}`;
@@ -33,6 +33,4 @@ export const DELEGATE_TASK_ARGS: ToolArgs = {
     [PARALLEL_PARAMS.PROMPT]: tool.schema.string().describe("Prompt for the agent"),
     [PARALLEL_PARAMS.BACKGROUND]: tool.schema.boolean().describe("true=async, false=sync"),
     [PARALLEL_PARAMS.RESUME]: tool.schema.string().optional().describe("Session ID to resume (from previous task.sessionID)"),
-    [PARALLEL_PARAMS.MODE]: tool.schema.enum(["normal", "race", "fractal"]).optional().describe("Task mode (race=first wins, fractal=recursive)"),
-    [PARALLEL_PARAMS.GROUP_ID]: tool.schema.string().optional().describe("Group ID for racing or tracking recursive families"),
 };

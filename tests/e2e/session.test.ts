@@ -21,6 +21,7 @@ function createTask(overrides: Partial<ParallelTask> = {}): ParallelTask {
         agent: "Worker",
         status: TASK_STATUS.RUNNING,
         startedAt: new Date("2026-01-01T00:00:00.000Z"),
+        depth: 1,
         ...overrides,
     };
 }
@@ -47,14 +48,14 @@ describe("Parallel Session State E2E", () => {
             expect(store.getPendingCount("session_C")).toBe(0);
         });
 
-        it("should correctly report hasPending", () => {
-            expect(store.hasPending("session_A")).toBe(false);
+        it("should count down to zero as pending tasks are untracked", () => {
+            expect(store.getPendingCount("session_A")).toBe(0);
 
             store.trackPending("session_A", "task_1");
-            expect(store.hasPending("session_A")).toBe(true);
+            expect(store.getPendingCount("session_A")).toBe(1);
 
             store.untrackPending("session_A", "task_1");
-            expect(store.hasPending("session_A")).toBe(false);
+            expect(store.getPendingCount("session_A")).toBe(0);
         });
 
         it("should isolate sessions", () => {
@@ -63,8 +64,8 @@ describe("Parallel Session State E2E", () => {
 
             store.untrackPending("session_A", "task_1");
 
-            expect(store.hasPending("session_A")).toBe(false);
-            expect(store.hasPending("session_B")).toBe(true);
+            expect(store.getPendingCount("session_A")).toBe(0);
+            expect(store.getPendingCount("session_B")).toBe(1);
         });
     });
 

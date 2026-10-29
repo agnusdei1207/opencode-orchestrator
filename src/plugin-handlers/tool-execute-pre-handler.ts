@@ -5,16 +5,21 @@
  * Used for blocking prohibited actions based on agent roles via Hooks.
  */
 
-import type { Hooks } from "@opencode-ai/plugin";
 import { HookRegistry } from "../hooks/registry.js";
 import type { ToolExecuteHandlerContext } from "./context.js";
 import { log } from "../core/agents/logger.js";
 import { HOOK_ACTIONS } from "../hooks/constants.js";
 import { isRecord } from "../shared/core/guards.js";
 
-type ToolExecuteBeforeHook = NonNullable<Hooks["tool.execute.before"]>;
-export type ToolExecuteBeforeInput = Parameters<ToolExecuteBeforeHook>[0];
-export type ToolExecuteBeforeOutput = Parameters<ToolExecuteBeforeHook>[1];
+export interface ToolExecuteBeforeInput {
+    sessionID: string;
+    tool: string;
+    callID: string;
+}
+
+export interface ToolExecuteBeforeOutput {
+    args: Record<string, unknown>;
+}
 
 export function createToolExecuteBeforeHandler(ctx: ToolExecuteHandlerContext) {
     const { sessions, directory } = ctx;
@@ -31,6 +36,7 @@ export function createToolExecuteBeforeHandler(ctx: ToolExecuteHandlerContext) {
         const result = await hooks.executePreTool(
             {
                 sessionID: toolInput.sessionID,
+                callID: toolInput.callID,
                 agent: session.agent,
                 directory,
                 sessions,
@@ -44,18 +50,7 @@ export function createToolExecuteBeforeHandler(ctx: ToolExecuteHandlerContext) {
             // Throwing error captures the block in most agent runtimes
             throw new Error(`🚫 Action Blocked: ${result.reason || "Policy violation"}`);
         }
-
-        if (result.modifiedArgs) {
-            replaceToolArguments(toolOutput, result.modifiedArgs);
-        }
     };
-}
-
-function replaceToolArguments(
-    toolOutput: ToolExecuteBeforeOutput,
-    modifiedArgs: Record<string, unknown>,
-): void {
-    toolOutput.args = { ...modifiedArgs };
 }
 
 function readToolArgs(value: unknown): Record<string, unknown> {

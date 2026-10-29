@@ -1,8 +1,6 @@
 /**
  * Task types and interfaces (consolidated)
  */
-import type { Poolable } from "../core/index.js";
-
 /**
  * Parallel task status values
  */
@@ -16,16 +14,6 @@ export type ParallelTaskStatus =
     | "cancelled";
 
 /**
- * Task progress tracking
- */
-interface TaskProgress {
-    toolCalls: number;
-    lastTool?: string;
-    lastMessage?: string;
-    lastUpdate: Date;
-}
-
-/**
  * Input for launching a parallel task
  */
 export interface LaunchInput {
@@ -35,8 +23,6 @@ export interface LaunchInput {
     parentSessionID: string;
     /** Current nesting depth (default: 1) */
     depth?: number;
-    mode?: "normal" | "race" | "fractal";
-    groupID?: string;
 }
 
 /**
@@ -61,7 +47,7 @@ export interface ResumeInput {
  * MERGED: Contains both core and shared fields
  */
 
-export interface ParallelTask extends Poolable {
+export interface ParallelTask {
     // Core identity
     id: string;
     sessionID: string;
@@ -80,19 +66,4 @@ export interface ParallelTask extends Poolable {
 
     // Depth tracking - prevents infinite recursion
     depth: number;
-
-    // HPFA (Hyper-Parallel Fractal Architecture) fields
-    mode?: "normal" | "race" | "fractal";
-    groupID?: string; // Used for racing groups or recursive families
-
-    // Stability detection
-    lastMsgCount?: number;
-    stablePolls?: number;
-    pollFailureCount?: number;
-
-    // Progress tracking
-    progress?: TaskProgress;
-
-    // Output tracking for optimization
-    hasStartedOutputting?: boolean;
 }

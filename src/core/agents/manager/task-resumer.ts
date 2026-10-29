@@ -2,7 +2,7 @@
  * Task Resumer - Handles resuming existing parallel task sessions
  */
 
-import type { PluginInput } from "@opencode-ai/plugin";
+import type { HostClient } from "../../../host/client.js";
 import {
     TASK_STATUS,
     type ParallelTask,
@@ -13,11 +13,9 @@ import { log } from "../logger.js";
 import type { RoutedAgentPrompt } from "./prompt-routing.js";
 import { isSessionBusy } from "../../session/activity.js";
 
-type OpencodeClient = PluginInput["client"];
-
 export class TaskResumer {
     constructor(
-        private client: OpencodeClient,
+        private client: HostClient,
         private store: TaskStore,
         private findBySession: (sessionID: string) => ParallelTask | undefined,
         private startTask: (task: ParallelTask, prompt: RoutedAgentPrompt) => void,
@@ -44,13 +42,8 @@ export class TaskResumer {
         existingTask.error = undefined;
         existingTask.result = undefined;
         existingTask.prompt = input.prompt;
-        existingTask.hasStartedOutputting = undefined;
-        existingTask.lastMsgCount = undefined;
-        existingTask.pollFailureCount = undefined;
-        existingTask.progress = undefined;
         existingTask.parentSessionID = input.parentSessionID;
         existingTask.startedAt = new Date();
-        existingTask.stablePolls = 0;
 
         this.store.trackPending(input.parentSessionID, existingTask.id);
         log(`Resuming task ${existingTask.id} in session ${existingTask.sessionID}`);

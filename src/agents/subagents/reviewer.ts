@@ -10,6 +10,4 @@ export const reviewer: AgentDefinition = {
         WORKING_DISCIPLINE,
         MISSION_CONTRACT,
     ].join("\n\n"),
-    canWrite: true,
-    canBash: true,
 };

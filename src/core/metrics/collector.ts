@@ -9,12 +9,8 @@
 import { resolve } from "node:path";
 
 interface PerformanceStats {
-    avgAgentLatency: Record<string, number>;
     avgToolLatency: Record<string, number>;
     tokenUsage: number;
-    efficiency: number; // tokens/line or similar
-    totalTasks: number;
-    successRate: number;
 }
 
 interface LatencyTotal {
@@ -44,12 +40,8 @@ function averageLatencies(totals: Map<string, LatencyTotal>): Record<string, num
 export class MetricsCollector {
     private static readonly instances = new Map<string, MetricsCollector>();
 
-    private agentLatencies: Map<string, LatencyTotal> = new Map();
     private toolLatencies: Map<string, LatencyTotal> = new Map();
     private tokenUsage: number = 0;
-    private lineCount: number = 0;
-    private taskCount: number = 0;
-    private successfulTaskCount: number = 0;
 
     private constructor() { }
 
@@ -67,10 +59,6 @@ export class MetricsCollector {
         MetricsCollector.instances.clear();
     }
 
-    public recordAgentExecution(agent: string, duration: number): void {
-        addLatency(this.agentLatencies, agent, duration);
-    }
-
     public recordToolExecution(tool: string, duration: number): void {
         addLatency(this.toolLatencies, tool, duration);
     }
@@ -79,23 +67,10 @@ export class MetricsCollector {
         this.tokenUsage += tokens;
     }
 
-    public recordTaskResult(_id: string, success: boolean): void {
-        this.taskCount += 1;
-        if (success) this.successfulTaskCount += 1;
-    }
-
-    public recordLinesProduced(lines: number): void {
-        this.lineCount += lines;
-    }
-
     public getStats(): PerformanceStats {
         return {
-            avgAgentLatency: averageLatencies(this.agentLatencies),
             avgToolLatency: averageLatencies(this.toolLatencies),
             tokenUsage: this.tokenUsage,
-            efficiency: this.lineCount > 0 ? this.tokenUsage / this.lineCount : 0,
-            totalTasks: this.taskCount,
-            successRate: this.taskCount > 0 ? this.successfulTaskCount / this.taskCount : 0,
         };
     }
 }

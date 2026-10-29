@@ -10,14 +10,12 @@ import {
     ensureSessionInitialized,
     updateSessionTokens,
 } from "../../src/core/orchestrator/session-manager";
-import { state } from "../../src/core/orchestrator/state";
 import { writeLoopState } from "../../src/core/loop/mission-loop";
 
 describe("Session Manager", () => {
     const tempDirs: string[] = [];
 
     afterEach(() => {
-        state.sessions.clear();
         for (const dir of tempDirs.splice(0)) {
             rmSync(dir, { recursive: true, force: true });
         }
@@ -30,7 +28,7 @@ describe("Session Manager", () => {
 
         expect(session.active).toBe(true);
         expect(session.step).toBe(0);
-        expect(session.tokens).toEqual({ totalInput: 0, totalOutput: 0, estimatedCost: 0 });
+        expect(session.tokens).toEqual({ totalInput: 0, totalOutput: 0 });
         expect(sessions.get("session-1")).toBe(session);
     });
 
@@ -50,7 +48,7 @@ describe("Session Manager", () => {
         expect(session.timestamp).toEqual(expect.any(Number));
         expect(session.startTime).toEqual(expect.any(Number));
         expect(session.lastStepTime).toEqual(expect.any(Number));
-        expect(session.tokens).toEqual({ totalInput: 0, totalOutput: 0, estimatedCost: 0 });
+        expect(session.tokens).toMatchObject({ totalInput: 0, totalOutput: 0 });
     });
 
     it("normalizes non-finite numeric fields and token counters", () => {
@@ -71,7 +69,7 @@ describe("Session Manager", () => {
         expect(Number.isFinite(session.timestamp)).toBe(true);
         expect(Number.isFinite(session.startTime)).toBe(true);
         expect(Number.isFinite(session.lastStepTime)).toBe(true);
-        expect(session.tokens).toEqual({ totalInput: 0, totalOutput: 0, estimatedCost: 0 });
+        expect(session.tokens).toMatchObject({ totalInput: 0, totalOutput: 0 });
     });
 
     it("rehydrates step and start time from persisted mission loop state", () => {
@@ -80,7 +78,6 @@ describe("Session Manager", () => {
         writeLoopState(directory, {
             active: true,
             iteration: 7,
-            maxIterations: 10,
             prompt: "Build",
             objective: "Build",
             sessionID: "session-1",
@@ -99,13 +96,20 @@ describe("Session Manager", () => {
 
         updateSessionTokens(sessions, "session-1", 9, 12);
         const session = sessions.get("session-1") as {
-            tokens: { totalInput: number; totalOutput: number; estimatedCost: number; active?: unknown };
+            tokens: { totalInput: number; totalOutput: number; active?: unknown };
         };
 
         expect(session.tokens.totalInput).toBe(3);
         expect(session.tokens.totalOutput).toBe(3);
-        expect(session.tokens.estimatedCost).toBeGreaterThan(0);
         expect(session.tokens.active).toBeUndefined();
+    });
+
+    it("accumulates every token update, including the first one in a new session", () => {
+        const sessions = new Map<string, unknown>();
+
+        for (let i = 0; i < 3; i++) updateSessionTokens(sessions, "session-1", 400, 400);
+
+        expect((sessions.get("session-1") as { tokens: unknown }).tokens).toEqual({ totalInput: 300, totalOutput: 300 });
     });
 });
 

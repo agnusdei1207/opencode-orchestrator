@@ -7,7 +7,6 @@ import {
     MAX_MESSAGE_PART_CHARS,
     truncateOversizedMessageParts,
 } from "../../src/shared/message/message-guard";
-import { createMessagesGuardHandler } from "../../src/plugin-handlers/messages-guard-handler";
 
 const oversized = "a".repeat(MAX_MESSAGE_PART_CHARS * 2);
 const imageDataUri = "data:image/png;base64," + "A".repeat(MAX_MESSAGE_PART_CHARS + 1);
@@ -95,16 +94,5 @@ describe("truncateOversizedMessageParts", () => {
         expect(truncateOversizedMessageParts(undefined)).toBe(0);
         expect(truncateOversizedMessageParts("not a list")).toBe(0);
         expect(truncateOversizedMessageParts([null, 42, {}])).toBe(0);
-    });
-});
-
-describe("createMessagesGuardHandler", () => {
-    it("guards the outgoing message list", async () => {
-        const handler = createMessagesGuardHandler();
-        const output = { messages: [{ info: {}, parts: [{ type: "text", text: oversized }] }] };
-
-        await handler({}, output as never);
-
-        expect((output.messages[0].parts[0] as { text: string }).text).toContain("truncated by message guard");
     });
 });

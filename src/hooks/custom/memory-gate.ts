@@ -1,96 +1,29 @@
 /**
- * MemoryGate Hook - Intercepts tool usage and turn completion to maintain memory.
+ * MemoryGate Hook - records notable assistant turns in the project's mission memory.
+ *
+ * Tool output is deliberately not captured: memory is prepended to delegated
+ * prompts, and raw tool output from every session made that context large
+ * and stale.
  */
 
-import type {
-    PostToolUseHook,
-    AssistantDoneHook,
-    HookContext,
-    HookResult,
-    PostToolResult,
-    ToolInput,
-    ToolOutput,
-} from "../registry.js";
+import type { AssistantDoneHook, HookContext, HookResult } from "../registry.js";
 import { MemoryLevel, MemoryManager } from "../../core/memory/memory-manager.js";
 import { HOOK_ACTIONS } from "../constants.js";
 import { MEMORY_CONSTANTS, HOOK_NAMES } from "../../shared/index.js";
-import { redactSecrets } from "./secret-scanner.js";
 
-export class MemoryGateHook implements PostToolUseHook, AssistantDoneHook {
+const MAX_SUMMARY_CHARS = 500;
+
+export class MemoryGateHook implements AssistantDoneHook {
     name = HOOK_NAMES.MEMORY_GATE;
 
-    async execute(
-        _context: HookContext,
-        tool: string,
-        input: ToolInput,
-        output: ToolOutput
-    ): Promise<PostToolResult>;
-    async execute(
-        context: HookContext,
-        finalText: string
-    ): Promise<HookResult>;
-    async execute(
-        context: HookContext,
-        toolOrText: string,
-        input?: ToolInput,
-        output?: ToolOutput
-    ): Promise<PostToolResult | HookResult> {
-        // Handle PostToolUse
-        if (output) {
-            return this.handlePostTool(context, toolOrText, input, output);
-        }
-        // Handle AssistantDone
-        else {
-            return this.handleAssistantDone(context, toolOrText);
-        }
-    }
-
-    /**
-     * Post-Tool: Capture tool outputs to TASK memory
-     */
-    private async handlePostTool(
-        context: HookContext,
-        tool: string,
-        input: ToolInput | undefined,
-        output: ToolOutput
-    ): Promise<PostToolResult> {
-        // Skip noisy or irrelevant tools
-        if (MEMORY_CONSTANTS.NOISY_TOOLS.includes(tool)) return {};
-
-        const maxContentLength = MEMORY_CONSTANTS.MAX_CONTENT_LENGTH;
-        let content = output.output;
-
-        if (content.length > maxContentLength) {
-            content = content.substring(0, maxContentLength) + "... [truncated]";
-        }
-
-        // Task memory is injected into delegated prompts, so arguments such as
-        // http headers must not carry credentials into it.
-        const memoryText = redactSecrets(`Tool [${tool}] result for input ${JSON.stringify(input)}: ${content}`);
-
-        // Add to Task memory (Short-term)
-        MemoryManager.getInstance(context.directory).add(MemoryLevel.TASK, memoryText, MEMORY_CONSTANTS.IMPORTANCE.LOW);
-
-        return {};
-    }
-
-    /**
-     * Assistant Done: Capture turn summary to MISSION memory if important
-     */
-    private async handleAssistantDone(
-        context: HookContext,
-        finalText: string
-    ): Promise<HookResult> {
+    async execute(context: HookContext, finalText: string): Promise<HookResult> {
         const { KEYWORDS, IMPORTANCE } = MEMORY_CONSTANTS;
-        // Look for significant milestones or decisions in the assistant's final text
         if (finalText.includes(KEYWORDS.DONE) || finalText.includes(KEYWORDS.SUCCESS) || finalText.includes(KEYWORDS.ERROR)) {
             const importance = finalText.includes(KEYWORDS.ERROR) ? IMPORTANCE.CRITICAL : IMPORTANCE.HIGH;
-            const summary = finalText.length > 500 ? finalText.substring(0, 500) + "..." : finalText;
-
+            const summary = finalText.length > MAX_SUMMARY_CHARS ? `${finalText.substring(0, MAX_SUMMARY_CHARS)}...` : finalText;
             const agent = context.agent ?? "unknown";
             MemoryManager.getInstance(context.directory).add(MemoryLevel.MISSION, `Agent [${agent}] turn summary: ${summary}`, importance);
         }
-
         return { action: HOOK_ACTIONS.CONTINUE };
     }
 }

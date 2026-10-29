@@ -8,7 +8,7 @@ import { resetSessionActivity } from "../../src/core/session/activity";
 import { configureMissionRuntimeOptions } from "../../src/core/loop/mission-runtime-options";
 import { readMissionLedger } from "../../src/core/loop/mission-ledger";
 import { getCircuitState, recordAssistantTurn } from "../../src/core/loop/circuit-breaker";
-import type { PluginInput } from "@opencode-ai/plugin";
+import type { HostClient } from "../../src/host/client";
 
 const tasks = vi.hoisted(() => ({ read: vi.fn((): Array<{ status: string }> => []) }));
 const taskSource = { getTasksByParent: () => tasks.read() } as never;
@@ -24,8 +24,8 @@ describe("mission idle ownership", () => {
     let directory: string;
     const sessionID = "mission-owner";
     let prompt: ReturnType<typeof vi.fn>;
-    let status: ReturnType<typeof vi.fn>;
-    let client: PluginInput["client"];
+    let statuses: ReturnType<typeof vi.fn>;
+    let client: HostClient;
 
     beforeEach(() => {
         vi.useFakeTimers();
@@ -35,9 +35,9 @@ describe("mission idle ownership", () => {
         configureMissionRuntimeOptions({ ledger: false, markdownMemory: false });
         directory = mkdtempSync(join(tmpdir(), "mission-owner-"));
         startMissionLoop(directory, sessionID, "Finish the requested scope");
-        prompt = vi.fn().mockResolvedValue({ data: {} });
-        status = vi.fn().mockResolvedValue({ data: {} });
-        client = { session: { prompt, status } } as unknown as PluginInput["client"];
+        prompt = vi.fn().mockResolvedValue(undefined);
+        statuses = vi.fn(() => new Map<string, string>());
+        client = { prompt, statuses } as unknown as HostClient;
     });
     afterEach(() => {
         cleanupSession(sessionID);
@@ -118,25 +118,37 @@ describe("mission idle ownership", () => {
     it("rechecks abort after awaiting the final host status", async () => {
         writeFileSync(join(directory, ".opencode/todo.md"), "- [ ] Remaining");
         await handleMissionIdle({ client, directory, tasks: taskSource }, sessionID);
-        status.mockImplementation(async () => { handleAbort(sessionID); return { data: {} }; });
+        statuses.mockImplementation(() => { handleAbort(sessionID); return new Map(); });
         await vi.advanceTimersByTimeAsync(3000);
         expect(prompt).not.toHaveBeenCalled();
     });
 
-    it("keeps mission state when the host cannot establish idle for completion", async () => {
+    it("keeps mission state while the host reports the session busy", async () => {
         writeFileSync(join(directory, ".opencode/todo.md"), "- [x] Done");
-        status.mockRejectedValue(new Error("status unavailable"));
+        statuses.mockReturnValue(new Map([[sessionID, "busy"]]));
         await handleMissionIdle({ client, directory, tasks: taskSource }, sessionID);
         expect(readLoopState(directory)?.active).toBe(true);
+        expect(prompt).not.toHaveBeenCalled();
     });
 
-    it("does not schedule a continuation after shutdown during an awaited toast", async () => {
+    it("drops a pending continuation when the host reports busy before injection", async () => {
         writeFileSync(join(directory, ".opencode/todo.md"), "- [ ] Remaining");
-        const { shutdownMissionLoopHandler } = await import("../../src/core/loop/mission-loop-handler");
-        const toastClient = { ...client, tui: { showToast: async () => { shutdownMissionLoopHandler(); return {}; } } } as unknown as PluginInput["client"];
-        await handleMissionIdle({ client: toastClient, directory, tasks: taskSource }, sessionID);
+        await handleMissionIdle({ client, directory, tasks: taskSource }, sessionID);
+        statuses.mockReturnValue(new Map([[sessionID, "busy"]]));
         await vi.advanceTimersByTimeAsync(3000);
         expect(prompt).not.toHaveBeenCalled();
+    });
+
+    it("injects the continuation as one synthetic prompt", async () => {
+        writeFileSync(join(directory, ".opencode/todo.md"), "- [ ] Remaining");
+        await handleMissionIdle({ client, directory, tasks: taskSource }, sessionID);
+        await vi.advanceTimersByTimeAsync(3000);
+        expect(prompt).toHaveBeenCalledTimes(1);
+        expect(prompt).toHaveBeenCalledWith({
+            sessionID,
+            text: expect.stringContaining('<mission_loop iteration="2">'),
+            synthetic: true,
+        });
     });
 
     it("does not record completion when clearing persisted mission state fails", async () => {
@@ -159,10 +171,10 @@ describe("mission idle ownership", () => {
         expect(getCircuitState(sessionID)?.isOpen).toBe(false);
     });
 
-    it("does not record an injection the host rejected with an error response", async () => {
+    it("does not record an injection the host rejected", async () => {
         configureMissionRuntimeOptions({ ledger: true, markdownMemory: false });
         writeFileSync(join(directory, ".opencode/todo.md"), "- [ ] Remaining");
-        prompt.mockResolvedValue({ error: { name: "BadRequestError", data: { message: "rejected" } } });
+        prompt.mockRejectedValue(new Error("rejected"));
 
         await handleMissionIdle({ client, directory, tasks: taskSource }, sessionID);
         await vi.advanceTimersByTimeAsync(3000);

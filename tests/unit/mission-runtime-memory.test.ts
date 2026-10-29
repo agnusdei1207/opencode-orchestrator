@@ -26,8 +26,8 @@ import {
     getMissionMemoryNotesDirPath,
     readMissionScratchpadSnapshot,
     syncMissionMemory,
-    parseFrontmatter,
 } from "../../src/core/knowledge/mission-memory.js";
+import { parseFrontmatter } from "../../src/core/knowledge/mission-note.js";
 import { MemoryLevel, MemoryManager } from "../../src/core/memory/memory-manager.js";
 
 describe("mission runtime memory", () => {
@@ -105,7 +105,8 @@ describe("mission runtime memory", () => {
 
         const scratchpad = fs.readFileSync(getMissionScratchpadPath(testDir), "utf8");
         expect(scratchpad).toContain("- Status: inactive");
-        expect(scratchpad).toContain("- Last continuation reason: cancelled");
+        expect(scratchpad).toContain("- Iteration: 1");
+        expect(scratchpad).toMatch(/^- \S+ mission_cancelled: /mu);
     });
 
     it("respects runtime options that disable ledger and markdown memory", () => {
@@ -213,7 +214,6 @@ describe("mission runtime memory", () => {
             const loopState = {
                 active: true,
                 iteration: 1,
-                maxIterations: 10,
                 prompt: "multi-agent graphical memory verification",
                 objective: "Verify mission memory synchronization",
                 sessionID,
@@ -238,28 +238,8 @@ describe("mission runtime memory", () => {
             expect(parsed.tags).toContain("orchestrator");
             expect(parsed.keep).toBe(true);
             expect(parsed.level).toBe("project");
-            expect(parsed.horizon).toBe("strategic");
-
-            const preservedLifecycle = projectContent
-                .replace(/^ingestion_time: .*$/mu, 'ingestion_time: "older"')
-                .replace(/^last_accessed: .*$/mu, 'last_accessed: "previous"')
-                .replace(/^access_count: .*$/mu, "access_count: 7\naccess_ema: 0.42")
-                .replace(
-                    /^memory_layer: .*$/mu,
-                    'memory_layer: "cold"\ntombstone: true\nvalid_to: "2030-01-01T00:00:00.000Z"\nsupersedes: [old-a, old-b]',
-                );
-            fs.writeFileSync(path.join(notesDir, projectNote!), preservedLifecycle, "utf8");
-            syncMissionMemory(testDir, loopState);
-            expect(parseFrontmatter(fs.readFileSync(path.join(notesDir, projectNote!), "utf8"))).toMatchObject({
-                ingestion_time: "older",
-                last_accessed: "previous",
-                access_count: 7,
-                access_ema: 0.42,
-                memory_layer: "cold",
-                tombstone: true,
-                valid_to: "2030-01-01T00:00:00.000Z",
-                supersedes: ["old-a", "old-b"],
-            });
+            expect(parsed.importance).toBe(0.95);
+            expect(parsed.session).toBe(sessionID);
 
             const userNote = "project-user-written.md";
             fs.writeFileSync(path.join(notesDir, userNote), "# My own project notes\n", "utf8");
@@ -278,6 +258,33 @@ describe("mission runtime memory", () => {
         } finally {
             memoryManager.import(originalEntries);
         }
+    });
+
+    it("trims the ledger file to the newest 100 events on write", () => {
+        for (let iteration = 1; iteration <= 105; iteration++) {
+            appendMissionLedgerEvent(testDir, {
+                type: "continuation_scheduled",
+                sessionID,
+                iteration,
+                objective: "Bounded ledger",
+            });
+        }
+
+        const lines = fs.readFileSync(getMissionLedgerPath(testDir), "utf8").split("\n").filter(Boolean);
+        expect(lines).toHaveLength(100);
+        const iterations = lines.map(line => (JSON.parse(line) as { iteration: number }).iteration);
+        expect(iterations[0]).toBe(6);
+        expect(iterations.at(-1)).toBe(105);
+    });
+
+    it("does not trim a ledger at the retention limit", () => {
+        for (let iteration = 1; iteration <= 100; iteration++) {
+            appendMissionLedgerEvent(testDir, { type: "continuation_scheduled", sessionID, iteration });
+        }
+
+        const lines = fs.readFileSync(getMissionLedgerPath(testDir), "utf8").split("\n").filter(Boolean);
+        expect(lines).toHaveLength(100);
+        expect((JSON.parse(lines[0]) as { iteration: number }).iteration).toBe(1);
     });
 
     it("reads scratchpad snapshot safely", () => {

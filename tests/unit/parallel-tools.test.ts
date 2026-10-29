@@ -210,19 +210,22 @@ describe("Parallel Tools Suite", () => {
         it("displays performance metrics table", async () => {
             const collector = MetricsCollector.getInstance("/tmp/metrics-project");
             collector.recordToolExecution("grep_search", 150);
-            collector.recordAgentExecution("worker", 2500);
             collector.recordTokenUsage(1200);
-            collector.recordTaskResult("task-1", true);
 
             const tool = createShowMetricsTool();
             const result = await (tool as any).execute({}, { directory: "/tmp/metrics-project" });
 
             expect(result).toContain("Performance Dashboard");
-            expect(result).toContain("grep_search");
-            expect(result).toContain("150ms");
-            expect(result).toContain("worker");
-            expect(result).toContain("2500ms");
-            expect(result).toContain("100%");
+            expect(result).toContain("`grep_search`: 150ms");
+            expect(result).toContain(`Estimated tokens: ${(1200).toLocaleString()}`);
+        });
+
+        it("reports when no tool calls are recorded", async () => {
+            const tool = createShowMetricsTool();
+            const result = await (tool as any).execute({}, { directory: "/tmp/metrics-empty-project" });
+
+            expect(result).toContain("No tool calls recorded yet.");
+            expect(result).toContain("Estimated tokens: 0");
         });
     });
 

@@ -1,284 +1,241 @@
 /**
  * Task Launcher Unit Tests
- * 
+ *
  * Verifies:
  * - Single task launch
- * - Batch task launch (parallel session creation)
+ * - Launch errors carry their cause to the caller
  * - Concurrency acquisition logic
  * - Task status transitions (PENDING -> RUNNING)
  */
 
-import { describe, it, expect, beforeEach, vi } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi, type Mock } from "vitest";
+import type { RoutedAgentPrompt } from "../../src/core/agents/manager/prompt-routing";
 import { TaskLauncher } from "../../src/core/agents/manager/task-launcher";
 import { TaskStore } from "../../src/core/agents/task-store";
 import { ConcurrencyController } from "../../src/core/agents/concurrency";
-import { TASK_STATUS } from "../../src/shared";
-import { log } from "../../src/core/agents/logger";
+import { AGENT_NAMES, TASK_STATUS } from "../../src/shared";
 
-import { buildRoutedAgentPrompt } from "../../src/core/agents/manager/prompt-routing";
 vi.mock("../../src/core/agents/logger", () => ({
     log: vi.fn(),
 }));
 
-// Mock crypto.randomUUID
-if (!global.crypto) {
-    (global as any).crypto = {
-        randomUUID: () => "mock-uuid-1234-5678-9012"
-    };
-}
-
-function createTaskLauncher(
-    client: any,
-    store: TaskStore,
-    concurrency: ConcurrencyController,
-    sessionRegistry: any,
-    onTaskError: any,
-    startPolling: any,
-): TaskLauncher {
-    return new TaskLauncher({
-        client,
-        store,
-        concurrency,
-        sessionRegistry,
-        onTaskError,
-        startPolling,
-        routePrompt: (agent, prompt) => buildRoutedAgentPrompt("/tmp/task-launcher-project", agent, prompt),
-    });
-}
-
 describe("TaskLauncher", () => {
-    let mockClient: any;
+    let mockClient: {
+        prompt: ReturnType<typeof vi.fn>;
+        statuses: ReturnType<typeof vi.fn>;
+    };
     let store: TaskStore;
     let concurrency: ConcurrencyController;
-    let sessionRegistry: any;
+    let sessionRegistry: { acquire: ReturnType<typeof vi.fn>; release: ReturnType<typeof vi.fn> };
     let launcher: TaskLauncher;
-    let startPolling: any;
-    let onTaskError: any;
+    let startPolling: Mock<() => void>;
+    let onTaskError: Mock<(taskId: string, error: unknown) => void | Promise<void>>;
+    let routePrompt: Mock<(agent: string, prompt: string) => Promise<RoutedAgentPrompt>>;
+    let nextSession: number;
+
+    function createLauncher(): TaskLauncher {
+        return new TaskLauncher({
+            client: mockClient as never,
+            store,
+            concurrency,
+            sessionRegistry: sessionRegistry as never,
+            onTaskError,
+            startPolling,
+            routePrompt,
+        });
+    }
 
     beforeEach(() => {
+        nextSession = 0;
         mockClient = {
-            session: {
-                create: vi.fn().mockResolvedValue({ data: { id: "new-session-id" } }),
-                prompt: vi.fn().mockResolvedValue({}),
-            }
+            prompt: vi.fn().mockResolvedValue(undefined),
+            statuses: vi.fn(() => new Map<string, string>()),
         };
         store = new TaskStore();
         concurrency = new ConcurrencyController({ defaultConcurrency: 2 });
 
-        // Mock acquire to be truly async so we can catch the PENDING state
+        // Make acquire truly async so the PENDING state is observable
         const originalAcquire = concurrency.acquire.bind(concurrency);
         vi.spyOn(concurrency, "acquire").mockImplementation(async (key) => {
-            await new Promise(resolve => setTimeout(resolve, 10)); // Force delay
+            await new Promise(resolve => setTimeout(resolve, 10));
             return originalAcquire(key);
         });
 
         startPolling = vi.fn();
         onTaskError = vi.fn();
+        routePrompt = vi.fn(async (agent: string, prompt: string) => ({
+            wireAgent: AGENT_NAMES.COMMANDER,
+            text: `routed(${agent}): ${prompt}`,
+        }));
 
         sessionRegistry = {
-            acquire: vi.fn().mockImplementation(async (agentName, parentID, description) => {
-                const result = await mockClient.session.create({ body: { parentID, title: description } });
-                return { id: result.data.id, agentName };
-            }),
+            acquire: vi.fn().mockImplementation(async (agentName: string) => ({
+                id: ++nextSession === 1 ? "new-session-id" : `session-${nextSession}`,
+                agentName,
+            })),
             release: vi.fn().mockResolvedValue(undefined),
         };
 
-        launcher = createTaskLauncher(
-            mockClient,
-            store,
-            concurrency,
-            sessionRegistry,
-            onTaskError,
-            startPolling
-        );
+        launcher = createLauncher();
+    });
+
+    afterEach(() => {
+        vi.useRealTimers();
     });
 
     it("should prepare a task correctly in PENDING status", async () => {
-        const input = {
-            description: "Test task",
-            prompt: "Test prompt",
-            agent: "builder",
-            parentSessionID: "parent-123",
-        };
-
-        const result = await launcher.launch(input);
-        const task = Array.isArray(result) ? result[0] : result;
-
-        expect(task.status).toBe(TASK_STATUS.PENDING);
-        expect(task.sessionID).toBe("new-session-id");
-        expect(task.depth).toBe(1);
-        expect(store.get(task.id)).toBeDefined();
-        expect(store.getPendingCount("parent-123")).toBe(1);
-        expect(startPolling).toHaveBeenCalled();
-    });
-
-    it("should return null for a single launch when task preparation fails", async () => {
-        sessionRegistry.acquire.mockRejectedValueOnce(new Error("session unavailable"));
-
-        const result = await launcher.launch({
+        const task = await launcher.launch({
             description: "Test task",
             prompt: "Test prompt",
             agent: "builder",
             parentSessionID: "parent-123",
         });
 
-        expect(result).toBeNull();
-        expect(log).toHaveBeenCalledWith(
-            "[TaskLauncher] Failed to prepare task for builder: Test task",
-            expect.any(Error),
-        );
+        expect(task.status).toBe(TASK_STATUS.PENDING);
+        expect(task.sessionID).toBe("new-session-id");
+        expect(task.id).toMatch(/^task_/);
+        expect(task.depth).toBe(1);
+        expect(task.completedAt).toBeUndefined();
+        expect(task.error).toBeUndefined();
+        expect(task.result).toBeUndefined();
+        expect(store.get(task.id)).toBe(task);
+        expect(store.getPendingCount("parent-123")).toBe(1);
+        expect(sessionRegistry.acquire).toHaveBeenCalledWith("builder", "parent-123", "Test task");
+        expect(startPolling).toHaveBeenCalled();
+    });
+
+    it("throws with the cause when task preparation fails", async () => {
+        sessionRegistry.acquire.mockRejectedValueOnce(new Error("session unavailable"));
+
+        await expect(launcher.launch({
+            description: "Test task",
+            prompt: "Test prompt",
+            agent: "builder",
+            parentSessionID: "parent-123",
+        })).rejects.toThrow("session unavailable");
+
         expect(startPolling).not.toHaveBeenCalled();
         expect(store.getAll()).toEqual([]);
+        expect(store.getPendingCount("parent-123")).toBe(0);
     });
 
     it("rejects launches at max depth before acquiring a session", async () => {
-        const result = await launcher.launch({
+        await expect(launcher.launch({
             description: "Too deep",
             prompt: "Test prompt",
             agent: "builder",
             parentSessionID: "parent-123",
             depth: 3,
-        });
+        })).rejects.toThrow("Maximum task depth");
 
-        expect(result).toBeNull();
         expect(sessionRegistry.acquire).not.toHaveBeenCalled();
-        expect(log).toHaveBeenCalledWith(
-            "[TaskLauncher] Failed to prepare task for builder: Too deep",
-            expect.objectContaining({
-                message: expect.stringContaining("Maximum task depth"),
-            }),
-        );
+        expect(store.getAll()).toEqual([]);
     });
 
-    it("should execute tasks background and transition to RUNNING", async () => {
-        const input = {
+    it("should execute tasks in background and transition to RUNNING", async () => {
+        await launcher.launch({
             description: "Background task",
             prompt: "Prompt",
             agent: "builder",
             parentSessionID: "p-1",
-        };
+        });
 
-        await launcher.launch(input);
-
-        // Wait enough time for the background execution to pick up the slot
-        // 50ms is enough for our 10ms delayed mock
-        await new Promise(resolve => setTimeout(resolve, 50));
+        await vi.waitFor(() => expect(mockClient.prompt).toHaveBeenCalled());
 
         const tasks = store.getAll();
         expect(tasks[0].status).toBe(TASK_STATUS.RUNNING);
-        expect(mockClient.session.prompt).toHaveBeenCalledWith(expect.objectContaining({
-            path: { id: "new-session-id" }
-        }));
+        expect(tasks[0].concurrencyKey).toBe("builder");
+        expect(routePrompt).toHaveBeenCalledWith("builder", "Prompt");
+        expect(mockClient.prompt).toHaveBeenCalledWith({
+            sessionID: "new-session-id",
+            agent: AGENT_NAMES.COMMANDER,
+            text: "routed(builder): Prompt",
+            synthetic: false,
+        });
     });
 
-    it("should handle batch launches in parallel", async () => {
-        const inputs = [
-            { description: "Task 1", prompt: "P1", agent: "builder", parentSessionID: "p-1" },
-            { description: "Task 2", prompt: "P2", agent: "builder", parentSessionID: "p-1" },
-            { description: "Task 3", prompt: "P3", agent: "builder", parentSessionID: "p-1" },
-        ];
-
-        // Ensure each create takes some time but happens in parallel
-        let callCount = 0;
-        let inFlight = 0;
-        let maxInFlight = 0;
-        mockClient.session.create.mockImplementation(async () => {
-            const sessionNumber = ++callCount;
-            inFlight++;
-            maxInFlight = Math.max(maxInFlight, inFlight);
-            try {
-                await new Promise(r => setTimeout(r, 10));
-                return { data: { id: `session-${sessionNumber}` } };
-            } finally {
-                inFlight--;
-            }
+    it("dispatches a prepared resume prompt as synthetic without rerouting", async () => {
+        const task = await launcher.launch({
+            description: "Resume",
+            prompt: "First",
+            agent: AGENT_NAMES.WORKER,
+            parentSessionID: "p-1",
         });
+        await vi.waitFor(() => expect(mockClient.prompt).toHaveBeenCalledTimes(1));
 
-        const results = await launcher.launch(inputs);
+        task.status = TASK_STATUS.PENDING;
+        task.startedAt = new Date();
+        launcher.startTask(task, { wireAgent: AGENT_NAMES.WORKER, text: "follow-up" });
+        await vi.waitFor(() => expect(mockClient.prompt).toHaveBeenCalledTimes(2));
 
-        expect(Array.isArray(results)).toBe(true);
-        if (!Array.isArray(results)) {
-            throw new Error("Expected batch launch to return an array");
-        }
-        expect(results).toHaveLength(3);
-        expect(maxInFlight).toBeGreaterThan(1);
-
-        expect(results[0].status).toBe(TASK_STATUS.PENDING);
-        expect(results[1].status).toBe(TASK_STATUS.PENDING);
-        expect(results[2].status).toBe(TASK_STATUS.PENDING);
+        expect(routePrompt).toHaveBeenCalledTimes(1);
+        expect(mockClient.prompt).toHaveBeenLastCalledWith({
+            sessionID: task.sessionID,
+            agent: AGENT_NAMES.WORKER,
+            text: "follow-up",
+            synthetic: true,
+        });
     });
 
-    it("clears stale optional fields when reusing pooled task objects", async () => {
-        const first = await launcher.launch({
-            description: "Race task",
-            prompt: "Prompt",
-            agent: "builder",
-            parentSessionID: "parent-123",
-            mode: "race",
-            groupID: "group-1",
+    it("refuses to dispatch a resume prompt into a session that became busy", async () => {
+        const task = await launcher.launch({
+            description: "Resume",
+            prompt: "First",
+            agent: AGENT_NAMES.WORKER,
+            parentSessionID: "p-1",
         });
-        const firstTask = Array.isArray(first) ? first[0] : first;
-        if (!firstTask) {
-            throw new Error("Expected first task to launch");
-        }
-        firstTask.completedAt = new Date("2026-01-01T00:00:00.000Z");
-        firstTask.error = "old error";
-        firstTask.result = "old result";
-        firstTask.lastMsgCount = 10;
-        firstTask.stablePolls = 3;
-        firstTask.hasStartedOutputting = true;
-        store.delete(firstTask.id);
+        await vi.waitFor(() => expect(mockClient.prompt).toHaveBeenCalledTimes(1));
 
-        const second = await launcher.launch({
-            description: "Normal task",
-            prompt: "Prompt",
-            agent: "builder",
-            parentSessionID: "parent-123",
-        });
-        const secondTask = Array.isArray(second) ? second[0] : second;
-        if (!secondTask) {
-            throw new Error("Expected second task to launch");
-        }
+        mockClient.statuses.mockReturnValue(new Map([[task.sessionID, "busy"]]));
+        task.status = TASK_STATUS.PENDING;
+        task.startedAt = new Date();
+        launcher.startTask(task, { wireAgent: AGENT_NAMES.WORKER, text: "follow-up" });
 
-        expect(secondTask.mode).toBe("normal");
-        expect(secondTask.groupID).toBeUndefined();
-        expect(secondTask.completedAt).toBeUndefined();
-        expect(secondTask.error).toBeUndefined();
-        expect(secondTask.result).toBeUndefined();
-        expect(secondTask.lastMsgCount).toBeUndefined();
-        expect(secondTask.stablePolls).toBeUndefined();
-        expect(secondTask.hasStartedOutputting).toBeUndefined();
+        await vi.waitFor(() => expect(onTaskError).toHaveBeenCalledTimes(1));
+        expect(onTaskError.mock.calls[0][1]).toMatchObject({ message: expect.stringContaining("became busy") });
+        expect(mockClient.prompt).toHaveBeenCalledTimes(1);
     });
 
     it("should respect concurrency limits in background", async () => {
-        // Limit is 1
         concurrency = new ConcurrencyController({ defaultConcurrency: 1 });
-        launcher = createTaskLauncher(mockClient, store, concurrency, sessionRegistry, onTaskError, startPolling);
+        launcher = createLauncher();
 
-        const inputs = [
-            { description: "T1", prompt: "P1", agent: "a", parentSessionID: "p" },
-            { description: "T2", prompt: "P2", agent: "a", parentSessionID: "p" },
-        ];
-
-        await launcher.launch(inputs);
-        // Allow the first queued admission to dispatch.
-        await new Promise(resolve => setTimeout(resolve, 200));
+        await launcher.launch({ description: "T1", prompt: "P1", agent: "a", parentSessionID: "p" });
+        await launcher.launch({ description: "T2", prompt: "P2", agent: "a", parentSessionID: "p" });
+        await vi.waitFor(() => expect(mockClient.prompt).toHaveBeenCalledTimes(1));
+        await new Promise(resolve => setTimeout(resolve, 20));
 
         const tasks = store.getAll();
-        const running = tasks.filter(t => t.status === TASK_STATUS.RUNNING);
-        expect(running).toHaveLength(1);
-        expect(tasks.filter(task => task.status === TASK_STATUS.PENDING)).toHaveLength(1);
         expect(tasks).toHaveLength(2);
+        expect(tasks.filter(t => t.status === TASK_STATUS.RUNNING)).toHaveLength(1);
+        expect(tasks.filter(task => task.status === TASK_STATUS.PENDING)).toHaveLength(1);
+        expect(concurrency.getQueueLength("a")).toBe(1);
+    });
+
+    it("does not dispatch a queued task after shutdown", async () => {
+        concurrency = new ConcurrencyController({ defaultConcurrency: 1 });
+        launcher = createLauncher();
+
+        await launcher.launch({ description: "T1", prompt: "P1", agent: "a", parentSessionID: "p" });
+        await launcher.launch({ description: "T2", prompt: "P2", agent: "a", parentSessionID: "p" });
+        await vi.waitFor(() => expect(mockClient.prompt).toHaveBeenCalledTimes(1));
+
+        launcher.shutdown();
+        concurrency.release("a");
+        await new Promise(resolve => setTimeout(resolve, 20));
+
+        expect(mockClient.prompt).toHaveBeenCalledTimes(1);
+        expect(concurrency.getActiveCount("a")).toBe(0);
     });
 
     it("should await async task error handlers from background execution", async () => {
         const events: string[] = [];
-        mockClient.session.prompt.mockRejectedValueOnce(new Error("session expired"));
+        mockClient.prompt.mockRejectedValueOnce(new Error("session expired"));
         onTaskError = vi.fn(async () => {
             await new Promise(resolve => setTimeout(resolve, 5));
             events.push("handled");
         });
-        launcher = createTaskLauncher(mockClient, store, concurrency, sessionRegistry, onTaskError, startPolling);
+        launcher = createLauncher();
 
         await launcher.launch({
             description: "Failing task",
@@ -293,57 +250,21 @@ describe("TaskLauncher", () => {
     });
 
     it("does not replay a prompt after an ambiguous transport failure", async () => {
-        vi.useFakeTimers();
-        mockClient.session.prompt.mockRejectedValue(new Error("ECONNREFUSED"));
-        launcher = createTaskLauncher(mockClient, store, concurrency, sessionRegistry, onTaskError, startPolling);
+        mockClient.prompt.mockRejectedValue(new Error("ECONNREFUSED"));
 
-        await launcher.launch({
+        const task = await launcher.launch({
             description: "Retrying task",
             prompt: "Prompt",
             agent: "builder",
             parentSessionID: "parent-123",
         });
 
-        await vi.advanceTimersByTimeAsync(10);
-        expect(mockClient.session.prompt).toHaveBeenCalledTimes(1);
-
-        launcher.shutdown();
-        await vi.advanceTimersByTimeAsync(0);
-
         await vi.waitFor(() => {
             expect(onTaskError).toHaveBeenCalledTimes(1);
         });
+        expect(onTaskError.mock.calls[0][0]).toBe(task.id);
         expect(onTaskError.mock.calls[0][1]).toMatchObject({ message: "ECONNREFUSED" });
-        expect(mockClient.session.prompt).toHaveBeenCalledTimes(1);
-    });
-
-    it("aborts the session prompt when the prompt timeout expires", async () => {
-        vi.useFakeTimers();
-        let promptSignal: AbortSignal | undefined;
-        mockClient.session.prompt.mockImplementation(({ signal }) => {
-            promptSignal = signal;
-            return new Promise(() => { });
-        });
-        launcher = createTaskLauncher(mockClient, store, concurrency, sessionRegistry, onTaskError, startPolling);
-
-        await launcher.launch({
-            description: "Timeout task",
-            prompt: "Prompt",
-            agent: "builder",
-            parentSessionID: "parent-123",
-        });
-
-        await vi.advanceTimersByTimeAsync(10);
-        expect(promptSignal?.aborted).toBe(false);
-
-        await vi.advanceTimersByTimeAsync(600_000);
-        expect(promptSignal?.aborted).toBe(true);
-
-        launcher.shutdown();
-        await vi.advanceTimersByTimeAsync(0);
-
-        await vi.waitFor(() => {
-            expect(onTaskError).toHaveBeenCalledTimes(1);
-        });
+        await new Promise(resolve => setTimeout(resolve, 20));
+        expect(mockClient.prompt).toHaveBeenCalledTimes(1);
     });
 });

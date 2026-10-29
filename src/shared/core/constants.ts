@@ -1,8 +1,6 @@
 /**
  * Core constants (consolidated)
  */
-import { TOOL_NAMES } from "../tool/tool-names.js";
-
 /**
  * Time Constants
  */
@@ -19,10 +17,7 @@ export const TIME = {
 
 
 export const MEMORY_LIMITS = {
-    MAX_TASKS_IN_MEMORY: 1000,
     MAX_NOTIFICATIONS_PER_PARENT: 100,
-    ARCHIVE_AGE_MS: 30 * TIME.MINUTE,
-    ERROR_CLEANUP_AGE_MS: 10 * TIME.MINUTE,
 } as const;
 
 /**
@@ -55,7 +50,6 @@ export const ID_PREFIX = {
 export const PATHS = {
     OPENCODE: ".opencode",
     DOCS: ".opencode/docs",
-    TASK_ARCHIVE: ".opencode/archive/tasks",
     TODO: ".opencode/todo.md",
     CONTEXT: ".opencode/context.md",
     SYNC_ISSUES: ".opencode/sync-issues.md",
@@ -70,14 +64,7 @@ export const PATHS = {
  * System Limits
  */
 
-export const LIMITS = {
-    /**
-     * Mission loop iteration ceiling shown in prompts and toasts. Deliberately
-     * unreachable: loops end on verification, the circuit breaker, stagnation
-     * escalation or the user, not on a count.
-     */
-    MAX_ITERATIONS: 1_000_000_000,
-} as const;
+
 
 /**
  * Unified Status Labels
@@ -150,9 +137,6 @@ export const LOG_PREFIX = {
  */
 
 export const SHUTDOWN_HANDLERS = {
-    /** CleanupScheduler - Manages periodic cleanup tasks */
-    CLEANUP_SCHEDULER: "CleanupScheduler",
-
     /** RustToolPool - Manages Rust tool instances */
     RUST_TOOL_POOL: "RustToolPool",
 
@@ -167,9 +151,6 @@ export const SHUTDOWN_HANDLERS = {
 
     /** CircuitBreaker - Prune timer + per-session breaker state */
     CIRCUIT_BREAKER: "CircuitBreaker",
-
-    /** CompactionGuard - Prune timer + per-session compaction state */
-    COMPACTION_GUARD: "CompactionGuard",
 
     /** SessionActivity - Prune timer + per-session busy/idle state */
     SESSION_ACTIVITY: "SessionActivity",
@@ -192,15 +173,6 @@ export const MEMORY_CONSTANTS = {
         HIGH: 0.7,
         CRITICAL: 0.9,
     },
-    // Tools that produce high volume or irrelevant output for memory
-    NOISY_TOOLS: [
-        TOOL_NAMES.LIST_TASKS,
-        TOOL_NAMES.GET_TASK_RESULT,
-        TOOL_NAMES.LIST_BACKGROUND,
-        TOOL_NAMES.CHECK_BACKGROUND,
-        TOOL_NAMES.LIST_AGENTS,
-        TOOL_NAMES.SHOW_METRICS
-    ] as string[],
     // Significant keywords for memory promotion
     KEYWORDS: {
         DONE: "DONE",
@@ -208,7 +180,6 @@ export const MEMORY_CONSTANTS = {
         ERROR: "ERROR",
         FAIL: "FAIL",
     },
-    MAX_CONTENT_LENGTH: 1000,
 } as const;
 
 export const HOOK_NAMES = {

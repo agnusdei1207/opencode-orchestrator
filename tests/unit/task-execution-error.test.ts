@@ -33,7 +33,7 @@ describe("terminal OpenCode 2 child-session events", () => {
         expect(task.status).toBe(TASK_STATUS.ERROR);
         expect(task.error).toBe(event.expected);
         expect(concurrency.getActiveCount("Worker")).toBe(0);
-        expect(store.hasPending(task.parentSessionID)).toBe(false);
+        expect(store.getPendingCount(task.parentSessionID)).toBe(0);
         expect(store.getNotifications(task.parentSessionID)[0]?.status).toBe(TASK_STATUS.ERROR);
         expect(cleanup).toHaveBeenCalledWith(task.id);
     });

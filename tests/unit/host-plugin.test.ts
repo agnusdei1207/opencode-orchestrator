@@ -19,7 +19,7 @@ describe("OpenCode 2 plugin setup", () => {
         directories.push(directory);
         const registrations: Array<{ dispose: ReturnType<typeof vi.fn> }> = [];
         const agents = new Map<string, { id: string; description?: string; system?: string; mode: string; hidden: boolean }>();
-        const tools: Array<{ name?: string }> = [];
+        const tools: Array<{ name?: string; options?: unknown }> = [];
         const commands: Array<{ name?: string }> = [];
         const hookNames: string[] = [];
         const registration = () => {
@@ -46,7 +46,7 @@ describe("OpenCode 2 plugin setup", () => {
                 hook: vi.fn((name: string) => { hookNames.push(`session.${name}`); return registration(); }),
             },
             tool: {
-                transform: vi.fn((callback: (editor: { add: (tool: { name?: string }) => void }) => void) => {
+                transform: vi.fn((callback: (editor: { add: (tool: { name?: string; options?: unknown }) => void }) => void) => {
                     callback({ add: tool => tools.push(tool) });
                     return registration();
                 }),
@@ -72,6 +72,10 @@ describe("OpenCode 2 plugin setup", () => {
             expect(agents.get(name)?.system).toContain(`You are ${name}.`);
         }
         expect(tools.some(tool => tool.name === "delegate_task")).toBe(true);
+        expect(tools.some(tool => tool.name === "slashcommand")).toBe(false);
+        // OpenCode 2 hides tools without `codemode: false` behind the code-mode catalog.
+        expect(tools.length).toBeGreaterThan(1);
+        for (const tool of tools) expect(tool.options, tool.name).toEqual({ codemode: false });
         expect(commands.map(command => command.name)).toEqual(expect.arrayContaining([
             "task", "plan", "agents", "stop", "cancel",
         ]));
@@ -95,9 +99,9 @@ describe("OpenCode 2 plugin setup", () => {
                 return { dispose: vi.fn() };
             }) },
         } as unknown as Plugin.Context;
-        const { registerV2Commands } = await import("../../src/v2/command-adapter.js");
-        const handlerContext = { directory, sessions: new Map() } as unknown as Parameters<typeof registerV2Commands>[1];
-        await registerV2Commands(context, handlerContext);
+        const { registerCommands } = await import("../../src/host/command-adapter.js");
+        const handlerContext = { directory, sessions: new Map() } as unknown as Parameters<typeof registerCommands>[1];
+        await registerCommands(context, handlerContext);
         await commands.find(command => command.name === "task")?.execute({ sessionID: "s1", prompt: { text: "do work" } });
         expect(context.session.synthetic).toHaveBeenCalledWith(expect.objectContaining({ sessionID: "s1" }));
         expect(context.session.prompt).not.toHaveBeenCalled();
@@ -118,11 +122,11 @@ describe("OpenCode 2 plugin setup", () => {
                 return { dispose: vi.fn() };
             }) },
         } as unknown as Plugin.Context;
-        const { createV2ClientBridge } = await import("../../src/v2/client-adapter.js");
-        const { registerV2Commands } = await import("../../src/v2/command-adapter.js");
-        const bridge = createV2ClientBridge(context);
+        const { createHostClient } = await import("../../src/host/client.js");
+        const { registerCommands } = await import("../../src/host/command-adapter.js");
+        const bridge = createHostClient(context);
         const agents = { cancelTasksForParent: vi.fn().mockResolvedValue(true) };
-        await registerV2Commands(context, { client: bridge.client, directory, sessions: new Map(), agents } as never);
+        await registerCommands(context, { client: bridge.client, directory, sessions: new Map(), agents } as never);
         const task = commands.find(command => command.name === "task")!;
         await task.execute({ sessionID: "old-root", prompt: { text: "Old mission" } });
         bridge.statuses.set("old-root", "busy");

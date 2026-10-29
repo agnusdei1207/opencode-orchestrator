@@ -78,15 +78,12 @@ ${snapshot}
 
 function buildMissionLoopPrompt(loopState: {
     iteration: number;
-    maxIterations: number;
     objective?: string;
-    lastProgress?: string;
     lastVerificationSummary?: string;
 }): string {
     return `<orchestrator_mission_loop>
-MISSION LOOP ACTIVE: Iteration ${loopState.iteration}/${loopState.maxIterations}
+MISSION LOOP ACTIVE: Iteration ${loopState.iteration}
 Objective: ${loopState.objective ?? "Continue the active mission"}
-- Last progress: ${loopState.lastProgress ?? "unknown"}
 - Last verification: ${loopState.lastVerificationSummary ?? "unknown"}
 Done when every verified TODO leaf is [x] and each verified parent status: completed, and all tests and builds pass. If .opencode/verification-checklist.md exists, every item must pass.
 Work autonomously; ask a concise question only when truly blocked and the OpenCode question permission allows it.

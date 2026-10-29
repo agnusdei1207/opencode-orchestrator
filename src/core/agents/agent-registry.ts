@@ -17,11 +17,6 @@ const AgentDefinitionSchema = z.object({
     id: z.string(), // ID is required inside the definition object
     description: z.string(),
     systemPrompt: z.string(),
-    mode: z.enum(["primary", "subagent"]).optional(),
-    color: z.string().optional(),
-    hidden: z.boolean().optional(),
-    canWrite: z.boolean(), // Required per interface
-    canBash: z.boolean(), // Required per interface
 });
 
 /**

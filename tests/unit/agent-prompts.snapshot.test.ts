@@ -32,8 +32,8 @@ describe("agent system prompts (drift guard)", () => {
             expect(agent.id).toBe(name);
             expect(typeof agent.systemPrompt).toBe("string");
             expect(agent.systemPrompt.length).toBeGreaterThan(200);
-            expect(typeof agent.canWrite).toBe("boolean");
-            expect(typeof agent.canBash).toBe("boolean");
+            expect(agent.description.length).toBeGreaterThan(0);
+            expect(Object.keys(agent).sort()).toEqual(["description", "id", "systemPrompt"]);
         }
     });
 

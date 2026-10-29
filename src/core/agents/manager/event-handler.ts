@@ -2,10 +2,9 @@
  * Event Handler - Handles OpenCode session events
  */
 
-import { TASK_STATUS, SESSION_EVENTS, V2_EXECUTION_EVENTS } from "../../../shared/index.js";
+import { TASK_STATUS, SESSION_EVENTS, V2_EXECUTION_EVENTS, PARALLEL_TASK } from "../../../shared/index.js";
 import { TaskStore } from "../task-store.js";
 import { ConcurrencyController } from "../concurrency.js";
-import { CONFIG } from "../config.js";
 import { log } from "../logger.js";
 import { formatDuration } from "../format.js";
 import type { ParallelTask } from "../../../shared/index.js";
@@ -109,7 +108,7 @@ export class EventHandler {
         task.status = TASK_STATUS.ERROR;
         task.error = executionErrorMessage(event.type, event.properties?.error);
         task.completedAt = new Date();
-        finishTaskConcurrency(task, this.concurrency, false);
+        finishTaskConcurrency(task, this.concurrency);
         this.store.untrackPending(task.parentSessionID, task.id);
         this.store.queueNotification(task);
         this.scheduleCleanup(task.id);
@@ -120,7 +119,7 @@ export class EventHandler {
         const startedAt = task.startedAt;
         // Check minimum stability time
         const elapsed = Date.now() - task.startedAt.getTime();
-        if (elapsed < CONFIG.MIN_STABILITY_MS) {
+        if (elapsed < PARALLEL_TASK.MIN_STABILITY_MS) {
             log(`Session idle but too early for ${task.id}, waiting...`);
             return;
         }
@@ -137,7 +136,7 @@ export class EventHandler {
         task.status = TASK_STATUS.COMPLETED;
         task.completedAt = new Date();
 
-        finishTaskConcurrency(task, this.concurrency, true);
+        finishTaskConcurrency(task, this.concurrency);
 
         // Cleanup and notify
         this.store.untrackPending(task.parentSessionID, task.id);
@@ -164,7 +163,7 @@ export class EventHandler {
             task.completedAt = new Date();
         }
 
-        finishTaskConcurrency(task, this.concurrency, false);
+        finishTaskConcurrency(task, this.concurrency);
 
         // Cleanup tracking
         this.store.untrackPending(task.parentSessionID, task.id);

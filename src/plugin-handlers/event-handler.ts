@@ -6,7 +6,6 @@
  * - message.updated
  */
 
-import * as Toast from "../core/notification/toast.js";
 import * as SessionRecovery from "../core/recovery/session-recovery.js";
 import * as MissionLoopHandler from "../core/loop/mission-loop-handler.js";
 import { isLoopActive } from "../core/loop/mission-loop.js";
@@ -46,12 +45,7 @@ type MessageUpdatedInfo = {
     };
 };
 
-const SESSION_ID_PREVIEW_LENGTH = 12;
-const ERROR_PREVIEW_LENGTH = 50;
 const IDLE_CONTINUATION_DELAY_MS = 500;
-const SECOND_MS = 1000;
-const SECONDS_PER_MINUTE = 60;
-const MINUTE_MS = SECONDS_PER_MINUTE * SECOND_MS;
 
 /**
  * Create event handler for session events
@@ -67,9 +61,6 @@ export function createEventHandler(ctx: EventHandlerContext) {
 
 async function handlePluginEvent(ctx: EventHandlerContext, event: PluginEvent): Promise<void> {
     switch (event.type) {
-        case SESSION_EVENTS.CREATED:
-            handleSessionCreated(event);
-            return;
         case SESSION_EVENTS.COMPACTED: {
             const sessionID = readSessionID(event.properties);
             if (sessionID) MissionLoopHandler.handleSessionCompacted(sessionID);
@@ -104,13 +95,8 @@ function notifyParallelAgentManager(ctx: EventHandlerContext, event: PluginEvent
     }
 }
 
-function handleSessionCreated(event: PluginEvent): void {
-    const sessionID = readSessionID(event.properties);
-    Toast.presets.missionStarted(`Session ${sessionID.slice(0, SESSION_ID_PREVIEW_LENGTH)}...`);
-}
-
 function handleSessionDeleted(ctx: EventHandlerContext, event: PluginEvent): void {
-    const { sessions, state } = ctx;
+    const { sessions } = ctx;
     const sessionID = readSessionID(event.properties);
     SessionActivity.clearSessionActivity(sessionID);
     PendingInjection.clearPrompts(sessionID);
@@ -121,21 +107,7 @@ function handleSessionDeleted(ctx: EventHandlerContext, event: PluginEvent): voi
     ContextMonitor.cleanupSession(sessionID);
     ctx.contextLimits.forgetSession(sessionID);
 
-    const session = sessions.get(sessionID);
-    if (!session) return;
-
-    const duration = formatSessionDuration(Date.now() - session.startTime);
-
     sessions.delete(sessionID);
-    state.sessions.delete(sessionID);
-
-    Toast.presets.sessionCompleted(sessionID, duration);
-}
-
-function formatSessionDuration(totalTime: number): string {
-    return totalTime < MINUTE_MS
-        ? `${Math.round(totalTime / SECOND_MS)}s`
-        : `${Math.round(totalTime / MINUTE_MS)}m`;
 }
 
 async function handleSessionError(ctx: EventHandlerContext, event: PluginEvent): Promise<void> {
@@ -153,13 +125,8 @@ async function handleSessionError(ctx: EventHandlerContext, event: PluginEvent):
 
     if (sessionID && error) {
         if (isFailedChildTask(ctx, sessionID)) return;
-        const recovered = await SessionRecovery.handleSessionError(
-            ctx.client, sessionID, error, event.properties
-        );
-        if (recovered) return;
+        await SessionRecovery.handleSessionError(ctx.client, sessionID, error);
     }
-
-    Toast.presets.taskFailed("session", String(error).slice(0, ERROR_PREVIEW_LENGTH));
 }
 
 function isFailedChildTask(ctx: EventHandlerContext, sessionID: string): boolean {
@@ -176,7 +143,7 @@ async function handleMessageUpdated(ctx: EventHandlerContext, event: PluginEvent
     if (!sessionID) return;
 
     SessionActivity.touchSessionActivity(sessionID);
-    // Context monitoring is advisory (it drives a toast). Resolving the model's
+    // Context usage feeds the compaction advice. Resolving the model's
     // window can hit the server, so run it off the completion path rather than
     // making every token-bearing message wait on it.
     void checkContextUsage(ctx, sessionID, messageInfo).catch((error) => {

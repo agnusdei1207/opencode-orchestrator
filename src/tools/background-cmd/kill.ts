@@ -2,7 +2,7 @@
  * kill_background Tool - Kill a running background task
  */
 
-import { tool, type ToolDefinition } from "@opencode-ai/plugin";
+import { tool, type ToolDefinition } from "../../host/tool.js";
 import { backgroundTaskManager } from "../../core/commands/index.js";
 import { STATUS_LABEL } from "../../shared/index.js";
 

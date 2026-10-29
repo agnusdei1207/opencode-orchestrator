@@ -7,7 +7,7 @@
  * Integrates: ProgressTracker, SessionStateStore, CompactionGuard, CircuitBreaker
  */
 
-import type { PluginInput } from "@opencode-ai/plugin";
+import type { HostClient } from "../../host/client.js";
 import { log } from "../agents/logger.js";
 
 import {
@@ -19,7 +19,7 @@ import {
 } from "./mission-loop.js";
 import type { MissionLoopState } from "../../shared/loop/types.js";
 import { STAGNATION_INTERVENTION } from "../../shared/constants/system-messages.js";
-import { LOOP, TOAST_DURATION, STATUS_LABEL, TOAST_VARIANTS, MISSION_CONTROL, type ToastVariant, type VerificationResult } from "../../shared/index.js";
+import { LOOP, STATUS_LABEL, MISSION_CONTROL, type VerificationResult } from "../../shared/index.js";
 import { isSessionRecovering } from "../recovery/session-recovery.js";
 import type { ParallelAgentManager } from "../agents/manager.js";
 import { sendNotification } from "../notification/os-notify/notifier.js";
@@ -30,18 +30,13 @@ import { syncMissionMemory } from "../knowledge/mission-memory.js";
 import { appendMissionLedgerEvent } from "./mission-ledger.js";
 import { createSessionStateStore, type SessionState } from "./session-state-store.js";
 import { getUnverifiedFiles, clearEvidence } from "./evidence.js";
-import { trackProgress, resetProgress, isStagnant, markInjectionPerformed, DEFAULT_STAGNATION_THRESHOLD } from "./progress-tracker.js";
-import { armCompactionGuard, isCompactionSafe, clearCompactionState } from "./compaction-guard.js";
+import { trackProgress, clearSession as clearProgress, markInjectionPerformed, DEFAULT_STAGNATION_THRESHOLD } from "./progress-tracker.js";
 import { isCircuitOpen, tripOutputCircuit, clearCircuitState } from "./circuit-breaker.js";
 import { isSessionBusy, isKnownBusy } from "../session/activity.js";
-import { deactivateMissionState } from "../orchestrator/session-manager.js";
-import { syntheticTextPart } from "../session/injection.js";
 import {
     applyContinuationMetadata,
     getVerificationRemainingCount,
 } from "./mission-continuation.js";
-
-type OpencodeClient = PluginInput["client"];
 
 const sessionStateStore = createSessionStateStore();
 
@@ -49,26 +44,19 @@ const sessionStateStore = createSessionStateStore();
 export type BackgroundTaskSource = Pick<ParallelAgentManager, "getTasksByParent">;
 
 export interface MissionIdleContext {
-    client: OpencodeClient;
+    client: HostClient;
     directory: string;
     tasks: BackgroundTaskSource;
 }
 
 interface ContinuationInjectionRequest {
-    client: OpencodeClient;
+    client: HostClient;
     directory: string;
     tasks: BackgroundTaskSource;
     sessionID: string;
     loopState: MissionLoopState;
     scheduledAt: number;
     customPrompt?: string;
-}
-
-interface ToastRequest {
-    title: string;
-    message: string;
-    variant: ToastVariant;
-    duration: number;
 }
 
 interface PreparedContinuation {
@@ -83,18 +71,6 @@ interface PreparedPrompt {
     reason?: string;
 }
 
-async function showToastSafely(client: OpencodeClient, request: ToastRequest): Promise<void> {
-    try {
-        if (client.tui?.showToast) {
-            await client.tui.showToast({
-                body: request,
-            });
-        }
-    } catch (err) {
-        log("[mission-loop-handler] Toast failed", { error: err });
-    }
-}
-
 function hasRunningBackgroundTasks(source: BackgroundTaskSource, parentSessionID: string): boolean {
     try {
         const tasks = source.getTasksByParent(parentSessionID);
@@ -103,32 +79,6 @@ function hasRunningBackgroundTasks(source: BackgroundTaskSource, parentSessionID
         log("[mission-loop-handler] Failed to check background tasks", { sessionID: parentSessionID, error: err });
         return true;
     }
-}
-
-async function showCountdownToast(
-    client: OpencodeClient,
-    seconds: number,
-    iteration: number,
-    maxIterations: number
-): Promise<void> {
-    await showToastSafely(client, {
-        title: "🔄 Mission Loop",
-        message: `Continuing in ${seconds}s... (iteration ${iteration}/${maxIterations})`,
-        variant: TOAST_VARIANTS.WARNING,
-        duration: TOAST_DURATION.EXTRA_SHORT,
-    });
-}
-
-async function showCompletedToast(
-    client: OpencodeClient,
-    state: MissionLoopState
-): Promise<void> {
-    await showToastSafely(client, {
-        title: "🎖️ Mission Complete!",
-        message: `Verified and finished after ${state.iteration} iteration(s)`,
-        variant: TOAST_VARIANTS.SUCCESS,
-        duration: TOAST_DURATION.LONG,
-    });
 }
 
 function canBeginInjection(
@@ -143,11 +93,6 @@ function canBeginInjection(
         log(`[mission-loop-handler] Skipped: circuit breaker open`, { sessionID });
         return false;
     }
-
-    if (!isCompactionSafe(sessionID, scheduledAt)) {
-        log(`[mission-loop-handler] Skipped: post-compaction unsafe`, { sessionID, scheduledAt });
-        return false;
-    }
     return true;
 }
 
@@ -155,7 +100,7 @@ function isInjectionCurrent(request: ContinuationInjectionRequest, state: Sessio
     const { directory, sessionID, loopState, scheduledAt } = request;
     if (state.isAborting || state.countdownStartedAt !== scheduledAt) return false;
     if (!isCurrentMission(directory, loopState)) return false;
-    return isCompactionSafe(sessionID, scheduledAt) && !hasRunningBackgroundTasks(request.tasks, sessionID);
+    return !hasRunningBackgroundTasks(request.tasks, sessionID);
 }
 
 function prepareContinuationPrompt(
@@ -180,14 +125,7 @@ async function sendContinuationPrompt(
 ): Promise<void> {
     const { client, directory, sessionID, loopState } = request;
     try {
-        const response = await client.session.prompt({
-            path: { id: sessionID },
-            body: {
-                parts: [syntheticTextPart(prepared.text)],
-            },
-        });
-        // The V1 SDK reports host failures in `error` instead of throwing.
-        if (response.error) throw new Error(String(response.error));
+        await client.prompt({ sessionID, text: prepared.text, synthetic: true });
         appendMissionLedgerEvent(directory, {
             type: "prompt_injected",
             sessionID,
@@ -216,7 +154,7 @@ async function injectContinuation(request: ContinuationInjectionRequest): Promis
 
     const verification = verifyMissionCompletion(directory);
     if (verification.passed) {
-        await handleMissionComplete(client, directory, loopState);
+        await handleMissionComplete(directory, loopState);
         return;
     }
     await sendContinuationPrompt(request, prepareContinuationPrompt(request, verification));
@@ -229,7 +167,6 @@ function isCurrentMission(directory: string, expected: MissionLoopState): boolea
 }
 
 async function handleMissionComplete(
-    client: OpencodeClient,
     directory: string,
     loopState: MissionLoopState
 ): Promise<void> {
@@ -248,11 +185,8 @@ async function handleMissionComplete(
         summary: "Mission verification passed",
     });
     syncMissionMemory(directory, completedState);
-    deactivateMissionState(loopState.sessionID);
-    await showCompletedToast(client, loopState);
     await sendMissionCompleteNotification(loopState);
     sessionStateStore.cleanup(loopState.sessionID);
-    clearCompactionState(loopState.sessionID);
     clearCircuitState(loopState.sessionID);
 }
 
@@ -333,17 +267,7 @@ function recordCircuitOpen(
     log(`[${MISSION_CONTROL.LOG_SOURCE}-handler] Circuit breaker tripped for ${loopState.sessionID}`);
 }
 
-function trackMissionProgress(sessionID: string, verification: VerificationResult): boolean {
-    const remaining = getVerificationRemainingCount(verification);
-    const progress = trackProgress(sessionID, remaining);
-    if (progress.hasProgressed) {
-        log(`[${MISSION_CONTROL.LOG_SOURCE}-handler] Progress made`, {
-            sessionID,
-            source: progress.progressSource,
-        });
-    }
-    return isStagnant(sessionID, DEFAULT_STAGNATION_THRESHOLD);
-}
+
 
 function recordContinuationScheduled(
     directory: string,
@@ -374,14 +298,15 @@ function prepareContinuation(
     verification: VerificationResult,
 ): PreparedContinuation | undefined {
     const verificationSummary = buildVerificationSummary(verification);
-    const stagnant = trackMissionProgress(sessionID, verification);
+    const stagnationCount = trackProgress(sessionID, getVerificationRemainingCount(verification));
+    const stagnant = stagnationCount >= DEFAULT_STAGNATION_THRESHOLD;
     const incrementedState = incrementIteration(directory);
     if (!incrementedState) return undefined;
 
     const scheduledAt = Date.now();
     const loopState = applyContinuationMetadata(incrementedState, {
-        progress: verificationSummary,
         verificationSummary,
+        stagnationCount,
         stagnant,
         scheduledAt,
     });
@@ -414,14 +339,6 @@ async function scheduleContinuation(
 ): Promise<void> {
     const { loopState, scheduledAt, stagnant } = prepared;
     state.countdownStartedAt = scheduledAt;
-    await showCountdownToast(
-        client,
-        MISSION_CONTROL.DEFAULT_COUNTDOWN_SECONDS,
-        loopState.iteration,
-        loopState.maxIterations,
-    );
-    if (sessionStateStore.getExistingState(loopState.sessionID) !== state) return;
-    if (state.countdownStartedAt !== scheduledAt) return;
 
     const request: ContinuationInjectionRequest = {
         client,
@@ -455,7 +372,7 @@ export async function handleMissionIdle(
     const verification = verifyMissionCompletion(directory);
     if (verification.passed) {
         log(`[${MISSION_CONTROL.LOG_SOURCE}-handler] Verification passed for ${sessionID}. Completion confirmed.`);
-        await handleMissionComplete(client, directory, loopState);
+        await handleMissionComplete(directory, loopState);
         return;
     }
 
@@ -500,9 +417,8 @@ export function handleSessionBusy(sessionID: string): void {
  */
 export function cleanupSession(sessionID: string): void {
     sessionStateStore.cleanup(sessionID);
-    clearCompactionState(sessionID);
     clearCircuitState(sessionID);
-    resetProgress(sessionID);
+    clearProgress(sessionID);
     clearEvidence(sessionID);
 }
 
@@ -514,7 +430,7 @@ export function shutdownMissionLoopHandler(): void {
     sessionStateStore.shutdown();
 }
 
+/** A continuation scheduled before compaction may refer to removed context, so it is dropped. */
 export function handleSessionCompacted(sessionID: string): void {
-    armCompactionGuard(sessionID, Date.now());
     sessionStateStore.cancelCountdown(sessionID);
 }

@@ -1,50 +1,31 @@
 /**
  * Task Cleaner - Handles cleanup, expiration, and notifications for tasks
  * 
- * noReply Strategy:
- * - Individual task completion: noReply=true (save tokens)
- * - All tasks complete: noReply=false (let AI process results)
+ * Parent notices start a model turn only when every task of the parent is done.
  */
 
-import type { PluginInput } from "@opencode-ai/plugin";
-import { TASK_STATUS } from "../../../shared/index.js";
+import type { HostClient } from "../../../host/client.js";
+import { TASK_STATUS, PARALLEL_TASK } from "../../../shared/index.js";
 import { TaskStore } from "../task-store.js";
 import { ConcurrencyController } from "../concurrency.js";
-import { CONFIG } from "../config.js";
 import { log } from "../logger.js";
 import { SessionRegistry } from "../session-registry.js";
-import { buildAgentTaskCompletionMessage, buildAgentTaskProgressMessage, formatDuration } from "../format.js";
-import type { TaskToastManager } from "../../notification/task-toast-manager.js";
-import type { TaskCompletionInfo, ParallelTask } from "../../../shared/index.js";
+import { buildAgentTaskCompletionMessage, buildAgentTaskProgressMessage } from "../format.js";
+import type { ParallelTask } from "../../../shared/index.js";
 import { finishTaskConcurrency, confirmSessionAbort } from "./task-lifecycle.js";
-import { syntheticTextPart } from "../../session/injection.js";
 import { isSessionBusy } from "../../session/activity.js";
 import { queueNotice } from "../../session/pending-injection.js";
-
-type OpencodeClient = PluginInput["client"];
-
-function toCompletionInfo(task: ParallelTask): TaskCompletionInfo {
-    return {
-        id: task.id,
-        description: task.description,
-        duration: formatDuration(task.startedAt, task.completedAt),
-        status: task.status as TaskCompletionInfo["status"],
-        error: task.error,
-    };
-}
 
 export class TaskCleaner {
     private cleanupTimers = new Map<string, ReturnType<typeof setTimeout>>();
     private cleaning = new Set<string>();
     private notifying = new Set<string>();
     private timingOut = new Set<string>();
-    private toasted = new WeakSet<ParallelTask>();
     constructor(
-        private client: OpencodeClient,
+        private client: HostClient,
         private store: TaskStore,
         private concurrency: ConcurrencyController,
         private sessionRegistry: SessionRegistry,
-        private toasts?: TaskToastManager,
     ) { }
 
     /**
@@ -56,9 +37,8 @@ export class TaskCleaner {
         const now = Date.now();
         for (const task of this.store.getAll()) {
             const age = now - task.startedAt.getTime();
-            if (age > CONFIG.TASK_TTL_MS && task.status === TASK_STATUS.RUNNING) this.startTimeout(task);
+            if (age > PARALLEL_TASK.TTL_MS && task.status === TASK_STATUS.RUNNING) this.startTimeout(task);
         }
-        this.store.cleanEmptyNotifications();
     }
 
     /**
@@ -89,11 +69,10 @@ export class TaskCleaner {
         task.status = TASK_STATUS.TIMEOUT;
         task.error = "Task exceeded time limit";
         task.completedAt = new Date();
-        finishTaskConcurrency(task, this.concurrency, false);
+        finishTaskConcurrency(task, this.concurrency);
         this.store.untrackPending(task.parentSessionID, taskId);
 
         // Tell the parent so it can re-delegate instead of idling forever.
-        // notifyBatch also shows the user toast, so none is shown here.
         this.store.queueNotification(task);
         this.notifyParentIfAllComplete(task.parentSessionID).catch((error) => {
             log(`Timeout notification failed for ${taskId}:`, error);
@@ -128,7 +107,7 @@ export class TaskCleaner {
 
 
             log(`Cleaned up ${taskId}`);
-        }, CONFIG.CLEANUP_DELAY_MS);
+        }, PARALLEL_TASK.CLEANUP_DELAY_MS);
         timer.unref?.();
         this.cleanupTimers.set(taskId, timer);
     }
@@ -172,9 +151,6 @@ export class TaskCleaner {
         if (notifications.length === 0) return true;
 
         const allComplete = pendingCount === 0;
-        this.showCompletionToasts(parentSessionID, notifications, allComplete);
-
-        // User-facing toast details stay separate from compact agent-to-agent prompts.
         let message: string;
         if (allComplete) {
             message = buildAgentTaskCompletionMessage(notifications);
@@ -187,27 +163,6 @@ export class TaskCleaner {
             return true;
         }
         return false;
-    }
-
-    /**
-     * A failed delivery keeps its notifications queued for retry, so toasts
-     * are tracked per queued notification object: each completion is shown to
-     * the user once, while a resumed task's next completion (a new queued
-     * copy) still gets its own toast.
-     */
-    private showCompletionToasts(parentSessionID: string, notifications: ParallelTask[], allComplete: boolean): void {
-        const fresh = notifications.filter(task => !this.toasted.has(task));
-        const toastManager = this.toasts;
-        if (fresh.length === 0 || !toastManager) return;
-        for (const task of fresh) this.toasted.add(task);
-
-        // The group summary covers the whole final batch, including tasks whose
-        // own toast already appeared during an earlier failed delivery.
-        if (allComplete && notifications.length > 1) {
-            toastManager.showAllCompleteToast(parentSessionID, notifications.map(toCompletionInfo));
-            return;
-        }
-        for (const info of fresh.map(toCompletionInfo)) toastManager.showCompletionToast(info);
     }
 
     /**
@@ -234,16 +189,8 @@ export class TaskCleaner {
         }
 
         try {
-            const response = await this.client.session.prompt({
-                path: { id: parentSessionID },
-                body: {
-                    // Key optimization: only trigger AI response when ALL complete
-                    noReply: !allComplete,
-                    parts: [syntheticTextPart(message)]
-                },
-            });
-            if (response.error) throw new Error(String(response.error));
-            log(`Notified parent ${parentSessionID} (allComplete=${allComplete}, noReply=${!allComplete})`);
+            await this.client.prompt({ sessionID: parentSessionID, text: message, synthetic: true, reply: allComplete });
+            log(`Notified parent ${parentSessionID} (allComplete=${allComplete})`);
             return true;
         } catch (error) {
             log("Notification error:", error);

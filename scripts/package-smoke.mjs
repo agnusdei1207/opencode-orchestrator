@@ -99,12 +99,9 @@ try {
   const smokeModule = path.join(consumer, "smoke.mjs");
   writeFileSync(smokeModule, `
 import * as root from "opencode-orchestrator";
-import * as server from "opencode-orchestrator/server";
 if (JSON.stringify(Object.keys(root).sort()) !== JSON.stringify(["default"])) throw new Error("unexpected root exports");
-if (JSON.stringify(Object.keys(server).sort()) !== JSON.stringify(["default"])) throw new Error("unexpected server exports");
-if (root.default !== server.default) throw new Error("plugin entrypoints diverged");
+if (JSON.stringify(Object.keys(root.default).sort()) !== JSON.stringify(["id", "setup"])) throw new Error("plugin must expose only id and setup");
 if (root.default.id !== "opencode-orchestrator") throw new Error("plugin id is missing");
-if (typeof root.default.server !== "function") throw new Error("OpenCode 1 server entry is missing");
 if (typeof root.default.setup !== "function") throw new Error("OpenCode 2 setup entry is missing");
 `);
   run(process.execPath, [smokeModule], { cwd: consumer, capture: true });

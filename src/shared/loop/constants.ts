@@ -1,7 +1,7 @@
 /**
  * Loop constants (consolidated)
  */
-import { TIME, LIMITS, STATUS_LABEL } from "../core/constants.js";
+import { TIME, STATUS_LABEL } from "../core/constants.js";
 
 /**
  * Loop Continuation Configuration
@@ -19,7 +19,6 @@ export const LOOP = {
 
 
 export const MISSION_CONTROL = {
-    DEFAULT_MAX_ITERATIONS: LIMITS.MAX_ITERATIONS,
     DEFAULT_COUNTDOWN_SECONDS: 3,
     STATE_FILE: "loop-state.json",
     LOG_SOURCE: "mission-loop",

@@ -18,7 +18,6 @@ import { checkOutputSanity, RECOVERY_PROMPT, ESCALATION_PROMPT, type SanityResul
 // and must stay readable even when a test substitutes the detector barrel.
 import { SEVERITY } from "../../utils/sanity/constants/severity.js";
 import { HOOK_ACTIONS, HOOK_NAMES } from "../constants.js";
-import { recordAnomaly, resetAnomaly } from "../../core/orchestrator/session-manager.js";
 import { MISSION_MESSAGES } from "../../shared/constants/system-messages.js";
 import { log } from "../../core/agents/logger.js";
 
@@ -37,16 +36,19 @@ export class SanityCheckHook implements AssistantDoneHook {
 
     /** Last intervention timestamp per session, for cooldown. */
     private readonly lastInterventionAt = new Map<string, number>();
+    /** Consecutive anomalies per session; a healthy turn resets it. */
+    private readonly anomalyCounts = new Map<string, number>();
 
     async execute(ctx: HookContext, finalText: string): Promise<HookResult> {
         const sanityResult = checkOutputSanity(finalText);
 
         if (!this.shouldIntervene(ctx.sessionID, sanityResult)) {
-            if (sanityResult.isHealthy) resetAnomaly(ctx.sessionID);
+            if (sanityResult.isHealthy) this.anomalyCounts.delete(ctx.sessionID);
             return { action: HOOK_ACTIONS.CONTINUE };
         }
 
-        const count = recordAnomaly(ctx.sessionID);
+        const count = (this.anomalyCounts.get(ctx.sessionID) ?? 0) + 1;
+        this.anomalyCounts.set(ctx.sessionID, count);
         return {
             action: HOOK_ACTIONS.INJECT,
             prompts: [MISSION_MESSAGES.ANOMALY_INJECT_MSG(count, this.reasonOf(sanityResult), recoveryTextFor(count))],
@@ -82,6 +84,7 @@ export class SanityCheckHook implements AssistantDoneHook {
     /** Forget a session's cooldown state. */
     clearSession(sessionID: string): void {
         this.lastInterventionAt.delete(sessionID);
+        this.anomalyCounts.delete(sessionID);
     }
 }
 

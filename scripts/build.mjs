@@ -48,7 +48,7 @@ async function bundle(entryPoint, outfile, options = {}) {
     platform: "node",
     format: "esm",
     sourcemap: true,
-    // Keep node_modules dependencies (jsonc-parser, zod, @opencode-ai/*) as
+    // Keep node_modules dependencies (jsonc-parser, zod) as
     // real runtime imports instead of inlining them. jsonc-parser's UMD entry
     // uses internal relative requires like "./impl/format" that resolve fine
     // from within node_modules but break once esbuild inlines the wrapper
