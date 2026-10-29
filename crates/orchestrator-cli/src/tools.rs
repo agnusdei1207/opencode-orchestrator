@@ -1,7 +1,6 @@
 //! Tool implementations for the orchestrator CLI
 
 use anyhow::Result;
-use orchestrator_core::hooks::Hook;
 use orchestrator_core::tools::{
     AstTool, DiagnosticsTool, DiffTool, FileStatsTool, GitTool, GlobTool, GrepTool, HttpTool,
     JqTool, MgrepTool, SedTool, ast::AstConfig, ast::AstScope, diff::DiffConfig, glob::GlobConfig,
@@ -11,7 +10,7 @@ use orchestrator_core::tools::{
     sed::SedConfig, sed::SedDirectoryReport,
 };
 
-use orchestrator_core::constants::{agent, status, tool};
+use orchestrator_core::constants::{status, tool};
 use serde::Deserialize;
 use serde_json::{Value, json};
 use std::collections::HashMap;
@@ -35,8 +34,6 @@ pub async fn execute_tool(name: &str, arguments: Value) -> Result<String> {
         tool::LSP_DIAGNOSTICS => lsp_diagnostics(arguments),
         tool::AST_SEARCH => ast_search(arguments),
         tool::AST_REPLACE => ast_replace(arguments),
-        tool::LIST_AGENTS => list_agents(),
-        tool::LIST_HOOKS => list_hooks(),
         _ => Err(anyhow::anyhow!("Unknown tool: {}", name)),
     }
 }
@@ -219,30 +216,6 @@ fn glob_search(arguments: Value) -> Result<String> {
         "truncated": found.paths.len() >= limit,
         "timed_out": found.timed_out
     }))?)
-}
-
-/// List all available agents (4-agent architecture)
-fn list_agents() -> Result<String> {
-    let agents: Vec<Value> = agent::ROLES
-        .iter()
-        .map(|(id, description)| json!({"id": id, "description": description}))
-        .collect();
-
-    Ok(serde_json::to_string_pretty(&json!({"agents": agents}))?)
-}
-
-fn list_hooks() -> Result<String> {
-    let hooks: Vec<Value> = Hook::all()
-        .iter()
-        .map(|h| {
-            json!({
-                "name": h.to_string(),
-                "description": h.description()
-            })
-        })
-        .collect();
-
-    Ok(serde_json::to_string_pretty(&json!({"hooks": hooks}))?)
 }
 
 #[derive(Deserialize)]

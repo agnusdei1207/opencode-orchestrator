@@ -6,7 +6,7 @@ rust-version.workspace = true
 license.workspace = true
 repository.workspace = true
 authors.workspace = true
-description = "Core logic for OpenCode Orchestrator - Agent management, hooks, and tools"
+description = "Tool implementations for OpenCode Orchestrator"
 
 [dependencies]
 serde.workspace = true

@@ -7,7 +7,7 @@
  * - File structure verification
  */
 
-import { describe, it, expect, beforeAll } from "vitest";
+import { describe, it, expect } from "vitest";
 import { spawnSync } from "child_process";
 import { existsSync } from "fs";
 import { join } from "path";
@@ -16,14 +16,12 @@ import { getBinaryPath } from "../../src/utils/binary.js";
 const PROJECT_ROOT = join(__dirname, "../..");
 const CLI_TIMEOUT_MS = 5000;
 
-describe("Rust Integration", () => {
-    let binaryPath: string | null = null;
+// Resolve the binary exactly as the plugin runtime does. Tests that need it
+// are skipped (and reported as skipped) when it has not been built.
+const resolvedBinaryPath = getBinaryPath();
+const binaryPath = existsSync(resolvedBinaryPath) ? resolvedBinaryPath : null;
 
-    beforeAll(() => {
-        // Resolve the binary exactly as the plugin runtime does.
-        const resolved = getBinaryPath();
-        binaryPath = existsSync(resolved) ? resolved : null;
-    });
+describe("Rust Integration", () => {
 
     // ========================================================================
     // Project Structure
@@ -56,25 +54,17 @@ describe("Rust Integration", () => {
     // CLI Execution (conditional on build)
     // ========================================================================
 
-    describe("CLI execution", () => {
-        it("should execute --help if binary exists", () => {
-            if (!binaryPath) {
-                return;
-            }
-
-            const result = spawnSync(binaryPath, ["--help"], { encoding: "utf-8", timeout: CLI_TIMEOUT_MS });
+    describe.skipIf(!binaryPath)("CLI execution", () => {
+        it("should execute --help", () => {
+            const result = spawnSync(binaryPath!, ["--help"], { encoding: "utf-8", timeout: CLI_TIMEOUT_MS });
 
             expect(result.status).toBe(0);
             // Help goes to stderr so stdout stays reserved for JSON-RPC.
             expect(result.stderr.toLowerCase()).toContain("orchestrator");
         });
 
-        it("should execute --version if binary exists", () => {
-            if (!binaryPath) {
-                return;
-            }
-
-            const result = spawnSync(binaryPath, ["--version"], { encoding: "utf-8", timeout: CLI_TIMEOUT_MS });
+        it("should execute --version", () => {
+            const result = spawnSync(binaryPath!, ["--version"], { encoding: "utf-8", timeout: CLI_TIMEOUT_MS });
 
             expect(result.status).toBe(0);
             expect(result.stdout).toMatch(/\d+\.\d+\.\d+/);

@@ -8,22 +8,19 @@
  * - Verifies that stderr logs are correctly generated
  */
 
-import { describe, it, expect, beforeAll } from "vitest";
+import { describe, it, expect } from "vitest";
 import { spawn } from "child_process";
 import { getBinaryPath } from "../../src/utils/binary.js";
 import { existsSync } from "fs";
+import { dirname } from "path";
 
-describe("JSON-RPC Bridge (Rust <-> TS)", () => {
-    let binaryPath: string;
+// Resolve at module level so a missing binary shows up as skipped tests.
+const binaryPath = getBinaryPath();
+const hasBinary = existsSync(binaryPath);
 
-    beforeAll(() => {
-        binaryPath = getBinaryPath();
-    });
-
-    it("should respond to list_agents correctly via JSON-RPC and write logs to stderr", async () => {
-        if (!existsSync(binaryPath)) {
-            return;
-        }
+describe.skipIf(!hasBinary)("JSON-RPC Bridge (Rust <-> TS)", () => {
+    it("should respond to file_stats via JSON-RPC and write logs to stderr", async () => {
+        const binaryDir = dirname(binaryPath);
 
         const res = await new Promise<{ stdout: string, stderr: string }>((resolve, reject) => {
             const proc = spawn(binaryPath, ["serve"], {
@@ -48,8 +45,8 @@ describe("JSON-RPC Bridge (Rust <-> TS)", () => {
                 id: 1,
                 method: "tools/call",
                 params: {
-                    name: "list_agents",
-                    arguments: {}
+                    name: "file_stats",
+                    arguments: { directory: binaryDir }
                 }
             };
 
@@ -73,16 +70,14 @@ describe("JSON-RPC Bridge (Rust <-> TS)", () => {
         // Verify logs on stderr
         expect(res.stderr).toContain("OpenCode Orchestrator starting");
 
-        const text = response.result.content[0].text;
-        expect(text).toContain("Commander");
-        expect(text).toContain("Planner");
-        expect(text).toContain("Worker");
-        expect(text).toContain("Reviewer");
+        const stats = JSON.parse(response.result.content[0].text);
+        // The binary itself lives in the analyzed directory.
+        expect(stats.total_files).toBeGreaterThanOrEqual(1);
+        expect(typeof stats.total_size_bytes).toBe("number");
+        expect(Array.isArray(stats.file_types)).toBe(true);
     });
 
     it("should handle error for unknown tool", async () => {
-        if (!existsSync(binaryPath)) return;
-
         const result = await new Promise<string>((resolve) => {
             const proc = spawn(binaryPath, ["serve"]);
             let stdout = "";

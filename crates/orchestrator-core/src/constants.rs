@@ -5,38 +5,12 @@
 //! Since we communicate via JSON RPC over stdio, any mismatch in these strings
 //! will break the integration between the Rust CLI and the TypeScript plugin.
 
-/// Agent identification names.
-/// Used in system prompts and agent registration.
-pub mod agent {
-    pub const COMMANDER: &str = "Commander";
-    pub const PLANNER: &str = "Planner";
-    pub const WORKER: &str = "Worker";
-    pub const REVIEWER: &str = "Reviewer";
-
-    /// Every bundled agent with its one-line role, in display order. Shared
-    /// by the `agents` command and the `list_agents` tool.
-    pub const ROLES: &[(&str, &str)] = &[
-        (
-            COMMANDER,
-            "Autonomous orchestrator - executes until mission complete",
-        ),
-        (PLANNER, "Strategic planning and research specialist"),
-        (WORKER, "Implementation and documentation specialist"),
-        (REVIEWER, "Verification and context management specialist"),
-    ];
-}
-
 /// Status labels used in tool responses and system-wide state.
 /// Standardized as lowercase strings.
 pub mod status {
     pub const CLEAN: &str = "clean";
     pub const WARNING: &str = "warning";
     pub const ERROR: &str = "error";
-    pub const SUCCESS: &str = "success";
-    pub const OK: &str = "ok";
-    pub const FAILED: &str = "failed";
-    pub const PENDING: &str = "pending";
-    pub const RUNNING: &str = "running";
 }
 
 /// Canonical tool names used in rpc::TOOLS_CALL.
@@ -54,19 +28,12 @@ pub mod tool {
     pub const LSP_DIAGNOSTICS: &str = "lsp_diagnostics";
     pub const AST_SEARCH: &str = "ast_search";
     pub const AST_REPLACE: &str = "ast_replace";
-    pub const LIST_AGENTS: &str = "list_agents";
-    pub const LIST_HOOKS: &str = "list_hooks";
 }
 
 /// JSON RPC method names and protocol constants.
 pub mod rpc {
     pub const VERSION: &str = "2.0";
-    pub const INITIALIZE: &str = "initialize";
-    pub const TOOLS_LIST: &str = "tools/list";
     pub const TOOLS_CALL: &str = "tools/call";
-
-    // Protocol Metadata
-    pub const PROTOCOL_VERSION: &str = "2024-11-05";
 
     // JSON-RPC 2.0 error codes (https://www.jsonrpc.org/specification#error_object)
     pub const PARSE_ERROR: i64 = -32700;

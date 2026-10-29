@@ -8,19 +8,12 @@
 //! # Help
 //! orchestrator --help
 //!
-//! # List hooks
-//! orchestrator hooks
-//!
-//! # List agents
-//! orchestrator agents
-//!
 //! # Run tool server (called by OpenCode)
 //! orchestrator serve
 //! ```
 
 use anyhow::Result;
-use orchestrator_core::constants::{agent, field, rpc, tool};
-use orchestrator_core::hooks::Hook;
+use orchestrator_core::constants::{field, rpc};
 use serde_json::{Value, json};
 use std::env;
 use std::io::{self, BufRead, Read, Write};
@@ -36,8 +29,6 @@ async fn main() -> Result<()> {
 
     match args.get(1).map(|s| s.as_str()) {
         Some("serve") => serve().await,
-        Some("hooks") => list_hooks(),
-        Some("agents") => list_agents(),
         Some("shell-listener") => shell_listener::run(&args[2..]),
         Some("--version") | Some("-V") => {
             println!("{}", env!("CARGO_PKG_VERSION"));
@@ -61,45 +52,10 @@ fn print_help() {
     eprintln!("Usage: orchestrator <command>");
     eprintln!();
     eprintln!("Commands:");
-    eprintln!("  hooks      List Rust hook metadata");
-    eprintln!("  agents     List bundled agent presets");
     eprintln!("  shell-listener  Run authorized lab TCP session TUI");
     eprintln!("  serve      Run tool server (called by OpenCode)");
     eprintln!("  --version  Show version");
     eprintln!("  --help     Show this help");
-}
-
-/// List available hooks
-fn list_hooks() -> Result<()> {
-    println!("📌 Available Hooks");
-    println!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-    println!();
-
-    println!("🔄 Autonomous Execution");
-    println!("  auto        {}", Hook::Auto.description());
-    println!();
-
-    println!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-    println!("Mission-loop settings are managed by the OpenCode plugin configuration.");
-
-    Ok(())
-}
-
-/// List available agents
-fn list_agents() -> Result<()> {
-    println!("🤖 Available Agents (4-Agent Architecture)");
-    println!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-    println!();
-    println!("  {:15} Role", "ID");
-    println!("  {:15} {}", "─".repeat(15), "─".repeat(45));
-    for (id, role) in agent::ROLES {
-        println!("  {:15} {}", id, role);
-    }
-    println!();
-    println!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-    println!("Configure models in OpenCode under agent.<name>.model.");
-
-    Ok(())
 }
 
 /// Serve: Run tool server on stdio
@@ -340,25 +296,12 @@ async fn dispatch(request: &Value) -> std::result::Result<Value, RpcError> {
         .ok_or_else(|| RpcError::new(rpc::INVALID_REQUEST, "Invalid request: missing method"))?;
 
     match method {
-        rpc::INITIALIZE => Ok(initialize_result()),
-        rpc::TOOLS_LIST => Ok(tools_list_result()),
         rpc::TOOLS_CALL => tools_call(request).await,
         _ => Err(RpcError::new(
             rpc::METHOD_NOT_FOUND,
             format!("Method not found: {method}"),
         )),
     }
-}
-
-fn initialize_result() -> Value {
-    json!({
-        "protocolVersion": rpc::PROTOCOL_VERSION,
-        "serverInfo": {
-            "name": "orchestrator",
-            "version": env!("CARGO_PKG_VERSION")
-        },
-        "capabilities": { "tools": {} }
-    })
 }
 
 async fn tools_call(request: &Value) -> std::result::Result<Value, RpcError> {
@@ -389,289 +332,10 @@ async fn tools_call(request: &Value) -> std::result::Result<Value, RpcError> {
     })
 }
 
-fn tools_list_result() -> Value {
-    json!({
-        "tools": [
-            {
-                "name": tool::GREP_SEARCH,
-                "description": "Fast regex search with timeout protection",
-                "inputSchema": {
-                    "type": "object",
-                    "properties": {
-                        "pattern": {"type": "string", "description": "Regex pattern"},
-                        "directory": {"type": "string", "description": "Search directory"},
-                        "max_results": {"type": "number", "description": "Max results (default: 100, max: 1000)"},
-                        "timeout_ms": {"type": "number", "description": "Timeout in milliseconds (default: 30000; 0 uses the default)"}
-                    },
-                    "required": ["pattern"]
-                }
-            },
-            {
-                "name": tool::GLOB_SEARCH,
-                "description": "Find files by glob pattern",
-                "inputSchema": {
-                    "type": "object",
-                    "properties": {
-                        "pattern": {"type": "string", "description": "Glob pattern (e.g., **/*.rs)"},
-                        "directory": {"type": "string", "description": "Search directory"},
-                        "max_results": {"type": "number", "description": "Max results (default: 100, max: 1000)"}
-                    },
-                    "required": ["pattern"]
-                }
-            },
-            {
-                "name": tool::MGREP,
-                "description": "Search multiple patterns in parallel. Much faster than running grep multiple times.",
-                "inputSchema": {
-                    "type": "object",
-                    "properties": {
-                        "patterns": {"type": "array", "items": {"type": "string"}, "description": "Array of regex patterns to search"},
-                        "directory": {"type": "string", "description": "Search directory (optional)"},
-                        "max_results_per_pattern": {"type": "number", "description": "Max results per pattern (default: 50, max: 1000)"},
-                        "timeout_ms": {"type": "number", "description": "Timeout in milliseconds (default: 60000; 0 uses the default)"}
-                    },
-                    "required": ["patterns"]
-                }
-            },
-            {
-                "name": tool::SED_REPLACE,
-                "description": "Find and replace patterns in files (sed-like)",
-                "inputSchema": {
-                    "type": "object",
-                    "properties": {
-                        "pattern": {"type": "string", "description": "Regex pattern to find"},
-                        "replacement": {"type": "string", "description": "Replacement string"},
-                        "file": {"type": "string", "description": "Single file to modify"},
-                        "directory": {"type": "string", "description": "Directory to modify (recursive)"},
-                        "dry_run": {"type": "boolean", "description": "Preview changes without modifying (default: false)"},
-                        "backup": {"type": "boolean", "description": "Create .bak backup (default: false)"},
-                        "timeout_ms": {"type": "number", "description": "Timeout in milliseconds"}
-                    },
-                    "required": ["pattern", "replacement"]
-                }
-            },
-            {
-                "name": tool::DIFF,
-                "description": "Compare two files or strings",
-                "inputSchema": {
-                    "type": "object",
-                    "properties": {
-                        "file1": {"type": "string"},
-                        "file2": {"type": "string"},
-                        "content1": {"type": "string"},
-                        "content2": {"type": "string"},
-                        "ignore_whitespace": {"type": "boolean", "description": "Ignore whitespace differences"}
-                    }
-                }
-            },
-            {
-                "name": tool::JQ,
-                "description": "Query and manipulate JSON using jq expressions",
-                "inputSchema": {
-                    "type": "object",
-                    "properties": {
-                        "json_input": {"type": "string", "description": "JSON string to query"},
-                        "file": {"type": "string", "description": "JSON file to query"},
-                        "expression": {"type": "string", "description": "jq expression"},
-                        "raw_output": {"type": "boolean", "description": "Return raw string output"}
-                    },
-                    "required": ["expression"]
-                }
-            },
-            {
-                "name": tool::HTTP,
-                "description": "Make HTTP requests",
-                "inputSchema": {
-                    "type": "object",
-                    "properties": {
-                        "url": {"type": "string", "description": "URL to request"},
-                        "method": {"type": "string", "description": "HTTP method"},
-                        "headers": {"type": "object", "description": "Request headers"},
-                        "body": {"type": "string", "description": "Request body"},
-                        "timeout_ms": {"type": "number", "description": "Timeout in milliseconds"}
-                    },
-                    "required": ["url"]
-                }
-            },
-            {
-                "name": tool::FILE_STATS,
-                "description": "Analyze file and directory statistics",
-                "inputSchema": {
-                    "type": "object",
-                    "properties": {
-                        "directory": {"type": "string", "description": "Directory to analyze"},
-                        "max_depth": {"type": "number", "description": "Maximum directory depth"}
-                    },
-                    "required": ["directory"]
-                }
-            },
-            {
-                "name": tool::GIT_DIFF,
-                "description": "Show git diff of uncommitted changes",
-                "inputSchema": {
-                    "type": "object",
-                    "properties": {
-                        "directory": {"type": "string", "description": "Repository directory"},
-                        "staged_only": {"type": "boolean", "description": "Show only staged changes"}
-                    }
-                }
-            },
-            {
-                "name": tool::GIT_STATUS,
-                "description": "Show git repository status",
-                "inputSchema": {
-                    "type": "object",
-                    "properties": {
-                        "directory": {"type": "string", "description": "Repository directory"}
-                    }
-                }
-            },
-            {
-                "name": tool::LSP_DIAGNOSTICS,
-                "description": "Get LSP diagnostics (errors/warnings) for files",
-                "inputSchema": {
-                    "type": "object",
-                    "properties": {
-                        "directory": {"type": "string", "description": "Directory to check"},
-                        "file": {"type": "string", "description": "Specific file or glob filter"},
-                        "include_warnings": {"type": "boolean", "description": "Include warnings (default: true)"}
-                    }
-                }
-            },
-            {
-                "name": tool::AST_SEARCH,
-                "description": "Structural code search using ast-grep",
-                "inputSchema": {
-                    "type": "object",
-                    "properties": {
-                        "pattern": {"type": "string", "description": "ast-grep pattern (e.g. 'const $X = $Y')"},
-                        "directory": {"type": "string", "description": "Directory to search"},
-                        "lang": {"type": "string", "description": "Language (typescript, javascript, rust, etc)"},
-                        "include": {"type": "string", "description": "Glob filter for files"}
-                    },
-                    "required": ["pattern"]
-                }
-            },
-            {
-                "name": tool::AST_REPLACE,
-                "description": "Structural code replace using ast-grep",
-                "inputSchema": {
-                    "type": "object",
-                    "properties": {
-                        "pattern": {"type": "string", "description": "ast-grep search pattern"},
-                        "rewrite": {"type": "string", "description": "ast-grep rewrite pattern"},
-                        "directory": {"type": "string", "description": "Directory to modify"},
-                        "lang": {"type": "string", "description": "Language"},
-                        "include": {"type": "string", "description": "Glob filter"}
-                    },
-                    "required": ["pattern", "rewrite"]
-                }
-            },
-            {
-                "name": tool::LIST_AGENTS,
-                "description": "List available agents",
-                "inputSchema": {"type": "object", "properties": {}}
-            },
-            {
-                "name": tool::LIST_HOOKS,
-                "description": "List available hooks",
-                "inputSchema": {"type": "object", "properties": {}}
-            }
-        ]
-    })
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
     use serde_json::json;
-
-    #[tokio::test]
-    async fn test_handle_initialize() {
-        let req = json!({
-            "jsonrpc": rpc::VERSION,
-            field::ID: 1,
-            field::METHOD: rpc::INITIALIZE
-        });
-        let resp = handle_request(&req).await.unwrap();
-        assert_eq!(resp[field::RESULT]["serverInfo"]["name"], "orchestrator");
-    }
-
-    #[tokio::test]
-    async fn test_handle_tools_list() {
-        let req = json!({
-            "jsonrpc": rpc::VERSION,
-            field::ID: 1,
-            field::METHOD: rpc::TOOLS_LIST
-        });
-        let resp = handle_request(&req).await.unwrap();
-        let tools = resp[field::RESULT]["tools"].as_array().unwrap();
-        let listed_names: Vec<&str> = tools.iter().filter_map(|t| t["name"].as_str()).collect();
-
-        for expected in [
-            tool::GREP_SEARCH,
-            tool::GLOB_SEARCH,
-            tool::MGREP,
-            tool::SED_REPLACE,
-            tool::DIFF,
-            tool::JQ,
-            tool::HTTP,
-            tool::FILE_STATS,
-            tool::GIT_DIFF,
-            tool::GIT_STATUS,
-            tool::LSP_DIAGNOSTICS,
-            tool::AST_SEARCH,
-            tool::AST_REPLACE,
-            tool::LIST_AGENTS,
-            tool::LIST_HOOKS,
-        ] {
-            assert!(
-                listed_names.contains(&expected),
-                "missing tool in tools/list: {expected}"
-            );
-        }
-    }
-
-    #[test]
-    fn tools_list_schemas_expose_every_accepted_argument() {
-        let listed = tools_list_result();
-        let properties = |name: &str| {
-            listed["tools"]
-                .as_array()
-                .unwrap()
-                .iter()
-                .find(|t| t["name"] == name)
-                .map(|t| t["inputSchema"]["properties"].clone())
-                .unwrap()
-        };
-
-        assert!(properties(tool::GLOB_SEARCH).get("max_results").is_some());
-        assert!(properties(tool::DIFF).get("ignore_whitespace").is_some());
-    }
-
-    #[tokio::test]
-    async fn list_agents_tool_reports_the_shared_roster() {
-        let output = tools::execute_tool(tool::LIST_AGENTS, json!({}))
-            .await
-            .unwrap();
-        let listed: Value = serde_json::from_str(&output).unwrap();
-        let ids: Vec<&str> = listed["agents"]
-            .as_array()
-            .unwrap()
-            .iter()
-            .filter_map(|a| a["id"].as_str())
-            .collect();
-
-        assert_eq!(
-            ids,
-            [
-                agent::COMMANDER,
-                agent::PLANNER,
-                agent::WORKER,
-                agent::REVIEWER
-            ]
-        );
-    }
 
     #[tokio::test]
     async fn test_handle_tools_call_unknown() {
@@ -730,6 +394,17 @@ mod tests {
             .await
             .expect("a request with an id needs a reply");
         assert_rpc_error(&resp, json!("abc"), rpc::METHOD_NOT_FOUND);
+    }
+
+    #[tokio::test]
+    async fn only_tools_call_is_served() {
+        for method in ["initialize", "tools/list"] {
+            let req = json!({"jsonrpc": rpc::VERSION, field::ID: 3, field::METHOD: method});
+            let resp = handle_request(&req)
+                .await
+                .expect("a request with an id needs a reply");
+            assert_rpc_error(&resp, json!(3), rpc::METHOD_NOT_FOUND);
+        }
     }
 
     #[tokio::test]
