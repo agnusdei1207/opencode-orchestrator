@@ -337,16 +337,7 @@ Runtime status:
 - stagnation: ${context.stagnation}
 - continuation reason: ${context.reason}
 
-Next action:
-1. Read the current TODO, checklist, and sync issue state.
-2. Execute or delegate only the next unblocked work.
-3. Verify the result with real file reads, build commands, tests, or tool output.
-4. Finish only when mission verification passes.
-
-Completion rule:
-Do not declare success while TODO/checklist/sync verification is still failing.
-Before declaring done, briefly self-account: (1) scope fit vs the objective,
-(2) what verification ran, (3) any residual risk or follow-on wiring.
+Completion rule: do not declare success while TODO, checklist, or sync verification still fails. Before finishing, give a brief self-account: scope fit against the objective, what verification ran, and any residual risk.
 </mission_loop>`;
 
     if (context.escalate) {
@@ -367,20 +358,15 @@ Before declaring done, briefly self-account: (1) scope fit vs the objective,
 
 function buildEscalationBlock(stagnation: string): string {
     return `\n\n<escalation reason="repeated_stagnation">
-Progress has stalled across ${stagnation}. Stop blind retries.
-Follow ${RECOVERY_PRINCIPLE}
-1. DECOMPOSE the blocked step into smaller, independently verifiable pieces.
-2. RE-PLAN with a different approach if decomposition does not unblock it.
-3. If still blocked, summarize the exact blocker and ASK the user for direction.
+Stalled across ${stagnation}. Stop blind retries. ${RECOVERY_PRINCIPLE} Decompose the blocked step into verifiable pieces; if that does not unblock it, re-plan with a different approach; if still blocked, state the exact blocker and ASK the user for direction.
 </escalation>`;
 }
 
 function buildVerificationAdvisory(unverifiedFiles: string[]): string {
     return `\n\n<verification_advisory>
-The runtime observed changes to these files without a recognized verification command afterward:
+These files changed with no recognized verification command afterward (advisory only; an unrecognized command may already cover them):
 ${unverifiedFiles.map(file => `- ${file}`).join("\n")}
-This is an advisory only. A command outside the runtime's recognition may already verify them.
-Use the actual TODO, checklist, and sync issue results for mission completion.
+Completion still depends on the TODO, checklist, and sync issue results.
 </verification_advisory>`;
 }
 

@@ -83,42 +83,25 @@ function buildMissionLoopPrompt(loopState: {
     lastVerificationSummary?: string;
 }): string {
     return `<orchestrator_mission_loop>
-🎯 MISSION LOOP ACTIVE: Iteration ${loopState.iteration}/${loopState.maxIterations}
-
-You are in an autonomous mission loop. Continue working until ALL tasks are verified and 100% complete.
-
-ACTIVE OBJECTIVE:
-${loopState.objective ?? "Continue the active mission"}
-
-RUNTIME MEMORY:
+MISSION LOOP ACTIVE: Iteration ${loopState.iteration}/${loopState.maxIterations}
+Objective: ${loopState.objective ?? "Continue the active mission"}
 - Last progress: ${loopState.lastProgress ?? "unknown"}
 - Last verification: ${loopState.lastVerificationSummary ?? "unknown"}
-
-COMPLETION CRITERIA:
-- Verified TODO leaves use [x]; each verified parent status: completed
-- If .opencode/verification-checklist.md exists, every item must pass
-- All tests pass and builds succeed
-
-Do not stop for routine permission or preference checks. Execute autonomously, and ask a concise clarification only when truly blocked and the OpenCode question permission allows it.
+Done when every verified TODO leaf is [x] and each verified parent status: completed, and all tests and builds pass. If .opencode/verification-checklist.md exists, every item must pass.
+Work autonomously; ask a concise question only when truly blocked and the OpenCode question permission allows it.
 </orchestrator_mission_loop>`;
 }
 
 function buildActiveSessionPrompt(stepCount: number): string {
     return `<orchestrator_session>
-📊 Orchestrator Session Active
-- Steps executed: ${stepCount}
-- Mode: Autonomous execution
-- Status: Continue working
+Steps executed: ${stepCount}. Continue autonomously.
 </orchestrator_session>`;
 }
 
 function buildBackgroundTasksPrompt(running: number, pending: number): string {
     return `<orchestrator_background_tasks>
-⚡ Background Tasks Status:
 - Running: ${running}
 - Pending: ${pending}
-
-Use \`get_task_result\` to check completed tasks.
-Use \`delegate_task\` with background=true for parallel work.
+Check finished tasks with get_task_result; delegate_task with background=true runs work in parallel.
 </orchestrator_background_tasks>`;
 }
