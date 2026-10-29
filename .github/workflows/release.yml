@@ -215,7 +215,6 @@ jobs:
         run: node scripts/package-smoke.mjs
 
       - name: Configure npm auth
-        if: env.NPM_TOKEN != ''
         run: |
           cat <<EOF > ~/.npmrc
           //registry.npmjs.org/:_authToken=${NODE_AUTH_TOKEN}
@@ -224,7 +223,6 @@ jobs:
           NODE_AUTH_TOKEN: ${{ env.NPM_TOKEN }}
 
       - name: Publish to NPM Registry
-        if: env.NPM_TOKEN != ''
         run: |
           PACKAGE_NAME="$(node -p "require('./package.json').name")"
           PACKAGE_VERSION="$(node -p "require('./package.json').version")"

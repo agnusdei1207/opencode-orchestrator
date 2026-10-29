@@ -80,7 +80,8 @@ describe("issue #27 release hardening", () => {
             expect(release).not.toContain("release-auth-check");
         }
         expect(packageJson.scripts["release:push"]).toBe("node scripts/release-push.mjs");
-        expect(packageJson.scripts.version).toContain("sync-readme-version.mjs --stage");
+        // release-version.mjs syncs the README itself; npm runs no version hook.
+        expect(packageJson.scripts.version).toBeUndefined();
         expect(packageJson.scripts["release:dry-run"]).toContain("--allow-dirty");
         expect(packageJson.scripts["release:dry-run"]).toContain("--skip-version-check");
         expect(packageJson.scripts["docker:rust-dist"]).not.toContain("sudo");
@@ -143,7 +144,8 @@ describe("issue #27 release hardening", () => {
         expect(workflow).toContain("Verify tag matches package version");
         expect(workflow).toContain('test "${GITHUB_REF_NAME}" = "v${PACKAGE_VERSION}"');
         expect(workflow).toContain("NPM_TOKEN: ${{ secrets.NPM_TOKEN }}");
-        expect(workflow).toContain("if: env.NPM_TOKEN != ''");
+        // The required-token step exits first, so later steps need no guard.
+        expect(workflow).not.toContain("if: env.NPM_TOKEN != ''");
         expect(workflow).toContain("npm view \"${PACKAGE_NAME}@${PACKAGE_VERSION}\" version");
         expect(workflow).toContain("is already published to npm. Skipping.");
         expect(workflow).toContain("if: env.NPM_TOKEN == ''");
@@ -175,6 +177,7 @@ describe("issue #27 release hardening", () => {
         expect(packageJson.scripts.build).toBe("node scripts/build.mjs");
         expect(packageJson.scripts.build).not.toContain("rm -rf");
         expect(packageJson.scripts.build).not.toContain("mkdir -p");
-        expect(packageJson.scripts["release:clean"]).toContain("shx rm -rf dist bin");
+        expect(packageJson.scripts["release:clean"]).toContain("rmSync");
+        expect(packageJson.scripts["release:clean"]).not.toContain("shx");
     });
 });

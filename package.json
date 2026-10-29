@@ -59,14 +59,13 @@
     "test:all": "npm run build && vitest run --reporter=verbose && echo '=== ALL TESTS PASSED ==='",
     "prepublishOnly": "npm run build",
     "sync:readme-version": "node scripts/sync-readme-version.mjs",
-    "version": "node scripts/sync-readme-version.mjs --stage",
     "release:preflight": "node scripts/release-preflight.mjs",
     "release:patch": "node scripts/release-version.mjs patch && npm run release:preflight && npm run release:push",
     "release:minor": "node scripts/release-version.mjs minor && npm run release:preflight && npm run release:push",
     "release:major": "node scripts/release-version.mjs major && npm run release:preflight && npm run release:push",
     "release:dry-run": "node scripts/release-preflight.mjs --allow-dirty --skip-branch --skip-version-check",
     "release:push": "node scripts/release-push.mjs",
-    "release:clean": "shx rm -rf dist bin && docker compose down -v"
+    "release:clean": "node -e \"for (const dir of ['dist', 'bin']) require('node:fs').rmSync(dir, { recursive: true, force: true })\" && docker compose down -v"
   },
   "engines": {
     "node": ">=24.15.0"
@@ -84,7 +83,6 @@
     "@vitest/coverage-v8": "^5.0.1",
     "es-module-lexer": "^3.0.2",
     "esbuild": "^0.28.2",
-    "shx": "^0.4.0",
     "typescript": "^7.0.2",
     "vitest": "^5.0.1"
   }
