@@ -166,7 +166,7 @@ describe("Mission Loop Lifecycle E2E", () => {
                 expect(prompt).toContain("mission_loop");
                 expect(prompt).toContain("Build API");
                 expect(prompt).toContain("Runtime status:");
-                expect(prompt).toContain("Next action:");
+                expect(prompt).toContain("<auto_continue>");
                 expect(prompt).toContain("Completion rule:");
             }
         });
