@@ -1,4 +1,5 @@
 import type { Plugin } from "@opencode/plugin";
+import { resolve } from "node:path";
 import { log } from "../core/agents/logger.js";
 import { SESSION_EVENTS } from "../shared/session/constants.js";
 import { V2_EXECUTION_EVENTS } from "../shared/session/v2-constants.js";
@@ -27,12 +28,54 @@ async function consumeEvents(
     statuses: Map<string, string>,
     signal: AbortSignal,
 ): Promise<void> {
+    const ownership = createLocationFilter(normalizeDirectory(context.location.directory));
     for await (const event of context.event.subscribe({ signal })) {
         if (signal.aborted) return;
+        if (!ownership.accepts(event)) continue;
         for (const translated of translateEvents(event, statuses)) {
             await dispatch(handler, translated);
         }
     }
+}
+
+/**
+ * The host streams events "across all server locations", and it runs one plugin
+ * instance per location, so each instance handles only its own location's
+ * events. Some session events carry no location (for example
+ * `session.execution.succeeded`); they are attributed through sessions already
+ * seen with a foreign location. Unattributed events still pass.
+ */
+function createLocationFilter(ownDirectory: string) {
+    const foreignSessions = new Set<string>();
+    return {
+        accepts(event: unknown): boolean {
+            if (!isRecord(event)) return true;
+            const data = isRecord(event.data) ? event.data : {};
+            const sessionID = readSessionID(data);
+            const directory = readLocationDirectory(event.location) ?? readLocationDirectory(data.location);
+            const deleted = event.type === SESSION_EVENTS.DELETED;
+            if (directory === undefined) {
+                const foreign = sessionID !== "" && foreignSessions.has(sessionID);
+                if (deleted) foreignSessions.delete(sessionID);
+                return !foreign;
+            }
+            const own = normalizeDirectory(directory) === ownDirectory;
+            if (sessionID !== "") {
+                if (own || deleted) foreignSessions.delete(sessionID);
+                else foreignSessions.add(sessionID);
+            }
+            return own;
+        },
+    };
+}
+
+function readLocationDirectory(location: unknown): string | undefined {
+    return isRecord(location) && typeof location.directory === "string" ? location.directory : undefined;
+}
+
+function normalizeDirectory(directory: string): string {
+    const resolved = resolve(directory);
+    return process.platform === "win32" ? resolved.toLowerCase() : resolved;
 }
 
 // The subscription has no restart path, so one failing handler must not end the stream.
