@@ -6,7 +6,6 @@ function stateWith(stagnationCount: number): MissionLoopState {
     return {
         active: true,
         iteration: 3,
-        maxIterations: 1_000_000_000,
         prompt: "Implement the feature",
         objective: "Implement the feature",
         sessionID: "s1",

@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { createSessionStateStore, SESSION_STATE_TTL_MS } from "../../../src/core/loop/session-state-store";
 
 describe("SessionStateStore", () => {
@@ -106,23 +106,52 @@ describe("SessionStateStore", () => {
         expect(store.getState(TEST_SESSION_2).isAborting).toBe(true);
     });
 
+    // The prune sweep runs every 2 minutes and drops sessions idle longer than
+    // the TTL. Touching a session halfway through must push its expiry out.
+    const HALF_TTL_MS = SESSION_STATE_TTL_MS / 2;
+    const PRUNE_SWEEP_MS = 2 * 60 * 1000;
+
+    function withFakeClock(run: (fakeStore: ReturnType<typeof createSessionStateStore>) => void): void {
+        vi.useFakeTimers();
+        const fakeStore = createSessionStateStore();
+        try {
+            run(fakeStore);
+        } finally {
+            fakeStore.shutdown();
+            vi.useRealTimers();
+        }
+    }
+
     it("lastAccessedAt is updated on getState", () => {
-        store.getState(TEST_SESSION);
-        const before = Date.now();
-        
-        store.getState(TEST_SESSION);
-        const after = Date.now();
-        
-        const state = store.getExistingState(TEST_SESSION);
-        expect(state).toBeDefined();
+        withFakeClock(fakeStore => {
+            const original = fakeStore.getState(TEST_SESSION);
+            vi.advanceTimersByTime(HALF_TTL_MS);
+            const before = Date.now();
+            fakeStore.getState(TEST_SESSION);
+
+            // Past the original expiry, but within the TTL of the refreshed access.
+            vi.advanceTimersByTime(HALF_TTL_MS + PRUNE_SWEEP_MS);
+            const after = Date.now();
+            expect(after - before).toBeLessThanOrEqual(SESSION_STATE_TTL_MS);
+            expect(fakeStore.getExistingState(TEST_SESSION)).toBe(original);
+
+            // Left idle beyond the TTL, the session is pruned.
+            vi.advanceTimersByTime(SESSION_STATE_TTL_MS + PRUNE_SWEEP_MS);
+            expect(fakeStore.getExistingState(TEST_SESSION)).toBeUndefined();
+        });
     });
 
     it("lastAccessedAt is updated on getExistingState", () => {
-        store.getState(TEST_SESSION);
-        
-        store.getExistingState(TEST_SESSION);
-        
-        const state = store.getExistingState(TEST_SESSION);
-        expect(state).toBeDefined();
+        withFakeClock(fakeStore => {
+            const original = fakeStore.getState(TEST_SESSION);
+            vi.advanceTimersByTime(HALF_TTL_MS);
+            expect(fakeStore.getExistingState(TEST_SESSION)).toBe(original);
+
+            vi.advanceTimersByTime(HALF_TTL_MS + PRUNE_SWEEP_MS);
+            expect(fakeStore.getExistingState(TEST_SESSION)).toBe(original);
+
+            vi.advanceTimersByTime(SESSION_STATE_TTL_MS + PRUNE_SWEEP_MS);
+            expect(fakeStore.getExistingState(TEST_SESSION)).toBeUndefined();
+        });
     });
 });

@@ -12,7 +12,7 @@ import { SECURITY_PATTERNS } from "../../shared/constants/security-patterns.js";
 import { MISSION_MESSAGES } from "../../shared/constants/system-messages.js";
 
 /** Mask every known credential shape in `text`. */
-export function redactSecrets(text: string): string {
+function redactSecrets(text: string): string {
     let content = text;
     for (const pattern of SECURITY_PATTERNS.SECRETS) {
         content = content.replace(pattern, MISSION_MESSAGES.SECRET_REDACTED_MSG);

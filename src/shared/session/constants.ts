@@ -24,5 +24,4 @@ export const SESSION_EVENTS = {
  */
 export const MESSAGE_EVENTS = {
     UPDATED: "message.updated",
-    PART_UPDATED: "message.part.updated",
 } as const;

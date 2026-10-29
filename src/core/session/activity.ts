@@ -1,32 +1,15 @@
 /**
  * Session activity tracker.
  *
- * Why this exists: `POST /session/{id}/prompt` is NOT a no-op while a session is
- * already running. Upstream `SessionPrompt.prompt` writes the user message and
- * its parts to the session *first*, and only then calls
- * `SessionRunState.ensureRunning`, which — when the session is already in the
- * `Running` state — simply awaits the in-flight run instead of starting a new
- * one. The freshly written message therefore lands in the middle of the turn the
- * model is still executing, and the running loop picks it up on its next step.
- *
- * That is how a well-meant "mission not complete, continue" nudge turns into
- * "the orchestrator keeps interrupting my model mid tool call" (issue #38).
- *
- * The fix is to never inject into a busy session. Busy-ness is tracked from two
- * sources:
- *
- * 1. `session.status` events, which OpenCode publishes on every busy/idle
- *    transition (`SessionStatus.set`). This is the fast, push-based signal.
- * 2. `GET /session/status`, the authoritative map. Upstream deletes a session
- *    from that map the moment it goes idle, so a session is busy exactly when it
- *    appears there with a non-idle status.
- *
- * The remote check is the source of truth. An unavailable status prevents
- * automatic injection until the host can confirm an idle session.
+ * A prompt sent to a busy session lands inside the turn the model is still
+ * running, which interrupts it mid tool call (issue #38). The plugin therefore
+ * never injects into a busy session. Busy state comes from the host's
+ * execution events: `HostClient.statuses()` holds every non-idle session, and
+ * `session.status` updates the local record used by synchronous checks.
  */
 
 import type { HostClient } from "../../host/client.js";
-import { log } from "../agents/logger.js";
+import { log } from "../../shared/logger.js";
 import { SESSION_STATUS } from "../../shared/index.js";
 import { createPruneTimer } from "../loop/prune-timer.js";
 
@@ -41,7 +24,6 @@ interface ActivityState {
      * status event, a message or part update). Our own status polls do not
      * count: a poll is us looking, not the host writing.
      */
-    lastActivityAt?: number;
 }
 
 const ACTIVITY_TTL_MS = 10 * 60 * 1000;
@@ -76,8 +58,7 @@ function getState(sessionID: string): ActivityState {
  */
 export function recordSessionStatus(sessionID: string, statusType: string | undefined): void {
     if (!sessionID || !statusType) return;
-    const state = applyStatus(sessionID, statusType);
-    state.lastActivityAt = state.lastUpdatedAt;
+    applyStatus(sessionID, statusType);
 }
 
 function applyStatus(sessionID: string, statusType: string): ActivityState {
@@ -86,25 +67,6 @@ function applyStatus(sessionID: string, statusType: string): ActivityState {
     state.lastStatusType = statusType;
     state.lastUpdatedAt = Date.now();
     return state;
-}
-
-/**
- * Note that the host just did something on behalf of this session — a message
- * or part update, a status transition. `session.status` alone is not enough for
- * lifecycle decisions: the run loop reports idle before the last projector
- * writes for the turn have landed, so anything that tears a session down needs
- * to know how recently the host was still writing to it (issue #41).
- */
-export function touchSessionActivity(sessionID: string): void {
-    if (!sessionID) return;
-    const state = getState(sessionID);
-    state.lastUpdatedAt = Date.now();
-    state.lastActivityAt = state.lastUpdatedAt;
-}
-
-/** Epoch ms of the most recent host activity observed for this session, if any. */
-export function getLastActivityAt(sessionID: string): number | undefined {
-    return activityStates.get(sessionID)?.lastActivityAt;
 }
 
 /** True when the last observed `session.status` event said the session is working. */

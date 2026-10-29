@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createChatMessageHandler } from "../../src/plugin-handlers/chat-message-handler";
 import { HookRegistry } from "../../src/hooks/registry";
 import { HOOK_ACTIONS } from "../../src/hooks/constants";
+import { ChildSessions } from "../../src/core/session/child-sessions";
 import type { ChatMessageHandlerContext, PluginSessionState } from "../../src/plugin-handlers/context";
 
 vi.mock("../../src/core/agents/logger", () => ({ log: vi.fn() }));
@@ -13,10 +14,10 @@ describe("createChatMessageHandler", () => {
 
     it.each([false, true])("only real user input releases an abort (synthetic=%s)", async (synthetic) => {
         const session: PluginSessionState = {
-            active: true, step: 0, timestamp: 0, startTime: 0, lastStepTime: 0, lastAbortAt: 42,
-            tokens: { totalInput: 0, totalOutput: 0, estimatedCost: 0 },
+            active: true, step: 0, startTime: 0, lastStepTime: 0, lastAbortAt: 42,
+            tokens: { totalInput: 0, totalOutput: 0 },
         };
-        const ctx = { client: {} as never, directory: "/tmp/test", sessions: new Map([["session-1", session]]) };
+        const ctx = { client: {} as never, directory: "/tmp/test", sessions: new Map([["session-1", session]]), children: new ChildSessions() };
         vi.spyOn(HookRegistry.getInstance(), "executeChat").mockResolvedValue({ action: HOOK_ACTIONS.PROCESS });
         await createChatMessageHandler(ctx)(
             { sessionID: "session-1" },
@@ -29,15 +30,15 @@ describe("createChatMessageHandler", () => {
         const session: PluginSessionState = {
             active: true,
             step: 0,
-            timestamp: 0,
             startTime: Date.now(),
             lastStepTime: 0,
-            tokens: { totalInput: 0, totalOutput: 0, estimatedCost: 0 },
+            tokens: { totalInput: 0, totalOutput: 0 },
         };
         const ctx: ChatMessageHandlerContext = {
             client: {} as ChatMessageHandlerContext["client"],
             directory: "/tmp/test",
             sessions: new Map([["session-1", session]]),
+            children: new ChildSessions(),
         };
 
         vi.spyOn(HookRegistry.getInstance(), "executeChat").mockResolvedValue({
@@ -58,6 +59,7 @@ describe("createChatMessageHandler", () => {
             client: {} as ChatMessageHandlerContext["client"],
             directory: "/tmp/test",
             sessions: new Map(),
+            children: new ChildSessions(),
         };
         const output = { parts: [{ type: "text", text: "/cancel" }] };
 
@@ -75,6 +77,7 @@ describe("createChatMessageHandler", () => {
             client: {} as ChatMessageHandlerContext["client"],
             directory: "/tmp/test",
             sessions: new Map(),
+            children: new ChildSessions(),
         };
         const output = { parts: [{ type: "text", text: "original text" }] };
 
@@ -93,6 +96,7 @@ describe("createChatMessageHandler", () => {
             client: {} as ChatMessageHandlerContext["client"],
             directory: "/tmp/test",
             sessions: new Map(),
+            children: new ChildSessions(),
         };
 
         const outputNoParts = { parts: [] };

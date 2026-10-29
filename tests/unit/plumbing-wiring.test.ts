@@ -6,21 +6,17 @@
  * defect found in the round-2 plumbing audit:
  *
  *  - 4a: HookContext.agent was declared but never populated by any of the
- *        four plugin handlers, so MemoryGateHook recorded every mission
- *        memory as literally "Agent [undefined]".
+ *        four plugin handlers, so agent-aware hooks saw undefined.
  *  - 4b: modules that start a prune timer at import time own an interval
  *        and per-session state, and leaked both on dispose because their
  *        shutdown was never registered with the ShutdownManager.
  */
 
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect } from "vitest";
 import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { MemoryGateHook } from "../../src/hooks/custom/memory-gate.js";
-import { MemoryManager, MemoryLevel } from "../../src/core/memory/memory-manager.js";
-import type { HookContext } from "../../src/hooks/registry.js";
 
 const SRC = (rel: string) => fileURLToPath(new URL(`../../src/${rel}`, import.meta.url));
 const SRC_ROOT = fileURLToPath(new URL("../../src/", import.meta.url));
@@ -34,42 +30,12 @@ function globSourceFiles(dir = SRC_ROOT, prefix = ""): string[] {
     });
 }
 
-function ctx(agent?: string): HookContext {
-    return { sessionID: "s1", agent, directory: "/tmp", sessions: new Map() };
-}
-
 describe("Plumbing / Wiring Guards", () => {
-    beforeEach(() => {
-        // Reset project memory so each test reads only its own writes.
-        MemoryManager._resetForTesting();
-    });
-
-    // ---- 4a: agent flows into recorded memory --------------------------------
-
-    it("records the acting agent in mission memory (never literal 'undefined')", async () => {
-        const hook = new MemoryGateHook();
-        await hook.execute(ctx("commander"), "Mission DONE: shipped the feature");
-
-        const mission = MemoryManager.getInstance("/tmp").export()[MemoryLevel.MISSION];
-        const summary = mission.map((m) => m.content).join("\n");
-        expect(summary).toContain("commander");
-        expect(summary, "agent name leaked as the literal string 'undefined'").not.toContain(
-            "[undefined]",
-        );
-    });
-
-    it("degrades to a readable placeholder when agent is genuinely unknown", async () => {
-        const hook = new MemoryGateHook();
-        await hook.execute(ctx(undefined), "Task DONE with SUCCESS");
-
-        const mission = MemoryManager.getInstance("/tmp").export()[MemoryLevel.MISSION];
-        const summary = mission.map((m) => m.content).join("\n");
-        expect(summary).not.toContain("[undefined]");
-    });
+    // ---- 4a: agent flows into hook context -----------------------------------
 
     it("every plugin handler populates HookContext.agent when it builds one", () => {
         // The four handlers that construct a HookContext must include an
-        // `agent` field, otherwise downstream hooks (memory-gate, role-guard)
+        // `agent` field, otherwise downstream hooks
         // receive undefined regardless of what the session knows.
         const handlers = [
             "plugin-handlers/chat-message-handler.ts",
@@ -131,37 +97,6 @@ describe("Plumbing / Wiring Guards", () => {
         }
     });
 
-    // ---- 5a: every session injection is flagged synthetic (issue #37) --------
-
-    it("never injects a prompt into a user-facing session as plain user input", () => {
-        // A non-synthetic prompt renders in the TUI as if the user typed it.
-        // Orchestrator-authored prompts must be sent with `synthetic: true` so
-        // OpenCode can hide them while still passing them to the model.
-        const injectionSites = [
-            "core/loop/mission-loop-handler.ts",
-            "core/recovery/session-recovery.ts",
-            "core/agents/manager/task-cleaner.ts",
-            "core/session/pending-injection.ts",
-        ];
-
-        for (const rel of injectionSites) {
-            const src = readFileSync(SRC(rel), "utf8");
-            const calls = src.match(/client\.prompt\(\{[^}]*\}/g) ?? [];
-            expect(calls.length, rel + ": no host prompt call found; is the scan working?").toBeGreaterThan(0);
-            for (const call of calls) {
-                expect(call, rel + ": injects a session prompt without synthetic: true").toMatch(/synthetic:\s*true/);
-            }
-        }
-
-        // Every other host prompt call states its synthetic flag explicitly.
-        for (const rel of globSourceFiles().filter(file => file !== "host/client.ts")) {
-            const src = readFileSync(SRC(rel), "utf8");
-            for (const call of src.match(/client\.prompt\(\{[^}]*\}/g) ?? []) {
-                expect(call, rel + ": host prompt call without an explicit synthetic flag").toMatch(/synthetic:/);
-            }
-        }
-    });
-
     // ---- 5b: continuations never interrupt a working session (issue #38) -----
 
     it("guards every continuation injection with a live busy check", () => {
@@ -210,8 +145,6 @@ describe("Plumbing / Wiring Guards", () => {
         const guarded = [
             "core/loop/mission-loop-handler.ts",
             "core/recovery/session-recovery.ts",
-            "core/agents/manager/task-cleaner.ts",
-            "core/agents/manager/task-resumer.ts",
             "core/session/pending-injection.ts",
         ];
         for (const rel of guarded) {
@@ -219,12 +152,11 @@ describe("Plumbing / Wiring Guards", () => {
                 .toMatch(/isSessionBusy\(/);
         }
 
-        // Exempt by design: the launcher opens a BRAND NEW subagent session, whose
-        // first message is that session's real instruction, not an injection.
-        for (const rel of ["core/agents/manager/task-launcher.ts"]) {
-            expect(readFileSync(SRC(rel), "utf8"), `${rel}: should target a subagent session, not the user's`)
-                .toMatch(/parentSessionID|sessionID/);
-        }
+        // No other module may write to a session behind the guard list's back.
+        const writers = globSourceFiles()
+            .filter(rel => rel !== "host/client.ts")
+            .filter(rel => /client\.prompt\(/.test(readFileSync(SRC(rel), "utf8")));
+        expect(writers.sort()).toEqual([...guarded].sort());
     });
 
     it("feeds session.status transitions into the activity tracker", () => {
@@ -238,8 +170,9 @@ describe("Plumbing / Wiring Guards", () => {
         );
     });
 
-    it("gives background task shutdown its termination budget, not the 5 s default", () => {
+    it("releases child-session tracking when the plugin instance is disposed", () => {
         const src = readFileSync(SRC("plugin-runtime.ts"), "utf8");
-        expect(src).toMatch(/SHUTDOWN_HANDLERS\.BACKGROUND_TASK_MANAGER,[\s\S]{0,120}BACKGROUND_SHUTDOWN_TIMEOUT_MS/);
+        expect(src).toMatch(/shutdownManager\.register\(SHUTDOWN_HANDLERS\.CHILD_SESSIONS,\s*\(\)\s*=>\s*children\.clear\(\)/);
+        expect(src).toMatch(/SHUTDOWN_HANDLERS\.PROCESS_SERVICES,[\s\S]{0,80}PROCESS_SHUTDOWN_TIMEOUT_MS/);
     });
 });

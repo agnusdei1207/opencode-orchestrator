@@ -2,14 +2,8 @@ import { describe, it, expect } from "vitest";
 
 describe("Barrel Modules Integrity", () => {
     it("verifies other index re-export modules", async () => {
-        const commands = await import("../../src/core/commands/index.js");
-        expect(typeof commands.backgroundTaskManager).toBe("object");
-
         const context = await import("../../src/core/context/index.js");
         expect(typeof context.checkContextWindow).toBe("function");
-
-        const agents = await import("../../src/core/agents/index.js");
-        expect(typeof agents.ParallelAgentManager).toBe("function");
 
         const formatting = await import("../../src/utils/formatting/index.js");
         expect(typeof formatting.formatElapsedTime).toBe("function");
@@ -20,16 +14,32 @@ describe("Barrel Modules Integrity", () => {
         const sanity = await import("../../src/utils/sanity/index.js");
         expect(typeof sanity.checkOutputSanity).toBe("function");
 
-        const bgCmd = await import("../../src/tools/background-cmd/index.js");
-        expect(typeof bgCmd.runBackgroundTool).toBe("object");
-
         const shared = await import("../../src/shared/index.js");
-        expect(typeof shared.TASK_STATUS).toBe("object");
+        expect(shared.TOOL_NAMES).toEqual({ UPDATE_TODO: "update_todo", SHELL: "shell" });
+        expect(typeof shared.RECOVERY).toBe("object");
+    });
+
+    it("does not re-export removed delegation/task constants from the shared barrel", async () => {
+        const shared = (await import("../../src/shared/index.js")) as Record<string, unknown>;
+        for (const removed of [
+            "TASK_STATUS",
+            "PARALLEL_TASK",
+            "BACKGROUND_TASK",
+            "PARALLEL_PARAMS",
+            "MEMORY_LIMITS",
+            "MEMORY_CONSTANTS",
+            "CLI_NAME",
+            "ID_PREFIX",
+            "STATUS_LABEL",
+            "LOOP_LABELS",
+        ]) {
+            expect(shared[removed], removed).toBeUndefined();
+        }
     });
 
     it("verifies all shared domain barrels", async () => {
         const sharedAgent = await import("../../src/shared/agent/index.js");
-        expect(sharedAgent).toBeDefined();
+        expect(sharedAgent.AGENT_NAMES).toBeDefined();
 
         const sharedAgentTypes = await import("../../src/shared/agent/types.js");
         expect(sharedAgentTypes).toBeDefined();
@@ -72,21 +82,19 @@ describe("Barrel Modules Integrity", () => {
 
         const sharedRecovery = await import("../../src/shared/recovery/index.js");
         expect(sharedRecovery.RECOVERY).toBeDefined();
+        expect(typeof sharedRecovery.RECOVERY.RETRY_COOLDOWN_MS).toBe("number");
 
         const sharedSession = await import("../../src/shared/session/index.js");
         expect(sharedSession.SESSION_EVENTS).toBeDefined();
-
-        const sharedTask = await import("../../src/shared/task/index.js");
-        expect(sharedTask.BACKGROUND_STATUS).toBeDefined();
-
-        const sharedTaskTypes = await import("../../src/shared/task/types.js");
-        expect(sharedTaskTypes).toBeDefined();
 
         const sharedTool = await import("../../src/shared/tool/index.js");
         expect(sharedTool.OUTPUT_LABEL).toBeDefined();
 
         const sharedToolNames = await import("../../src/shared/tool/tool-names.js");
         expect(sharedToolNames.TOOL_NAMES).toBeDefined();
+
+        const sharedLogger = await import("../../src/shared/logger.js");
+        expect(typeof sharedLogger.log).toBe("function");
 
         const sharedVerif = await import("../../src/shared/verification/index.js");
         expect(sharedVerif.CHECKLIST_CATEGORIES).toBeDefined();

@@ -8,7 +8,7 @@ import type {
     ToolExecuteBeforeOutput,
 } from "../../src/plugin-handlers/tool-execute-pre-handler";
 
-vi.mock("../../src/core/agents/logger", () => ({ log: vi.fn() }));
+vi.mock("../../src/shared/logger", () => ({ log: vi.fn() }));
 
 describe("createToolExecuteBeforeHandler", () => {
     beforeEach(() => {
@@ -51,7 +51,7 @@ describe("createToolExecuteBeforeHandler", () => {
         HookRegistry.getInstance().registerPreTool(new StrictRoleGuardHook(), "stop");
 
         await expect(createToolExecuteBeforeHandler(createContext())({
-            tool: "bash",
+            tool: "shell",
             sessionID: "session-1",
             callID: "call-1",
         }, {
@@ -76,8 +76,40 @@ describe("createToolExecuteBeforeHandler", () => {
         })).rejects.toThrow("blocked by test");
     });
 
-    it("does not run hooks for inactive sessions", async () => {
-        const executePreTool = vi.fn();
+    it("blocks a fork bomb in a session with no mission entry", async () => {
+        const { StrictRoleGuardHook } = await import("../../src/hooks/custom/strict-role-guard");
+        HookRegistry.getInstance().registerPreTool(new StrictRoleGuardHook(), "stop");
+
+        await expect(createToolExecuteBeforeHandler({
+            client: {} as never,
+            directory: "/tmp/project",
+            sessions: new Map(),
+        })({
+            tool: "shell",
+            sessionID: "subagent-session",
+            callID: "call-1",
+        }, {
+            args: { command: ":(){ :|:& };:" },
+        })).rejects.toThrow(/Action Blocked/);
+    });
+
+    it("blocks a fork bomb in a session whose mission is not active", async () => {
+        const { StrictRoleGuardHook } = await import("../../src/hooks/custom/strict-role-guard");
+        HookRegistry.getInstance().registerPreTool(new StrictRoleGuardHook(), "stop");
+        const ctx = createContext();
+        ctx.sessions.get("session-1")!.active = false;
+
+        await expect(createToolExecuteBeforeHandler(ctx)({
+            tool: "shell",
+            sessionID: "session-1",
+            callID: "call-1",
+        }, {
+            args: { command: ":(){ :|:& };:" },
+        })).rejects.toThrow(/Action Blocked/);
+    });
+
+    it("runs pre-tool hooks for untracked sessions without an agent", async () => {
+        const executePreTool = vi.fn().mockResolvedValue({ action: HOOK_ACTIONS.ALLOW });
         vi.spyOn(HookRegistry, "getInstance").mockReturnValue({
             executePreTool,
         } as unknown as HookRegistry);
@@ -87,14 +119,31 @@ describe("createToolExecuteBeforeHandler", () => {
             directory: "/tmp/project",
             sessions: new Map(),
         })({
-            tool: "bash",
+            tool: "shell",
             sessionID: "missing-session",
             callID: "call-1",
         }, {
             args: { command: "ls" },
         });
 
-        expect(executePreTool).not.toHaveBeenCalled();
+        expect(executePreTool).toHaveBeenCalledWith(
+            expect.objectContaining({ sessionID: "missing-session", callID: "call-1", agent: undefined }),
+            "shell",
+            { command: "ls" },
+        );
+    });
+
+    it("passes the session's agent to the hooks", async () => {
+        const executePreTool = vi.fn().mockResolvedValue({ action: HOOK_ACTIONS.ALLOW });
+        vi.spyOn(HookRegistry, "getInstance").mockReturnValue({
+            executePreTool,
+        } as unknown as HookRegistry);
+        const ctx = createContext();
+        ctx.sessions.get("session-1")!.agent = "commander";
+
+        await createToolExecuteBeforeHandler(ctx)({ tool: "read", sessionID: "session-1", callID: "call-2" }, { args: {} });
+
+        expect(executePreTool).toHaveBeenCalledWith(expect.objectContaining({ agent: "commander" }), "read", {});
     });
 });
 

@@ -86,6 +86,32 @@ describe("Ordered hook execution", () => {
         expect(await registry.executeDone(context, "done")).toEqual({ action: HOOK_ACTIONS.CONTINUE });
     });
 
+    it("skips mission-only post-tool hooks when no mission is active", async () => {
+        const ran: string[] = [];
+        registry.registerPostTool({ name: "safety", execute: async () => { ran.push("safety"); return {}; } });
+        registry.registerPostTool({ name: "mission", execute: async () => { ran.push("mission"); return {}; } }, "continue", true);
+        await registry.executePostTool(context, "read", {}, { title: "read", output: "x", metadata: {} }, false);
+        expect(ran).toEqual(["safety"]);
+        await registry.executePostTool(context, "read", {}, { title: "read", output: "x", metadata: {} });
+        expect(ran).toEqual(["safety", "safety", "mission"]);
+    });
+
+    it("clears session state on every registered hook that keeps it", async () => {
+        const cleared: string[] = [];
+        const shared = {
+            name: "shared",
+            execute: async () => ({ action: HOOK_ACTIONS.CONTINUE }) as HookResult,
+            clearSession: (id: string) => cleared.push(`shared:${id}`),
+        };
+        registry.registerPreTool({ name: "pre", execute: async () => ({ action: HOOK_ACTIONS.ALLOW }), clearSession: id => cleared.push(`pre:${id}`) });
+        registry.registerPostTool({ name: "stateless", execute: async () => ({}) });
+        // Like ResourceControlHook, one instance registered at two entry points.
+        registry.registerPostTool(shared as never);
+        registry.registerDone(shared);
+        registry.clearSession("gone");
+        expect(cleared.sort()).toEqual(["pre:gone", "shared:gone"]);
+    });
+
     it.each(["continue", "stop"] as const)("uses %s error handling across every hook entry point", async (errorHandling) => {
         const failure = async (): Promise<never> => { throw new Error("hook failed"); };
         const hook = { name: "failure", execute: failure };
@@ -129,7 +155,7 @@ describe("Owned hook wiring", () => {
         const { calls, hooks, initialize } = await traceOwnedHooks("sanity");
         initialize();
         expect(await hooks.executeDone(context, "done")).toEqual({ action: HOOK_ACTIONS.CONTINUE });
-        expect(calls).toEqual(["sanity", "resource", "memory", "metrics"]);
+        expect(calls).toEqual(["sanity", "resource"]);
     });
 
     it("runs each owned lifecycle in its established order exactly once", async () => {
@@ -138,13 +164,21 @@ describe("Owned hook wiring", () => {
         initialize();
         initialize();
         await hooks.executePreTool(context, "read", {});
-        expect(calls.splice(0)).toEqual(["guard", "metrics"]);
+        expect(calls.splice(0)).toEqual(["guard"]);
         await hooks.executePostTool(context, "read", {}, { title: "read", output: "safe", metadata: {} });
-        expect(calls.splice(0)).toEqual(["secret", "resource", "metrics"]);
+        expect(calls.splice(0)).toEqual(["secret", "resource"]);
         await hooks.executeChat(context, "hello");
         expect(calls.splice(0)).toEqual(["mission"]);
         expect(await hooks.executeDone(context, "done")).toEqual({ action: HOOK_ACTIONS.CONTINUE });
-        expect(calls).toEqual(["sanity", "resource", "memory", "metrics"]);
+        expect(calls).toEqual(["sanity", "resource"]);
+    });
+
+    it("runs only the secret scanner after a tool call outside an active mission", async () => {
+        vi.resetModules();
+        const { calls, hooks, initialize } = await traceOwnedHooks();
+        initialize();
+        await hooks.executePostTool(context, "read", {}, { title: "read", output: "safe", metadata: {} }, false);
+        expect(calls).toEqual(["secret"]);
     });
 });
 
@@ -152,8 +186,6 @@ async function traceOwnedHooks(failure?: string) {
     const { StrictRoleGuardHook } = await import("../../src/hooks/custom/strict-role-guard");
     const { SecretScannerHook } = await import("../../src/hooks/custom/secret-scanner");
     const { ResourceControlHook } = await import("../../src/hooks/custom/resource-control");
-    const { MemoryGateHook } = await import("../../src/hooks/custom/memory-gate");
-    const { MetricsHook } = await import("../../src/hooks/custom/metrics");
     const { MissionControlHook } = await import("../../src/hooks/features/mission-loop");
     const { SanityCheckHook } = await import("../../src/hooks/features/sanity-check");
     const calls: string[] = [];
@@ -164,8 +196,7 @@ async function traceOwnedHooks(failure?: string) {
     vi.spyOn(StrictRoleGuardHook.prototype, "execute").mockImplementation(async () => { record("guard"); return { action: HOOK_ACTIONS.ALLOW }; });
     vi.spyOn(SecretScannerHook.prototype, "execute").mockImplementation(async () => { record("secret"); return {}; });
     for (const [name, prototype] of [
-        ["resource", ResourceControlHook.prototype], ["memory", MemoryGateHook.prototype],
-        ["metrics", MetricsHook.prototype], ["mission", MissionControlHook.prototype],
+        ["resource", ResourceControlHook.prototype], ["mission", MissionControlHook.prototype],
         ["sanity", SanityCheckHook.prototype],
     ] as const) {
         vi.spyOn(prototype, "execute").mockImplementation(async () => {

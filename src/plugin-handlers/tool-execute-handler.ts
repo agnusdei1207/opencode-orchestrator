@@ -7,7 +7,7 @@
  * - Progress display
  */
 
-import { log } from "../core/agents/logger.js";
+import { log } from "../shared/logger.js";
 import { recordToolEvidence } from "../core/loop/evidence.js";
 import { formatElapsedTime, formatTimestamp } from "../utils/formatting/index.js";
 import { HookRegistry } from "../hooks/registry.js";
@@ -38,25 +38,25 @@ export function createToolExecuteAfterHandler(ctx: ToolExecuteHandlerContext, cu
         toolOutput: ToolExecuteAfterOutput
     ) => {
         const session = sessions.get(toolInput.sessionID);
-        if (!session?.active) return;
+        const missionActive = session?.active === true;
+        const toolArguments = readToolArgs(toolInput.args);
+        const hookContext = {
+            sessionID: toolInput.sessionID,
+            callID: toolInput.callID,
+            agent: session?.agent,
+            directory,
+            sessions,
+            contextLimits,
+        };
+        // Secret redaction applies to every session; mission bookkeeping only to the mission owner.
+        if (!session || !missionActive) {
+            await hooks.executePostTool(hookContext, toolInput.tool, toolArguments, toolOutput, false);
+            return;
+        }
 
         const { stepDuration, totalElapsed } = advanceSessionStep(session);
-        const toolArguments = readToolArgs(toolInput.args);
         recordToolEvidence(toolInput.sessionID, toolInput.tool, toolArguments);
-
-        await hooks.executePostTool(
-            {
-                sessionID: toolInput.sessionID,
-                callID: toolInput.callID,
-                agent: session.agent,
-                directory,
-                sessions,
-                contextLimits,
-            },
-            toolInput.tool,
-            toolArguments,
-            toolOutput
-        );
+        await hooks.executePostTool(hookContext, toolInput.tool, toolArguments, toolOutput);
         log(`[tool.execute.after] Completed ${toolInput.tool}`, {
             sessionID: toolInput.sessionID,
             step: session.step,
@@ -77,12 +77,7 @@ function advanceSessionStep(session: PluginSessionState): { stepDuration: string
     const stepDuration = formatElapsedTime(session.lastStepTime, now);
     const totalElapsed = formatElapsedTime(session.startTime, now);
     session.step++;
-    session.timestamp = now;
     session.lastStepTime = now;
-
-    if (!session.tokens) {
-        session.tokens = { totalInput: 0, totalOutput: 0 };
-    }
     return { stepDuration, totalElapsed };
 }
 

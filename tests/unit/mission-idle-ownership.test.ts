@@ -8,15 +8,14 @@ import { resetSessionActivity } from "../../src/core/session/activity";
 import { configureMissionRuntimeOptions } from "../../src/core/loop/mission-runtime-options";
 import { readMissionLedger } from "../../src/core/loop/mission-ledger";
 import { getCircuitState, recordAssistantTurn } from "../../src/core/loop/circuit-breaker";
+import { ChildSessions } from "../../src/core/session/child-sessions";
+import type { BackgroundTaskSource } from "../../src/core/loop/mission-loop-handler";
 import type { HostClient } from "../../src/host/client";
-
-const tasks = vi.hoisted(() => ({ read: vi.fn((): Array<{ status: string }> => []) }));
-const taskSource = { getTasksByParent: () => tasks.read() } as never;
 vi.mock("node:fs", async (importOriginal) => {
     const actual = await importOriginal<typeof import("node:fs")>();
     return { ...actual, unlinkSync: vi.fn(actual.unlinkSync) };
 });
-vi.mock("../../src/core/agents/logger", () => ({ log: vi.fn() }));
+vi.mock("../../src/shared/logger", () => ({ log: vi.fn() }));
 vi.mock("../../src/core/notification/os-notify/notifier", () => ({ sendNotification: vi.fn() }));
 vi.mock("../../src/core/notification/os-notify/sound-player", () => ({ playSound: vi.fn() }));
 
@@ -26,18 +25,24 @@ describe("mission idle ownership", () => {
     let prompt: ReturnType<typeof vi.fn>;
     let statuses: ReturnType<typeof vi.fn>;
     let client: HostClient;
+    let children: ChildSessions;
+    let hostStatuses: Map<string, string>;
+    // The same wiring the event handler hands the mission loop.
+    let taskSource: BackgroundTaskSource;
 
     beforeEach(() => {
         vi.useFakeTimers();
         cleanupSession(sessionID);
         resetSessionActivity();
-        tasks.read.mockReset().mockReturnValue([]);
         configureMissionRuntimeOptions({ ledger: false, markdownMemory: false });
         directory = mkdtempSync(join(tmpdir(), "mission-owner-"));
         startMissionLoop(directory, sessionID, "Finish the requested scope");
         prompt = vi.fn().mockResolvedValue(undefined);
-        statuses = vi.fn(() => new Map<string, string>());
+        hostStatuses = new Map<string, string>();
+        statuses = vi.fn(() => hostStatuses);
         client = { prompt, statuses } as unknown as HostClient;
+        children = new ChildSessions();
+        taskSource = { hasBusyChildren: parentID => children.busyChildren(client, parentID).length > 0 };
     });
     afterEach(() => {
         cleanupSession(sessionID);
@@ -47,12 +52,52 @@ describe("mission idle ownership", () => {
         rmSync(directory, { recursive: true, force: true });
     });
 
-    it.each(["pending", "running"])("does not complete while delegated work is %s", async (taskStatus) => {
-        tasks.read.mockReturnValue([{ status: taskStatus }]);
+    it.each(["busy", "retry"])("does not complete while a delegated child session is %s", async (childStatus) => {
+        children.add(sessionID, "child-1");
+        hostStatuses.set("child-1", childStatus);
         writeFileSync(join(directory, ".opencode/todo.md"), "- [x] Parent checked item");
         await handleMissionIdle({ client, directory, tasks: taskSource }, sessionID);
         expect(readLoopState(directory)?.active).toBe(true);
         expect(prompt).not.toHaveBeenCalled();
+    });
+
+    it("holds continuation while a child is busy and resumes once it is idle", async () => {
+        children.add(sessionID, "child-1");
+        hostStatuses.set("child-1", "busy");
+        writeFileSync(join(directory, ".opencode/todo.md"), "- [ ] Remaining");
+
+        await handleMissionIdle({ client, directory, tasks: taskSource }, sessionID);
+        await vi.advanceTimersByTimeAsync(3000);
+        expect(prompt).not.toHaveBeenCalled();
+
+        // The child finishes: the host drops it from the status map.
+        hostStatuses.delete("child-1");
+        await handleMissionIdle({ client, directory, tasks: taskSource }, sessionID);
+        await vi.advanceTimersByTimeAsync(3000);
+        expect(prompt).toHaveBeenCalledTimes(1);
+        expect(prompt).toHaveBeenCalledWith(expect.objectContaining({ sessionID }));
+    });
+
+    it("drops a scheduled continuation when a child starts working during the countdown", async () => {
+        children.add(sessionID, "child-1");
+        writeFileSync(join(directory, ".opencode/todo.md"), "- [ ] Remaining");
+
+        await handleMissionIdle({ client, directory, tasks: taskSource }, sessionID);
+        hostStatuses.set("child-1", "busy");
+        await vi.advanceTimersByTimeAsync(3000);
+
+        expect(prompt).not.toHaveBeenCalled();
+    });
+
+    it("ignores busy sessions that are not children of the mission owner", async () => {
+        children.add("other-parent", "foreign-child");
+        hostStatuses.set("foreign-child", "busy");
+        writeFileSync(join(directory, ".opencode/todo.md"), "- [ ] Remaining");
+
+        await handleMissionIdle({ client, directory, tasks: taskSource }, sessionID);
+        await vi.advanceTimersByTimeAsync(3000);
+
+        expect(prompt).toHaveBeenCalledTimes(1);
     });
 
     it("rejects another root without replacing the active project mission", () => {
@@ -71,10 +116,10 @@ describe("mission idle ownership", () => {
         expect(readLoopState(directory)).toMatchObject({ sessionID: "third-owner", objective: "Newer mission" });
     });
 
-    it("does not infer task completion when the task manager is unavailable", async () => {
-        tasks.read.mockImplementation(() => { throw new Error("unavailable"); });
+    it("does not infer completion when child-session status cannot be read", async () => {
+        const unavailable: BackgroundTaskSource = { hasBusyChildren: () => { throw new Error("unavailable"); } };
         writeFileSync(join(directory, ".opencode/todo.md"), "- [x] Parent checked item");
-        await handleMissionIdle({ client, directory, tasks: taskSource }, sessionID);
+        await expect(handleMissionIdle({ client, directory, tasks: unavailable }, sessionID)).rejects.toThrow("unavailable");
         expect(readLoopState(directory)?.active).toBe(true);
     });
 
@@ -139,7 +184,7 @@ describe("mission idle ownership", () => {
         expect(prompt).not.toHaveBeenCalled();
     });
 
-    it("injects the continuation as one synthetic prompt", async () => {
+    it("injects the continuation as one prompt", async () => {
         writeFileSync(join(directory, ".opencode/todo.md"), "- [ ] Remaining");
         await handleMissionIdle({ client, directory, tasks: taskSource }, sessionID);
         await vi.advanceTimersByTimeAsync(3000);
@@ -147,7 +192,6 @@ describe("mission idle ownership", () => {
         expect(prompt).toHaveBeenCalledWith({
             sessionID,
             text: expect.stringContaining('<mission_loop iteration="2">'),
-            synthetic: true,
         });
     });
 

@@ -13,7 +13,7 @@
 import { queuePrompts } from "../core/session/pending-injection.js";
 import { recordAssistantTurn } from "../core/loop/circuit-breaker.js";
 import { HookRegistry } from "../hooks/registry.js";
-import { log } from "../core/agents/logger.js";
+import { log } from "../shared/logger.js";
 import type { AssistantDoneHandlerContext } from "./context.js";
 import type { HostClient } from "../host/client.js";
 
@@ -49,10 +49,8 @@ export async function handleCompletedAssistantMessage(
         return;
     }
 
-    const now = Date.now();
     session.step++;
-    session.timestamp = now;
-    session.lastStepTime = now;
+    session.lastStepTime = Date.now();
 
     queuePrompts(sessionID, result.prompts);
     log("[assistant-done-handler] Queued continuation prompts for the next idle window", {

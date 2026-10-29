@@ -7,7 +7,7 @@
 import { execFile } from "node:child_process";
 import type { NotificationCommandKey } from "../../../shared/notification/os-notify/index.js";
 import { PLATFORM } from "../../../shared/os/index.js";
-import { log } from "../../agents/logger.js";
+import { log } from "../../../shared/logger.js";
 
 const cache = new Map<NotificationCommandKey, string | null>();
 const pending: Map<NotificationCommandKey, Promise<string | null>> = new Map();

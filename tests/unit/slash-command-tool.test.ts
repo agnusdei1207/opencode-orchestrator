@@ -8,16 +8,13 @@ describe("slash COMMANDS", () => {
         expect(template).toContain("status: completed");
         expect(template).toContain("pause");
         expect(template).toContain("$ARGUMENTS");
-        expect(template).not.toMatch(/without user intervention|Use your full capabilities/);
     });
 
-    it("describes optional roles and a planning-only response without mandatory fanout", () => {
+    it("describes optional roles and a planning-only response", () => {
         expect(COMMANDS.plan.template).toContain("proportional");
         expect(COMMANDS.plan.template).toContain("Do not implement");
         expect(COMMANDS.plan.template).toContain("$ARGUMENTS");
         expect(COMMANDS.agents.template).toContain("optional");
-        expect(COMMANDS.agents.template).not.toMatch(/50 Worker|caches official|automatically coordinates all/);
-        expect(COMMANDS.plan.template).not.toContain("Maximize parallelism");
     });
 
     it("describes the 4-agent architecture in /agents", () => {

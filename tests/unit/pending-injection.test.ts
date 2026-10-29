@@ -98,17 +98,17 @@ describe("deferred prompt injection (issue #38)", () => {
             queueNotice(SESSION, "first");
             const { client: api, prompt } = client({ onStatuses: () => queueNotice(SESSION, "second") });
             await flushPrompts(api, SESSION);
-            expect(prompt).toHaveBeenCalledWith({ sessionID: SESSION, text: "first", synthetic: true });
+            expect(prompt).toHaveBeenCalledWith({ sessionID: SESSION, text: "first" });
             expect(peekPrompts(SESSION)).toEqual(["second"]);
         });
 
-        it("sends the queue as one synthetic message when idle", async () => {
+        it("sends the queue as one prompt when idle", async () => {
             queuePrompts(SESSION, ["first", "second"]);
             const { client: api, prompt } = client();
 
             await expect(flushPrompts(api, SESSION)).resolves.toBe(true);
             expect(prompt).toHaveBeenCalledTimes(1);
-            expect(prompt).toHaveBeenCalledWith({ sessionID: SESSION, text: "first\n\nsecond", synthetic: true });
+            expect(prompt).toHaveBeenCalledWith({ sessionID: SESSION, text: "first\n\nsecond" });
             expect(hasPendingPrompts(SESSION)).toBe(false);
         });
 

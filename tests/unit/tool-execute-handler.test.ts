@@ -93,18 +93,17 @@ function createToolOutput(): ToolExecuteAfterOutput {
 
 function createContext(): ToolExecuteHandlerContext {
     return {
+        client: {} as never,
         directory: "/tmp/project",
         sessions: new Map([
             ["session-1", {
                 active: true,
                 step: 0,
-                timestamp: 0,
                 startTime: 0,
                 lastStepTime: 0,
                 tokens: {
                     totalInput: 0,
                     totalOutput: 0,
-                    estimatedCost: 0,
                 },
             }],
         ]),

@@ -60,21 +60,12 @@ describe("truncateOversizedMessageParts", () => {
         expect(text).not.toContain("data:image/png;base64");
     });
 
-    it("truncates a legacy tool part's output and content", () => {
-        const messages = [{
-            info: { id: "msg_1" },
-            parts: [{
-                type: "tool",
-                state: { status: "completed", output: oversized, content: [{ type: "text", text: oversized }] },
-            }],
-        }];
+    it("walks only message.content: OpenCode 1 parts/tool.state shapes are not touched", () => {
+        const state = { status: "completed", output: oversized };
+        const messages = [{ info: { id: "msg_1" }, parts: [{ type: "tool", state }] }];
 
-        const count = truncateOversizedMessageParts(messages);
-
-        expect(count).toBe(1);
-        const state = (messages[0].parts[0] as { state: { output: string; content: { text: string }[] } }).state;
-        expect(state.output).toContain("truncated by message guard");
-        expect(state.content[0].text).toContain("truncated by message guard");
+        expect(truncateOversizedMessageParts(messages)).toBe(0);
+        expect(state.output).toBe(oversized);
     });
 
     it("leaves small parts untouched", () => {

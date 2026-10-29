@@ -12,7 +12,7 @@
  */
 
 import { CONTEXT_MONITOR_CONFIG } from "./context-window-monitor.js";
-import { log } from "../agents/logger.js";
+import { log } from "../../shared/logger.js";
 import { withTimeout } from "../async/with-timeout.js";
 
 /** Bound on one model-metadata lookup so a hung host cannot stall callers. */
@@ -39,8 +39,8 @@ export class ContextLimitResolver {
     private readonly overrideMaxTokens?: number;
     /** `provider/model` → context limit. */
     private readonly limitsByModel = new Map<string, number>();
-    /** Session → `provider/model` it last prompted with. */
-    private readonly modelBySession = new Map<string, string>();
+    /** Session → the model it last prompted with. */
+    private readonly modelBySession = new Map<string, { providerID: string; modelID: string }>();
 
     constructor(options: ContextLimitResolverOptions = {}) {
         this.lookup = options.lookup;
@@ -52,7 +52,7 @@ export class ContextLimitResolver {
         if (!providerID || !modelID) return;
         const key = modelKey(providerID, modelID);
         if (isUsableLimit(contextLimit)) this.limitsByModel.set(key, contextLimit);
-        if (sessionID) this.modelBySession.set(sessionID, key);
+        if (sessionID) this.modelBySession.set(sessionID, { providerID, modelID });
     }
 
     /** Resolve the window for a model, asking the host when it is not cached. */
@@ -74,9 +74,19 @@ export class ContextLimitResolver {
      */
     resolveForSession(sessionID: string): number {
         if (this.overrideMaxTokens !== undefined) return this.overrideMaxTokens;
-        const key = this.modelBySession.get(sessionID);
-        const known = key === undefined ? undefined : this.limitsByModel.get(key);
+        const model = this.modelBySession.get(sessionID);
+        const known = model === undefined ? undefined : this.limitsByModel.get(modelKey(model.providerID, model.modelID));
         return known ?? CONTEXT_MONITOR_CONFIG.DEFAULT_MAX_TOKENS;
+    }
+
+    /**
+     * Resolve the window for the model the session last prompted with, asking
+     * the host when it is not cached. Host step events carry no model, so this
+     * is how usage is measured against the right window.
+     */
+    async resolveSession(sessionID: string): Promise<number> {
+        const model = this.modelBySession.get(sessionID);
+        return this.resolve(model?.providerID, model?.modelID);
     }
 
     forgetSession(sessionID: string): void {

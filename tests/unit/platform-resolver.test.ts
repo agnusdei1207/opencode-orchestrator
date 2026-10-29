@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { log } from "../../src/core/agents/logger.js";
+import { log } from "../../src/shared/logger.js";
 import { NOTIFICATION_COMMAND_KEYS } from "../../src/shared/notification/os-notify/index.js";
 
 const processMocks = vi.hoisted(() => ({
@@ -7,7 +7,7 @@ const processMocks = vi.hoisted(() => ({
 }));
 
 vi.mock("node:child_process", () => ({ execFile: processMocks.execFile }));
-vi.mock("../../src/core/agents/logger.js", () => ({ log: vi.fn() }));
+vi.mock("../../src/shared/logger.js", () => ({ log: vi.fn() }));
 
 describe("platform command resolver", () => {
     beforeEach(() => {

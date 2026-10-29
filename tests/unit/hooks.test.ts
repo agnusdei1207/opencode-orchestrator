@@ -18,10 +18,11 @@ import { SecretScannerHook } from "../../src/hooks/custom/secret-scanner";
 
 import { HOOK_ACTIONS } from "../../src/hooks/constants";
 import type { HookContext } from "../../src/hooks/registry";
+import type { PluginSessionState } from "../../src/plugin-handlers/context";
 import { queuePrompts, hasPendingPrompts } from "../../src/core/session/pending-injection";
 
 // Mock dependencies
-vi.mock("../../src/core/agents/logger", () => ({ log: vi.fn() }));
+vi.mock("../../src/shared/logger", () => ({ log: vi.fn() }));
 vi.mock("../../src/tools/slashCommand", () => ({
     COMMANDS: { task: { description: "Mock", template: "Mock: $ARGUMENTS" } }
 }));
@@ -71,12 +72,12 @@ describe("Hook System", () => {
         const hook = new StrictRoleGuardHook();
 
         it("should allow safe commands", async () => {
-            const result = await hook.execute(mockContext, "bash", { command: "ls -la" });
+            const result = await hook.execute(mockContext, "shell", { command: "ls -la" });
             expect(result.action).toBe(HOOK_ACTIONS.ALLOW);
         });
 
         it("should block root deletion 'rm -rf /'", async () => {
-            const result = await hook.execute(mockContext, "bash", { command: "rm -rf /" });
+            const result = await hook.execute(mockContext, "shell", { command: "rm -rf /" });
             expect(result.action).toBe(HOOK_ACTIONS.BLOCK);
         });
 
@@ -89,7 +90,7 @@ describe("Hook System", () => {
             "sudo rm -rf /",
             "rm -rf / && echo done",
         ])("blocks root deletion variant %s", async (command) => {
-            const result = await hook.execute(mockContext, "run_background", { command });
+            const result = await hook.execute(mockContext, "shell", { command });
             expect(result.action).toBe(HOOK_ACTIONS.BLOCK);
         });
 
@@ -99,17 +100,17 @@ describe("Hook System", () => {
             "rm -rf dist/",
             "npm run release:clean",
         ])("allows scoped deletion %s", async (command) => {
-            const result = await hook.execute(mockContext, "bash", { command });
+            const result = await hook.execute(mockContext, "shell", { command });
             expect(result.action).toBe(HOOK_ACTIONS.ALLOW);
         });
 
-        it("blocks a fork bomb sent to the bash tool", async () => {
-            const result = await hook.execute(mockContext, "bash", { command: ":(){ :|:& };:" });
+        it("blocks a fork bomb sent to the shell tool", async () => {
+            const result = await hook.execute(mockContext, "shell", { command: ":(){ :|:& };:" });
             expect(result).toEqual({ action: HOOK_ACTIONS.BLOCK, reason: expect.stringMatching(/fork/i) });
         });
 
-        it("blocks a fork bomb sent to run_background", async () => {
-            const result = await hook.execute(mockContext, "run_background", { command: ":(){ :|:& };:" });
+        it("blocks a fork bomb chained after another command", async () => {
+            const result = await hook.execute(mockContext, "shell", { command: "echo start && :(){ :|:& };:" });
             expect(result.action).toBe(HOOK_ACTIONS.BLOCK);
         });
 
@@ -119,7 +120,7 @@ describe("Hook System", () => {
         });
 
         it("blocks a fork bomb written without spaces", async () => {
-            const result = await hook.execute(mockContext, "bash", { command: ":(){:|:&};:" });
+            const result = await hook.execute(mockContext, "shell", { command: ":(){:|:&};:" });
             expect(result.action).toBe(HOOK_ACTIONS.BLOCK);
         });
     });
@@ -151,7 +152,7 @@ describe("Hook System", () => {
         });
 
         it("reactivates a locally cancelled session on the next /task", async () => {
-            mockContext.sessions.set("test-session", { active: false });
+            mockContext.sessions.set("test-session", sessionState({ active: false }));
             await hook.execute(mockContext, "/task new goal");
             expect((mockContext.sessions.get("test-session") as { active: boolean }).active).toBe(true);
         });
@@ -164,7 +165,7 @@ describe("Hook System", () => {
         });
 
         it("should intercept /cancel and deactivate mission state", async () => {
-            mockContext.sessions.set("test-session", { active: true });
+            mockContext.sessions.set("test-session", sessionState({ active: true }));
             queuePrompts("test-session", ["Continue the old turn"]);
 
             const { cancelMissionLoop } = await import("../../src/core/loop/mission-loop");
@@ -179,7 +180,7 @@ describe("Hook System", () => {
         });
 
         it("discards already queued continuation when the user types /stop", async () => {
-            const session = { active: true, lastAbortAt: undefined as number | undefined };
+            const session = sessionState({ active: true });
             mockContext.sessions.set("test-session", session);
             queuePrompts("test-session", ["Continue the old turn"]);
             await hook.execute(mockContext, "/stop");
@@ -208,9 +209,9 @@ describe("Hook System", () => {
         });
 
         it("should inject compaction prompt only on assistant completion", async () => {
-            mockContext.sessions.set("test-session", {
-                tokens: { totalInput: 180000, totalOutput: 0, estimatedCost: 0 },
-            });
+            mockContext.sessions.set("test-session", sessionState({
+                tokens: { totalInput: 180000, totalOutput: 0 },
+            }));
 
             const postResult = await hook.execute(
                 mockContext,
@@ -228,9 +229,9 @@ describe("Hook System", () => {
             const resolver = new ContextLimitResolver();
             resolver.rememberModel("test-session", "zai", "glm-5.3", 1_000_000);
             mockContext.contextLimits = resolver;
-            mockContext.sessions.set("test-session", {
-                tokens: { totalInput: 180000, totalOutput: 0, estimatedCost: 0 },
-            });
+            mockContext.sessions.set("test-session", sessionState({
+                tokens: { totalInput: 180000, totalOutput: 0 },
+            }));
 
             const doneResult = await hook.execute(mockContext, "final response");
 
@@ -240,9 +241,9 @@ describe("Hook System", () => {
 
         it("prefers the host-reported token usage over the character estimate", async () => {
             const freshHook = new ResourceControlHook();
-            mockContext.sessions.set("test-session", {
-                tokens: { totalInput: 180000, totalOutput: 0, estimatedCost: 0 },
-            });
+            mockContext.sessions.set("test-session", sessionState({
+                tokens: { totalInput: 180000, totalOutput: 0 },
+            }));
             // The host says the model is at 10% of a 1M window; the estimate says 90% of 200k.
             checkContextWindow("test-session", 100_000, 1_000_000);
 
@@ -349,3 +350,14 @@ describe("Hook System", () => {
         });
     });
 });
+
+function sessionState(overrides: Partial<PluginSessionState> = {}): PluginSessionState {
+    return {
+        active: false,
+        step: 0,
+        startTime: 0,
+        lastStepTime: 0,
+        tokens: { totalInput: 0, totalOutput: 0 },
+        ...overrides,
+    };
+}

@@ -1,11 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { detectPlatform, getDefaultSoundPath } from "../../src/core/notification/os-notify/platform";
-import { log } from "../../src/core/agents/logger.js";
+import { log } from "../../src/shared/logger.js";
 import { PLATFORM } from "../../src/shared/os/index.js";
 
 const processMocks = vi.hoisted(() => ({
     execFile: vi.fn((...args: unknown[]) => {
-        const callback = args.findLast(value => typeof value === "function") as
+        const callback = [...args].reverse().find(value => typeof value === "function") as
             | ((error: Error | null, stdout?: string, stderr?: string) => void)
             | undefined;
         callback?.(null, "", "");
@@ -20,7 +20,7 @@ vi.mock("node:fs", () => ({
         return "";
     }),
 }));
-vi.mock("../../src/core/agents/logger.js", () => ({ log: vi.fn() }));
+vi.mock("../../src/shared/logger.js", () => ({ log: vi.fn() }));
 
 const mockResolveCommandPath = vi.hoisted(() => vi.fn());
 vi.mock("../../src/core/notification/os-notify/platform-resolver", () => ({
@@ -237,7 +237,7 @@ describe("os-notify/sound-player", () => {
     it("logs asynchronous player failures", async () => {
         const { playSound } = await import("../../src/core/notification/os-notify/sound-player");
         processMocks.execFile.mockImplementationOnce((...args: unknown[]) => {
-            const callback = args.findLast(value => typeof value === "function") as (error: Error) => void;
+            const callback = [...args].reverse().find(value => typeof value === "function") as (error: Error) => void;
             callback(new Error("spawn failed"));
             return { on: vi.fn() };
         });

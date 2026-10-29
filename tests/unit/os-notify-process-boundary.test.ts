@@ -3,7 +3,7 @@ import { PLATFORM } from "../../src/shared/os/index.js";
 
 const processMocks = vi.hoisted(() => {
     const invokeCallback = (args: unknown[]) => {
-        const callback = args.findLast(value => typeof value === "function") as
+        const callback = [...args].reverse().find(value => typeof value === "function") as
             | ((error: Error | null, stdout?: string, stderr?: string) => void)
             | undefined;
         callback?.(null, "", "");

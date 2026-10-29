@@ -1,40 +1,81 @@
 import type { Plugin } from "@opencode/plugin";
 import { resolve } from "node:path";
-import { log } from "../core/agents/logger.js";
+import { log } from "../shared/logger.js";
 import { SESSION_EVENTS } from "../shared/session/constants.js";
 import { V2_EXECUTION_EVENTS } from "../shared/session/v2-constants.js";
 import { SESSION_STATUS } from "../shared/message/constants.js";
 import { isRecord } from "../shared/core/guards.js";
 
 type Context = Plugin.Context;
-type LegacyHandler = (input: { event: LegacyEvent }) => Promise<void>;
-type LegacyEvent = { type: string; properties: Record<string, unknown> };
+type EventHandler = (input: { event: TranslatedEvent }) => Promise<void>;
+type TranslatedEvent = { type: string; properties: Record<string, unknown> };
 
+const RESUBSCRIBE_INITIAL_DELAY_MS = 1_000;
+const RESUBSCRIBE_MAX_DELAY_MS = 30_000;
+
+/**
+ * Feed host events to the handler until the plugin is disposed. A stream that
+ * ends or fails is resubscribed with backoff: without events, mission
+ * continuation, abort handling and child-session tracking all stop.
+ */
 export function startEventBridge(
     context: Context,
-    handler: LegacyHandler,
+    handler: EventHandler,
     statuses: Map<string, string>,
 ): () => void {
     const controller = new AbortController();
-    void consumeEvents(context, handler, statuses, controller.signal).catch(error => {
-        if (!controller.signal.aborted) log(`[v2-event-bridge] Event stream failed: ${error}`);
-    });
+    void runSubscription(context, handler, statuses, controller.signal);
     return () => controller.abort();
 }
 
-async function consumeEvents(
+async function runSubscription(
     context: Context,
-    handler: LegacyHandler,
+    handler: EventHandler,
     statuses: Map<string, string>,
     signal: AbortSignal,
 ): Promise<void> {
     const ownership = createLocationFilter(normalizeDirectory(context.location.directory));
-    for await (const event of context.event.subscribe({ signal })) {
-        if (signal.aborted) return;
-        if (!ownership.accepts(event)) continue;
-        for (const translated of translateEvents(event, statuses)) {
-            await dispatch(handler, translated);
+    let delay = RESUBSCRIBE_INITIAL_DELAY_MS;
+    while (!signal.aborted) {
+        try {
+            for await (const event of context.event.subscribe({ signal })) {
+                if (signal.aborted) return;
+                delay = RESUBSCRIBE_INITIAL_DELAY_MS;
+                if (!ownership.accepts(event)) continue;
+                for (const translated of translateEvents(event, statuses)) {
+                    await dispatch(handler, translated);
+                }
+            }
+        } catch (error) {
+            if (signal.aborted) return;
+            log(`[event-bridge] Event stream failed: ${error}`);
         }
+        // Statuses seen before the gap may be stale; the next events restore them.
+        statuses.clear();
+        await waitUnlessAborted(delay, signal);
+        delay = Math.min(delay * 2, RESUBSCRIBE_MAX_DELAY_MS);
+    }
+}
+
+function waitUnlessAborted(ms: number, signal: AbortSignal): Promise<void> {
+    return new Promise(resolveWait => {
+        const timer = setTimeout(done, ms);
+        timer.unref?.();
+        signal.addEventListener("abort", done, { once: true });
+        function done(): void {
+            clearTimeout(timer);
+            signal.removeEventListener("abort", done);
+            resolveWait();
+        }
+    });
+}
+
+// One failing handler must not end the stream.
+async function dispatch(handler: EventHandler, event: TranslatedEvent): Promise<void> {
+    try {
+        await handler({ event });
+    } catch (error) {
+        log(`[event-bridge] Handler failed for ${event.type}: ${error}`);
     }
 }
 
@@ -78,14 +119,6 @@ function normalizeDirectory(directory: string): string {
     return process.platform === "win32" ? resolved.toLowerCase() : resolved;
 }
 
-// The subscription has no restart path, so one failing handler must not end the stream.
-async function dispatch(handler: LegacyHandler, event: LegacyEvent): Promise<void> {
-    try {
-        await handler({ event });
-    } catch (error) {
-        log(`[v2-event-bridge] Handler failed for ${event.type}: ${error}`);
-    }
-}
 
 interface V2Event {
     type: string;
@@ -95,26 +128,22 @@ interface V2Event {
     statuses: Map<string, string>;
 }
 
-type Translator = (input: V2Event) => LegacyEvent[];
+type Translator = (input: V2Event) => TranslatedEvent[];
 
-function translateEvents(event: unknown, statuses: Map<string, string>): LegacyEvent[] {
+function translateEvents(event: unknown, statuses: Map<string, string>): TranslatedEvent[] {
     if (!isRecord(event) || typeof event.type !== "string") return [];
     const data = isRecord(event.data) ? event.data : {};
     const input: V2Event = { type: event.type, event, data, sessionID: readSessionID(data), statuses };
-    const translate = TRANSLATORS.get(event.type) ?? (PART_EVENTS.has(event.type) ? partEvent : passThroughEvent);
+    const translate = TRANSLATORS.get(event.type) ?? passThroughEvent;
     return translate(input);
 }
 
-function partEvent({ data, sessionID }: V2Event): LegacyEvent[] {
-    return [{ type: "message.part.updated", properties: { part: { ...data, sessionID } } }];
-}
-
-function passThroughEvent({ type: v2Type, data, sessionID }: V2Event): LegacyEvent[] {
+function passThroughEvent({ type: v2Type, data, sessionID }: V2Event): TranslatedEvent[] {
     const type = EVENT_TYPES[v2Type] ?? v2Type;
     return [{ type, properties: { ...data, sessionID } }];
 }
 
-function failedEvents({ type, data, sessionID, statuses }: V2Event): LegacyEvent[] {
+function failedEvents({ type, data, sessionID, statuses }: V2Event): TranslatedEvent[] {
     return [
         { type, properties: { ...data, sessionID } },
         { type: "session.error", properties: { ...data, sessionID } },
@@ -122,7 +151,7 @@ function failedEvents({ type, data, sessionID, statuses }: V2Event): LegacyEvent
     ];
 }
 
-function interruptedEvents({ type, data, sessionID, statuses }: V2Event): LegacyEvent[] {
+function interruptedEvents({ type, data, sessionID, statuses }: V2Event): TranslatedEvent[] {
     return [
         { type, properties: { ...data, sessionID } },
         { type: "session.error", properties: { ...data, sessionID, error: { name: "AbortError" } } },
@@ -130,18 +159,18 @@ function interruptedEvents({ type, data, sessionID, statuses }: V2Event): Legacy
     ];
 }
 
-function deletedEvents(input: V2Event): LegacyEvent[] {
+function deletedEvents(input: V2Event): TranslatedEvent[] {
     input.statuses.delete(input.sessionID);
     return passThroughEvent(input);
 }
 
-function statusEvent(statuses: Map<string, string>, sessionID: string, type: string): LegacyEvent[] {
+function statusEvent(statuses: Map<string, string>, sessionID: string, type: string): TranslatedEvent[] {
     if (type === SESSION_STATUS.IDLE) statuses.delete(sessionID);
     else statuses.set(sessionID, type);
     return [{ type: "session.status", properties: { sessionID, status: { type } } }];
 }
 
-function messageEvent(data: Record<string, unknown>, sessionID: string, completed: unknown): LegacyEvent {
+function messageEvent(data: Record<string, unknown>, sessionID: string, completed: unknown): TranslatedEvent {
     return {
         type: "message.updated",
         properties: {
@@ -165,13 +194,6 @@ function readSessionID(data: Record<string, unknown>): string {
 const EVENT_TYPES: Record<string, string> = {
     "session.compaction.ended": "session.compacted",
 };
-
-const PART_EVENTS = new Set([
-    "session.text.ended",
-    "session.reasoning.ended",
-    "session.tool.success",
-    "session.tool.failed",
-]);
 
 /** V2 events that need more than a renamed pass-through. */
 const TRANSLATORS = new Map<string, Translator>([

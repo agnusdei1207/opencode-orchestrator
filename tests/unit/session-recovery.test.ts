@@ -2,14 +2,13 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import {
     cleanupSessionRecovery,
     handleSessionError,
-    isSessionRecovering,
     markRecoveryComplete,
 } from "../../src/core/recovery/session-recovery";
-import { BACKGROUND_TASK, detectErrorType, ERROR_TYPE, RECOVERY } from "../../src/shared";
+import { detectErrorType, ERROR_TYPE, RECOVERY } from "../../src/shared";
 import * as SessionActivity from "../../src/core/session/activity";
 import { clearPrompts, peekPrompts } from "../../src/core/session/pending-injection";
 
-vi.mock("../../src/core/agents/logger", () => ({ log: vi.fn() }));
+vi.mock("../../src/shared/logger", () => ({ log: vi.fn() }));
 
 const touchedSessions: string[] = [];
 let mockClient: {
@@ -40,6 +39,7 @@ it("detects recovery-supported error types using the shared detector", () => {
 });
 
 it("injects a compact tool-crash recovery prompt through the host client", async () => {
+    vi.useFakeTimers();
     const sessionID = "session-recovery-tool";
     touchedSessions.push(sessionID);
 
@@ -52,10 +52,18 @@ it("injects a compact tool-crash recovery prompt through the host client", async
     expect(recovered).toBe(true);
     expect(mockClient.prompt).toHaveBeenCalledWith({
         sessionID,
-        synthetic: true,
         text: expect.stringContaining('<recovery type="tool_crash">'),
     });
-    expect(isSessionRecovering(sessionID)).toBe(false);
+
+    // The reentrancy guard is released once recovery finishes: after the
+    // cooldown a later recoverable error is handled again.
+    vi.advanceTimersByTime(RECOVERY.RETRY_COOLDOWN_MS);
+    expect(await handleSessionError(
+        mockClient as unknown as Parameters<typeof handleSessionError>[0],
+        sessionID,
+        new Error("tool_result_missing"),
+    )).toBe(true);
+    expect(mockClient.prompt).toHaveBeenCalledTimes(2);
 });
 
 it("injects thinking block recovery prompt for thinking errors", async () => {
@@ -71,7 +79,6 @@ it("injects thinking block recovery prompt for thinking errors", async () => {
     expect(recovered).toBe(true);
     expect(mockClient.prompt).toHaveBeenCalledWith({
         sessionID,
-        synthetic: true,
         text: expect.stringContaining('<recovery type="thinking_block">'),
     });
 });
@@ -169,17 +176,43 @@ it("does not spend the recovery attempt budget on unknown errors", async () => {
 
     for (let attempt = 0; attempt <= RECOVERY.MAX_ATTEMPTS; attempt++) {
         await handleSessionError(client, sessionID, new Error("unmatched failure"));
-        vi.advanceTimersByTime(BACKGROUND_TASK.RETRY_COOLDOWN_MS);
+        vi.advanceTimersByTime(RECOVERY.RETRY_COOLDOWN_MS);
     }
 
     expect(await handleSessionError(client, sessionID, new Error("tool_result_missing"))).toBe(true);
 });
 
-it("cleans and resets recovery state without throwing", () => {
+it("cleanup forgets the cooldown so a new error is recovered immediately", async () => {
     const sessionID = "session-recovery-cleanup";
     touchedSessions.push(sessionID);
+    const client = mockClient as unknown as Parameters<typeof handleSessionError>[0];
+
+    expect(await handleSessionError(client, sessionID, new Error("tool_result_missing"))).toBe(true);
+    // Still inside the cooldown window.
+    expect(await handleSessionError(client, sessionID, new Error("tool_result_missing"))).toBe(false);
+
+    cleanupSessionRecovery(sessionID);
+    expect(await handleSessionError(client, sessionID, new Error("tool_result_missing"))).toBe(true);
+});
+
+it("a completed assistant message resets the attempt budget", async () => {
+    vi.useFakeTimers();
+    const sessionID = "session-recovery-budget-reset";
+    touchedSessions.push(sessionID);
+    const client = mockClient as unknown as Parameters<typeof handleSessionError>[0];
+
+    for (let attempt = 0; attempt < RECOVERY.MAX_ATTEMPTS; attempt++) {
+        expect(await handleSessionError(client, sessionID, new Error("tool_result_missing"))).toBe(true);
+        vi.advanceTimersByTime(RECOVERY.RETRY_COOLDOWN_MS);
+    }
+    expect(await handleSessionError(client, sessionID, new Error("tool_result_missing"))).toBe(false);
+    vi.advanceTimersByTime(RECOVERY.RETRY_COOLDOWN_MS);
 
     expect(() => markRecoveryComplete(sessionID)).not.toThrow();
-    expect(() => cleanupSessionRecovery(sessionID)).not.toThrow();
-    expect(isSessionRecovering(sessionID)).toBe(false);
+    expect(await handleSessionError(client, sessionID, new Error("tool_result_missing"))).toBe(true);
+});
+
+it("markRecoveryComplete and cleanup tolerate unknown sessions", () => {
+    expect(() => markRecoveryComplete("never-seen")).not.toThrow();
+    expect(() => cleanupSessionRecovery("never-seen")).not.toThrow();
 });

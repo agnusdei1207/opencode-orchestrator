@@ -7,7 +7,7 @@
 
 import { HookRegistry } from "../hooks/registry.js";
 import type { ToolExecuteHandlerContext } from "./context.js";
-import { log } from "../core/agents/logger.js";
+import { log } from "../shared/logger.js";
 import { HOOK_ACTIONS } from "../hooks/constants.js";
 import { isRecord } from "../shared/core/guards.js";
 
@@ -29,15 +29,15 @@ export function createToolExecuteBeforeHandler(ctx: ToolExecuteHandlerContext) {
         toolInput: ToolExecuteBeforeInput,
         toolOutput: ToolExecuteBeforeOutput,
     ) => {
+        // Safety checks apply to every session, including subagents and sessions without a mission.
         const session = sessions.get(toolInput.sessionID);
-        if (!session?.active) return;
         const toolArguments = readToolArgs(toolOutput.args);
 
         const result = await hooks.executePreTool(
             {
                 sessionID: toolInput.sessionID,
                 callID: toolInput.callID,
-                agent: session.agent,
+                agent: session?.agent,
                 directory,
                 sessions,
             },

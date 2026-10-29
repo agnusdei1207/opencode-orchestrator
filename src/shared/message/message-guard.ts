@@ -8,8 +8,7 @@
  * rejection, even after switching models.
  *
  * This guard truncates oversized parts right before the request is sent and
- * tells the model the payload was omitted. It is shape-agnostic: it walks both
- * the legacy message form (`parts`) and the current one (`content`).
+ * tells the model the payload was omitted. It walks each message's `content`.
  */
 
 import { isRecord } from "../core/guards.js";
@@ -83,14 +82,6 @@ function serializeResult(value: unknown): string | undefined {
     }
 }
 
-/** Cap a legacy tool part's `state.output` and `state.content`. */
-function capToolState(state: unknown): boolean {
-    if (!isRecord(state)) return false;
-    let changed = capField(state, "output");
-    if (capContentArray(state.content)) changed = true;
-    return changed;
-}
-
 /** Cap every oversized field of a single message part. */
 function capPart(part: unknown): boolean {
     if (!isRecord(part)) return false;
@@ -100,8 +91,6 @@ function capPart(part: unknown): boolean {
             return capField(part, "text");
         case "tool-result":
             return capToolResult(part.result);
-        case "tool":
-            return capToolState(part.state);
         default:
             return false;
     }
@@ -116,9 +105,8 @@ export function truncateOversizedMessageParts(messages: unknown): number {
     let truncated = 0;
     for (const message of messages) {
         if (!isRecord(message)) continue;
-        const parts = Array.isArray(message.parts) ? message.parts : message.content;
-        if (!Array.isArray(parts)) continue;
-        for (const part of parts) {
+        if (!Array.isArray(message.content)) continue;
+        for (const part of message.content) {
             if (capPart(part)) truncated++;
         }
     }

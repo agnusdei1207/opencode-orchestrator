@@ -1,17 +1,18 @@
-import { log } from "../core/agents/logger.js";
+import { log } from "../shared/logger.js";
 import { HOOK_ACTIONS } from "./constants.js";
 import type { HostClient } from "../host/client.js";
-import type { ParallelAgentManager } from "../core/agents/manager.js";
+import type { ChildSessions } from "../core/session/child-sessions.js";
 import type { ContextLimitResolver } from "../core/context/context-limit-resolver.js";
+import type { PluginSessionState } from "../plugin-handlers/context.js";
 
 export interface HookContext {
     sessionID: string;
     agent?: string;
     directory: string;
-    sessions: Map<string, unknown>;
+    sessions: Map<string, PluginSessionState>;
     client?: HostClient;
-    /** Delegated-task manager of the plugin instance that raised this hook. */
-    agents?: Pick<ParallelAgentManager, "cancelTasksForParent">;
+    /** Child sessions of native subagents, for the plugin instance that raised this hook. */
+    children?: ChildSessions;
     /** Tool call being handled, for tool hooks. */
     callID?: string;
     /** Context windows of the plugin instance that raised this hook. */
@@ -44,7 +45,12 @@ export type ChatMessageResult = {
     modifiedMessage?: string;
 };
 
-export interface PreToolUseHook {
+/** Hooks that keep per-session state release it when the session is deleted. */
+interface SessionScoped {
+    clearSession?(sessionID: string): void;
+}
+
+export interface PreToolUseHook extends SessionScoped {
     name: string;
     execute(
         context: HookContext,
@@ -53,7 +59,7 @@ export interface PreToolUseHook {
     ): Promise<PreToolResult>;
 }
 
-export interface PostToolUseHook {
+export interface PostToolUseHook extends SessionScoped {
     name: string;
     execute(
         context: HookContext,
@@ -63,7 +69,7 @@ export interface PostToolUseHook {
     ): Promise<PostToolResult>;
 }
 
-export interface ChatMessageHook {
+export interface ChatMessageHook extends SessionScoped {
     name: string;
     execute(
         context: HookContext,
@@ -71,7 +77,7 @@ export interface ChatMessageHook {
     ): Promise<ChatMessageResult>;
 }
 
-export interface AssistantDoneHook {
+export interface AssistantDoneHook extends SessionScoped {
     name: string;
     execute(
         context: HookContext,
@@ -82,6 +88,8 @@ export interface AssistantDoneHook {
 interface HookRegistration<T> {
     hook: T;
     errorHandling: ErrorHandling;
+    /** Runs only in a session that owns an active mission. Safety hooks run everywhere. */
+    missionOnly?: boolean;
 }
 
 export class HookRegistry {
@@ -101,12 +109,19 @@ export class HookRegistry {
         return HookRegistry.instance;
     }
 
+    /** Release every hook's state for a deleted session. */
+    clearSession(sessionID: string): void {
+        // A hook registered for several events is cleared once.
+        const hooks = new Set([...this.preToolHooks, ...this.postToolHooks, ...this.chatHooks, ...this.doneHooks].map(entry => entry.hook));
+        for (const hook of hooks) hook.clearSession?.(sessionID);
+    }
+
     registerPreTool(hook: PreToolUseHook, errorHandling: ErrorHandling = "continue") {
         this.preToolHooks.push({ hook, errorHandling });
     }
 
-    registerPostTool(hook: PostToolUseHook, errorHandling: ErrorHandling = "continue") {
-        this.postToolHooks.push({ hook, errorHandling });
+    registerPostTool(hook: PostToolUseHook, errorHandling: ErrorHandling = "continue", missionOnly = false) {
+        this.postToolHooks.push({ hook, errorHandling, missionOnly });
     }
 
     registerChat(hook: ChatMessageHook, errorHandling: ErrorHandling = "continue") {
@@ -130,8 +145,9 @@ export class HookRegistry {
         return { action: HOOK_ACTIONS.ALLOW };
     }
 
-    async executePostTool(ctx: HookContext, tool: string, input: ToolInput, output: ToolOutput) {
-        for (const { hook, errorHandling } of this.postToolHooks) {
+    async executePostTool(ctx: HookContext, tool: string, input: ToolInput, output: ToolOutput, missionActive = true) {
+        for (const { hook, errorHandling, missionOnly } of this.postToolHooks) {
+            if (missionOnly && !missionActive) continue;
             try {
                 const result = await hook.execute(ctx, tool, input, output);
                 if (result && typeof result.output === "string") {

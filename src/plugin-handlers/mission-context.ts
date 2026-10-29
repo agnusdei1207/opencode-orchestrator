@@ -1,13 +1,13 @@
 import type { PluginHandlerContext } from "./context.js";
 import { readLoopState } from "../core/loop/mission-loop.js";
-import { PATHS, STATUS_LABEL } from "../shared/index.js";
+import { PATHS } from "../shared/index.js";
 import { ensureSessionInitialized } from "../core/orchestrator/session-manager.js";
 import { readMissionScratchpadSnapshot } from "../core/knowledge/mission-memory.js";
-import { log } from "../core/agents/logger.js";
+import { log } from "../shared/logger.js";
 
 /** Dynamic state belongs after conversation history so it cannot invalidate its prefix. */
-export function createMissionContextBuilder(ctx: Pick<PluginHandlerContext, "directory" | "sessions" | "agents">) {
-    const { directory, sessions, agents } = ctx;
+export function createMissionContextBuilder(ctx: Pick<PluginHandlerContext, "directory" | "sessions">) {
+    const { directory, sessions } = ctx;
 
     return (sessionID: string | undefined): string | undefined => {
         if (!sessionID) return undefined;
@@ -21,11 +21,6 @@ export function createMissionContextBuilder(ctx: Pick<PluginHandlerContext, "dir
 
         if (session?.active) {
             additions.push(buildActiveSessionPrompt(session.step));
-        }
-
-        const backgroundPrompt = buildBackgroundTasksAddition(agents, sessionID);
-        if (backgroundPrompt) {
-            additions.push(backgroundPrompt);
         }
 
         return additions.join("\n\n");
@@ -42,24 +37,6 @@ function missionLoopAdditions(
         additions.push(scratchpadPrompt);
     }
     return additions;
-}
-
-function buildBackgroundTasksAddition(
-    agents: Pick<PluginHandlerContext["agents"], "getTasksByParent">,
-    sessionID: string,
-): string | null {
-    try {
-        const tasks = agents.getTasksByParent(sessionID);
-        const runningCount = tasks.filter(t => t.status === STATUS_LABEL.RUNNING).length;
-        const pendingCount = tasks.filter(t => t.status === STATUS_LABEL.PENDING).length;
-
-        if (runningCount > 0 || pendingCount > 0) {
-            return buildBackgroundTasksPrompt(runningCount, pendingCount);
-        }
-    } catch (error) {
-        log(`[mission-context] Failed to inspect background tasks for ${sessionID}: ${error}`);
-    }
-    return null;
 }
 
 function buildMissionScratchpadPrompt(directory: string): string | null {
@@ -94,12 +71,4 @@ function buildActiveSessionPrompt(stepCount: number): string {
     return `<orchestrator_session>
 Steps executed: ${stepCount}. Continue autonomously.
 </orchestrator_session>`;
-}
-
-function buildBackgroundTasksPrompt(running: number, pending: number): string {
-    return `<orchestrator_background_tasks>
-- Running: ${running}
-- Pending: ${pending}
-Check finished tasks with get_task_result; delegate_task with background=true runs work in parallel.
-</orchestrator_background_tasks>`;
 }

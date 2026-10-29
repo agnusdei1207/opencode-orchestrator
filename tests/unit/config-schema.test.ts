@@ -16,43 +16,61 @@ describe("plugin options schema", () => {
     });
 
     it("returns defaults for non-object option sources", () => {
-        for (const source of [undefined, null, "nope", 42]) {
+        for (const source of [undefined, null, "nope", 42, [1, 2]]) {
             expect(parseOrchestratorOptions(source)).toEqual({
                 customRendering: true,
                 agentTemperatures: {},
-                concurrency: { defaultConcurrency: undefined, acquisitionTimeoutMs: undefined, agentConcurrency: {} },
                 contextMaxTokens: undefined,
                 missionLoop: DEFAULT_MISSION_RUNTIME_OPTIONS,
             });
         }
     });
 
-    it("accepts zero concurrency limits consistently with runtime unlimited limits", () => {
-        expect(OrchestratorOptionsSchema.safeParse({
-            defaultConcurrency: 0, agentConcurrency: { Worker: 0 },
-        }).success).toBe(true);
-        expect(parseOrchestratorOptions({ defaultConcurrency: 0, agentConcurrency: { Worker: 0 } }).concurrency)
-            .toEqual({ defaultConcurrency: 0, acquisitionTimeoutMs: undefined, agentConcurrency: { Worker: 0 } });
-        expect(orchestratorOptionsJsonSchema()).not.toHaveProperty("properties.workStealingWorkers");
+    it("returns exactly the four supported option keys", () => {
+        expect(Object.keys(parseOrchestratorOptions({})).sort()).toEqual(
+            ["agentTemperatures", "contextMaxTokens", "customRendering", "missionLoop"],
+        );
     });
 
-    it("drops invalid concurrency and context values per field", () => {
-        const options = parseOrchestratorOptions({
-            defaultConcurrency: -1,
-            acquisitionTimeoutMs: 0,
-            agentConcurrency: { Worker: 2, Planner: 1.5, Reviewer: "many" },
-            contextMaxTokens: -5,
-        });
-        expect(options.concurrency).toEqual({
-            defaultConcurrency: undefined,
-            acquisitionTimeoutMs: undefined,
+    it("ignores removed concurrency keys instead of rejecting the config", () => {
+        const removed = {
             agentConcurrency: { Worker: 2 },
+            defaultConcurrency: 3,
+            acquisitionTimeoutMs: 500,
+            providerConcurrency: { local: 0 },
+            workStealingWorkers: 4,
+        };
+        expect(OrchestratorOptionsSchema.safeParse(removed).success).toBe(true);
+        const options = parseOrchestratorOptions({ ...removed, contextMaxTokens: 64_000 });
+        expect(options).toEqual({
+            customRendering: true,
+            agentTemperatures: {},
+            contextMaxTokens: 64_000,
+            missionLoop: DEFAULT_MISSION_RUNTIME_OPTIONS,
         });
-        expect(options.contextMaxTokens).toBeUndefined();
-        expect(parseOrchestratorOptions({ contextMaxTokens: 128_000, acquisitionTimeoutMs: 500 })).toMatchObject({
-            contextMaxTokens: 128_000,
-            concurrency: { acquisitionTimeoutMs: 500 },
+        for (const key of Object.keys(removed)) expect(options).not.toHaveProperty(key);
+        const properties = (orchestratorOptionsJsonSchema() as { properties: Record<string, unknown> }).properties;
+        expect(Object.keys(properties).sort()).toEqual(
+            ["agentTemperatures", "contextMaxTokens", "customRendering", "missionLoop"],
+        );
+    });
+
+    it("falls back per field: one invalid value does not discard the valid ones", () => {
+        const options = parseOrchestratorOptions({
+            customRendering: "no",
+            agentTemperatures: { Worker: 0.4, Planner: 3, Reviewer: "hot", Commander: 0 },
+            contextMaxTokens: -5,
+            missionLoop: { ledger: false, maxEvidenceEvents: 0 },
         });
+        expect(options).toEqual({
+            customRendering: true,
+            agentTemperatures: { Worker: 0.4, Commander: 0 },
+            contextMaxTokens: undefined,
+            missionLoop: { ...DEFAULT_MISSION_RUNTIME_OPTIONS, ledger: false },
+        });
+        expect(parseOrchestratorOptions({ contextMaxTokens: 128_000 }).contextMaxTokens).toBe(128_000);
+        expect(parseOrchestratorOptions({ contextMaxTokens: 1.5 }).contextMaxTokens).toBeUndefined();
+        expect(parseOrchestratorOptions({ agentTemperatures: "warm" }).agentTemperatures).toEqual({});
     });
 
     it("ignores option keys this version no longer reads", () => {
@@ -102,5 +120,22 @@ describe("plugin options schema", () => {
             readFileSync(path.join(repoRoot, "opencode-orchestrator.schema.json"), "utf8"),
         );
         expect(committed).toEqual(orchestratorOptionsJsonSchema());
+    });
+
+    it("JSON schema is generated for input: defaulted missionLoop fields are not required", () => {
+        type MissionLoopSchema = { properties: Record<string, unknown>; required?: string[] };
+        const generated = orchestratorOptionsJsonSchema() as {
+            required?: string[];
+            properties: { missionLoop: MissionLoopSchema };
+        };
+        const committed = JSON.parse(
+            readFileSync(path.join(repoRoot, "opencode-orchestrator.schema.json"), "utf8"),
+        ) as typeof generated;
+        for (const schema of [generated, committed]) {
+            expect(schema.required).toBeUndefined();
+            expect(Object.keys(schema.properties.missionLoop.properties).sort())
+                .toEqual(["ledger", "markdownMemory", "maxEvidenceEvents"]);
+            expect(schema.properties.missionLoop.required).toBeUndefined();
+        }
     });
 });

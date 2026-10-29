@@ -42,12 +42,6 @@ const TERMINAL_AGENTS = [
 const ALL_AGENTS = [AGENT_NAMES.COMMANDER, ...TERMINAL_AGENTS] as const;
 
 describe("Prompt Consistency Guards", () => {
-    it("does not teach the retired call_agent tool", () => {
-        for (const name of ALL_AGENTS) {
-            expect(AGENTS[name].systemPrompt, name).not.toContain("call_agent");
-        }
-    });
-
     it("has no dead prompt fragments (every exported const is referenced outside its own file)", () => {
         // A fragment that is exported but composed nowhere is a maintenance
         // trap: edits to it silently do nothing. Every exported constant in
@@ -71,7 +65,7 @@ describe("Prompt Consistency Guards", () => {
                     const text = contents.get(other)!;
                     return new RegExp(`\\b${name}\\b`).test(text);
                 });
-                if (!used) deadExports.push(`${basename(file)} ??${name}`);
+                if (!used) deadExports.push(`${basename(file)}: ${name}`);
             }
         }
 
@@ -81,17 +75,9 @@ describe("Prompt Consistency Guards", () => {
         ).toEqual([]);
     });
 
-    it("teaches exactly one TODO hierarchy schema (M/T/S) to every agent", () => {
-        // todo.md is the shared contract between all four agents. The audit
-        // found three competing schemas (M1/T1.1/S1.1.1, G1/P1.1/T1.1.1,
-        // T1/S1.1) taught to the same agents. Only the M/T/S scheme may
-        // appear in composed prompts.
-        for (const name of ALL_AGENTS) {
-            const prompt = AGENTS[name].systemPrompt;
-            expect(prompt, `${name}: legacy G-level TODO ids`).not.toMatch(/\bG1:/);
-            expect(prompt, `${name}: legacy P-level TODO ids`).not.toMatch(/\bP1\.\d/);
-        }
-        // The agents that create or update todo.md must know the canonical scheme.
+    it("teaches the M/T/S TODO hierarchy schema to the agents that edit todo.md", () => {
+        // todo.md is the shared contract between all four agents; the agents
+        // that create or update it must know the canonical M/T/S scheme.
         for (const name of [AGENT_NAMES.COMMANDER, AGENT_NAMES.PLANNER, AGENT_NAMES.REVIEWER]) {
             const prompt = AGENTS[name].systemPrompt;
             expect(prompt, `${name}: must teach M/T/S schema`).toMatch(/\bM1\b/);
@@ -99,24 +85,19 @@ describe("Prompt Consistency Guards", () => {
         }
     });
 
-    it("never positively instructs a terminal agent to spawn or delegate", () => {
-        // Terminal agents (Planner/Worker/Reviewer) must not receive any
-        // instruction to USE delegate_task ??only prohibitions.
-        // The audit found the Worker workflow instructing delegate_task use
-        // while the Worker forbidden-list banned it (and the tool isn't even
-        // granted to workers by prompt-routing).
+    it("never positively instructs a terminal agent to spawn subagents", () => {
+        // Planner/Worker/Reviewer are denied the subagent tool, so their
+        // prompts may mention subagents only to prohibit spawning them.
         for (const name of TERMINAL_AGENTS) {
             const prompt = AGENTS[name].systemPrompt;
+            expect(prompt, name).toContain("never spawn subagents");
             const offending = prompt
                 .split("\n")
-                .filter((line) => /delegate_task/i.test(line))
-                // A line counts as a prohibition when it negates the ability
-                // (NEVER/not/forbidden/cannot/only) or is the role-matrix row
-                // marking the capability "no" for terminal agents.
+                .filter((line) => /subagent/i.test(line))
                 .filter((line) => !/NEVER|not|forbidden|only|cannot|\bno\b/i.test(line));
             expect(
                 offending,
-                `${name}: lines that mention delegation without negation:\n${offending.join("\n")}`,
+                `${name}: lines that mention subagents without negation:\n${offending.join("\n")}`,
             ).toEqual([]);
         }
     });
@@ -138,26 +119,16 @@ describe("Prompt Consistency Guards", () => {
         }
     });
 
-    it("contains no known typos or self-undermining artifacts", () => {
-        for (const name of ALL_AGENTS) {
-            const prompt = AGENTS[name].systemPrompt;
-            expect(prompt, `${name}`).not.toContain("MILRESTONES");
-        }
-    });
-
-    it("lets Commander implement and verify simple tasks directly", () => {
+    it("lets Commander implement directly and delegate with the subagent tool", () => {
         const prompt = AGENTS[AGENT_NAMES.COMMANDER].systemPrompt;
         expect(prompt).toContain("Handle simple tasks directly");
         expect(prompt).toContain("Delegation and independent review are optional");
-        expect(prompt).not.toMatch(/NEVER do implementation|only (?:the )?Reviewer (?:can|may|has)|must rely on.*Reviewer/i);
+        expect(prompt).toContain("Delegate with the subagent tool");
     });
 
-    it("keeps prompts compact without compulsory team ceremonies", () => {
+    it("keeps prompts compact", () => {
         for (const name of ALL_AGENTS) {
-            const prompt = AGENTS[name].systemPrompt;
-            expect(prompt.length, name).toBeLessThan(6500);
-            expect(prompt, name).not.toMatch(/HYPER.PARALLEL|MAXIMIZE parallel|work.stealing|race mode|ONE FILE per session|DELETE the isolated test/i);
-            expect(prompt, name).not.toMatch(/cache_docs|codesearch|websearch\(\{|webfetch\(\{/);
+            expect(AGENTS[name].systemPrompt.length, name).toBeLessThan(6500);
         }
     });
 

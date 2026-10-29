@@ -5,7 +5,7 @@
  */
 
 import { execFile } from "node:child_process";
-import { log } from "../../agents/logger.js";
+import { log } from "../../../shared/logger.js";
 import {
     NOTIFICATION_COMMANDS,
     NOTIFICATION_COMMAND_KEYS

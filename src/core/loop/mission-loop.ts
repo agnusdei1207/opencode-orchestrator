@@ -8,7 +8,7 @@
 
 import { existsSync, readFileSync, unlinkSync } from "node:fs";
 import { join } from "node:path";
-import { log } from "../agents/logger.js";
+import { log } from "../../shared/logger.js";
 import { PATHS, MISSION_CONTROL } from "../../shared/index.js";
 import { RECOVERY_PRINCIPLE } from "../../shared/recovery/constants.js";
 import { CONTINUE_INSTRUCTION, CLEANUP_INSTRUCTION } from "../../shared/constants/system-messages.js";

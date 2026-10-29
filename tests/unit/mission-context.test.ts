@@ -5,21 +5,19 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createMissionContextBuilder } from "../../src/plugin-handlers/mission-context.js";
 import { startMissionLoop, writeLoopState, readLoopState } from "../../src/core/loop/mission-loop.js";
 import type { PluginSessionState } from "../../src/plugin-handlers/context.js";
-import { log } from "../../src/core/agents/logger.js";
+import { log } from "../../src/shared/logger.js";
 
-vi.mock("../../src/core/agents/logger.js", () => ({ log: vi.fn() }));
+vi.mock("../../src/shared/logger.js", () => ({ log: vi.fn() }));
 
 describe("mission context builder", () => {
     let directory: string;
     let sessions: Map<string, PluginSessionState>;
     let build: ReturnType<typeof createMissionContextBuilder>;
-    const agents = { getTasksByParent: vi.fn((): Array<{ status: string }> => []) };
 
     beforeEach(() => {
         directory = mkdtempSync(path.join(tmpdir(), "oco-mission-context-"));
         sessions = new Map();
-        agents.getTasksByParent.mockReset().mockReturnValue([]);
-        build = createMissionContextBuilder({ directory, sessions, agents: agents as never });
+        build = createMissionContextBuilder({ directory, sessions });
     });
     afterEach(() => {
         vi.restoreAllMocks();
@@ -49,10 +47,10 @@ describe("mission context builder", () => {
         expect(text).toContain("Last verification: tests passed");
     });
 
-    it("reports pending and running tasks but excludes completed tasks", () => {
+    it("no longer carries a delegated-task block", () => {
         startMissionLoop(directory, "owner", "Build");
-        agents.getTasksByParent.mockReturnValue([{ status: "running" }, { status: "pending" }, { status: "completed" }]);
-        expect(build("owner")).toContain("Running: 1\n- Pending: 1");
+        const text = build("owner")!;
+        expect(text).not.toMatch(/Running: \d|Pending: \d|background_tasks/);
     });
 
     it("skips missing, inactive and foreign missions without creating sessions", () => {
@@ -63,13 +61,6 @@ describe("mission context builder", () => {
         writeLoopState(directory, { ...readLoopState(directory)!, active: false });
         expect(build("owner")).toBeUndefined();
         expect(sessions.size).toBe(0);
-    });
-
-    it("continues when background task inspection fails", () => {
-        startMissionLoop(directory, "owner", "Build");
-        agents.getTasksByParent.mockImplementation(() => { throw new Error("unavailable"); });
-        expect(build("owner")).toContain("MISSION LOOP ACTIVE");
-        expect(log).toHaveBeenCalledWith(expect.stringContaining("Failed to inspect background tasks for owner"));
     });
 
     it("continues when the optional scratchpad cannot be read", () => {

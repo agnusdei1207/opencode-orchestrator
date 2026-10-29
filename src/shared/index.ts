@@ -5,12 +5,9 @@
 // Domain exports
 export * from "./agent/index.js";
 export * from "./core/index.js";
-export * from "./task/index.js";
 export * from "./loop/index.js";
 export * from "./recovery/index.js";
-export * from "./cache/index.js";
 export * from "./session/index.js";
-export * from "./command/index.js";
 export * from "./tool/index.js";
 export * from "./message/index.js";
 export * from "./os/index.js";

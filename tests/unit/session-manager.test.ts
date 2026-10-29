@@ -1,28 +1,22 @@
-/**
- * Session Manager Unit Tests
- */
-
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import {
-    ensureSessionInitialized,
-    updateSessionTokens,
-} from "../../src/core/orchestrator/session-manager";
-import { writeLoopState } from "../../src/core/loop/mission-loop";
+import { ensureSessionInitialized } from "../../src/core/orchestrator/session-manager.js";
+import { writeLoopState } from "../../src/core/loop/mission-loop.js";
+import { ResourceControlHook } from "../../src/hooks/custom/resource-control.js";
+import type { ToolInput, ToolOutput } from "../../src/hooks/registry.js";
+import type { PluginSessionState } from "../../src/plugin-handlers/context.js";
 
 describe("Session Manager", () => {
     const tempDirs: string[] = [];
 
     afterEach(() => {
-        for (const dir of tempDirs.splice(0)) {
-            rmSync(dir, { recursive: true, force: true });
-        }
+        for (const dir of tempDirs.splice(0)) rmSync(dir, { recursive: true, force: true });
     });
 
-    it("creates a complete managed session for an empty context map", () => {
-        const sessions = new Map<string, unknown>();
+    it("creates a complete session state for an unknown session", () => {
+        const sessions = new Map<string, PluginSessionState>();
 
         const session = ensureSessionInitialized(sessions, "session-1");
 
@@ -32,84 +26,46 @@ describe("Session Manager", () => {
         expect(sessions.get("session-1")).toBe(session);
     });
 
-    it("normalizes partial existing session objects without replacing them", () => {
-        const existing: Record<string, unknown> = {
-            active: false,
-            step: 3,
-            lastUserMessageAt: 123,
+    it("returns the existing state unchanged", () => {
+        const existing: PluginSessionState = {
+            active: false, step: 3, startTime: 1, lastStepTime: 2, lastUserMessageAt: 123,
+            tokens: { totalInput: 5, totalOutput: 6 },
         };
-        const sessions = new Map<string, unknown>([["session-1", existing]]);
+        const sessions = new Map([["session-1", existing]]);
 
-        const session = ensureSessionInitialized(sessions, "session-1");
-
-        expect(session).toBe(existing);
-        expect(session.active).toBe(false);
-        expect(session.step).toBe(3);
-        expect(session.timestamp).toEqual(expect.any(Number));
-        expect(session.startTime).toEqual(expect.any(Number));
-        expect(session.lastStepTime).toEqual(expect.any(Number));
-        expect(session.tokens).toMatchObject({ totalInput: 0, totalOutput: 0 });
+        expect(ensureSessionInitialized(sessions, "session-1", createTempDir(tempDirs))).toBe(existing);
+        expect(existing).toMatchObject({ active: false, step: 3, tokens: { totalInput: 5, totalOutput: 6 } });
     });
 
-    it("normalizes non-finite numeric fields and token counters", () => {
-        const existing: Record<string, unknown> = {
-            active: true,
-            step: Number.NaN,
-            timestamp: Infinity,
-            startTime: -Infinity,
-            lastStepTime: "bad",
-            tokens: { totalInput: Number.NaN, totalOutput: 3, estimatedCost: Infinity },
-        };
-        const sessions = new Map<string, unknown>([["session-1", existing]]);
-
-        const session = ensureSessionInitialized(sessions, "session-1");
-
-        expect(session).toBe(existing);
-        expect(session.step).toBe(0);
-        expect(Number.isFinite(session.timestamp)).toBe(true);
-        expect(Number.isFinite(session.startTime)).toBe(true);
-        expect(Number.isFinite(session.lastStepTime)).toBe(true);
-        expect(session.tokens).toMatchObject({ totalInput: 0, totalOutput: 0 });
-    });
-
-    it("rehydrates step and start time from persisted mission loop state", () => {
+    it("rehydrates step and start time from the persisted mission it owns", () => {
         const directory = createTempDir(tempDirs);
         const startedAt = "2026-06-11T00:00:00.000Z";
         writeLoopState(directory, {
-            active: true,
-            iteration: 7,
-            prompt: "Build",
-            objective: "Build",
-            sessionID: "session-1",
-            startedAt,
+            active: true, iteration: 7, prompt: "Build", objective: "Build", sessionID: "session-1", startedAt,
         });
-        const sessions = new Map<string, unknown>();
+        const sessions = new Map<string, PluginSessionState>();
 
-        const session = ensureSessionInitialized(sessions, "session-1", directory);
+        const owner = ensureSessionInitialized(sessions, "session-1", directory);
+        const other = ensureSessionInitialized(sessions, "session-2", directory);
 
-        expect(session.step).toBe(7);
-        expect(session.startTime).toBe(new Date(startedAt).getTime());
+        expect(owner.step).toBe(7);
+        expect(owner.startTime).toBe(new Date(startedAt).getTime());
+        expect(other.step).toBe(0);
     });
 
-    it("updates token usage on normalized sessions at the session root", () => {
-        const sessions = new Map<string, unknown>([["session-1", { active: true }]]);
+    it("accumulates the token estimate from every tool call, including the first", async () => {
+        const sessions = new Map<string, PluginSessionState>();
+        const hook = new ResourceControlHook();
+        const ctx = { sessionID: "session-1", directory: "/tmp", sessions };
+        // Payloads are measured by serialized length: 400 chars each, i.e. 100 tokens per call.
+        const input: ToolInput = { content: "x".repeat(386) };
+        const output: ToolOutput = { title: "read", output: "y".repeat(358), metadata: {} };
+        expect(JSON.stringify(input)).toHaveLength(400);
+        expect(JSON.stringify(output)).toHaveLength(400);
 
-        updateSessionTokens(sessions, "session-1", 9, 12);
-        const session = sessions.get("session-1") as {
-            tokens: { totalInput: number; totalOutput: number; active?: unknown };
-        };
+        for (let i = 0; i < 3; i++) await hook.execute(ctx, "read", input, output);
 
-        expect(session.tokens.totalInput).toBe(3);
-        expect(session.tokens.totalOutput).toBe(3);
-        expect(session.tokens.active).toBeUndefined();
-    });
-
-    it("accumulates every token update, including the first one in a new session", () => {
-        const sessions = new Map<string, unknown>();
-
-        for (let i = 0; i < 3; i++) updateSessionTokens(sessions, "session-1", 400, 400);
-
-        expect((sessions.get("session-1") as { tokens: unknown }).tokens).toEqual({ totalInput: 300, totalOutput: 300 });
+        expect(sessions.get("session-1")?.tokens).toEqual({ totalInput: 300, totalOutput: 300 });
     });
 });
 

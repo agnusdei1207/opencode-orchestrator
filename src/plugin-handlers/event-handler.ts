@@ -12,10 +12,11 @@ import { isLoopActive } from "../core/loop/mission-loop.js";
 import * as ContextMonitor from "../core/context/index.js";
 import * as SessionActivity from "../core/session/activity.js";
 import * as PendingInjection from "../core/session/pending-injection.js";
-import { SESSION_EVENTS, MESSAGE_EVENTS, MESSAGE_ROLES, SESSION_STATUS, TASK_STATUS } from "../shared/index.js";
+import { SESSION_EVENTS, MESSAGE_EVENTS, MESSAGE_ROLES, SESSION_STATUS } from "../shared/index.js";
 import type { PluginHandlerContext, PluginSessionState } from "./context.js";
 import { handleCompletedAssistantMessage } from "./assistant-done-handler.js";
-import { log } from "../core/agents/logger.js";
+import { HookRegistry } from "../hooks/registry.js";
+import { log } from "../shared/logger.js";
 import { isRecord } from "../shared/core/guards.js";
 
 export type EventHandlerContext = PluginHandlerContext;
@@ -52,15 +53,15 @@ const IDLE_CONTINUATION_DELAY_MS = 500;
  */
 export function createEventHandler(ctx: EventHandlerContext) {
     return async (input: EventInput) => {
-        const { event } = input;
-
-        notifyParallelAgentManager(ctx, event);
-        await handlePluginEvent(ctx, event);
+        await handlePluginEvent(ctx, input.event);
     };
 }
 
 async function handlePluginEvent(ctx: EventHandlerContext, event: PluginEvent): Promise<void> {
     switch (event.type) {
+        case SESSION_EVENTS.CREATED:
+            recordChildSession(ctx, event);
+            return;
         case SESSION_EVENTS.COMPACTED: {
             const sessionID = readSessionID(event.properties);
             if (sessionID) MissionLoopHandler.handleSessionCompacted(sessionID);
@@ -75,9 +76,6 @@ async function handlePluginEvent(ctx: EventHandlerContext, event: PluginEvent): 
         case MESSAGE_EVENTS.UPDATED:
             await handleMessageUpdated(ctx, event);
             return;
-        case MESSAGE_EVENTS.PART_UPDATED:
-            handleMessagePartUpdated(event);
-            return;
         case SESSION_EVENTS.IDLE:
             handleSessionIdle(ctx, event);
             return;
@@ -87,12 +85,10 @@ async function handlePluginEvent(ctx: EventHandlerContext, event: PluginEvent): 
     }
 }
 
-function notifyParallelAgentManager(ctx: EventHandlerContext, event: PluginEvent): void {
-    try {
-        ctx.agents.handleEvent(event as { type: string; properties?: { sessionID?: string; info?: { id?: string }; error?: unknown } });
-    } catch (error) {
-        log(`[event-handler] Parallel agent manager could not handle ${event.type}: ${error}`);
-    }
+/** Native subagents run in child sessions; remember them so missions can wait for them. */
+function recordChildSession(ctx: EventHandlerContext, event: PluginEvent): void {
+    const parentID = readString(event.properties?.parentID);
+    if (parentID) ctx.children.add(parentID, readSessionID(event.properties));
 }
 
 function handleSessionDeleted(ctx: EventHandlerContext, event: PluginEvent): void {
@@ -106,6 +102,8 @@ function handleSessionDeleted(ctx: EventHandlerContext, event: PluginEvent): voi
     MissionLoopHandler.cleanupSession(sessionID);
     ContextMonitor.cleanupSession(sessionID);
     ctx.contextLimits.forgetSession(sessionID);
+    ctx.children.remove(sessionID);
+    HookRegistry.getInstance().clearSession(sessionID);
 
     sessions.delete(sessionID);
 }
@@ -114,26 +112,18 @@ async function handleSessionError(ctx: EventHandlerContext, event: PluginEvent):
     const sessionID = readSessionID(event.properties);
     const error = event.properties?.error;
 
-    if (sessionID) {
+    if (sessionID && isRecord(error) && (error.name === "MessageAbortedError" || error.name === "AbortError")) {
+        // Only a deliberate stop pauses the mission until the user speaks again.
         MissionLoopHandler.handleAbort(sessionID);
-        if (isRecord(error) && (error.name === "MessageAbortedError" || error.name === "AbortError")) {
-            markAbort(ctx.sessions, sessionID);
-            PendingInjection.clearPrompts(sessionID);
-            return;
-        }
+        markAbort(ctx.sessions, sessionID);
+        PendingInjection.clearPrompts(sessionID);
+        return;
     }
+    // Any other failure drops a pending continuation; the next idle re-checks the mission.
+    if (sessionID) MissionLoopHandler.handleSessionBusy(sessionID);
 
     if (sessionID && error) {
-        if (isFailedChildTask(ctx, sessionID)) return;
         await SessionRecovery.handleSessionError(ctx.client, sessionID, error);
-    }
-}
-
-function isFailedChildTask(ctx: EventHandlerContext, sessionID: string): boolean {
-    try {
-        return ctx.agents.getTaskBySession(sessionID)?.status === TASK_STATUS.ERROR;
-    } catch {
-        return false;
     }
 }
 
@@ -142,7 +132,6 @@ async function handleMessageUpdated(ctx: EventHandlerContext, event: PluginEvent
     const sessionID = messageInfo?.sessionID;
     if (!sessionID) return;
 
-    SessionActivity.touchSessionActivity(sessionID);
     // Context usage feeds the compaction advice. Resolving the model's
     // window can hit the server, so run it off the completion path rather than
     // making every token-bearing message wait on it.
@@ -150,26 +139,9 @@ async function handleMessageUpdated(ctx: EventHandlerContext, event: PluginEvent
         log(`[event-handler] context usage check failed for ${sessionID}: ${error}`);
     });
 
+    // The host reports only assistant steps; user input arrives through the prompt hook.
     if (messageInfo.role === MESSAGE_ROLES.ASSISTANT) {
         await handleAssistantMessageUpdated(ctx, sessionID, messageInfo);
-        return;
-    }
-
-    if (messageInfo.role === MESSAGE_ROLES.USER) {
-        MissionLoopHandler.handleUserMessage(sessionID);
-    }
-}
-
-/**
- * Part updates stream throughout a turn and keep arriving briefly after the
- * host reports idle. They carry no orchestration payload; they only tell the
- * session lifecycle that the host is still writing to this session.
- */
-function handleMessagePartUpdated(event: PluginEvent): void {
-    const part = event.properties?.part;
-    const sessionID = isRecord(part) ? readString(part.sessionID) : undefined;
-    if (sessionID) {
-        SessionActivity.touchSessionActivity(sessionID);
     }
 }
 
@@ -182,10 +154,10 @@ async function checkContextUsage(ctx: EventHandlerContext, sessionID: string, me
     const totalTokens = readTotalTokens(messageInfo);
     if (totalTokens <= 0) return;
 
-    const maxTokens = await ctx.contextLimits.resolve(
-        messageInfo.providerID,
-        messageInfo.modelID,
-    );
+    // Host step events carry no model; the context hook recorded the session's model.
+    const maxTokens = messageInfo.providerID && messageInfo.modelID
+        ? await ctx.contextLimits.resolve(messageInfo.providerID, messageInfo.modelID)
+        : await ctx.contextLimits.resolveSession(sessionID);
     ContextMonitor.checkContextWindow(sessionID, totalTokens, maxTokens);
 }
 
@@ -308,9 +280,8 @@ function scheduleIdleContinuation(ctx: EventHandlerContext, sessionID: string): 
     const { sessions } = ctx;
 
     // Untracked sessions are normally none of our business, except when we are
-    // already holding something for one. A session can receive a queued notice
-    // (its background task finished) without ever having been initialised here,
-    // and skipping it would strand that notice until the TTL sweep discarded it.
+    // already holding something for one, such as a queued recovery notice;
+    // skipping it would strand that notice until the TTL sweep discarded it.
     if (!sessions.has(sessionID) && !PendingInjection.hasPendingPrompts(sessionID)) return;
 
     // The host publishes both session.status(idle) and session.idle for one
@@ -336,7 +307,7 @@ function scheduledIdleSessions(ctx: EventHandlerContext): Set<string> {
 }
 
 async function runIdleContinuation(ctx: EventHandlerContext, sessionID: string): Promise<void> {
-    const { client, directory, sessions, agents } = ctx;
+    const { client, directory, sessions, children } = ctx;
     const session = sessions.get(sessionID);
 
     // A deliberate stop means the user does not want any of this delivered.
@@ -348,9 +319,7 @@ async function runIdleContinuation(ctx: EventHandlerContext, sessionID: string):
 
     // Deferred prompts go out at the first genuine idle, including an idle the
     // continuation logic itself declines to act on. `shouldContinueAfterIdle`
-    // requires a completed assistant turn, which a session that only spawned a
-    // background task has never had; gating the flush on it silently discarded
-    // the completion notice for that task.
+    // requires a completed assistant turn, which a queued notice must not wait for.
     //
     // A flush starts a new turn, so mission continuation waits for the next
     // idle rather than piling on top of it.
@@ -366,7 +335,11 @@ async function runIdleContinuation(ctx: EventHandlerContext, sessionID: string):
     }
 
     if (isLoopActive(directory, sessionID)) {
-        await MissionLoopHandler.handleMissionIdle({ client, directory, tasks: agents }, sessionID, sessionID);
+        await MissionLoopHandler.handleMissionIdle({
+            client,
+            directory,
+            tasks: { hasBusyChildren: parentID => children.busyChildren(client, parentID).length > 0 },
+        }, sessionID, sessionID);
         return;
     }
 

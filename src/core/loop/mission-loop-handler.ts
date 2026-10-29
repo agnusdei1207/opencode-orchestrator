@@ -4,11 +4,11 @@
  * Monitors session events and ensures the mission loop continues
  * until all verification requirements are met.
  * 
- * Integrates: ProgressTracker, SessionStateStore, CompactionGuard, CircuitBreaker
+ * Integrates: ProgressTracker, SessionStateStore, CircuitBreaker
  */
 
 import type { HostClient } from "../../host/client.js";
-import { log } from "../agents/logger.js";
+import { log } from "../../shared/logger.js";
 
 import {
     readLoopState,
@@ -19,9 +19,7 @@ import {
 } from "./mission-loop.js";
 import type { MissionLoopState } from "../../shared/loop/types.js";
 import { STAGNATION_INTERVENTION } from "../../shared/constants/system-messages.js";
-import { LOOP, STATUS_LABEL, MISSION_CONTROL, type VerificationResult } from "../../shared/index.js";
-import { isSessionRecovering } from "../recovery/session-recovery.js";
-import type { ParallelAgentManager } from "../agents/manager.js";
+import { LOOP, MISSION_CONTROL, type VerificationResult } from "../../shared/index.js";
 import { sendNotification } from "../notification/os-notify/notifier.js";
 import { playSound } from "../notification/os-notify/sound-player.js";
 import { detectPlatform, getDefaultSoundPath } from "../notification/os-notify/platform.js";
@@ -40,8 +38,10 @@ import {
 
 const sessionStateStore = createSessionStateStore();
 
-/** Delegated tasks of the plugin instance that serves this directory. */
-export type BackgroundTaskSource = Pick<ParallelAgentManager, "getTasksByParent">;
+/** Whether a session still has delegated (child) sessions at work. */
+export interface BackgroundTaskSource {
+    hasBusyChildren(parentSessionID: string): boolean;
+}
 
 export interface MissionIdleContext {
     client: HostClient;
@@ -72,13 +72,7 @@ interface PreparedPrompt {
 }
 
 function hasRunningBackgroundTasks(source: BackgroundTaskSource, parentSessionID: string): boolean {
-    try {
-        const tasks = source.getTasksByParent(parentSessionID);
-        return tasks.some(t => t.status === STATUS_LABEL.RUNNING || t.status === STATUS_LABEL.PENDING);
-    } catch (err) {
-        log("[mission-loop-handler] Failed to check background tasks", { sessionID: parentSessionID, error: err });
-        return true;
-    }
+    return source.hasBusyChildren(parentSessionID);
 }
 
 function canBeginInjection(
@@ -88,7 +82,6 @@ function canBeginInjection(
     const { sessionID, scheduledAt } = request;
     if (!state || state.isAborting || state.countdownStartedAt !== scheduledAt) return false;
     if (hasRunningBackgroundTasks(request.tasks, sessionID)) return false;
-    if (isSessionRecovering(sessionID)) return false;
     if (isCircuitOpen(sessionID)) {
         log(`[mission-loop-handler] Skipped: circuit breaker open`, { sessionID });
         return false;
@@ -125,7 +118,7 @@ async function sendContinuationPrompt(
 ): Promise<void> {
     const { client, directory, sessionID, loopState } = request;
     try {
-        await client.prompt({ sessionID, text: prepared.text, synthetic: true });
+        await client.prompt({ sessionID, text: prepared.text });
         appendMissionLedgerEvent(directory, {
             type: "prompt_injected",
             sessionID,
@@ -186,8 +179,7 @@ async function handleMissionComplete(
     });
     syncMissionMemory(directory, completedState);
     await sendMissionCompleteNotification(loopState);
-    sessionStateStore.cleanup(loopState.sessionID);
-    clearCircuitState(loopState.sessionID);
+    cleanupSession(loopState.sessionID);
 }
 
 async function sendMissionCompleteNotification(loopState: MissionLoopState): Promise<void> {
@@ -224,7 +216,6 @@ function beginIdleCheck(
     state.lastCheckTime = now;
     sessionStateStore.cancelCountdown(sessionID);
     if (mainSessionID && sessionID !== mainSessionID) return undefined;
-    if (isSessionRecovering(sessionID)) return undefined;
     if (hasRunningBackgroundTasks(tasks, sessionID)) return undefined;
     if (isKnownBusy(sessionID)) return undefined;
     return state;

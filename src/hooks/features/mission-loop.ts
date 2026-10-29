@@ -6,7 +6,7 @@ import { HOOK_ACTIONS, HOOK_NAMES } from "../constants.js";
 import { detectSlashCommand } from "../../utils/parsing/index.js";
 import { COMMANDS } from "../../tools/slashCommand.js";
 import { ensureSessionInitialized } from "../../core/orchestrator/session-manager.js";
-import { handleAbort, handleUserMessage } from "../../core/loop/mission-loop-handler.js";
+import { cleanupSession, handleAbort, handleUserMessage } from "../../core/loop/mission-loop-handler.js";
 import { clearPrompts } from "../../core/session/pending-injection.js";
 
 // Chat commands own mission activation; the idle handler owns continuation and completion.
@@ -19,6 +19,8 @@ export class MissionControlHook implements ChatMessageHook {
 
         if (parsed.command === COMMAND_NAMES.CANCEL || parsed.command === COMMAND_NAMES.STOP) {
             cancelMissionLoop(ctx.directory, ctx.sessionID);
+            // A cancelled mission must not leave its stagnation or evidence to the next one.
+            cleanupSession(ctx.sessionID);
             deactivateOwnedSession(ctx, ctx.sessionID);
             return { action: HOOK_ACTIONS.INTERCEPT };
         }
@@ -48,7 +50,9 @@ async function activateTaskMission(ctx: HookContext, args: string): Promise<void
     if (replacedOwner !== null) {
         await prepareReplacement(ctx, replacedOwner);
     }
-    if (!startMissionLoop(directory, sessionID, args || "continue from where we left off", {
+    // A new mission starts without the previous one's stagnation count or evidence.
+    cleanupSession(sessionID);
+    if (!startMissionLoop(directory, sessionID, args || PROMPTS.CONTINUE_DEFAULT, {
         replaceExisting: previous?.active ? previous : undefined,
     })) {
         throw new Error("Could not persist the mission; activation stopped");
@@ -62,15 +66,17 @@ async function activateTaskMission(ctx: HookContext, args: string): Promise<void
 
 async function prepareReplacement(ctx: HookContext, ownerID: string): Promise<void> {
     if (!ctx.client) throw new Error("Cannot replace the active mission without a session client");
-    if (!ctx.agents) throw new Error("Cannot replace the active mission without its task manager");
-    if (await isSessionBusy(ctx.client, ownerID)) {
-        if (!(await ctx.client.interrupt(ownerID))) {
+    const client = ctx.client;
+    if (await isSessionBusy(client, ownerID)) {
+        if (!(await client.interrupt(ownerID))) {
             throw new Error(`Could not abort the active session ${ownerID}; mission unchanged`);
         }
     }
     handleAbort(ownerID);
-    if (!(await ctx.agents.cancelTasksForParent(ownerID))) {
-        throw new Error(`Could not cancel all delegated tasks for ${ownerID}; mission unchanged`);
+    const children = ctx.children?.busyChildren(client, ownerID) ?? [];
+    const stopped = await Promise.all(children.map(childID => client.interrupt(childID)));
+    if (stopped.includes(false)) {
+        throw new Error(`Could not stop all delegated sessions of ${ownerID}; mission unchanged`);
     }
 }
 
@@ -78,8 +84,7 @@ function deactivateOwnedSession(ctx: HookContext, sessionID: string): void {
     handleAbort(sessionID);
     clearPrompts(sessionID);
     const session = ctx.sessions.get(sessionID);
-    if (typeof session !== "object" || session === null) return;
-    const managed = session as Record<string, unknown>;
-    managed.active = false;
-    managed.lastAbortAt = Date.now();
+    if (!session) return;
+    session.active = false;
+    session.lastAbortAt = Date.now();
 }

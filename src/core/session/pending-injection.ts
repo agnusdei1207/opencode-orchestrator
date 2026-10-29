@@ -1,30 +1,19 @@
 /**
  * Deferred prompt injection queue.
  *
- * `message.updated` with `time.completed` does NOT mean "the turn is over". The
- * upstream run loop completes the assistant message at the end of every *step*
- * and then continues to the next one whenever the model asked for tool calls
- * (`SessionPrompt.runLoop` → `SessionProcessor` sets `time.completed`, the loop
- * returns `"continue"`). A turn that makes ten tool calls therefore emits ten
- * completed assistant messages.
- *
- * Anything written to a session while that loop is running lands *inside* the
- * turn the model is still executing — `SessionPrompt.prompt` persists the user
- * message before `ensureRunning`, and `noReply: true` only skips starting a new
- * run, it still writes the message. That is what made the orchestrator feel like
- * it was interrupting the model mid tool call (issue #38).
- *
- * So everything the plugin wants to say to a busy session is parked here and
- * sent at the next real idle. Two kinds of content, with different rules:
+ * A completed assistant message ends a *step*, not the turn: the host keeps
+ * running while the model makes tool calls. A prompt sent then would land
+ * inside the running turn (issue #38), so everything the plugin wants to say
+ * to a busy session is parked here and sent at the next real idle.
  *
  * - **snapshots** — mission state ("you have not finished, continue"). Only the
- *   newest matters; an older copy says nothing the newer one does not.
- * - **notices** — one-shot facts the model cannot reconstruct, such as "your
- *   background tasks finished". These accumulate and must never be dropped.
+ *   newest matters.
+ * - **notices** — one-shot facts the model cannot reconstruct, such as a
+ *   recovery instruction. These accumulate and are never dropped.
  */
 
 import type { HostClient } from "../../host/client.js";
-import { log } from "../agents/logger.js";
+import { log } from "../../shared/logger.js";
 import { isSessionBusy } from "./activity.js";
 import { createPruneTimer } from "../loop/prune-timer.js";
 
@@ -151,7 +140,7 @@ export async function flushPrompts(client: HostClient, sessionID: string): Promi
     try {
         if (await isSessionBusy(client, sessionID)) return false;
         if (pending.get(sessionID) !== entry || entry.snapshot !== snapshot) return false;
-        await client.prompt({ sessionID, text: prompts.join("\n\n"), synthetic: true });
+        await client.prompt({ sessionID, text: prompts.join("\n\n") });
         acknowledgeEntry(sessionID, entry, notices, snapshot);
         log("[pending-injection] Flushed queued prompts", { sessionID, count: prompts.length });
         return true;

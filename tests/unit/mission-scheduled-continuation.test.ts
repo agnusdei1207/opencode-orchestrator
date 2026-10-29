@@ -20,7 +20,7 @@ vi.mock("../../src/core/loop/verification", async (importOriginal) => {
         }),
     };
 });
-vi.mock("../../src/core/agents/logger", () => logger);
+vi.mock("../../src/shared/logger", () => logger);
 vi.mock("../../src/core/notification/os-notify/notifier", () => ({ sendNotification: vi.fn() }));
 vi.mock("../../src/core/notification/os-notify/sound-player", () => ({ playSound: vi.fn() }));
 
@@ -53,7 +53,7 @@ describe("scheduled mission continuation", () => {
 
     it("contains a failure raised inside the countdown callback", async () => {
         writeFileSync(join(directory, ".opencode/todo.md"), "- [ ] Remaining");
-        await handleMissionIdle({ client, directory, tasks: { getTasksByParent: () => [] } }, sessionID);
+        await handleMissionIdle({ client, directory, tasks: { hasBusyChildren: () => false } }, sessionID);
         verification.failNext = true;
 
         const unhandled = vi.fn();

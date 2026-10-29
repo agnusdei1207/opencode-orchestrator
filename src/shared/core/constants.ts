@@ -12,38 +12,6 @@ export const TIME = {
 } as const;
 
 /**
- * Memory Limits
- */
-
-
-export const MEMORY_LIMITS = {
-    MAX_NOTIFICATIONS_PER_PARENT: 100,
-} as const;
-
-/**
- * CLI Tool Names
- */
-
-export const CLI_NAME = {
-    SH: "sh",
-} as const;
-
-
-/**
- * ID Prefixes
- * 
- * Format: PREFIX + number (e.g., ses_1, SYNC-42, UT-100)
- * No fixed digit limit - use any positive integer.
- */
-
-export const ID_PREFIX = {
-    TASK: "task_",
-    JOB: "job_",
-} as const;
-
-
-
-/**
  * File Paths
  */
 
@@ -59,60 +27,9 @@ export const PATHS = {
     AGENTS_CONFIG: ".opencode/agents.json",
 } as const;
 
-
 /**
  * System Limits
  */
-
-
-
-/**
- * Unified Status Labels
- * 
- * Primitive string values for all status indicators across the system.
- * Casing is standardized to lowercase for consistent internal communication.
- */
-
-export const STATUS_LABEL = {
-    // Basic States
-    PENDING: "pending",
-    QUEUED: "queued",
-    RUNNING: "running",
-    IN_PROGRESS: "in_progress",
-
-    COMPLETED: "completed",
-    DONE: "done",
-    SUCCESS: "success",
-
-    // Failure States
-    FAILED: "failed",
-    ERROR: "error",
-    TIMEOUT: "timeout",
-    CANCELLED: "cancelled",
-    BLOCKED: "blocked",
-
-    // Test/Audit Results
-    PASS: "pass",
-    FAIL: "fail",
-    SKIP: "skip",
-
-    // Quality/Cleanliness
-    CLEAN: "clean",
-    OK: "ok",
-    VERIFIED: "verified",
-
-
-    // Analysis/Diagnostic
-    WARNING: "warning",
-    INFO: "info",
-    HINT: "hint",
-    ALL: "all",
-    HIGH: "high",
-    MEDIUM: "medium",
-    LOW: "low",
-} as const;
-
-export type TaskStatus = typeof STATUS_LABEL[keyof typeof STATUS_LABEL];
 
 /**
  * Logging Constants
@@ -137,14 +54,8 @@ export const LOG_PREFIX = {
  */
 
 export const SHUTDOWN_HANDLERS = {
-    /** RustToolPool - Manages Rust tool instances */
-    RUST_TOOL_POOL: "RustToolPool",
-
-    /** BackgroundTaskManager - Manages background command execution */
-    BACKGROUND_TASK_MANAGER: "BackgroundTaskManager",
-
-    /** ParallelAgentManager - Manages parallel agent task execution */
-    PARALLEL_AGENT_MANAGER: "ParallelAgentManager",
+    /** Per-instance record of native subagent child sessions */
+    CHILD_SESSIONS: "ChildSessions",
 
     /** Process-wide services shared by every plugin instance; released by the last one */
     PROCESS_SERVICES: "ProcessServices",
@@ -152,39 +63,20 @@ export const SHUTDOWN_HANDLERS = {
     /** CircuitBreaker - Prune timer + per-session breaker state */
     CIRCUIT_BREAKER: "CircuitBreaker",
 
-    /** SessionActivity - Prune timer + per-session busy/idle state */
+    /** SessionActivity - Prune timer + per-session activity state */
     SESSION_ACTIVITY: "SessionActivity",
 
-    /** PendingInjection - Prune timer + per-session deferred prompt queues */
+    /** PendingInjection - Prune timer + queued prompts */
     PENDING_INJECTION: "PendingInjection",
 
-    /** ProgressTracker - Prune timer + per-session progress snapshots */
+    /** ProgressTracker - Prune timer + per-session progress state */
     PROGRESS_TRACKER: "ProgressTracker",
 
-    /** MissionLoopHandler - Session-state store prune timer */
+    /** MissionLoopHandler - Session-state store prune timer and countdowns */
     MISSION_LOOP_HANDLER: "MissionLoopHandler",
 } as const;
 
-export const MEMORY_CONSTANTS = {
-    ID_PREFIX: "mem_",
-    IMPORTANCE: {
-        LOW: 0.3,
-        NORMAL: 0.5,
-        HIGH: 0.7,
-        CRITICAL: 0.9,
-    },
-    // Significant keywords for memory promotion
-    KEYWORDS: {
-        DONE: "DONE",
-        SUCCESS: "SUCCESS",
-        ERROR: "ERROR",
-        FAIL: "FAIL",
-    },
-} as const;
-
 export const HOOK_NAMES = {
-    MEMORY_GATE: "MemoryGate",
-    METRICS_TELEMETRY: "MetricsTelemetry",
     SANITY_CHECK: "SanityCheck",
     MISSION_LOOP: "MissionLoop",
     STRICT_ROLE_GUARD: "StrictRoleGuard",

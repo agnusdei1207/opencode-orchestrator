@@ -1,17 +1,11 @@
 /**
- * Session Compacting Handler
- * 
- * Hook: experimental.session.compacting
- * 
- * Preserves mission state during context compaction by injecting
- * additional context into the compaction prompt.
+ * Compaction handler: adds the active mission, session progress and running
+ * delegated sessions to the host's compaction request so they survive it.
  */
 
 import { readLoopState } from "../core/loop/mission-loop.js";
 import type { MissionLoopState } from "../shared/loop/types.js";
 import type { EventHandlerContext } from "./event-handler.js";
-import { STATUS_LABEL } from "../shared/index.js";
-import { log } from "../core/agents/logger.js";
 
 export interface SessionCompactingInput {
     sessionID: string;
@@ -26,7 +20,7 @@ export interface SessionCompactingOutput {
  * Create session compacting handler that preserves mission context
  */
 export function createSessionCompactingHandler(ctx: EventHandlerContext) {
-    const { directory, sessions, agents } = ctx;
+    const { client, directory, sessions, children } = ctx;
 
     return async (input: SessionCompactingInput, output: SessionCompactingOutput): Promise<void> => {
         const { sessionID } = input;
@@ -48,16 +42,10 @@ export function createSessionCompactingHandler(ctx: EventHandlerContext) {
             contextItems.push(buildSessionContext(session));
         }
 
-        // 3. Active background tasks context
-        try {
-            const tasks = agents.getTasksByParent(sessionID);
-            const activeTasks = tasks.filter(t => t.status === STATUS_LABEL.RUNNING || t.status === STATUS_LABEL.PENDING);
-
-            if (activeTasks.length > 0) {
-                contextItems.push(buildBackgroundTasksContext(activeTasks));
-            }
-        } catch (error) {
-            log(`[session-compacting] Failed to inspect background tasks for ${sessionID}: ${error}`);
+        // 3. Delegated sessions still at work
+        const busyChildren = children.busyChildren(client, sessionID);
+        if (busyChildren.length > 0) {
+            contextItems.push(buildBackgroundTasksContext(busyChildren));
         }
 
         // Inject context
@@ -101,20 +89,13 @@ SESSION PROGRESS:
 }
 
 /**
- * Build background tasks context string
+ * Build the delegated-sessions context string
  */
-function buildBackgroundTasksContext(
-    tasks: Array<{ id: string; sessionID?: string; description: string; agent: string; status: string }>
-): string {
-    const taskList = tasks.map(t => {
-        const session = t.sessionID ? ` session=${t.sessionID}` : "";
-        return `- ${t.id}${session} agent=${t.agent} status=${t.status} desc=${t.description}`;
-    }).join("\n");
-
+function buildBackgroundTasksContext(sessionIDs: string[]): string {
     return `<background_tasks_context>
-Active background tasks (${tasks.length}):
-${taskList}
+Delegated subagent sessions still running (${sessionIDs.length}):
+${sessionIDs.map(id => `- ${id}`).join("\n")}
 
-Wait for completion before finalizing.
+Wait for their completion notices before finalizing.
 </background_tasks_context>`;
 }

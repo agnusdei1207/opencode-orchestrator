@@ -10,78 +10,39 @@ import { DEFAULT_MISSION_RUNTIME_OPTIONS, type MissionRuntimeOptions } from "../
 
 const D = DEFAULT_MISSION_RUNTIME_OPTIONS;
 
-const Limit = z.number().int().nonnegative();
-const Temperature = z.number().finite().min(0).max(2);
-
-const MissionLoopOptions = z
-    .object({
-        ledger: z.boolean().catch(D.ledger).default(D.ledger),
-        markdownMemory: z.boolean().catch(D.markdownMemory).default(D.markdownMemory),
-        maxEvidenceEvents: z.number().int().positive().catch(D.maxEvidenceEvents).default(D.maxEvidenceEvents),
-    })
-    .catch({ ...D });
-
 export const OrchestratorOptionsSchema = z
     .object({
-        customRendering: z.boolean().optional()
+        customRendering: z.boolean().catch(true).default(true)
             .describe("Append a timestamp/step/duration footer to tool results. Default true."),
-        agentTemperatures: z.record(z.string(), Temperature).optional()
-            .describe("Sampling temperature per agent, keyed by exact agent name such as \"Worker\"."),
-        agentConcurrency: z.record(z.string(), Limit).optional()
-            .describe("Concurrent delegated tasks per agent, keyed by exact agent name. 0 means unlimited."),
-        defaultConcurrency: Limit.optional()
-            .describe("Concurrent delegated tasks for agents without their own limit. Default 10; 0 means unlimited."),
-        acquisitionTimeoutMs: z.number().int().positive().optional()
-            .describe("How long a delegated task may wait for a free slot, in milliseconds. Default 300000."),
-        contextMaxTokens: z.number().int().positive().optional()
+        agentTemperatures: z.record(z.string(), z.unknown()).catch({}).default({})
+            .transform(entries => Object.fromEntries(Object.entries(entries).filter(
+                (entry): entry is [string, number] => z.number().finite().min(0).max(2).safeParse(entry[1]).success,
+            )))
+            .describe("Sampling temperature (0 to 2) per agent, keyed by exact agent name such as \"Worker\"."),
+        contextMaxTokens: z.number().int().positive().optional().catch(undefined)
             .describe("Context window to assume for every model. Unset uses the limit the host reports."),
-        missionLoop: MissionLoopOptions.optional()
-            .describe("Mission ledger and markdown memory settings."),
+        missionLoop: z.object({
+            ledger: z.boolean().catch(D.ledger).default(D.ledger),
+            markdownMemory: z.boolean().catch(D.markdownMemory).default(D.markdownMemory),
+            maxEvidenceEvents: z.number().int().positive().catch(D.maxEvidenceEvents).default(D.maxEvidenceEvents),
+        }).catch({ ...D }).default({ ...D })
+            .describe("Mission ledger and markdown scratchpad settings."),
     })
     .passthrough();
-
-export interface ConcurrencyConfig {
-    defaultConcurrency?: number;
-    acquisitionTimeoutMs?: number;
-    agentConcurrency?: Record<string, number>;
-}
 
 export interface OrchestratorOptions {
     customRendering: boolean;
     agentTemperatures: Record<string, number>;
-    concurrency: ConcurrencyConfig;
     contextMaxTokens?: number;
     missionLoop: MissionRuntimeOptions;
 }
 
 export function parseOrchestratorOptions(source: unknown): OrchestratorOptions {
-    const input = typeof source === "object" && source !== null ? source as Record<string, unknown> : {};
-    const field = <T>(schema: z.ZodType<T>, value: unknown): T | undefined => {
-        const parsed = schema.safeParse(value);
-        return parsed.success ? parsed.data : undefined;
-    };
-    return {
-        customRendering: field(z.boolean(), input.customRendering) ?? true,
-        agentTemperatures: validEntries(input.agentTemperatures, Temperature),
-        concurrency: {
-            defaultConcurrency: field(Limit, input.defaultConcurrency),
-            acquisitionTimeoutMs: field(z.number().int().positive(), input.acquisitionTimeoutMs),
-            agentConcurrency: validEntries(input.agentConcurrency, Limit),
-        },
-        contextMaxTokens: field(z.number().int().positive(), input.contextMaxTokens),
-        missionLoop: MissionLoopOptions.parse(input.missionLoop),
-    };
-}
-
-/** Keep the valid entries of a record option and drop the rest. */
-function validEntries(value: unknown, schema: z.ZodType<number>): Record<string, number> {
-    if (typeof value !== "object" || value === null || Array.isArray(value)) return {};
-    return Object.fromEntries(Object.entries(value).flatMap(([key, raw]) => {
-        const parsed = schema.safeParse(raw);
-        return parsed.success ? [[key, parsed.data]] : [];
-    }));
+    const input = typeof source === "object" && source !== null && !Array.isArray(source) ? source : {};
+    const { customRendering, agentTemperatures, contextMaxTokens, missionLoop } = OrchestratorOptionsSchema.parse(input);
+    return { customRendering, agentTemperatures, contextMaxTokens, missionLoop };
 }
 
 export function orchestratorOptionsJsonSchema(): unknown {
-    return z.toJSONSchema(OrchestratorOptionsSchema);
+    return z.toJSONSchema(OrchestratorOptionsSchema, { io: "input" });
 }

@@ -20,7 +20,7 @@ import {
     type ChecklistVerificationResult,
     type VerificationResult,
 } from "../../shared/index.js";
-import { log } from "../agents/logger.js";
+import { log } from "../../shared/logger.js";
 export {
     buildVerificationSummary,
 } from "./verification-prompts.js";

@@ -1,22 +1,22 @@
-import { describe, it, expect, vi } from "vitest";
-import { MissionLoopState } from "../../src/core/loop/mission-loop.js";
+import { describe, it, expect } from "vitest";
+import type { MissionLoopState } from "../../src/shared/loop/types.js";
 
 describe("Adaptive Agency: Stagnation Detection", () => {
     it("should track progress and stagnation in loop state", () => {
+        // Progress is tracked beside the persisted loop state, not inside it.
+        const lastProgress = "0/5";
         const state: MissionLoopState = {
             active: true,
             iteration: 1,
-            maxIterations: 10,
             prompt: "Test Task",
             sessionID: "S1",
             startedAt: new Date().toISOString(),
-            lastProgress: "0/5",
             stagnationCount: 0
         };
 
         // Simulate next iteration with no progress
         const nextProgress = "0/5";
-        if (state.lastProgress === nextProgress) {
+        if (lastProgress === nextProgress) {
             state.stagnationCount = (state.stagnationCount || 0) + 1;
         }
         state.iteration++;
@@ -25,7 +25,7 @@ describe("Adaptive Agency: Stagnation Detection", () => {
         expect(state.iteration).toBe(2);
 
         // Simulate 2nd iteration with no progress
-        if (state.lastProgress === nextProgress) {
+        if (lastProgress === nextProgress) {
             state.stagnationCount = (state.stagnationCount || 0) + 1;
         }
         expect(state.stagnationCount).toBe(2);

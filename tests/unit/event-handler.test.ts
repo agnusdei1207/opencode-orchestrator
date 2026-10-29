@@ -9,8 +9,9 @@ import * as MissionLoopHandler from "../../src/core/loop/mission-loop-handler";
 import * as MissionLoop from "../../src/core/loop/mission-loop";
 import * as SessionActivity from "../../src/core/session/activity";
 import * as PendingInjection from "../../src/core/session/pending-injection";
-import { log } from "../../src/core/agents/logger";
-import { TASK_STATUS } from "../../src/shared";
+import { log } from "../../src/shared/logger";
+import { ChildSessions } from "../../src/core/session/child-sessions";
+import { HookRegistry } from "../../src/hooks/registry";
 import type { EventHandlerContext } from "../../src/plugin-handlers/event-handler";
 
 vi.mock("../../src/core/recovery/session-recovery", () => ({
@@ -36,7 +37,7 @@ vi.mock("../../src/core/context", () => ({
 vi.mock("../../src/plugin-handlers/assistant-done-handler", () => ({
     handleCompletedAssistantMessage: vi.fn(),
 }));
-vi.mock("../../src/core/agents/logger", () => ({ log: vi.fn() }));
+vi.mock("../../src/shared/logger", () => ({ log: vi.fn() }));
 
 describe("createEventHandler", () => {
     let ctx: EventHandlerContext;
@@ -55,10 +56,7 @@ describe("createEventHandler", () => {
                     tokens: { totalInput: 0, totalOutput: 0 },
                 }],
             ]),
-            agents: {
-                handleEvent: vi.fn(),
-                getTaskBySession: vi.fn(),
-            } as unknown as EventHandlerContext["agents"],
+            children: new ChildSessions(),
             contextLimits: new ContextLimitResolver(),
         };
         vi.clearAllMocks();
@@ -100,20 +98,44 @@ describe("createEventHandler", () => {
         expect(MissionLoopHandler.handleMissionIdle).not.toHaveBeenCalled();
     });
 
-    it("does not inject recovery into a failed child task", async () => {
-        const manager = {
-            handleEvent: vi.fn(),
-            getTaskBySession: vi.fn().mockReturnValue({ status: TASK_STATUS.ERROR }),
-        };
-        ctx.agents = manager as unknown as EventHandlerContext["agents"];
+    it("does not pause the mission on a non-abort session error", async () => {
+        vi.useFakeTimers();
+        vi.mocked(MissionLoop.isLoopActive).mockReturnValue(true);
+        const session = ctx.sessions.get("session-1")!;
+        session.lastUserMessageAt = Date.now();
+        session.lastAssistantCompletedAt = session.lastUserMessageAt + 1;
+        const error = { name: "UnknownError", message: "tool_result_missing" };
+        const handler = createEventHandler(ctx);
 
-        await createEventHandler(ctx)({ event: {
-            type: "session.error",
-            properties: { sessionID: "session-1", error: { message: "rate limit" } },
-        } });
+        await handler({ event: { type: "session.error", properties: { sessionID: "session-1", error } } });
 
-        expect(manager.getTaskBySession).toHaveBeenCalledWith("session-1");
+        expect(MissionLoopHandler.handleSessionBusy).toHaveBeenCalledWith("session-1");
+        expect(MissionLoopHandler.handleAbort).not.toHaveBeenCalled();
+        expect(session.lastAbortAt).toBeUndefined();
+        expect(SessionRecovery.handleSessionError).toHaveBeenCalledWith(ctx.client, "session-1", error);
+
+        await handler({ event: { type: "session.idle", properties: { sessionID: "session-1" } } });
+        await vi.advanceTimersByTimeAsync(500);
+        expect(MissionLoopHandler.handleMissionIdle).toHaveBeenCalledOnce();
+    });
+
+    it.each(["AbortError", "MessageAbortedError"])("pauses the mission on %s", async (name) => {
+        vi.useFakeTimers();
+        vi.mocked(MissionLoop.isLoopActive).mockReturnValue(true);
+        const session = ctx.sessions.get("session-1")!;
+        session.lastUserMessageAt = Date.now();
+        session.lastAssistantCompletedAt = session.lastUserMessageAt + 1;
+        const handler = createEventHandler(ctx);
+
+        await handler({ event: { type: "session.error", properties: { sessionID: "session-1", error: { name } } } });
+
+        expect(MissionLoopHandler.handleAbort).toHaveBeenCalledWith("session-1");
+        expect(session.lastAbortAt).toBeDefined();
         expect(SessionRecovery.handleSessionError).not.toHaveBeenCalled();
+
+        await handler({ event: { type: "session.idle", properties: { sessionID: "session-1" } } });
+        await vi.advanceTimersByTimeAsync(500);
+        expect(MissionLoopHandler.handleMissionIdle).not.toHaveBeenCalled();
     });
 
     it("routes completed assistant messages through the done-hook bridge", async () => {
@@ -139,9 +161,10 @@ describe("createEventHandler", () => {
         });
 
         expect(SessionRecovery.markRecoveryComplete).toHaveBeenCalledWith("session-1");
-        expect(ContextMonitor.checkContextWindow).toHaveBeenCalledWith("session-1", 15, CONTEXT_MONITOR_CONFIG.DEFAULT_MAX_TOKENS);
+        await vi.waitFor(() => expect(ContextMonitor.checkContextWindow)
+            .toHaveBeenCalledWith("session-1", 15, CONTEXT_MONITOR_CONFIG.DEFAULT_MAX_TOKENS));
         expect(handleCompletedAssistantMessage).toHaveBeenCalledWith(ctx, "session-1", "message-1");
-        expect(ctx.sessions.get("session-1").lastAssistantCompletedAt).toBeGreaterThan(0);
+        expect(ctx.sessions.get("session-1")!.lastAssistantCompletedAt).toBeGreaterThan(0);
     });
 
     it("measures context against the model's own window and counts cached tokens (issue #40)", async () => {
@@ -164,27 +187,61 @@ describe("createEventHandler", () => {
             },
         });
 
-        expect(ContextMonitor.checkContextWindow).toHaveBeenCalledWith("session-1", 470, 1_000_000);
+        await vi.waitFor(() => expect(ContextMonitor.checkContextWindow).toHaveBeenCalledWith("session-1", 470, 1_000_000));
     });
 
-    it("records host writes as session activity for lifecycle decisions (issue #41)", async () => {
+    it("resolves the window from the session's remembered model when the step carries none", async () => {
+        const lookup = vi.fn().mockResolvedValue(400_000);
+        ctx.contextLimits = new ContextLimitResolver({ lookup });
+        ctx.contextLimits.rememberModel("session-1", "anthropic", "claude-x");
+        const resolveSession = vi.spyOn(ctx.contextLimits, "resolveSession");
+        const resolve = vi.spyOn(ctx.contextLimits, "resolve");
         const handler = createEventHandler(ctx);
 
-        await handler({
-            event: {
-                type: "message.part.updated",
-                properties: { part: { id: "part-1", sessionID: "session-9", type: "text" }, delta: "x" },
-            },
-        });
-        expect(SessionActivity.getLastActivityAt("session-9")).toBeGreaterThan(0);
+        await handler({ event: { type: "message.updated", properties: { info: {
+            id: "step-1", sessionID: "session-1", role: "assistant", tokens: { input: 1000, output: 200 },
+        } } } });
 
-        await handler({
-            event: {
-                type: "message.updated",
-                properties: { info: { id: "message-2", sessionID: "session-10", role: "user" } },
-            },
-        });
-        expect(SessionActivity.getLastActivityAt("session-10")).toBeGreaterThan(0);
+        await vi.waitFor(() => expect(ContextMonitor.checkContextWindow).toHaveBeenCalledWith("session-1", 1200, 400_000));
+        expect(resolveSession).toHaveBeenCalledWith("session-1");
+        expect(lookup).toHaveBeenCalledWith("anthropic", "claude-x");
+        // resolveSession delegates to resolve with the remembered model, never an empty one.
+        expect(resolve).toHaveBeenCalledWith("anthropic", "claude-x");
+        expect(resolve).not.toHaveBeenCalledWith(undefined, undefined);
+    });
+
+    it("registers a child session from session.created and forgets it on delete", async () => {
+        const statuses = new Map([["child-1", "busy"]]);
+        ctx.client = { statuses: () => statuses } as never;
+        const clearSession = vi.spyOn(HookRegistry.getInstance(), "clearSession");
+        const handler = createEventHandler(ctx);
+
+        await handler({ event: { type: "session.created", properties: { sessionID: "child-1", parentID: "session-1" } } });
+        expect(ctx.children.busyChildren(ctx.client, "session-1")).toEqual(["child-1"]);
+
+        await handler({ event: { type: "session.deleted", properties: { sessionID: "child-1" } } });
+        expect(ctx.children.busyChildren(ctx.client, "session-1")).toEqual([]);
+        expect(clearSession).toHaveBeenCalledWith("child-1");
+        clearSession.mockRestore();
+    });
+
+    it("does not register a session created without a parent", async () => {
+        ctx.client = { statuses: () => new Map([["root-2", "busy"]]) } as never;
+        await createEventHandler(ctx)({ event: { type: "session.created", properties: { sessionID: "root-2" } } });
+        expect(ctx.children.busyChildren(ctx.client, "")).toEqual([]);
+        expect(ctx.children.busyChildren(ctx.client, "root-2")).toEqual([]);
+    });
+
+    it("forgets the children of a deleted parent and clears hook state for it", async () => {
+        ctx.client = { statuses: () => new Map([["child-1", "busy"]]) } as never;
+        ctx.children.add("session-1", "child-1");
+        const clearSession = vi.spyOn(HookRegistry.getInstance(), "clearSession");
+
+        await createEventHandler(ctx)({ event: { type: "session.deleted", properties: { sessionID: "session-1" } } });
+
+        expect(ctx.children.busyChildren(ctx.client, "session-1")).toEqual([]);
+        expect(clearSession).toHaveBeenCalledWith("session-1");
+        clearSession.mockRestore();
     });
 
     it("reads session ids from info.id for deleted events", async () => {
@@ -213,7 +270,6 @@ describe("createEventHandler", () => {
         ctx.sessions.set("session-direct", {
             active: true,
             step: 0,
-            timestamp: 0,
             startTime: Date.now(),
             lastStepTime: 0,
             tokens: { totalInput: 0, totalOutput: 0 },
@@ -268,7 +324,7 @@ describe("createEventHandler", () => {
     it("treats idle without an assistant completion after the user turn as an abort", async () => {
         vi.useFakeTimers();
         const handler = createEventHandler(ctx);
-        ctx.sessions.get("session-1").lastUserMessageAt = Date.now();
+        ctx.sessions.get("session-1")!.lastUserMessageAt = Date.now();
 
         await handler({
             event: {
@@ -300,7 +356,7 @@ describe("createEventHandler", () => {
         await vi.advanceTimersByTimeAsync(500);
 
         expect(prompt).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({
-            sessionID: "session-1", synthetic: true, text: expect.stringContaining("Background task finished"),
+            sessionID: "session-1", text: expect.stringContaining("Background task finished"),
         }));
         expect(PendingInjection.hasPendingPrompts("session-1")).toBe(false);
     });
@@ -321,7 +377,7 @@ describe("createEventHandler", () => {
     it("does not continue a session that does not own the project mission", async () => {
         vi.useFakeTimers();
         const handler = createEventHandler(ctx);
-        const session = ctx.sessions.get("session-1");
+        const session = ctx.sessions.get("session-1")!;
         session.lastUserMessageAt = Date.now();
         session.lastAssistantCompletedAt = session.lastUserMessageAt + 1;
 
@@ -341,7 +397,7 @@ describe("createEventHandler", () => {
         vi.useFakeTimers();
         vi.mocked(MissionLoop.isLoopActive).mockReturnValue(true);
         const handler = createEventHandler(ctx);
-        const session = ctx.sessions.get("session-1");
+        const session = ctx.sessions.get("session-1")!;
         session.lastUserMessageAt = Date.now();
         session.lastAssistantCompletedAt = session.lastUserMessageAt + 1;
 
@@ -358,17 +414,40 @@ describe("createEventHandler", () => {
         await vi.advanceTimersByTimeAsync(500);
 
         expect(MissionLoopHandler.handleMissionIdle).toHaveBeenCalledWith(
-            { client: ctx.client, directory: ctx.directory, tasks: ctx.agents },
+            { client: ctx.client, directory: ctx.directory, tasks: { hasBusyChildren: expect.any(Function) } },
             "session-1",
             "session-1",
         );
+    });
+
+    it("answers the mission loop's busy-children question from child sessions and host status", async () => {
+        vi.useFakeTimers();
+        vi.mocked(MissionLoop.isLoopActive).mockReturnValue(true);
+        const statuses = new Map<string, string>();
+        ctx.client = { prompt: vi.fn(), statuses: () => statuses } as never;
+        const session = ctx.sessions.get("session-1")!;
+        session.lastUserMessageAt = Date.now();
+        session.lastAssistantCompletedAt = session.lastUserMessageAt + 1;
+        const handler = createEventHandler(ctx);
+
+        await handler({ event: { type: "session.created", properties: { sessionID: "child-1", parentID: "session-1" } } });
+        await handler({ event: { type: "session.idle", properties: { sessionID: "session-1" } } });
+        await vi.advanceTimersByTimeAsync(500);
+
+        const source = vi.mocked(MissionLoopHandler.handleMissionIdle).mock.calls[0][0].tasks!;
+        expect(source.hasBusyChildren("session-1")).toBe(false);
+        statuses.set("child-1", "busy");
+        expect(source.hasBusyChildren("session-1")).toBe(true);
+        expect(source.hasBusyChildren("other-parent")).toBe(false);
+        statuses.delete("child-1");
+        expect(source.hasBusyChildren("session-1")).toBe(false);
     });
 
     it("runs one idle continuation when the host reports idle through both events", async () => {
         vi.useFakeTimers();
         vi.mocked(MissionLoop.isLoopActive).mockReturnValue(true);
         const handler = createEventHandler(ctx);
-        const session = ctx.sessions.get("session-1");
+        const session = ctx.sessions.get("session-1")!;
         session.lastUserMessageAt = Date.now();
         session.lastAssistantCompletedAt = session.lastUserMessageAt + 1;
 
@@ -385,7 +464,7 @@ describe("createEventHandler", () => {
         vi.mocked(MissionLoop.isLoopActive).mockReturnValue(true);
         vi.mocked(MissionLoopHandler.handleMissionIdle).mockRejectedValueOnce(new Error("idle failed"));
         const handler = createEventHandler(ctx);
-        const session = ctx.sessions.get("session-1");
+        const session = ctx.sessions.get("session-1")!;
         session.lastUserMessageAt = Date.now();
         session.lastAssistantCompletedAt = session.lastUserMessageAt + 1;
 

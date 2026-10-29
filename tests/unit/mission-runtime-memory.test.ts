@@ -3,7 +3,7 @@ import * as fs from "fs";
 import * as path from "path";
 import { tmpdir } from "os";
 
-vi.mock("../../src/core/agents/logger", () => ({
+vi.mock("../../src/shared/logger", () => ({
     log: vi.fn(),
 }));
 
@@ -23,12 +23,9 @@ import {
 import {
     getMissionCanvasPath,
     getMissionScratchpadPath,
-    getMissionMemoryNotesDirPath,
     readMissionScratchpadSnapshot,
     syncMissionMemory,
 } from "../../src/core/knowledge/mission-memory.js";
-import { parseFrontmatter } from "../../src/core/knowledge/mission-note.js";
-import { MemoryLevel, MemoryManager } from "../../src/core/memory/memory-manager.js";
 
 describe("mission runtime memory", () => {
     let testDir: string;
@@ -183,81 +180,44 @@ describe("mission runtime memory", () => {
         ]);
     });
 
-    it("syncs memory notes from MemoryManager and cleans obsolete notes", () => {
-        const memoryManager = MemoryManager.getInstance(testDir);
-        const originalEntries = structuredClone(memoryManager.export());
-        try {
-            memoryManager.import({
-                [MemoryLevel.SYSTEM]: [],
-                [MemoryLevel.PROJECT]: [],
-                [MemoryLevel.MISSION]: [],
-                [MemoryLevel.TASK]: [],
-            });
-
-            // Add project, mission, and task memories
-            memoryManager.add(
-                MemoryLevel.PROJECT,
-                "Project memory architecture guidelines for multi-agent missions",
-                0.95,
-            );
-            memoryManager.add(
-                MemoryLevel.MISSION,
-                "Mission memory active focus note for graphical memory verification",
-                0.85,
-            );
-            memoryManager.add(
-                MemoryLevel.TASK,
-                "Task memory transient result note",
-                0.6,
-            );
-
-            const loopState = {
-                active: true,
-                iteration: 1,
-                prompt: "multi-agent graphical memory verification",
-                objective: "Verify mission memory synchronization",
+    it("writes the newest maxEvidenceEvents ledger events to the scratchpad without a fixed cap", () => {
+        configureMissionRuntimeOptions({ ...DEFAULT_MISSION_RUNTIME_OPTIONS, maxEvidenceEvents: 10 }, testDir);
+        for (let iteration = 1; iteration <= 12; iteration++) {
+            appendMissionLedgerEvent(testDir, {
+                type: "continuation_scheduled",
                 sessionID,
-                startedAt: new Date().toISOString(),
-            };
-
-            const synced = syncMissionMemory(testDir, loopState);
-            expect(synced).toBe(true);
-
-            const notesDir = getMissionMemoryNotesDirPath(testDir);
-            expect(fs.existsSync(notesDir)).toBe(true);
-
-            const noteFiles = fs.readdirSync(notesDir).filter(f => f.endsWith(".md"));
-            expect(noteFiles.length).toBeGreaterThanOrEqual(2);
-
-            // Read one note and verify frontmatter
-            const projectNote = noteFiles.find(f => f.startsWith("project-"));
-            expect(projectNote).toBeDefined();
-            const projectContent = fs.readFileSync(path.join(notesDir, projectNote!), "utf8");
-            const parsed = parseFrontmatter(projectContent);
-            expect(parsed.tags).toContain("mission-memory");
-            expect(parsed.tags).toContain("orchestrator");
-            expect(parsed.keep).toBe(true);
-            expect(parsed.level).toBe("project");
-            expect(parsed.importance).toBe(0.95);
-            expect(parsed.session).toBe(sessionID);
-
-            const userNote = "project-user-written.md";
-            fs.writeFileSync(path.join(notesDir, userNote), "# My own project notes\n", "utf8");
-
-            // An empty MemoryManager is what a plugin restart looks like. Resync must
-            // drop only unpinned generated notes.
-            memoryManager.import({
-                [MemoryLevel.SYSTEM]: [],
-                [MemoryLevel.PROJECT]: [],
-                [MemoryLevel.MISSION]: [],
-                [MemoryLevel.TASK]: [],
+                iteration,
+                summary: `evidence-${iteration}`,
             });
-            syncMissionMemory(testDir, loopState);
-            const remainingNotes = fs.readdirSync(notesDir).filter(f => f.startsWith("project-") || f.startsWith("mission-") || f.startsWith("task-"));
-            expect(remainingNotes.sort()).toEqual([projectNote!, userNote].sort());
-        } finally {
-            memoryManager.import(originalEntries);
         }
+        const loopState = {
+            active: true,
+            iteration: 12,
+            prompt: "evidence window",
+            objective: "Evidence window",
+            sessionID,
+            startedAt: new Date().toISOString(),
+        };
+
+        expect(syncMissionMemory(testDir, loopState)).toBe(true);
+
+        const scratchpad = fs.readFileSync(getMissionScratchpadPath(testDir), "utf8");
+        const evidence = scratchpad.split("\n").filter(line => / continuation_scheduled: /u.test(line));
+        expect(evidence.map(line => line.split(": ").at(-1))).toEqual(
+            Array.from({ length: 10 }, (_, index) => `evidence-${index + 3}`),
+        );
+        // Only the scratchpad and canvas are written; memory-note projection is gone.
+        expect(fs.readdirSync(path.dirname(getMissionScratchpadPath(testDir))).sort())
+            .toEqual(["knowledge-map.canvas", "scratchpad.md"]);
+    });
+
+    it("skips markdown memory when it is disabled", () => {
+        configureMissionRuntimeOptions({ ...DEFAULT_MISSION_RUNTIME_OPTIONS, markdownMemory: false }, testDir);
+        const synced = syncMissionMemory(testDir, {
+            active: true, iteration: 1, prompt: "off", sessionID, startedAt: new Date().toISOString(),
+        });
+        expect(synced).toBe(false);
+        expect(fs.existsSync(getMissionScratchpadPath(testDir))).toBe(false);
     });
 
     it("trims the ledger file to the newest 100 events on write", () => {
@@ -296,34 +256,5 @@ describe("mission runtime memory", () => {
 
         const snapshot = readMissionScratchpadSnapshot(testDir);
         expect(snapshot).toContain("Active context.");
-    });
-
-    it("parses diverse yaml frontmatter safely", () => {
-        const withoutFrontmatter = parseFrontmatter("Just plain markdown body");
-        expect(withoutFrontmatter).toEqual({});
-
-        const yamlContent = `---
-title: "Test Note"
-count: 42
-rate: 3.14
-active: true
-disabled: false
-empty: null
-alt_empty: ~
-tags: [alpha, beta, "gamma"]
-# Comment line
-invalid_line_without_colon
----
-Body text`;
-
-        const parsed = parseFrontmatter(yamlContent);
-        expect(parsed.title).toBe("Test Note");
-        expect(parsed.count).toBe(42);
-        expect(parsed.rate).toBe(3.14);
-        expect(parsed.active).toBe(true);
-        expect(parsed.disabled).toBe(false);
-        expect(parsed.empty).toBeNull();
-        expect(parsed.alt_empty).toBeNull();
-        expect(parsed.tags).toEqual(["alpha", "beta", "gamma"]);
     });
 });

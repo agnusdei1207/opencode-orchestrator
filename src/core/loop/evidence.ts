@@ -18,20 +18,11 @@ interface SessionEvidence {
 const MAX_TRACKED_FILES = 200;
 const store = new Map<string, SessionEvidence>();
 
-/** Tools (OpenCode built-ins + orchestrator tools) that mutate files. */
-const WRITE_TOOLS = new Set([
-    "write",
-    "edit",
-    "patch",
-    "multiedit",
-    "multi_patch",
-    "apply_patch",
-    "sed_replace",
-    "ast_replace",
-]);
+/** OpenCode built-in tools that mutate files. */
+const WRITE_TOOLS = new Set(["write", "edit", "patch"]);
 
-/** Shell-like tools whose command we inspect for verification intent. */
-const SHELL_TOOLS = new Set(["bash", "run_background"]);
+/** OpenCode's shell tool, whose command we inspect for verification intent. */
+const SHELL_TOOLS = new Set(["shell"]);
 
 /** A command counts as verification when it runs tests/build/lint/typecheck. */
 const VERIFY_HINT =

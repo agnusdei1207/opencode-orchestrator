@@ -3,44 +3,18 @@
   "type": "object",
   "properties": {
     "customRendering": {
+      "default": true,
       "description": "Append a timestamp/step/duration footer to tool results. Default true.",
       "type": "boolean"
     },
     "agentTemperatures": {
-      "description": "Sampling temperature per agent, keyed by exact agent name such as \"Worker\".",
+      "description": "Sampling temperature (0 to 2) per agent, keyed by exact agent name such as \"Worker\".",
+      "default": {},
       "type": "object",
       "propertyNames": {
         "type": "string"
       },
-      "additionalProperties": {
-        "type": "number",
-        "minimum": 0,
-        "maximum": 2
-      }
-    },
-    "agentConcurrency": {
-      "description": "Concurrent delegated tasks per agent, keyed by exact agent name. 0 means unlimited.",
-      "type": "object",
-      "propertyNames": {
-        "type": "string"
-      },
-      "additionalProperties": {
-        "type": "integer",
-        "minimum": 0,
-        "maximum": 9007199254740991
-      }
-    },
-    "defaultConcurrency": {
-      "description": "Concurrent delegated tasks for agents without their own limit. Default 10; 0 means unlimited.",
-      "type": "integer",
-      "minimum": 0,
-      "maximum": 9007199254740991
-    },
-    "acquisitionTimeoutMs": {
-      "description": "How long a delegated task may wait for a free slot, in milliseconds. Default 300000.",
-      "type": "integer",
-      "exclusiveMinimum": 0,
-      "maximum": 9007199254740991
+      "additionalProperties": {}
     },
     "contextMaxTokens": {
       "description": "Context window to assume for every model. Unset uses the limit the host reports.",
@@ -49,12 +23,12 @@
       "maximum": 9007199254740991
     },
     "missionLoop": {
-      "description": "Mission ledger and markdown memory settings.",
       "default": {
         "ledger": true,
         "markdownMemory": true,
         "maxEvidenceEvents": 20
       },
+      "description": "Mission ledger and markdown scratchpad settings.",
       "type": "object",
       "properties": {
         "ledger": {
@@ -71,13 +45,7 @@
           "exclusiveMinimum": 0,
           "maximum": 9007199254740991
         }
-      },
-      "required": [
-        "ledger",
-        "markdownMemory",
-        "maxEvidenceEvents"
-      ],
-      "additionalProperties": false
+      }
     }
   },
   "additionalProperties": {}

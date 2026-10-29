@@ -12,11 +12,13 @@
 
 ## What it does
 
-OpenCode Orchestrator keeps a task and its unfinished work connected across turns. Commander handles the goal; Planner, Worker, and Reviewer are optional helpers when the work benefits from them. Mission state is stored in the project's `.opencode/` directory.
+OpenCode Orchestrator keeps a task and its unfinished work connected across turns. Commander handles the goal; Planner, Worker, and Reviewer are optional helpers that Commander starts with OpenCode's own `subagent` tool. Mission state is stored in the project's `.opencode/` directory.
+
+OpenCode runs the tools, shell commands and child sessions. The plugin adds mission continuation, the four agent presets, an `update_todo` tool, a guard against destructive shell commands, secret redaction in tool output, and a size guard for outgoing messages.
 
 ## Install
 
-Requires Node.js `>=24.15.0` and OpenCode 2. Let OpenCode install and manage the plugin:
+Requires Node.js `>=24` and OpenCode 2. Let OpenCode install and manage the plugin:
 
 ```bash
 opencode plugin add opencode-orchestrator
@@ -42,9 +44,9 @@ Select **Commander** in OpenCode and send a request, or start a continuing missi
 | `/stop` or `/cancel` | Stop the active mission |
 
 Ordinary questions and small edits can be handled directly. Roles are used when they help; they are not a required pipeline.
-Replacing a mission stops its previous session and delegated work before the new goal starts. Existing project TODO and checklist files remain available for the new mission to reconcile.
+Replacing a mission stops its previous session and its running subagents before the new goal starts. Existing project TODO and checklist files remain available for the new mission to reconcile.
 
-Mission updates (steps, progress, verification, background tasks, and scratchpad) are sent as a request-only user message after the conversation. Orchestrator preserves the host's system instructions and existing conversation prefix so changing mission state does not invalidate them for provider prompt caching. Cache usage still depends on the provider, model, host, and other plugins; no fixed hit rate is guaranteed.
+Mission updates (steps, progress, verification, and scratchpad) are sent as a request-only user message after the conversation. Orchestrator preserves the host's system instructions and existing conversation prefix so changing mission state does not invalidate them for provider prompt caching. Cache usage still depends on the provider, model, host, and other plugins; no fixed hit rate is guaranteed.
 
 ## Configuration
 
@@ -56,14 +58,14 @@ The default installation needs no extra options. Set options in `opencode.jsonc`
     {
       "package": "opencode-orchestrator",
       "options": {
-        "agentConcurrency": { "Worker": 4 }
+        "agentTemperatures": { "Worker": 0.2 }
       }
     }
   ]
 }
 ```
 
-Agent names in options are exact: `Commander`, `Planner`, `Worker`, `Reviewer`, or a custom agent name. See the [options schema](opencode-orchestrator.schema.json) for all settings. Replace a plain string entry with the object when adding options; keep only one entry for this package.
+Agent names in options are exact: `Commander`, `Planner`, `Worker`, or `Reviewer`. Delegation limits and permissions follow OpenCode's own agent configuration. See the [options schema](opencode-orchestrator.schema.json) for all settings. Replace a plain string entry with the object when adding options; keep only one entry for this package.
 
 If commands are missing, check `opencode plugin list`.
 
@@ -82,7 +84,7 @@ Set `customRendering` to `false` to remove the timestamp/step/duration footer th
 }
 ```
 
-Keep a single entry for the package, merge this option with any existing options, and restart the OpenCode backend after saving. It applies to newly processed results; previously stored footers remain in the conversation history. Mission tracking, memory, secret redaction, and the outgoing message-size guard remain active. The option controls Orchestrator's presentation changes; OpenCode and the WebUI own their rendering.
+Keep a single entry for the package, merge this option with any existing options, and restart the OpenCode backend after saving. It applies to newly processed results; previously stored footers remain in the conversation history. Mission tracking, mission memory files, secret redaction, and the outgoing message-size guard remain active. The option controls Orchestrator's presentation changes; OpenCode and the WebUI own their rendering.
 
 ## Contributing
 

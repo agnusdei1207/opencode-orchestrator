@@ -1,10 +1,16 @@
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import * as fs from "node:fs";
+import { mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { atomicWrite, escapeYaml, loadNoteMetadata, parseFrontmatter } from "../../src/core/knowledge/mission-note.js";
+import { atomicWrite, escapeYaml } from "../../src/core/knowledge/mission-note.js";
 
-describe("mission note compatibility", () => {
+vi.mock("node:fs", async importOriginal => {
+    const actual = await importOriginal<typeof import("node:fs")>();
+    return { ...actual, renameSync: vi.fn(actual.renameSync) };
+});
+
+describe("mission note helpers", () => {
     let directory: string;
 
     beforeEach(() => {
@@ -12,33 +18,39 @@ describe("mission note compatibility", () => {
     });
 
     afterEach(() => {
+        vi.mocked(fs.renameSync).mockClear();
         rmSync(directory, { recursive: true, force: true });
     });
 
-    it("preserves CRLF, scalar types, empty values and duplicate-key precedence", () => {
-        const note = ["---", "# comment", "ignored", "", "count: 1", "count: 2",
-            "empty:", "quoted: '42'", "enabled: true", "disabled: false", "nothing: ~",
-            "nullValue: null", "tags: [alpha, 'beta', ,]", "---", "count: 99"].join("\r\n");
-        expect(parseFrontmatter(note)).toEqual({ count: 2, empty: "", quoted: "42",
-            enabled: true, disabled: false, nothing: null, nullValue: null, tags: ["alpha", "beta"] });
+    it("escapes backslashes before quotes so YAML double-quoted values round-trip", () => {
+        expect(escapeYaml(String.raw`Verify "C:\notes"`)).toBe(String.raw`Verify \"C:\\notes\"`);
+        expect(escapeYaml("plain")).toBe("plain");
     });
 
-    it("keeps the existing literal escape handling and incomplete-header fallback", () => {
-        const literal = String.raw`a\\b\"c`;
-        expect(parseFrontmatter(`---\ntitle: "${literal}"\n---`).title).toBe(literal);
-        expect(parseFrontmatter("---\ntitle: incomplete")).toEqual({});
-        expect(parseFrontmatter("body\n---\ntitle: later\n---")).toEqual({});
-    });
-
-    it("writes nested notes atomically and reads their metadata back", () => {
+    it("creates missing parent directories and leaves no temp file behind", () => {
         const notePath = join(directory, "nested", "memories", "note.md");
-        atomicWrite(notePath, `---\ntitle: "${escapeYaml(String.raw`Verify "C:\notes"`)}"\ncount: 3\n---\nbody`);
+        atomicWrite(notePath, `---\ntitle: "${escapeYaml(String.raw`Verify "C:\notes"`)}"\n---\nbody`);
 
         expect(readFileSync(notePath, "utf8")).toContain(String.raw`title: "Verify \"C:\\notes\""`);
-        expect(loadNoteMetadata(notePath)).toMatchObject({ count: 3 });
+        expect(readdirSync(join(directory, "nested", "memories"))).toEqual(["note.md"]);
     });
 
-    it("returns null metadata for a missing note", () => {
-        expect(loadNoteMetadata(join(directory, "missing.md"))).toBeNull();
+    it("replaces existing content", () => {
+        const notePath = join(directory, "note.md");
+        writeFileSync(notePath, "old", "utf8");
+        atomicWrite(notePath, "new");
+        expect(readFileSync(notePath, "utf8")).toBe("new");
+    });
+
+    it("keeps the previous file and removes the temp file when the rename fails", () => {
+        const notePath = join(directory, "note.md");
+        writeFileSync(notePath, "old", "utf8");
+        vi.mocked(fs.renameSync).mockImplementationOnce(() => {
+            throw new Error("rename failed");
+        });
+
+        expect(() => atomicWrite(notePath, "new")).toThrow("rename failed");
+        expect(readFileSync(notePath, "utf8")).toBe("old");
+        expect(readdirSync(directory)).toEqual(["note.md"]);
     });
 });

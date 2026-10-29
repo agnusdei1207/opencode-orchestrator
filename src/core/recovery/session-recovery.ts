@@ -14,8 +14,8 @@
  */
 
 import type { HostClient } from "../../host/client.js";
-import { BACKGROUND_TASK, RECOVERY, detectErrorType, ERROR_TYPE } from "../../shared/index.js";
-import { log } from "../agents/logger.js";
+import { RECOVERY, detectErrorType, ERROR_TYPE } from "../../shared/index.js";
+import { log } from "../../shared/logger.js";
 import { isSessionBusy } from "../session/activity.js";
 import { queueNotice } from "../session/pending-injection.js";
 
@@ -101,7 +101,7 @@ function injectRecoveryPrompt(
     sessionID: string,
     prompt: string,
 ): void {
-    void client.prompt({ sessionID, text: prompt, synthetic: true }).catch((injectionError: unknown) => {
+    void client.prompt({ sessionID, text: prompt }).catch((injectionError: unknown) => {
         log("[session-recovery] Failed to inject recovery prompt", {
             sessionID,
             error: injectionError,
@@ -154,7 +154,7 @@ function prepareSessionRecovery(sessionID: string, error: unknown): PreparedReco
     }
 
     const now = Date.now();
-    if (now - state.lastErrorTime < BACKGROUND_TASK.RETRY_COOLDOWN_MS) {
+    if (now - state.lastErrorTime < RECOVERY.RETRY_COOLDOWN_MS) {
         log("[session-recovery] Too soon since last error, skipping", { sessionID });
         return undefined;
     }
@@ -207,11 +207,4 @@ export function markRecoveryComplete(sessionID: string): void {
  */
 export function cleanupSessionRecovery(sessionID: string): void {
     recoveryState.delete(sessionID);
-}
-
-/**
- * Check if session is currently recovering
- */
-export function isSessionRecovering(sessionID: string): boolean {
-    return recoveryState.get(sessionID)?.isRecovering ?? false;
 }

@@ -10,7 +10,7 @@
  * three same-named tool calls (a legitimate `read,read,read`).
  */
 
-import { log } from "../agents/logger.js";
+import { log } from "../../shared/logger.js";
 import { createPruneTimer } from "./prune-timer.js";
 
 interface CircuitBreakerState {

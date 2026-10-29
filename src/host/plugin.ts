@@ -33,7 +33,7 @@ export async function setupPlugin(contextInput: unknown): Promise<() => Promise<
         registrations.push(await registerAgents(context));
         registrations.push(await registerTools(
             context,
-            registerAllTools(runtime.directory, runtime.asyncAgentTools),
+            registerAllTools(),
         ));
         registrations.push(await registerCommands(context, handlerContext));
         stopEvents = startEventBridge(
@@ -95,7 +95,7 @@ async function registerHooks(context: Context, runtime: PluginRuntime, registrat
 type SessionStates = PluginRuntime["handlerContext"]["sessions"];
 
 /**
- * V2 prompt hooks carry no agent; only the per-request `context` hook does.
+ * Prompt hooks carry no agent; only the per-request `context` hook does.
  * The latest one is kept on the existing session state (which the session's
  * lifecycle already bounds) so prompt hooks and tool hooks can attribute work.
  */
@@ -108,10 +108,9 @@ function rememberContextAgent(sessions: SessionStates, request: ContextRequest):
 async function runPromptHook(chat: ReturnType<typeof createChatMessageHandler>, input: unknown, sessions: SessionStates): Promise<void> {
     const prompt = input as { sessionID: string; prompt: { text: string } };
     const output = { parts: [{ type: "text", text: prompt.prompt.text }] };
-    // V2 prompt input carries no agent. The context hook records it, but runs after
+    // Prompt input carries no agent. The context hook records it, but runs after
     // this hook, so the value lags one turn (empty on a session's first prompt,
-    // previous agent right after a switch). Readers that act after the turn,
-    // such as memory-gate on assistant done, see the updated value.
+    // previous agent right after a switch).
     const agent = sessions.get(prompt.sessionID)?.agent ?? "";
     await chat({ sessionID: prompt.sessionID, agent }, output);
     prompt.prompt.text = output.parts[0]?.text ?? "";

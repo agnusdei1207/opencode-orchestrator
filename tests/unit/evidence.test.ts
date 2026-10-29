@@ -18,8 +18,8 @@ describe("mission verification advisory", () => {
 
     it("records changed files from alternate file argument shapes", () => {
         recordToolEvidence(S, "write", { file_path: "src/a.ts" });
-        recordToolEvidence(S, "multiedit", { files: ["src/b.ts", { path: "src/c.ts" }] });
-        recordToolEvidence(S, "sed_replace", { directory: "src/features" });
+        recordToolEvidence(S, "patch", { files: ["src/b.ts", { path: "src/c.ts" }] });
+        recordToolEvidence(S, "edit", { directory: "src/features" });
 
         expect(getUnverifiedFiles(S).sort()).toEqual([
             "src/a.ts",
@@ -30,11 +30,11 @@ describe("mission verification advisory", () => {
     });
 
     it("does not record dry-run write-like tool calls as changes", () => {
-        recordToolEvidence(S, "sed_replace", {
+        recordToolEvidence(S, "edit", {
             file: "src/a.ts",
             dry_run: true,
         });
-        recordToolEvidence(S, "sed_replace", {
+        recordToolEvidence(S, "patch", {
             file: "src/b.ts",
             dryRun: true,
         });
@@ -45,27 +45,36 @@ describe("mission verification advisory", () => {
     it("clears the gap once a verification command runs after the change", () => {
         recordToolEvidence(S, "write", { filePath: "src/a.ts" });
         expect(getUnverifiedFiles(S)).toEqual(["src/a.ts"]);
-        recordToolEvidence(S, "bash", { command: "npm test" });
+        recordToolEvidence(S, "shell", { command: "npm test" });
         expect(getUnverifiedFiles(S)).toEqual([]);
     });
 
     it("recognizes Python compilation as verification", () => {
         recordToolEvidence(S, "write", { filePath: "CompileShaders.py" });
-        recordToolEvidence(S, "bash", { command: "python3 -m py_compile CompileShaders.py" });
+        recordToolEvidence(S, "shell", { command: "python3 -m py_compile CompileShaders.py" });
         expect(getUnverifiedFiles(S)).toEqual([]);
     });
 
     it("advises only files changed since the latest verification", () => {
         recordToolEvidence(S, "write", { filePath: "src/a.ts" });
-        recordToolEvidence(S, "bash", { command: "npm run build" });
+        recordToolEvidence(S, "shell", { command: "npm run build" });
         recordToolEvidence(S, "write", { filePath: "src/c.ts" });
         expect(getUnverifiedFiles(S)).toEqual(["src/c.ts"]);
     });
 
     it("ignores non-verification shell commands", () => {
         recordToolEvidence(S, "write", { filePath: "src/a.ts" });
-        recordToolEvidence(S, "bash", { command: "ls -la" });
+        recordToolEvidence(S, "shell", { command: "ls -la" });
         expect(getUnverifiedFiles(S)).toEqual(["src/a.ts"]);
+    });
+
+    it("ignores tools that are not OpenCode's write or shell tools", () => {
+        recordToolEvidence(S, "multiedit", { filePath: "src/a.ts" });
+        expect(getUnverifiedFiles(S)).toEqual([]);
+
+        recordToolEvidence(S, "write", { filePath: "src/b.ts" });
+        recordToolEvidence(S, "bash", { command: "npm test" });
+        expect(getUnverifiedFiles(S)).toEqual(["src/b.ts"]);
     });
 
     it("returns no files when nothing changed", () => {

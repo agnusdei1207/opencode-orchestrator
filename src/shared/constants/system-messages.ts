@@ -22,7 +22,7 @@ Context usage is high ($USAGE%). For an active mission, save the objective, task
 </context_checkpoint>`;
 
 export const CONTINUE_INSTRUCTION = `<auto_continue>
-The mission has unfinished work. Read ${PATHS.TODO} and the current context, then take the next useful action: do small work directly, delegate only independent bounded scopes, resolve dependencies first, and check running tasks with the task tools instead of duplicating them.
+The mission has unfinished work. Read ${PATHS.TODO} and the current context, then take the next useful action: do small work directly, delegate only independent bounded scopes, resolve dependencies first, and wait for running subagents instead of duplicating their work.
 Mark verified leaves [x] and verified parents status: completed; keep unresolved work visible and resolve ${PATHS.SYNC_ISSUES}. If a verification checklist exists, every item must pass. Missing evidence is not success.
 Respect user pause, abort, and changed instructions; report missing input, failed checks, and blockers plainly.
 </auto_continue>`;

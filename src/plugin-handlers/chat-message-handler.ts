@@ -1,13 +1,9 @@
 /**
- * Chat Message Handler
- * 
- * Handles chat.message hook:
- * - Intercepting commands
- * - Setting up sessions
- * - Auto-applying mission mode for Commander
+ * Prompt handler: records user activity on each prompt and runs the chat hooks
+ * (mission commands typed as text).
  */
 
-import { log } from "../core/agents/logger.js";
+import { log } from "../shared/logger.js";
 import { PART_TYPES } from "../shared/index.js";
 import { HookRegistry } from "../hooks/registry.js";
 import { HOOK_ACTIONS } from "../hooks/constants.js";
@@ -54,8 +50,8 @@ export function createChatMessageHandler(ctx: ChatMessageHandlerContext) {
             agent: agentName || undefined,
             client: ctx.client,
             directory,
-            sessions: sessions as Map<string, unknown>,
-            agents: ctx.agents,
+            sessions,
+            children: ctx.children,
         };
 
         const hookResult = await hooks.executeChat(hookContext, originalText);

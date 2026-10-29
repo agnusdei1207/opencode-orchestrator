@@ -1,7 +1,7 @@
 /**
  * Loop constants (consolidated)
  */
-import { TIME, STATUS_LABEL } from "../core/constants.js";
+import { TIME } from "../core/constants.js";
 
 /**
  * Loop Continuation Configuration
@@ -25,20 +25,4 @@ export const MISSION_CONTROL = {
 } as const;
 
 
-export const TASK_STATUS = {
-    PENDING: STATUS_LABEL.PENDING,
-    RUNNING: STATUS_LABEL.RUNNING,
-    COMPLETED: STATUS_LABEL.COMPLETED,
-    FAILED: STATUS_LABEL.FAILED,
-    ERROR: STATUS_LABEL.ERROR,
-    TIMEOUT: STATUS_LABEL.TIMEOUT,
-    CANCELLED: STATUS_LABEL.CANCELLED,
-} as const;
 
-/**
- * Status and Progress Labels for UI and Logging
- */
-
-export const LOOP_LABELS = {
-    STATUS_TITLE: "Status",
-} as const;

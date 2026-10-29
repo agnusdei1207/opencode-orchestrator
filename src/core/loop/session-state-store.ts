@@ -4,7 +4,7 @@
  * Provides automatic cleanup of stale session states to prevent memory leaks.
  */
 
-import { log } from "../agents/logger.js";
+import { log } from "../../shared/logger.js";
 import { createPruneTimer } from "./prune-timer.js";
 
 export interface SessionState {

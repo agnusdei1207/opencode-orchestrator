@@ -19,12 +19,3 @@ export const OUTPUT_LABEL = {
  * Parallel Tool Parameter Names
  */
 
-export const PARALLEL_PARAMS = {
-    AGENT: "agent",
-    PROMPT: "prompt",
-    BACKGROUND: "background",
-    DESCRIPTION: "description",
-    RESUME: "resume",
-    TASK_ID: "taskId",
-    STATUS: "status",
-} as const;

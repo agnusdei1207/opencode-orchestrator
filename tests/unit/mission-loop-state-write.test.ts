@@ -17,7 +17,6 @@ describe("mission loop state persistence", () => {
     const state: MissionLoopState = {
         active: true,
         iteration: 1,
-        maxIterations: 10,
         prompt: "Finish the requested scope",
         sessionID: "state-owner",
         startedAt: new Date().toISOString(),

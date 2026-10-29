@@ -7,7 +7,7 @@
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { readFileSync } from "node:fs";
-import { log } from "../../agents/logger.js";
+import { log } from "../../../shared/logger.js";
 import {
     NOTIFICATION_COMMANDS,
     NOTIFICATION_COMMAND_KEYS

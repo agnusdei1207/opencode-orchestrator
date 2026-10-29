@@ -1,9 +1,6 @@
-
 /**
- * Resource Control Hook
- * 
- * Unifies resource tracking, monitoring, and active memory compaction.
- * Replaces separate ResourceUsageHook and MemoryCompactionHook.
+ * Mission-only context watch: estimates token use from tool payloads and, when
+ * an assistant turn ends near the context limit, asks the model to checkpoint.
  */
 
 import type {
@@ -15,7 +12,7 @@ import type {
     ToolInput,
     ToolOutput,
 } from "../registry.js";
-import { log } from "../../core/agents/logger.js";
+import { log } from "../../shared/logger.js";
 import { HOOK_ACTIONS, HOOK_NAMES } from "../constants.js";
 import {
     CONTEXT_MONITOR_CONFIG,
@@ -23,26 +20,23 @@ import {
     calculateUsage,
     getContextUsage,
 } from "../../core/context/context-window-monitor.js";
-
-// Refactored Imports
-import { updateSessionTokens } from "../../core/orchestrator/session-manager.js";
+import { ensureSessionInitialized } from "../../core/orchestrator/session-manager.js";
+import type { PluginSessionState } from "../../plugin-handlers/context.js";
 import { COMPACTION_PROMPT } from "../../shared/constants/system-messages.js";
 
-// Compaction Constants
 const COMPACTION_THRESHOLD = CONTEXT_THRESHOLDS.WARNING;
-const COOLDOWN_MS = 10 * 60 * 1000; // 10 minutes
-
-interface TokenTrackedSession {
-    tokens?: {
-        totalInput: number;
-        totalOutput: number;
-    };
-}
+const COOLDOWN_MS = 10 * 60 * 1000;
+/** Rough estimate used until the host reports real usage. */
+const CHARS_PER_TOKEN = 4;
 
 export class ResourceControlHook implements PostToolUseHook, AssistantDoneHook {
     name = HOOK_NAMES.RESOURCE_CONTROL;
 
     private lastCompactionTime: Map<string, number> = new Map();
+
+    clearSession(sessionID: string): void {
+        this.lastCompactionTime.delete(sessionID);
+    }
 
     async execute(
         ctx: HookContext,
@@ -55,36 +49,18 @@ export class ResourceControlHook implements PostToolUseHook, AssistantDoneHook {
         finalText: string
     ): Promise<HookResult>;
     async execute(ctx: HookContext, toolOrText: string, input?: unknown, output?: unknown): Promise<PostToolResult | HookResult> {
-        // --------------------------------------------------------
-        // 1. Resource Tracking (Usage & Cost)
-        // --------------------------------------------------------
-
+        // On assistant-done the second argument is the final text, not a tool name.
         const isAssistantDone = input === undefined && output === undefined;
-        const inputLen = isAssistantDone ? 0 : getSerializedLength(input);
-        let outputLen = getSerializedLength(output);
+        const session = ensureSessionInitialized(ctx.sessions, ctx.sessionID);
+        session.tokens.totalInput += Math.ceil((isAssistantDone ? 0 : getSerializedLength(input)) / CHARS_PER_TOKEN);
+        session.tokens.totalOutput += Math.ceil((isAssistantDone ? toolOrText.length : getSerializedLength(output)) / CHARS_PER_TOKEN);
 
-        // For 'AssistantDone', toolOrText is the final text
-        if (isAssistantDone) {
-            outputLen = toolOrText.length;
-        }
-
-        // Use Manager to update state
-        updateSessionTokens(ctx.sessions, ctx.sessionID, inputLen, outputLen);
-
-        // --------------------------------------------------------
-        // 2. Memory Analysis & Compaction Trigger
-        // --------------------------------------------------------
-        if (!isAssistantDone) {
-            return {};
-        }
-
-        const session = ctx.sessions.get(ctx.sessionID); // Updated by ensureSessionInitialized inside updateTokens
+        if (!isAssistantDone) return {};
         return this.checkMemoryHealth(ctx, session);
     }
 
-    private async checkMemoryHealth(ctx: HookContext, session: unknown): Promise<HookResult> {
+    private async checkMemoryHealth(ctx: HookContext, session: PluginSessionState): Promise<HookResult> {
         const measured = measureContext(ctx, session);
-        if (!measured) return { action: HOOK_ACTIONS.CONTINUE };
 
         const usage = calculateUsage(measured.usedTokens, measured.maxTokens);
 
@@ -121,12 +97,11 @@ export class ResourceControlHook implements PostToolUseHook, AssistantDoneHook {
  * has reported real usage; it accumulates every tool payload ever seen and
  * overstates live context on long sessions.
  */
-function measureContext(ctx: HookContext, session: unknown): { usedTokens: number; maxTokens: number } | undefined {
+function measureContext(ctx: HookContext, session: PluginSessionState): { usedTokens: number; maxTokens: number } {
     const { sessionID } = ctx;
     const reported = getContextUsage(sessionID);
     if (reported) return reported;
 
-    if (!hasTokenUsage(session)) return undefined;
     return {
         usedTokens: session.tokens.totalInput + session.tokens.totalOutput,
         maxTokens: ctx.contextLimits?.resolveForSession(sessionID) ?? CONTEXT_MONITOR_CONFIG.DEFAULT_MAX_TOKENS,
@@ -142,14 +117,4 @@ function getSerializedLength(value: unknown): number {
     } catch {
         return String(value).length;
     }
-}
-
-function hasTokenUsage(session: unknown): session is TokenTrackedSession & Required<Pick<TokenTrackedSession, "tokens">> {
-    if (typeof session !== "object" || session === null || Array.isArray(session)) return false;
-
-    const tokens = (session as { tokens?: unknown }).tokens;
-    if (typeof tokens !== "object" || tokens === null || Array.isArray(tokens)) return false;
-
-    const candidate = tokens as { totalInput?: unknown; totalOutput?: unknown };
-    return typeof candidate.totalInput === "number" && typeof candidate.totalOutput === "number";
 }

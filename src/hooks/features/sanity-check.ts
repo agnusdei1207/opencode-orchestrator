@@ -19,7 +19,7 @@ import { checkOutputSanity, RECOVERY_PROMPT, ESCALATION_PROMPT, type SanityResul
 import { SEVERITY } from "../../utils/sanity/constants/severity.js";
 import { HOOK_ACTIONS, HOOK_NAMES } from "../constants.js";
 import { MISSION_MESSAGES } from "../../shared/constants/system-messages.js";
-import { log } from "../../core/agents/logger.js";
+import { log } from "../../shared/logger.js";
 
 /**
  * Minimum gap between two anomaly interventions for the same session. Real

@@ -22,6 +22,7 @@ import { handleCompletedAssistantMessage } from "../../src/plugin-handlers/assis
 import { createChatMessageHandler } from "../../src/plugin-handlers/chat-message-handler";
 import { HookRegistry } from "../../src/hooks/registry";
 import { HOOK_ACTIONS } from "../../src/hooks/constants";
+import { ChildSessions } from "../../src/core/session/child-sessions";
 
 vi.mock("../../src/core/agents/logger", () => ({ log: vi.fn() }));
 
@@ -166,7 +167,7 @@ describe("a real user message resets the guard", () => {
 
     it("clears the circuit for a message the user typed", async () => {
         tripped();
-        const handler = createChatMessageHandler({ client: {} as never, directory: "/tmp/test", sessions: new Map(), agents: {} as never });
+        const handler = createChatMessageHandler({ client: {} as never, directory: "/tmp/test", sessions: new Map(), children: new ChildSessions() });
 
         await handler({ sessionID: SESSION } as never, { parts: [{ type: "text", text: "try compress again" }] } as never);
 
@@ -175,7 +176,7 @@ describe("a real user message resets the guard", () => {
 
     it("leaves the circuit open for the orchestrator's own synthetic prompts", async () => {
         tripped();
-        const handler = createChatMessageHandler({ client: {} as never, directory: "/tmp/test", sessions: new Map(), agents: {} as never });
+        const handler = createChatMessageHandler({ client: {} as never, directory: "/tmp/test", sessions: new Map(), children: new ChildSessions() });
 
         await handler(
             { sessionID: SESSION } as never,

@@ -5,7 +5,7 @@ import * as path from "path";
 import { tmpdir } from "os";
 
 // Mocking the logger
-vi.mock("../../src/core/agents/logger", () => ({
+vi.mock("../../src/shared/logger", () => ({
     log: vi.fn(),
 }));
 
@@ -29,7 +29,7 @@ import { handleMissionIdle, handleSessionCompacted, cleanupSession } from "../..
 import { startMissionLoop, readLoopState } from "../../src/core/loop/mission-loop";
 import { CHECKLIST } from "../../src/shared";
 
-const noTasks = { getTasksByParent: () => [] };
+const noTasks = { hasBusyChildren: () => false };
 
 function createClient() {
     return {
@@ -84,7 +84,7 @@ describe("Mission Loop Persistence E2E", () => {
         await vi.runAllTimersAsync();
 
         expect(mockClient.prompt).toHaveBeenCalled();
-        expect(mockClient.prompt.mock.calls[0][0]).toMatchObject({ sessionID: testSessionID, synthetic: true });
+        expect(mockClient.prompt.mock.calls[0][0]).toMatchObject({ sessionID: testSessionID });
         const promptCall = mockClient.prompt.mock.calls[0][0];
         expect(promptCall.text).toContain("MISSION NOT COMPLETE");
         expect(promptCall.text).toContain("Runtime status:");

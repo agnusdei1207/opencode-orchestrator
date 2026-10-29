@@ -4,9 +4,9 @@
  * Performs incremental updates to .opencode/todo.md
  */
 
-import { tool, type ToolDefinition } from "../../host/tool.js";
-import { TodoManager } from "../../core/todo/todo-manager.js";
-import { OUTPUT_LABEL, TODO_CONSTANTS } from "../../shared/index.js";
+import { tool, type ToolDefinition } from "../host/tool.js";
+import { TodoManager } from "../core/todo/todo-manager.js";
+import { OUTPUT_LABEL, TODO_CONSTANTS } from "../shared/index.js";
 
 export const createUpdateTodoTool = (): ToolDefinition => tool({
     description: "Update the status of a task in .opencode/todo.md or add a sub-task. Use this for incremental updates instead of rewriting the whole file.",
