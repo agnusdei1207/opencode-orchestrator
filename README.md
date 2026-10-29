@@ -16,7 +16,7 @@ OpenCode Orchestrator keeps a task and its unfinished work connected across turn
 
 ## Install
 
-Requires Node.js `>=24.15.0` and OpenCode. On OpenCode 2, let OpenCode install and manage the plugin:
+Requires Node.js `>=24.15.0` and OpenCode 2. Let OpenCode install and manage the plugin:
 
 ```bash
 opencode plugin add opencode-orchestrator
@@ -25,7 +25,7 @@ opencode plugin list
 
 To remove it, run `opencode plugin remove opencode-orchestrator`.
 
-For OpenCode 1 versions 1.18.29 and newer, add `"plugin": ["opencode-orchestrator"]` to your OpenCode `opencode.json(c)`. OpenCode installs configured npm plugins when it starts. The optional `orchestrator` terminal CLI is available separately with `npm install -g opencode-orchestrator`.
+OpenCode 1 is no longer supported; use version 2.0.19 or earlier with it. The optional `orchestrator` terminal CLI is available separately with `npm install -g opencode-orchestrator`.
 
 ## Use
 
@@ -48,7 +48,7 @@ Mission updates (steps, progress, verification, background tasks, and scratchpad
 
 ## Configuration
 
-The default installation needs no extra options. On OpenCode 2, set options in `opencode.jsonc` using the package object:
+The default installation needs no extra options. Set options in `opencode.jsonc` using the package object:
 
 ```jsonc
 {
@@ -56,32 +56,20 @@ The default installation needs no extra options. On OpenCode 2, set options in `
     {
       "package": "opencode-orchestrator",
       "options": {
-        "agentConcurrency": { "worker": 4 }
+        "agentConcurrency": { "Worker": 4 }
       }
     }
   ]
 }
 ```
 
-See the [options schema](opencode-orchestrator.schema.json) for all settings. Replace a plain string entry with the object when adding options; keep only one entry for this package. OpenCode 1 uses a `plugin` array and `["opencode-orchestrator", { ...options }]` for options.
+Agent names in options are exact: `Commander`, `Planner`, `Worker`, `Reviewer`, or a custom agent name. See the [options schema](opencode-orchestrator.schema.json) for all settings. Replace a plain string entry with the object when adding options; keep only one entry for this package.
 
-If commands are missing, check `opencode plugin list` on OpenCode 2 or `opencode debug config` on OpenCode 1.
+If commands are missing, check `opencode plugin list`.
 
 ### OpenChamber and other WebUIs
 
-Since 2.0.15, set `customRendering` to `false` to disable Orchestrator's display changes. This removes the timestamp/step/duration footer from tool results and preserves completed assistant text without the OpenCode 1 standalone thinking-tag cleanup. The default is `true` for existing installations.
-
-For OpenCode 1 (including WebUIs backed by OpenCode 1), replace the existing entry in `opencode.jsonc`:
-
-```jsonc
-{
-  "plugin": [
-    ["opencode-orchestrator", { "customRendering": false }]
-  ]
-}
-```
-
-For OpenCode 2:
+Set `customRendering` to `false` to remove the timestamp/step/duration footer that Orchestrator adds to tool results. The default is `true`.
 
 ```jsonc
 {

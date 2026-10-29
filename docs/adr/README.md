@@ -60,9 +60,10 @@ What followed, including verification evidence and known limits.
 | [0019](0019-retire-knowledge-rag-subsystem.md) | 2026-09-04 00:10 | Retire in-memory knowledge RAG subsystem | Implemented |
 | [0020](0020-risk-graded-test-coverage-policy.md) | 2026-09-04 07:39 | Risk-graded test coverage policy | Implemented |
 | [0021](0021-minimal-mission-plugin.md) | 2026-09-14 17:41 | Minimal mission plugin: identity and deletion-first plan | Accepted; implementation in progress |
-| [0022](0022-opencode-1-18-plugin-boundary.md) | 2026-09-15 16:25 | OpenCode 1.18 plugin boundary and runtime separation | Implemented |
+| [0022](0022-opencode-1-18-plugin-boundary.md) | 2026-09-15 16:25 | OpenCode 1.18 plugin boundary and runtime separation | Superseded by ADR-0028 |
 | [0023](0023-remove-unreachable-runtime-plumbing.md) | 2026-09-15 18:20 | Remove unreachable runtime plumbing | Implemented |
-| [0024](0024-opencode-2-plugin-compatibility.md) | 2026-09-20 | OpenCode 2 plugin compatibility | Implemented |
+| [0024](0024-opencode-2-plugin-compatibility.md) | 2026-09-20 | OpenCode 2 plugin compatibility | Implemented; OpenCode 1 `server` entry superseded by ADR-0028 |
 | [0025](0025-mission-context-prefix-caching.md) | 2026-10-24 21:50 | Mission context after the conversation prefix | Implemented |
 | [0026](0026-remove-test-only-runtime-code.md) | 2026-10-26 20:30 | Remove test-only runtime code | Implemented |
-| [0027](0027-per-location-plugin-instances.md) | 2026-10-29 14:30 | Per-location plugin instances | Implemented |
+| [0027](0027-per-location-plugin-instances.md) | 2026-10-29 14:30 | Per-location plugin instances | Implemented; toast handover superseded by ADR-0028 |
+| [0028](0028-opencode-2-only-minimal-core.md) | 2026-10-29 | OpenCode 2 only and a minimal core | Implemented |

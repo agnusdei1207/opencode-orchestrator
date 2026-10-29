@@ -1,6 +1,6 @@
 # Contributing to OpenCode Orchestrator 🦀
 
-Last updated: 2026-09-24 KST
+Last updated: 2026-10-29 KST
 
 OpenCode Orchestrator uses TypeScript for the OpenCode plugin boundary and Rust
 for its retained search, AST, LSP, and operator CLI paths.
@@ -16,7 +16,7 @@ The plugin provides four agent presets:
 - **Reviewer**: Verification, context management, and quality control.
 
 ### Hybrid Core
-- **Frontend**: TypeScript (Node.js) handles the OpenCode Plugin API and Agent LLM logic.
+- **Frontend**: TypeScript (Node.js) handles the OpenCode 2 plugin API (`src/host/`) and agent orchestration.
 - **Backend**: Rust (`orchestrator-cli`) handles performance-critical tools via **JSON-RPC over stdio**.
 
 ---
@@ -26,7 +26,7 @@ The plugin provides four agent presets:
 ### Prerequisites
 - **Node.js**: `>=24.15.0`
 - **Rust**: `1.98.1` (with `cargo`), matching CI and release builders
-- **OpenCode**: Installed locally
+- **OpenCode 2**: Installed locally (OpenCode 1 is not supported; see ADR-0028)
 
 ### Quick Start
 ```bash
@@ -106,12 +106,11 @@ their own terminal; the JSON-RPC stdout channel may not.
 
 ## 📦 Release Process
 
-The root manifest overrides Zod and TOML to patched releases so the checkout's
-production audit passes while retaining the tested OpenCode API versions.
-npm overrides apply only at the installing project's root. Package consumers
-must manage their own transitive overrides until the OpenCode 1 plugin updates
-its fixed Zod/Effect dependencies; this package's overrides do not remove those
-upstream advisories from a consumer's dependency tree.
+The package's only runtime dependencies are `jsonc-parser` and `zod`.
+`@opencode/plugin` is a development-only type contract; OpenCode 2 supplies
+the plugin context at runtime. The root manifest's `"zod": "$zod"` override
+makes that contract resolve the same Zod as the runtime. npm overrides apply
+only at the installing project's root.
 
 ```bash
 npm run release:patch   # Bug fixes

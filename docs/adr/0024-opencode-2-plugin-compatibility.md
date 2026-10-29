@@ -1,7 +1,7 @@
 # ADR-0024: OpenCode 2 Plugin Compatibility
 
 Date: 2026-09-20
-Status: Implemented
+Status: Implemented; OpenCode 1 `server` entry superseded by ADR-0028
 Issue: https://github.com/agnusdei1207/opencode-orchestrator/issues/42
 
 ## Context

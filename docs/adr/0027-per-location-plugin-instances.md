@@ -1,7 +1,7 @@
 # ADR-0027: Per-Location Plugin Instances
 
 Date: 2026-10-29 14:30 KST
-Status: Implemented
+Status: Implemented; toast handover superseded by ADR-0028
 
 ## Context
 

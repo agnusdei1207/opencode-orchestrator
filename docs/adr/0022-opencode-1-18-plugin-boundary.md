@@ -1,7 +1,7 @@
 # ADR-0022: OpenCode 1.18 Plugin Boundary and Runtime Separation
 
 Date: 2026-09-15 16:25 KST
-Status: Implemented
+Status: Superseded by ADR-0028
 Source: `docs/plans/2026-09-15-opencode-compatibility-refactor.md` (completed plan removed 2026-10-03)
 
 ## Context
