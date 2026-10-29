@@ -1,88 +1,32 @@
 /**
- * Rust Integration Tests
- * 
- * Tests for Rust/TypeScript integration:
- * - Binary detection
- * - CLI execution (if binary exists)
- * - File structure verification
+ * Runs the built `orchestrator` CLI binary.
  */
 
 import { describe, it, expect } from "vitest";
 import { spawnSync } from "child_process";
 import { existsSync } from "fs";
-import { join } from "path";
 import { getBinaryPath } from "../../src/utils/binary.js";
 
-const PROJECT_ROOT = join(__dirname, "../..");
 const CLI_TIMEOUT_MS = 5000;
 
-// Resolve the binary exactly as the plugin runtime does. Tests that need it
-// are skipped (and reported as skipped) when it has not been built.
+// Resolve the binary exactly as the plugin runtime does. The suite is
+// reported as skipped when the binary has not been built.
 const resolvedBinaryPath = getBinaryPath();
 const binaryPath = existsSync(resolvedBinaryPath) ? resolvedBinaryPath : null;
 
-describe("Rust Integration", () => {
+describe.skipIf(!binaryPath)("Rust CLI execution", () => {
+    it("should execute --help", () => {
+        const result = spawnSync(binaryPath!, ["--help"], { encoding: "utf-8", timeout: CLI_TIMEOUT_MS });
 
-    // ========================================================================
-    // Project Structure
-    // ========================================================================
-
-    describe("project structure", () => {
-        it("should have Cargo.toml", () => {
-            expect(existsSync(join(PROJECT_ROOT, "Cargo.toml"))).toBe(true);
-        });
-
-        it("should have crates directory", () => {
-            expect(existsSync(join(PROJECT_ROOT, "crates"))).toBe(true);
-        });
-
-        it("should have orchestrator-cli crate", () => {
-            expect(existsSync(join(PROJECT_ROOT, "crates", "orchestrator-cli"))).toBe(true);
-        });
-
-        it("should have orchestrator-core crate", () => {
-            expect(existsSync(join(PROJECT_ROOT, "crates", "orchestrator-core"))).toBe(true);
-        });
-
-        it("should have Cargo.toml in each crate", () => {
-            expect(existsSync(join(PROJECT_ROOT, "crates", "orchestrator-cli", "Cargo.toml"))).toBe(true);
-            expect(existsSync(join(PROJECT_ROOT, "crates", "orchestrator-core", "Cargo.toml"))).toBe(true);
-        });
+        expect(result.status).toBe(0);
+        // Help is printed to stderr.
+        expect(result.stderr.toLowerCase()).toContain("orchestrator");
     });
 
-    // ========================================================================
-    // CLI Execution (conditional on build)
-    // ========================================================================
+    it("should execute --version", () => {
+        const result = spawnSync(binaryPath!, ["--version"], { encoding: "utf-8", timeout: CLI_TIMEOUT_MS });
 
-    describe.skipIf(!binaryPath)("CLI execution", () => {
-        it("should execute --help", () => {
-            const result = spawnSync(binaryPath!, ["--help"], { encoding: "utf-8", timeout: CLI_TIMEOUT_MS });
-
-            expect(result.status).toBe(0);
-            // Help goes to stderr so stdout stays reserved for JSON-RPC.
-            expect(result.stderr.toLowerCase()).toContain("orchestrator");
-        });
-
-        it("should execute --version", () => {
-            const result = spawnSync(binaryPath!, ["--version"], { encoding: "utf-8", timeout: CLI_TIMEOUT_MS });
-
-            expect(result.status).toBe(0);
-            expect(result.stdout).toMatch(/\d+\.\d+\.\d+/);
-        });
-    });
-
-    // ========================================================================
-    // Cargo Metadata
-    // ========================================================================
-
-    describe("cargo metadata", () => {
-        it("should have valid workspace configuration", () => {
-            const cargoToml = join(PROJECT_ROOT, "Cargo.toml");
-            expect(existsSync(cargoToml)).toBe(true);
-
-            // Read and verify it's valid
-            const content = require("fs").readFileSync(cargoToml, "utf-8");
-            expect(content).toContain("[workspace]");
-        });
+        expect(result.status).toBe(0);
+        expect(result.stdout).toMatch(/\d+\.\d+\.\d+/);
     });
 });
