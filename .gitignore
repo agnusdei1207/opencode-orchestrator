@@ -17,8 +17,6 @@ bin/
 # OS
 .DS_Store
 
-# Korean internal docs (not for public)
-docs/OPENCODE.md
-docs/architecture/prompt-architecture.html
+# Local OpenCode state and coverage reports
 .opencode/
 coverage/
