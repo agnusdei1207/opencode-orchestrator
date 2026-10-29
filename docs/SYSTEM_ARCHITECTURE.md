@@ -1,6 +1,6 @@
 # System Architecture
 
-Date: 2026-10-24 (mission context placement and both host boundaries reviewed)
+Date: 2026-10-29 (per-location plugin instances and direct OpenCode 2 tools reviewed)
 
 This document describes the current architecture that is directly verifiable from the repository source. It intentionally avoids speculative performance claims.
 
@@ -9,7 +9,7 @@ This document describes the current architecture that is directly verifiable fro
 | Surface | File | Responsibility |
 | --- | --- | --- |
 | OpenCode plugin boundary | `src/index.ts` | Exposes the OpenCode 1 `server` and OpenCode 2 `setup` entrypoints from one default export. |
-| Plugin runtime bootstrap | `src/plugin-runtime.ts` | Parses options, configures shared runtime services, creates tools and handler state, and registers cleanup. |
+| Plugin runtime bootstrap | `src/plugin-runtime.ts` | Parses options, creates this instance's task manager, context-limit resolver, tools and handler state, and registers cleanup. |
 | npm CLI launcher | `src/cli.ts` → `dist/cli.js` | Selects one supported bundled Rust binary, forwards argv and inherited stdio without a shell, and preserves child exit status. |
 | Rust CLI | `crates/orchestrator-cli/src/main.rs` | Dispatches `serve`, metadata, and explicit terminal commands. |
 | Shell listener CLI | `crates/orchestrator-cli/src/shell_listener.rs` | Runs the authorized-lab TCP session listener and line-mode TUI outside OpenCode RPC. |
@@ -85,6 +85,10 @@ The custom web fetch/search/cache/code-search family and its document cache are 
 `CleanupScheduler` now has one five-minute timer that expires plugin-owned `.opencode/archive/tasks/*.jsonl` files older than seven days. It no longer deletes host dependencies, lockfiles, or arbitrary workspace files, and no longer rotates a TODO history whose producer was empty. This is the cleanup scheduler's timer count, not a census of the entire plugin.
 
 The retained task manager is the sole completion authority. Foreground delegation waits on its state instead of polling the SDK independently. Only a completed, error-free assistant result from the current run can finish a task; result-read failures remain errors. Launch and resume share admission ownership. Resume rechecks task identity and its start marker after asynchronous routing and activity reads, rejecting a task removed, replaced, or restarted during those reads. Pending cancellation cannot release another task's slot, and running cancellation requires a confirmed host abort. A foreground wait timeout does not cancel its task.
+
+OpenCode 2 serves several directories from one process. It loads one plugin instance per location and disposes an instance when its location goes idle (ADR-0027). Each instance therefore owns its task manager, session registry, task toasts and context-limit resolver, and passes them through the handler context. Project state is keyed by directory: TODO files, custom agents, memory, metrics and mission options. Tools read the directory from the native tool context. The event bridge drops events whose location belongs to another instance, because the host streams events across all locations. Process-wide services, such as the Rust tool pool and background commands, shut down only when the last live instance is disposed.
+
+Plugin tools register with `codemode: false`, like OpenCode's built-in tools. Without it OpenCode 2 hides a tool in the code-mode catalog behind `execute`, and a direct call fails with "No tool named".
 
 The OpenCode 2 client bridge forwards the delegated session's `parentID` to the host's `session.create` API. This preserves the host's parent/child link and the child's inherited location; root session creation still omits a parent.
 

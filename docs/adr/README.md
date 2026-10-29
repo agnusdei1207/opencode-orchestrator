@@ -65,3 +65,4 @@ What followed, including verification evidence and known limits.
 | [0024](0024-opencode-2-plugin-compatibility.md) | 2026-09-20 | OpenCode 2 plugin compatibility | Implemented |
 | [0025](0025-mission-context-prefix-caching.md) | 2026-10-24 21:50 | Mission context after the conversation prefix | Implemented |
 | [0026](0026-remove-test-only-runtime-code.md) | 2026-10-26 20:30 | Remove test-only runtime code | Implemented |
+| [0027](0027-per-location-plugin-instances.md) | 2026-10-29 14:30 | Per-location plugin instances | Implemented |
